@@ -3477,6 +3477,7 @@ function renderSkeleton() {
 }
 
 async function showApp() {
+  ensureMethodologyNote();
   if (gate) gate.hidden = true;
   if (pendingGate) pendingGate.hidden = true;
   if (app) app.hidden = false;
@@ -8625,7 +8626,7 @@ function gisLocationCardHtml(p) {
   // to this county with this property selected (its pin, when it has one;
   // its strip card and preview either way) - see showOnMap().
   const mapBtn = `<button class="show-on-map-btn" type="button" data-action="showonmap" data-pid="${p.id}">${svgIcon("map")}${hasCoords ? "Show pin on the Map page" : "Show county on the Map page"}</button>`;
-  return detailSectionHtml("GIS & Location", `<div class="kv-list">${kv}${coordRows}</div>${embed}${mapBtn}`, "", "map");
+  return detailSectionHtml("GIS & Location", `<div class="kv-list">${kv}${coordRows}</div>${embed}${mapBtn}${disclaimerHtml("maps", "disclaimer map-disclaimer")}`, "", "map");
 }
 // Kept as the exact original .detail-provenance markup/text (two plain
 // <span>s: "Data source: X" and lastSyncedText()'s own wording) inside the
@@ -9006,6 +9007,50 @@ function unitForRow(p) {
 // source date, publication status, source health, acquisition path, price,
 // official listing, county. Every value is a stored field or a stated
 // absence; nothing here is a confidence, a score or an inference.
+// Source transparency (2026-10-16): the disclaimer wording is fixed by the
+// product owner and is shown verbatim - never paraphrase it. Cards carry no
+// legal text; these appear on the list methodology note, the property detail
+// and the map. Every "Last checked" / "as of" line is built only from a real
+// backend timestamp (last_seen_at, list_as_of, source_published_at).
+const DISCLAIMERS = {
+  general: "TAXACQ is a property-research tool, not the auction authority. Listing information may be incomplete, outdated, changed, cancelled or withdrawn. Verify sale dates, eligibility, minimum bids, taxes, title, liens, redemption rights, parcel location and all bidding requirements directly with the official source before acting.",
+  values: "Displayed values may be source-reported estimates and may not reflect market value, total acquisition cost or the final amount due.",
+  maps: "Map locations and parcel outlines are for research guidance only and may be approximate. They are not a survey, legal description, title determination or guarantee of property boundaries.",
+  providers: "External source links lead to independently operated websites. Their terms and sale requirements apply.",
+  outcomes: "Sold, redeemed, winning bidder, final sale amount and deed status are shown only when supported by a verified source. Information not tracked by TAXACQ is not inferred.",
+};
+const VERIFY_STEPS = [
+  "Confirm the sale is still listed and the sale date on the official source.",
+  "Review the official sale terms, eligibility and bidding requirements.",
+  "Confirm the minimum bid and any additional taxes, interest or costs the source names.",
+  "Check the parcel location and boundaries against the county parcel records.",
+  "Research title and liens with appropriate professionals.",
+];
+const VERIFY_NOTE = "This guidance is not legal, tax, investment or title advice.";
+// Value type from the record alone: an estimate the source labels as such is
+// "Estimated"; a figure the source publishes is "Source-reported"; nothing
+// TAXACQ computes exists, so "TAXACQ-derived" is never shown.
+function valueTypeOf(p) {
+  const ai = amountInfo(p);
+  if (ai && ai.state === "estimate") return "Estimated";
+  if (hasNum(p.market) || hasNum(p.assessed)) return "Source-reported";
+  return "Not published";
+}
+function disclaimerHtml(key, cls) {
+  return `<p class="${cls || "disclaimer"}" data-disclaimer="${esc(key)}">${esc(DISCLAIMERS[key])}</p>`;
+}
+function verifyStepsHtml() {
+  return `<div class="verify-how" data-verify-how><h4>How to verify this property</h4><ol>${VERIFY_STEPS.map(s => `<li>${esc(s)}</li>`).join("")}</ol><p class="disclaimer">${esc(VERIFY_NOTE)}</p></div>`;
+}
+// The list page's one shared methodology note - a fold, never on a card.
+function methodologyHtml() {
+  return `<details class="methodology" data-methodology><summary>Methodology and disclaimers</summary>${disclaimerHtml("general")}${disclaimerHtml("values")}${disclaimerHtml("providers")}${disclaimerHtml("outcomes")}${verifyStepsHtml()}</details>`;
+}
+function ensureMethodologyNote() {
+  const page = document.getElementById("pageList");
+  if (!page || page.querySelector("[data-methodology]")) return;
+  page.insertAdjacentHTML("beforeend", methodologyHtml());
+}
 function sourceTruthHtml(p) {
   const rows = [];
   const muted = t => `<span class="muted">${esc(t)}</span>`;
@@ -9013,10 +9058,13 @@ function sourceTruthHtml(p) {
   const label = harvesterSourceLabel(p);
   rows.push(["Source record", label ? `${esc(label)}${auth ? `<span class="kv-sub">Published by ${esc(auth)}</span>` : ""}`
     : auth ? `${esc(auth.charAt(0).toUpperCase() + auth.slice(1))}<span class="kv-sub">Dataset name not recorded</span>` : muted("Not recorded")]);
-  rows.push(["Last read", p.last_seen_at ? `${esc(dateOnly(p.last_seen_at))}${p.first_seen_at ? `<span class="kv-sub">First observed ${esc(dateOnly(p.first_seen_at))}</span>` : ""}`
+  // "Last checked" is shown only from a real recorded read (last_seen_at);
+  // a first-observed date is never presented as a check.
+  rows.push(["Last checked", p.last_seen_at ? `${esc(dateOnly(p.last_seen_at))}${p.first_seen_at ? `<span class="kv-sub">First observed ${esc(dateOnly(p.first_seen_at))}</span>` : ""}`
     : muted(p.first_seen_at ? `Not recorded - first observed ${dateOnly(p.first_seen_at)}` : "Not recorded for this record")]);
   const srcDate = p.list_as_of ? `List dated ${dateOnly(p.list_as_of)}` : p.source_published_at ? `Document dated ${dateOnly(p.source_published_at)}` : "";
-  rows.push(["Source date", srcDate ? esc(srcDate) : muted("Not published by the source")]);
+  rows.push(["Source information as of", srcDate ? esc(srcDate) : muted("Not published by the source")]);
+  rows.push(["Value type", valueTypeOf(p) === "Not published" ? muted("Not published") : `${esc(valueTypeOf(p))}${valueTypeOf(p) === "Source-reported" ? `<span class="kv-sub">As the source publishes it - not verified by TAXACQ</span>` : ""}`]);
   const review = !isCustomerPublishable(p);
   rows.push(["Publication status", `${esc(sourceReviewLabel(p))}${review ? `<span class="kv-sub">${esc(`Not customer-published - ${reviewViewerReason()}.`)}</span>` : ""}`]);
   const u = unitForRow(p);
@@ -9051,7 +9099,8 @@ function sourceTruthHtml(p) {
   if (p.source !== "certificate") rows.push(["Imagery", imageryTruthHtml(p)]);
   rows.push([`${UNIT_WORD} intelligence`, `<button type="button" class="link-btn" data-action="countyintel" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">${esc(`${p.county} ${UNIT_WORD}: sources, coverage and process`)} →</button> <button type="button" class="link-btn county-page-link" data-action="countypage" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">${esc(p.source === "auction" ? "County auction intelligence" : "Full county page")} →</button>`]);
   rows.push(["State rules", `<button type="button" class="link-btn" data-action="staterules" data-county="${esc(p.county)}">${esc(`${STATE_META[regionOf(p)] ? STATE_META[regionOf(p)].name : regionOf(p)} tax-sale rules for ${p.county} ${UNIT_WORD}`)} →</button>`]);
-  return detailSectionHtml("Source truth", `<p class="truth-lede">The record as its source publishes it. Nothing here is inferred or scored.</p><dl class="truth-dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`, "truth-card", "truth");
+  const limitation = `<p class="truth-limit" data-truth-limit>Limitation: this record is shown as the source publishes it. TAXACQ has not independently verified its sale status, values or parcel details.</p>`;
+  return detailSectionHtml("Source truth", `<p class="truth-lede">The record as its source publishes it. Nothing here is inferred or scored.</p><dl class="truth-dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>${limitation}${disclaimerHtml("values")}${disclaimerHtml("providers")}${disclaimerHtml("outcomes")}`, "truth-card", "truth");
 }
 // Current status (2026-10-05): the one line under the property's identity -
 // what the record is, where it stands and when its source was last read -
@@ -9074,10 +9123,10 @@ function detailStatusHtml(p) {
   const items = [
     ["Ledger", ledgerCopy(p.source).title || k.type, ""],
     ["Status", k.phase, k.cls],
-    ["Last read", p.last_seen_at ? dateOnly(p.last_seen_at) : "Not recorded", p.last_seen_at ? "" : "muted"]
+    ["Last checked", p.last_seen_at ? dateOnly(p.last_seen_at) : "Not recorded", p.last_seen_at ? "" : "muted"]
   ];
   const off = offCurrentSaleList(p);
-  if (off) items[2] = ["Last read", `Not on the county list read ${dateOnly(off.countyRead)}${off.lastRead ? ` · last listed ${dateOnly(off.lastRead)}` : ""}`, "warn"];
+  if (off) items[2] = ["Last checked", `Not on the county list read ${dateOnly(off.countyRead)}${off.lastRead ? ` · last listed ${dateOnly(off.lastRead)}` : ""}`, "warn"];
   // The record says which of the three ledgers it is, whatever this state calls
   // the list (ledgerRecordView: AUCTIONS / AVAILABLE / LIENS_CERTIFICATES).
   const rec = ledgerRecordView(p);

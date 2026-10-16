@@ -4117,6 +4117,50 @@ await navMap.close();
     results.auctionHeadlineLabels = labels;
     results.auctionNoPriceLabel = Object.values(labels).flat().every(l => !/price/i.test(l));
   }
+  // ---- Source transparency, freshness and property disclaimers (2026-10-16) ----
+  {
+    const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+    pg.on('pageerror', e => errors.push('transparency pageerror: ' + e.message));
+    await pg.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
+    await pg.waitForSelector('#detailModal:not([hidden]) [data-section="truth"]', { timeout: 8000 });
+    await pg.waitForTimeout(300);
+    const m = '#detailModal:not([hidden]) ';
+    results.transparencyDetail = await pg.evaluate(m => {
+      const truth = document.querySelector(m + '[data-section="truth"]');
+      const labels = [...truth.querySelectorAll('dt')].map(e => e.textContent.trim());
+      const map = document.querySelector(m + '[data-section="map"]');
+      return {
+        labels,
+        oldLabels: labels.includes('Last read') || labels.includes('Source date'),
+        disclaimers: [...truth.querySelectorAll('[data-disclaimer]')].map(e => e.dataset.disclaimer),
+        limitation: !!truth.querySelector('[data-truth-limit]'),
+        verifySteps: truth.querySelectorAll('.verify-how li').length,
+        verifyNotAdvice: /not legal, tax, investment or title advice/.test(truth.textContent),
+        mapDisclaimer: !!(map && map.querySelector('[data-disclaimer="maps"]')),
+        mapSaysNotSurvey: !!(map && /not a survey, legal description, title determination or guarantee of property boundaries/.test(map.textContent)),
+        mapNeverSurvey: !/surveyed|confirmed boundary|official boundary/i.test(map ? map.textContent : ''),
+      };
+    }, m);
+    results.transparencyCardClean = await pg.evaluate(() => {
+      const cards = [...document.querySelectorAll('#pageList .prop-card')];
+      return cards.length > 0 && cards.every(c => !/not the auction authority|may be incomplete|may not reflect market value/i.test(c.textContent));
+    });
+    await pg.click('#detailModal:not([hidden]) .detail-close, #detailModal:not([hidden]) [data-action="close"]').catch(() => {});
+    await pg.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
+    await pg.waitForSelector('#pageList .prop-card', { timeout: 8000 });
+    results.transparencyMethodology = await pg.evaluate(() => {
+      const f = document.querySelector('#pageList [data-methodology]');
+      if (!f) return null;
+      f.open = true;
+      return { general: !!f.querySelector('[data-disclaimer="general"]'), text: f.querySelector('[data-disclaimer="general"]').textContent.trim(),
+        verify: f.querySelectorAll('.verify-how li').length };
+    });
+    results.transparencyBidsLabelled = await pg.evaluate(() => /Not published|Opening bid|Minimum bid|Estimated/.test(document.querySelector('#pageList .prop-card') ? document.querySelector('#pageList .prop-card').textContent : ''));
+    await pg.setViewportSize({ width: 390, height: 844 });
+    await pg.waitForTimeout(200);
+    results.transparencyMobileNoOverflow = await pg.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
+    await pg.close();
+  }
   // ---- Acquisition checklist, source truth, county intelligence (2026-10-05) ----
   {
     const pg = await newPage({ viewport: { width: 900, height: 900 } });
@@ -6974,7 +7018,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v129"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v130"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },

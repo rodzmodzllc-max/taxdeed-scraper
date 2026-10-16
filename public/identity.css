@@ -1094,3 +1094,15 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
   .dossier-status > div:nth-child(even){padding-left:.8rem;border-left:1px solid var(--rule)}
   .fp-grid{grid-template-columns:1fr}
 }
+
+/* Source transparency (2026-10-16): disclaimers, the methodology fold and the
+   "How to verify" list. Quiet text, no badges, no legal wall on cards. */
+.disclaimer{margin:.45rem 0 0;font-size:.78rem;line-height:1.45;color:var(--ink-soft)}
+.truth-limit{margin:.65rem 0 0;font-size:.8rem;line-height:1.45;color:var(--ink-soft)}
+.methodology{margin:1rem 0 .5rem;border-top:1px solid var(--card-line);padding-top:.5rem}
+.methodology>summary{cursor:pointer;font-size:.85rem;color:var(--ink-soft)}
+.methodology .disclaimer{margin-top:.4rem}
+.verify-how{margin-top:.75rem}
+.verify-how h4{margin:0 0 .3rem;font-size:.85rem;font-weight:600}
+.verify-how ol{margin:0;padding-left:1.1rem;font-size:.8rem;line-height:1.5;color:var(--ink-soft)}
+.map-disclaimer{margin-top:.6rem}
