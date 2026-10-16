@@ -4119,7 +4119,7 @@ await navMap.close();
   }
   // ---- Source transparency, freshness and property disclaimers (2026-10-16) ----
   {
-    const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+    const pg = await newPage({ viewport: { width: 900, height: 900 } });
     pg.on('pageerror', e => errors.push('transparency pageerror: ' + e.message));
     await pg.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
     await pg.waitForSelector('#detailModal:not([hidden]) [data-section="truth"]', { timeout: 8000 });
