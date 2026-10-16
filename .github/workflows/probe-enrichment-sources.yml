@@ -1,0 +1,91 @@
+name: Probe enrichment sources (READ-ONLY evidence)
+
+# Manual only. No `schedule:` block on purpose - this is an evidence-gathering
+# run, not part of the pipeline, and nothing here should fire on its own.
+#
+# What this answers, with measurements rather than projections:
+#
+#   FL - the remaining Florida gap for auction + LAFT/OTC rows is an
+#        IDENTIFIER problem, not a format problem: we store the county's own
+#        account number while FDOR is keyed on PARCEL_ID. The FDOR
+#        FeatureServer answers exact PARCEL_ID lookups and refuses everything
+#        else (CO_NO scans, ALT_KEY filters and address filters all return
+#        HTTP 400 - characterised live 2026-09-18), so it cannot discover a
+#        PARCEL_ID from an account. This probe tests whether the published
+#        dataset can, and whether the account -> PARCEL_ID join is 1:1.
+#
+#   TX - Galveston CAD's esearch portal disallows /Search/ and /Property/ in
+#        robots.txt, so per-account lookups there are off the table. The CAD
+#        does publish a Parcel DBF for download with no stated restriction.
+#        This probe reports that file's real field list, which decides whether
+#        Galveston's 203 rows are enrichable at all.
+#
+# This workflow is READ-ONLY. It runs one script whose every outbound call is
+# a GET; it writes no database rows, touches no schema, and commits nothing.
+# Its only outputs are two artifacts.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Gather enrichment source evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      # Fails the job rather than silently producing a half-probe, so an empty
+      # FL section can never be mistaken for "no matches found".
+      - name: Verify read credentials are present
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_KEY:-}" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_SERVICE_KEY not available to this job"
+            exit 1
+          fi
+          echo "Credentials present (values never printed)."
+
+      - name: Run the read-only probe
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/probe_enrichment_sources.py
+
+      - name: Evidence summary to the run log
+        if: always()
+        run: |
+          if [ -f out/probe-evidence.md ]; then
+            cat out/probe-evidence.md >> "$GITHUB_STEP_SUMMARY"
+            echo "----- evidence summary -----"
+            cat out/probe-evidence.md
+          else
+            echo "::warning::no evidence summary produced"
+          fi
+
+      - name: Upload evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: enrichment-source-evidence
+          path: |
+            out/probe_enrichment_sources.json
+            out/probe-evidence.md
+          if-no-files-found: warn
+          retention-days: 30
