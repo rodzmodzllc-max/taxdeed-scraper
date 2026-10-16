@@ -301,6 +301,7 @@
   },
   {
    "call_sites": [
+    "harvesters/governance/source_rights.py",
     "scripts/backfill_fdor_phase52_fields.py",
     "scripts/enrich_property_details.py",
     "harvesters/enrichment/geocode.py (CoordinateSource.usable)"
@@ -323,6 +324,7 @@
   },
   {
    "call_sites": [
+    "harvesters/governance/source_rights.py",
     "scripts/backfill_fdor_phase52_fields.py",
     "scripts/enrich_property_details.py",
     "harvesters/enrichment/geocode.py (CoordinateSource.usable)"
@@ -345,6 +347,7 @@
   },
   {
    "call_sites": [
+    "harvesters/governance/source_rights.py",
     "scripts/backfill_fdor_phase52_fields.py",
     "scripts/enrich_property_details.py",
     "harvesters/enrichment/geocode.py (CoordinateSource.usable)"
@@ -367,6 +370,7 @@
   },
   {
    "call_sites": [
+    "harvesters/governance/source_rights.py",
     "scripts/backfill_fdor_phase52_fields.py",
     "scripts/enrich_property_details.py",
     "harvesters/enrichment/geocode.py (CoordinateSource.usable)"

@@ -3389,3 +3389,27 @@ Full description: `docs/source-permissions.md`. Stable facts:
   `discover` permission for the source its URL belongs to, or it is refused before any connection. No source
   holds one today, so these manual jobs read nothing until the owner records them. `tests/python/conftest.py`
   uninstalls the guard after every test.
+
+## Source rights enforcement (2026-10-16, PR open, no migration)
+
+Full description: `docs/source-rights-enforcement.md`; generated table: `docs/audit/source-rights-reconciliation.md`.
+Stable facts:
+- **The 84-row register is an audit baseline, never an authorization.** `data/audit/register_code_map.csv` maps
+  every register row (in order) to code source ids with dataset, county scope, match type and the register's
+  decision class; `scripts/build_source_rights_report.py --check` (test-pinned) evaluates the permission engine
+  per county and dataset and lists every operation the code allows beyond the decision. A new discrepancy must
+  change `test_the_reported_discrepancies_are_exactly_these` on purpose.
+- **`harvesters/governance/source_rights.py`**: `rights_profile()` (ingest / persist / refresh / customer display /
+  commercial use / export / enrich / link / geometry / imagery; every operation of a use must hold; commercial use
+  and export need DOCUMENTED; geometry always denied), `customer_source_notice()` (fixed labels only - never a
+  reviewer, reason, evidence ref/type, status, contact), `field_provenance_view()` (value status
+  CONFIRMED_SOURCE / ESTIMATED_BY_SOURCE / DERIVED_BY_TAXACQ / UNVERIFIED / NOT_PUBLISHED / NOT_TRACKED, freshness
+  CURRENT / STALE / UNVERIFIED / WITHDRAWN / NOT_TRACKED, timestamps only from the row, an enriched value only
+  while its attaching source's `enrich` holds there), `public_disclosure_problems()` (CI scan of every public
+  file).
+- **Circumvention needs documented permission:** `permissions.CIRCUMVENTION_OPERATIONS = {"fetch_via_proxy"}` -
+  an interim allowance never allows it (`CIRCUMVENTION_NEEDS_DOCUMENTED`); the ScraperAPI fallback stops on merge.
+- `inventory.permission_basis()` text is served publicly: no record file, evidence type, status code or date.
+- Open owner decisions (not changed): LienHub records vs schedule, RealAuction robots / `bypassPage`, Volusia
+  disclaimer bypass, `publicationMode: "preview"` showing admin-only sources to every approved account (027 / 031
+  unapplied), client-side map providers without records, public repository holding legal records.

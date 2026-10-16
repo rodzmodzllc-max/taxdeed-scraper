@@ -11,6 +11,7 @@ from __future__ import annotations
 import csv
 import importlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -277,10 +278,13 @@ def test_inventory_builtin_sources_cite_permission_records_not_assertions():
     from harvesters.sources import inventory as INV
     builtins = {s.source_id: s for s in INV._builtin_sources()}
     for sid, s in builtins.items():
-        assert s.evidence.startswith("data/source_permissions.csv"), sid
+        assert s.evidence.startswith("Permission on file: "), sid
         assert "public-domain" not in s.evidence and "docstring" not in s.evidence, sid
+        # Served publicly: no record file, evidence type, status code or date.
+        assert not re.search(r"source_permissions|GRANDFATHERED|INTERNAL_RISK|LEGAL_REVIEW|\d{4}-\d{2}-\d{2}", s.evidence), sid
     fdor = builtins["fl_statewide_cadastral"].evidence
     assert "interim" in fdor and "not documented permission" in fdor and "documented (" not in fdor
+    assert "documented (published licence" in builtins["usda_naip"].evidence
 
 
 def test_inventory_basis_for_a_source_without_records_says_denied():

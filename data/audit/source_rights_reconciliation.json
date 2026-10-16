@@ -1,0 +1,2036 @@
+{
+ "as_of": "2026-10-16",
+ "findings": [
+  {
+   "detail": "register decision DISABLED allows at most ['discover', 'link']",
+   "kind": "EXCEEDS_CEILING",
+   "operations": [
+    "display",
+    "fetch",
+    "parse",
+    "store"
+   ],
+   "places": [
+    "FL:Alachua",
+    "FL:Bay",
+    "FL:Brevard",
+    "FL:Broward",
+    "FL:Charlotte",
+    "FL:Citrus",
+    "FL:Clay",
+    "FL:Collier",
+    "FL:Duval",
+    "FL:Escambia",
+    "FL:Flagler",
+    "FL:Hernando",
+    "FL:Hillsborough",
+    "FL:Indian River",
+    "FL:Lake",
+    "FL:Lee",
+    "FL:Martin",
+    "FL:Miami-Dade",
+    "FL:Monroe",
+    "FL:Nassau",
+    "FL:Okaloosa",
+    "FL:Orange",
+    "FL:Osceola",
+    "FL:Pasco",
+    "FL:Pinellas",
+    "FL:Santa Rosa",
+    "FL:Sarasota",
+    "FL:Seminole",
+    "FL:St. Lucie",
+    "FL:Sumter",
+    "FL:Volusia",
+    "FL:Walton"
+   ],
+   "register_id": "fl_lienhub_certificates",
+   "source_id": "fl_lienhub_certificates"
+  },
+  {
+   "detail": "register decision NOT_NEEDED allows at most ['discover', 'link']",
+   "kind": "EXCEEDS_CEILING",
+   "operations": [
+    "enrich",
+    "fetch"
+   ],
+   "places": [
+    "UT"
+   ],
+   "register_id": "ut_ugrc_lir_saltlake",
+   "source_id": "ut_ugrc_lir_saltlake"
+  },
+  {
+   "detail": "The sc_flc adapter can parse it; no registry row and no permission record",
+   "kind": "NO_PERMISSION_RECORD",
+   "operations": [],
+   "places": [],
+   "register_id": "sc_spartanburg_forfeited_land",
+   "source_id": ""
+  },
+  {
+   "detail": "Browser basemap and static images; no server code source and no permission record",
+   "kind": "CLIENT_SIDE_NO_RECORD",
+   "operations": [],
+   "places": [],
+   "register_id": "google_maps_js_and_static",
+   "source_id": ""
+  },
+  {
+   "detail": "Browser basemap and static images; no server code source and no permission record",
+   "kind": "CLIENT_SIDE_NO_RECORD",
+   "operations": [],
+   "places": [],
+   "register_id": "maptiler_cloud",
+   "source_id": ""
+  },
+  {
+   "detail": "Browser iframe; no server code source and no permission record",
+   "kind": "CLIENT_SIDE_NO_RECORD",
+   "operations": [],
+   "places": [],
+   "register_id": "openstreetmap_embed",
+   "source_id": ""
+  }
+ ],
+ "note": "Register-to-code reconciliation. The register is an audit baseline, not an authorization. Operations are what data/source_permissions.csv allows on AS_OF, per county and dataset.",
+ "rows": [
+  {
+   "allowed": {
+    "fl_realauction:display": [
+     "INTERIM"
+    ],
+    "fl_realauction:fetch": [
+     "INTERIM"
+    ],
+    "fl_realauction:parse": [
+     "INTERIM"
+    ],
+    "fl_realauction:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_realauction"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "SPLIT_OF",
+   "places": [
+    "FL:Alachua",
+    "FL:Volusia"
+   ],
+   "register_id": "fl_realauction_alachua_volusia",
+   "scope": "counties:Alachua;Volusia"
+  },
+  {
+   "allowed": {
+    "fl_realauction:display": [
+     "INTERIM"
+    ],
+    "fl_realauction:fetch": [
+     "INTERIM"
+    ],
+    "fl_realauction:parse": [
+     "INTERIM"
+    ],
+    "fl_realauction:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_realauction"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "SPLIT_OF",
+   "places": [
+    "FL:Baker",
+    "FL:Bay",
+    "FL:Brevard",
+    "FL:Broward",
+    "FL:Calhoun",
+    "FL:Charlotte",
+    "FL:Citrus",
+    "FL:Clay",
+    "FL:Duval",
+    "FL:Escambia",
+    "FL:Flagler",
+    "FL:Gilchrist",
+    "FL:Gulf",
+    "FL:Hendry",
+    "FL:Hernando",
+    "FL:Highlands",
+    "FL:Hillsborough",
+    "FL:Indian River",
+    "FL:Jackson",
+    "FL:Lake",
+    "FL:Lee",
+    "FL:Leon",
+    "FL:Manatee",
+    "FL:Marion",
+    "FL:Martin",
+    "FL:Miami-Dade",
+    "FL:Monroe",
+    "FL:Nassau",
+    "FL:Okeechobee",
+    "FL:Orange",
+    "FL:Osceola",
+    "FL:Palm Beach",
+    "FL:Pasco",
+    "FL:Pinellas",
+    "FL:Polk",
+    "FL:Putnam",
+    "FL:Santa Rosa",
+    "FL:Sarasota",
+    "FL:Seminole",
+    "FL:St. Johns",
+    "FL:St. Lucie",
+    "FL:Suwannee",
+    "FL:Walton",
+    "FL:Washington"
+   ],
+   "register_id": "fl_realauction_other_44",
+   "scope": "registry_except:Alachua;Volusia"
+  },
+  {
+   "allowed": {
+    "fl_realauction:display": [
+     "INTERIM"
+    ],
+    "fl_realauction:fetch": [
+     "INTERIM"
+    ],
+    "fl_realauction:parse": [
+     "INTERIM"
+    ],
+    "fl_realauction:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_realauction"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "SPLIT_OF",
+   "places": [
+    "FL:Alachua",
+    "FL:Baker",
+    "FL:Bay",
+    "FL:Brevard",
+    "FL:Broward",
+    "FL:Calhoun",
+    "FL:Charlotte",
+    "FL:Citrus",
+    "FL:Clay",
+    "FL:Duval",
+    "FL:Escambia",
+    "FL:Flagler",
+    "FL:Gilchrist",
+    "FL:Gulf",
+    "FL:Hendry",
+    "FL:Hernando",
+    "FL:Highlands",
+    "FL:Hillsborough",
+    "FL:Indian River",
+    "FL:Jackson",
+    "FL:Lake",
+    "FL:Lee",
+    "FL:Leon",
+    "FL:Manatee",
+    "FL:Marion",
+    "FL:Martin",
+    "FL:Miami-Dade",
+    "FL:Monroe",
+    "FL:Nassau",
+    "FL:Okeechobee",
+    "FL:Orange",
+    "FL:Osceola",
+    "FL:Palm Beach",
+    "FL:Pasco",
+    "FL:Pinellas",
+    "FL:Polk",
+    "FL:Putnam",
+    "FL:Santa Rosa",
+    "FL:Sarasota",
+    "FL:Seminole",
+    "FL:St. Johns",
+    "FL:St. Lucie",
+    "FL:Suwannee",
+    "FL:Volusia",
+    "FL:Walton",
+    "FL:Washington"
+   ],
+   "register_id": "fl_realauction_closed_results",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "fl_bid4assets_okaloosa:display": [
+     "INTERIM"
+    ],
+    "fl_bid4assets_okaloosa:fetch": [
+     "INTERIM"
+    ],
+    "fl_bid4assets_okaloosa:parse": [
+     "INTERIM"
+    ],
+    "fl_bid4assets_okaloosa:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_bid4assets_okaloosa"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "FL:Okaloosa"
+   ],
+   "register_id": "fl_bid4assets_okaloosa",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "fl_lienhub_certificates:display": [
+     "INTERIM"
+    ],
+    "fl_lienhub_certificates:fetch": [
+     "INTERIM"
+    ],
+    "fl_lienhub_certificates:parse": [
+     "INTERIM"
+    ],
+    "fl_lienhub_certificates:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_lienhub_certificates"
+   ],
+   "decision_class": "DISABLED",
+   "findings": [
+    {
+     "detail": "register decision DISABLED allows at most ['discover', 'link']",
+     "kind": "EXCEEDS_CEILING",
+     "operations": [
+      "display",
+      "fetch",
+      "parse",
+      "store"
+     ],
+     "places": [
+      "FL:Alachua",
+      "FL:Bay",
+      "FL:Brevard",
+      "FL:Broward",
+      "FL:Charlotte",
+      "FL:Citrus",
+      "FL:Clay",
+      "FL:Collier",
+      "FL:Duval",
+      "FL:Escambia",
+      "FL:Flagler",
+      "FL:Hernando",
+      "FL:Hillsborough",
+      "FL:Indian River",
+      "FL:Lake",
+      "FL:Lee",
+      "FL:Martin",
+      "FL:Miami-Dade",
+      "FL:Monroe",
+      "FL:Nassau",
+      "FL:Okaloosa",
+      "FL:Orange",
+      "FL:Osceola",
+      "FL:Pasco",
+      "FL:Pinellas",
+      "FL:Santa Rosa",
+      "FL:Sarasota",
+      "FL:Seminole",
+      "FL:St. Lucie",
+      "FL:Sumter",
+      "FL:Volusia",
+      "FL:Walton"
+     ],
+     "register_id": "fl_lienhub_certificates",
+     "source_id": "fl_lienhub_certificates"
+    }
+   ],
+   "match_type": "EXACT",
+   "places": [
+    "FL:Alachua",
+    "FL:Bay",
+    "FL:Brevard",
+    "FL:Broward",
+    "FL:Charlotte",
+    "FL:Citrus",
+    "FL:Clay",
+    "FL:Collier",
+    "FL:Duval",
+    "FL:Escambia",
+    "FL:Flagler",
+    "FL:Hernando",
+    "FL:Hillsborough",
+    "FL:Indian River",
+    "FL:Lake",
+    "FL:Lee",
+    "FL:Martin",
+    "FL:Miami-Dade",
+    "FL:Monroe",
+    "FL:Nassau",
+    "FL:Okaloosa",
+    "FL:Orange",
+    "FL:Osceola",
+    "FL:Pasco",
+    "FL:Pinellas",
+    "FL:Santa Rosa",
+    "FL:Sarasota",
+    "FL:Seminole",
+    "FL:St. Lucie",
+    "FL:Sumter",
+    "FL:Volusia",
+    "FL:Walton"
+   ],
+   "register_id": "fl_lienhub_certificates",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "fl_laft_pdfs:display": [
+     "INTERIM"
+    ],
+    "fl_laft_pdfs:fetch": [
+     "INTERIM"
+    ],
+    "fl_laft_pdfs:parse": [
+     "INTERIM"
+    ],
+    "fl_laft_pdfs:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_laft_pdfs"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "FL:Bradford",
+    "FL:Brevard",
+    "FL:Glades",
+    "FL:Hendry",
+    "FL:Marion",
+    "FL:Pasco",
+    "FL:Volusia"
+   ],
+   "register_id": "fl_laft_pdfs",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "fl_laft_html:display": [
+     "INTERIM"
+    ],
+    "fl_laft_html:fetch": [
+     "INTERIM"
+    ],
+    "fl_laft_html:parse": [
+     "INTERIM"
+    ],
+    "fl_laft_html:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_laft_html"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "SPLIT_OF",
+   "places": [
+    "FL:Calhoun",
+    "FL:Dixie",
+    "FL:Franklin",
+    "FL:Gadsden",
+    "FL:Gulf",
+    "FL:Hamilton",
+    "FL:Hardee",
+    "FL:Holmes",
+    "FL:Indian River",
+    "FL:Lafayette",
+    "FL:Madison",
+    "FL:Manatee",
+    "FL:Putnam",
+    "FL:Sumter",
+    "FL:Taylor"
+   ],
+   "register_id": "fl_laft_html_direct",
+   "scope": "registry_except:Escambia;Columbia;Union"
+  },
+  {
+   "allowed": {
+    "fl_laft_html:display": [
+     "INTERIM"
+    ],
+    "fl_laft_html:fetch": [
+     "INTERIM"
+    ],
+    "fl_laft_html:parse": [
+     "INTERIM"
+    ],
+    "fl_laft_html:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_laft_html"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "SPLIT_OF",
+   "places": [
+    "FL:Columbia",
+    "FL:Escambia",
+    "FL:Union"
+   ],
+   "register_id": "fl_laft_html_proxied",
+   "scope": "counties:Escambia;Columbia;Union"
+  },
+  {
+   "allowed": {
+    "fl_laft_realtdm:display": [
+     "INTERIM"
+    ],
+    "fl_laft_realtdm:fetch": [
+     "INTERIM"
+    ],
+    "fl_laft_realtdm:parse": [
+     "INTERIM"
+    ],
+    "fl_laft_realtdm:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_laft_realtdm"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "FL:Alachua",
+    "FL:Flagler",
+    "FL:Highlands",
+    "FL:Lee",
+    "FL:Miami-Dade",
+    "FL:Pinellas",
+    "FL:Polk",
+    "FL:Santa Rosa",
+    "FL:Sarasota",
+    "FL:Seminole",
+    "FL:Washington"
+   ],
+   "register_id": "fl_laft_realtdm",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "fl_laft_pioneer:display": [
+     "INTERIM"
+    ],
+    "fl_laft_pioneer:fetch": [
+     "INTERIM"
+    ],
+    "fl_laft_pioneer:parse": [
+     "INTERIM"
+    ],
+    "fl_laft_pioneer:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_laft_pioneer"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "FL:Bay",
+    "FL:Citrus",
+    "FL:Clay",
+    "FL:Duval",
+    "FL:Hernando",
+    "FL:Levy",
+    "FL:Martin",
+    "FL:Okeechobee",
+    "FL:Palm Beach",
+    "FL:St. Johns",
+    "FL:Walton"
+   ],
+   "register_id": "fl_laft_pioneer",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "fl_laft_orange:display": [
+     "INTERIM"
+    ],
+    "fl_laft_orange:fetch": [
+     "INTERIM"
+    ],
+    "fl_laft_orange:parse": [
+     "INTERIM"
+    ],
+    "fl_laft_orange:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_laft_orange"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "FL:Orange"
+   ],
+   "register_id": "fl_laft_orange",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "fl_laft_osceola:display": [
+     "INTERIM"
+    ],
+    "fl_laft_osceola:fetch": [
+     "INTERIM"
+    ],
+    "fl_laft_osceola:parse": [
+     "INTERIM"
+    ],
+    "fl_laft_osceola:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_laft_osceola"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "FL:Osceola"
+   ],
+   "register_id": "fl_laft_osceola",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "fl_laft_hillsborough:display": [
+     "INTERIM"
+    ],
+    "fl_laft_hillsborough:fetch": [
+     "INTERIM"
+    ],
+    "fl_laft_hillsborough:parse": [
+     "INTERIM"
+    ],
+    "fl_laft_hillsborough:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_laft_hillsborough"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "FL:Hillsborough"
+   ],
+   "register_id": "fl_laft_hillsborough",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "fl_laft_stlucie:display": [
+     "INTERIM"
+    ],
+    "fl_laft_stlucie:fetch": [
+     "INTERIM"
+    ],
+    "fl_laft_stlucie:parse": [
+     "INTERIM"
+    ],
+    "fl_laft_stlucie:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_laft_stlucie"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "FL:St. Lucie"
+   ],
+   "register_id": "fl_laft_stlucie",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "fl_laft_leon:display": [
+     "INTERIM"
+    ],
+    "fl_laft_leon:fetch": [
+     "INTERIM"
+    ],
+    "fl_laft_leon:parse": [
+     "INTERIM"
+    ],
+    "fl_laft_leon:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_laft_leon"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "FL:Leon"
+   ],
+   "register_id": "fl_laft_leon",
+   "scope": "registry"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "LINKS_ONLY",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "fl_laft_not_found_15",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [
+    "fl_dor_statewide"
+   ],
+   "decision_class": "DISABLED",
+   "findings": [],
+   "match_type": "RENAMED",
+   "places": [
+    "FL"
+   ],
+   "register_id": "fl_dor_statewide_nal",
+   "scope": "state:FL"
+  },
+  {
+   "allowed": {
+    "fl_fdor_cadastral:enrich": [
+     "INTERIM"
+    ],
+    "fl_fdor_cadastral:fetch": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_fdor_cadastral"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "RENAMED",
+   "places": [
+    "FL"
+   ],
+   "register_id": "fl_statewide_cadastral_fgio",
+   "scope": "state:FL"
+  },
+  {
+   "allowed": {
+    "fl_santa_rosa_parcels:enrich": [
+     "INTERIM"
+    ],
+    "fl_santa_rosa_parcels:fetch": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_santa_rosa_parcels"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "FL"
+   ],
+   "register_id": "fl_santa_rosa_parcels",
+   "scope": "state:FL"
+  },
+  {
+   "allowed": {
+    "fl_palm_coast_flagler_parcels:enrich": [
+     "INTERIM"
+    ],
+    "fl_palm_coast_flagler_parcels:fetch": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fl_palm_coast_flagler_parcels"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "FL"
+   ],
+   "register_id": "fl_palm_coast_flagler_parcels",
+   "scope": "state:FL"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "LINKS_ONLY",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "fl_pa_pinellas",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "LINKS_ONLY",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "fl_pa_broward",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "LINKS_ONLY",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "fl_pa_duval",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "LINKS_ONLY",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "fl_pa_miami_dade",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "LINKS_ONLY",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "fl_pa_other_eight",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "DO_NOT_ADD",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "fl_clerk_court_records_and_public_notices",
+   "scope": "none"
+  },
+  {
+   "allowed": {
+    "tx_lgbs:display": [
+     "INTERIM"
+    ],
+    "tx_lgbs:fetch": [
+     "INTERIM"
+    ],
+    "tx_lgbs:parse": [
+     "INTERIM"
+    ],
+    "tx_lgbs:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "tx_lgbs"
+   ],
+   "decision_class": "MANUAL_ONLY",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "TX:Galveston",
+    "TX:Goliad",
+    "TX:Hardin",
+    "TX:Jim Wells",
+    "TX:Leon",
+    "TX:Liberty",
+    "TX:Maverick",
+    "TX:Van Zandt"
+   ],
+   "register_id": "tx_lgbs",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "tx_realauction:display": [
+     "INTERIM"
+    ],
+    "tx_realauction:fetch": [
+     "INTERIM"
+    ],
+    "tx_realauction:parse": [
+     "INTERIM"
+    ],
+    "tx_realauction:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "tx_realauction"
+   ],
+   "decision_class": "MANUAL_ONLY",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "TX:Angelina",
+    "TX:Aransas",
+    "TX:Atascosa",
+    "TX:Caldwell",
+    "TX:Cameron",
+    "TX:Dallas",
+    "TX:El Paso",
+    "TX:Ellis",
+    "TX:Galveston",
+    "TX:Gregg",
+    "TX:Hopkins",
+    "TX:Jackson",
+    "TX:Kaufman",
+    "TX:Llano",
+    "TX:Matagorda",
+    "TX:Montgomery",
+    "TX:Nueces",
+    "TX:Orange",
+    "TX:San Patricio",
+    "TX:Smith",
+    "TX:Travis",
+    "TX:Tyler",
+    "TX:Victoria",
+    "TX:Wilson"
+   ],
+   "register_id": "tx_realauction",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "tx_hctax:link": [
+     "LINK_ONLY"
+    ]
+   },
+   "code_source_ids": [
+    "tx_hctax"
+   ],
+   "decision_class": "LINKS_ONLY",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "TX:Harris"
+   ],
+   "register_id": "tx_hctax",
+   "scope": "counties:Harris"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [
+    "tx_pbfcm"
+   ],
+   "decision_class": "BLOCKED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "TX:Austin",
+    "TX:Chambers",
+    "TX:Fort Bend",
+    "TX:Hidalgo",
+    "TX:Matagorda",
+    "TX:Maverick",
+    "TX:Milam",
+    "TX:Nacogdoches",
+    "TX:San Jacinto",
+    "TX:Uvalde",
+    "TX:Walker",
+    "TX:Zavala"
+   ],
+   "register_id": "tx_pbfcm",
+   "scope": "registry"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [
+    "tx_mvba"
+   ],
+   "decision_class": "BLOCKED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "TX:Calhoun",
+    "TX:Runnels"
+   ],
+   "register_id": "tx_mvba",
+   "scope": "registry"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [
+    "tx_ctsa"
+   ],
+   "decision_class": "BLOCKED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "TX"
+   ],
+   "register_id": "tx_ctsa",
+   "scope": "state:TX"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [
+    "tx_govease"
+   ],
+   "decision_class": "BLOCKED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "TX"
+   ],
+   "register_id": "tx_govease",
+   "scope": "state:TX"
+  },
+  {
+   "allowed": {
+    "tx_comptroller_directory:link": [
+     "LINK_ONLY"
+    ]
+   },
+   "code_source_ids": [
+    "tx_comptroller_directory"
+   ],
+   "decision_class": "LINKS_ONLY",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "TX"
+   ],
+   "register_id": "tx_comptroller_directory",
+   "scope": "state:TX"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "LINKS_ONLY",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "tx_county_struck_off_candidates_19",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [
+    "tx_jim_wells_cad_parcels"
+   ],
+   "decision_class": "DISABLED",
+   "findings": [],
+   "match_type": "AGGREGATE_OF",
+   "places": [
+    "TX"
+   ],
+   "register_id": "tx_cad_parcels_bis_and_jim_wells",
+   "scope": "state:TX"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "DISABLED",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "tx_stratmap_land_parcels",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "DO_NOT_ADD",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "tx_phase36_cads_and_notices",
+   "scope": "none"
+  },
+  {
+   "allowed": {
+    "la_ebr_adjudicated:display": [
+     "DOCUMENTED"
+    ],
+    "la_ebr_adjudicated:fetch": [
+     "DOCUMENTED"
+    ],
+    "la_ebr_adjudicated:parse": [
+     "DOCUMENTED"
+    ],
+    "la_ebr_adjudicated:store": [
+     "DOCUMENTED"
+    ]
+   },
+   "code_source_ids": [
+    "la_ebr_adjudicated"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "LA:East Baton Rouge"
+   ],
+   "register_id": "la_ebr_adjudicated",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "la_ebr_tax_parcels:enrich": [
+     "DOCUMENTED"
+    ],
+    "la_ebr_tax_parcels:fetch": [
+     "DOCUMENTED"
+    ],
+    "la_ebr_tax_roll:enrich": [
+     "DOCUMENTED"
+    ],
+    "la_ebr_tax_roll:fetch": [
+     "DOCUMENTED"
+    ]
+   },
+   "code_source_ids": [
+    "la_ebr_tax_parcels",
+    "la_ebr_tax_roll"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "AGGREGATE_OF",
+   "places": [
+    "LA"
+   ],
+   "register_id": "la_ebr_tax_parcels_and_tax_roll",
+   "scope": "state:LA"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "DISABLED",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "la_ebr_arcgis_parcels",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "LINKS_ONLY",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "la_ebr_sheriff_and_notices",
+   "scope": "none"
+  },
+  {
+   "allowed": {
+    "co_morgan_county_held_certificates:display": [
+     "INTERIM"
+    ],
+    "co_morgan_county_held_certificates:fetch": [
+     "INTERIM"
+    ],
+    "co_morgan_county_held_certificates:parse": [
+     "INTERIM"
+    ],
+    "co_morgan_county_held_certificates:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "co_morgan_county_held_certificates"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "CO:Morgan"
+   ],
+   "register_id": "co_morgan_county_held_certificates",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "mi_eaton_treasurer_sale:display": [
+     "INTERIM"
+    ],
+    "mi_eaton_treasurer_sale:fetch": [
+     "INTERIM"
+    ],
+    "mi_eaton_treasurer_sale:parse": [
+     "INTERIM"
+    ],
+    "mi_eaton_treasurer_sale:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "mi_eaton_treasurer_sale"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "MI:Eaton"
+   ],
+   "register_id": "mi_eaton_treasurer_sale",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "mi_lenawee_tax_sale:display": [
+     "INTERIM"
+    ],
+    "mi_lenawee_tax_sale:fetch": [
+     "INTERIM"
+    ],
+    "mi_lenawee_tax_sale:parse": [
+     "INTERIM"
+    ],
+    "mi_lenawee_tax_sale:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "mi_lenawee_tax_sale"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "MI:Lenawee"
+   ],
+   "register_id": "mi_lenawee_tax_sale",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "sc_york_tax_sale:display": [
+     "INTERIM"
+    ],
+    "sc_york_tax_sale:fetch": [
+     "INTERIM"
+    ],
+    "sc_york_tax_sale:parse": [
+     "INTERIM"
+    ],
+    "sc_york_tax_sale:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "sc_york_tax_sale"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "SC:York"
+   ],
+   "register_id": "sc_york_tax_sale",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "wi_green_tax_deed_sales:display": [
+     "INTERIM"
+    ],
+    "wi_green_tax_deed_sales:fetch": [
+     "INTERIM"
+    ],
+    "wi_green_tax_deed_sales:parse": [
+     "INTERIM"
+    ],
+    "wi_green_tax_deed_sales:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "wi_green_tax_deed_sales"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "WI:Green"
+   ],
+   "register_id": "wi_green_tax_deed_sales",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "wy_albany_tax_sale:display": [
+     "INTERIM"
+    ],
+    "wy_albany_tax_sale:fetch": [
+     "INTERIM"
+    ],
+    "wy_albany_tax_sale:parse": [
+     "INTERIM"
+    ],
+    "wy_albany_tax_sale:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "wy_albany_tax_sale"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "WY:Albany"
+   ],
+   "register_id": "wy_albany_tax_sale",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "co_douglas_county_held_liens:display": [
+     "DOCUMENTED"
+    ],
+    "co_douglas_county_held_liens:fetch": [
+     "DOCUMENTED"
+    ],
+    "co_douglas_county_held_liens:parse": [
+     "DOCUMENTED"
+    ],
+    "co_douglas_county_held_liens:store": [
+     "DOCUMENTED"
+    ],
+    "co_douglas_tax_sale_list:display": [
+     "DOCUMENTED"
+    ],
+    "co_douglas_tax_sale_list:fetch": [
+     "DOCUMENTED"
+    ],
+    "co_douglas_tax_sale_list:parse": [
+     "DOCUMENTED"
+    ],
+    "co_douglas_tax_sale_list:store": [
+     "DOCUMENTED"
+    ]
+   },
+   "code_source_ids": [
+    "co_douglas_county_held_liens",
+    "co_douglas_tax_sale_list"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "AGGREGATE_OF",
+   "places": [
+    "CO:Douglas"
+   ],
+   "register_id": "co_douglas_open_data",
+   "scope": "registry"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [
+    "co_morgan_treasurer_deed_auctions"
+   ],
+   "decision_class": "DISABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "CO:Morgan"
+   ],
+   "register_id": "co_morgan_treasurer_deed_auctions",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "co_oit_public_parcels:enrich": [
+     "INTERIM"
+    ],
+    "co_oit_public_parcels:fetch": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "co_oit_public_parcels"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "CO"
+   ],
+   "register_id": "co_oit_public_parcels",
+   "scope": "state:CO"
+  },
+  {
+   "allowed": {
+    "ut_ugrc_lir_saltlake:enrich": [
+     "DOCUMENTED"
+    ],
+    "ut_ugrc_lir_saltlake:fetch": [
+     "DOCUMENTED"
+    ]
+   },
+   "code_source_ids": [
+    "ut_ugrc_lir_saltlake"
+   ],
+   "decision_class": "NOT_NEEDED",
+   "findings": [
+    {
+     "detail": "register decision NOT_NEEDED allows at most ['discover', 'link']",
+     "kind": "EXCEEDS_CEILING",
+     "operations": [
+      "enrich",
+      "fetch"
+     ],
+     "places": [
+      "UT"
+     ],
+     "register_id": "ut_ugrc_lir_saltlake",
+     "source_id": "ut_ugrc_lir_saltlake"
+    }
+   ],
+   "match_type": "EXACT",
+   "places": [
+    "UT"
+   ],
+   "register_id": "ut_ugrc_lir_saltlake",
+   "scope": "state:UT"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [
+    "wi_sco_v12_parcels"
+   ],
+   "decision_class": "DISABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "WI"
+   ],
+   "register_id": "wi_sco_v12_parcels",
+   "scope": "state:WI"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [
+    "wi_dane_tax_deed_auction"
+   ],
+   "decision_class": "LINKS_ONLY",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "WI:Dane"
+   ],
+   "register_id": "wi_dane_tax_deed_auction",
+   "scope": "registry"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "LINKS_ONLY",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "wi_wood_burnett_marathon",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "DISABLED",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "wy_statewide_parcel_viewer",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "DISABLED",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "mi_county_parcels_eaton_clickthrough",
+   "scope": "none"
+  },
+  {
+   "allowed": {
+    "mi_detroit_landbank_lots:fetch": [
+     "INTERIM"
+    ],
+    "mi_detroit_landbank_lots:parse": [
+     "INTERIM"
+    ],
+    "mi_detroit_landbank_lots:store": [
+     "INTERIM"
+    ],
+    "mi_detroit_landbank_programs:fetch": [
+     "INTERIM"
+    ],
+    "mi_detroit_landbank_programs:parse": [
+     "INTERIM"
+    ],
+    "mi_detroit_landbank_programs:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "mi_detroit_landbank_lots",
+    "mi_detroit_landbank_programs"
+   ],
+   "decision_class": "ADMIN_ONLY",
+   "findings": [],
+   "match_type": "AGGREGATE_OF",
+   "places": [
+    "MI:Wayne"
+   ],
+   "register_id": "mi_detroit_landbank_lots_and_programs",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "mi_oceana_landbank:fetch": [
+     "INTERIM"
+    ],
+    "mi_oceana_landbank:parse": [
+     "INTERIM"
+    ],
+    "mi_oceana_landbank:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "mi_oceana_landbank"
+   ],
+   "decision_class": "ADMIN_ONLY",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "MI:Oceana"
+   ],
+   "register_id": "mi_oceana_landbank",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "mn_ramsey_tax_forfeit:fetch": [
+     "INTERIM"
+    ],
+    "mn_ramsey_tax_forfeit:parse": [
+     "INTERIM"
+    ],
+    "mn_ramsey_tax_forfeit:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "mn_ramsey_tax_forfeit"
+   ],
+   "decision_class": "ADMIN_ONLY",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "MN:Ramsey"
+   ],
+   "register_id": "mn_ramsey_tax_forfeit",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "mo_stl_lra_inventory:fetch": [
+     "INTERIM"
+    ],
+    "mo_stl_lra_inventory:parse": [
+     "INTERIM"
+    ],
+    "mo_stl_lra_inventory:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "mo_stl_lra_inventory"
+   ],
+   "decision_class": "ADMIN_ONLY",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "MO:St. Louis City"
+   ],
+   "register_id": "mo_stl_lra_inventory",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "ok_oklahoma_county_owned:fetch": [
+     "INTERIM"
+    ],
+    "ok_oklahoma_county_owned:parse": [
+     "INTERIM"
+    ],
+    "ok_oklahoma_county_owned:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "ok_oklahoma_county_owned"
+   ],
+   "decision_class": "ADMIN_ONLY",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "OK:Oklahoma"
+   ],
+   "register_id": "ok_oklahoma_county_owned",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "pa_fayette_repository:fetch": [
+     "INTERIM"
+    ],
+    "pa_fayette_repository:parse": [
+     "INTERIM"
+    ],
+    "pa_fayette_repository:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "pa_fayette_repository"
+   ],
+   "decision_class": "ADMIN_ONLY",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "PA:Fayette"
+   ],
+   "register_id": "pa_fayette_repository",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "sc_georgetown_forfeited_land:fetch": [
+     "INTERIM"
+    ],
+    "sc_georgetown_forfeited_land:parse": [
+     "INTERIM"
+    ],
+    "sc_georgetown_forfeited_land:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "sc_georgetown_forfeited_land"
+   ],
+   "decision_class": "ADMIN_ONLY",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "SC:Georgetown"
+   ],
+   "register_id": "sc_georgetown_forfeited_land",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "sc_horry_forfeited_land:fetch": [
+     "INTERIM"
+    ],
+    "sc_horry_forfeited_land:parse": [
+     "INTERIM"
+    ],
+    "sc_horry_forfeited_land:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "sc_horry_forfeited_land"
+   ],
+   "decision_class": "ADMIN_ONLY",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "SC:Horry"
+   ],
+   "register_id": "sc_horry_forfeited_land",
+   "scope": "registry"
+  },
+  {
+   "allowed": {
+    "tn_shelby_landbank:fetch": [
+     "INTERIM"
+    ],
+    "tn_shelby_landbank:parse": [
+     "INTERIM"
+    ],
+    "tn_shelby_landbank:store": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "tn_shelby_landbank"
+   ],
+   "decision_class": "ADMIN_ONLY",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "TN:Shelby"
+   ],
+   "register_id": "tn_shelby_landbank",
+   "scope": "registry"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "DISABLED",
+   "findings": [
+    {
+     "detail": "The sc_flc adapter can parse it; no registry row and no permission record",
+     "kind": "NO_PERMISSION_RECORD",
+     "operations": [],
+     "places": [],
+     "register_id": "sc_spartanburg_forfeited_land",
+     "source_id": ""
+    }
+   ],
+   "match_type": "NO_PERMISSION_RECORD",
+   "places": [],
+   "register_id": "sc_spartanburg_forfeited_land",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [
+    "sc_oconee_tax_sale_list"
+   ],
+   "decision_class": "DISABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "SC:Oconee"
+   ],
+   "register_id": "sc_oconee_tax_sale_list",
+   "scope": "registry"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "LINKS_ONLY",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "sc_flc_catalog_other",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [
+    "mo_stl_parcels_coordinates"
+   ],
+   "decision_class": "DISABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "MO"
+   ],
+   "register_id": "mo_stl_parcels_coordinates",
+   "scope": "state:MO"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "LINKS_ONLY",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "mi_lenawee_landbank",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [
+    "al_ador_state_land"
+   ],
+   "decision_class": "GATED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "AL:STATEWIDE"
+   ],
+   "register_id": "al_ador_state_land",
+   "scope": "registry"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [
+    "ar_cosl_post_auction"
+   ],
+   "decision_class": "GATED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "AR:STATEWIDE"
+   ],
+   "register_id": "ar_cosl_post_auction",
+   "scope": "registry"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [
+    "az_maricopa_state_cp"
+   ],
+   "decision_class": "GATED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "AZ:Maricopa"
+   ],
+   "register_id": "az_maricopa_state_cp",
+   "scope": "registry"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "GATED",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "wv_auditor_land_sales",
+   "scope": "none"
+  },
+  {
+   "allowed": {
+    "census_geocoder:enrich": [
+     "INTERIM"
+    ],
+    "census_geocoder:fetch": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "census_geocoder"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "FL"
+   ],
+   "register_id": "census_geocoder",
+   "scope": "state:FL"
+  },
+  {
+   "allowed": {
+    "fema_nfhl:enrich": [
+     "INTERIM"
+    ],
+    "fema_nfhl:fetch": [
+     "INTERIM"
+    ]
+   },
+   "code_source_ids": [
+    "fema_nfhl"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "EXACT",
+   "places": [
+    "FL"
+   ],
+   "register_id": "fema_nfhl",
+   "scope": "state:FL"
+  },
+  {
+   "allowed": {
+    "usda_naip:display": [
+     "DOCUMENTED"
+    ],
+    "usda_naip:fetch": [
+     "DOCUMENTED"
+    ],
+    "usda_naip:store": [
+     "DOCUMENTED"
+    ]
+   },
+   "code_source_ids": [
+    "usda_naip"
+   ],
+   "decision_class": "ENABLED",
+   "findings": [],
+   "match_type": "RENAMED",
+   "places": [
+    "FL"
+   ],
+   "register_id": "usda_naip_via_usgs",
+   "scope": "state:FL"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [
+    "google_street_view"
+   ],
+   "decision_class": "BLOCKED",
+   "findings": [],
+   "match_type": "RENAMED",
+   "places": [
+    "FL"
+   ],
+   "register_id": "google_street_view_static",
+   "scope": "state:FL"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "CLIENT_SIDE",
+   "findings": [
+    {
+     "detail": "Browser basemap and static images; no server code source and no permission record",
+     "kind": "CLIENT_SIDE_NO_RECORD",
+     "operations": [],
+     "places": [],
+     "register_id": "google_maps_js_and_static",
+     "source_id": ""
+    }
+   ],
+   "match_type": "CLIENT_SIDE",
+   "places": [],
+   "register_id": "google_maps_js_and_static",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "CLIENT_SIDE",
+   "findings": [
+    {
+     "detail": "Browser basemap and static images; no server code source and no permission record",
+     "kind": "CLIENT_SIDE_NO_RECORD",
+     "operations": [],
+     "places": [],
+     "register_id": "maptiler_cloud",
+     "source_id": ""
+    }
+   ],
+   "match_type": "CLIENT_SIDE",
+   "places": [],
+   "register_id": "maptiler_cloud",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "CLIENT_SIDE",
+   "findings": [
+    {
+     "detail": "Browser iframe; no server code source and no permission record",
+     "kind": "CLIENT_SIDE_NO_RECORD",
+     "operations": [],
+     "places": [],
+     "register_id": "openstreetmap_embed",
+     "source_id": ""
+    }
+   ],
+   "match_type": "CLIENT_SIDE",
+   "places": [],
+   "register_id": "openstreetmap_embed",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [],
+   "decision_class": "DO_NOT_ADD",
+   "findings": [],
+   "match_type": "NO_CODE_SOURCE",
+   "places": [],
+   "register_id": "county_gis_orthoimagery",
+   "scope": "none"
+  },
+  {
+   "allowed": {},
+   "code_source_ids": [
+    "fl_laft_html"
+   ],
+   "decision_class": "DECISION_REQUIRED",
+   "findings": [],
+   "match_type": "OPERATION_OF",
+   "places": [
+    "FL:Columbia",
+    "FL:Escambia",
+    "FL:Union"
+   ],
+   "register_id": "scraperapi_proxy",
+   "scope": "counties:Escambia;Columbia;Union"
+  }
+ ],
+ "summary": {
+  "by_decision_class": {
+   "ADMIN_ONLY": 9,
+   "BLOCKED": 5,
+   "CLIENT_SIDE": 3,
+   "DECISION_REQUIRED": 1,
+   "DISABLED": 12,
+   "DO_NOT_ADD": 3,
+   "ENABLED": 30,
+   "GATED": 4,
+   "LINKS_ONLY": 14,
+   "MANUAL_ONLY": 2,
+   "NOT_NEEDED": 1
+  },
+  "by_match_type": {
+   "AGGREGATE_OF": 4,
+   "CLIENT_SIDE": 3,
+   "EXACT": 47,
+   "NO_CODE_SOURCE": 19,
+   "NO_PERMISSION_RECORD": 1,
+   "OPERATION_OF": 1,
+   "RENAMED": 4,
+   "SPLIT_OF": 5
+  },
+  "findings_by_kind": {
+   "CLIENT_SIDE_NO_RECORD": 3,
+   "EXCEEDS_CEILING": 2,
+   "NO_PERMISSION_RECORD": 1
+  },
+  "register_rows": 84
+ }
+}
