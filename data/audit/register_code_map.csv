@@ -1,0 +1,85 @@
+register_id,code_source_ids,dataset,scope,operations,match_type,decision_class,note
+fl_realauction_alachua_volusia,fl_realauction,sale_calendar,counties:Alachua;Volusia,,SPLIT_OF,ENABLED,County slice of the one fl_realauction code source; permissions are recorded FL-wide per dataset
+fl_realauction_other_44,fl_realauction,sale_calendar,registry_except:Alachua;Volusia,,SPLIT_OF,ENABLED,County slice of fl_realauction; robots disallow recorded for Miami-Dade and Brevard
+fl_realauction_closed_results,fl_realauction,closed_results,registry,,SPLIT_OF,ENABLED,Dataset slice of fl_realauction (scripts/realauction_results.py)
+fl_bid4assets_okaloosa,fl_bid4assets_okaloosa,sale_calendar,registry,,EXACT,ENABLED,
+fl_lienhub_certificates,fl_lienhub_certificates,county_held_certificates,registry,,EXACT,DISABLED,Register: keep disabled pending permission (every read returns HTTP 403)
+fl_laft_pdfs,fl_laft_pdfs,lands_available,registry,,EXACT,ENABLED,
+fl_laft_html_direct,fl_laft_html,lands_available,registry_except:Escambia;Columbia;Union,,SPLIT_OF,ENABLED,County slice of fl_laft_html read directly
+fl_laft_html_proxied,fl_laft_html,lands_available,counties:Escambia;Columbia;Union,,SPLIT_OF,ENABLED,County slice of fl_laft_html; its proxy fallback is the separate scraperapi_proxy row
+fl_laft_realtdm,fl_laft_realtdm,lands_available,registry,,EXACT,ENABLED,
+fl_laft_pioneer,fl_laft_pioneer,lands_available,registry,,EXACT,ENABLED,
+fl_laft_orange,fl_laft_orange,lands_available,registry,,EXACT,ENABLED,
+fl_laft_osceola,fl_laft_osceola,lands_available,registry,,EXACT,ENABLED,
+fl_laft_hillsborough,fl_laft_hillsborough,lands_available,registry,,EXACT,ENABLED,
+fl_laft_stlucie,fl_laft_stlucie,lands_available,registry,,EXACT,ENABLED,
+fl_laft_leon,fl_laft_leon,lands_available,registry,,EXACT,ENABLED,
+fl_laft_not_found_15,,,none,,NO_CODE_SOURCE,LINKS_ONLY,No harvester; counties without a found list
+fl_dor_statewide_nal,fl_dor_statewide,*,state:FL,,RENAMED,DISABLED,
+fl_statewide_cadastral_fgio,fl_fdor_cadastral,parcel_attributes;parcel_centroid,state:FL,,RENAMED,ENABLED,Enrichment source (attributes and centroid only)
+fl_santa_rosa_parcels,fl_santa_rosa_parcels,*,state:FL,,EXACT,ENABLED,Enrichment source
+fl_palm_coast_flagler_parcels,fl_palm_coast_flagler_parcels,*,state:FL,,EXACT,ENABLED,Enrichment source
+fl_pa_pinellas,,,none,,NO_CODE_SOURCE,LINKS_ONLY,Property appraiser; no harvester or permission record
+fl_pa_broward,,,none,,NO_CODE_SOURCE,LINKS_ONLY,Property appraiser; no harvester or permission record
+fl_pa_duval,,,none,,NO_CODE_SOURCE,LINKS_ONLY,Property appraiser; no harvester or permission record
+fl_pa_miami_dade,,,none,,NO_CODE_SOURCE,LINKS_ONLY,Property appraiser; no harvester or permission record
+fl_pa_other_eight,,,none,,NO_CODE_SOURCE,LINKS_ONLY,Property appraisers; no harvester or permission record
+fl_clerk_court_records_and_public_notices,,,none,,NO_CODE_SOURCE,DO_NOT_ADD,Catalog only
+tx_lgbs,tx_lgbs,*,registry,,EXACT,MANUAL_ONLY,Manual dispatch only (job=texas)
+tx_realauction,tx_realauction,*,registry,,EXACT,MANUAL_ONLY,Manual dispatch only (job=texas)
+tx_hctax,tx_hctax,*,counties:Harris,,EXACT,LINKS_ONLY,
+tx_pbfcm,tx_pbfcm,*,registry,,EXACT,BLOCKED,Hard-blocked in code
+tx_mvba,tx_mvba,*,registry,,EXACT,BLOCKED,Hard-blocked in code
+tx_ctsa,tx_ctsa,*,state:TX,,EXACT,BLOCKED,Hard-blocked in code
+tx_govease,tx_govease,*,state:TX,,EXACT,BLOCKED,Hard-blocked in code (TX and TN listings)
+tx_comptroller_directory,tx_comptroller_directory,*,state:TX,,EXACT,LINKS_ONLY,
+tx_county_struck_off_candidates_19,,,none,,NO_CODE_SOURCE,LINKS_ONLY,Candidate pages only
+tx_cad_parcels_bis_and_jim_wells,tx_jim_wells_cad_parcels,*,state:TX,,AGGREGATE_OF,DISABLED,Only the Jim Wells config exists in code; the BIS CADs have no code source
+tx_stratmap_land_parcels,,,none,,NO_CODE_SOURCE,DISABLED,Catalog only
+tx_phase36_cads_and_notices,,,none,,NO_CODE_SOURCE,DO_NOT_ADD,Catalog only
+la_ebr_adjudicated,la_ebr_adjudicated,*,registry,,EXACT,ENABLED,
+la_ebr_tax_parcels_and_tax_roll,la_ebr_tax_parcels;la_ebr_tax_roll,*,state:LA,,AGGREGATE_OF,ENABLED,Enrichment sources
+la_ebr_arcgis_parcels,,,none,,NO_CODE_SOURCE,DISABLED,Duplicate of the approved datasets; no code source
+la_ebr_sheriff_and_notices,,,none,,NO_CODE_SOURCE,LINKS_ONLY,Catalog only
+co_morgan_county_held_certificates,co_morgan_county_held_certificates,*,registry,,EXACT,ENABLED,Owner decision on file; permission request outstanding
+mi_eaton_treasurer_sale,mi_eaton_treasurer_sale,*,registry,,EXACT,ENABLED,Owner decision on file; permission request outstanding
+mi_lenawee_tax_sale,mi_lenawee_tax_sale,*,registry,,EXACT,ENABLED,Owner decision on file; permission request outstanding
+sc_york_tax_sale,sc_york_tax_sale,*,registry,,EXACT,ENABLED,Owner decision on file; permission request outstanding
+wi_green_tax_deed_sales,wi_green_tax_deed_sales,*,registry,,EXACT,ENABLED,Owner decision on file; permission request outstanding
+wy_albany_tax_sale,wy_albany_tax_sale,*,registry,,EXACT,ENABLED,Owner decision on file; permission request outstanding
+co_douglas_open_data,co_douglas_county_held_liens;co_douglas_tax_sale_list,*,registry,,AGGREGATE_OF,ENABLED,
+co_morgan_treasurer_deed_auctions,co_morgan_treasurer_deed_auctions,*,registry,,EXACT,DISABLED,
+co_oit_public_parcels,co_oit_public_parcels,*,state:CO,,EXACT,ENABLED,Enrichment source; no paid tier and no export
+ut_ugrc_lir_saltlake,ut_ugrc_lir_saltlake,*,state:UT,,EXACT,NOT_NEEDED,State not activated
+wi_sco_v12_parcels,wi_sco_v12_parcels,*,state:WI,,EXACT,DISABLED,
+wi_dane_tax_deed_auction,wi_dane_tax_deed_auction,*,registry,,EXACT,LINKS_ONLY,
+wi_wood_burnett_marathon,,,none,,NO_CODE_SOURCE,LINKS_ONLY,Catalog only
+wy_statewide_parcel_viewer,,,none,,NO_CODE_SOURCE,DISABLED,Catalog only
+mi_county_parcels_eaton_clickthrough,,,none,,NO_CODE_SOURCE,DISABLED,Catalog only
+mi_detroit_landbank_lots_and_programs,mi_detroit_landbank_lots;mi_detroit_landbank_programs,*,registry,,AGGREGATE_OF,ADMIN_ONLY,
+mi_oceana_landbank,mi_oceana_landbank,*,registry,,EXACT,ADMIN_ONLY,
+mn_ramsey_tax_forfeit,mn_ramsey_tax_forfeit,*,registry,,EXACT,ADMIN_ONLY,
+mo_stl_lra_inventory,mo_stl_lra_inventory,*,registry,,EXACT,ADMIN_ONLY,
+ok_oklahoma_county_owned,ok_oklahoma_county_owned,*,registry,,EXACT,ADMIN_ONLY,
+pa_fayette_repository,pa_fayette_repository,*,registry,,EXACT,ADMIN_ONLY,
+sc_georgetown_forfeited_land,sc_georgetown_forfeited_land,*,registry,,EXACT,ADMIN_ONLY,
+sc_horry_forfeited_land,sc_horry_forfeited_land,*,registry,,EXACT,ADMIN_ONLY,
+tn_shelby_landbank,tn_shelby_landbank,*,registry,,EXACT,ADMIN_ONLY,
+sc_spartanburg_forfeited_land,,,none,,NO_PERMISSION_RECORD,DISABLED,The sc_flc adapter can parse it; no registry row and no permission record
+sc_oconee_tax_sale_list,sc_oconee_tax_sale_list,*,registry,,EXACT,DISABLED,
+sc_flc_catalog_other,,,none,,NO_CODE_SOURCE,LINKS_ONLY,Catalog only
+mo_stl_parcels_coordinates,mo_stl_parcels_coordinates,*,state:MO,,EXACT,DISABLED,Inert coordinate config
+mi_lenawee_landbank,,,none,,NO_CODE_SOURCE,LINKS_ONLY,Catalog only
+al_ador_state_land,al_ador_state_land,*,registry,,EXACT,GATED,State not activated
+ar_cosl_post_auction,ar_cosl_post_auction,*,registry,,EXACT,GATED,State not activated
+az_maricopa_state_cp,az_maricopa_state_cp,*,registry,,EXACT,GATED,State not activated
+wv_auditor_land_sales,,,none,,NO_CODE_SOURCE,GATED,State registered and gated; no adapter
+census_geocoder,census_geocoder,*,state:FL,,EXACT,ENABLED,Enrichment source (national)
+fema_nfhl,fema_nfhl,*,state:FL,,EXACT,ENABLED,Enrichment source (national)
+usda_naip_via_usgs,usda_naip,*,state:FL,,RENAMED,ENABLED,Imagery source (national)
+google_street_view_static,google_street_view,*,state:FL,,RENAMED,BLOCKED,
+google_maps_js_and_static,,,none,,CLIENT_SIDE,CLIENT_SIDE,Browser basemap and static images; no server code source and no permission record
+maptiler_cloud,,,none,,CLIENT_SIDE,CLIENT_SIDE,Browser basemap and static images; no server code source and no permission record
+openstreetmap_embed,,,none,,CLIENT_SIDE,CLIENT_SIDE,Browser iframe; no server code source and no permission record
+county_gis_orthoimagery,,,none,,NO_CODE_SOURCE,DO_NOT_ADD,Imagery registry REVIEW_REQUIRED
+scraperapi_proxy,fl_laft_html,lands_available,counties:Escambia;Columbia;Union,fetch_via_proxy,OPERATION_OF,DECISION_REQUIRED,The fetch_via_proxy operation of fl_laft_html

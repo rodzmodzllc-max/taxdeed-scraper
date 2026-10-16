@@ -123,26 +123,27 @@ PERMISSION_IDS = {"fl_statewide_cadastral": "fl_fdor_cadastral"}
 
 
 def permission_basis(source_id: str) -> str:
-    """What data/source_permissions.csv records for fetching and enriching
-    from this source - the only evidence a built-in source cites. A
-    grandfathered practice or an internal acceptance is named as interim,
-    never as a licence."""
+    """What the permission records hold for fetching and enriching from this
+    source - the only evidence a built-in source cites. A grandfathered
+    practice or an internal acceptance is named as interim, never as a
+    licence. This text is served in public/source-inventory.json, so it names
+    the basis only: never the record file, an evidence type, a status code,
+    a reviewer, a reason or a date (source_rights.public_disclosure_problems)."""
     from harvesters.governance import permissions as PERM  # noqa: PLC0415 - avoids a load cycle at import
     pid = PERMISSION_IDS.get(source_id, source_id)
     recs = [r for r in PERM.Permissions.from_file().records
             if r.source_id == pid and r.operation in ("fetch", "enrich")]
     if not recs:
-        return f"data/source_permissions.csv: no fetch/enrich record for {pid} - every operation is denied"
+        return "Permission on file: none - every operation is denied"
     parts = set()
     for r in recs:
         if r.evidence_type in PERM.DOCUMENTED_EVIDENCE and r.status in PERM.DOCUMENTED_STATUSES:
-            parts.add(f"{r.operation} documented ({r.evidence_type}), re-read by {r.expires_on}")
-        elif r.evidence_type in PERM.INTERIM_EVIDENCE:
-            parts.add(f"{r.operation} interim ({r.evidence_type}, status {r.status}; not documented permission), "
-                      f"expires {r.expires_on}")
+            parts.add(f"{r.operation} documented (published licence or written permission)")
+        elif r.evidence_type in PERM.INTERIM_EVIDENCE and r.status in PERM.OPEN_STATUSES:
+            parts.add(f"{r.operation} interim, not documented permission")
         else:
-            parts.add(f"{r.operation} {r.status} ({r.evidence_type})")
-    return f"data/source_permissions.csv ({pid}): " + "; ".join(sorted(parts))
+            parts.add(f"{r.operation} not permitted")
+    return "Permission on file: " + "; ".join(sorted(parts))
 
 
 def _builtin_sources() -> list[UnifiedSource]:
