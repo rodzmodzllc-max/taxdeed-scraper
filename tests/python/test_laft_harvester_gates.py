@@ -185,6 +185,19 @@ def test_html05_proxy_failures_are_categorized_not_zero(monkeypatch):
         def get(self, url, **kw):
             return R(self.codes.pop(0))
 
+    # With the repository's records a 403 stands: the proxy fallback is only
+    # an interim allowance, and a circumvention operation needs documented
+    # permission (permissions.CIRCUMVENTION_OPERATIONS).
+    monkeypatch.setattr(html_h, "SCRAPERAPI_KEY", "k")
+    with pytest.raises(ls.CategorizedError) as ei:
+        html_h.fetch(S([403]), "https://u")
+    assert ei.value.status_category == "PERMISSION_DENIED"
+    # The categorization below needs a documented proxy permission, which no
+    # source holds; a fixture record stands in for one.
+    from permission_fixtures import install, record
+    install(monkeypatch, record(source_id="fl_laft_html", jurisdiction="FL", operation="fetch_via_proxy",
+                                dataset="lands_available", status="APPROVED", evidence_type="PUBLISHED_LICENSE",
+                                expires_on="2099-01-01"), base=False)
     monkeypatch.setattr(html_h, "SCRAPERAPI_KEY", "")
     with pytest.raises(ls.CategorizedError) as ei:
         html_h.fetch(S([403]), "https://u")

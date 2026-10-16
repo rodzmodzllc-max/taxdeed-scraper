@@ -109,6 +109,12 @@ INTERIM_EVIDENCE = frozenset({"INTERNAL_RISK_ACCEPTANCE", "GRANDFATHERED_PRACTIC
 # configuration error, which denies every source - it can never silently
 # extend an allowance. Renewing one needs a new, dated record.
 INTERIM_MAX_DAYS = 210
+# Operations that route around a control the source itself applied (an HTTP
+# 403, an IP block, a disclaimer or login wall). An interim allowance - a
+# grandfathered practice or an internal risk acceptance - can never allow
+# one: only a published licence or a written grant from the data owner that
+# covers automated access can (2026-10-16, source-rights enforcement).
+CIRCUMVENTION_OPERATIONS = frozenset({"fetch_via_proxy"})
 
 COLUMNS = (
     "source_id", "provider", "dataset", "publisher", "jurisdiction", "operation", "status",
@@ -457,6 +463,10 @@ class Permissions:
             if not ok:
                 return _deny(*args, "CONDITION_UNMET", f"condition {cond!r} is not satisfied", rec)
         basis = "LINK_ONLY" if rec.status == "LINK_ONLY" else "DOCUMENTED" if rec.status in DOCUMENTED_STATUSES else "INTERIM"
+        if operation in CIRCUMVENTION_OPERATIONS and basis != "DOCUMENTED":
+            return _deny(*args, "CIRCUMVENTION_NEEDS_DOCUMENTED",
+                         f"{operation} routes around a control the source applied; an interim allowance "
+                         f"({rec.evidence_type}) never permits that - only documented permission can", rec)
         code = {"LINK_ONLY": "ALLOWED_LINK_ONLY", "DOCUMENTED": "ALLOWED_DOCUMENTED", "INTERIM": "ALLOWED_INTERIM"}[basis]
         why = rec.reason if basis != "INTERIM" else f"INTERIM ({rec.evidence_type}, not a grant): {rec.reason}"
         return PermissionDecision(
