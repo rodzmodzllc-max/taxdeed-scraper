@@ -1,0 +1,233 @@
+{
+ "counties": [
+  {
+   "county": "Marion",
+   "source_count": 1,
+   "sources": [
+    {
+     "access": "ACCESSIBLE",
+     "access_note": "production harvester harvest_laft_pdfs.py; last completeness COMPLETE",
+     "governance": "APPROVED",
+     "governance_reason": "",
+     "last_checked": "2026-09-29",
+     "name": "fl_laft_pdfs",
+     "next_action": "",
+     "publisher": "GOVERNMENT_DIRECT",
+     "source_id": "FL:Marion:fl_laft_pdfs",
+     "source_type": "DOCUMENT",
+     "url": "https://www.marioncountyclerk.org/departments/records-recording/tax-deeds-and-lands-available-for-taxes/land-available-for-taxes-information/"
+    }
+   ]
+  },
+  {
+   "county": "Pasco",
+   "source_count": 1,
+   "sources": [
+    {
+     "access": "ACCESSIBLE",
+     "access_note": "production harvester harvest_laft_pdfs.py; last completeness COMPLETE",
+     "governance": "APPROVED",
+     "governance_reason": "",
+     "last_checked": "2026-09-29",
+     "name": "fl_laft_pdfs",
+     "next_action": "",
+     "publisher": "GOVERNMENT_DIRECT",
+     "source_id": "FL:Pasco:fl_laft_pdfs",
+     "source_type": "DOCUMENT",
+     "url": "https://www.pascoclerk.com/202/Purchasing-Property-off-the-Lists-of-Lan"
+    }
+   ]
+  },
+  {
+   "county": "Volusia",
+   "source_count": 1,
+   "sources": [
+    {
+     "access": "ACCESSIBLE",
+     "access_note": "production harvester harvest_laft_pdfs.py; last completeness COMPLETE",
+     "governance": "APPROVED",
+     "governance_reason": "",
+     "last_checked": "2026-09-29",
+     "name": "fl_laft_pdfs",
+     "next_action": "",
+     "publisher": "GOVERNMENT_DIRECT",
+     "source_id": "FL:Volusia:fl_laft_pdfs",
+     "source_type": "DOCUMENT",
+     "url": "https://app02.clerk.org/cm_rpt/?id=lat"
+    }
+   ]
+  },
+  {
+   "county": "Sumter",
+   "source_count": 1,
+   "sources": [
+    {
+     "access": "ACCESSIBLE",
+     "access_note": "production harvester harvest_laft_html.py; last completeness UNKNOWN",
+     "governance": "APPROVED",
+     "governance_reason": "",
+     "last_checked": "2026-09-29",
+     "name": "fl_laft_html",
+     "next_action": "",
+     "publisher": "GOVERNMENT_DIRECT",
+     "source_id": "FL:Sumter:fl_laft_html",
+     "source_type": "GOVERNMENT",
+     "url": "https://www.sumterclerk.com/public-records/tax-deeds/land-available-for-taxes/"
+    }
+   ]
+  },
+  {
+   "county": "Hillsborough",
+   "source_count": 1,
+   "sources": [
+    {
+     "access": "ACCESSIBLE",
+     "access_note": "production harvester harvest_laft_hillsborough.py; last completeness COMPLETE",
+     "governance": "APPROVED",
+     "governance_reason": "",
+     "last_checked": "2026-09-29",
+     "name": "fl_laft_hillsborough",
+     "next_action": "",
+     "publisher": "GOVERNMENT_PLATFORM",
+     "source_id": "FL:Hillsborough:fl_laft_hillsborough",
+     "source_type": "GOVERNMENT",
+     "url": "https://publicaccess.hillsclerk.com/TD/"
+    }
+   ]
+  },
+  {
+   "county": "Orange",
+   "source_count": 1,
+   "sources": [
+    {
+     "access": "ACCESSIBLE",
+     "access_note": "production harvester harvest_laft_orange.py; last completeness COMPLETE",
+     "governance": "APPROVED",
+     "governance_reason": "",
+     "last_checked": "2026-09-29",
+     "name": "fl_laft_orange",
+     "next_action": "",
+     "publisher": "GOVERNMENT_DIRECT",
+     "source_id": "FL:Orange:fl_laft_orange",
+     "source_type": "GOVERNMENT",
+     "url": "https://occompt.com/158/Land-Available-For-Taxes"
+    }
+   ]
+  },
+  {
+   "county": "Hendry",
+   "source_count": 1,
+   "sources": [
+    {
+     "access": "ACCESSIBLE",
+     "access_note": "production harvester harvest_laft_pdfs.py; last completeness FAILED",
+     "governance": "APPROVED",
+     "governance_reason": "",
+     "last_checked": "2026-09-29",
+     "name": "fl_laft_pdfs",
+     "next_action": "",
+     "publisher": "GOVERNMENT_PLATFORM",
+     "source_id": "FL:Hendry:fl_laft_pdfs",
+     "source_type": "DOCUMENT",
+     "url": "https://library.municode.com/FL/hendry_clerk_of_courts/munidocs/munidocs?nodeId=4b2b2ea877a65"
+    }
+   ]
+  },
+  {
+   "county": "Osceola",
+   "source_count": 1,
+   "sources": [
+    {
+     "access": "ACCESSIBLE",
+     "access_note": "production harvester harvest_laft_osceola.py; last completeness COMPLETE",
+     "governance": "APPROVED",
+     "governance_reason": "",
+     "last_checked": "2026-09-29",
+     "name": "fl_laft_osceola",
+     "next_action": "",
+     "publisher": "GOVERNMENT_PLATFORM",
+     "source_id": "FL:Osceola:fl_laft_osceola",
+     "source_type": "GOVERNMENT",
+     "url": "https://officialrecords.osceolaclerk.org/browserviewtd/"
+    }
+   ]
+  },
+  {
+   "county": "Polk",
+   "source_count": 1,
+   "sources": [
+    {
+     "access": "ACCESSIBLE",
+     "access_note": "production harvester harvest_laft_realtdm.py; last completeness COMPLETE",
+     "governance": "APPROVED",
+     "governance_reason": "",
+     "last_checked": "2026-09-29",
+     "name": "fl_laft_realtdm",
+     "next_action": "",
+     "publisher": "GOVERNMENT_PLATFORM",
+     "source_id": "FL:Polk:fl_laft_realtdm",
+     "source_type": "GOVERNMENT",
+     "url": "https://polk.realtdm.com/public/cases/list"
+    }
+   ]
+  },
+  {
+   "county": "Hernando",
+   "source_count": 1,
+   "sources": [
+    {
+     "access": "ACCESSIBLE",
+     "access_note": "production harvester harvest_laft_pioneer.py; last completeness COMPLETE",
+     "governance": "APPROVED",
+     "governance_reason": "",
+     "last_checked": "2026-09-29",
+     "name": "fl_laft_pioneer",
+     "next_action": "",
+     "publisher": "GOVERNMENT_PLATFORM",
+     "source_id": "FL:Hernando:fl_laft_pioneer",
+     "source_type": "GOVERNMENT",
+     "url": "https://or.hernandoclerk.com/TaxSmart/"
+    }
+   ]
+  },
+  {
+   "county": "Lake",
+   "source_count": 1,
+   "sources": [
+    {
+     "access": "NOT_CHECKED",
+     "access_note": "verification SOURCE_EXISTS_ACCESS_UNKNOWN",
+     "governance": "REVIEW_REQUIRED",
+     "governance_reason": "no publication / reuse review recorded yet",
+     "last_checked": "2026-09-29",
+     "name": "county list",
+     "next_action": "Publication / rights review (registry restrictions: none recorded)",
+     "publisher": "GOVERNMENT_DIRECT",
+     "source_id": "FL:Lake:unharvested_list",
+     "source_type": "GOVERNMENT",
+     "url": "https://taxdeeds.lakecountyclerk.org"
+    }
+   ]
+  },
+  {
+   "county": "Seminole",
+   "source_count": 1,
+   "sources": [
+    {
+     "access": "ACCESSIBLE",
+     "access_note": "production harvester harvest_laft_realtdm.py; last completeness UNKNOWN",
+     "governance": "APPROVED",
+     "governance_reason": "",
+     "last_checked": "2026-09-29",
+     "name": "fl_laft_realtdm",
+     "next_action": "",
+     "publisher": "GOVERNMENT_PLATFORM",
+     "source_id": "FL:Seminole:fl_laft_realtdm",
+     "source_type": "GOVERNMENT",
+     "url": "https://seminole.realtdm.com/public/cases/list"
+    }
+   ]
+  }
+ ],
+ "note": "Generated by scripts/build_laft_refresh_report.py. Per-county governance status for the FL LAFT availability sources this report covers - value-free (no parcel, price, acreage, address or owner). A county with zero sources here has no governed LAFT availability source tracked yet, not an empty list - see docs/available-inventory.md. This report never bypasses a publication gate: a REVIEW_REQUIRED or HARD_BLOCKED source is named with its status, never treated as cleared."
+}
