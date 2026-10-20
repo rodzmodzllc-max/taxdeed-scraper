@@ -3408,3 +3408,38 @@ Full description: `docs/parcel-source-approvals.md`. Stable facts:
 - No geometry storage exists on `main` (PR #144 is the unmerged design). `source_approvals.py` holds the rules a
   future path must use: `apply_refresh`, `match_geometries` (exact identifier; UNMATCHED / AMBIGUOUS never
   associated), `simplify_ring`, `plan_geometry_refresh` (failed read changes nothing; nothing deleted).
+
+## Parcel boundaries from the approved sources (2026-10-20, PR open, migration 034 NOT applied)
+
+Full description: `docs/parcel-boundaries.md`. Stable facts:
+- **Two boundary sources only, and they are the approval register's own ids** (`harvesters/boundary/sources.py`). There is
+  no second permission matrix.
+  - `fl_dor_pto_parcel_gis`: DOR PTO county parcel files, dataset key `county_parcel_geometry`.
+  - `ut_ugrc_lir_saltlake`: `Parcels_SaltLake_LIR`.
+- **Dataset mapping:** `data/source_approvals.csv` `covered_datasets` / `unresolved_mapping` record what each approval
+  covers and which datasets are MAPPED to a source id.
+  - `fl_statewide_cadastral_fgio` / `fl_fdor_cadastral` is NOT the covered dataset and is not approved for geometry.
+  - `Parcels_Utah_LIR` is Utah County, not statewide.
+- **Florida:** store, enrich and display are allowed. fetch and parse wait for `technical_readme_reviewed`, and the
+  source refuses with `JOIN_NOT_CONFIGURED` until the Parcel Shapefiles Readme is read (unreachable from the sandbox)
+  and its join is configured. Never guess the PARCELNO / PARCEL_ID join or the condominium handling.
+- **Utah:** display is allowed; the disclaimer is linked to UGRC's license and disclaimer policy page.
+- **Migration 034** (033 is held by the billing PR):
+  - `parcel_boundary_sources`: display grant, attribution, expected cadence vs `last_successful_refresh_at`.
+  - `parcel_boundaries`: PK `property_id` (uuid), unique source feature, valid MultiPolygon 4326.
+  - `get_property_boundary(uuid)` (invoker, respects the publication gate).
+  - Service-role `upsert_parcel_boundaries()` / `record_parcel_boundary_refresh()`.
+  - Nothing deletes; only COMPLETE advances the last success.
+- **Plan** (`harvesters/boundary/plan.py`): exact identifier match only. These are never associated:
+  - stacked polygons, multi-parcel features, shared features, invalid geometry;
+  - a record without a polygon.
+
+  Another source's boundary is never replaced.
+- **Writer:** `scripts/parcel_boundary_refresh.py` is readiness-only by default. `--apply` needs `--confirm-apply`. It
+  is not wired into any workflow.
+- **Front end** (`public/parcel-boundary.js`, app.js `drawBoundary()`): only the property page and the map preview
+  request a boundary. The outline is shown with the credit, licence link, change notice, disclaimer and metadata;
+  geometry never rides on a property row or in an export. Stub knob `?boundary=ok|fl|multi|none|unauth|invalid|
+  nolicencelink|error`.
+- `sw.js` -> `tdw-shell-v131` (v130 is held by the source-transparency PR).
+

@@ -1,5 +1,11 @@
 # Parcel source approvals: Florida DOR and Utah UGRC (2026-10-20)
 
+> **Update (2026-10-20, later the same day).** The product owner confirmed
+> receipt of both written approvals. The boundary use they cover is now
+> implemented (migration 034, not applied) and is described in
+> `docs/parcel-boundaries.md`, together with the exact dataset mapping. That
+> document supersedes the "Today's decision" and "Blockers" parts of this one.
+
 Two parcel-data sources are approved independently, on written or published terms
 supplied by the product owner. This change is repository-only.
 - No migration was applied, no production row was written, no workflow was
@@ -17,12 +23,12 @@ supplied by the product owner. This change is repository-only.
 | Evidence limitation | The original email is **not** in this repository or any record it can reach. Its received date, address and message id were not supplied and are **not recorded** | Same |
 | Permitted | Retain simplified parcel-boundary geometry. Display boundaries over aerial imagery in a commercial research application. No separate county permissions are needed | Commercial use. Storage, caching and retention, and retrieval at any frequency (no strict limits stated). Display with attribution |
 | Not covered | Other DOR datasets. Owner names and other tax-roll personal fields. County tax-sale or auction listings, outcomes and purchase paths. Third-party data | Other UGRC or SGID datasets. Other Utah agencies. Tax-sale, auction or assessor feeds. Third-party data |
-| Conditions (enforced) | `technical_readme_reviewed` and `attribution_text_recorded` on every operation | `attribution_text_recorded` on fetch, enrich and store. `attribution_terms_recorded` (credit, CC BY 4.0 link, change notice, disclaimer, metadata) on display |
+| Conditions (enforced) | `attribution_text_recorded` on every operation; `technical_readme_reviewed` on fetch and parse only | `attribution_text_recorded` on fetch, enrich and store. `attribution_terms_recorded` (credit, CC BY 4.0 link, change notice, disclaimer, metadata) on display |
 | Attribution | Courtesy credit "Florida Department of Revenue, Property Tax Oversight". Per the response, attribution is at TAXACQ's discretion | Credit UGRC, link https://creativecommons.org/licenses/by/4.0/, state the changes, show the disclaimer and metadata |
 | Expected cadence (source) | Annual, published about mid-August to early September | Generally monthly |
 | Actual last successful TAXACQ refresh | NEVER (no ingestion path for these files exists) | NEVER (Utah is not activated; no workflow runs it) |
 | Operations not recorded | redistribute / export, fetch_via_proxy, link | redistribute / export, parse, fetch_via_proxy, link |
-| Today's decision | **Every operation denied** (the Readme is not reviewed) | fetch, enrich and store allowed. **Display denied** (no UGRC disclaimer recorded) |
+| Today's decision (updated 2026-10-20, see docs/parcel-boundaries.md) | store, enrich and display **allowed**. fetch and parse wait for the Readme (the identifier join comes from it) | fetch, enrich, store and display **allowed**. The disclaimer is linked: UGRC's data license and disclaimer policy page |
 
 ## Where the records live
 

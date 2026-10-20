@@ -54,6 +54,8 @@ DEPLOYED_BUNDLE_FILES = (
     "admin.html",   # 2026-09-30 admin area (/admin) and its module
     "admin.js",
     "app.js",
+    # 2026-10-20 parcel boundaries from the approved parcel-geometry sources.
+    "parcel-boundary.js",
     # 2026-10-03 boot resilience: startup watchdog + supabase-js loader and
     # its same-origin fallback copy.
     "boot.js",

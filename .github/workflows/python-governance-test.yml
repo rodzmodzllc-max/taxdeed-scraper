@@ -88,3 +88,7 @@ jobs:
       # browser copy, and that the app has no passwordless sign-in.
       - name: Run sign-up password rule tests
         run: node --test tests/billing/signup_password.test.mjs
+      # Parcel boundaries (2026-10-20): the browser read contract for the two
+      # approved parcel-geometry sources - validation, identity, attribution.
+      - name: Run parcel boundary client tests
+        run: node --test tests/boundary/parcel_boundary.test.mjs
