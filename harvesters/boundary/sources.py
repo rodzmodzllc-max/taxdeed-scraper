@@ -51,15 +51,18 @@ class BoundarySource:
 
 
 FL_DOR = BoundarySource(
+    # Join from the Parcel Shapefiles Readme (reviewed 2026-10-20, recorded in
+    # data/source_approvals.csv): PIN files only (FID, Shape, PARCELNO - no tax-roll
+    # attributes), PARCELNO in the shapefile to PARCEL_ID in NAL. The county file
+    # location is still not configured, so the source stays off.
     source_id="fl_dor_pto_parcel_gis", state="FL",
     provider="Florida Department of Revenue, Property Tax Oversight",
-    dataset="DOR PTO Data Portal county GIS parcel files",
+    dataset="DOR PTO Data Portal county GIS parcel files (PIN variant)",
     permission_dataset="county_parcel_geometry",
-    counties=(), layer_url=None, feature_key_field=None, feature_id_field=None,
+    counties=(), layer_url=None, feature_key_field="PARCELNO", feature_id_field="FID",
     record_key="parcel", id_rule="alnum", join_configured=False,
-    not_configured_reason=("JOIN_NOT_CONFIGURED: the parcel-number field, the PIN/PAR file variant, the PARCELNO to "
-                           "PARCEL_ID join, identifier formatting and condominium handling must be taken from the "
-                           "Parcel Shapefiles Readme, which has not been read from this environment"),
+    not_configured_reason=("JOIN_NOT_CONFIGURED: the county PIN file location is not configured; the parcel join "
+                           "(PARCELNO to PARCEL_ID) is recorded from the Readme but no file reader exists yet"),
 )
 
 UT_UGRC = BoundarySource(

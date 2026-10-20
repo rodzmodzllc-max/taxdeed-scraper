@@ -87,14 +87,14 @@ def test_expected_cadence_is_not_an_actual_refresh():
         assert a.last_successful_refresh == "NEVER"          # no ingestion path has run for either
 
 
-def test_readme_is_recorded_as_not_read():
+def test_readme_is_recorded_as_reviewed_with_its_caveats():
     fl = A.load()[FL]
     assert fl.technical_readme_url.endswith("Parcel%20Shapefiles%20Readme.pdf")
-    assert fl.technical_readme_reviewed_on == "" and fl.technical_caveats.startswith(A.NOT_YET_READ)
-    assert not fl.readme_reviewed
-    for topic in ("PIN/PAR", "PARCELNO to PARCEL_ID", "condominium", "stacked polygons", "unmatched geometries"):
+    assert fl.technical_readme_reviewed_on == "2026-10-20" and fl.technical_caveats.startswith("Reviewed from the Parcel Shapefiles Readme")
+    assert fl.readme_reviewed
+    for topic in ("PIN files", "PARCELNO in the shapefile to PARCEL_ID", "formatting", "Condominiums", "stacked",
+                  "Multi-parcel", "Chapter 119", "unknown ownership"):
         assert topic in fl.technical_caveats
-    assert "not permission restrictions" in fl.technical_caveats
 
 
 @pytest.mark.parametrize("col,val,expect", [
@@ -109,6 +109,8 @@ def test_register_validation_refuses_bad_rows(col, val, expect):
     for r in rows:
         if r["source_id"] == (UT if col == "license_url" else FL):
             r[col] = val
+            if col == "technical_readme_reviewed_on":   # a date with the caveats still unread is refused
+                r["technical_caveats"] = A.NOT_YET_READ + " (not yet read)" 
     problems = A.validate(A.parse(rows))
     assert any(expect in p for p in problems), problems
 
@@ -124,11 +126,11 @@ def test_an_invalid_register_fails_the_conditions_closed(tmp_path, monkeypatch, 
 # --- Florida DOR: permission gate --------------------------------------------
 
 @pytest.mark.parametrize("op", ["fetch", "parse"])
-def test_florida_file_reads_wait_for_the_readme_review(perms, op):
-    """Fetching / parsing the county files needs the Readme (the identifier
-    join comes from it) - a technical prerequisite, recorded as a condition."""
+def test_florida_file_reads_are_permitted_once_the_readme_is_reviewed(perms, op):
+    """The Readme is reviewed (2026-10-20), so the technical condition holds.
+    No county file is read until a PIN file location is configured."""
     d = perms.authorize(FL, op, state="FL", county="Leon", dataset=FL_DS, today=TODAY)
-    assert not d.allowed and d.reason_code == "CONDITION_UNMET"
+    assert d.allowed
     assert "technical_readme_reviewed" in d.conditions
 
 

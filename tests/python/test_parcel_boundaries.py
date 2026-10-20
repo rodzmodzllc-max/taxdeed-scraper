@@ -89,8 +89,8 @@ def test_evidence_records_only_what_was_supplied():
         assert a.evidence_received_on == ""             # never supplied, never invented
         assert "Implement Confirmed Florida DOR and Utah UGRC Parcel Approvals" in a.evidence_ref
         assert "@" not in a.evidence_ref + a.evidence_sender   # no address recorded
-    assert A.load()[FL].technical_caveats.startswith(A.NOT_YET_READ)
-    assert not A.load()[FL].readme_reviewed
+    assert A.load()[FL].technical_caveats.startswith("Reviewed from the Parcel Shapefiles Readme")
+    assert A.load()[FL].readme_reviewed
 
 
 # --- permission gates ----------------------------------------------------------
@@ -101,11 +101,15 @@ def test_utah_is_runnable_and_displayable():
                  "display_reason": "ALLOWED_DOCUMENTED"}
 
 
-def test_florida_display_is_allowed_but_no_file_is_read_until_the_readme_join_exists():
+def test_florida_display_is_allowed_and_no_file_is_read_until_a_county_location_exists():
     r = S.readiness(S.FL_DOR, today=TODAY)
     assert not r["runnable"] and r["display_allowed"]
-    assert "FETCH_CONDITION_UNMET" in r["reasons"] and "JOIN_NOT_CONFIGURED" in r["reasons"]
-    assert S.FL_DOR.feature_key_field is None and S.FL_DOR.layer_url is None
+    # The Readme is reviewed (2026-10-20), so the condition no longer blocks;
+    # the county PIN file location is still not configured, so nothing is read.
+    assert "FETCH_CONDITION_UNMET" not in r["reasons"]
+    assert "JOIN_NOT_CONFIGURED" in r["reasons"] and "NO_SOURCE_LOCATION_CONFIGURED" in r["reasons"]
+    assert S.FL_DOR.feature_key_field == "PARCELNO" and S.FL_DOR.feature_id_field == "FID"
+    assert S.FL_DOR.layer_url is None
 
 
 @pytest.mark.parametrize("source_id,state,dataset", [
