@@ -3,7 +3,9 @@ terms (2026-10-20), plus the refresh and geometry rules those approvals need.
 
 data/source_approvals.csv holds one row per approved source: the exact dataset
 scope and what is excluded, the basis, the evidence and what is NOT on file,
-the permitted activities, the conditions and attribution, the source's
+the permitted activities, the conditions and attribution, which datasets the
+evidence covers and which of them are MAPPED to a source id (and what mapping
+is still unresolved), the source's
 EXPECTED refresh cadence and TAXACQ's ACTUAL last successful refresh. The two
 are separate columns and never derived from each other.
 
@@ -47,7 +49,7 @@ COLUMNS = (
     "source_id", "provider", "dataset_scope", "excluded_scope", "status", "basis", "license_name", "license_url",
     "evidence_ref", "evidence_sender", "evidence_received_on", "evidence_supplied_on", "evidence_limitation",
     "permitted_activities", "conditions", "credit", "change_notice", "disclaimer", "disclaimer_url", "metadata_url",
-    "landing_urls", "expected_refresh_cadence", "last_successful_refresh", "technical_readme_url",
+    "landing_urls", "covered_datasets", "unresolved_mapping", "expected_refresh_cadence", "last_successful_refresh", "technical_readme_url",
     "technical_readme_reviewed_on", "technical_caveats", "reviewer", "decided_on",
 )
 STATUSES = ("APPROVED_WITH_CONDITIONS", "APPROVED")
@@ -86,6 +88,8 @@ class Approval:
     disclaimer_url: str
     metadata_url: str
     landing_urls: tuple[str, ...]
+    covered_datasets: tuple[str, ...]
+    unresolved_mapping: str
     expected_refresh_cadence: str
     last_successful_refresh: str
     technical_readme_url: str
@@ -147,6 +151,7 @@ def parse(rows) -> list[Approval]:
         kw = {c: (r.get(c) or "").strip() for c in COLUMNS}
         kw["permitted_activities"] = _split(kw["permitted_activities"])
         kw["landing_urls"] = _split(kw["landing_urls"])
+        kw["covered_datasets"] = _split(kw["covered_datasets"])
         out.append(Approval(**kw))
     return out
 
@@ -169,6 +174,13 @@ def validate(approvals: list[Approval]) -> list[str]:
                     "expected_refresh_cadence", "reviewer"):
             if not getattr(a, col):
                 problems.append(f"{sid}: {col} is required")
+        # Each covered dataset names whether it is MAPPED to a source id; a
+        # source's own id must be among the mapped ones, so the approval can
+        # never be read as covering a dataset it does not name.
+        if not a.covered_datasets:
+            problems.append(f"{sid}: covered_datasets is required")
+        elif not any(d.startswith(a.source_id + " <- ") and "MAPPED" in d for d in a.covered_datasets):
+            problems.append(f"{sid}: covered_datasets must map the source's own id ('{a.source_id} <- ... MAPPED')")
         if not a.permitted_activities:
             problems.append(f"{sid}: permitted_activities is required")
         if not a.landing_urls or not all(_https(u) for u in a.landing_urls):

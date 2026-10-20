@@ -123,10 +123,23 @@ def test_an_invalid_register_fails_the_conditions_closed(tmp_path, monkeypatch, 
 
 # --- Florida DOR: permission gate --------------------------------------------
 
-@pytest.mark.parametrize("op", ["fetch", "parse", "store", "enrich", "display"])
-def test_florida_is_denied_until_the_readme_is_reviewed(perms, op):
+@pytest.mark.parametrize("op", ["fetch", "parse"])
+def test_florida_file_reads_wait_for_the_readme_review(perms, op):
+    """Fetching / parsing the county files needs the Readme (the identifier
+    join comes from it) - a technical prerequisite, recorded as a condition."""
     d = perms.authorize(FL, op, state="FL", county="Leon", dataset=FL_DS, today=TODAY)
     assert not d.allowed and d.reason_code == "CONDITION_UNMET"
+    assert "technical_readme_reviewed" in d.conditions
+
+
+@pytest.mark.parametrize("op", ["store", "enrich", "display"])
+def test_florida_confirmed_approval_allows_storing_and_displaying_geometry(perms, op):
+    """The confirmed written approval (2026-10-20) covers retaining and
+    displaying simplified boundaries; those uses are not held by the Readme."""
+    for county in ("Leon", "Miami-Dade", None):         # no separate county permission needed
+        d = perms.authorize(FL, op, state="FL", county=county, dataset=FL_DS, today=TODAY)
+        assert d.allowed and d.basis == "DOCUMENTED" and d.evidence_type == "WRITTEN_PERMISSION", (op, county)
+        assert "technical_readme_reviewed" not in d.conditions
 
 
 @pytest.mark.parametrize("op", ["fetch", "parse", "store", "enrich", "display"])
@@ -189,12 +202,15 @@ def test_utah_collection_is_allowed_on_the_published_licence(perms, op):
 
 
 def test_utah_display_needs_the_full_attribution_including_a_disclaimer(tmp_path, monkeypatch, perms):
-    d = perms.authorize(UT, "display", state="UT", today=TODAY)
-    assert not d.allowed and d.reason_code == "CONDITION_UNMET"          # no disclaimer recorded yet
-    _register_with(tmp_path, monkeypatch, UT_DISCLAIMER)
+    # The register links UGRC's own disclaimer (its data license and disclaimer
+    # policy page) rather than transcribing it, so display is allowed.
+    assert A.get(UT).disclaimer_url == "https://gis.utah.gov/documentation/policy/license/"
     assert perms.authorize(UT, "display", state="UT", today=TODAY).allowed
+    _register_with(tmp_path, monkeypatch, {(UT, "disclaimer_url"): ""})
+    d = perms.authorize(UT, "display", state="UT", today=TODAY)
+    assert not d.allowed and d.reason_code == "CONDITION_UNMET"          # no disclaimer at all
     for col in ("credit", "change_notice", "metadata_url", "license_url"):
-        _register_with(tmp_path, monkeypatch, {**UT_DISCLAIMER, (UT, col): ""})
+        _register_with(tmp_path, monkeypatch, {(UT, col): ""})
         assert not perms.authorize(UT, "display", state="UT", today=TODAY).allowed, col
 
 
@@ -205,6 +221,7 @@ def test_utah_attribution_carries_ugrc_credit_and_the_cc_by_link(tmp_path, monke
     assert a.credit == "Utah Geospatial Resource Center (UGRC)"
     assert a.license_url == "https://creativecommons.org/licenses/by/4.0/"
     assert "centroid derived from the parcel polygon" in a.change_notice
+    assert "simplified" in a.change_notice and "reprojected" in a.change_notice
     assert a.metadata_url.startswith("https://") and "Parcels_SaltLake_LIR" in a.metadata_url
 
 
@@ -216,12 +233,15 @@ def test_utah_never_covers_export_other_sources_or_states(perms):
 
 
 def test_the_two_approvals_are_independent(tmp_path, monkeypatch, perms):
-    _register_with(tmp_path, monkeypatch, UT_DISCLAIMER)
-    assert perms.authorize(UT, "display", state="UT", today=TODAY).allowed
-    assert not perms.authorize(FL, "display", state="FL", dataset=FL_DS, today=TODAY).allowed
-    _register_with(tmp_path, monkeypatch, README_DONE)
-    assert perms.authorize(FL, "display", state="FL", dataset=FL_DS, today=TODAY).allowed
+    # Removing Utah's disclaimer link denies Utah display only.
+    _register_with(tmp_path, monkeypatch, {(UT, "disclaimer_url"): ""})
     assert not perms.authorize(UT, "display", state="UT", today=TODAY).allowed
+    assert perms.authorize(FL, "display", state="FL", dataset=FL_DS, today=TODAY).allowed
+    # Recording Florida's Readme opens Florida's file reads only.
+    _register_with(tmp_path, monkeypatch, README_DONE)
+    assert perms.authorize(FL, "fetch", state="FL", dataset=FL_DS, today=TODAY).allowed
+    assert perms.authorize(UT, "display", state="UT", today=TODAY).allowed
+    assert not perms.authorize(UT, "parse", state="UT", today=TODAY).allowed
 
 
 def test_the_utah_state_is_still_not_activated():
@@ -308,11 +328,13 @@ def test_simplification_keeps_a_valid_closed_ring():
         A.simplify_ring([[0, 0], [1, 0], [1, 1]], 0.1)              # not closed
 
 
-def test_no_parcel_geometry_storage_exists_on_main_yet():
-    """The approvals record permission only: no migration on main creates a
-    geometry table, so nothing is stored or served until a separate, approved
-    change adds one (PR #144 carries an unmerged design)."""
-    migrations = (REPO / "scripts" / "migrations").glob("*.sql")
-    for m in migrations:
+def test_parcel_geometry_storage_lives_in_one_unapplied_migration_only():
+    """Exactly one migration creates boundary storage (034, written for review
+    and not applied); no other migration stores parcel geometry."""
+    hits = []
+    for m in sorted((REPO / "scripts" / "migrations").glob("*.sql")):
         text = m.read_text(encoding="utf-8").lower()
-        assert "geometry(multipolygon" not in text and "parcel_boundaries" not in text, m.name
+        if "geometry(multipolygon" in text or "parcel_boundaries" in text:
+            hits.append(m.name)
+    assert hits == ["034_parcel_boundaries.sql"]
+    assert "not applied" in (REPO / "scripts/migrations/034_parcel_boundaries.sql").read_text(encoding="utf-8").lower()

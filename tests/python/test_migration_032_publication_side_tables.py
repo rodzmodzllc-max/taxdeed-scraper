@@ -81,7 +81,10 @@ def test_s04_requires_031_and_documents_order_and_rollback():
 
 def test_s05_numbering_is_next():
     names = sorted(p.name for p in MIG.glob("*.sql"))
-    assert names[-2:] == ["031_publication_state_gate.sql", "032_publication_gate_side_tables.sql"]
+    i = names.index("031_publication_state_gate.sql")
+    assert names[i + 1] == "032_publication_gate_side_tables.sql"
+    # Later migrations (034 parcel boundaries, 2026-10-20) follow 032; none sits between.
+    assert all(n > "032" for n in names[i + 2:])
 
 
 # ==================== LIVE ====================
