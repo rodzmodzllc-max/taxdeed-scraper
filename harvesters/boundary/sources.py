@@ -61,8 +61,9 @@ FL_DOR = BoundarySource(
     permission_dataset="county_parcel_geometry",
     counties=(), layer_url=None, feature_key_field="PARCELNO", feature_id_field="FID",
     record_key="parcel", id_rule="alnum", join_configured=False,
-    not_configured_reason=("JOIN_NOT_CONFIGURED: the county PIN file location is not configured; the parcel join "
-                           "(PARCELNO to PARCEL_ID) is recorded from the Readme but no file reader exists yet"),
+    not_configured_reason=("JOIN_NOT_CONFIGURED: the county PIN file reader (harvesters/boundary/shapefile.py) is "
+                           "tested on synthetic files only; the county download location and a manual run are not "
+                           "configured, so nothing reads a county file"),
 )
 
 # Florida DOR county PIN files, as the product owner copied them from the
