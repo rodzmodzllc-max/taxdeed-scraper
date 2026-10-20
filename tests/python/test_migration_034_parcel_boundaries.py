@@ -200,3 +200,15 @@ def test_l06_reapplying_034_keeps_refresh_state(scratch):
     out = scratch("select last_successful_refresh_at is not null from public.parcel_boundary_sources "
                   "where source_id = 'ut_ugrc_lir_saltlake';").strip()
     assert out == "t"
+
+
+def test_read_returns_source_freshness_from_recorded_timestamps_only():
+    # The outline credit names TAXACQ's own last successful refresh and the
+    # source's published cadence. Both come straight from the register; the
+    # read never invents a date (a NEVER refresh reads null).
+    fn = SQL[SQL.index("create or replace function public.get_property_boundary"):]
+    fn = fn[:fn.index("$$;")]
+    assert "source_last_successful_refresh_at timestamptz" in fn
+    assert "source_expected_cadence text" in fn
+    assert "s.last_successful_refresh_at, s.expected_refresh_cadence" in fn
+    assert "coalesce" not in fn.lower()

@@ -136,7 +136,9 @@ returns table (
   source_dataset text,
   source_feature_id text,
   match_method text,
-  source_observed_at timestamptz
+  source_observed_at timestamptz,
+  source_last_successful_refresh_at timestamptz,
+  source_expected_cadence text
 )
 language sql
 stable
@@ -147,7 +149,8 @@ as $$
          ST_AsGeoJSON(ST_Multi(b.geom), 7)::jsonb,
          true,
          s.credit, s.license_name, s.license_url, s.change_notice, s.disclaimer, s.disclaimer_url, s.metadata_url,
-         b.source_id, b.source_dataset, b.source_feature_id, b.match_method, b.source_observed_at
+         b.source_id, b.source_dataset, b.source_feature_id, b.match_method, b.source_observed_at,
+         s.last_successful_refresh_at, s.expected_refresh_cadence
   from public.parcel_boundaries b
   join public.parcel_boundary_sources s on s.source_id = b.source_id
   where b.property_id = p_property_id
