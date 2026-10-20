@@ -429,3 +429,13 @@ def test_unrelated_assessment_attributes_are_never_requested_with_geometry():
     assert "outFields=PARCEL_ID%2COBJECTID" in seen[0]
     for col in ("TOTAL_MKT_VALUE", "OWN", "PARCEL_ADD"):
         assert col not in seen[0]
+
+
+def test_the_owners_summaries_of_both_replies_are_recorded_as_summaries():
+    reg = A.load()
+    fl, ut = reg[FL].evidence_ref, reg[UT].evidence_ref
+    assert "no separate county-level permissions required" in fl and "mid-August and early September" in fl
+    assert "all statewide and county parcels fall under this licence" in ut and "no strict limits on caching" in ut
+    for a in reg.values():
+        assert "owner's summary of the reply" in a.evidence_ref
+        assert "not in this repository" in a.evidence_limitation.lower()     # still not the original
