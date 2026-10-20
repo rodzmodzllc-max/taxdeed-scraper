@@ -3389,3 +3389,22 @@ Full description: `docs/source-permissions.md`. Stable facts:
   `discover` permission for the source its URL belongs to, or it is refused before any connection. No source
   holds one today, so these manual jobs read nothing until the owner records them. `tests/python/conftest.py`
   uninstalls the guard after every test.
+
+## Parcel source approvals: Florida DOR + Utah UGRC (2026-10-20, no migration)
+
+Full description: `docs/parcel-source-approvals.md`. Stable facts:
+- **`data/source_approvals.csv`** (`harvesters/governance/source_approvals.py`) is the register for sources approved
+  on written / published terms: scope, exclusions, basis, evidence + what is NOT on file, permitted activities,
+  conditions, attribution, the source's EXPECTED cadence and TAXACQ's ACTUAL last successful refresh (separate
+  columns; NEVER / UNKNOWN / timestamp). Never record an email date, address or id that was not supplied.
+- **`fl_dor_pto_parcel_gis`** (parcel geometry in DOR PTO county GIS files): APPROVED_WITH_CONDITIONS on
+  WRITTEN_PERMISSION (`authorization.py` `fl_dor_pto_parcel_gis__provider__dor_pto`, the only granted record;
+  `written_permission=False`, document pending - the email is not on file). Every operation is denied until the
+  Parcel Shapefiles Readme is reviewed (condition `technical_readme_reviewed`). `fl_fdor_cadastral` and
+  `fl_dor_statewide` are unchanged.
+- **`ut_ugrc_lir_saltlake`**: CC BY 4.0 published licence, now also store + display records; display needs
+  `attribution_terms_recorded` (credit, licence link, change notice, disclaimer, metadata) - no UGRC disclaimer is
+  recorded yet, so display is denied. Utah is not activated.
+- No geometry storage exists on `main` (PR #144 is the unmerged design). `source_approvals.py` holds the rules a
+  future path must use: `apply_refresh`, `match_geometries` (exact identifier; UNMATCHED / AMBIGUOUS never
+  associated), `simplify_ring`, `plan_geometry_refresh` (failed read changes nothing; nothing deleted).
