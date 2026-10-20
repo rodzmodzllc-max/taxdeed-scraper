@@ -2110,6 +2110,12 @@ function boundaryCreditHtml(a) {
   const parts = [`<span class="pb-credit-src">Parcel outline: ${esc(a.credit)}</span>`];
   if (a.licenseUrl) parts.push(`<span class="pb-credit-lic">Licence: ${link(a.licenseUrl, a.licenseName || "licence")}</span>`);
   parts.push(`<span class="pb-credit-chg">Changes: ${esc(a.changeNotice)}</span>`);
+  // Freshness is TAXACQ's own successful refresh, shown only when recorded;
+  // the source's publication cadence is named separately, never as a date.
+  parts.push(a.lastRefreshedAt
+    ? `<span class="pb-credit-fresh">Source last refreshed by TAXACQ ${esc(dateOnly(a.lastRefreshedAt))}</span>`
+    : `<span class="pb-credit-fresh">Source last refreshed by TAXACQ: not yet recorded</span>`);
+  if (a.expectedCadence) parts.push(`<span class="pb-credit-cad">Source publishes: ${esc(a.expectedCadence)}</span>`);
   if (a.disclaimer) parts.push(`<span class="pb-credit-dis">${esc(a.disclaimer)}</span>`);
   if (a.disclaimerUrl) parts.push(`<span class="pb-credit-dis">${link(a.disclaimerUrl, "Source disclaimer")}</span>`);
   if (a.metadataUrl) parts.push(`<span class="pb-credit-meta">${link(a.metadataUrl, "Dataset metadata")}</span>`);
