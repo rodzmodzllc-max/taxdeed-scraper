@@ -6972,6 +6972,27 @@ await browser.close();
 
 
 const EXPECTED = {
+  // Parcel boundaries (2026-10-20, migration 034): fixture geometry only.
+  boundaryOk: {"host": true, "pid": "p5", "outline": true, "rings": 1, "attrib": "FIXTURE Utah Geospatial Resource Center (UGRC)", "state": null, "bboxCenter": [-82.045, 26.934], "fitted": true, "label": "Aerial image with the parcel outline of this property (FIXTURE Utah Geospatial Resource Center (UGRC))", "credit": {"text": "Parcel outline: FIXTURE Utah Geospatial Resource Center (UGRC) · Licence: CC BY 4.0 · Changes: FIXTURE: boundaries reprojected and simplified · Source disclaimer · Dataset metadata · Outline is for orientation; it is not a survey and does not show ownership or title.", "links": [["CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/", "noopener noreferrer"], ["Source disclaimer", "https://gis.utah.gov/documentation/policy/license/", "noopener noreferrer"], ["Dataset metadata", "https://example.org/fixture-metadata", "noopener noreferrer"]]}},
+  boundaryOkCalls: ["p5"],
+  boundaryOkUsgsFitted: true,
+  boundaryNone: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": null, "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null, "credit": null},
+  boundaryNotDeployed: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": null, "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null, "credit": null},
+  boundaryUnauthorized: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": null, "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null, "credit": null},
+  boundaryInvalid: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": null, "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null, "credit": null},
+  boundaryMulti: {"host": true, "pid": "p5", "outline": true, "rings": 3, "attrib": "FIXTURE Utah Geospatial Resource Center (UGRC)", "state": null, "bboxCenter": [-82.045, 26.934], "fitted": true, "label": "Aerial image with the parcel outline of this property (FIXTURE Utah Geospatial Resource Center (UGRC))", "credit": {"text": "Parcel outline: FIXTURE Utah Geospatial Resource Center (UGRC) · Licence: CC BY 4.0 · Changes: FIXTURE: boundaries reprojected and simplified · Source disclaimer · Dataset metadata · Outline is for orientation; it is not a survey and does not show ownership or title.", "links": [["CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/", "noopener noreferrer"], ["Source disclaimer", "https://gis.utah.gov/documentation/policy/license/", "noopener noreferrer"], ["Dataset metadata", "https://example.org/fixture-metadata", "noopener noreferrer"]]}},
+  boundaryError: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": "Boundary unavailable Retry", "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null, "credit": null},
+  boundaryErrorRetried: true,
+  boundaryErrorStillShown: "Boundary unavailable Retry",
+  boundaryPendingBefore: {"host": true, "outline": false},
+  boundaryPendingAfter: {"outline": true},
+  boundaryStaleSwitch: true,
+  boundaryFl: {"host": true, "pid": "p5", "outline": true, "rings": 1, "attrib": "FIXTURE Florida Department of Revenue, Property Tax Oversight", "state": null, "bboxCenter": [-82.045, 26.934], "fitted": true, "label": "Aerial image with the parcel outline of this property (FIXTURE Florida Department of Revenue, Property Tax Oversight)", "credit": {"text": "Parcel outline: FIXTURE Florida Department of Revenue, Property Tax Oversight · Changes: FIXTURE: boundaries simplified for display · Outline is for orientation; it is not a survey and does not show ownership or title.", "links": []}},
+  boundaryNoLicenceLink: {"outline": false, "credit": null},
+  boundaryListNoCalls: 0,
+  boundaryLayout_desktop: {"overlayFills": true, "attribInside": true, "outlineInside": true, "captionClearsAttrib": true, "creditBelow": true, "noPageOverflow": true},
+  boundaryLayout_tablet: {"overlayFills": true, "attribInside": true, "outlineInside": true, "captionClearsAttrib": true, "creditBelow": true, "noPageOverflow": true},
+  boundaryLayout_phone: {"overlayFills": true, "attribInside": true, "outlineInside": true, "captionClearsAttrib": true, "creditBelow": true, "noPageOverflow": true},
   zeroOfferedNoInventory: { eligibility: 'OFFERED', zeroCase: 'NO_CURRENT_INVENTORY', tracked: '1', count: '0 instruments', whyLabel: 'No current inventory.', read: 'Last complete read N ago · 1 source read', saysExists: true, links: ['State rules and sources →', 'Official reference →'] },
   zeroNoneWhenRows: { zeroCase: '', eligibility: 'OFFERED', whyLabel: null, countEndsWith: 'instrument' },
   zeroLoadFailure: { zeroCase: 'SOURCE_FAILURE', eligibility: 'OFFERED', count: 'Count unavailable - load failed', whyLabel: 'Source read failed or incomplete.', lastKnown: true, bareZero: false },
