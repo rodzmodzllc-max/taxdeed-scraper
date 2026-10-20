@@ -345,6 +345,21 @@ def _cond_attribution_text_recorded(rec: PermissionRecord) -> bool:
     return bool(rec.attribution.strip())
 
 
+def _approval(rec: PermissionRecord):
+    from . import source_approvals  # noqa: PLC0415 - read lazily; an invalid register yields None
+    return source_approvals.get(rec.source_id)
+
+
+def _cond_technical_readme_reviewed(rec: PermissionRecord) -> bool:
+    a = _approval(rec)
+    return bool(a and a.readme_reviewed)
+
+
+def _cond_attribution_terms_recorded(rec: PermissionRecord) -> bool:
+    a = _approval(rec)
+    return bool(a and a.attribution_complete)
+
+
 CONDITION_CHECKERS: dict[str, Callable[[PermissionRecord], bool]] = {
     # The source is not in the paid tier (data/paid_beta_sources.csv).
     "excluded_from_paid_tier": _cond_excluded_from_paid_tier,
@@ -352,6 +367,12 @@ CONDITION_CHECKERS: dict[str, Callable[[PermissionRecord], bool]] = {
     "dated_list_only": _cond_dated_list_only,
     # The attribution text the licence requires is recorded on the permission.
     "attribution_text_recorded": _cond_attribution_text_recorded,
+    # data/source_approvals.csv records the source's technical Readme as read,
+    # with the document's own caveats (2026-10-20, Florida DOR parcel files).
+    "technical_readme_reviewed": _cond_technical_readme_reviewed,
+    # data/source_approvals.csv records credit, licence link, change notice,
+    # disclaimer and metadata for the source (2026-10-20, UGRC CC BY 4.0).
+    "attribution_terms_recorded": _cond_attribution_terms_recorded,
 }
 
 

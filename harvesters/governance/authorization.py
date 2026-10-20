@@ -1032,11 +1032,102 @@ _REALAUCTION_VOLUSIA = ProviderAuthorization(
 )
 
 
+# Florida DOR Property Tax Oversight - parcel geometry (2026-10-20). The first
+# GRANTED record: a written response from DOR, relayed by the product owner.
+# The original email is NOT on file in this repository, so the document stays
+# pending (is_pending=True, no location) and `written_permission` stays False
+# - this record never claims a document it cannot point to. The grant covers
+# parcel GEOMETRY in the eligible DOR-published county GIS files only; export /
+# API redistribution was not stated and is not authorized here. Every use is
+# still gated by data/source_permissions.csv, whose records also require the
+# technical Readme to be reviewed first (technical_readme_reviewed).
+_DOR_PTO_PARCEL_GIS = ProviderAuthorization(
+    authorization_id="fl_dor_pto_parcel_gis__provider__dor_pto",
+    source_id="fl_dor_pto_parcel_gis",
+    provider="Florida Department of Revenue, Property Tax Oversight",
+    government_entity="Florida Department of Revenue, Property Tax Oversight (statewide publisher of county GIS parcel files)",
+    state="FL",
+    county=None,  # the response states no separate county-level permissions are required
+    deployment_scope="provider",
+    requested_by="Product owner",
+    request_date=None,
+    contact_name="Tom Canter, Systems Project Consultant",
+    contact_email=None,  # not supplied; never invented
+    request_status=AuthorizationStatus.RECEIVED,
+    authorization_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS,
+    document=AuthorizationDocument(
+        document_name="Written response from Florida DOR Property Tax Oversight (email)",
+        document_location=None,
+        document_hash=None,
+        effective_date="2026-10-20",
+        expiration_date=None,
+        reviewer="Product owner",
+        review_date="2026-10-20",
+        scope_summary=(
+            "Relayed by the product owner on 2026-10-20; the original email is not in this repository and its "
+            "received date was not supplied. As relayed: TAXACQ may retain simplified parcel-boundary geometry "
+            "derived from eligible DOR-published county GIS files, display those boundaries over aerial imagery "
+            "in a commercial research application, and use the data without separate county-level permissions; "
+            "DOR places no restrictions on the data; both linked dataset sources are refreshed annually from "
+            "mid-August to early September; attribution, disclaimers and other display restrictions are at "
+            "TAXACQ's discretion."
+        ),
+        is_pending=True,
+    ),
+    agreement_url="https://floridarevenue.com/property/Pages/DataPortal_RequestAssessmentRollGISData.aspx",
+    agreement_version=None,
+    agreement_date=None,
+    effective_date="2026-10-20",
+    expiration_date=None,
+    review_due_date="2027-10-20",
+    scope=AuthorizationScope(
+        automated_access=UsePermission(requested=True, authorized=True),
+        commercial_use=UsePermission(requested=True, authorized=True),
+        storage=UsePermission(requested=True, authorized=True),
+        normalization=UsePermission(requested=True, authorized=True),
+        derived_data=UsePermission(requested=True, authorized=True),
+        customer_display=UsePermission(requested=True, authorized=True),
+        image_display=UsePermission(requested=True, authorized=True),
+    ),
+    attribution_required=False,
+    rate_limit=None,
+    retention_requirement="None stated; retention of simplified boundary geometry is expressly permitted.",
+    privacy_restrictions="Not covered: owner names and other tax-roll personal fields are outside this geometry approval.",
+    technical_restrictions=(
+        "Parcel Shapefiles Readme (PIN/PAR variants, PARCELNO to PARCEL_ID joins, condominium units, stacked and "
+        "multi-parcel polygons, unmatched geometries) must be reviewed before ingestion - a technical caveat, not "
+        "a permission restriction."
+    ),
+    written_permission=False,
+    reviewed_by="Product owner",
+    reviewed_at="2026-10-20",
+    notes=(
+        "Scope: parcel-boundary geometry in DOR Property Tax Oversight county GIS files and the current-year "
+        "statewide parcels linked from Florida GeoData. Not: other DOR datasets, tax-sale or auction data, "
+        "third-party data, or the existing fl_fdor_cadastral / fl_dor_statewide records (unchanged). See "
+        "data/source_approvals.csv and docs/parcel-source-approvals.md."
+    ),
+    last_terms_check="2026-10-20",
+    audit_log=(
+        AuditLogEntry(
+            event="approved",
+            who="Product owner",
+            when="2026-10-20",
+            old_status=None,
+            new_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS.value,
+            reason="Written response from Florida DOR Property Tax Oversight, relayed by the product owner.",
+            document_reference=None,
+        ),
+    ),
+)
+
+
 PROVIDER_AUTHORIZATIONS: dict[str, ProviderAuthorization] = {
     r.authorization_id: r
     for r in (
         _LIENHUB_GRANT_STREET,
         _REALAUCTION_ALACHUA,
         _REALAUCTION_VOLUSIA,
+        _DOR_PTO_PARCEL_GIS,
     )
 }

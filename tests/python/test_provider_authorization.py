@@ -360,14 +360,30 @@ def test_real_realauction_records_are_county_scoped_not_provider_wide():
         assert record.document.document_location is None
 
 
+# The only granted records, each backed by an owner-relayed written response
+# and an "approved" audit entry (2026-10-20). Adding one is a deliberate,
+# reviewed change to this set - never a side effect.
+GRANTED_RECORDS = frozenset({"fl_dor_pto_parcel_gis__provider__dor_pto"})
+
+
 def test_no_authorization_record_claims_written_permission():
     # Global guarantee across every record currently in the registry, not
-    # just the two named ones - Phase 34A Step 9/24: this phase never
-    # represents that authorization has been obtained.
+    # just the two named ones - Phase 34A Step 9/24: no record represents a
+    # written document that is not on file. Since 2026-10-20 exactly the
+    # GRANTED_RECORDS carry authorized uses; every other record still grants
+    # nothing.
+    granted = {r.authorization_id for r in PROVIDER_AUTHORIZATIONS.values()
+               if r.authorization_status in AUTHORIZATION_GRANTED_STATUSES}
+    assert granted == GRANTED_RECORDS
+    for rid in GRANTED_RECORDS:
+        record = PROVIDER_AUTHORIZATIONS[rid]
+        assert any(e.event == "approved" for e in record.audit_log), rid
     for record in PROVIDER_AUTHORIZATIONS.values():
         assert record.written_permission is False, record.authorization_id
         assert record.document.is_pending is True, record.authorization_id
         assert record.document.document_location is None, record.authorization_id
+        if record.authorization_id in GRANTED_RECORDS:
+            continue
         for dim in (
             "automated_access", "commercial_use", "storage", "historical_storage", "normalization",
             "derived_data", "customer_display", "customer_export", "api_access", "api_redistribution",
