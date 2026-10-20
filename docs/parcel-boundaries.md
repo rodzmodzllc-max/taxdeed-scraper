@@ -44,25 +44,32 @@ Keep the originals somewhere private and durable, and reference them here by has
 | redistribute / export, fetch_via_proxy | No record, so denied | No record, so denied |
 | Any other dataset key | No record, so denied | n/a |
 
-### Florida: why file reads still wait
+### Florida: the DOR county shapefile reader (2026-10-20)
 
-The approval itself is not in doubt. What the code cannot yet do correctly is join a county file's polygons to our records. That join depends on the Parcel Shapefiles Readme, which is to be confirmed from the document itself and covers:
-- which file variant to read (PIN or PAR);
-- which field carries the parcel number;
-- how PARCELNO lines up with the tax roll's PARCEL_ID;
-- identifier formatting;
-- how condominium units are handled.
+The product owner reviewed the Parcel Shapefiles Readme on 2026-10-20. The document itself is still not reachable from this environment (floridarevenue.com is refused by the network policy, and nothing was routed around that). The register records the review date and the caveats as the owner's review, each with how the code handles it (`technical_caveats`). That record satisfies `technical_readme_reviewed`, so `parse` and `fetch` are allowed for `county_parcel_geometry` only.
 
-The Readme
-(https://floridarevenue.com/property/dataportal/Documents/PTO%20Data%20Portal/Map%20Data/Parcel%20Shapefiles%20Readme.pdf) could not be retrieved: floridarevenue.com is refused by this environment's network policy (proxy 403), and the fetch tool gets no DNS resolution. Nothing was routed around that.
+**Reading a county file** (`harvesters/boundary/fl_dor.py`, `shapefile.py`, `projection.py`; standard library only):
 
-So:
-- `FL_DOR` in `harvesters/boundary/sources.py` has no join configured and no file location, and refuses with `JOIN_NOT_CONFIGURED` before any request.
-- The register keeps the caveats as NOT YET READ.
-- To unblock it:
-  1. Read the Readme and transcribe its caveats into `technical_caveats`, with `technical_readme_reviewed_on`.
-  2. Set the join fields from the document.
-  3. Add a county-file reader.
+| README caveat | Handling |
+|---|---|
+| PIN files hold the boundaries; PAR files add assessment attributes | `--variant PIN` is the default. A PAR file is refused unless `--allow-par-geometry`, and even then only its geometry is read. Only `PARCELNO` is decoded, plus `CO_NO` when present, which must equal the county's DOR number. Every other DBF column is skipped unread |
+| PARCELNO joins to the NAL PARCEL_ID | Our key is the **validated** NAL PARCEL_ID: the `matched_parcel_id` recorded in `field_provenance` (source `fdor_nal`) when the record matched the tax-roll layer exactly. A record with none, or with two different ones, is not joined. Matching is exact string equality, with no reformatting |
+| Identifier formatting (CSV loses leading zeros) | PARCELNO is read from the DBF. It must be a character (C) field, otherwise the file is refused. Only the DBF's right-padding is removed, so leading zeros, inner spaces, dashes, dots and case are kept |
+| Format validation | Before any match is used, `format_check` requires the file's identifier shapes (value-free) to include the shapes of the county's validated ids. Otherwise the county is recorded `JOIN_NOT_VALIDATED` and nothing is written |
+| Redacted NAL records | Only geometry and PARCELNO are read, never owner or address. A polygon with a blank PARCELNO is counted (`NO_PARCELNO`) and not attached |
+| Rights-of-way | Polygons without a PARCELNO are not attached, and records with DOR use code `94` are never attached (`RIGHT_OF_WAY`) |
+| Multi-parcel polygons | One geometry under several PARCELNOs goes to none of them (`MULTI_PARCEL_GEOMETRY`) |
+| Stacked / phantom polygons | Several features with one PARCELNO, or two records claiming one feature, are `AMBIGUOUS`. Invalid, zero-area or unclosed rings and orphan holes are refused |
+| Condominiums; Miami-Dade and St. Johns keep them in separate files | Units (DOR use code `04`) are never attached to the parcel polygon (`CONDO_UNIT`, or `CONDO_UNIT_SEPARATE_FILE` in those two counties). A file whose name says condo is refused (`CONDOMINIUM_FILE_NOT_INGESTED`) |
+| Coordinate system | Read from the file's own `.prj`. Supported: geographic, Albers, Lambert conformal conic (2 parallels) and transverse Mercator, on NAD83 / WGS84 in meters or feet. The test suite cross-checks them against PROJ. NAD27 or anything else refuses the file. NAD83 is treated as WGS84 (under about 2 m); the change notice says so |
+
+**Refresh** (`scripts/parcel_boundary_refresh.py --source fl_dor_pto_parcel_gis --county <County> --files <zip or .shp> [--dry-run | --apply --confirm-apply]`):
+- Files are ones a person downloaded from DOR's portal. No download URL is configured or guessed.
+- One county per run. The county is recorded in `parcel_boundary_refresh_units` with the dataset name and the DBF's own last-update date.
+- Only a COMPLETE read with a validated format writes, and only it advances that county's last successful refresh. A FAILED, REFUSED or JOIN_NOT_VALIDATED read writes nothing and deletes nothing.
+- A county read never counts as a statewide refresh: the source row's `last_successful_refresh_at` stays NULL for Florida.
+
+**Coverage today** (production, read-only, 2026-10-20): 378 active Florida rows (of roughly 2,990) carry a validated NAL PARCEL_ID, across 26 counties. The other rows are reported `NO_VALIDATED_NAL_ID` and are never joined by reformatting their listing parcel number. More rows become joinable as the existing tax-roll enrichment matches them.
 
 ## How a boundary is matched and stored
 
@@ -94,6 +101,8 @@ So:
 - RLS: an approved account reads a boundary only for a property it may read (so 031's publication gate applies) and only while the source's display grant holds. Clients cannot write.
 - `get_property_boundary(uuid)`: the customer read (invoker rights), returning the geometry plus the full attribution.
 - `upsert_parcel_boundaries()` / `record_parcel_boundary_refresh()`: service_role only, and neither deletes anything. Invalid geometry, another source's row and an already-attached feature are counted and skipped. Only COMPLETE advances `last_successful_refresh_at`.
+- `parcel_boundary_refresh_units`: per-county refresh state (dataset, dataset date, last attempt, last success) for a source delivered per county.
+- `parcel_boundaries.source_dataset_date`: the dataset's own date where it states one.
 - Number: 033 is held by the billing refund / dispute PR, so this is 034.
 
 **The writer** (`scripts/parcel_boundary_refresh.py`) is not wired into any workflow:
@@ -125,7 +134,7 @@ Florida shows credit and changes only. The response leaves attribution and discl
 
 1. Apply migration 034.
 2. Utah: activate the state, or extend `UT_UGRC.counties` to an activated state's records. Then run `--dry-run`, and `--apply --confirm-apply` once approved.
-3. Florida: review the Readme, then configure the join and the county-file reader (a code change).
+3. Florida: download the county PIN shapefiles from DOR's portal and run the refresh per county (`--dry-run` first).
 4. Decide whether to wire the writer into a workflow, and on what schedule.
 
 PR #144 (`feat/parcel-boundary-storage`) carried an earlier, unmerged design for the same storage. This change supersedes its permission matrix with the approval register and renumbers its migration. Its bigint `property_id` is corrected to `uuid`, which is what `properties.id` actually is.

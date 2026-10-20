@@ -87,19 +87,21 @@ def test_expected_cadence_is_not_an_actual_refresh():
         assert a.last_successful_refresh == "NEVER"          # no ingestion path has run for either
 
 
-def test_readme_is_recorded_as_not_read():
+def test_readme_review_is_recorded_with_its_caveats():
+    """The owner reviewed the Readme on 2026-10-20 (the document is not
+    reachable from this environment); the caveats and their handling are
+    recorded as the owner's review."""
     fl = A.load()[FL]
     assert fl.technical_readme_url.endswith("Parcel%20Shapefiles%20Readme.pdf")
-    assert fl.technical_readme_reviewed_on == "" and fl.technical_caveats.startswith(A.NOT_YET_READ)
-    assert not fl.readme_reviewed
-    for topic in ("PIN/PAR", "PARCELNO to PARCEL_ID", "condominium", "stacked polygons", "unmatched geometries"):
+    assert fl.technical_readme_reviewed_on == "2026-10-20" and fl.readme_reviewed
+    assert fl.technical_caveats.startswith("Reviewed by the product owner on 2026-10-20")
+    for topic in ("PIN files", "PAR", "PARCELNO joins to the NAL PARCEL_ID", "condominium", "Stacked", "Multi-parcel"):
         assert topic in fl.technical_caveats
-    assert "not permission restrictions" in fl.technical_caveats
 
 
 @pytest.mark.parametrize("col,val,expect", [
     ("last_successful_refresh", "Annual, mid-August", "last_successful_refresh"),
-    ("technical_readme_reviewed_on", "2026-10-21", "caveats were not recorded"),
+    ("technical_caveats", "NOT YET READ: placeholder", "caveats were not recorded"),
     ("evidence_received_on", "October", "not an ISO date"),
     ("status", "APPROVED_GRANDFATHERED", "status"),
     ("license_url", "http://creativecommons.org/licenses/by/4.0/", "https licence_url"),
@@ -124,12 +126,16 @@ def test_an_invalid_register_fails_the_conditions_closed(tmp_path, monkeypatch, 
 # --- Florida DOR: permission gate --------------------------------------------
 
 @pytest.mark.parametrize("op", ["fetch", "parse"])
-def test_florida_file_reads_wait_for_the_readme_review(perms, op):
+def test_florida_file_reads_wait_for_the_readme_review(tmp_path, monkeypatch, perms, op):
     """Fetching / parsing the county files needs the Readme (the identifier
-    join comes from it) - a technical prerequisite, recorded as a condition."""
+    join comes from it) - a technical prerequisite, recorded as a condition.
+    It is recorded now; without it the reads are denied again."""
+    d = perms.authorize(FL, op, state="FL", county="Leon", dataset=FL_DS, today=TODAY)
+    assert d.allowed and "technical_readme_reviewed" in d.conditions
+    _register_with(tmp_path, monkeypatch, {(FL, "technical_readme_reviewed_on"): "",
+                                           (FL, "technical_caveats"): "NOT YET READ: test"})
     d = perms.authorize(FL, op, state="FL", county="Leon", dataset=FL_DS, today=TODAY)
     assert not d.allowed and d.reason_code == "CONDITION_UNMET"
-    assert "technical_readme_reviewed" in d.conditions
 
 
 @pytest.mark.parametrize("op", ["store", "enrich", "display"])

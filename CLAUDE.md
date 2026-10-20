@@ -3420,9 +3420,12 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   covers and which datasets are MAPPED to a source id.
   - `fl_statewide_cadastral_fgio` / `fl_fdor_cadastral` is NOT the covered dataset and is not approved for geometry.
   - `Parcels_Utah_LIR` is Utah County, not statewide.
-- **Florida:** store, enrich and display are allowed. fetch and parse wait for `technical_readme_reviewed`, and the
-  source refuses with `JOIN_NOT_CONFIGURED` until the Parcel Shapefiles Readme is read (unreachable from the sandbox)
-  and its join is configured. Never guess the PARCELNO / PARCEL_ID join or the condominium handling.
+- **Florida:** README reviewed by the owner 2026-10-20 (`technical_caveats`); the reader is
+  `harvesters/boundary/fl_dor.py` (+ stdlib `shapefile.py` / `projection.py`) over LOCAL county PIN files:
+  PARCELNO read as DBF text only, matched EXACTLY to the record's validated NAL PARCEL_ID
+  (`field_provenance` `fdor_nal` `matched_parcel_id`) - never a reformatted listing parcel; `format_check` must pass;
+  DOR use code 04 (condo) / 94 (right-of-way) never attached; condo files (Miami-Dade, St. Johns) refused; per-county
+  refresh in `parcel_boundary_refresh_units`.
 - **Utah:** display is allowed; the disclaimer is linked to UGRC's license and disclaimer policy page.
 - **Migration 034** (033 is held by the billing PR):
   - `parcel_boundary_sources`: display grant, attribution, expected cadence vs `last_successful_refresh_at`.

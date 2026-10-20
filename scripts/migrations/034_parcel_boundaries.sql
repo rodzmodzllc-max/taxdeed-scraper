@@ -16,6 +16,8 @@
 --   properties.updated_at and the polygon never rides in the list payload.
 -- * get_property_boundary(): the customer read. Invoker rights, so the
 --   caller's RLS on properties (approval + publication gate) applies.
+-- * parcel_boundary_refresh_units: per-county refresh state for a source
+--   delivered per county (Florida DOR), with the dataset and its own date.
 -- * upsert_parcel_boundaries() / record_parcel_boundary_refresh(): the
 --   writer's only paths (service_role). Neither deletes anything: a failed
 --   or partial read changes nothing, and a parcel missing from a read keeps
@@ -55,7 +57,7 @@ values
   ('fl_dor_pto_parcel_gis', 'FL', 'Florida Department of Revenue, Property Tax Oversight',
    'DOR PTO Data Portal county GIS parcel files', true,
    'Florida Department of Revenue, Property Tax Oversight', '', '',
-   'Boundaries reprojected to WGS84 and simplified by TAXACQ for display (Douglas-Peucker, about 0.5 m); matched to records by exact parcel identifier only',
+   'Boundaries reprojected from the file''s own coordinate system to WGS84 (NAD83 treated as WGS84, under about 2 m) and simplified by TAXACQ for display (Douglas-Peucker, about 0.5 m); matched to records by exact parcel identifier only',
    '', '', '',
    'Annual, published about mid-August to early September', date '2026-10-20'),
   ('ut_ugrc_lir_saltlake', 'UT', 'Utah Geospatial Resource Center (UGRC)', 'Parcels_SaltLake_LIR', true,
@@ -82,6 +84,9 @@ create table if not exists public.parcel_boundaries (
   source_id              text not null references public.parcel_boundary_sources(source_id),
   source_dataset         text not null check (btrim(source_dataset) <> ''),
   source_feature_id      text not null check (btrim(source_feature_id) <> ''),
+  -- The dataset's own date where it states one (e.g. the DBF header's
+  -- last-update date of a county parcel shapefile); NULL when it does not.
+  source_dataset_date    date,
   geom                   geometry(MultiPolygon, 4326) not null,
   match_method           text not null check (match_method in ('EXACT_PARCEL_ID')),
   simplify_tolerance_deg double precision not null check (simplify_tolerance_deg >= 0 and simplify_tolerance_deg <= 0.0001),
@@ -135,6 +140,7 @@ returns table (
   source_id text,
   source_dataset text,
   source_feature_id text,
+  source_dataset_date date,
   match_method text,
   source_observed_at timestamptz
 )
@@ -147,7 +153,7 @@ as $$
          ST_AsGeoJSON(ST_Multi(b.geom), 7)::jsonb,
          true,
          s.credit, s.license_name, s.license_url, s.change_notice, s.disclaimer, s.disclaimer_url, s.metadata_url,
-         b.source_id, b.source_dataset, b.source_feature_id, b.match_method, b.source_observed_at
+         b.source_id, b.source_dataset, b.source_feature_id, b.source_dataset_date, b.match_method, b.source_observed_at
   from public.parcel_boundaries b
   join public.parcel_boundary_sources s on s.source_id = b.source_id
   where b.property_id = p_property_id
@@ -204,15 +210,17 @@ begin
     end if;
     begin
       insert into public.parcel_boundaries as b
-        (property_id, state, county, parcel, source_id, source_dataset, source_feature_id, geom, match_method,
-         simplify_tolerance_deg, source_observed_at, content_sha256)
+        (property_id, state, county, parcel, source_id, source_dataset, source_feature_id, source_dataset_date,
+         geom, match_method, simplify_tolerance_deg, source_observed_at, content_sha256)
       values ((r->>'property_id')::uuid, r->>'state', r->>'county', r->>'parcel', p_source_id,
-              r->>'source_dataset', r->>'source_feature_id', g, coalesce(r->>'match_method', 'EXACT_PARCEL_ID'),
+              r->>'source_dataset', r->>'source_feature_id', nullif(r->>'source_dataset_date', '')::date,
+              g, coalesce(r->>'match_method', 'EXACT_PARCEL_ID'),
               (r->>'simplify_tolerance_deg')::double precision, (r->>'source_observed_at')::timestamptz,
               r->>'content_sha256')
       on conflict (property_id) do update
         set state = excluded.state, county = excluded.county, parcel = excluded.parcel,
             source_dataset = excluded.source_dataset, source_feature_id = excluded.source_feature_id,
+            source_dataset_date = excluded.source_dataset_date,
             geom = excluded.geom, match_method = excluded.match_method,
             simplify_tolerance_deg = excluded.simplify_tolerance_deg,
             source_observed_at = excluded.source_observed_at, checked_at = now(),
@@ -234,34 +242,73 @@ $$;
 revoke all on function public.upsert_parcel_boundaries(text, jsonb) from public, anon, authenticated;
 grant execute on function public.upsert_parcel_boundaries(text, jsonb) to service_role;
 
--- Refresh bookkeeping. Only a COMPLETE read advances the last successful
+-- Refresh bookkeeping. Only a COMPLETE read advances a last successful
 -- refresh; every other status counts a failure and leaves it alone. The
 -- expected cadence is never written here.
-create or replace function public.record_parcel_boundary_refresh(p_source_id text, p_status text, p_at timestamptz)
+--
+-- A source read as a whole (Utah's layer) is tracked on its
+-- parcel_boundary_sources row. A source delivered per county (Florida DOR's
+-- county shapefiles) is tracked per unit in parcel_boundary_refresh_units,
+-- with the dataset name and the dataset's own date: one county's complete
+-- read never stands in for a statewide refresh.
+create table if not exists public.parcel_boundary_refresh_units (
+  source_id                  text not null references public.parcel_boundary_sources(source_id),
+  unit                       text not null check (btrim(unit) <> ''),
+  dataset                    text,
+  dataset_date               date,
+  last_attempt_at            timestamptz,
+  last_attempt_status        text,
+  last_successful_refresh_at timestamptz,
+  consecutive_failures       integer not null default 0,
+  primary key (source_id, unit)
+);
+alter table public.parcel_boundary_refresh_units enable row level security;
+revoke all on public.parcel_boundary_refresh_units from anon, authenticated;
+grant select on public.parcel_boundary_refresh_units to service_role;
+
+create or replace function public.record_parcel_boundary_refresh(p_source_id text, p_status text, p_at timestamptz,
+                                                                 p_unit text default null, p_dataset text default null,
+                                                                 p_dataset_date date default null)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  ok boolean := upper(coalesce(p_status, '')) = 'COMPLETE';
 begin
-  update public.parcel_boundary_sources
-     set last_attempt_at = p_at,
-         last_attempt_status = upper(coalesce(p_status, 'UNKNOWN')),
-         last_successful_refresh_at = case when upper(coalesce(p_status, '')) = 'COMPLETE' then p_at
-                                           else last_successful_refresh_at end,
-         consecutive_failures = case when upper(coalesce(p_status, '')) = 'COMPLETE' then 0
-                                     else consecutive_failures + 1 end
-   where source_id = p_source_id;
-  if not found then
+  if not exists (select 1 from public.parcel_boundary_sources where source_id = p_source_id) then
     raise exception 'unknown parcel boundary source %', p_source_id;
   end if;
+  if p_unit is null then
+    update public.parcel_boundary_sources
+       set last_attempt_at = p_at,
+           last_attempt_status = upper(coalesce(p_status, 'UNKNOWN')),
+           last_successful_refresh_at = case when ok then p_at else last_successful_refresh_at end,
+           consecutive_failures = case when ok then 0 else consecutive_failures + 1 end
+     where source_id = p_source_id;
+    return;
+  end if;
+  insert into public.parcel_boundary_refresh_units as u
+    (source_id, unit, dataset, dataset_date, last_attempt_at, last_attempt_status, last_successful_refresh_at,
+     consecutive_failures)
+  values (p_source_id, p_unit, case when ok then p_dataset end, case when ok then p_dataset_date end, p_at,
+          upper(coalesce(p_status, 'UNKNOWN')), case when ok then p_at end, case when ok then 0 else 1 end)
+  on conflict (source_id, unit) do update
+    set last_attempt_at = excluded.last_attempt_at,
+        last_attempt_status = excluded.last_attempt_status,
+        dataset = case when ok then excluded.dataset else u.dataset end,
+        dataset_date = case when ok then excluded.dataset_date else u.dataset_date end,
+        last_successful_refresh_at = case when ok then excluded.last_attempt_at else u.last_successful_refresh_at end,
+        consecutive_failures = case when ok then 0 else u.consecutive_failures + 1 end;
 end;
 $$;
-revoke all on function public.record_parcel_boundary_refresh(text, text, timestamptz) from public, anon, authenticated;
-grant execute on function public.record_parcel_boundary_refresh(text, text, timestamptz) to service_role;
+revoke all on function public.record_parcel_boundary_refresh(text, text, timestamptz, text, text, date) from public, anon, authenticated;
+grant execute on function public.record_parcel_boundary_refresh(text, text, timestamptz, text, text, date) to service_role;
 
 -- DOWN (manual, reversible):
---   drop function if exists public.record_parcel_boundary_refresh(text, text, timestamptz);
+--   drop function if exists public.record_parcel_boundary_refresh(text, text, timestamptz, text, text, date);
+--   drop table if exists public.parcel_boundary_refresh_units;
 --   drop function if exists public.upsert_parcel_boundaries(text, jsonb);
 --   drop function if exists public.get_property_boundary(uuid);
 --   drop table if exists public.parcel_boundaries;

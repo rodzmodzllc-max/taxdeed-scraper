@@ -89,8 +89,7 @@ def test_evidence_records_only_what_was_supplied():
         assert a.evidence_received_on == ""             # never supplied, never invented
         assert "Implement Confirmed Florida DOR and Utah UGRC Parcel Approvals" in a.evidence_ref
         assert "@" not in a.evidence_ref + a.evidence_sender   # no address recorded
-    assert A.load()[FL].technical_caveats.startswith(A.NOT_YET_READ)
-    assert not A.load()[FL].readme_reviewed
+    assert A.load()[FL].readme_reviewed and A.load()[FL].technical_readme_reviewed_on == "2026-10-20"
 
 
 # --- permission gates ----------------------------------------------------------
@@ -101,11 +100,11 @@ def test_utah_is_runnable_and_displayable():
                  "display_reason": "ALLOWED_DOCUMENTED"}
 
 
-def test_florida_display_is_allowed_but_no_file_is_read_until_the_readme_join_exists():
+def test_florida_reads_local_dor_files_once_the_readme_is_recorded():
     r = S.readiness(S.FL_DOR, today=TODAY)
-    assert not r["runnable"] and r["display_allowed"]
-    assert "FETCH_CONDITION_UNMET" in r["reasons"] and "JOIN_NOT_CONFIGURED" in r["reasons"]
-    assert S.FL_DOR.feature_key_field is None and S.FL_DOR.layer_url is None
+    assert r["runnable"] and r["display_allowed"]
+    assert S.FL_DOR.location == "files" and S.FL_DOR.layer_url is None      # no download URL is guessed
+    assert S.FL_DOR.feature_key_field == "PARCELNO" and S.FL_DOR.id_rule == "exact"
 
 
 @pytest.mark.parametrize("source_id,state,dataset", [
@@ -269,7 +268,7 @@ class FakeDb:
     def migration_applied(self):
         return self.applied
 
-    def properties(self, src):
+    def properties(self, src, county=None):
         return list(self.records)
 
     def stored(self, ids):
@@ -286,14 +285,16 @@ class FakeDb:
 def test_readiness_report_makes_no_request_and_prints_no_identifier(capsys):
     assert R.main([]) == 0
     out = capsys.readouterr().out
-    assert "READY     ut_ugrc_lir_saltlake" in out and "NOT READY fl_dor_pto_parcel_gis" in out
+    assert "READY     ut_ugrc_lir_saltlake" in out and "READY     fl_dor_pto_parcel_gis" in out
     assert "requests: 0; writes: 0" in out
 
 
 def test_florida_refuses_before_any_request_or_database_read():
     db, reads = FakeDb(), []
+    # Florida is read from local county files; without a county and a file
+    # nothing is read and nothing is written (no download URL is guessed).
     rc = R.run(FL, apply=True, db=db, read=lambda *a: reads.append(a) or ("COMPLETE", []), out=lambda m: None, today=TODAY)
-    assert rc == 3 and reads == [] and db.upserts == [] and db.refreshes == []
+    assert rc == 2 and reads == [] and db.upserts == [] and db.refreshes == []
 
 
 def test_without_migration_034_nothing_is_read_or_written():
@@ -372,7 +373,8 @@ def test_refresh_bookkeeping_only_advances_on_a_complete_read():
     s2 = A.apply_refresh(s1, status="COMPLETE", at="2026-10-22T00:00:00Z")
     assert s2.last_successful_refresh == "2026-10-22T00:00:00Z" and s2.expected_cadence == "Generally monthly"
     # The SQL bookkeeping follows the same rule.
-    assert "when upper(coalesce(p_status, '')) = 'COMPLETE' then p_at" in M034
+    assert "ok boolean := upper(coalesce(p_status, '')) = 'COMPLETE';" in M034
+    assert "last_successful_refresh_at = case when ok then p_at else last_successful_refresh_at end" in M034
 
 
 # --- attribution on every customer-facing surface ---------------------------------
@@ -387,7 +389,7 @@ def test_migration_seed_matches_the_approval_register():
         cols += ["license_name", "license_url"] if a.basis == "PUBLISHED_LICENSE" else []
         for col in cols:
             if attr[col]:
-                assert f"'{attr[col]}'" in M034, (sid, col)
+                assert "'" + attr[col].replace("'", "''") + "'" in M034, (sid, col)
         assert a.expected_refresh_cadence.split(" (")[0] in M034
 
 
