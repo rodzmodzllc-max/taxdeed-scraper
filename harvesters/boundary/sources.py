@@ -65,6 +65,22 @@ FL_DOR = BoundarySource(
                            "(PARCELNO to PARCEL_ID) is recorded from the Readme but no file reader exists yet"),
 )
 
+# Florida DOR county PIN files, as the product owner copied them from the
+# portal (2026-10-20). Broward is the ONLY county recorded here: no other county
+# link is assumed from this pattern. The folder is 2025F, so this is a 2025 file,
+# not "current year"; the reader must check the year it reads. Nothing reads these
+# files yet: FL_DOR stays join_configured=False until a reader exists and is tested.
+FL_DOR_PIN_FILES = {
+    "Broward": {
+        "url": ("https://floridarevenue.com/property/dataportal/Documents/PTO%20Data%20Portal/"
+                "Map%20Data/2025F/2025F%20PIN/broward_2025pin.zip"),
+        "tax_year": 2025,
+        "variant": "PIN",
+        "copied_on": "2026-10-20",
+        "copied_by": "product owner (from the DOR PTO Data Portal, Map Data / 2025F / 2025F PIN)",
+    },
+}
+
 UT_UGRC = BoundarySource(
     source_id=UT_UGRC_LIR.source_id, state="UT",
     provider="Utah Geospatial Resource Center (UGRC)",

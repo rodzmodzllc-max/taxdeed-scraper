@@ -443,3 +443,18 @@ def test_the_owners_summaries_of_both_replies_are_recorded_as_summaries():
     for a in reg.values():
         assert "owner's summary of the reply" in a.evidence_ref
         assert "not in this repository" in a.evidence_limitation.lower()     # still not the original
+
+
+def test_florida_pin_file_location_is_recorded_for_broward_only_and_nothing_reads_it():
+    # The owner copied this exact link from the portal (2026-10-20). No other
+    # county is assumed from its pattern, and the source stays off until a
+    # reader exists and is tested.
+    files = S.FL_DOR_PIN_FILES
+    assert set(files) == {"Broward"}
+    b = files["Broward"]
+    assert b["url"] == ("https://floridarevenue.com/property/dataportal/Documents/PTO%20Data%20Portal/"
+                        "Map%20Data/2025F/2025F%20PIN/broward_2025pin.zip")
+    assert b["variant"] == "PIN" and b["tax_year"] == 2025 and b["copied_on"] == "2026-10-20"
+    assert S.FL_DOR.join_configured is False
+    r = S.readiness(S.FL_DOR, today=TODAY)
+    assert not r["runnable"] and "JOIN_NOT_CONFIGURED" in r["reasons"]
