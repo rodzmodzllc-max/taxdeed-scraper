@@ -143,7 +143,11 @@ export function boundaryAttribution(r) {
     changeNotice: textOrEmpty(r && r.change_notice),
     disclaimer: textOrEmpty(r && r.disclaimer),
     disclaimerUrl: httpsOrEmpty(r && r.disclaimer_url),
-    metadataUrl: httpsOrEmpty(r && r.metadata_url)
+    metadataUrl: httpsOrEmpty(r && r.metadata_url),
+    // TAXACQ's own last successful refresh of this source (a real timestamp
+    // or null - never inferred) and the source's published cadence (text).
+    lastRefreshedAt: textOrEmpty(r && r.source_last_successful_refresh_at),
+    expectedCadence: textOrEmpty(r && r.source_expected_cadence)
   };
 }
 

@@ -228,3 +228,15 @@ def test_l08_the_dataset_date_is_stored_and_returned(scratch):
     out = scratch(as_user(USERS["customer"], f"select source_dataset, source_dataset_date, source_feature_id "
                                              f"from public.get_property_boundary('{P_OTHER}');")).strip()
     assert out == "DOR PTO PIN parcel shapefile leon_pin|2026-08-20|leon_pin#9"
+
+
+def test_read_returns_source_freshness_from_recorded_timestamps_only():
+    # The outline credit names TAXACQ's own last successful refresh and the
+    # source's published cadence. Both come straight from the register; the
+    # read never invents a date (a NEVER refresh reads null).
+    fn = SQL[SQL.index("create or replace function public.get_property_boundary"):]
+    fn = fn[:fn.index("$$;")]
+    assert "source_last_successful_refresh_at timestamptz" in fn
+    assert "source_expected_cadence text" in fn
+    assert "s.last_successful_refresh_at, s.expected_refresh_cadence" in fn
+    assert "coalesce" not in fn.lower()

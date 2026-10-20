@@ -100,13 +100,22 @@ const good = { property_id: "p5", boundary: ok, display_permitted: true, attribu
   disclaimer: "", disclaimer_url: "https://example.org/disclaimer", metadata_url: "https://example.org/metadata",
   source_id: "s1", source_dataset: "D", source_feature_id: "7", match_method: "EXACT_PARCEL_ID", source_observed_at: "2026-10-01T00:00:00Z" };
 
+test("fetchPropertyBoundary: passes the recorded refresh and cadence through, never inventing them", async () => {
+  const withRefresh = Object.assign({}, good, { source_last_successful_refresh_at: "2026-10-02T06:00:00Z", source_expected_cadence: "Generally monthly" });
+  const res = await B.fetchPropertyBoundary(fakeSb({ data: [withRefresh], error: null }), "p5", row);
+  assert.equal(res.boundary.attribution.lastRefreshedAt, "2026-10-02T06:00:00Z");
+  assert.equal(res.boundary.attribution.expectedCadence, "Generally monthly");
+  const never = await B.fetchPropertyBoundary(fakeSb({ data: [Object.assign({}, good, { source_last_successful_refresh_at: null })], error: null }), "p5", row);
+  assert.equal(never.boundary.attribution.lastRefreshedAt, "");
+});
+
 test("fetchPropertyBoundary: verified and permitted geometry is available", async () => {
   const res = await B.fetchPropertyBoundary(fakeSb({ data: [good], error: null }), "p5", row);
   assert.equal(res.status, "available");
   assert.deepEqual(res.boundary.attribution, {
     credit: "Source attribution", licenseName: "CC BY 4.0", licenseUrl: "https://creativecommons.org/licenses/by/4.0/",
     changeNotice: "Simplified for display", disclaimer: "", disclaimerUrl: "https://example.org/disclaimer",
-    metadataUrl: "https://example.org/metadata" });
+    metadataUrl: "https://example.org/metadata", lastRefreshedAt: "", expectedCadence: "" });
   assert.equal(res.boundary.polygons.length, 1);
   assert.equal(res.boundary.sourceFeatureId, "7");
   assert.equal(res.boundary.sourceDataset, "D");
