@@ -67,6 +67,8 @@ jobs:
       # modules import bs4 / pdfplumber at module level. Same reasoning as
       # requests above: install the real dependency, never stub it, so CI
       # exercises what production runs. Still no network call anywhere.
+      # pyshp and pyproj added 2026-10-20: tests/python/test_boundary_shapefile.py reads
+      # a SYNTHETIC shapefile with the real library. Nothing is downloaded.
       - name: Install pytest
         run: pip install pytest pyyaml requests beautifulsoup4 pdfplumber openpyxl pyshp pyproj
 

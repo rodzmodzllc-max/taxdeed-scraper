@@ -1,227 +1,210 @@
-"""A small, strict reader for ESRI shapefiles (.shp + .dbf + .prj, loose or in
-a .zip), enough for parcel polygons. Standard library only.
+"""Reader for a DOR PTO county PIN shapefile (geometry plus PARCELNO only).
 
-* Geometry: polygon shapes only (types 5 / 15 / 25; Z and M values are
-  ignored). A null shape is reported as such, never as an empty polygon.
-* Attributes: only the DBF fields the caller names are decoded; every other
-  column is skipped unread. A character field is kept as its exact text
-  with only the DBF's own right-padding removed, so leading zeros and inner
-  spacing survive. A field the caller names that is NOT a character field
-  is refused (`wanted_char_fields`): a numeric DBF field drops leading zeros,
-  and an identifier must never pass through one.
-* The DBF header's last-update date is returned (a dataset date, not a read
-  time).
-* Any structural inconsistency (record counts that disagree, a truncated
-  record, an unknown shape type) raises ShapefileError: the read is
-  incomplete, and the caller writes nothing for it.
+Used by the Florida DOR boundary source (harvesters/boundary/sources.py FL_DOR).
+Reads the shapefile's own .shp / .shx / .dbf, checks the projection it was
+published in, reprojects every polygon to WGS84 and yields features in the
+shape plan.prepare_features() expects:
+
+    {"properties": {"PARCELNO": "...", "FID": n},
+     "geometry": {"type": "MultiPolygon", "coordinates": [...]}}
+
+Nothing here decides a match. plan.prepare_features() and
+source_approvals.match_geometries() do that, on PARCELNO only, and a PARCELNO
+held by more than one feature is refused as AMBIGUOUS there.
+
+Dependencies: pyshp and pyproj (requirements are added to the governance CI
+job). Nothing is read over the network here.
 """
 from __future__ import annotations
 
-import struct
-import zipfile
-from dataclasses import dataclass
-from datetime import date
+import hashlib
+from collections import Counter
 from pathlib import Path
+from typing import Iterator
 
-POLYGON_TYPES = {5, 15, 25}
-NULL_SHAPE = 0
+import pyproj
 
-
-class ShapefileError(ValueError):
-    """The files are not a complete, consistent polygon shapefile."""
-
-
-@dataclass(frozen=True)
-class DbfField:
-    name: str
-    type: str
-    length: int
-    decimals: int
-    offset: int
-
-
-@dataclass
-class Shapefile:
-    name: str                        # stem of the .shp
-    prj: str                         # the .prj text ('' when absent)
-    dbf_date: date | None            # the DBF header's last-update date
-    fields: dict[str, DbfField]
-    records: list[dict]              # decoded wanted fields, one dict per record
-    shapes: list[list[list[tuple[float, float]]] | None]   # per record: parts (rings) or None for a null shape
+# The projection the Broward PIN file is published in: NAD83(HARN) / Florida
+# East, US survey feet, as named in the .prj file. Other counties publish in the
+# other Florida State Plane zones (West, North) or Florida GDL Albers; all of
+# them are accepted on a NAD83 datum. Anything else (WGS84, NAD27, UTM, an
+# unreadable .prj) is refused before any feature is read.
+PUBLISHED_PRJ_NAME = "NAD_1983_HARN_StatePlane_Florida_East_FIPS_0901_Feet"
+NAD83_DATUM_MARKERS = ("NAD83", "North American Datum 1983")
+WGS84 = "EPSG:4326"
+SHAPE_NULL = 0
+SHAPE_POLYGON_TYPES = {5, 15, 25}  # Polygon, PolygonZ, PolygonM
+IDENTIFIER_FIELD = "PARCELNO"
+# The only attributes ever kept: the join key, and the county number when a
+# file carries one (to check the file is the county it was given as). A PAR
+# file's assessment columns are never kept.
+KEPT_FIELDS = ("PARCELNO", "CO_NO")
+SHAPEFILE_PARTS = (".shp", ".shx", ".dbf", ".prj", ".cpg")
 
 
-def _members(path: Path) -> dict[str, bytes]:
-    """{'.shp': bytes, '.dbf': bytes, '.prj': bytes, '.cpg': bytes, '_stem': name} from a .zip
-    (exactly one .shp inside) or from a .shp path with its siblings."""
-    path = Path(path)
-    out: dict[str, bytes] = {}
-    if path.suffix.lower() == ".zip":
-        with zipfile.ZipFile(path) as z:
-            shps = [n for n in z.namelist() if n.lower().endswith(".shp")]
-            if len(shps) != 1:
-                raise ShapefileError(f"{path.name}: expected exactly one .shp in the archive, found {len(shps)}")
-            stem = shps[0][:-4]
-            for ext in (".shp", ".dbf", ".prj", ".cpg"):
-                for n in z.namelist():
-                    if n.lower() == (stem + ext).lower():
-                        out[ext] = z.read(n)
-            out["_stem"] = Path(stem).name.encode()
-    else:
-        stem = path.with_suffix("")
-        for ext in (".shp", ".dbf", ".prj", ".cpg"):
-            for cand in (stem.with_suffix(ext), stem.with_suffix(ext.upper())):
-                if cand.exists():
-                    out[ext] = cand.read_bytes()
-                    break
-        out["_stem"] = stem.name.encode()
-    for ext in (".shp", ".dbf"):
-        if ext not in out:
-            raise ShapefileError(f"{path.name}: {ext} is missing")
-    return out
+class UnsupportedProjection(ValueError):
+    """The .prj is not a projection this reader was written for. Refuses before any feature is read."""
 
 
-def _read_dbf(data: bytes, wanted: tuple[str, ...], encoding: str):
-    if len(data) < 32:
-        raise ShapefileError("DBF header is truncated")
-    yy, mm, dd = data[1], data[2], data[3]
+class UnsupportedFormat(ValueError):
+    """The attribute table cannot be joined safely (missing or non-character PARCELNO)."""
+
+
+def _check_projection(prj_path: Path) -> pyproj.CRS:
+    text = prj_path.read_text(encoding="utf-8", errors="replace")
     try:
-        dbf_date = date(1900 + yy, mm, dd) if mm and dd else None
-    except ValueError:
-        dbf_date = None
-    n_records, header_len, record_len = struct.unpack("<IHH", data[4:12])
-    fields: dict[str, DbfField] = {}
-    pos, offset = 32, 1
-    while pos < header_len - 1 and data[pos] != 0x0D:
-        raw = data[pos:pos + 32]
-        if len(raw) < 32:
-            raise ShapefileError("DBF field descriptor is truncated")
-        name = raw[:11].split(b"\x00")[0].decode("ascii", "replace").strip()
-        ftype = chr(raw[11])
-        length, decimals = raw[16], raw[17]
-        fields[name.upper()] = DbfField(name, ftype, length, decimals, offset)
-        offset += length
-        pos += 32
-    if offset != record_len:
-        raise ShapefileError(f"DBF record length {record_len} does not match its fields ({offset})")
-    if len(data) < header_len + n_records * record_len:
-        raise ShapefileError("DBF is truncated: fewer records than its header states")
-    want = {w.upper() for w in wanted}
-    records: list[dict] = []
-    deleted: list[bool] = []
-    for i in range(n_records):
-        rec = data[header_len + i * record_len: header_len + (i + 1) * record_len]
-        deleted.append(rec[:1] == b"*")
-        row = {}
-        for key in want:
-            f = fields.get(key)
-            if f is None:
-                continue
-            raw = rec[f.offset:f.offset + f.length]
-            # Only the DBF's own right-padding is removed (and NUL padding some
-            # writers use); leading characters are part of the value.
-            row[f.name] = raw.decode(encoding, "replace").rstrip(" \x00")
-        records.append(row)
-    return dbf_date, fields, records, deleted
+        crs = pyproj.CRS.from_wkt(text)
+    except pyproj.exceptions.CRSError as exc:
+        raise UnsupportedProjection("UNSUPPORTED_PROJECTION: the .prj cannot be read") from exc
+    datum = crs.datum.name if crs.datum else ""
+    if not (crs.is_projected and "Florida" in crs.name and any(m in datum for m in NAD83_DATUM_MARKERS)):
+        raise UnsupportedProjection("UNSUPPORTED_PROJECTION: not a NAD83 Florida State Plane / GDL Albers projection")
+    return crs
 
 
-def _read_shp(data: bytes):
-    if len(data) < 100:
-        raise ShapefileError("SHP header is truncated")
-    file_code, = struct.unpack(">i", data[0:4])
-    file_len_words, = struct.unpack(">i", data[24:28])
-    shape_type, = struct.unpack("<i", data[32:36])
-    if file_code != 9994:
-        raise ShapefileError("not a shapefile (bad file code)")
-    if shape_type not in POLYGON_TYPES:
-        raise ShapefileError(f"shape type {shape_type} is not a polygon shapefile")
-    if file_len_words * 2 != len(data):
-        raise ShapefileError("SHP is truncated or padded: its header length does not match the file")
-    shapes = []
-    pos = 100
-    while pos < len(data):
-        if pos + 8 > len(data):
-            raise ShapefileError("SHP record header is truncated")
-        _recno, content_words = struct.unpack(">ii", data[pos:pos + 8])
-        content = data[pos + 8: pos + 8 + content_words * 2]
-        if len(content) != content_words * 2:
-            raise ShapefileError("SHP record is truncated")
-        pos += 8 + content_words * 2
-        rtype, = struct.unpack("<i", content[:4])
-        if rtype == NULL_SHAPE:
-            shapes.append(None)
-            continue
-        if rtype not in POLYGON_TYPES:
-            raise ShapefileError(f"record shape type {rtype} in a polygon file")
-        num_parts, num_points = struct.unpack("<ii", content[36:44])
-        parts = list(struct.unpack(f"<{num_parts}i", content[44:44 + 4 * num_parts]))
-        pts_at = 44 + 4 * num_parts
-        flat = struct.unpack(f"<{2 * num_points}d", content[pts_at:pts_at + 16 * num_points])
-        points = [(flat[2 * i], flat[2 * i + 1]) for i in range(num_points)]
-        rings = []
-        for k, start in enumerate(parts):
-            end = parts[k + 1] if k + 1 < num_parts else num_points
-            rings.append(points[start:end])
-        shapes.append(rings)
-    return shapes
-
-
-def read(path, *, wanted_fields: tuple[str, ...], wanted_char_fields: tuple[str, ...] = ()) -> Shapefile:
-    """Read a polygon shapefile. `wanted_fields` are decoded; the ones in
-    `wanted_char_fields` must exist and be character (C) fields."""
-    m = _members(Path(path))
-    encoding = "latin-1"
-    if ".cpg" in m:
-        cpg = m[".cpg"].decode("ascii", "replace").strip().lower()
-        encoding = {"utf-8": "utf-8", "utf8": "utf-8", "65001": "utf-8"}.get(cpg, "latin-1")
-    dbf_date, fields, records, deleted = _read_dbf(m[".dbf"], wanted_fields, encoding)
-    for name in wanted_char_fields:
-        f = fields.get(name.upper())
-        if f is None:
-            raise ShapefileError(f"field {name} is missing from the DBF")
-        if f.type != "C":
-            raise ShapefileError(f"field {name} is a {f.type!r} DBF field, not character: identifiers would lose "
-                                 "their formatting")
-    shapes = _read_shp(m[".shp"])
-    if len(shapes) != len(records):
-        raise ShapefileError(f"SHP has {len(shapes)} records but the DBF has {len(records)}")
-    keep = [i for i, d in enumerate(deleted) if not d]
-    return Shapefile(name=m["_stem"].decode("utf-8", "replace"), prj=m.get(".prj", b"").decode("latin-1").strip(),
-                     dbf_date=dbf_date, fields=fields, records=[records[i] for i in keep],
-                     shapes=[shapes[i] for i in keep])
-
-
-def rings_to_multipolygon(rings: list[list[tuple[float, float]]]) -> list[list[list[tuple[float, float]]]] | None:
-    """Shapefile rings -> MultiPolygon parts. Outer rings are clockwise and
-    holes counter-clockwise (the shapefile rule); each hole goes to the outer
-    ring that contains it. A hole inside no outer ring makes the shape
-    invalid (None) - it is never promoted to an outer ring by guesswork."""
-    def area(r):
-        return sum(r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1] for i in range(len(r) - 1)) / 2
-
-    def inside(pt, ring):
-        x, y = pt
-        hit = False
-        for i in range(len(ring) - 1):
-            (x1, y1), (x2, y2) = ring[i], ring[i + 1]
-            if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / (y2 - y1) + x1:
-                hit = not hit
-        return hit
-
-    closed = []
-    for r in rings:
-        r = list(r)
-        if len(r) >= 3 and r[0] != r[-1]:
-            r.append(r[0])
-        closed.append(r)
-    outers = [r for r in closed if len(r) >= 4 and area(r) < 0]
-    holes = [r for r in closed if len(r) >= 4 and area(r) > 0]
-    if not outers:
+def dbf_date(shp_path: str | Path) -> str | None:
+    """The DBF header's own last-update date (YYYY-MM-DD), or None."""
+    dbf = Path(shp_path).with_suffix(".dbf")
+    try:
+        head = dbf.read_bytes()[:4]
+        y, m, d = 1900 + head[1], head[2], head[3]
+        import datetime  # noqa: PLC0415
+        return datetime.date(y, m, d).isoformat()
+    except (OSError, IndexError, ValueError):
         return None
-    polys = [[o] for o in outers]
-    for h in holes:
-        host = next((p for p in polys if inside(h[0], p[0])), None)
-        if host is None:
-            return None
-        host.append(h)
-    return polys
 
+
+def extract_zip(zip_path: str | Path, out_dir: str | Path) -> Path:
+    """Extract only the shapefile parts of a county ZIP, refusing any path that
+    leaves out_dir. Returns the one .shp."""
+    import zipfile  # noqa: PLC0415
+    out_dir = Path(out_dir)
+    shp_names = []
+    with zipfile.ZipFile(zip_path) as z:
+        for info in z.infolist():
+            name = info.filename
+            if name.startswith("/") or ".." in Path(name).parts:
+                raise RuntimeError("unsafe path in ZIP")
+            if not name.lower().endswith(SHAPEFILE_PARTS):
+                continue
+            target = out_dir / Path(name).name
+            with z.open(info) as src, open(target, "wb") as dst:
+                dst.write(src.read())
+            if name.lower().endswith(".shp"):
+                shp_names.append(target)
+    if len(shp_names) != 1:
+        raise RuntimeError("expected exactly one .shp in the ZIP")
+    return shp_names[0]
+
+
+def _signed_area(ring) -> float:
+    """Shoelace area in the ring's own units. Shapefile outer rings are clockwise (negative)."""
+    total = 0.0
+    n = len(ring)
+    for i in range(n - 1):
+        x1, y1 = ring[i]
+        x2, y2 = ring[i + 1]
+        total += x1 * y2 - x2 * y1
+    return total / 2.0
+
+
+def _polygon_coordinates(shape, transform) -> list | None:
+    """MultiPolygon coordinates in WGS84 for one shapefile polygon, or None for a null shape."""
+    if shape.shapeType == SHAPE_NULL or not shape.points:
+        return None
+    parts = list(shape.parts) + [len(shape.points)]
+    rings = []
+    for start, end in zip(parts[:-1], parts[1:]):
+        ring_xy = shape.points[start:end]
+        if len(ring_xy) < 4:
+            # A degenerate ring is kept as-is so prepare() refuses it with its own reason.
+            rings.append([list(p) for p in ring_xy])
+            continue
+        lon_lat = [list(transform(x, y)) for x, y in ring_xy]
+        rings.append((lon_lat, _signed_area(ring_xy)))
+    # Group: each clockwise (negative) ring starts a polygon; counter-clockwise
+    # rings are holes of the polygon they follow.
+    polygons: list[list[list[list[float]]]] = []
+    for item in rings:
+        if isinstance(item, list):           # degenerate ring: attach as an outer ring so it is refused
+            polygons.append([item])
+            continue
+        lon_lat, area = item
+        if area < 0 or not polygons:
+            polygons.append([lon_lat])
+        else:
+            polygons[-1].append(lon_lat)
+    return polygons
+
+
+def read_pin_features(shp_path: str | Path, *, expected_prj: bool = True, keep=None) -> Iterator[dict]:
+    """Yield one feature per shapefile record, in WGS84.
+
+    The .shp, .shx, .dbf (and .prj, if present) are read from alongside the
+    given path. The field name PARCELNO is the join key and is kept exactly
+    as published (no reformatting; only the DBF's right-padding is removed).
+    Only PARCELNO and CO_NO are kept; every other column is dropped.
+
+    keep: optional predicate on the kept attributes. A feature it rejects is
+    yielded WITHOUT reprojection: geometry None, `skipped` True and `raw_sha`
+    (a hash of the file's own coordinates), so a caller can still recognise one
+    polygon published under several PARCELNOs without holding the whole
+    county in memory.
+    """
+    import shapefile  # pyshp
+
+    shp_path = Path(shp_path)
+    prj = shp_path.with_suffix(".prj")
+    if expected_prj:
+        if not prj.exists():
+            raise UnsupportedProjection("UNSUPPORTED_PROJECTION: no .prj beside the shapefile")
+        src_crs = _check_projection(prj)
+        transform = pyproj.Transformer.from_crs(src_crs, WGS84, always_xy=True).transform
+    else:
+        transform = lambda x, y: (x, y)  # noqa: E731  - tests only: coordinates already WGS84
+
+    with shapefile.Reader(str(shp_path)) as reader:
+        fields = [f[0] for f in reader.fields[1:]]
+        types = {f[0]: str(f[1]) for f in reader.fields[1:]}
+        if IDENTIFIER_FIELD not in fields:
+            raise UnsupportedFormat("PARCELNO field missing from the attribute table")
+        if types[IDENTIFIER_FIELD] != "C":
+            # A numeric field would have dropped leading zeros: the formatting
+            # problem the Readme warns about. Refuse rather than join.
+            raise UnsupportedFormat("PARCELNO is not a character field")
+        for fid, sr in enumerate(reader.iterShapeRecords()):
+            props = {k: ("" if v is None else str(v)) for k, v in zip(fields, sr.record) if k in KEPT_FIELDS}
+            if keep is not None:
+                pts = sr.shape.points if sr.shape.shapeType != SHAPE_NULL else []
+                raw_sha = hashlib.sha256(repr((list(getattr(sr.shape, "parts", [])), pts)).encode()).digest()
+                if not keep(props):
+                    props["FID"] = fid
+                    yield {"properties": props, "geometry": None, "skipped": True, "raw_sha": raw_sha}
+                    continue
+            polys = _polygon_coordinates(sr.shape, transform) if sr.shape.shapeType in SHAPE_POLYGON_TYPES | {SHAPE_NULL} else None
+            props["FID"] = fid
+            out = {"properties": props,
+                   "geometry": None if polys is None else {"type": "MultiPolygon", "coordinates": polys}}
+            if keep is not None:
+                out["raw_sha"] = raw_sha
+            yield out
+
+
+def summarize(features) -> dict:
+    """Counts only - never a parcel number. Safe for logs and the register."""
+    counts = Counter()
+    seen: Counter = Counter()
+    for f in features:
+        counts["features"] += 1
+        if f.get("geometry") is None:
+            counts["null_geometry"] += 1
+        key = (f.get("properties") or {}).get("PARCELNO", "")
+        if key:
+            seen[key] += 1
+        else:
+            counts["blank_parcelno"] += 1
+    counts["distinct_parcelno"] = len(seen)
+    counts["shared_parcelno_values"] = sum(1 for v in seen.values() if v > 1)
+    counts["features_sharing_a_parcelno"] = sum(v for v in seen.values() if v > 1)
+    counts["largest_share"] = max(seen.values(), default=0)
+    return dict(counts)

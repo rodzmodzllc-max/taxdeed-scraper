@@ -90,6 +90,8 @@ def test_evidence_records_only_what_was_supplied():
         assert "Implement Confirmed Florida DOR and Utah UGRC Parcel Approvals" in a.evidence_ref
         assert "@" not in a.evidence_ref + a.evidence_sender   # no address recorded
     assert A.load()[FL].readme_reviewed and A.load()[FL].technical_readme_reviewed_on == "2026-10-20"
+    assert A.load()[FL].technical_caveats.startswith("Reviewed from the Parcel Shapefiles Readme")
+    assert A.load()[FL].readme_reviewed
 
 
 # --- permission gates ----------------------------------------------------------
@@ -441,3 +443,18 @@ def test_the_owners_summaries_of_both_replies_are_recorded_as_summaries():
     for a in reg.values():
         assert "owner's summary of the reply" in a.evidence_ref
         assert "not in this repository" in a.evidence_limitation.lower()     # still not the original
+
+
+def test_florida_pin_file_location_is_recorded_for_broward_only_and_nothing_reads_it():
+    # The owner copied this exact link from the portal (2026-10-20). No other
+    # county is assumed from its pattern. Only the manual Broward loader reads it
+    # (dry run by default); the join itself is the validated-NAL-id rule.
+    files = S.FL_DOR_PIN_FILES
+    assert set(files) == {"Broward"}
+    b = files["Broward"]
+    assert b["url"] == ("https://floridarevenue.com/property/dataportal/Documents/PTO%20Data%20Portal/"
+                        "Map%20Data/2025F/2025F%20PIN/broward_2025pin.zip")
+    assert b["variant"] == "PIN" and b["tax_year"] == 2025 and b["copied_on"] == "2026-10-20"
+    assert S.FL_DOR.join_configured is True and S.FL_DOR.location == "files" and S.FL_DOR.layer_url is None
+    assert S.FL_DOR.record_key == "nal_parcel_id" and S.FL_DOR.id_rule == "exact"
+    assert S.FL_DOR.feature_key_field == "PARCELNO" and S.FL_DOR.feature_id_field == "FID"

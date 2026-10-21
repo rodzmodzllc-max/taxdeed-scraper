@@ -164,10 +164,11 @@ def run_files(src, *, apply: bool, db, out, county: str = "", path: str = "", va
     started = now_iso()
     rows = db.properties(src, county)
     records, excluded = fl_dor.prepare_records(rows, county)
-    read = fl_dor.read_county(path, county, variant=variant, allow_par_geometry=allow_par_geometry)
+    read = fl_dor.read_county(path, county, variant=variant, allow_par_geometry=allow_par_geometry,
+                              keys={r["nal_parcel_id"] for r in records})
     status, note = read.status, read.reason
     if status == "COMPLETE":
-        ok, why = fl_dor.format_check(records, read.features)
+        ok, why = fl_dor.format_check(records, read.features, read.identifier_shapes)
         if not ok:
             status, note = "JOIN_NOT_VALIDATED", why
     plan = boundary_plan.plan_refresh(records, read.features if status == "COMPLETE" else [], db.stored(

@@ -87,15 +87,13 @@ def test_expected_cadence_is_not_an_actual_refresh():
         assert a.last_successful_refresh == "NEVER"          # no ingestion path has run for either
 
 
-def test_readme_review_is_recorded_with_its_caveats():
-    """The owner reviewed the Readme on 2026-10-20 (the document is not
-    reachable from this environment); the caveats and their handling are
-    recorded as the owner's review."""
+def test_readme_is_recorded_as_reviewed_with_its_caveats():
     fl = A.load()[FL]
     assert fl.technical_readme_url.endswith("Parcel%20Shapefiles%20Readme.pdf")
-    assert fl.technical_readme_reviewed_on == "2026-10-20" and fl.readme_reviewed
-    assert fl.technical_caveats.startswith("Reviewed by the product owner on 2026-10-20")
-    for topic in ("PIN files", "PAR", "PARCELNO joins to the NAL PARCEL_ID", "condominium", "Stacked", "Multi-parcel"):
+    assert fl.technical_readme_reviewed_on == "2026-10-20" and fl.technical_caveats.startswith("Reviewed from the Parcel Shapefiles Readme")
+    assert fl.readme_reviewed
+    for topic in ("PIN files", "PARCELNO in the shapefile to PARCEL_ID", "formatting", "Condominiums", "stacked",
+                  "Multi-parcel", "Chapter 119", "unknown ownership"):
         assert topic in fl.technical_caveats
 
 
@@ -111,6 +109,8 @@ def test_register_validation_refuses_bad_rows(col, val, expect):
     for r in rows:
         if r["source_id"] == (UT if col == "license_url" else FL):
             r[col] = val
+            if col == "technical_readme_reviewed_on":   # a date with the caveats still unread is refused
+                r["technical_caveats"] = A.NOT_YET_READ + " (not yet read)" 
     problems = A.validate(A.parse(rows))
     assert any(expect in p for p in problems), problems
 

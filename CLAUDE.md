@@ -3421,7 +3421,8 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   - `fl_statewide_cadastral_fgio` / `fl_fdor_cadastral` is NOT the covered dataset and is not approved for geometry.
   - `Parcels_Utah_LIR` is Utah County, not statewide.
 - **Florida:** README reviewed by the owner 2026-10-20 (`technical_caveats`); the reader is
-  `harvesters/boundary/fl_dor.py` (+ stdlib `shapefile.py` / `projection.py`) over LOCAL county PIN files:
+  `harvesters/boundary/fl_dor.py` (+ `shapefile.py`, pyshp/pyproj; NAD83 Florida State Plane / GDL Albers only) over LOCAL county PIN files
+  (Broward: `scripts/load_florida_broward_boundaries.py`, manual workflow, dry run by default):
   PARCELNO read as DBF text only, matched EXACTLY to the record's validated NAL PARCEL_ID
   (`field_provenance` `fdor_nal` `matched_parcel_id`) - never a reformatted listing parcel; `format_check` must pass;
   DOR use code 04 (condo) / 94 (right-of-way) never attached; condo files (Miami-Dade, St. Johns) refused; per-county

@@ -44,16 +44,17 @@ Features never attached to a property
   geometry shared by several PARCELNOs (multi-parcel polygons): see
   harvesters/boundary/plan.py.
 
-Standard library only.
+The shapefile itself is read by harvesters/boundary/shapefile.py (pyshp, and
+pyproj for the reprojection to WGS84).
 """
 from __future__ import annotations
 
 import re
+import tempfile
 from dataclasses import dataclass, field
+from pathlib import Path
 
-from . import projection, shapefile
-from .projection import UnsupportedProjection
-from .shapefile import ShapefileError
+from . import shapefile
 
 IDENTIFIER_FIELD = "PARCELNO"
 COUNTY_FIELD = "CO_NO"
@@ -159,12 +160,23 @@ class CountyRead:
     crs: str = ""
     features: list[dict] = field(default_factory=list)
     counts: dict = field(default_factory=dict)
+    identifier_shapes: set = field(default_factory=set)   # every PARCELNO shape in the file (value-free)
 
 
-def read_county(path, county: str, *, variant: str = "PIN", allow_par_geometry: bool = False) -> CountyRead:
-    """Read one county's DOR parcel shapefile into GeoJSON features carrying
-    PARCELNO and a feature id. Never raises: a problem is a FAILED or REFUSED
-    read, which the refresh treats as 'write nothing'."""
+def read_county(path, county: str, *, variant: str = "PIN", allow_par_geometry: bool = False,
+                keys=None) -> CountyRead:
+    """Read one county's DOR parcel shapefile (.shp with its siblings, or the
+    county .zip) into GeoJSON features carrying PARCELNO and FID. Never
+    raises: a problem is a FAILED or REFUSED read, which the refresh treats
+    as 'write nothing'.
+
+    keys: the exact identifiers that can be joined (the county's validated NAL
+    ids). When given, only features carrying one of them are reprojected and
+    kept (a county holds hundreds of thousands of polygons); every feature with
+    one of them is kept, so stacked polygons stay AMBIGUOUS, and a kept polygon
+    whose geometry the file also publishes under another PARCELNO is dropped
+    (MULTI_PARCEL_GEOMETRY). The identifier format is still taken from the
+    whole file."""
     if county not in COUNTY_CODES:
         return CountyRead("REFUSED", county, "UNKNOWN_COUNTY")
     variant = (variant or "").upper()
@@ -172,21 +184,30 @@ def read_county(path, county: str, *, variant: str = "PIN", allow_par_geometry: 
         return CountyRead("REFUSED", county, "UNKNOWN_VARIANT")
     if variant == "PAR" and not allow_par_geometry:
         return CountyRead("REFUSED", county, "PAR_FILE_NOT_ALLOWED")
-    name = str(path).lower()
-    if "condo" in name:
+    if "condo" in Path(str(path)).name.lower():
         return CountyRead("REFUSED", county, "CONDOMINIUM_FILE_NOT_INGESTED")
-    try:
-        shp = shapefile.read(path, wanted_fields=(IDENTIFIER_FIELD, COUNTY_FIELD),
-                             wanted_char_fields=(IDENTIFIER_FIELD,))
-        crs = projection.parse_prj(shp.prj)
-    except (ShapefileError, UnsupportedProjection, OSError) as exc:
-        return CountyRead("FAILED", county, type(exc).__name__ + ": " + str(exc))
+    with tempfile.TemporaryDirectory() as td:
+        try:
+            shp = Path(path)
+            if shp.suffix.lower() == ".zip":
+                shp = shapefile.extract_zip(shp, td)
+            return _read_shp(shp, county, variant, keys)
+        except (shapefile.UnsupportedProjection, shapefile.UnsupportedFormat, RuntimeError, OSError) as exc:
+            return CountyRead("FAILED", county, type(exc).__name__ + ": " + str(exc))
+        except Exception as exc:  # noqa: BLE001 - a malformed file (pyshp raises its own types) is a failed read
+            return CountyRead("FAILED", county, "MALFORMED_FILE: " + type(exc).__name__)
+
+
+def _read_shp(shp: Path, county: str, variant: str, keys=None) -> CountyRead:
     expected = COUNTY_CODES[county]
-    out = CountyRead("COMPLETE", county, dataset=f"DOR PTO {variant} parcel shapefile {shp.name}",
-                     dataset_date=shp.dbf_date.isoformat() if shp.dbf_date else None, crs=crs.kind)
+    out = CountyRead("COMPLETE", county, dataset=f"DOR PTO {variant} parcel shapefile {shp.stem}",
+                     dataset_date=shapefile.dbf_date(shp), crs="projected")
     counts: dict = {}
-    for i, (rec, rings) in enumerate(zip(shp.records, shp.shapes)):
-        co = rec.get(COUNTY_FIELD, "")
+    keep = None if keys is None else (lambda props: exact_key(props.get(IDENTIFIER_FIELD)) in keys)
+    keys_by_raw: dict = {}
+    for f in shapefile.read_pin_features(shp, keep=keep):
+        props = f["properties"]
+        co = props.get(COUNTY_FIELD, "")
         if co.strip():
             try:
                 co_no = int(float(co))
@@ -194,36 +215,44 @@ def read_county(path, county: str, *, variant: str = "PIN", allow_par_geometry: 
                 co_no = None
             if co_no != expected:
                 return CountyRead("FAILED", county, f"WRONG_COUNTY: CO_NO {co.strip()} is not {expected}")
-        key = exact_key(rec.get(IDENTIFIER_FIELD))
+        key = exact_key(props.get(IDENTIFIER_FIELD))
         if not key.strip():
             counts["NO_PARCELNO"] = counts.get("NO_PARCELNO", 0) + 1
             continue
-        if rings is None:
+        out.identifier_shapes.add(identifier_shape(key))
+        if keys is not None:
+            keys_by_raw.setdefault(f["raw_sha"], set()).add(key)
+        if f.get("skipped"):
+            counts["NOT_IN_SCOPE"] = counts.get("NOT_IN_SCOPE", 0) + 1
+            continue
+        if f["geometry"] is None:
             counts["NULL_SHAPE"] = counts.get("NULL_SHAPE", 0) + 1
             continue
-        parts = shapefile.rings_to_multipolygon(rings)
-        if parts is None:
-            counts["INVALID_RINGS"] = counts.get("INVALID_RINGS", 0) + 1
-            continue
-        try:
-            coords = [[[list(projection.to_lonlat(crs, x, y)) for x, y in ring] for ring in poly] for poly in parts]
-        except (ValueError, ZeroDivisionError, OverflowError):
-            counts["PROJECTION_FAILED"] = counts.get("PROJECTION_FAILED", 0) + 1
-            continue
-        out.features.append({"type": "Feature",
-                             "properties": {IDENTIFIER_FIELD: key, "FEATURE_ID": f"{shp.name}#{i + 1}"},
-                             "geometry": {"type": "MultiPolygon", "coordinates": coords}})
+        feat = {"type": "Feature", "properties": {IDENTIFIER_FIELD: key, "FID": props["FID"]},
+                "geometry": f["geometry"]}
+        if keys is not None:
+            feat["_raw_sha"] = f["raw_sha"]
+        out.features.append(feat)
+    if keys is not None:
+        kept = []
+        for feat in out.features:
+            if len(keys_by_raw.get(feat.pop("_raw_sha"), ())) > 1:
+                counts["MULTI_PARCEL_GEOMETRY"] = counts.get("MULTI_PARCEL_GEOMETRY", 0) + 1
+                continue
+            kept.append(feat)
+        out.features = kept
     out.counts = counts
     return out
 
 
-def format_check(records: list[dict], features: list[dict]) -> tuple[bool, str]:
+def format_check(records: list[dict], features: list[dict], file_shapes=None) -> tuple[bool, str]:
     """Whether the file's PARCELNO format is the format of the validated ids.
     True when at least one validated id's shape occurs among the file's
     identifier shapes; a county whose shapes never overlap is NOT VALIDATED
     and nothing is attached. Value-free: shapes only."""
     ours = {identifier_shape(r.get("nal_parcel_id")) for r in records if r.get("nal_parcel_id")}
-    theirs = {identifier_shape(f["properties"].get(IDENTIFIER_FIELD)) for f in features}
+    theirs = set(file_shapes) if file_shapes else {identifier_shape(f["properties"].get(IDENTIFIER_FIELD))
+                                                   for f in features}
     if not ours:
         return False, "NO_VALIDATED_IDS"
     if not theirs:

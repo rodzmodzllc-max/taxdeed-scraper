@@ -22,7 +22,6 @@ sys.path.insert(0, str(REPO / "scripts"))
 
 from harvesters.boundary import fl_dor as FD  # noqa: E402
 from harvesters.boundary import plan as PL  # noqa: E402
-from harvesters.boundary import projection as PJ  # noqa: E402
 from harvesters.boundary import sources as S  # noqa: E402
 from harvesters.boundary import shapefile as SF  # noqa: E402
 from harvesters.governance import permissions as P  # noqa: E402
@@ -34,7 +33,14 @@ shp = pytest.importorskip("shapefile", reason="pyshp (test-only) is not installe
 
 FL = "fl_dor_pto_parcel_gis"
 TODAY = date(2026, 10, 21)
-PRJ = json.loads((REPO / "tests/python/fixtures/fl_prj_cases.json").read_text())["prj"]
+pyproj = pytest.importorskip("pyproj", reason="pyproj (test-only) is not installed")
+# Published-style projections (standard CRS definitions, not parcel data).
+PRJ = {"fl_north_ftus": pyproj.CRS.from_epsg(2883).to_wkt(version="WKT1_ESRI"),    # NAD83(HARN) Florida North
+       "fl_east_ftus": pyproj.CRS.from_epsg(2881).to_wkt(version="WKT1_ESRI"),     # NAD83(HARN) Florida East
+       "fl_west_ftus": pyproj.CRS.from_epsg(2882).to_wkt(version="WKT1_ESRI"),     # NAD83(HARN) Florida West
+       "fl_gdl_albers_m": pyproj.CRS.from_epsg(3087).to_wkt(version="WKT1_ESRI"),  # NAD83(HARN) Florida GDL Albers
+       "nad83_geographic": pyproj.CRS.from_epsg(4269).to_wkt(version="WKT1_ESRI"),
+       "nad27_utm17": pyproj.CRS.from_epsg(26717).to_wkt(version="WKT1_ESRI")}
 
 
 def square(x, y, h=0.0004, clockwise=True):
@@ -42,9 +48,18 @@ def square(x, y, h=0.0004, clockwise=True):
     return ring if clockwise else ring[::-1]
 
 
-def write_shp(tmp_path, name, features, *, prj=PRJ["nad83_geographic"], parcel_type="C", co_no=None,
-              extra_fields=(), deleted=()):
-    """features: list of (parcelno, rings or None). Returns the .shp path."""
+def write_shp(tmp_path, name, features, *, prj=PRJ["fl_north_ftus"], parcel_type="C", co_no=None,
+              extra_fields=(), deleted=(), lonlat=True):
+    """features: list of (parcelno, rings or None), rings in lon/lat unless
+    lonlat=False (then already in the file's projection). Returns the .shp path."""
+    if lonlat and prj is not None:
+        try:
+            crs = pyproj.CRS.from_wkt(prj)
+            fwd = pyproj.Transformer.from_crs(crs.geodetic_crs, crs, always_xy=True).transform
+            features = [(pid, None if rings is None else [[fwd(x, y) for x, y in r] for r in rings])
+                        for pid, rings in features]
+        except pyproj.exceptions.CRSError:
+            pass
     w = shp.Writer(str(tmp_path / name), shapeType=shp.POLYGON)
     if parcel_type == "C":
         w.field("PARCELNO", "C", size=30)
@@ -94,26 +109,26 @@ def test_reader_keeps_leading_zeros_inner_spaces_and_skips_unrequested_columns(t
                                           ("2 29 43 01 010 0050-F02.0", [square(-84.31, 30.4)])],
                   extra_fields=("OWN_NAME",))
     r = FD.read_county(p, "Leon")
-    assert r.status == "COMPLETE" and r.crs == "geographic"
+    assert r.status == "COMPLETE"
     assert [f["properties"]["PARCELNO"] for f in r.features] == ["0012345000", "2 29 43 01 010 0050-F02.0"]
-    assert all(set(f["properties"]) == {"PARCELNO", "FEATURE_ID"} for f in r.features)   # owner never decoded
-    raw = SF.read(p, wanted_fields=("PARCELNO",), wanted_char_fields=("PARCELNO",))
-    assert all(set(x) == {"PARCELNO"} for x in raw.records)
+    assert all(set(f["properties"]) == {"PARCELNO", "FID"} for f in r.features)   # owner never kept
+    assert all(set(f["properties"]) <= {"PARCELNO", "CO_NO", "FID"} for f in SF.read_pin_features(p))
     assert r.dataset == "DOR PTO PIN parcel shapefile leon_pin" and r.dataset_date == date.today().isoformat()
-    assert r.features[0]["properties"]["FEATURE_ID"] == "leon_pin#1"
+    assert [f["properties"]["FID"] for f in r.features] == [0, 1]
 
 
 def test_a_numeric_parcelno_field_refuses_the_file(tmp_path):
     p = write_shp(tmp_path, "num", [("12345", [square(-84.3, 30.4)])], parcel_type="N")
     r = FD.read_county(p, "Leon")
-    assert r.status == "FAILED" and "not character" in r.reason and r.features == []
+    assert r.status == "FAILED" and "not a character field" in r.reason and r.features == []
 
 
 @pytest.mark.parametrize("prj,needle", [(None, "no .prj"),
-                                        (PRJ["nad83_geographic"].replace("North_American_1983", "North_American_1927"), "datum"),
-                                        (PRJ["fl_gdl_albers_m"].replace('"Albers"', '"Mercator"'), "projection")])
+                                        (PRJ["nad83_geographic"], "UNSUPPORTED_PROJECTION"),
+                                        (PRJ["nad27_utm17"], "UNSUPPORTED_PROJECTION"),
+                                        ("not a projection", "cannot be read")])
 def test_an_unknown_or_unsupported_coordinate_system_refuses_the_file(tmp_path, prj, needle):
-    p = write_shp(tmp_path, "x", [("1", [square(-84.3, 30.4)])], prj=prj)
+    p = write_shp(tmp_path, "x", [("1", [square(-84.3, 30.4)])], prj=prj, lonlat=False)
     r = FD.read_county(p, "Leon")
     assert r.status == "FAILED" and needle in r.reason
 
@@ -129,13 +144,19 @@ def test_wrong_county_par_and_condominium_files_are_refused(tmp_path):
     assert FD.read_county(p, "Atlantis").reason == "UNKNOWN_COUNTY"
 
 
-def test_blank_identifiers_null_shapes_deleted_records_and_bad_rings_are_counted_not_kept(tmp_path):
-    lone_hole = [square(-84.3, 30.4, clockwise=False)]                 # a hole with no outer ring
-    p = write_shp(tmp_path, "mix", [("", [square(-84.3, 30.4)]), ("2", None), ("3", lone_hole),
-                                    ("4", [square(-84.32, 30.4)]), ("5", [square(-84.33, 30.4)])], deleted=(4,))
+def test_blank_identifiers_null_shapes_and_deleted_records_are_counted_not_kept(tmp_path):
+    p = write_shp(tmp_path, "mix", [("", [square(-84.3, 30.4)]), ("2", None),
+                                    ("4", [square(-84.32, 30.4)]), ("5", [square(-84.33, 30.4)])], deleted=(3,))
     r = FD.read_county(p, "Leon")
-    assert r.counts == {"NO_PARCELNO": 1, "NULL_SHAPE": 1, "INVALID_RINGS": 1}
+    assert r.counts == {"NO_PARCELNO": 1, "NULL_SHAPE": 1}
     assert [f["properties"]["PARCELNO"] for f in r.features] == ["4"]
+
+
+def test_a_degenerate_ring_is_refused_by_the_geometry_step(tmp_path):
+    bad = [[(-84.3, 30.4), (-84.3, 30.401), (-84.3, 30.4)]]           # three points: not a polygon
+    fs = feats_from(tmp_path, [("9", bad), ("8", [square(-84.31, 30.4)])])
+    good, refused = PL.prepare_features(fs, S.FL_DOR)
+    assert [g["attributes"]["PARCELNO"] for g in good] == ["8"] and refused["INVALID_GEOMETRY"] == 1
 
 
 def test_holes_are_kept_inside_their_outer_ring(tmp_path):
@@ -164,24 +185,14 @@ def test_a_zip_is_read_the_same_as_loose_files(tmp_path):
 
 # --- projection ----------------------------------------------------------------
 
-@pytest.mark.parametrize("name", ["fl_gdl_albers_m", "fl_east_tm_ftus", "fl_west_tm_ftus", "fl_north_lcc_ftus"])
-def test_projected_files_are_converted_to_lonlat_like_proj(tmp_path, name):
-    pyproj = pytest.importorskip("pyproj", reason="pyproj (test-only) is not installed")
-    crs = pyproj.CRS.from_wkt(PRJ[name])
-    fwd = pyproj.Transformer.from_crs(crs.geodetic_crs, crs, always_xy=True)
-    lon, lat = -82.0 if "west" in name else (-81.2 if "east" in name else -84.3), 28.0 if "north" not in name else 30.4
-    ring = [fwd.transform(lon + dx, lat + dy) for dx, dy in ((0, 0), (0, 0.001), (0.001, 0.001), (0.001, 0), (0, 0))]
-    p = write_shp(tmp_path, "proj", [("9", [ring])], prj=PRJ[name])
+@pytest.mark.parametrize("name", ["fl_gdl_albers_m", "fl_east_ftus", "fl_west_ftus", "fl_north_ftus"])
+def test_projected_files_are_converted_to_lonlat(tmp_path, name):
+    lon, lat = {"fl_east_ftus": (-80.2, 26.1), "fl_west_ftus": (-82.0, 28.0)}.get(name, (-84.3, 30.4))
+    p = write_shp(tmp_path, "proj", [("9", [square(lon, lat, 0.001)])], prj=PRJ[name])
     got = FD.read_county(p, "Leon").features[0]["geometry"]["coordinates"][0][0]
-    want = [(lon + dx, lat + dy) for dx, dy in ((0, 0), (0, 0.001), (0.001, 0.001), (0.001, 0), (0, 0))]
-    assert max(max(abs(a - b) for a, b in zip(g, w)) for g, w in zip(got, want)) < 1e-6
-
-
-def test_nad27_and_unknown_units_are_refused():
-    with pytest.raises(PJ.UnsupportedProjection):
-        PJ.parse_prj(PRJ["fl_east_tm_ftus"].replace("North_American_1983", "North_American_1927"))
-    with pytest.raises(PJ.UnsupportedProjection):
-        PJ.parse_prj(PRJ["fl_east_tm_ftus"].replace('UNIT["Foot_US",0.3048006096012192]', 'UNIT["Chain",20.1168]'))
+    want = square(lon, lat, 0.001)
+    # NAD83(HARN) to WGS84 is within a couple of metres; 3e-5 degrees is about 3 m.
+    assert max(max(abs(a - b) for a, b in zip(g, w)) for g, w in zip(got, want)) < 3e-5
 
 
 # --- our side: which records may be joined ---------------------------------------
@@ -230,7 +241,7 @@ def test_matching_is_exact_no_leading_zero_case_or_dash_normalization(tmp_path):
     assert [r["property_id"] for r in out["rows"]] == ["a"]
     row = out["rows"][0]
     assert row["parcel"] == "0012345000" and row["source_dataset"] == "DOR PTO PIN parcel shapefile leon_pin"
-    assert row["source_dataset_date"] == "2026-08-20" and row["source_feature_id"] == "leon_pin#1"
+    assert row["source_dataset_date"] == "2026-08-20" and row["source_feature_id"] == "0"
     assert out["counts"]["unmatched"] == 3 and out["counts"]["unclaimed_features"] == 2
 
 
@@ -355,7 +366,38 @@ def test_readme_review_opens_parse_for_the_dor_files_only():
 
 def test_the_register_records_the_readme_caveats_and_their_handling():
     c = A.load()[FL].technical_caveats
-    assert c.startswith("Reviewed by the product owner on 2026-10-20")
-    for needle in ("PIN files", "PAR", "NAL PARCEL_ID", "CSV", "Redacted", "Rights-of-way", "Multi-parcel", "Stacked",
-                   "Miami-Dade", "St. Johns", "condominium"):
+    assert c.startswith("Reviewed from the Parcel Shapefiles Readme")
+    for needle in ("PIN files", "PAR files", "PARCEL_ID", "CSV", "Chapter 119", "rights-of-way", "Multi-parcel",
+                   "stacked", "Miami-Dade", "St. Johns", "Condominiums"):
         assert needle.lower() in c.lower(), needle
+
+
+# --- scoped read: only the joinable keys are kept --------------------------------
+
+def test_a_scoped_read_keeps_only_joinable_keys_and_still_sees_the_whole_file(tmp_path):
+    shared = [square(-84.30, 30.4)]
+    p = write_shp(tmp_path, "leon_pin", [
+        ("100", [square(-84.31, 30.4)]),          # in scope, unique
+        ("200", shared), ("999", shared),         # one polygon under two PARCELNOs, one of them out of scope
+        ("300", [square(-84.32, 30.4)]), ("300", [square(-84.33, 30.4)]),   # stacked, in scope
+        ("AB-1", [square(-84.34, 30.4)]),         # out of scope, another identifier shape
+    ])
+    r = FD.read_county(p, "Leon", keys={"100", "200", "300"})
+    assert r.status == "COMPLETE"
+    assert sorted(f["properties"]["PARCELNO"] for f in r.features) == ["100", "300", "300"]
+    assert r.counts == {"NOT_IN_SCOPE": 2, "MULTI_PARCEL_GEOMETRY": 1}
+    assert r.identifier_shapes == {"d3", "A2-d1"}                     # from every feature, value-free
+    out = plan([rec("a", "100"), rec("b", "200"), rec("c", "300")], r.features)
+    assert [x["property_id"] for x in out["rows"]] == ["a"]           # 200 never gets the shared polygon; 300 ambiguous
+    ok, _ = FD.format_check([{"nal_parcel_id": "100"}], [], r.identifier_shapes)
+    assert ok
+
+
+def test_the_refresh_reads_only_the_validated_keys(tmp_path, monkeypatch):
+    p = write_shp(tmp_path, "leon_pin", [("700", [square(-84.3, 30.4)]), ("701", [square(-84.31, 30.4)])])
+    seen = {}
+    real = FD.read_county
+    monkeypatch.setattr(FD, "read_county", lambda *a, **k: (seen.update(k), real(*a, **k))[1])
+    db = FakeDb([rec("a", "700"), rec("b")])
+    assert R.run(FL, apply=False, db=db, out=lambda m: None, today=TODAY, files={"county": "Leon", "path": str(p)}) == 0
+    assert seen["keys"] == {"700"}
