@@ -445,16 +445,23 @@ def test_the_owners_summaries_of_both_replies_are_recorded_as_summaries():
         assert "not in this repository" in a.evidence_limitation.lower()     # still not the original
 
 
-def test_florida_pin_file_location_is_recorded_for_broward_only_and_nothing_reads_it():
-    # The owner copied this exact link from the portal (2026-10-20). No other
-    # county is assumed from its pattern, and the source stays off until a
-    # reader exists and is tested.
+def test_florida_pin_file_table_is_verified_per_county_and_nothing_reads_it():
+    # data/fl_dor_pin_files.csv: every URL verified by a HEAD request on
+    # 2026-10-20. The filename pattern is never assumed for an unverified
+    # county, and the source still reads no file.
     files = S.FL_DOR_PIN_FILES
-    assert set(files) == {"Broward"}
-    b = files["Broward"]
-    assert b["url"] == ("https://floridarevenue.com/property/dataportal/Documents/PTO%20Data%20Portal/"
-                        "Map%20Data/2025F/2025F%20PIN/broward_2025pin.zip")
-    assert b["variant"] == "PIN" and b["tax_year"] == 2025 and b["copied_on"] == "2026-10-20"
+    assert len(files) == 67, "one row per Florida county"
+    assert all(v["url"].startswith("https://floridarevenue.com/") for v in files.values())
+    assert all(v["variant"] == "PIN" for v in files.values()), "PIN only - PAR carries tax-roll attributes"
+    assert all(v["bytes"] > 0 and v["verified_on"] == "2026-10-20" for v in files.values())
+    # Marion and Nassau publish no 2025 file; their row says 2024 rather than
+    # pointing at a 2025 URL that does not exist.
+    assert {c for c, v in files.items() if v["tax_year"] == 2024} == {"Marion", "Nassau"}
+    assert files["Broward"]["tax_year"] == 2025
+    assert files["Broward"]["url"].endswith("/2025F%20PIN/broward_2025pin.zip")
+    # A county absent from the table has no location at all.
+    assert S.fl_pin_files(Path("does-not-exist.csv")) == {}
+    # Still off: no reader is wired into a run.
     assert S.FL_DOR.join_configured is False
     r = S.readiness(S.FL_DOR, today=TODAY)
     assert not r["runnable"] and "JOIN_NOT_CONFIGURED" in r["reasons"]

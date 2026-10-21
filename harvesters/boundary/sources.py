@@ -27,7 +27,9 @@ so no Utah property exists to match today.
 """
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass
+from pathlib import Path
 
 from harvesters.enrichment.sources import UT_UGRC_LIR
 from harvesters.governance import permissions, source_approvals
@@ -71,16 +73,38 @@ FL_DOR = BoundarySource(
 # link is assumed from this pattern. The folder is 2025F, so this is a 2025 file,
 # not "current year"; the reader must check the year it reads. Nothing reads these
 # files yet: FL_DOR stays join_configured=False until a reader exists and is tested.
-FL_DOR_PIN_FILES = {
-    "Broward": {
-        "url": ("https://floridarevenue.com/property/dataportal/Documents/PTO%20Data%20Portal/"
-                "Map%20Data/2025F/2025F%20PIN/broward_2025pin.zip"),
-        "tax_year": 2025,
-        "variant": "PIN",
-        "copied_on": "2026-10-20",
-        "copied_by": "product owner (from the DOR PTO Data Portal, Map Data / 2025F / 2025F PIN)",
-    },
-}
+# The DOR PTO county PIN files, one row per Florida county, in
+# data/fl_dor_pin_files.csv. Every URL in that table was verified by a HEAD
+# request on 2026-10-20 (65 counties publish a 2025 file; Marion and Nassau
+# publish only 2024, so their tax_year says so). The pattern is NEVER assumed
+# for a county that was not verified: a county missing from the table has no
+# file location and is not read.
+PIN_FILES_CSV = Path(__file__).resolve().parents[2] / "data" / "fl_dor_pin_files.csv"
+
+
+def fl_pin_files(path: Path | None = None) -> dict[str, dict]:
+    """{county: {url, tax_year, variant, bytes, verified_on}} from the verified table."""
+    out: dict[str, dict] = {}
+    src = path or PIN_FILES_CSV
+    if not src.exists():
+        return out
+    with src.open(newline="", encoding="utf-8") as fh:
+        for row in csv.DictReader(fh):
+            county = (row.get("county") or "").strip()
+            url = (row.get("url") or "").strip()
+            if not county or not url.startswith("https://"):
+                continue
+            out[county] = {
+                "url": url,
+                "tax_year": int(row["tax_year"]),
+                "variant": (row.get("variant") or "").strip(),
+                "bytes": int(row.get("bytes") or 0),
+                "verified_on": (row.get("verified_on") or "").strip(),
+            }
+    return out
+
+
+FL_DOR_PIN_FILES = fl_pin_files()
 
 UT_UGRC = BoundarySource(
     source_id=UT_UGRC_LIR.source_id, state="UT",
