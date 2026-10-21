@@ -1,0 +1,54 @@
+# Broward County parcel outlines from the DOR PTO 2025 PIN file.
+#
+# MANUAL ONLY. There is no schedule, no push trigger and no other workflow calls
+# this one. Default mode is dry_run: it downloads the file, matches, and prints
+# counts. It writes nothing. apply needs the confirm input to be exactly APPLY.
+#
+# Needs the existing SUPABASE_URL / SUPABASE_SERVICE_KEY secrets and
+# migration 034 applied. See scripts/load_florida_broward_boundaries.py.
+
+name: parcel-boundaries-broward
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry_run (default, no writes) or apply"
+        type: choice
+        options: [dry_run, apply]
+        default: dry_run
+        required: true
+      confirm:
+        description: "Type APPLY to allow writes when mode is apply"
+        type: string
+        default: ""
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parcel-boundaries-broward
+  cancel-in-progress: false
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests pyshp pyproj
+
+      - name: Load Broward outlines
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          MODE: ${{ inputs.mode }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: python3 scripts/load_florida_broward_boundaries.py --mode "$MODE" --confirm "$CONFIRM"
