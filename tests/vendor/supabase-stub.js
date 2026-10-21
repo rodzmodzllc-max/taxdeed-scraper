@@ -413,6 +413,17 @@ if (new URLSearchParams(location.search).get("offlist") === "1") {
   if (p8) p8.last_seen_at = new Date(Date.now() - 3600 * 1000).toISOString();
 }
 
+// ?storedphoto=1 (2026-10-21 stored-aerial outline regression): p5 carries a
+// stored USDA NAIP aerial, as 62 of the 64 production properties with an
+// outline did. The image is a labelled fixture placard, never a real aerial.
+if (new URLSearchParams(location.search).get("storedphoto") === "1") {
+  const p5 = FIXTURE_PROPERTIES.find(r => r.id === "p5");
+  if (p5) {
+    p5.photo_source = "usda_naip";
+    p5.photo_url = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400'><rect width='100%' height='100%' fill='%2364748b'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='26' fill='%23ffffff'>FIXTURE STORED AERIAL</text></svg>";
+  }
+}
+
 // ?txcause=1 (2026-10-10 Texas cause-number regression): a second LGBS row in
 // Galveston listed under the SAME tax-suit cause as ptx3 but a different CAD
 // account (production: one cause on up to 26 different properties). The two
