@@ -51,16 +51,36 @@ class BoundarySource:
 
 
 FL_DOR = BoundarySource(
+    # Join from the Parcel Shapefiles Readme (reviewed 2026-10-20, recorded in
+    # data/source_approvals.csv): PIN files only (FID, Shape, PARCELNO - no tax-roll
+    # attributes), PARCELNO in the shapefile to PARCEL_ID in NAL. The county file
+    # location is still not configured, so the source stays off.
     source_id="fl_dor_pto_parcel_gis", state="FL",
     provider="Florida Department of Revenue, Property Tax Oversight",
-    dataset="DOR PTO Data Portal county GIS parcel files",
+    dataset="DOR PTO Data Portal county GIS parcel files (PIN variant)",
     permission_dataset="county_parcel_geometry",
-    counties=(), layer_url=None, feature_key_field=None, feature_id_field=None,
+    counties=(), layer_url=None, feature_key_field="PARCELNO", feature_id_field="FID",
     record_key="parcel", id_rule="alnum", join_configured=False,
-    not_configured_reason=("JOIN_NOT_CONFIGURED: the parcel-number field, the PIN/PAR file variant, the PARCELNO to "
-                           "PARCEL_ID join, identifier formatting and condominium handling must be taken from the "
-                           "Parcel Shapefiles Readme, which has not been read from this environment"),
+    not_configured_reason=("JOIN_NOT_CONFIGURED: the county PIN file reader (harvesters/boundary/shapefile.py) is "
+                           "tested on synthetic files only; the county download location and a manual run are not "
+                           "configured, so nothing reads a county file"),
 )
+
+# Florida DOR county PIN files, as the product owner copied them from the
+# portal (2026-10-20). Broward is the ONLY county recorded here: no other county
+# link is assumed from this pattern. The folder is 2025F, so this is a 2025 file,
+# not "current year"; the reader must check the year it reads. Nothing reads these
+# files yet: FL_DOR stays join_configured=False until a reader exists and is tested.
+FL_DOR_PIN_FILES = {
+    "Broward": {
+        "url": ("https://floridarevenue.com/property/dataportal/Documents/PTO%20Data%20Portal/"
+                "Map%20Data/2025F/2025F%20PIN/broward_2025pin.zip"),
+        "tax_year": 2025,
+        "variant": "PIN",
+        "copied_on": "2026-10-20",
+        "copied_by": "product owner (from the DOR PTO Data Portal, Map Data / 2025F / 2025F PIN)",
+    },
+}
 
 UT_UGRC = BoundarySource(
     source_id=UT_UGRC_LIR.source_id, state="UT",
