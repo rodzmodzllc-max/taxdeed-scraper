@@ -335,12 +335,12 @@ def test_simplification_keeps_a_valid_closed_ring():
 
 
 def test_parcel_geometry_storage_lives_in_one_unapplied_migration_only():
-    """Exactly one migration creates boundary storage (034, written for review
-    and not applied); no other migration stores parcel geometry."""
+    """Boundary storage lives in 034 and its follow-up 035 only; no other
+    migration stores parcel geometry."""
     hits = []
     for m in sorted((REPO / "scripts" / "migrations").glob("*.sql")):
         text = m.read_text(encoding="utf-8").lower()
         if "geometry(multipolygon" in text or "parcel_boundaries" in text:
             hits.append(m.name)
-    assert hits == ["034_parcel_boundaries.sql"]
+    assert hits == ["034_parcel_boundaries.sql", "035_parcel_boundary_county_refresh.sql"]
     assert "not applied" in (REPO / "scripts/migrations/034_parcel_boundaries.sql").read_text(encoding="utf-8").lower()

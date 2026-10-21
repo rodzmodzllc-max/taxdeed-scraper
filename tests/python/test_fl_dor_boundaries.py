@@ -296,8 +296,8 @@ class FakeDb:
         self.rows, self._stored, self.applied = rows, stored or {}, applied
         self.upserts, self.refreshes = [], []
 
-    def migration_applied(self):
-        return self.applied
+    def migration_applied(self, per_county=False):
+        return self.applied is True or (self.applied == "034" and not per_county)
 
     def properties(self, src, county=None):
         return [r for r in self.rows if county is None or r["county"] == county]
@@ -401,3 +401,54 @@ def test_the_refresh_reads_only_the_validated_keys(tmp_path, monkeypatch):
     db = FakeDb([rec("a", "700"), rec("b")])
     assert R.run(FL, apply=False, db=db, out=lambda m: None, today=TODAY, files={"county": "Leon", "path": str(p)}) == 0
     assert seen["keys"] == {"700"}
+
+
+# --- location validation -----------------------------------------------------------
+
+def test_florida_bounds_are_the_geocoders():
+    from harvesters.enrichment.geocode import STATE_BOUNDS
+    assert FD.FLORIDA_BOUNDS == STATE_BOUNDS["FL"]
+
+
+def test_a_polygon_outside_florida_is_dropped(tmp_path):
+    # Written in a Florida projection, but the coordinates put it in Georgia.
+    p = write_shp(tmp_path, "leon_pin", [("1", [square(-84.3, 30.4)]), ("2", [square(-84.3, 32.5)])])
+    r = FD.read_county(p, "Leon", keys={"1", "2"})
+    assert [f["properties"]["PARCELNO"] for f in r.features] == ["1"] and r.counts == {"OUT_OF_STATE": 1}
+
+
+def _located(pid, nal, lat=None, lon=None):
+    row = dict(rec(pid, nal), nal_parcel_id=nal)
+    if lat is not None:
+        row.update(latitude=lat, longitude=lon)
+    return row
+
+
+def test_a_polygon_far_from_the_records_own_point_is_refused():
+    feats = [{"type": "Feature", "properties": {"PARCELNO": k, "FID": i},
+              "geometry": {"type": "MultiPolygon", "coordinates": [[square(-84.3 - i * 0.01, 30.4)]]}}
+             for i, k in enumerate(("near", "far", "nocoords"))]
+    records = [_located("a", "near", 30.4002, -84.2998),        # inside the polygon
+               _located("b", "far", 30.50, -84.30),               # about 11 km north
+               _located("c", "nocoords")]
+    kept, counts = FD.location_check(records, feats)
+    assert [f["properties"]["PARCELNO"] for f in kept] == ["near", "nocoords"]
+    assert counts == {"LOCATION_CONFIRMED": 1, "LOCATION_MISMATCH": 1, "NO_RECORD_COORDINATES": 1}
+    out = plan(records, kept)
+    assert sorted(r["property_id"] for r in out["rows"]) == ["a", "c"]        # b stays unmatched, never wrong
+
+
+def test_the_refresh_applies_the_location_check(tmp_path):
+    p = write_shp(tmp_path, "leon_pin", [("700", [square(-84.3, 30.4)])])
+    far = dict(rec("a", "700"), latitude=30.6, longitude=-84.3)
+    db, lines = FakeDb([far]), []
+    assert R.run(FL, apply=True, db=db, out=lines.append, today=TODAY, files={"county": "Leon", "path": str(p)}) == 0
+    assert db.upserts in ([], [(FL, [])])
+    assert "LOCATION_MISMATCH" in "\n".join(lines)
+
+
+def test_a_files_source_needs_035_as_well_as_034(tmp_path):
+    p = write_shp(tmp_path, "leon_pin", [("700", [square(-84.3, 30.4)])])
+    db, lines = FakeDb([rec("a", "700")], applied="034"), []
+    assert R.run(FL, apply=True, db=db, out=lines.append, today=TODAY, files={"county": "Leon", "path": str(p)}) == 4
+    assert db.upserts == [] and db.refreshes == [] and "035" in "\n".join(lines)

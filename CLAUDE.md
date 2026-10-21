@@ -3409,7 +3409,7 @@ Full description: `docs/parcel-source-approvals.md`. Stable facts:
   future path must use: `apply_refresh`, `match_geometries` (exact identifier; UNMATCHED / AMBIGUOUS never
   associated), `simplify_ring`, `plan_geometry_refresh` (failed read changes nothing; nothing deleted).
 
-## Parcel boundaries from the approved sources (2026-10-20, PR open, migration 034 NOT applied)
+## Parcel boundaries from the approved sources (2026-10-20; 034 LIVE in production, 035 NOT applied)
 
 Full description: `docs/parcel-boundaries.md`. Stable facts:
 - **Two boundary sources only, and they are the approval register's own ids** (`harvesters/boundary/sources.py`). There is
@@ -3425,22 +3425,34 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   (Broward: `scripts/load_florida_broward_boundaries.py`, manual workflow, dry run by default):
   PARCELNO read as DBF text only, matched EXACTLY to the record's validated NAL PARCEL_ID
   (`field_provenance` `fdor_nal` `matched_parcel_id`) - never a reformatted listing parcel; `format_check` must pass;
-  DOR use code 04 (condo) / 94 (right-of-way) never attached; condo files (Miami-Dade, St. Johns) refused; per-county
-  refresh in `parcel_boundary_refresh_units`.
+  DOR use code 04 (condo) / 94 (right-of-way) never attached; condo files (Miami-Dade, St. Johns) refused; a kept
+  polygon must lie in Florida and within 1 km of the record's own point when it has one (`LOCATION_MISMATCH`);
+  per-county refresh in `parcel_boundary_refresh_units`. A county read reprojects only the joinable keys' polygons
+  but sees the whole file for format, stacked and multi-parcel checks.
 - **Utah:** display is allowed; the disclaimer is linked to UGRC's license and disclaimer policy page.
-- **Migration 034** (033 is held by the billing PR):
+- **Production (read-only, 2026-10-21):** 034 was applied directly (bodies = the repo file; not in the migration
+  history) and workflow run #2 of `parcel-boundaries-broward` (main `e5ec234`, listing-parcel matching) wrote 64
+  Broward outlines incl. 34 condo units and set Florida's statewide refresh. Never edit 034 again: changes go in
+  **035** (`035_parcel_boundary_county_refresh.sql`, NOT applied, idempotent upgrade). Cleanup for the owner:
+  `scripts/sql/parcel_boundaries_superseded_broward_2025.sql` (not run).
+- **Migration 034** (033 is held by the billing PR) + **035**:
   - `parcel_boundary_sources`: display grant, attribution, expected cadence vs `last_successful_refresh_at`.
   - `parcel_boundaries`: PK `property_id` (uuid), unique source feature, valid MultiPolygon 4326.
   - `get_property_boundary(uuid)` (invoker, respects the publication gate).
   - Service-role `upsert_parcel_boundaries()` / `record_parcel_boundary_refresh()`.
   - Nothing deletes; only COMPLETE advances the last success.
+  - 035: `source_dataset_date`, `parcel_boundary_refresh_units`, `parcel_boundary_refresh_of()` (definer, one
+    timestamp: the property's county for a per-county source), 6-arg `record_parcel_boundary_refresh()`; clears
+    Florida's source-level refresh. Files sources stop (exit 4) unless 035 is applied.
 - **Plan** (`harvesters/boundary/plan.py`): exact identifier match only. These are never associated:
   - stacked polygons, multi-parcel features, shared features, invalid geometry;
   - a record without a polygon.
 
   Another source's boundary is never replaced.
-- **Writer:** `scripts/parcel_boundary_refresh.py` is readiness-only by default. `--apply` needs `--confirm-apply`. It
-  is not wired into any workflow.
+- **Writer:** `scripts/parcel_boundary_refresh.py` is readiness-only by default. `--apply` needs `--confirm-apply`. Only
+  the manual Broward workflow calls it (dispatch only, `mode` dry_run default, `confirm=APPLY` to write).
+- **FGIO statewide parcels** (Florida GeoData item `efa909d6...` = `Florida_Statewide_Cadastral` = `fl_fdor_cadastral`)
+  carry NAL attributes; NOT used for boundaries - follow-up in `docs/parcel-boundaries.md`.
 - **Front end** (`public/parcel-boundary.js`, app.js `drawBoundary()`): only the property page and the map preview
   request a boundary. The outline is shown with the credit, licence link, change notice, disclaimer and metadata;
   geometry never rides on a property row or in an export. Stub knob `?boundary=ok|fl|multi|none|unauth|invalid|

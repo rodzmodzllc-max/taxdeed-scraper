@@ -49,6 +49,7 @@ pyproj for the reprojection to WGS84).
 """
 from __future__ import annotations
 
+import math
 import re
 import tempfile
 from dataclasses import dataclass, field
@@ -63,6 +64,11 @@ CONDO_USE_CODES = frozenset({"04"})
 RIGHT_OF_WAY_USE_CODES = frozenset({"94"})
 CONDO_SEPARATE_FILE_COUNTIES = frozenset({"Miami-Dade", "St. Johns"})
 NAL_PROVENANCE_SOURCE = "fdor_nal"
+# Florida's extent (harvesters/enrichment/geocode.py STATE_BOUNDS): lat min/max, lon min/max.
+FLORIDA_BOUNDS = (24.0, 31.5, -88.0, -79.5)
+# How far a matched polygon may lie from the record's own stored point before
+# the match is refused: catches a wrong polygon, tolerates an address geocode.
+LOCATION_TOLERANCE_M = 1000.0
 
 # Standard FL DOR county numbering, 11-77 (the same table as
 # scripts/enrich_property_details.py COUNTY_CODES; a test pins them equal).
@@ -228,6 +234,10 @@ def _read_shp(shp: Path, county: str, variant: str, keys=None) -> CountyRead:
         if f["geometry"] is None:
             counts["NULL_SHAPE"] = counts.get("NULL_SHAPE", 0) + 1
             continue
+        box = geometry_bbox(f["geometry"])
+        if box is None or not _inside_florida(box):
+            counts["OUT_OF_STATE"] = counts.get("OUT_OF_STATE", 0) + 1
+            continue
         feat = {"type": "Feature", "properties": {IDENTIFIER_FIELD: key, "FID": props["FID"]},
                 "geometry": f["geometry"]}
         if keys is not None:
@@ -243,6 +253,67 @@ def _read_shp(shp: Path, county: str, variant: str, keys=None) -> CountyRead:
         out.features = kept
     out.counts = counts
     return out
+
+
+def geometry_bbox(geom) -> tuple[float, float, float, float] | None:
+    """(min lon, min lat, max lon, max lat) of a GeoJSON MultiPolygon, or None."""
+    try:
+        pts = [pt for poly in geom["coordinates"] for ring in poly for pt in ring]
+        lons, lats = [float(p[0]) for p in pts], [float(p[1]) for p in pts]
+    except (TypeError, KeyError, ValueError, IndexError):
+        return None
+    if not pts:
+        return None
+    return min(lons), min(lats), max(lons), max(lats)
+
+
+def _inside_florida(box) -> bool:
+    lat0, lat1, lon0, lon1 = FLORIDA_BOUNDS
+    return lon0 <= box[0] and box[2] <= lon1 and lat0 <= box[1] and box[3] <= lat1
+
+
+def _metres_outside(box, lon: float, lat: float) -> float:
+    """Distance from a point to a lon/lat box, in metres (0 inside)."""
+    dlon = max(box[0] - lon, 0.0, lon - box[2])
+    dlat = max(box[1] - lat, 0.0, lat - box[3])
+    return math.hypot(dlon * 111320.0 * math.cos(math.radians(lat)), dlat * 110540.0)
+
+
+def location_check(records: list[dict], features: list[dict], *, tolerance_m: float = LOCATION_TOLERANCE_M
+                   ) -> tuple[list[dict], dict]:
+    """Drop a polygon that lies far from where the joined record itself says it
+    is. The identifier match is the identity; this is a second, independent
+    check so a wrong polygon is never attached silently. A record with stored
+    coordinates more than `tolerance_m` from the polygon's extent loses that
+    polygon (LOCATION_MISMATCH: the record stays unmatched). A record without
+    coordinates is not checked and is counted (NO_RECORD_COORDINATES)."""
+    points: dict = {}
+    for r in records:
+        try:
+            lat, lon = float(r.get("latitude")), float(r.get("longitude"))
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(lat) and math.isfinite(lon):
+            points.setdefault(r.get("nal_parcel_id"), []).append((lon, lat))
+    keys = {r.get("nal_parcel_id") for r in records}
+    kept, counts = [], {}
+    for f in features:
+        key = f["properties"].get(IDENTIFIER_FIELD)
+        if key not in keys:
+            kept.append(f)
+            continue
+        pts = points.get(key)
+        if not pts:
+            counts["NO_RECORD_COORDINATES"] = counts.get("NO_RECORD_COORDINATES", 0) + 1
+            kept.append(f)
+            continue
+        box = geometry_bbox(f["geometry"])
+        if box is None or any(_metres_outside(box, lon, lat) > tolerance_m for lon, lat in pts):
+            counts["LOCATION_MISMATCH"] = counts.get("LOCATION_MISMATCH", 0) + 1
+            continue
+        counts["LOCATION_CONFIRMED"] = counts.get("LOCATION_CONFIRMED", 0) + 1
+        kept.append(f)
+    return kept, counts
 
 
 def format_check(records: list[dict], features: list[dict], file_shapes=None) -> tuple[bool, str]:

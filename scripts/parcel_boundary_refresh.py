@@ -8,9 +8,9 @@
 
 Sources and gates: harvesters/boundary/sources.py (the approval register and
 permissions.authorize() decide). Florida DOR files and their join rules:
-harvesters/boundary/fl_dor.py. Plan rules: harvesters/boundary/plan.py. Storage: migration
-034_parcel_boundaries.sql - NOT applied; without it --dry-run and --apply stop
-before reading the source.
+harvesters/boundary/fl_dor.py. Plan rules: harvesters/boundary/plan.py. Storage: migrations
+034_parcel_boundaries.sql and (for a files source) 035_parcel_boundary_county_refresh.sql;
+without them --dry-run and --apply stop before reading the source.
 
 What a run may change:
 * only rows of the one source named, for properties whose identifier matches
@@ -20,8 +20,9 @@ What a run may change:
   stays as it was;
 * nothing is ever deleted.
 
-Not wired into any workflow. Output is counts only: no parcel identifier, no
-geometry and no address is printed.
+Called by the manual Broward workflow (scripts/load_florida_broward_boundaries.py,
+.github/workflows/parcel-boundaries-broward.yml); no schedule runs it. Output is
+counts only: no parcel identifier, no geometry and no address is printed.
 """
 from __future__ import annotations
 
@@ -105,9 +106,15 @@ class Db:
             raw = resp.read().decode("utf-8")
         return json.loads(raw) if raw else None
 
-    def migration_applied(self) -> bool:
+    def migration_applied(self, per_county: bool = False) -> bool:
+        """034 (boundary storage) is present; with per_county, 035 as well (the
+        per-county refresh units a files source records into)."""
+        probes = ["/rest/v1/parcel_boundary_sources?select=source_id&limit=1"]
+        if per_county:
+            probes.append("/rest/v1/parcel_boundary_refresh_units?select=source_id&limit=1")
         try:
-            self._req("GET", "/rest/v1/parcel_boundary_sources?select=source_id&limit=1")
+            for path in probes:
+                self._req("GET", path)
             return True
         except Exception:  # noqa: BLE001 - absent table / function = not applied
             return False
@@ -117,7 +124,7 @@ class Db:
         if src.location == "files":
             # Florida: the join key is derived from field_provenance; the use
             # code decides the condominium / right-of-way exclusions.
-            select = "id,state,county,parcel,dor_use_code,field_provenance"
+            select = "id,state,county,parcel,dor_use_code,field_provenance,latitude,longitude"
         else:
             select = f"id,state,county,{src.record_key}"
         params = {"select": select, "state": f"eq.{src.state}", "status": "eq.active"}
@@ -171,6 +178,9 @@ def run_files(src, *, apply: bool, db, out, county: str = "", path: str = "", va
         ok, why = fl_dor.format_check(records, read.features, read.identifier_shapes)
         if not ok:
             status, note = "JOIN_NOT_VALIDATED", why
+        else:
+            read.features, located = fl_dor.location_check(records, read.features)
+            read.counts = {**read.counts, **located}
     plan = boundary_plan.plan_refresh(records, read.features if status == "COMPLETE" else [], db.stored(
         [x["id"] for x in records]) if status == "COMPLETE" else {}, src, read_status=status, observed_at=started,
         dataset=read.dataset or None, dataset_date=read.dataset_date)
@@ -199,8 +209,11 @@ def run(source_id: str, *, apply: bool, db: Db, read=arcgis_read, out=print, tod
     if not r["runnable"]:
         out(f"REFUSED {source_id}: {', '.join(r['reasons'])}; requests: 0; writes: 0")
         return 3
-    if not db.migration_applied():
-        out("migration 034_parcel_boundaries.sql is not applied: nothing read, nothing written")
+    if not db.migration_applied(per_county=src.location == "files"):
+        out("migrations 034_parcel_boundaries.sql" + (" and 035_parcel_boundary_county_refresh.sql"
+                                                     if src.location == "files" else "")
+            + " are not both applied: nothing read, nothing written" if src.location == "files"
+            else "migration 034_parcel_boundaries.sql is not applied: nothing read, nothing written")
         return 4
     if src.location == "files":
         return run_files(src, apply=apply, db=db, out=out, **(files or {}))

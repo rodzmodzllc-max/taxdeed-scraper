@@ -54,7 +54,7 @@ def test_s02_one_boundary_per_property_and_one_property_per_feature():
 
 
 def test_s03_writes_are_service_role_only_and_reads_are_invoker_rights():
-    for fn in ("upsert_parcel_boundaries(text, jsonb)", "record_parcel_boundary_refresh(text, text, timestamptz, text, text, date)"):
+    for fn in ("upsert_parcel_boundaries(text, jsonb)", "record_parcel_boundary_refresh(text, text, timestamptz)"):
         assert f"revoke all on function public.{fn} from public, anon, authenticated;" in SQL
         assert f"grant execute on function public.{fn} to service_role;" in SQL
     assert "revoke all on public.parcel_boundaries from anon, authenticated;" in SQL
@@ -200,34 +200,6 @@ def test_l06_reapplying_034_keeps_refresh_state(scratch):
     out = scratch("select last_successful_refresh_at is not null from public.parcel_boundary_sources "
                   "where source_id = 'ut_ugrc_lir_saltlake';").strip()
     assert out == "t"
-
-
-def test_l07_per_county_refresh_units_advance_only_on_complete_and_keep_their_dataset(scratch):
-    fl = "fl_dor_pto_parcel_gis"
-    run = lambda sql: scratch("set role service_role; " + sql)  # noqa: E731
-    run(f"select public.record_parcel_boundary_refresh('{fl}', 'COMPLETE', '2026-10-21T00:00:00Z', 'Leon', "
-        f"'DOR PTO PIN parcel shapefile leon_pin', '2026-08-20');")
-    run(f"select public.record_parcel_boundary_refresh('{fl}', 'FAILED', '2026-10-22T00:00:00Z', 'Leon', "
-        f"'DOR PTO PIN parcel shapefile other', '2026-09-01');")
-    out = scratch(f"select dataset, dataset_date, last_successful_refresh_at at time zone 'UTC', last_attempt_status, "
-                  f"consecutive_failures from public.parcel_boundary_refresh_units where source_id = '{fl}' "
-                  f"and unit = 'Leon';").strip()
-    assert out == "DOR PTO PIN parcel shapefile leon_pin|2026-08-20|2026-10-21 00:00:00|FAILED|1"
-    # A county read never stands in for the whole source's refresh.
-    assert scratch(f"select last_successful_refresh_at is null from public.parcel_boundary_sources "
-                   f"where source_id = '{fl}';").strip() == "t"
-    # Customers never read the bookkeeping.
-    assert "permission denied" in scratch(as_user(USERS["customer"], "select * from public.parcel_boundary_refresh_units;"))
-
-
-def test_l08_the_dataset_date_is_stored_and_returned(scratch):
-    fl = "fl_dor_pto_parcel_gis"
-    r = row(P_OTHER, "leon_pin#9", sq(-84.3, 30.4), "9").replace(
-        '"source_dataset":"Parcels_SaltLake_LIR"', '"source_dataset":"DOR PTO PIN parcel shapefile leon_pin","source_dataset_date":"2026-08-20"')
-    assert '"inserted": 1' in upsert(scratch, fl, [r])
-    out = scratch(as_user(USERS["customer"], f"select source_dataset, source_dataset_date, source_feature_id "
-                                             f"from public.get_property_boundary('{P_OTHER}');")).strip()
-    assert out == "DOR PTO PIN parcel shapefile leon_pin|2026-08-20|leon_pin#9"
 
 
 def test_read_returns_source_freshness_from_recorded_timestamps_only():

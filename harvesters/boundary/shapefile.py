@@ -18,6 +18,7 @@ job). Nothing is read over the network here.
 from __future__ import annotations
 
 import hashlib
+import shutil
 from collections import Counter
 from pathlib import Path
 from typing import Iterator
@@ -89,7 +90,7 @@ def extract_zip(zip_path: str | Path, out_dir: str | Path) -> Path:
                 continue
             target = out_dir / Path(name).name
             with z.open(info) as src, open(target, "wb") as dst:
-                dst.write(src.read())
+                shutil.copyfileobj(src, dst, 1 << 20)   # streamed: a county .shp is over 1 GB
             if name.lower().endswith(".shp"):
                 shp_names.append(target)
     if len(shp_names) != 1:
@@ -117,8 +118,8 @@ def _polygon_coordinates(shape, transform) -> list | None:
     for start, end in zip(parts[:-1], parts[1:]):
         ring_xy = shape.points[start:end]
         if len(ring_xy) < 4:
-            # A degenerate ring is kept as-is so prepare() refuses it with its own reason.
-            rings.append([list(p) for p in ring_xy])
+            # A degenerate ring is kept (reprojected like any other) so prepare() refuses it with its own reason.
+            rings.append([list(transform(x, y)) for x, y in ring_xy])
             continue
         lon_lat = [list(transform(x, y)) for x, y in ring_xy]
         rings.append((lon_lat, _signed_area(ring_xy)))

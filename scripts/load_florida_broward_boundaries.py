@@ -77,8 +77,9 @@ def run(mode: str, confirm: str, *, db=None, fetch=download, out=print) -> int:
             out("SUPABASE_URL / SUPABASE_SERVICE_KEY are not set: nothing read, nothing written")
             return 2
         db = refresh.Db(url, key)
-    if not db.migration_applied():
-        out("migration 034_parcel_boundaries.sql is not applied: nothing downloaded, nothing written")
+    if not db.migration_applied(per_county=True):
+        out("migrations 034_parcel_boundaries.sql and 035_parcel_boundary_county_refresh.sql are not both applied: "
+            "nothing downloaded, nothing written")
         return 4
     with tempfile.TemporaryDirectory() as td:
         tdir = Path(td)

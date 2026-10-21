@@ -49,8 +49,9 @@ class FakeDb:
     def __init__(self, rows, applied=True):
         self.rows, self.applied, self.upserts, self.refreshes = rows, applied, [], []
 
-    def migration_applied(self):
-        return self.applied
+    def migration_applied(self, per_county=False):
+        # applied: True (034 and 035), "034" (production today: 034 only), False
+        return self.applied is True or (self.applied == "034" and not per_county)
 
     def properties(self, src, county=None):
         return [r for r in self.rows if r["county"] == county]
@@ -113,6 +114,11 @@ def test_apply_needs_the_confirmation_and_the_migration():
     called = []
     assert L.run("dry_run", "", db=db, fetch=lambda u, d: called.append(u), out=lambda m: None) == 4
     assert called == [] and db.upserts == []
+    # 034 alone (production's state before 035) is not enough: the per-county
+    # refresh record needs 035, so nothing is downloaded or written.
+    db = FakeDb([_rec("a", "484106070240")], applied="034")
+    assert L.run("apply", "APPLY", db=db, fetch=lambda u, d: called.append(u), out=lambda m: None) == 4
+    assert called == [] and db.upserts == [] and db.refreshes == []
 
 
 def test_extract_refuses_a_path_that_leaves_the_target_folder(tmp_path):

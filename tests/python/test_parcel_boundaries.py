@@ -32,6 +32,8 @@ TODAY = date(2026, 10, 21)
 FL, UT = "fl_dor_pto_parcel_gis", "ut_ugrc_lir_saltlake"
 APP = (REPO / "public/app.js").read_text(encoding="utf-8")
 M034 = (REPO / "scripts/migrations/034_parcel_boundaries.sql").read_text(encoding="utf-8")
+M035 = (REPO / "scripts/migrations/035_parcel_boundary_county_refresh.sql").read_text(encoding="utf-8")
+M_BOUNDARY = M034 + "\n" + M035          # 034 as deployed, then the 035 upgrade
 
 
 def poly(x, y, h=0.0003, extra=True):
@@ -267,7 +269,7 @@ class FakeDb:
         self.applied, self.records, self._stored = applied, records or [], stored or {}
         self.upserts, self.refreshes = [], []
 
-    def migration_applied(self):
+    def migration_applied(self, per_county=False):
         return self.applied
 
     def properties(self, src, county=None):
@@ -375,8 +377,8 @@ def test_refresh_bookkeeping_only_advances_on_a_complete_read():
     s2 = A.apply_refresh(s1, status="COMPLETE", at="2026-10-22T00:00:00Z")
     assert s2.last_successful_refresh == "2026-10-22T00:00:00Z" and s2.expected_cadence == "Generally monthly"
     # The SQL bookkeeping follows the same rule.
-    assert "ok boolean := upper(coalesce(p_status, '')) = 'COMPLETE';" in M034
-    assert "last_successful_refresh_at = case when ok then p_at else last_successful_refresh_at end" in M034
+    assert "ok boolean := upper(coalesce(p_status, '')) = 'COMPLETE';" in M035
+    assert "last_successful_refresh_at = case when ok then p_at else last_successful_refresh_at end" in M035
 
 
 # --- attribution on every customer-facing surface ---------------------------------
@@ -391,12 +393,12 @@ def test_migration_seed_matches_the_approval_register():
         cols += ["license_name", "license_url"] if a.basis == "PUBLISHED_LICENSE" else []
         for col in cols:
             if attr[col]:
-                assert "'" + attr[col].replace("'", "''") + "'" in M034, (sid, col)
-        assert a.expected_refresh_cadence.split(" (")[0] in M034
+                assert "'" + attr[col].replace("'", "''") + "'" in M_BOUNDARY, (sid, col)
+        assert a.expected_refresh_cadence.split(" (")[0] in M_BOUNDARY
 
 
 def test_the_read_contract_returns_the_full_attribution():
-    fn = M034[M034.index("create or replace function public.get_property_boundary"):]
+    fn = M035[M035.index("create or replace function public.get_property_boundary"):]   # the definition in force
     fn = fn[:fn.index("$$;")]
     for col in ("attribution text", "license_name text", "license_url text", "change_notice text", "disclaimer text",
                 "disclaimer_url text", "metadata_url text", "source_dataset text", "source_feature_id text"):
@@ -420,7 +422,7 @@ def test_exports_and_list_payloads_never_carry_geometry():
     assert not re.search(r"\bp\.(boundary|geom|geometry)\b", APP)
     assert "BOUNDARY_CACHE" in APP and "fetchPropertyBoundary(sb, pid, row)" in APP
     for path in sorted((REPO / "scripts/migrations").glob("0*.sql")):
-        if path.name in ("034_parcel_boundaries.sql",):
+        if path.name in ("034_parcel_boundaries.sql", "035_parcel_boundary_county_refresh.sql"):
             continue
         assert "parcel_boundaries" not in path.read_text(encoding="utf-8")
 
