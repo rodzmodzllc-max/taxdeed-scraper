@@ -1,0 +1,68 @@
+county,county_key,status,official_url,exact_filename,tax_year,verified_on,props_total_fl,props_with_parcel,blocker_or_next_action
+Alachua,alachua,BLOCKED_DOWNLOAD_ACCESS,,,,,128,128,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Baker,baker,BLOCKED_DOWNLOAD_ACCESS,,,,,1,1,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Bay,bay,BLOCKED_DOWNLOAD_ACCESS,,,,,72,72,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Bradford,bradford,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Brevard,brevard,BLOCKED_DOWNLOAD_ACCESS,,,,,66,66,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Broward,broward,VERIFIED,https://floridarevenue.com/property/dataportal/Documents/PTO%20Data%20Portal/Map%20Data/2025F/2025F%20PIN/broward_2025pin.zip,broward_2025pin.zip,2025,2026-10-20,64,64,"Applied 2026-10-21 (run 39586361285, e5ec234); read-only verified. Reference case."
+Calhoun,calhoun,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Charlotte,charlotte,BLOCKED_DOWNLOAD_ACCESS,,,,,167,167,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Citrus,citrus,BLOCKED_DOWNLOAD_ACCESS,,,,,45,8,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Clay,clay,BLOCKED_DOWNLOAD_ACCESS,,,,,52,52,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Collier,collier,BLOCKED_DOWNLOAD_ACCESS,,,,,1,1,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Columbia,columbia,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+DeSoto,desoto,BLOCKED_DOWNLOAD_ACCESS,,,,,9,9,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Dixie,dixie,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Duval,duval,BLOCKED_DOWNLOAD_ACCESS,,,,,183,183,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Escambia,escambia,BLOCKED_DOWNLOAD_ACCESS,,,,,99,96,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Flagler,flagler,BLOCKED_DOWNLOAD_ACCESS,,,,,11,11,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Franklin,franklin,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Gadsden,gadsden,BLOCKED_DOWNLOAD_ACCESS,,,,,8,8,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Gilchrist,gilchrist,BLOCKED_DOWNLOAD_ACCESS,,,,,11,11,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Glades,glades,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Gulf,gulf,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Hamilton,hamilton,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Hardee,hardee,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Hendry,hendry,BLOCKED_DOWNLOAD_ACCESS,,,,,20,20,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Hernando,hernando,BLOCKED_DOWNLOAD_ACCESS,,,,,81,31,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Highlands,highlands,BLOCKED_DOWNLOAD_ACCESS,,,,,139,139,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Hillsborough,hillsborough,BLOCKED_DOWNLOAD_ACCESS,,,,,273,273,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Holmes,holmes,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Indian River,indian_river,BLOCKED_DOWNLOAD_ACCESS,,,,,30,30,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Jackson,jackson,BLOCKED_DOWNLOAD_ACCESS,,,,,91,91,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Jefferson,jefferson,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Lafayette,lafayette,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Lake,lake,BLOCKED_DOWNLOAD_ACCESS,,,,,48,48,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Lee,lee,BLOCKED_DOWNLOAD_ACCESS,,,,,212,212,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Leon,leon,BLOCKED_DOWNLOAD_ACCESS,,,,,73,73,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Levy,levy,BLOCKED_DOWNLOAD_ACCESS,,,,,5,5,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Liberty,liberty,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Madison,madison,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Manatee,manatee,BLOCKED_DOWNLOAD_ACCESS,,,,,92,92,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Marion,marion,BLOCKED_DOWNLOAD_ACCESS,,,,,86,86,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Martin,martin,BLOCKED_DOWNLOAD_ACCESS,,,,,18,18,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Miami-Dade,miami_dade,BLOCKED_DOWNLOAD_ACCESS,,,,,253,253,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Monroe,monroe,BLOCKED_DOWNLOAD_ACCESS,,,,,4,4,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Nassau,nassau,BLOCKED_DOWNLOAD_ACCESS,,,,,24,24,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Okaloosa,okaloosa,BLOCKED_DOWNLOAD_ACCESS,,,,,1,1,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Okeechobee,okeechobee,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Orange,orange,BLOCKED_DOWNLOAD_ACCESS,,,,,184,184,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Osceola,osceola,BLOCKED_DOWNLOAD_ACCESS,,,,,59,59,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Palm Beach,palm_beach,BLOCKED_DOWNLOAD_ACCESS,,,,,75,75,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Pasco,pasco,BLOCKED_DOWNLOAD_ACCESS,,,,,171,171,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Pinellas,pinellas,BLOCKED_DOWNLOAD_ACCESS,,,,,28,28,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Polk,polk,BLOCKED_DOWNLOAD_ACCESS,,,,,91,91,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Putnam,putnam,BLOCKED_DOWNLOAD_ACCESS,,,,,159,159,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Santa Rosa,santa_rosa,BLOCKED_DOWNLOAD_ACCESS,,,,,511,511,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Sarasota,sarasota,BLOCKED_DOWNLOAD_ACCESS,,,,,137,137,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Seminole,seminole,BLOCKED_DOWNLOAD_ACCESS,,,,,50,50,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+St. Johns,st_johns,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+St. Lucie,st_lucie,BLOCKED_DOWNLOAD_ACCESS,,,,,60,60,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Sumter,sumter,BLOCKED_DOWNLOAD_ACCESS,,,,,8,8,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Suwannee,suwannee,BLOCKED_DOWNLOAD_ACCESS,,,,,21,21,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Taylor,taylor,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Union,union,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Volusia,volusia,BLOCKED_DOWNLOAD_ACCESS,,,,,357,357,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Wakulla,wakulla,BLOCKED_DOWNLOAD_ACCESS,,,,,0,0,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Walton,walton,BLOCKED_DOWNLOAD_ACCESS,,,,,73,73,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
+Washington,washington,BLOCKED_DOWNLOAD_ACCESS,,,,,105,105,No exact PIN ZIP URL supplied; FDOR portal not reachable from sandbox (proxy 403). Supply the exact URL from the DOR portal.
