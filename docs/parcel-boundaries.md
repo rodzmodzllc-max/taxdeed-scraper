@@ -4,11 +4,22 @@ This change puts in place the boundary use that two written approvals cover:
 1. Florida DOR Property Tax Oversight;
 2. Utah UGRC (CC BY 4.0).
 
-The product owner has confirmed receipt of both. It is repository-only:
-- migration 034 is written and **NOT applied**;
-- no production row was written;
-- no workflow was dispatched and no schedule or secret was changed;
-- no source owner was contacted.
+The product owner has confirmed receipt of both.
+
+## Production state (read-only check, 2026-10-21)
+
+- **Migration 034 is live in production**, applied directly rather than through the migration history. Its function bodies match `034_parcel_boundaries.sql` exactly, so that file is left unchanged as the record of what runs. Every later change is in **migration 035** (`035_parcel_boundary_county_refresh.sql`), which is written to upgrade that live state and is **NOT applied**.
+- **64 Broward outlines are stored**, all written by workflow `parcel-boundaries-broward` run #2 (2026-10-21, 10:40-10:49 UTC, on `main` at `e5ec234`). That run's loader matched on the listing's own parcel number, so it attached outlines to every active Broward record:
+  - 34 condominium units;
+  - 1 right-of-way;
+  - 39 records with no validated NAL PARCEL_ID.
+
+  The reviewed rules below would attach 10. The same run set Florida's **statewide** `last_successful_refresh_at` from that one county.
+- **Correcting it is a production step for the owner**, in this order:
+  1. Apply 035. It clears Florida's source-level refresh state, adds the per-county records and leaves every stored outline in place.
+  2. Run `scripts/sql/parcel_boundaries_superseded_broward_2025.sql`. It previews the count, then deletes only the rows under that run's dataset name, `DOR PTO PIN 2025F Broward`.
+  3. Dispatch the Broward workflow as a dry run, then apply.
+- Nothing in this repository change writes to production.
 
 ## Which source, which dataset
 
@@ -44,25 +55,62 @@ Keep the originals somewhere private and durable, and reference them here by has
 | redistribute / export, fetch_via_proxy | No record, so denied | No record, so denied |
 | Any other dataset key | No record, so denied | n/a |
 
-### Florida: why file reads still wait
+### Florida: the DOR county shapefile reader (2026-10-20)
 
-The approval itself is not in doubt. What the code cannot yet do correctly is join a county file's polygons to our records. That join depends on the Parcel Shapefiles Readme, which is to be confirmed from the document itself and covers:
-- which file variant to read (PIN or PAR);
-- which field carries the parcel number;
-- how PARCELNO lines up with the tax roll's PARCEL_ID;
-- identifier formatting;
-- how condominium units are handled.
+The product owner reviewed the Parcel Shapefiles Readme on 2026-10-20. The document itself is still not reachable from this environment (floridarevenue.com is refused by the network policy, and nothing was routed around that). The register records the review date and the caveats as the owner's review, each with how the code handles it (`technical_caveats`). That record satisfies `technical_readme_reviewed`, so `parse` and `fetch` are allowed for `county_parcel_geometry` only.
 
-The Readme
-(https://floridarevenue.com/property/dataportal/Documents/PTO%20Data%20Portal/Map%20Data/Parcel%20Shapefiles%20Readme.pdf) could not be retrieved: floridarevenue.com is refused by this environment's network policy (proxy 403), and the fetch tool gets no DNS resolution. Nothing was routed around that.
+**Reading a county file** (`harvesters/boundary/fl_dor.py` for the rules, `shapefile.py` for the file: pyshp, and pyproj for the reprojection):
 
-So:
-- `FL_DOR` in `harvesters/boundary/sources.py` has no join configured and no file location, and refuses with `JOIN_NOT_CONFIGURED` before any request.
-- The register keeps the caveats as NOT YET READ.
-- To unblock it:
-  1. Read the Readme and transcribe its caveats into `technical_caveats`, with `technical_readme_reviewed_on`.
-  2. Set the join fields from the document.
-  3. Add a county-file reader.
+| README caveat | Handling |
+|---|---|
+| PIN files hold the boundaries; PAR files add assessment attributes | `--variant PIN` is the default. A PAR file is refused unless `--allow-par-geometry`, and even then only its geometry is read. Only `PARCELNO` is decoded, plus `CO_NO` when present, which must equal the county's DOR number. Every other DBF column is skipped unread |
+| PARCELNO joins to the NAL PARCEL_ID | Our key is the **validated** NAL PARCEL_ID: the `matched_parcel_id` recorded in `field_provenance` (source `fdor_nal`) when the record matched the tax-roll layer exactly. A record with none, or with two different ones, is not joined. Matching is exact string equality, with no reformatting |
+| Identifier formatting (CSV loses leading zeros) | PARCELNO is read from the DBF. It must be a character (C) field, otherwise the file is refused. Only the DBF's right-padding is removed, so leading zeros, inner spaces, dashes, dots and case are kept |
+| Format validation | Before any match is used, `format_check` requires the file's identifier shapes (value-free) to include the shapes of the county's validated ids. Otherwise the county is recorded `JOIN_NOT_VALIDATED` and nothing is written |
+| Redacted NAL records | Only geometry and PARCELNO are read, never owner or address. A polygon with a blank PARCELNO is counted (`NO_PARCELNO`) and not attached |
+| Rights-of-way | Polygons without a PARCELNO are not attached, and records with DOR use code `94` are never attached (`RIGHT_OF_WAY`) |
+| Multi-parcel polygons | One geometry under several PARCELNOs goes to none of them (`MULTI_PARCEL_GEOMETRY`) |
+| Stacked / phantom polygons | Several features with one PARCELNO, or two records claiming one feature, are `AMBIGUOUS`. Invalid, zero-area or unclosed rings and orphan holes are refused |
+| Condominiums; Miami-Dade and St. Johns keep them in separate files | Units (DOR use code `04`) are never attached to the parcel polygon (`CONDO_UNIT`, or `CONDO_UNIT_SEPARATE_FILE` in those two counties). A file whose name says condo is refused (`CONDOMINIUM_FILE_NOT_INGESTED`) |
+| Wrong location | Every kept polygon must lie inside Florida (`OUT_OF_STATE`). Where the joined record has its own stored point, the polygon must lie within 1 km of it, or it is dropped and the record stays unmatched (`LOCATION_MISMATCH`). Records without a point are counted (`NO_RECORD_COORDINATES`). No county outline is available to the reader, so county containment is checked through the file's `CO_NO` (when present), the county the file is run for and the record's own point |
+| Coordinate system | Read from the file's own `.prj` with pyproj. Accepted: a projected Florida system on a NAD83 datum (State Plane East, West or North, or Florida GDL Albers; Broward publishes NAD83(HARN) Florida East, US feet). WGS84, NAD27, UTM or an unreadable `.prj` refuses the file. Reprojected to WGS84; NAD83 to WGS84 differs by under about 2 m, and the change notice says so |
+
+**Broward** (`scripts/load_florida_broward_boundaries.py`; manual workflow `.github/workflows/parcel-boundaries-broward.yml`):
+- **Trigger:** `workflow_dispatch` only. There is no schedule, no push trigger and no other workflow calls it.
+- **Inputs:**
+  - `mode`: `dry_run` (the default) or `apply`;
+  - `confirm`: must be exactly `APPLY` for `apply` to write.
+- **Secrets:** the existing `SUPABASE_URL` / `SUPABASE_SERVICE_KEY`.
+- **What a run does:**
+  1. Downloads the 2025 PIN file whose link the owner copied from the portal (`FL_DOR_PIN_FILES`).
+  2. Hands it to the shared refresh path below, for Broward only.
+  3. Prints one counts-only line per stage. No parcel number is printed.
+- **Before downloading,** it stops (exit 4) unless both 034 and 035 are applied.
+- **A failed download or read** writes nothing. In apply mode it is recorded as a failed **Broward** attempt only.
+- **Overlap:** a `concurrency` group keeps two runs from overlapping.
+
+**Refresh** (`scripts/parcel_boundary_refresh.py --source fl_dor_pto_parcel_gis --county <County> --files <zip or .shp> [--dry-run | --apply --confirm-apply]`):
+- Files are ones a person downloaded from DOR's portal. No download URL is configured or guessed.
+- One county per run. The county is recorded in `parcel_boundary_refresh_units` with the dataset name and the DBF's own last-update date.
+- Only a COMPLETE read with a validated format writes, and only it advances that county's last successful refresh. A FAILED, REFUSED or JOIN_NOT_VALIDATED read writes nothing and deletes nothing.
+- A county read never counts as a statewide refresh: the source row's `last_successful_refresh_at` stays NULL for Florida.
+
+**First real-file check** (2026-10-21, Broward 2025 PIN file read in this repository's sandbox; production read-only, nothing written, counts only):
+- The file is what the reader expects: PARCELNO is a 12-character DBF text field, the projection is NAD83(HARN) Florida East in US feet, there are 786,580 polygon records, and the DBF date is 2025-04-08.
+- Read COMPLETE, and the identifier format check passed (7 identifier shapes in the file).
+- Of 64 active Broward records, 10 are joinable: 15 are condominium units, 1 is a right-of-way, and 38 have no validated NAL id.
+- All 10 matched exactly one polygon: none was ambiguous or multi-parcel, and every one lies inside Broward. A run would write 10.
+- The full read took about 3.5 minutes. Peak memory was about 3 GB, nearly all of it from unpacking the 1.6 GB `.shp` into memory; ZIP extraction now streams to disk, and the reader itself stays under about 100 MB. Only the joinable keys' polygons are reprojected and kept.
+
+**Statewide Florida GeoData parcels: NOT used, follow-up only.**
+- Florida GeoData's "Florida Statewide Parcels" item (`efa909d6b1c841d298b0a649e7f71cf2`, owner FloridaGIO, read 2026-10-21) is the same service as `fl_statewide_cadastral_fgio` (`Florida_Statewide_Cadastral/FeatureServer`).
+- Its description says it holds DOR PTO's county GIS files, exported August 2026 and joined with the NAL tax roll, so it carries owner names and other tax-roll attributes.
+- The register keeps that source unapproved for geometry, and nothing here reads it.
+- Before it could ever be used, two things are needed:
+  - the exact written authorization must be checked against that named service;
+  - any implementation must take the geometry and the parcel identifier only, never the NAL attributes.
+
+**Coverage today** (production, read-only, 2026-10-20): 378 active Florida rows (of roughly 2,990) carry a validated NAL PARCEL_ID, across 26 counties. The other rows are reported `NO_VALIDATED_NAL_ID` and are never joined by reformatting their listing parcel number. More rows become joinable as the existing tax-roll enrichment matches them.
 
 ## How a boundary is matched and stored
 
@@ -84,7 +132,7 @@ So:
 - coordinates are rounded to 7 decimals;
 - a SHA-256 of the canonical GeoJSON means an unchanged boundary is never rewritten.
 
-**Migration 034** (`scripts/migrations/034_parcel_boundaries.sql`, NOT applied):
+**Migration 034** (`scripts/migrations/034_parcel_boundaries.sql`; live in production, see above) and **migration 035** (`035_parcel_boundary_county_refresh.sql`, NOT applied, upgrades 034 in place and is safe to apply twice):
 - `parcel_boundary_sources`, seeded from the register: display grant, credit, licence, change notice, disclaimer, metadata, expected cadence, actual refresh state.
 - `parcel_boundaries`:
   - `property_id` is the primary key, so there is one boundary per property;
@@ -94,11 +142,18 @@ So:
 - RLS: an approved account reads a boundary only for a property it may read (so 031's publication gate applies) and only while the source's display grant holds. Clients cannot write.
 - `get_property_boundary(uuid)`: the customer read (invoker rights), returning the geometry plus the full attribution.
 - `upsert_parcel_boundaries()` / `record_parcel_boundary_refresh()`: service_role only, and neither deletes anything. Invalid geometry, another source's row and an already-attached feature are counted and skipped. Only COMPLETE advances `last_successful_refresh_at`.
-- Number: 033 is held by the billing refund / dispute PR, so this is 034.
+- `parcel_boundary_refresh_units` (035): per-county refresh state (dataset, dataset date, last attempt, last success) for a source delivered per county. Service role only.
+- `parcel_boundaries.source_dataset_date` (035): the dataset's own date where it states one.
+- `parcel_boundary_refresh_of()` (035, SECURITY DEFINER, returns one timestamp): the freshness a customer sees. For a source delivered per county it is the property's own county; otherwise the whole layer's. NULL reads "not yet recorded". 035 re-creates `get_property_boundary()` to use it.
+- `record_parcel_boundary_refresh()` (035): gains an optional county, dataset and dataset date. The 3-argument form is replaced, and 3-argument calls still work.
+- Numbering: 033 is held by the billing refund / dispute PR.
 
-**The writer** (`scripts/parcel_boundary_refresh.py`) is not wired into any workflow:
+**The writer** (`scripts/parcel_boundary_refresh.py`) is called only by the manual Broward workflow, and no schedule runs it:
 - Default: a readiness report with no request and no database access.
-- `--dry-run` and `--apply --confirm-apply`: need `SUPABASE_URL` / `SUPABASE_SERVICE_KEY`, stop if 034 is absent, and read only the identifier and feature id from the source (no assessment attributes).
+- `--dry-run` and `--apply --confirm-apply`:
+  - need `SUPABASE_URL` / `SUPABASE_SERVICE_KEY`;
+  - stop if 034 is absent, or for a files source if 035 is absent;
+  - read only the identifier and feature id from the source (no assessment attributes).
 - Output is counts only.
 - Utah is not an activated state, so it has no Utah property to match today.
 
@@ -123,9 +178,9 @@ Florida shows credit and changes only. The response leaves attribution and discl
 
 ## Production steps (each needs explicit approval)
 
-1. Apply migration 034.
+1. Apply migration 035 (034 is already live) and remove the superseded Broward rows (see "Production state" above).
 2. Utah: activate the state, or extend `UT_UGRC.counties` to an activated state's records. Then run `--dry-run`, and `--apply --confirm-apply` once approved.
-3. Florida: review the Readme, then configure the join and the county-file reader (a code change).
+3. Florida: download the county PIN shapefiles from DOR's portal and run the refresh per county (`--dry-run` first).
 4. Decide whether to wire the writer into a workflow, and on what schedule.
 
 PR #144 (`feat/parcel-boundary-storage`) carried an earlier, unmerged design for the same storage. This change supersedes its permission matrix with the approval register and renumbers its migration. Its bigint `property_id` is corrected to `uuid`, which is what `properties.id` actually is.

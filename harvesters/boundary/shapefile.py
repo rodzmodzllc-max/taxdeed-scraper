@@ -17,29 +17,85 @@ job). Nothing is read over the network here.
 """
 from __future__ import annotations
 
+import hashlib
+import shutil
 from collections import Counter
 from pathlib import Path
 from typing import Iterator
 
 import pyproj
 
-# The projection the Broward PIN file (and the other PIN files) is published in:
-# NAD83(HARN) / Florida East, US survey feet, as named in the .prj file.
+# The projection the Broward PIN file is published in: NAD83(HARN) / Florida
+# East, US survey feet, as named in the .prj file. Other counties publish in the
+# other Florida State Plane zones (West, North) or Florida GDL Albers; all of
+# them are accepted on a NAD83 datum. Anything else (WGS84, NAD27, UTM, an
+# unreadable .prj) is refused before any feature is read.
 PUBLISHED_PRJ_NAME = "NAD_1983_HARN_StatePlane_Florida_East_FIPS_0901_Feet"
+NAD83_DATUM_MARKERS = ("NAD83", "North American Datum 1983")
 WGS84 = "EPSG:4326"
 SHAPE_NULL = 0
 SHAPE_POLYGON_TYPES = {5, 15, 25}  # Polygon, PolygonZ, PolygonM
+IDENTIFIER_FIELD = "PARCELNO"
+# The only attributes ever kept: the join key, and the county number when a
+# file carries one (to check the file is the county it was given as). A PAR
+# file's assessment columns are never kept.
+KEPT_FIELDS = ("PARCELNO", "CO_NO")
+SHAPEFILE_PARTS = (".shp", ".shx", ".dbf", ".prj", ".cpg")
 
 
 class UnsupportedProjection(ValueError):
-    """The .prj is not the projection this reader was written for. Refuses before any feature is read."""
+    """The .prj is not a projection this reader was written for. Refuses before any feature is read."""
+
+
+class UnsupportedFormat(ValueError):
+    """The attribute table cannot be joined safely (missing or non-character PARCELNO)."""
 
 
 def _check_projection(prj_path: Path) -> pyproj.CRS:
     text = prj_path.read_text(encoding="utf-8", errors="replace")
-    if PUBLISHED_PRJ_NAME not in text:
-        raise UnsupportedProjection("UNSUPPORTED_PROJECTION: the .prj is not " + PUBLISHED_PRJ_NAME)
-    return pyproj.CRS.from_wkt(text)
+    try:
+        crs = pyproj.CRS.from_wkt(text)
+    except pyproj.exceptions.CRSError as exc:
+        raise UnsupportedProjection("UNSUPPORTED_PROJECTION: the .prj cannot be read") from exc
+    datum = crs.datum.name if crs.datum else ""
+    if not (crs.is_projected and "Florida" in crs.name and any(m in datum for m in NAD83_DATUM_MARKERS)):
+        raise UnsupportedProjection("UNSUPPORTED_PROJECTION: not a NAD83 Florida State Plane / GDL Albers projection")
+    return crs
+
+
+def dbf_date(shp_path: str | Path) -> str | None:
+    """The DBF header's own last-update date (YYYY-MM-DD), or None."""
+    dbf = Path(shp_path).with_suffix(".dbf")
+    try:
+        head = dbf.read_bytes()[:4]
+        y, m, d = 1900 + head[1], head[2], head[3]
+        import datetime  # noqa: PLC0415
+        return datetime.date(y, m, d).isoformat()
+    except (OSError, IndexError, ValueError):
+        return None
+
+
+def extract_zip(zip_path: str | Path, out_dir: str | Path) -> Path:
+    """Extract only the shapefile parts of a county ZIP, refusing any path that
+    leaves out_dir. Returns the one .shp."""
+    import zipfile  # noqa: PLC0415
+    out_dir = Path(out_dir)
+    shp_names = []
+    with zipfile.ZipFile(zip_path) as z:
+        for info in z.infolist():
+            name = info.filename
+            if name.startswith("/") or ".." in Path(name).parts:
+                raise RuntimeError("unsafe path in ZIP")
+            if not name.lower().endswith(SHAPEFILE_PARTS):
+                continue
+            target = out_dir / Path(name).name
+            with z.open(info) as src, open(target, "wb") as dst:
+                shutil.copyfileobj(src, dst, 1 << 20)   # streamed: a county .shp is over 1 GB
+            if name.lower().endswith(".shp"):
+                shp_names.append(target)
+    if len(shp_names) != 1:
+        raise RuntimeError("expected exactly one .shp in the ZIP")
+    return shp_names[0]
 
 
 def _signed_area(ring) -> float:
@@ -62,8 +118,8 @@ def _polygon_coordinates(shape, transform) -> list | None:
     for start, end in zip(parts[:-1], parts[1:]):
         ring_xy = shape.points[start:end]
         if len(ring_xy) < 4:
-            # A degenerate ring is kept as-is so prepare() refuses it with its own reason.
-            rings.append([list(p) for p in ring_xy])
+            # A degenerate ring is kept (reprojected like any other) so prepare() refuses it with its own reason.
+            rings.append([list(transform(x, y)) for x, y in ring_xy])
             continue
         lon_lat = [list(transform(x, y)) for x, y in ring_xy]
         rings.append((lon_lat, _signed_area(ring_xy)))
@@ -82,12 +138,19 @@ def _polygon_coordinates(shape, transform) -> list | None:
     return polygons
 
 
-def read_pin_features(shp_path: str | Path, *, expected_prj: bool = True) -> Iterator[dict]:
+def read_pin_features(shp_path: str | Path, *, expected_prj: bool = True, keep=None) -> Iterator[dict]:
     """Yield one feature per shapefile record, in WGS84.
 
     The .shp, .shx, .dbf (and .prj, if present) are read from alongside the
     given path. The field name PARCELNO is the join key and is kept exactly
-    as published (no reformatting).
+    as published (no reformatting; only the DBF's right-padding is removed).
+    Only PARCELNO and CO_NO are kept; every other column is dropped.
+
+    keep: optional predicate on the kept attributes. A feature it rejects is
+    yielded WITHOUT reprojection: geometry None, `skipped` True and `raw_sha`
+    (a hash of the file's own coordinates), so a caller can still recognise one
+    polygon published under several PARCELNOs without holding the whole
+    county in memory.
     """
     import shapefile  # pyshp
 
@@ -103,15 +166,29 @@ def read_pin_features(shp_path: str | Path, *, expected_prj: bool = True) -> Ite
 
     with shapefile.Reader(str(shp_path)) as reader:
         fields = [f[0] for f in reader.fields[1:]]
-        if "PARCELNO" not in fields:
-            raise ValueError("PARCELNO field missing from the attribute table")
+        types = {f[0]: str(f[1]) for f in reader.fields[1:]}
+        if IDENTIFIER_FIELD not in fields:
+            raise UnsupportedFormat("PARCELNO field missing from the attribute table")
+        if types[IDENTIFIER_FIELD] != "C":
+            # A numeric field would have dropped leading zeros: the formatting
+            # problem the Readme warns about. Refuse rather than join.
+            raise UnsupportedFormat("PARCELNO is not a character field")
         for fid, sr in enumerate(reader.iterShapeRecords()):
-            props = dict(zip(fields, sr.record))
-            props = {k: ("" if v is None else str(v)) for k, v in props.items()}
+            props = {k: ("" if v is None else str(v)) for k, v in zip(fields, sr.record) if k in KEPT_FIELDS}
+            if keep is not None:
+                pts = sr.shape.points if sr.shape.shapeType != SHAPE_NULL else []
+                raw_sha = hashlib.sha256(repr((list(getattr(sr.shape, "parts", [])), pts)).encode()).digest()
+                if not keep(props):
+                    props["FID"] = fid
+                    yield {"properties": props, "geometry": None, "skipped": True, "raw_sha": raw_sha}
+                    continue
             polys = _polygon_coordinates(sr.shape, transform) if sr.shape.shapeType in SHAPE_POLYGON_TYPES | {SHAPE_NULL} else None
             props["FID"] = fid
-            yield {"properties": props,
+            out = {"properties": props,
                    "geometry": None if polys is None else {"type": "MultiPolygon", "coordinates": polys}}
+            if keep is not None:
+                out["raw_sha"] = raw_sha
+            yield out
 
 
 def summarize(features) -> dict:

@@ -3,7 +3,10 @@
 -- (data/source_approvals.csv): Florida DOR county parcel files
 -- (fl_dor_pto_parcel_gis) and UGRC Salt Lake LIR (ut_ugrc_lir_saltlake).
 --
--- NOT APPLIED. Written for review; apply only with explicit owner approval.
+-- NOT APPLIED through the migration history. Found applied directly in
+-- production on 2026-10-21 (its function bodies match this file, checked
+-- read-only). Left unchanged so it stays the record of what runs; later
+-- changes are in 035_parcel_boundary_county_refresh.sql.
 -- 033 is held by the billing refund / dispute PR, so this is 034.
 --
 -- * parcel_boundary_sources: one row per approved source - the display grant

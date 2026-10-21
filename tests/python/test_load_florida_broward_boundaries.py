@@ -1,75 +1,127 @@
-"""Broward outline loader: the pure matching and filtering logic.
+"""Broward outline loader: download + the shared Florida refresh path.
 
-SYNTHETIC features and property rows only. No network, no database, and no
+SYNTHETIC files and property rows only. No network, no database, and no
 parcel number from the real file or the real database is in this file.
 """
 from __future__ import annotations
 
 import importlib.util
+import zipfile
 from pathlib import Path
 
 import pytest
 
-from harvesters.boundary import plan, sources as S
+shp = pytest.importorskip("shapefile", reason="pyshp (test-only) is not installed")
+pyproj = pytest.importorskip("pyproj", reason="pyproj (test-only) is not installed")
 
 ROOT = Path(__file__).resolve().parents[2]
 _spec = importlib.util.spec_from_file_location("load_broward", ROOT / "scripts" / "load_florida_broward_boundaries.py")
 L = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(L)
 
-SQUARE = [[-80.20, 26.10], [-80.20, 26.11], [-80.19, 26.11], [-80.19, 26.10], [-80.20, 26.10]]
+FL = "fl_dor_pto_parcel_gis"
+CRS = pyproj.CRS.from_epsg(2881)                 # NAD83(HARN) / Florida East (ftUS), as Broward publishes
+FWD = pyproj.Transformer.from_crs(CRS.geodetic_crs, CRS, always_xy=True).transform
 
 
-def _feature(parcelno: str, fid: int, ring=SQUARE) -> dict:
-    return {"properties": {"PARCELNO": parcelno, "FID": fid},
-            "geometry": {"type": "MultiPolygon", "coordinates": [[ring]]}}
+def _square(lon, lat, h=0.0004):
+    return [FWD(x, y) for x, y in [(lon, lat), (lon, lat + h), (lon + h, lat + h), (lon + h, lat), (lon, lat)]]
 
 
-def test_a_property_matches_on_the_alnum_key_and_gets_one_row():
-    feats = [_feature("484106070240", 1)]
-    good, _ = plan.prepare_features(feats, S.FL_DOR)
-    props = [{"id": "11111111-1111-1111-1111-111111111111", "parcel": "484106-07-0240"}]
-    rows, counts = L.select_matches(good, props)
-    assert counts == {"MATCHED": 1}
-    assert len(rows) == 1
-    r = rows[0]
-    assert r["county"] == "Broward" and r["state"] == "FL" and r["match_method"] == "EXACT_PARCEL_ID"
-    assert r["source_feature_id"] == "1" and r["parcel"] == "484106-07-0240"
-    assert r["content_sha256"] == good[0]["sha256"]
-    assert r["simplify_tolerance_deg"] == L.geometry.SIMPLIFY_TOLERANCE_DEG
+def _zip_fetch(features):
+    """A fake download that writes a synthetic Broward PIN zip."""
+    def fetch(url, dest: Path):
+        base = dest.parent / "broward_2025pin"
+        w = shp.Writer(str(base), shapeType=shp.POLYGON)
+        w.field("PARCELNO", "C", size=12)
+        for pid, (lon, lat) in features:
+            w.poly([_square(lon, lat)])
+            w.record(pid)
+        w.close()
+        base.with_suffix(".prj").write_text(CRS.to_wkt(version="WKT1_ESRI"))
+        with zipfile.ZipFile(dest, "w") as z:
+            for ext in (".shp", ".shx", ".dbf", ".prj"):
+                z.write(base.with_suffix(ext), "broward_2025pin" + ext)
+    return fetch
 
 
-def test_a_property_with_no_feature_is_unmatched_and_writes_nothing():
-    good, _ = plan.prepare_features([_feature("484106070240", 1)], S.FL_DOR)
-    props = [{"id": "22222222-2222-2222-2222-222222222222", "parcel": "494107-10-0034"}]
-    rows, counts = L.select_matches(good, props)
-    assert counts == {"UNMATCHED": 1} and rows == []
+class FakeDb:
+    def __init__(self, rows, applied=True):
+        self.rows, self.applied, self.upserts, self.refreshes = rows, applied, [], []
+
+    def migration_applied(self, per_county=False):
+        # applied: True (034 and 035), "034" (production today: 034 only), False
+        return self.applied is True or (self.applied == "034" and not per_county)
+
+    def properties(self, src, county=None):
+        return [r for r in self.rows if r["county"] == county]
+
+    def stored(self, ids):
+        return {}
+
+    def upsert(self, source_id, rows):
+        self.upserts.append(rows)
+        return {"inserted": len(rows)}
+
+    def record_refresh(self, source_id, status, at, unit=None, dataset=None, dataset_date=None):
+        self.refreshes.append((status, unit))
 
 
-def test_filter_keeps_only_wanted_keys_and_counts_duplicates_across_the_file():
-    feats = [_feature("484106070240", 1), _feature("484106070240", 2), _feature("999999999999", 3)]
-    kept, seen, total = L.filter_features(iter(feats), {"484106070240"})
-    assert total == 3
-    assert len(kept) == 2
-    assert seen == {"484106070240": 2}
+def _rec(pid, nal=None, use="00", parcel="484106-07-0240"):
+    prov = {"prop_type": {"source": "fdor_nal", "matched_parcel_id": nal}} if nal else {}
+    return {"id": pid, "state": "FL", "county": "Broward", "parcel": parcel, "dor_use_code": use, "field_provenance": prov}
 
 
-def test_a_null_geometry_is_refused_not_written():
-    feats = [{"properties": {"PARCELNO": "484106070240", "FID": 1}, "geometry": None}]
-    good, refused = plan.prepare_features(feats, S.FL_DOR)
-    rows, counts = L.select_matches(good, [{"id": "33333333-3333-3333-3333-333333333333", "parcel": "484106-07-0240"}])
-    assert rows == [] and counts == {"UNMATCHED": 1}
-    assert refused["INVALID_GEOMETRY"] == 1
+FILE = [("484106070240", (-80.20, 26.10)), ("484106070250", (-80.21, 26.10)), ("48410607026A", (-80.22, 26.10))]
 
 
-def test_counts_never_contain_a_parcel_number():
-    good, _ = plan.prepare_features([_feature("484106070240", 1)], S.FL_DOR)
-    _, counts = L.select_matches(good, [{"id": "44444444-4444-4444-4444-444444444444", "parcel": "484106-07-0240"}])
-    assert not any("484106" in str(k) or "484106" in str(v) for k, v in counts.items())
+def test_dry_run_matches_only_validated_nal_ids_and_writes_nothing():
+    db, lines = FakeDb([_rec("a", "484106070240"), _rec("b"), _rec("c", "48410607026A", use="04")]), []
+    assert L.run("dry_run", "", db=db, fetch=_zip_fetch(FILE), out=lines.append) == 0
+    assert db.upserts == [] and db.refreshes == []
+    text = "\n".join(lines)
+    assert "would write 1" in text and "NO_VALIDATED_NAL_ID" in text and "CONDO_UNIT" in text
+    assert "484106" not in text                                           # never a parcel number
+
+
+def test_the_listing_parcel_is_never_reformatted_into_a_key():
+    # The listing's own parcel equals the PARCELNO once dashes go, but with no
+    # validated NAL id the record is not joined.
+    db, lines = FakeDb([_rec("b", None, parcel="4841-0607-0240")]), []
+    L.run("dry_run", "", db=db, fetch=_zip_fetch(FILE), out=lines.append)
+    assert "would write 0" in "\n".join(lines)
+
+
+def test_apply_writes_the_match_and_records_broward_not_the_statewide_source():
+    db = FakeDb([_rec("a", "484106070240")])
+    assert L.run("apply", "APPLY", db=db, fetch=_zip_fetch(FILE), out=lambda m: None) == 0
+    assert [r["property_id"] for r in db.upserts[0]] == ["a"]
+    assert db.refreshes == [("COMPLETE", "Broward")]
+
+
+def test_a_failed_download_writes_nothing_and_records_a_broward_failure():
+    def broken(url, dest):
+        raise ConnectionError("synthetic")
+    db = FakeDb([_rec("a", "484106070240")])
+    assert L.run("apply", "APPLY", db=db, fetch=broken, out=lambda m: None) == 1
+    assert db.upserts == [] and db.refreshes == [("FAILED", "Broward")]
+
+
+def test_apply_needs_the_confirmation_and_the_migration():
+    db = FakeDb([])
+    assert L.run("apply", "", db=db, fetch=_zip_fetch(FILE), out=lambda m: None) == 2
+    db = FakeDb([], applied=False)
+    called = []
+    assert L.run("dry_run", "", db=db, fetch=lambda u, d: called.append(u), out=lambda m: None) == 4
+    assert called == [] and db.upserts == []
+    # 034 alone (production's state before 035) is not enough: the per-county
+    # refresh record needs 035, so nothing is downloaded or written.
+    db = FakeDb([_rec("a", "484106070240")], applied="034")
+    assert L.run("apply", "APPLY", db=db, fetch=lambda u, d: called.append(u), out=lambda m: None) == 4
+    assert called == [] and db.upserts == [] and db.refreshes == []
 
 
 def test_extract_refuses_a_path_that_leaves_the_target_folder(tmp_path):
-    import zipfile
     bad = tmp_path / "bad.zip"
     with zipfile.ZipFile(bad, "w") as z:
         z.writestr("../escape.shp", b"x")
