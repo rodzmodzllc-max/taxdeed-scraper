@@ -7041,7 +7041,9 @@ await big.press('#globalSearchInput', 'Enter');
   r = await boundaryPage('boundary=ok&boundaryids=p5', '#/auctions', { width: 390, height: 844 });
   results.cardOutlinePhone = await cardOutlineState(r.pg).then(s => ({ outlineCards: s.outlineCards, creditInBubble: s.creditInBubble, noPageOverflow: s.noPageOverflow }));
   const bubbleBtn = r.pg.locator('.prop-card:has(.parcel-boundary) .pc-info .ib-btn').first();
-  await bubbleBtn.scrollIntoViewIfNeeded();
+  // Centred, clear of the sticky header and the bottom navigation bar.
+  await bubbleBtn.evaluate(e => e.scrollIntoView({ block: 'center' }));
+  await r.pg.waitForTimeout(200);
   await bubbleBtn.click();
   await r.pg.waitForTimeout(300);
   results.cardOutlineBubbleOpen = await r.pg.evaluate(() => {
