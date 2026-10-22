@@ -260,6 +260,7 @@ class CountyRead:
     features: list[dict] = field(default_factory=list)
     counts: dict = field(default_factory=dict)
     identifier_shapes: set = field(default_factory=set)   # every PARCELNO shape in the file (value-free)
+    duplicate_keys: set = field(default_factory=set)      # in-scope PARCELNO values on more than one record
 
 
 def read_county(path, county: str, *, variant: str = "PIN", allow_par_geometry: bool = False,
@@ -308,6 +309,11 @@ def _read_shp(shp: Path, county: str, variant: str, keys=None, listing_keys=None
         keep = (lambda props: exact_key(props.get(IDENTIFIER_FIELD)) in exact
                 or separators_removed(props.get(IDENTIFIER_FIELD)) in listing)
     keys_by_raw: dict = {}
+    # Records per in-scope PARCELNO, counted before any record is dropped
+    # (malformed, empty, out of state, shared geometry): a duplicate must stay
+    # visible however its other record fares. One record = one count, however
+    # many parts its shape has.
+    records_per_key: dict = {}
     for f in shapefile.read_pin_features(shp, keep=keep):
         props = f["properties"]
         co = props.get(COUNTY_FIELD, "")
@@ -323,6 +329,8 @@ def _read_shp(shp: Path, county: str, variant: str, keys=None, listing_keys=None
             counts["NO_PARCELNO"] = counts.get("NO_PARCELNO", 0) + 1
             continue
         out.identifier_shapes.add(identifier_shape(key))
+        if keep is None or keep(props):
+            records_per_key[key] = records_per_key.get(key, 0) + 1
         if f.get("malformed"):
             counts["MALFORMED_SHAPE"] = counts.get("MALFORMED_SHAPE", 0) + 1
             if keep is not None:
@@ -353,8 +361,26 @@ def _read_shp(shp: Path, county: str, variant: str, keys=None, listing_keys=None
                 continue
             kept.append(feat)
         out.features = kept
+    out.duplicate_keys = {k for k, n in records_per_key.items() if n > 1}
+    if out.duplicate_keys:
+        counts["DUPLICATE_IDENTIFIER_KEYS"] = len(out.duplicate_keys)
     out.counts = counts
     return out
+
+
+def reject_duplicate_keys(records: list[dict], duplicate_keys) -> tuple[list[dict], dict]:
+    """A record whose file identifier (join_key) is carried by more than one
+    record of the county file is not joined (AMBIGUOUS_DUPLICATE_IDENTIFIER):
+    nothing in the file says the separate records are one parcel, and neither
+    distance nor which of them happens to be readable may choose between
+    them. Applies to every join method."""
+    out, counts = [], {}
+    for r in records:
+        if r.get("join_key") in duplicate_keys:
+            counts["AMBIGUOUS_DUPLICATE_IDENTIFIER"] = counts.get("AMBIGUOUS_DUPLICATE_IDENTIFIER", 0) + 1
+            continue
+        out.append(r)
+    return out, counts
 
 
 def geometry_bbox(geom) -> tuple[float, float, float, float] | None:
@@ -388,7 +414,18 @@ def location_check(records: list[dict], features: list[dict], *, tolerance_m: fl
     check so a wrong polygon is never attached silently. A record with stored
     coordinates more than `tolerance_m` from the polygon's extent loses that
     polygon (LOCATION_MISMATCH: the record stays unmatched). A record without
-    coordinates is not checked and is counted (NO_RECORD_COORDINATES)."""
+    coordinates is not checked and is counted (NO_RECORD_COORDINATES).
+
+    Distance never resolves ambiguity: an identifier carried by more than one
+    feature (separate shapefile records - nothing in the file says they are
+    one parcel) keeps every one of its polygons here, however far, so the plan
+    rejects the record as AMBIGUOUS instead of attaching whichever polygon
+    happens to be near (DUPLICATE_IDENTIFIER). One record whose shape has
+    several parts is ONE feature (a MultiPolygon) and is not affected."""
+    occurrences: dict = {}
+    for f in features:
+        key = f["properties"].get(IDENTIFIER_FIELD)
+        occurrences[key] = occurrences.get(key, 0) + 1
     points: dict = {}
     for r in records:
         try:
@@ -403,6 +440,10 @@ def location_check(records: list[dict], features: list[dict], *, tolerance_m: fl
     for f in features:
         key = f["properties"].get(IDENTIFIER_FIELD)
         if key not in keys:
+            kept.append(f)
+            continue
+        if occurrences[key] > 1:
+            counts["DUPLICATE_IDENTIFIER"] = counts.get("DUPLICATE_IDENTIFIER", 0) + 1
             kept.append(f)
             continue
         pts = points.get(key)

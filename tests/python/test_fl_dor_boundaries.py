@@ -385,7 +385,8 @@ def test_a_scoped_read_keeps_only_joinable_keys_and_still_sees_the_whole_file(tm
     r = FD.read_county(p, "Leon", keys={"100", "200", "300"})
     assert r.status == "COMPLETE"
     assert sorted(f["properties"]["PARCELNO"] for f in r.features) == ["100", "300", "300"]
-    assert r.counts == {"NOT_IN_SCOPE": 2, "MULTI_PARCEL_GEOMETRY": 1}
+    assert r.counts == {"NOT_IN_SCOPE": 2, "MULTI_PARCEL_GEOMETRY": 1, "DUPLICATE_IDENTIFIER_KEYS": 1}
+    assert r.duplicate_keys == {"300"}                                 # the stacked pair, in scope
     assert r.identifier_shapes == {"d3", "A2-d1"}                     # from every feature, value-free
     out = plan([rec("a", "100"), rec("b", "200"), rec("c", "300")], r.features)
     assert [x["property_id"] for x in out["rows"]] == ["a"]           # 200 never gets the shared polygon; 300 ambiguous
@@ -552,3 +553,106 @@ def test_condo_and_right_of_way_are_never_listing_joined(tmp_path):
                                [lrec("c", "123456-0010", 30.4005, -84.2995, use="04"),
                                 lrec("r", "123456-0010", 30.4005, -84.2995, use="94")])
     assert db.upserts in ([], [(FL, [])]) and "CONDO_UNIT" in text and "RIGHT_OF_WAY" in text
+
+
+# --- ambiguity is decided before distance (2026-10-22) ------------------------------------
+# A PARCELNO carried by more than one record of the county file is never joined, in
+# either match mode, whatever the distance from the property's own point and however
+# the other record fares in the read. One record whose shape has several parts is one
+# parcel. SYNTHETIC identifiers and coordinates only.
+
+def _at(row, lat=30.4002, lon=-84.2998):
+    return dict(row, latitude=lat, longitude=lon)
+
+
+def _refresh(tmp_path, features, rows, *, listing_join=False, apply=True):
+    p = write_shp(tmp_path, "leon_pin", features)
+    db, lines = FakeDb(rows), []
+    rc = R.run(FL, apply=apply, db=db, out=lines.append, today=TODAY,
+               files={"county": "Leon", "path": str(p), "listing_join": listing_join})
+    written = [r for _, batch in db.upserts for r in batch]
+    return rc, db, written, "\n".join(lines)
+
+
+def test_two_polygons_with_the_same_validated_id_both_near_are_ambiguous(tmp_path):
+    rc, db, written, text = _refresh(tmp_path, [("800", [square(-84.3, 30.4)]), ("800", [square(-84.3006, 30.4)])],
+                                     [_at(rec("a", "800"))])
+    assert rc == 0 and written == []
+    assert "AMBIGUOUS_DUPLICATE_IDENTIFIER" in text and "800" not in text
+    assert db.refreshes[0][1] == "COMPLETE"   # the read itself was complete; the record is simply not joined
+
+
+@pytest.mark.parametrize("far_lon", [-84.35, -84.6])
+def test_a_far_duplicate_is_not_dropped_to_make_the_near_one_unique(tmp_path, far_lon):
+    # One polygon contains the property's point, the other (same PARCELNO) is several km
+    # away. Distance must not choose: no write.
+    rc, _, written, text = _refresh(tmp_path, [("801", [square(-84.3, 30.4)]), ("801", [square(far_lon, 30.4)])],
+                                    [_at(rec("a", "801"))])
+    assert rc == 0 and written == []
+    assert "AMBIGUOUS_DUPLICATE_IDENTIFIER" in text and "LOCATION_MISMATCH" not in text
+
+
+def test_a_duplicate_whose_other_record_is_unreadable_is_still_ambiguous(tmp_path):
+    # The second record has no shape: it is dropped from the polygons, but it still claims
+    # the PARCELNO, so the first is not unique.
+    rc, _, written, text = _refresh(tmp_path, [("802", [square(-84.3, 30.4)]), ("802", None)],
+                                    [_at(rec("a", "802"))])
+    assert rc == 0 and written == [] and "AMBIGUOUS_DUPLICATE_IDENTIFIER" in text
+
+
+def test_a_far_duplicate_is_ambiguous_in_the_listing_number_mode_too(tmp_path):
+    listing = dict(_at(rec("a")), parcel="12-345-0803")      # no validated NAL id
+    rc, _, written, text = _refresh(tmp_path, [("123450803", [square(-84.3, 30.4)]),
+                                               ("123450803", [square(-84.6, 30.4)])],
+                                    [listing], listing_join=True)
+    assert rc == 0 and written == []
+    assert "AMBIGUOUS_DUPLICATE_IDENTIFIER" in text and "LOCATION_CONFIRMED_INSIDE" not in text
+
+
+def test_one_record_with_several_parts_is_one_parcel_and_is_attached(tmp_path):
+    # A single shapefile record whose shape has two separate parts: the file itself says
+    # both parts belong to the same parcel, so it is one MultiPolygon, not a duplicate.
+    rc, _, written, text = _refresh(tmp_path, [("804", [square(-84.3, 30.4), square(-84.2992, 30.4)])],
+                                    [_at(rec("a", "804"))])
+    assert rc == 0 and [r["property_id"] for r in written] == ["a"]
+    assert len(written[0]["geometry"]["coordinates"]) == 2
+    assert "AMBIGUOUS" not in text
+
+
+def test_distinct_identifiers_with_overlapping_polygons_each_keep_their_own(tmp_path):
+    # Overlapping (not identical) polygons under different PARCELNO values are two parcels;
+    # each record gets its own. Identical geometry under two ids is refused
+    # (test_a_multi_parcel_polygon_is_attached_to_none_of_its_parcels).
+    rc, _, written, _ = _refresh(tmp_path, [("805", [square(-84.3, 30.4)]), ("806", [square(-84.2998, 30.4)])],
+                                 [_at(rec("a", "805")), _at(rec("b", "806"), lon=-84.2996)])
+    assert rc == 0
+    assert sorted((r["property_id"], r["source_feature_id"]) for r in written) == [("a", "0"), ("b", "1")]
+
+
+def test_missing_or_unvalidated_ids_are_never_joined(tmp_path):
+    rows = [_at(rec("a")),                                                    # no provenance at all
+            _at(rec("b", extra_prov={"parcel": {"source": "county_list", "matched_parcel_id": "807"}})),
+            _at(rec("c", "807", extra_prov={"other": {"source": "fdor_nal", "matched_parcel_id": "808"}}))]
+    rc, _, written, text = _refresh(tmp_path, [("807", [square(-84.3, 30.4)]), ("808", [square(-84.31, 30.4)])], rows)
+    assert rc == 0 and written == []
+    assert "NO_VALIDATED_NAL_ID" in text and "CONFLICTING_NAL_IDS" in text
+
+
+def test_the_reader_counts_duplicates_across_every_in_scope_record(tmp_path):
+    p = write_shp(tmp_path, "leon_pin", [("809", [square(-84.3, 30.4)]), ("809", None), ("810", [square(-84.31, 30.4)]),
+                                         ("811", [square(-84.32, 30.4), square(-84.3192, 30.4)])])
+    r = FD.read_county(p, "Leon", keys={"809", "810", "811"})
+    assert r.duplicate_keys == {"809"} and r.counts["DUPLICATE_IDENTIFIER_KEYS"] == 1
+    scoped = FD.read_county(p, "Leon", keys={"810"})
+    assert scoped.duplicate_keys == set()          # out-of-scope keys are not counted
+    kept, counts = FD.reject_duplicate_keys([{"join_key": "809"}, {"join_key": "810"}], r.duplicate_keys)
+    assert kept == [{"join_key": "810"}] and counts == {"AMBIGUOUS_DUPLICATE_IDENTIFIER": 1}
+
+
+def test_location_check_never_narrows_a_duplicated_identifier():
+    near = {"type": "Feature", "properties": {"PARCELNO": "812", "FID": 0},
+            "geometry": {"type": "MultiPolygon", "coordinates": [[square(-84.3, 30.4)]]}}
+    far = {"type": "Feature", "properties": {"PARCELNO": "812", "FID": 1},
+           "geometry": {"type": "MultiPolygon", "coordinates": [[square(-84.6, 30.4)]]}}
+    kept, counts = FD.location_check([_at({"nal_parcel_id": "812"})], [near, far])
+    assert kept == [near, far] and counts == {"DUPLICATE_IDENTIFIER": 2}

@@ -13,12 +13,18 @@ Which file: the county's file in the DOR PTO Data Portal folder
 Which records: active Florida properties of the Available ledger
 (properties.source = 'laft') only - auctions and certificates are not read.
 
-How a record is joined (harvesters/boundary/fl_dor.py, chosen by the product
-owner on 2026-10-22): its validated NAL PARCEL_ID equal to PARCELNO, or its
-listing parcel number with separators ignored equal to exactly one PARCELNO
-in the county file AND its own stored point inside that polygon. Condominium
-units and rights-of-way are never joined; stacked and multi-parcel polygons
-are never attached.
+How a record is joined (harvesters/boundary/fl_dor.py) depends on the match
+mode, which is printed with every run:
+* listing_location_confirmed (the default, product owner's choice of
+  2026-10-22): its validated NAL PARCEL_ID equal to PARCELNO, or its listing
+  parcel number with separators ignored equal to exactly one PARCELNO in the
+  county file AND its own stored point inside that polygon.
+* validated_id_only (--match-mode validated_id_only): its validated NAL
+  PARCEL_ID equal to PARCELNO, nothing else. A record without one is never
+  joined - not on a unique listing parcel number, not on its point lying
+  inside a polygon.
+Condominium units and rights-of-way are never joined; stacked and
+multi-parcel polygons are never attached.
 
 Every county is its own refresh: a failed download or read writes nothing for
 that county and, in apply mode, is recorded as that county's failed attempt;
@@ -51,6 +57,10 @@ AVAILABLE = "laft"
 PORTAL = "https://floridarevenue.com/property/dataportal"
 FOLDER = "/property/dataportal/Documents/PTO Data Portal/Map Data/{year}F/{year}F PIN"
 USER_AGENT = "taxdeed-scraper/1.0 (parcel boundaries)"
+# match mode -> whether a record without a validated NAL id may join on its
+# listing parcel number confirmed by its own point (fl_dor listing join).
+MATCH_MODES = {"listing_location_confirmed": True, "validated_id_only": False}
+DEFAULT_MATCH_MODE = "listing_location_confirmed"
 
 
 def file_stem(county: str) -> str:
@@ -111,7 +121,10 @@ def available_counties(db) -> dict:
 
 
 def run(mode: str, confirm: str, *, year: int, only=None, db=None, list_files=list_pin_files, fetch=download,
-        counties_of=available_counties, out=print) -> int:
+        counties_of=available_counties, out=print, match_mode: str = DEFAULT_MATCH_MODE) -> int:
+    if match_mode not in MATCH_MODES:
+        out(json.dumps({"status": "REFUSED", "reason": f"unknown match mode {match_mode!r}"}))
+        return 2
     perm = {op: S.authorize(SOURCE, op) for op in ("fetch", "parse")}
     if mode == "apply":
         perm["store"] = S.authorize(SOURCE, "store")
@@ -135,8 +148,10 @@ def run(mode: str, confirm: str, *, year: int, only=None, db=None, list_files=li
     counties = counties_of(db)
     if only:
         counties = {c: n for c, n in counties.items() if c in only}
+    out(json.dumps({"match_mode": match_mode, "listing_join": MATCH_MODES[match_mode]}))
     files = list_files(year)
-    summary = {"year": year, "mode": mode, "counties": len(counties), "complete": 0, "failed": 0, "no_file": 0}
+    summary = {"year": year, "mode": mode, "match_mode": match_mode, "counties": len(counties), "complete": 0,
+               "failed": 0, "no_file": 0}
     rc = 0
     for county in sorted(counties):
         name = files.get(county)
@@ -159,7 +174,7 @@ def run(mode: str, confirm: str, *, year: int, only=None, db=None, list_files=li
                 continue
             code = refresh.run(SOURCE.source_id, apply=(mode == "apply"), db=db, out=out,
                                files={"county": county, "path": str(path), "variant": "PIN",
-                                      "source": AVAILABLE, "listing_join": True})
+                                      "source": AVAILABLE, "listing_join": MATCH_MODES[match_mode]})
         if code == 0:
             summary["complete"] += 1
         else:
@@ -176,9 +191,12 @@ def main(argv=None) -> int:
     ap.add_argument("--year", type=int, default=2026, help="the DOR Map Data year folder (2026 = 2026F)")
     ap.add_argument("--counties", default="", help="comma-separated county names; default: every county with "
                                                    "active Florida Available properties")
+    ap.add_argument("--match-mode", choices=sorted(MATCH_MODES), default=DEFAULT_MATCH_MODE,
+                    help="validated_id_only joins on the validated NAL PARCEL_ID only, never on the listing's "
+                         "parcel number")
     a = ap.parse_args(argv)
     only = {c.strip() for c in a.counties.split(",") if c.strip()} or None
-    return run(a.mode, a.confirm, year=a.year, only=only)
+    return run(a.mode, a.confirm, year=a.year, only=only, match_mode=a.match_mode)
 
 
 if __name__ == "__main__":
