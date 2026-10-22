@@ -192,9 +192,11 @@ def run_files(src, *, apply: bool, db, out, county: str = "", path: str = "", va
             excluded["JOIN_FORMAT_MISMATCH"] = len(validated)
     if status == "COMPLETE":
         records, resolved = fl_dor.resolve_listing_keys(records, read.features)
+        # Ambiguity before distance: a key on several file records is never joined.
+        records, duplicated = fl_dor.reject_duplicate_keys(records, read.duplicate_keys)
         read.features, located = fl_dor.location_check(records, read.features)
         records, confirmed = fl_dor.confirm_listing_points(records, read.features)
-        read.counts = {**read.counts, **resolved, **located, **confirmed}
+        read.counts = {**read.counts, **resolved, **duplicated, **located, **confirmed}
     plan = boundary_plan.plan_refresh(records, read.features if status == "COMPLETE" else [], db.stored(
         [x["id"] for x in records]) if status == "COMPLETE" else {}, src, read_status=status, observed_at=started,
         dataset=read.dataset or None, dataset_date=read.dataset_date)

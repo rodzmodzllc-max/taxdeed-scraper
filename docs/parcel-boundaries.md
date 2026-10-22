@@ -113,7 +113,8 @@ The product owner reviewed the Parcel Shapefiles Readme on 2026-10-20. The docum
   - a record with no point, or whose point falls outside the polygon;
   - two PARCELNO spellings that collapse to the same value;
   - condo units and rights-of-way;
-  - stacked and multi-parcel polygons.
+  - stacked and multi-parcel polygons;
+  - a PARCELNO carried by more than one record of the county file (`AMBIGUOUS_DUPLICATE_IDENTIFIER`), in both match modes. The reader counts every in-scope record per PARCELNO before dropping any of them (malformed or empty shape, outside Florida, shared geometry), and the duplicate check runs before the 1 km location check, so distance never picks one of the duplicates. One record whose shape has several parts is one parcel (a MultiPolygon) and is attached normally: the shapefile record itself says the parts belong together, while separate records with the same PARCELNO say nothing of the kind.
 - **Inputs:**
   - `mode`: `dry_run` (the default) or `apply`;
   - `confirm`: must be `APPLY` for `apply`;
