@@ -1167,3 +1167,13 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .prop-card-photo .ib-pop .photo-caption{position:static;display:block;max-width:none;white-space:normal;overflow:visible;text-overflow:clip;
   background:none;color:inherit;padding:0;margin:0 0 .35rem;border-radius:0;font-size:.72rem;letter-spacing:.04em;pointer-events:auto}
 .prop-card-photo:has(.pc-info .ib.open),.prop-card-photo:has(.pc-info .ib:hover),.prop-card-photo:has(.pc-info .ib:focus-within){overflow:visible;z-index:5}
+
+
+/* Full property page on phones (2026-10-22): the section tabs and the "At a
+   glance" block repeat what Decision, Financial and the title already show,
+   so a phone reader gets one scroll instead of a tab bar plus a summary. The
+   DOM is unchanged; desktop keeps both. */
+@media (max-width:768px){
+  .detail-nav{display:none}
+  .detail-section[data-section="summary"]{display:none}
+}
