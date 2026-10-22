@@ -6878,6 +6878,14 @@ await big.press('#globalSearchInput', 'Enter');
   results.boundaryOkCalls = await r.pg.evaluate(() => window.__stubBoundaryCalls || []);
   results.boundaryOkUsgsFitted = r.usgs.some(u => /bbox=/.test(u) && !/bbox=-82\.045.*,26\.935/.test(u));
   await r.pg.close();
+  // The caption names how the outline was matched.
+  const matchTitle = pg => pg.evaluate(() => ((document.querySelector('.detail-hero-photo.has-boundary .photo-caption') || {}).title || '').replace(/^.*?, (matched[^.]*)\..*$/, '$1'));
+  r = await boundaryPage('boundary=fl', '#/auctions/p5');
+  results.boundaryMatchExact = await matchTitle(r.pg);
+  await r.pg.close();
+  r = await boundaryPage('boundary=fl&boundarymatch=listing', '#/auctions/p5');
+  results.boundaryMatchListing = await matchTitle(r.pg);
+  await r.pg.close();
   // A stored aerial (production: 62 of 64 outlined properties): the outline is
   // still asked for; when one exists the image becomes the live aerial fitted
   // to the parcel and the outline is drawn. No outline: the stored photo stays
@@ -6906,7 +6914,8 @@ await big.press('#globalSearchInput', 'Enter');
     });
     await pg.route('https://imagery.nationalmap.gov/**', route => route.fulfill({ status: 500, body: '' }));
     await pg.goto(BASE_URL + '?boundary=ok&storedphoto=1#/auctions/p5', { waitUntil: 'networkidle' });
-    await pg.waitForTimeout(500);
+    // Wait for the failed live aerial to hand back the stored photo (or 5 s).
+    await pg.waitForFunction(() => { const h = document.querySelector('.detail-hero-photo'); return !!h && !!h.dataset.imagery; }, null, { timeout: 5000 }).catch(() => {});
     results.boundaryStoredPhotoLiveFails = await storedState(pg);
     await pg.close();
   }
@@ -7012,6 +7021,8 @@ const EXPECTED = {
   boundaryOk: {"host": true, "pid": "p5", "outline": true, "rings": 1, "attrib": "FIXTURE Utah Geospatial Resource Center (UGRC)", "state": null, "bboxCenter": [-82.045, 26.934], "fitted": true, "label": "Aerial image with the parcel outline of this property (FIXTURE Utah Geospatial Resource Center (UGRC))", "credit": {"text": "Parcel outline: FIXTURE Utah Geospatial Resource Center (UGRC) · Licence: CC BY 4.0 · Changes: FIXTURE: boundaries reprojected and simplified · Source last refreshed by TAXACQ Oct 2, 2026 · Source publishes: Generally monthly · Source disclaimer · Dataset metadata · Outline is for orientation; it is not a survey and does not show ownership or title.", "links": [["CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/", "noopener noreferrer"], ["Source disclaimer", "https://gis.utah.gov/documentation/policy/license/", "noopener noreferrer"], ["Dataset metadata", "https://example.org/fixture-metadata", "noopener noreferrer"]]}},
   boundaryFreshnessOk: "Source last refreshed by TAXACQ Oct 2, 2026",
   boundaryFreshnessNone: "Source last refreshed by TAXACQ: not yet recorded",
+  boundaryMatchExact: "matched by exact parcel identifier",
+  boundaryMatchListing: "matched by the listing's parcel number (separators ignored) and confirmed by this property's own location inside the parcel",
   boundaryStoredPhoto: {"live": true, "outline": true, "credit": true, "storedImage": false, "imagery": "naip_live"},
   boundaryStoredPhotoFitted: true,
   boundaryStoredPhotoNone: {"live": false, "outline": false, "credit": false, "storedImage": true, "imagery": null},
@@ -7165,7 +7176,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v133"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v134"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },

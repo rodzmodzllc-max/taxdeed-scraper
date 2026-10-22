@@ -73,6 +73,7 @@ The product owner reviewed the Parcel Shapefiles Readme on 2026-10-20. The docum
 | Stacked / phantom polygons | Several features with one PARCELNO, or two records claiming one feature, are `AMBIGUOUS`. Invalid, zero-area or unclosed rings and orphan holes are refused |
 | Condominiums; Miami-Dade and St. Johns keep them in separate files | Units (DOR use code `04`) are never attached to the parcel polygon (`CONDO_UNIT`, or `CONDO_UNIT_SEPARATE_FILE` in those two counties). A file whose name says condo is refused (`CONDOMINIUM_FILE_NOT_INGESTED`) |
 | Wrong location | Every kept polygon must lie inside Florida (`OUT_OF_STATE`). Where the joined record has its own stored point, the polygon must lie within 1 km of it, or it is dropped and the record stays unmatched (`LOCATION_MISMATCH`). Records without a point are counted (`NO_RECORD_COORDINATES`). No county outline is available to the reader, so county containment is checked through the file's `CO_NO` (when present), the county the file is run for and the record's own point |
+| Listing parcel numbers (Florida Available) | See "Florida Available outlines" below: separators ignored, exactly one PARCELNO, and the property's own point inside the polygon |
 | Coordinate system | Read from the file's own `.prj` with pyproj. Accepted: a projected Florida system on a NAD83 datum (State Plane East, West or North, or Florida GDL Albers; Broward publishes NAD83(HARN) Florida East, US feet). WGS84, NAD27, UTM or an unreadable `.prj` refuses the file. Reprojected to WGS84; NAD83 to WGS84 differs by under about 2 m, and the change notice says so |
 
 **Broward** (`scripts/load_florida_broward_boundaries.py`; manual workflow `.github/workflows/parcel-boundaries-broward.yml`):
@@ -101,6 +102,37 @@ The product owner reviewed the Parcel Shapefiles Readme on 2026-10-20. The docum
 - Of 64 active Broward records, 10 are joinable: 15 are condominium units, 1 is a right-of-way, and 38 have no validated NAL id.
 - All 10 matched exactly one polygon: none was ambiguous or multi-parcel, and every one lies inside Broward. A run would write 10.
 - The full read took about 3.5 minutes. Peak memory was about 3 GB, nearly all of it from unpacking the 1.6 GB `.shp` into memory; ZIP extraction now streams to disk, and the reader itself stays under about 100 MB. Only the joinable keys' polygons are reprojected and kept.
+
+**Florida Available outlines** (`scripts/load_florida_available_boundaries.py`; manual workflow `.github/workflows/parcel-boundaries-florida-available.yml`; product owner's decision 2026-10-22):
+- **Scope:** active Florida Available (`laft`) properties only. Auctions and certificates are not read.
+- **Files:** each county's file comes from DOR's own folder listing of `Map Data/<year>F/<year>F PIN`, 2026 by default. No URL is guessed, and condominium files are never used.
+- **Join**, one of two:
+  - **`EXACT_PARCEL_ID`:** the validated NAL PARCEL_ID equals PARCELNO;
+  - **`PARCEL_NUMBER_LOCATION_CONFIRMED`:** the listing parcel number, with separators ignored and case ignored but every digit and leading zero kept, equals **exactly one** PARCELNO value in the county file, **and** the property's own stored point lies **inside** that polygon.
+- **Never joined:**
+  - a record with no point, or whose point falls outside the polygon;
+  - two PARCELNO spellings that collapse to the same value;
+  - condo units and rights-of-way;
+  - stacked and multi-parcel polygons.
+- **Inputs:**
+  - `mode`: `dry_run` (the default) or `apply`;
+  - `confirm`: must be `APPLY` for `apply`;
+  - `year`;
+  - `counties`, optional.
+- **Refresh:** each county is its own refresh unit. A failed download or read writes nothing for that county, and the other counties carry on.
+- **Overlap:** both Florida workflows share one concurrency group.
+- **Local dry run (2026-10-22, counts only):** all 25 counties with active Available properties read COMPLETE. 129 of 157 records would be outlined.
+  - Not outlined:
+    - 7 whose stored point falls outside the polygon;
+    - 6 with no stored point;
+    - 12 with no matching parcel or no usable listing parcel;
+    - 2 rights-of-way and 1 condo unit.
+  - Refused by the safety checks:
+    - 1 Polk multi-parcel polygon;
+    - 1 malformed shape in Levy's file, skipped while the rest of Levy read.
+  - About 9 minutes, 433 MB peak.
+
+**A malformed shape inside a file** (seen in the 2026 Alachua and Levy files: a PolygonZ with no points) is counted `MALFORMED_SHAPE` and skipped, and the rest of the county reads. A truncated file, where the `.shp` length differs from its header, still fails the whole county.
 
 **Statewide Florida GeoData parcels: NOT used, follow-up only.**
 - Florida GeoData's "Florida Statewide Parcels" item (`efa909d6b1c841d298b0a649e7f71cf2`, owner FloridaGIO, read 2026-10-21) is the same service as `fl_statewide_cadastral_fgio` (`Florida_Statewide_Cadastral/FeatureServer`).

@@ -150,7 +150,8 @@ def plan_refresh(records: list[dict], raw_features: list[dict], stored: dict, sr
                 "parcel": str(rec.get(src.record_key) or ""), "source_id": src.source_id,
                 "source_dataset": dataset or src.dataset, "source_feature_id": f["feature_id"],
                 "source_dataset_date": dataset_date,
-                "geometry": f["geometry"], "content_sha256": f["sha256"], "match_method": "EXACT_PARCEL_ID",
+                "geometry": f["geometry"], "content_sha256": f["sha256"],
+                "match_method": rec.get("join_method") or "EXACT_PARCEL_ID",
                 "simplify_tolerance_deg": geometry.SIMPLIFY_TOLERANCE_DEG, "source_observed_at": observed_at,
                 "attribution": credit, "change": kind,
             })

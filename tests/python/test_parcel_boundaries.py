@@ -458,5 +458,5 @@ def test_florida_pin_file_location_is_recorded_for_broward_only_and_nothing_read
                         "Map%20Data/2025F/2025F%20PIN/broward_2025pin.zip")
     assert b["variant"] == "PIN" and b["tax_year"] == 2025 and b["copied_on"] == "2026-10-20"
     assert S.FL_DOR.join_configured is True and S.FL_DOR.location == "files" and S.FL_DOR.layer_url is None
-    assert S.FL_DOR.record_key == "nal_parcel_id" and S.FL_DOR.id_rule == "exact"
+    assert S.FL_DOR.record_key == "join_key" and S.FL_DOR.id_rule == "exact"
     assert S.FL_DOR.feature_key_field == "PARCELNO" and S.FL_DOR.feature_id_field == "FID"

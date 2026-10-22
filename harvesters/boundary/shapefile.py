@@ -164,6 +164,7 @@ def read_pin_features(shp_path: str | Path, *, expected_prj: bool = True, keep=N
     else:
         transform = lambda x, y: (x, y)  # noqa: E731  - tests only: coordinates already WGS84
 
+    _check_complete(shp_path)
     with shapefile.Reader(str(shp_path)) as reader:
         fields = [f[0] for f in reader.fields[1:]]
         types = {f[0]: str(f[1]) for f in reader.fields[1:]}
@@ -173,22 +174,69 @@ def read_pin_features(shp_path: str | Path, *, expected_prj: bool = True, keep=N
             # A numeric field would have dropped leading zeros: the formatting
             # problem the Readme warns about. Refuse rather than join.
             raise UnsupportedFormat("PARCELNO is not a character field")
-        for fid, sr in enumerate(reader.iterShapeRecords()):
-            props = {k: ("" if v is None else str(v)) for k, v in zip(fields, sr.record) if k in KEPT_FIELDS}
+        shapes = reader.iterShapes()
+        for fid, record in enumerate(reader.iterRecords()):
+            props = {k: ("" if v is None else str(v)) for k, v in zip(fields, record) if k in KEPT_FIELDS}
+            # One malformed shape (e.g. a PolygonZ with no points, seen in a
+            # 2026 county file) must not fail the whole county: it is reported
+            # as malformed and the read goes on. The shapes stream is read in
+            # step with the records; after a malformed one it is resumed at
+            # the next record by index.
+            try:
+                shape = next(shapes)
+            except StopIteration:
+                raise UnsupportedFormat("fewer shapes than attribute records")
+            except Exception:  # noqa: BLE001 - pyshp raises its own types for a bad shape
+                shape = None
+                shapes = _shapes_from(reader, fid + 1)
+            if shape is None:
+                props["FID"] = fid
+                out = {"properties": props, "geometry": None, "malformed": True}
+                if keep is not None:
+                    out["raw_sha"] = hashlib.sha256(b"malformed:%d" % fid).digest()
+                    out["skipped"] = not keep(props)
+                yield out
+                continue
             if keep is not None:
-                pts = sr.shape.points if sr.shape.shapeType != SHAPE_NULL else []
-                raw_sha = hashlib.sha256(repr((list(getattr(sr.shape, "parts", [])), pts)).encode()).digest()
+                pts = shape.points if shape.shapeType != SHAPE_NULL else []
+                raw_sha = hashlib.sha256(repr((list(getattr(shape, "parts", [])), pts)).encode()).digest()
                 if not keep(props):
                     props["FID"] = fid
                     yield {"properties": props, "geometry": None, "skipped": True, "raw_sha": raw_sha}
                     continue
-            polys = _polygon_coordinates(sr.shape, transform) if sr.shape.shapeType in SHAPE_POLYGON_TYPES | {SHAPE_NULL} else None
+            polys = _polygon_coordinates(shape, transform) if shape.shapeType in SHAPE_POLYGON_TYPES | {SHAPE_NULL} else None
             props["FID"] = fid
             out = {"properties": props,
                    "geometry": None if polys is None else {"type": "MultiPolygon", "coordinates": polys}}
             if keep is not None:
                 out["raw_sha"] = raw_sha
             yield out
+
+
+def _check_complete(shp_path: Path) -> None:
+    """A truncated or padded .shp (an interrupted download) fails the read: the
+    header's own file length (16-bit words, big-endian, bytes 24-27) must equal
+    the file's size. A single malformed shape inside a complete file does not."""
+    size = shp_path.stat().st_size
+    with open(shp_path, "rb") as fh:
+        head = fh.read(28)
+    if len(head) < 28 or int.from_bytes(head[24:28], "big") * 2 != size:
+        raise UnsupportedFormat("TRUNCATED_FILE: the .shp is not the length its header states")
+
+
+def _shapes_from(reader, start: int):
+    """Shapes from record index `start` on, each read by index (after a
+    malformed shape the sequential stream cannot be resumed). A further
+    malformed shape yields None."""
+    i = start
+    while True:
+        try:
+            yield reader.shape(i)
+        except IndexError:
+            return
+        except Exception:  # noqa: BLE001
+            yield None
+        i += 1
 
 
 def summarize(features) -> dict:

@@ -61,7 +61,7 @@ FL_DOR = BoundarySource(
     dataset="DOR PTO Data Portal county GIS parcel files (PIN variant)",
     permission_dataset="county_parcel_geometry",
     counties=(), layer_url=None, feature_key_field="PARCELNO", feature_id_field="FID",
-    record_key="nal_parcel_id", id_rule="exact", join_configured=True, location="files",
+    record_key="join_key", id_rule="exact", join_configured=True, location="files",
 )
 
 # Florida DOR county PIN files, as the product owner copied them from the
