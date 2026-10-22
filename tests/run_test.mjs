@@ -6929,9 +6929,19 @@ await big.press('#globalSearchInput', 'Enter');
     });
     await pg.route('https://imagery.nationalmap.gov/**', route => route.fulfill({ status: 500, body: '' }));
     await pg.goto(BASE_URL + '?boundary=ok&storedphoto=1#/auctions/p5', { waitUntil: 'networkidle' });
-    // Wait for the failed live aerial to hand back the stored photo (or 5 s).
-    await pg.waitForFunction(() => { const h = document.querySelector('.detail-hero-photo'); return !!h && !!h.dataset.imagery; }, null, { timeout: 5000 }).catch(() => {});
-    results.boundaryStoredPhotoLiveFails = await storedState(pg);
+    // Two orders are both correct: the hero tries the live aerial itself and
+    // hands the stored photo back (data-imagery="stored"), or another element
+    // on the page already failed for this location, so the hero never tries
+    // (the failure is remembered per page). Wait for either; then require the
+    // stored photo, no live image, no outline, no credit, and that a failed
+    // attempt for p5's own location really happened.
+    const p5Failed = () => !!(window.__tdwNaipFailed && window.__tdwNaipFailed.has('26.934200,-82.045400'));
+    await pg.waitForFunction(new Function('return (' + p5Failed.toString() + ')() && !!document.querySelector(".detail-hero-photo");'), null, { timeout: 5000 }).catch(() => {});
+    await pg.waitForTimeout(300);
+    const st = await storedState(pg);
+    const failedHere = await pg.evaluate(new Function('return (' + p5Failed.toString() + ')();'));
+    results.boundaryStoredPhotoLiveFails = { live: st.live, outline: st.outline, credit: st.credit, storedImage: st.storedImage,
+      fellBack: st.imagery === 'stored' || (st.imagery === null && failedHere) };
     await pg.close();
   }
   r = await boundaryPage('boundary=norefresh', '#/auctions/p5');
@@ -7042,7 +7052,7 @@ const EXPECTED = {
   boundaryStoredPhotoFitted: true,
   boundaryStoredPhotoNone: {"live": false, "outline": false, "credit": false, "storedImage": true, "imagery": null},
   boundaryStoredPhotoNoneRequests: 0,
-  boundaryStoredPhotoLiveFails: {"live": false, "outline": false, "credit": false, "storedImage": true, "imagery": "stored"},
+  boundaryStoredPhotoLiveFails: {"live": false, "outline": false, "credit": false, "storedImage": true, "fellBack": true},
   boundaryOkCalls: ["p5"],
   boundaryOkUsgsFitted: true,
   boundaryNone: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": null, "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null, "credit": null},
