@@ -5153,16 +5153,20 @@ function card(p, showCounty) {
   // picture itself. Each is shown only when its source value exists.
   const photoEl = el.querySelector(".prop-card-photo");
   if (photoEl) {
-    // The photo's own status caption ("No stored image", "not yet geocoded") is
-    // information, not a headline: it moves into a bubble on the picture. The
-    // full property page shows the same caption under its picture.
-    // A cached photo's own caption (.photo-caption) and a placeholder's two
-    // state lines (.vis-main / .vis-sub) are both carried into the bubble.
-    const capNodes = photoEl.querySelectorAll(".photo-caption");
-    const capSource = capNodes.length ? capNodes : photoEl.querySelectorAll(".vis-main, .vis-sub");
-    const capText = Array.from(capSource).map(n => n.textContent.trim()).filter(Boolean).join(" · ");
-    photoEl.querySelectorAll(".photo-caption, .vis-main, .vis-sub").forEach(n => n.remove());
-    photoEl.insertAdjacentHTML("beforeend", cardPhotoOverlayHtml(p) + (capText ? `<span class="pc-info">${infoBubbleHtml("Photo", esc(capText))}</span>` : ""));
+    // The photo's own caption (a cached photo's .photo-caption, or a placeholder's
+    // .vis-main / .vis-sub lines) is information, not a headline: those elements
+    // move into an info bubble on the picture, unchanged. The full property page
+    // shows the same caption under its picture.
+    const caption = photoEl.querySelectorAll(":scope > .photo-caption, :scope > .vis-main, :scope > .vis-sub");
+    photoEl.insertAdjacentHTML("beforeend", cardPhotoOverlayHtml(p));
+    if (caption.length) {
+      const wrap = document.createElement("span");
+      wrap.className = "pc-info";
+      wrap.innerHTML = infoBubbleHtml("Photo", "");
+      const pop = wrap.querySelector(".ib-pop");
+      caption.forEach(n => pop.appendChild(n));
+      photoEl.appendChild(wrap);
+    }
   }
   return el;
 }

@@ -1888,8 +1888,7 @@ await p66.waitForTimeout(500);
 if ((await p66.locator('#expandAllBtn').textContent()) === 'Expand all') { await p66.click('#expandAllBtn'); await p66.waitForTimeout(200); }
 const p6Card = p66.locator('.prop-card:has-text("77 Pine Ct")').first();
 results.photoCardHasPhoto = await p6Card.locator('.prop-card-photo.has-photo img').count();
-// The caption now sits in an info bubble on the photo (card info is a bubble).
-results.photoCardCaption = ((await p6Card.locator('.pc-info .ib-pop').textContent()) || '').trim();
+results.photoCardCaption = ((await p6Card.locator('.photo-caption').textContent()) || '').trim();
 // The banner is capped so the address and both headline figures still sit
 // on the first phone screen under it.
 results.photoCardBannerHeightCapped = await p6Card.locator('.prop-card-photo.has-photo').evaluate(el => { const r = el.getBoundingClientRect(); return r.width > 0 && Math.abs(r.width / r.height - 4 / 3) < 0.05; });
