@@ -6914,7 +6914,8 @@ await big.press('#globalSearchInput', 'Enter');
     });
     await pg.route('https://imagery.nationalmap.gov/**', route => route.fulfill({ status: 500, body: '' }));
     await pg.goto(BASE_URL + '?boundary=ok&storedphoto=1#/auctions/p5', { waitUntil: 'networkidle' });
-    await pg.waitForTimeout(500);
+    // Wait for the failed live aerial to hand back the stored photo (or 5 s).
+    await pg.waitForFunction(() => { const h = document.querySelector('.detail-hero-photo'); return !!h && !!h.dataset.imagery; }, null, { timeout: 5000 }).catch(() => {});
     results.boundaryStoredPhotoLiveFails = await storedState(pg);
     await pg.close();
   }
