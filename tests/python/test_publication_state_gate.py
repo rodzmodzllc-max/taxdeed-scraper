@@ -49,7 +49,7 @@ def ctx(**over) -> PS.Context:
     # records; this module tests the publication ladder, so the recorded
     # `display` permission is stubbed here. The real, fail-closed permission
     # check is covered by test_source_permissions.py.
-    c.display_permitted = lambda sid, st, county: sid != "no_display_permission"
+    c.display_permitted = lambda sid, st, county, ledger=None: sid != "no_display_permission"
     c.source_publication = {"fl_realauction_alachua": "APPROVED_GRANDFATHERED", "fl_laft_calhoun": "APPROVED",
                             "fl_lienhub_certificates": "APPROVED_GRANDFATHERED", "tn_shelby_landbank": "UNREVIEWED",
                             "fl_laft_broward_candidate": "RESTRICTED", "tx_lgbs": "APPROVED", "mi_eaton_treasurer_sale": "APPROVED",
