@@ -5134,16 +5134,51 @@ function card(p, showCounty) {
           ${cd}
         </div>
       </div>
-      <div class="prop-ids">
-        ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(parcelOf(p))}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
-        ${p.case_no ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
+      <div class="prop-row">
+        <div class="prop-where">
+          <div class="prop-county-line">${esc(p.county || "")}${p.county ? ", " : ""}${esc(regionOf(p))}</div>
+          <div class="prop-ids">
+            ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(parcelOf(p))}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
+            ${p.case_no ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
+          </div>
+        </div>
+        <div class="card-price">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
       </div>
-      <div class="card-price">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
+      ${cardStatsHtml(p)}
       ${offListNote}
       ${auctionLinkHtml(p, "cta-btn")}
-      <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View property →</button>
+      <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View Full Property →</button>
     </div>`;
+  // Photo overlays (the listing type, the county and the lot size) sit on the
+  // picture itself. Each is shown only when its source value exists.
+  const photoEl = el.querySelector(".prop-card-photo");
+  if (photoEl) photoEl.insertAdjacentHTML("beforeend", cardPhotoOverlayHtml(p));
   return el;
+}
+
+// Listing type named as the source's own ledger, shown on the photo.
+function cardPhotoOverlayHtml(p) {
+  // Kept inside the function: card() can run during module start-up (see the
+  // TDZ notes above render()), so no top-level const may be read here.
+  const chip = { auction: "Auction", laft: "Available", certificate: "Lien" }[p.source] || "";
+  const lot = lotSize(p);
+  return `${p.county ? `<span class="pc-chip pc-county">${esc(p.county)}, ${esc(regionOf(p))}</span>` : ""}`
+    + `${chip ? `<span class="pc-chip pc-ledger">${esc(chip)}</span>` : ""}`
+    + `${lot ? `<span class="pc-size">Property size: ${esc(lot)}</span>` : ""}`;
+}
+
+// Four facts in the same order on every card. A fact the data does not hold
+// reads "Not tracked" or "Not published" - never a zero.
+function cardStatsHtml(p) {
+  const cell = (label, value, missing) => `<div class="pc-stat${missing ? " muted" : ""}"><span class="pc-stat-val">${value}</span><span class="pc-stat-label">${label}</span></div>`;
+  const sq = hasNum(p.living_area) ? fmtSqft(p.living_area) : "";
+  const lot = lotSize(p);
+  return `<div class="prop-stats">`
+    + cell("Beds", "Not tracked", true)
+    + cell("Baths", "Not tracked", true)
+    + cell("Sq ft", sq ? esc(sq) : "Not published", !sq)
+    + cell("Acres", lot ? esc(lot) : "Not published", !lot)
+    + `</div>`;
 }
 
 // A quick visual read of "what will it cost me vs. what's it worth" - the
