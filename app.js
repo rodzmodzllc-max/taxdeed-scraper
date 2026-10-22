@@ -2085,7 +2085,7 @@ var BOUNDARY_CACHE = new Map();   // property id -> settled result (errors are n
 // display grant holds). Until it arrives, or if the read fails, cards ask for
 // nothing and show the aerial alone. var / function declarations: card() can
 // run during module start-up (TDZ).
-var BOUNDARY_IDS = null;
+var BOUNDARY_IDS = null, BOUNDARY_IDS_LOADING = null;
 async function fetchBoundaryIds() {
   const ids = new Set();
   const PAGE = 1000;
@@ -4459,7 +4459,9 @@ async function loadAll(activeKey, opts) {
   fetchAuctionOutcomeIndex(today).then(o => { AUCTION_OUTCOMES = o; scheduleLedgerUpdate("auction"); }).catch(() => {});
   // Which properties of this state carry a parcel outline: one small read, so
   // only those cards ask for their outline. Never gates the first paint.
-  fetchBoundaryIds().then(ids => { BOUNDARY_IDS = ids; if (ids.size) scheduleLedgerUpdate(null); }).catch(() => {});
+  // Once per page load: the bootstrap can run loadAll() twice (getSession and
+  // SIGNED_IN), and the outline ids do not change between the two.
+  if (!BOUNDARY_IDS_LOADING) BOUNDARY_IDS_LOADING = fetchBoundaryIds().then(ids => { BOUNDARY_IDS = ids; if (ids.size) scheduleLedgerUpdate(null); }).catch(() => { BOUNDARY_IDS_LOADING = null; });
   // The watchlist diff needs every ledger (a watched certificate must not
   // read as "removed" because Certificates had not loaded yet). Diff ONCE per
   // page load: the bootstrap can run loadAll() twice (the getSession() path

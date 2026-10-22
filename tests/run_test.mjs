@@ -6890,7 +6890,10 @@ await big.press('#globalSearchInput', 'Enter');
   let r = await boundaryPage('boundary=ok', '#/auctions/p5');
   results.boundaryOk = await hostState(r.pg);
   results.boundaryFreshnessOk = await r.pg.evaluate(() => (document.querySelector('[data-pb-credit] .pb-credit-fresh') || {}).textContent || '');
-  results.boundaryOkCalls = await r.pg.evaluate(() => window.__stubBoundaryCalls || []);
+  // The property page asks for its own outline (p5); since 2026-10-22 the list's
+  // cards behind it ask only for the ids in the outline-id read (every fixture row
+  // with coordinates in this mode: p5, p12). Each id is asked at most once.
+  results.boundaryOkCalls = await r.pg.evaluate(() => { const c = window.__stubBoundaryCalls || []; return { ids: [...new Set(c)].sort(), once: new Set(c).size === c.length }; });
   results.boundaryOkUsgsFitted = r.usgs.some(u => /bbox=/.test(u) && !/bbox=-82\.045.*,26\.935/.test(u));
   await r.pg.close();
   // The caption names how the outline was matched.
@@ -7110,7 +7113,7 @@ const EXPECTED = {
   boundaryStoredPhotoNone: {"live": false, "outline": false, "credit": false, "storedImage": true, "imagery": null},
   boundaryStoredPhotoNoneRequests: 0,
   boundaryStoredPhotoLiveFails: {"live": false, "outline": false, "credit": false, "storedImage": true, "fellBack": true},
-  boundaryOkCalls: ["p5"],
+  boundaryOkCalls: {"ids": ["p12", "p5"], "once": true},
   boundaryOkUsgsFitted: true,
   boundaryNone: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": null, "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null, "credit": null},
   boundaryNotDeployed: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": null, "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null, "credit": null},
