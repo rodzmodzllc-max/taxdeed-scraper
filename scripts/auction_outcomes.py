@@ -579,6 +579,7 @@ def main(argv: list[str] | None = None) -> int:
     past_events = len(events)
     report = {"generated_at": observed_at, "dry_run": args.dry_run, "window": {"from": since.isoformat(), "to_before": today.isoformat()},
               "events_in_window": past_events, "sale_days": len(days), "sale_days_without_host": skipped_no_host,
+              "sale_days_possibly_truncated": sum(1 for r in reads if r.ok and not r.complete),
               "wordings_enabled": len(wordings), **plan.stats, "by_county": plan.by_county,
               "observations_written": 0 if args.dry_run else len(plan.observations),
               "events_patched": 0 if args.dry_run else len(plan.patches)}
@@ -586,7 +587,8 @@ def main(argv: list[str] | None = None) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     line = (f"auction outcomes (FL, sale days {since}..{today - timedelta(days=1)}): events {past_events}, days read "
-            f"{plan.stats['days_read']}, unavailable {plan.stats['days_unavailable']}, records {plan.stats['records']}, "
+            f"{plan.stats['days_read']} ({sum(1 for r in reads if r.ok and not r.complete)} possibly truncated), "
+            f"unavailable {plan.stats['days_unavailable']}, records {plan.stats['records']}, "
             f"matched {plan.stats['matched']}, unmatched {plan.stats['unmatched_records']}, verified new {plan.stats['verified_new']} "
             f"{plan.stats['by_result']}, unchanged {plan.stats['verified_unchanged']}, not published {plan.stats['not_published']}, "
             f"amounts {plan.stats['amounts']}{' [dry run]' if args.dry_run else ''}")
