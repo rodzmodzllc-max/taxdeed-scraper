@@ -6996,7 +6996,9 @@ await big.press('#globalSearchInput', 'Enter');
   await r.pg.waitForSelector('.detail-hero-photo.naip-live', { timeout: 4000 }).catch(() => {});
   await r.pg.evaluate(() => document.querySelectorAll('.naip-live').forEach(h => h.remove()));
   await r.pg.waitForTimeout(1600);
-  results.boundaryStaleSwitch = await r.pg.evaluate(() => document.querySelectorAll('.parcel-boundary').length === 0);
+  // Cards in the list behind it draw their own outlines (2026-10-22); only the
+  // removed property-page host matters here.
+  results.boundaryStaleSwitch = await r.pg.evaluate(() => [...document.querySelectorAll('.parcel-boundary')].filter(n => !n.closest('.prop-card-photo')).length === 0);
   await r.pg.close();
   // Florida DOR-shaped attribution: credit and change notice, no licence link.
   r = await boundaryPage('boundary=fl', '#/auctions/p5');
