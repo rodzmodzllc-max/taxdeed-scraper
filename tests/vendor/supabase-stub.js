@@ -413,6 +413,13 @@ if (new URLSearchParams(location.search).get("offlist") === "1") {
   if (p8) p8.last_seen_at = new Date(Date.now() - 3600 * 1000).toISOString();
 }
 
+// ?zerosize=1 (2026-10-22 card facts): p1 carries a stored living area and lot
+// size of zero. The card must read "Not published", never "0 sq ft".
+if (new URLSearchParams(location.search).get("zerosize") === "1") {
+  const p1 = FIXTURE_PROPERTIES.find(r => r.id === "p1");
+  if (p1) { p1.living_area = 0; p1.lot_sqft = 0; }
+}
+
 // ?storedphoto=1 (2026-10-21 stored-aerial outline regression): p5 carries a
 // stored USDA NAIP aerial, as 62 of the 64 production properties with an
 // outline did. The image is a labelled fixture placard, never a real aerial.

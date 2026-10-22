@@ -4389,6 +4389,20 @@ await navMap.close();
     results.offListDefault = await n.evaluate(() => window.__tdwOffList('p9'));
     await n.close();
   }
+  // ---- Card facts never show a stored zero as a size (2026-10-22) ----
+  {
+    const z = await newPage({ viewport: { width: 1440, height: 900 } });
+    z.on('pageerror', e => errors.push('zerosize pageerror: ' + e.message));
+    await z.goto(BASE_URL + '?zerosize=1' + '#/auctions', { waitUntil: 'networkidle' });
+    await z.waitForTimeout(400);
+    results.cardZeroSizeStats = await z.evaluate(() => {
+      const c = document.querySelector('#main .prop-card[data-pid="p1"]');
+      if (!c) return null;
+      return { stats: [...c.querySelectorAll('.prop-stats .pc-stat')].map(s => s.textContent.trim()),
+        sizeOverlay: !!c.querySelector('.pc-size'), zero: /\b0 sq ft\b/.test(c.textContent) };
+    });
+    await z.close();
+  }
   // ---- Texas cause numbers are never parcel identity (2026-10-10) ----
   // ptx3 and ptx8 (?txcause=1) share one LGBS tax-suit cause but are two CAD
   // accounts - two parcels. Neither is "the same parcel" as the other, and the
@@ -8350,6 +8364,7 @@ const EXPECTED = {
   offListCards: { p9: true, p8Upcoming: true, p9Line: true, p9Flag: true, p8Flag: null, neverReadCounty: null, commandCenter: true },
   offListDetail: true,
   offListDefault: null,
+  cardZeroSizeStats: {"stats": ["Not trackedBeds", "Not trackedBaths", "Not publishedSq ft", "Not publishedAcres"], "sizeOverlay": false, "zero": false},
   taxacqBrand: { title: true, rail: 'TAXACQ', sub: 'Tax Acquisition Intelligence', topbar: 'TAXACQ', noOldText: true, aboutWhy: true },
   identityLogin: {"brand": "TAXACQ", "tagline": "Tax Acquisition Intelligence", "bg": "rgb(243, 239, 232)", "signupFields": 6},
   identityPalette: {"noNavy": true, "body": "rgb(243, 239, 232)", "ledgerAccent": "#4E6B54", "display": true},

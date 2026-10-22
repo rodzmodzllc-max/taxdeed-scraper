@@ -5233,18 +5233,24 @@ function cardPhotoOverlayHtml(p) {
   // Kept inside the function: card() can run during module start-up (see the
   // TDZ notes above render()), so no top-level const may be read here.
   const chip = { auction: "Auction", laft: "Available", certificate: "Lien" }[p.source] || "";
-  const lot = lotSize(p);
+  const lot = cardLotSize(p);
   return `${p.county ? `<span class="pc-chip pc-county">${esc(p.county)}, ${esc(regionOf(p))}</span>` : ""}`
     + `${chip ? `<span class="pc-chip pc-ledger">${esc(chip)}</span>` : ""}`
     + `${lot ? `<span class="pc-size">Property size: ${esc(lot)}</span>` : ""}`;
+}
+
+// The card's lot size: a stored size of zero or less is not a published size, so
+// it reads "Not published" rather than "0 sq ft".
+function cardLotSize(p) {
+  return Number(p.lot_sqft) > 0 ? lotSize(p) : "";
 }
 
 // Four facts in the same order on every card. A fact the data does not hold
 // reads "Not tracked" or "Not published" - never a zero.
 function cardStatsHtml(p) {
   const cell = (label, value, missing) => `<div class="pc-stat${missing ? " muted" : ""}"><span class="pc-stat-val">${value}</span><span class="pc-stat-label">${label}</span></div>`;
-  const sq = hasNum(p.living_area) ? fmtSqft(p.living_area) : "";
-  const lot = lotSize(p);
+  const sq = Number(p.living_area) > 0 ? fmtSqft(p.living_area) : "";
+  const lot = cardLotSize(p);
   return `<div class="prop-stats">`
     + cell("Beds", "Not tracked", true)
     + cell("Baths", "Not tracked", true)
