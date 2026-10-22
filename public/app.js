@@ -5249,7 +5249,7 @@ function cardStatsHtml(p) {
     + cell("Beds", "Not tracked", true)
     + cell("Baths", "Not tracked", true)
     + cell("Sq ft", sq ? esc(sq) : "Not published", !sq)
-    + cell("Acres", lot ? esc(lot) : "Not published", !lot)
+    + cell(lot && !/acres$/.test(lot) ? "Lot size" : "Acres", lot ? esc(lot) : "Not published", !lot)
     + `</div>`;
 }
 
