@@ -129,7 +129,9 @@ class Db:
             select = f"id,state,county,{src.record_key}"
         params = {"select": select, "state": f"eq.{src.state}", "status": "eq.active"}
         if source:
-            params["source"] = f"eq.{source}"       # one ledger only (e.g. laft = Available)
+            # One ledger (e.g. laft = Available) or a comma-separated set of them.
+            ledgers = [x.strip() for x in str(source).split(",") if x.strip()]
+            params["source"] = f"eq.{ledgers[0]}" if len(ledgers) == 1 else "in.(" + ",".join(ledgers) + ")"
         if county:
             params["county"] = f'eq.{county}'
         elif src.counties:

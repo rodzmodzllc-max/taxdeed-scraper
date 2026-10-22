@@ -1,5 +1,5 @@
-"""Load parcel outlines for Florida AVAILABLE (Lands Available) properties from
-the DOR PTO county PIN shapefiles.
+"""Load parcel outlines for Florida properties (Available by default; auctions and
+certificates when asked) from the DOR PTO county PIN shapefiles.
 
 Manual only (.github/workflows/parcel-boundaries-florida-available.yml).
 Default mode is dry-run: it lists the counties with active Available
@@ -10,8 +10,9 @@ Which file: the county's file in the DOR PTO Data Portal folder
 "Map Data/<year>F/<year>F PIN", read from the portal's own folder listing
 (never a guessed URL); condominium files are never used.
 
-Which records: active Florida properties of the Available ledger
-(properties.source = 'laft') only - auctions and certificates are not read.
+Which records: active Florida properties of the ledgers named by --ledgers
+(properties.source): laft (Available, the default), auction, certificate. A
+ledger not named is never read.
 
 How a record is joined (harvesters/boundary/fl_dor.py) depends on the match
 mode, which is printed with every run:
@@ -54,6 +55,8 @@ from harvesters.boundary import sources as S  # noqa: E402
 
 SOURCE = S.FL_DOR
 AVAILABLE = "laft"
+LEDGERS = ("laft", "auction", "certificate")
+DEFAULT_LEDGERS = (AVAILABLE,)
 PORTAL = "https://floridarevenue.com/property/dataportal"
 FOLDER = "/property/dataportal/Documents/PTO Data Portal/Map Data/{year}F/{year}F PIN"
 USER_AGENT = "taxdeed-scraper/1.0 (parcel boundaries)"
@@ -107,11 +110,16 @@ def download(url: str, dest: Path) -> None:
                 fh.write(chunk)
 
 
-def available_counties(db) -> dict:
-    """county -> number of active Florida Available properties."""
+def ledger_filter(ledgers) -> str:
+    """The PostgREST filter value for properties.source."""
+    return f"eq.{ledgers[0]}" if len(ledgers) == 1 else "in.(" + ",".join(ledgers) + ")"
+
+
+def available_counties(db, ledgers=DEFAULT_LEDGERS) -> dict:
+    """county -> number of active Florida properties of the given ledgers."""
     import rest_pages  # noqa: PLC0415
     rows = rest_pages.read_all(db.url, "properties", db.h,
-                               {"select": "id,county", "state": "eq.FL", "source": f"eq.{AVAILABLE}",
+                               {"select": "id,county", "state": "eq.FL", "source": ledger_filter(ledgers),
                                 "status": "eq.active"})
     counts: dict = {}
     for r in rows:
@@ -121,10 +129,16 @@ def available_counties(db) -> dict:
 
 
 def run(mode: str, confirm: str, *, year: int, only=None, db=None, list_files=list_pin_files, fetch=download,
-        counties_of=available_counties, out=print, match_mode: str = DEFAULT_MATCH_MODE) -> int:
+        counties_of=None, out=print, match_mode: str = DEFAULT_MATCH_MODE, ledgers=DEFAULT_LEDGERS) -> int:
     if match_mode not in MATCH_MODES:
         out(json.dumps({"status": "REFUSED", "reason": f"unknown match mode {match_mode!r}"}))
         return 2
+    ledgers = tuple(sorted(set(ledgers or ()), key=LEDGERS.index)) if set(ledgers or ()) <= set(LEDGERS) else None
+    if not ledgers:
+        out(json.dumps({"status": "REFUSED", "reason": f"ledgers must be a non-empty subset of {list(LEDGERS)}"}))
+        return 2
+    if counties_of is None:
+        counties_of = lambda d: available_counties(d, ledgers)  # noqa: E731
     perm = {op: S.authorize(SOURCE, op) for op in ("fetch", "parse")}
     if mode == "apply":
         perm["store"] = S.authorize(SOURCE, "store")
@@ -148,9 +162,10 @@ def run(mode: str, confirm: str, *, year: int, only=None, db=None, list_files=li
     counties = counties_of(db)
     if only:
         counties = {c: n for c, n in counties.items() if c in only}
-    out(json.dumps({"match_mode": match_mode, "listing_join": MATCH_MODES[match_mode]}))
+    out(json.dumps({"match_mode": match_mode, "listing_join": MATCH_MODES[match_mode], "ledgers": list(ledgers)}))
     files = list_files(year)
-    summary = {"year": year, "mode": mode, "match_mode": match_mode, "counties": len(counties), "complete": 0,
+    summary = {"year": year, "mode": mode, "match_mode": match_mode, "ledgers": list(ledgers),
+               "counties": len(counties), "complete": 0,
                "failed": 0, "no_file": 0}
     rc = 0
     for county in sorted(counties):
@@ -174,7 +189,7 @@ def run(mode: str, confirm: str, *, year: int, only=None, db=None, list_files=li
                 continue
             code = refresh.run(SOURCE.source_id, apply=(mode == "apply"), db=db, out=out,
                                files={"county": county, "path": str(path), "variant": "PIN",
-                                      "source": AVAILABLE, "listing_join": MATCH_MODES[match_mode]})
+                                      "source": ",".join(ledgers), "listing_join": MATCH_MODES[match_mode]})
         if code == 0:
             summary["complete"] += 1
         else:
@@ -194,9 +209,13 @@ def main(argv=None) -> int:
     ap.add_argument("--match-mode", choices=sorted(MATCH_MODES), default=DEFAULT_MATCH_MODE,
                     help="validated_id_only joins on the validated NAL PARCEL_ID only, never on the listing's "
                          "parcel number")
+    ap.add_argument("--ledgers", default=",".join(DEFAULT_LEDGERS),
+                    help="comma-separated properties.source values to outline: laft (Available, the default), "
+                         "auction, certificate")
     a = ap.parse_args(argv)
     only = {c.strip() for c in a.counties.split(",") if c.strip()} or None
-    return run(a.mode, a.confirm, year=a.year, only=only, match_mode=a.match_mode)
+    ledgers = tuple(x.strip() for x in a.ledgers.split(",") if x.strip())
+    return run(a.mode, a.confirm, year=a.year, only=only, match_mode=a.match_mode, ledgers=ledgers)
 
 
 if __name__ == "__main__":

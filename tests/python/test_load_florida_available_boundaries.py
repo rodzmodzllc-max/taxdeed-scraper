@@ -50,7 +50,8 @@ class FakeDb:
 
     def properties(self, src, county=None, source=None):
         self.sources.append(source)
-        return [r for r in self.rows if r["county"] == county and r["source"] == source]
+        wanted = set(str(source).split(","))
+        return [r for r in self.rows if r["county"] == county and r["source"] in wanted]
 
     def stored(self, ids):
         return {}
@@ -265,3 +266,59 @@ def test_the_default_match_mode_is_unchanged_and_the_cli_and_workflow_expose_the
     wf = (ROOT / ".github/workflows/parcel-boundaries-florida-available.yml").read_text(encoding="utf-8")
     assert "options: [listing_location_confirmed, validated_id_only]" in wf
     assert '--match-mode "$MATCH_MODE"' in wf
+
+
+# --- ledgers: Available by default, auctions and certificates when named ------
+
+def test_ledgers_default_to_available_and_all_three_are_read_only_when_named():
+    rows = [_row("a", "Leon", "12-3456-0010", 30.4005, -84.2995),
+            _row("x", "Leon", "12-3456-0020", 30.4105, -84.3095, source="auction"),
+            _row("c", "Leon", "12-3456-0030", 30.4205, -84.3195, source="certificate")]
+    feats = [("1234560010", (-84.30, 30.40)), ("1234560020", (-84.31, 30.41)), ("1234560030", (-84.32, 30.42))]
+    rc, db, written, text = _run_mode(rows, feats, "listing_location_confirmed")
+    assert rc == 0 and [r["property_id"] for r in written] == ["a"]
+    assert set(db.sources) == {"laft"} and '"ledgers": ["laft"]' in text
+    db, lines = StoringDb(rows), []
+    rc = L.run("apply", "APPLY", year=2026, db=db, list_files=lambda y: {"Leon": "leon_2026pin.zip"},
+               fetch=lambda url, dest: _zip(feats, "leon_2026pin")(url, dest),
+               counties_of=lambda d: {"Leon": 3}, out=lines.append,
+               ledgers=("certificate", "auction", "laft"))
+    written = sorted((r["property_id"], r["match_method"]) for batch in db.upserts for r in batch)
+    assert rc == 0 and written == [("a", "PARCEL_NUMBER_LOCATION_CONFIRMED"), ("c", "PARCEL_NUMBER_LOCATION_CONFIRMED"),
+                                   ("x", "PARCEL_NUMBER_LOCATION_CONFIRMED")]
+    assert db.sources == ["laft,auction,certificate"]
+    assert '"ledgers": ["laft", "auction", "certificate"]' in "\n".join(lines)
+
+
+def test_an_unknown_or_empty_ledger_set_is_refused_before_anything_is_read():
+    for bad in (("laft", "deeds"), ()):
+        db, lines = FakeDb([]), []
+        rc = L.run("dry_run", "", year=2026, db=db, list_files=lambda y: (_ for _ in ()).throw(AssertionError("read")),
+                   counties_of=lambda d: (_ for _ in ()).throw(AssertionError("read")), out=lines.append, ledgers=bad)
+        assert rc == 2 and db.sources == [] and "ledgers must be" in lines[0]
+
+
+def test_the_ledger_filter_and_the_workflow_input(monkeypatch):
+    import importlib.util as iu
+    assert L.ledger_filter(("laft",)) == "eq.laft"
+    assert L.ledger_filter(("laft", "auction", "certificate")) == "in.(laft,auction,certificate)"
+    spec = iu.spec_from_file_location("pbr", ROOT / "scripts" / "parcel_boundary_refresh.py")
+    R = iu.module_from_spec(spec); spec.loader.exec_module(R)
+    seen = {}
+
+    class Src:
+        location, state, counties = "files", "FL", ()
+    db = R.Db.__new__(R.Db)
+    db.url, db.h = "https://example.invalid", {}
+    import types
+    fake = types.ModuleType("rest_pages")
+    fake.read_all = lambda url, table, h, params: seen.setdefault("p", params) and []
+    monkeypatch.setitem(__import__("sys").modules, "rest_pages", fake)
+    db.properties(Src(), "Leon", source="laft,auction,certificate")
+    assert seen["p"]["source"] == "in.(laft,auction,certificate)"
+    seen.clear()
+    db.properties(Src(), "Leon", source="laft")
+    assert seen["p"]["source"] == "eq.laft"
+    wf = (ROOT / ".github/workflows/parcel-boundaries-florida-available.yml").read_text(encoding="utf-8")
+    assert 'options: [laft, "laft,auction,certificate"]' in wf and "default: laft" in wf
+    assert '--ledgers "$LEDGERS"' in wf

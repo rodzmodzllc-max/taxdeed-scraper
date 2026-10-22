@@ -3430,7 +3430,8 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   per-county refresh in `parcel_boundary_refresh_units`. A county read reprojects only the joinable keys' polygons
   but sees the whole file for format, stacked and multi-parcel checks.
 - **Florida Available** (`scripts/load_florida_available_boundaries.py`, manual workflow
-  `parcel-boundaries-florida-available.yml`, owner's decision 2026-10-22): `laft` records only; county files from DOR's own
+  `parcel-boundaries-florida-available.yml`, owner's decision 2026-10-22): `laft` records by default; `--ledgers`
+  (workflow input `ledgers`) may add `auction` and `certificate` (owner's request 2026-10-22: outlines for every property); county files from DOR's own
   `Map Data/<year>F/<year>F PIN` listing (2026 default); a record without a validated NAL id may join on its listing parcel
   with separators ignored (`fl_dor.separators_removed`, leading zeros kept) only when exactly one PARCELNO matches AND its
   own stored point lies inside the polygon (`match_method` `PARCEL_NUMBER_LOCATION_CONFIRMED`, allowed by 035). A
