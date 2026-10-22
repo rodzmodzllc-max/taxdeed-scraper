@@ -1876,9 +1876,10 @@ function naipLiveHtml(p, cls) {
   const approx = basis === "approximate";
   const caption = big ? "Aerial imagery · USDA NAIP (public domain) · " + IMAGERY_MATCH_LABELS[match].replace(/^Centered on /, "centered on ") + (approx ? " · approximate point" : "")
     : "Aerial · USDA NAIP" + (approx ? " · approx. point" : "");
-  // Only the property page and the map preview ask for a parcel boundary;
-  // cards never do, so a list of hundreds costs no requests.
-  const bpid = (big || cls === "pv-visual") && p.id !== undefined && p.id !== null ? ` data-boundary-pid="${esc(String(p.id))}"` : "";
+  // The property page and the map preview ask for a parcel boundary; a card
+  // asks only when the one read of outline ids says this property has one
+  // (cardHasBoundary), so a list of hundreds costs no per-card requests.
+  const bpid = (big || cls === "pv-visual" || cardHasBoundary(p, cls)) && p.id !== undefined && p.id !== null ? ` data-boundary-pid="${esc(String(p.id))}"` : "";
   return `<div class="${cls} has-photo naip-live" data-imagery="naip_live" data-match="${esc(match)}" data-basis="${esc(basis)}" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"${bpid}><img class="naip-live-img" data-naip-src="${esc(naipExportUrl(p.latitude, p.longitude, sz))}" alt="USDA NAIP aerial image centered on this record's coordinates" loading="lazy" decoding="async" width="${sz[0]}" height="${sz[1]}"><span class="photo-caption" title="${esc(IMAGERY_BASIS_LABELS[basis] + ". Imagery may be years old. " + IMAGERY_CONTEXT_NOTE)}">${esc(caption)}</span></div>`;
 }
 // A stored USDA NAIP aerial (photo_source usda_naip) on the property page or
@@ -1888,7 +1889,7 @@ function naipLiveHtml(p, cls) {
 // photo comes back. Production 2026-10-21: 62 of the 64 properties with an
 // outline carried a stored aerial, so the outline never showed.
 function storedAerialOutlineHost(p, cls) {
-  return (cls === "detail-hero-photo" || cls === "pv-visual") && p.photo_source === "usda_naip"
+  return (cls === "detail-hero-photo" || cls === "pv-visual" || cardHasBoundary(p, cls)) && p.photo_source === "usda_naip"
     && imageryHasCoords(p) && naipLiveEnabled() && p.id !== undefined && p.id !== null
     && !naipFailedSet().has(naipKey(p.latitude, p.longitude));
 }
@@ -2078,6 +2079,32 @@ function hydrateNaip(scope) {
 // shown with its source's credit, licence link, change notice, disclaimer
 // and metadata. Without a boundary the aerial stays exactly as it was.
 var BOUNDARY_CACHE = new Map();   // property id -> settled result (errors are not kept)
+// Cards (2026-10-22): ids of this state's properties that carry an outline,
+// read once per load from parcel_boundaries (the same RLS as the outline
+// itself: approved account, a property the caller may read, a source whose
+// display grant holds). Until it arrives, or if the read fails, cards ask for
+// nothing and show the aerial alone. var / function declarations: card() can
+// run during module start-up (TDZ).
+var BOUNDARY_IDS = null;
+async function fetchBoundaryIds() {
+  const ids = new Set();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await sb.from("parcel_boundaries").select("property_id")
+      .eq("state", PAGE_STATE).order("property_id").range(from, from + PAGE - 1);
+    if (error) {
+      if (!/PGRST205|42P01/.test(String(error.code || ""))) console.warn("parcel outline ids unavailable:", error.code || error.message);
+      return new Set();
+    }
+    (data || []).forEach(r => { if (r && r.property_id) ids.add(String(r.property_id)); });
+    if (!data || data.length < PAGE) break;
+  }
+  return ids;
+}
+function cardHasBoundary(p, cls) {
+  return /(^|\s)prop-card-photo(\s|$)/.test(String(cls || "")) && !!BOUNDARY_IDS
+    && p && p.id !== undefined && p.id !== null && BOUNDARY_IDS.has(String(p.id));
+}
 function boundaryFor(pid, row) {
   const key = String(pid);
   if (!BOUNDARY_CACHE.has(key)) {
@@ -2182,13 +2209,22 @@ function drawBoundary(host, boundary) {
   img.dataset.naipSrc = url;
   if (img.getAttribute("src")) img.src = url;
   const d = boundaryPath(boundary.polygons, box, w, h);
-  host.querySelectorAll(".parcel-boundary, .pb-attrib, .pb-state").forEach(n => n.remove());
+  host.querySelectorAll(".parcel-boundary, .pb-attrib, .pb-state, [data-pb-credit], .pc-outline-info").forEach(n => n.remove());
   host.insertAdjacentHTML("beforeend",
     `<svg class="parcel-boundary" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><path class="pb-halo" d="${d}"/><path class="pb-fill" fill-rule="evenodd" d="${d}"/><path class="pb-line" d="${d}"/></svg>` +
     `<span class="pb-attrib" title="${esc(boundary.attribution.credit)}">${esc(boundary.attribution.credit)}</span>`);
   const next = host.nextElementSibling;
   if (next && next.matches && next.matches("[data-pb-credit]")) next.remove();
-  host.insertAdjacentHTML("afterend", boundaryCreditHtml(boundary.attribution));
+  if (host.classList.contains("prop-card-photo")) {
+    // A card keeps the short credit on the picture; the full credit (licence,
+    // change notice, freshness, disclaimer, metadata) is one tap away in the
+    // photo's info bubble, or in its own bubble when the photo has none.
+    const pop = host.querySelector(":scope > .pc-info .ib-pop");
+    if (pop) pop.insertAdjacentHTML("beforeend", boundaryCreditHtml(boundary.attribution));
+    else host.insertAdjacentHTML("beforeend", `<span class="pc-info pc-outline-info">${infoBubbleHtml("Outline source", boundaryCreditHtml(boundary.attribution))}</span>`);
+  } else {
+    host.insertAdjacentHTML("afterend", boundaryCreditHtml(boundary.attribution));
+  }
   const cap = host.querySelector(".photo-caption");
   if (cap) cap.title = "Parcel outline from " + boundary.attribution.credit + ", " + boundaryMatchText(boundary.matchMethod) + ". The aerial itself does not show ownership, current condition or title.";
   host.classList.add("has-boundary");
@@ -2249,16 +2285,24 @@ document.addEventListener("error", e => {
     if (host.dataset.storedPhoto) {
       // The outline was fitted to the live image; it does not line up with
       // the stored one, so it goes with it.
-      host.querySelectorAll(".parcel-boundary, .pb-attrib, .pb-state").forEach(n => n.remove());
+      host.querySelectorAll(".parcel-boundary, .pb-attrib, .pb-state, [data-pb-credit], .pc-outline-info").forEach(n => n.remove());
       const credit = host.nextElementSibling;
       if (credit && credit.matches && credit.matches("[data-pb-credit]")) credit.remove();
       host.classList.remove("naip-live", "has-boundary");
       host.removeAttribute("aria-label");
+      host.__pbBoundary = null;
       host.dataset.imagery = "stored";
       img.className = "";
       img.src = host.dataset.storedPhoto;
       return;
     }
+    // Nothing below is the image the outline was fitted to, so it goes too.
+    host.querySelectorAll(".parcel-boundary, .pb-attrib, .pb-state, [data-pb-credit], .pc-outline-info").forEach(n => n.remove());
+    const fitted = host.nextElementSibling;
+    if (fitted && fitted.matches && fitted.matches("[data-pb-credit]")) fitted.remove();
+    host.classList.remove("has-boundary");
+    host.removeAttribute("aria-label");
+    host.__pbBoundary = null;
     const sat = staticImageUrl({ latitude: host.dataset.lat, longitude: host.dataset.lng });
     host.classList.remove("naip-live");
     host.dataset.imagery = "naip_failed";
@@ -4413,6 +4457,9 @@ async function loadAll(activeKey, opts) {
   // wording only from AUCTION_OUTCOMES, so until it arrives they show the
   // listing alone; the re-render adds the outcome.
   fetchAuctionOutcomeIndex(today).then(o => { AUCTION_OUTCOMES = o; scheduleLedgerUpdate("auction"); }).catch(() => {});
+  // Which properties of this state carry a parcel outline: one small read, so
+  // only those cards ask for their outline. Never gates the first paint.
+  fetchBoundaryIds().then(ids => { BOUNDARY_IDS = ids; if (ids.size) scheduleLedgerUpdate(null); }).catch(() => {});
   // The watchlist diff needs every ledger (a watched certificate must not
   // read as "removed" because Certificates had not loaded yet). Diff ONCE per
   // page load: the bootstrap can run loadAll() twice (the getSession() path

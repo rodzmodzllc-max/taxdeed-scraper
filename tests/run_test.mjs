@@ -7003,9 +7003,59 @@ await big.press('#globalSearchInput', 'Enter');
   r = await boundaryPage('boundary=nolicencelink', '#/auctions/p5');
   results.boundaryNoLicenceLink = await hostState(r.pg).then(s => ({ outline: s.outline, credit: s.credit }));
   await r.pg.close();
-  // Cards never ask for a boundary: a list page costs no boundary request.
-  r = await boundaryPage('boundary=ok', '#/auctions');
+  // Cards (2026-10-22, TEST_OBSOLETE: "cards never ask for a boundary"): a list
+  // page reads the outline ids once and asks only for those properties. With
+  // no outline ids, a list page costs no boundary request.
+  r = await boundaryPage('boundary=none', '#/auctions');
   results.boundaryListNoCalls = await r.pg.evaluate(() => (window.__stubBoundaryCalls || []).length);
+  results.cardOutlineIdReads = await r.pg.evaluate(() => window.__stubBoundaryIdReads || 0);
+  await r.pg.close();
+  // The table not deployed: no id read succeeds, no card asks, nothing breaks.
+  r = await boundaryPage('', '#/auctions');
+  results.cardOutlineNotDeployed = await r.pg.evaluate(() => ({ calls: (window.__stubBoundaryCalls || []).length,
+    outlines: document.querySelectorAll('.prop-card-photo .parcel-boundary').length }));
+  await r.pg.close();
+  // Only the listed property's card asks, and its card draws the outline with
+  // the short credit on the picture and the full credit in the photo bubble.
+  const cardOutlineState = pg => pg.evaluate(() => {
+    document.querySelectorAll('details').forEach(d => { d.open = true; });
+    return new Promise(res => setTimeout(() => {
+      const cards = [...document.querySelectorAll('.prop-card')];
+      const withOutline = cards.filter(c => c.querySelector('.prop-card-photo .parcel-boundary .pb-line'));
+      const c = withOutline[0];
+      const ph = c && c.querySelector('.prop-card-photo');
+      const credit = ph && ph.querySelector('.ib-pop [data-pb-credit]');
+      res({ calls: (window.__stubBoundaryCalls || []).slice().sort(),
+        outlineCards: withOutline.map(x => (x.querySelector('[data-pid]') || {}).dataset ? x.querySelector('[data-pid]').dataset.pid : null),
+        attrib: ph ? (ph.querySelector('.pb-attrib') || {}).textContent || null : null,
+        creditInBubble: !!credit,
+        creditLinks: credit ? [...credit.querySelectorAll('a')].map(a => a.textContent) : [],
+        creditBelowPhoto: !!(ph && ph.nextElementSibling && ph.nextElementSibling.matches('[data-pb-credit]')),
+        noPageOverflow: document.documentElement.scrollWidth <= window.innerWidth });
+    }, 1200));
+  });
+  r = await boundaryPage('boundary=ok&boundaryids=p5', '#/auctions');
+  results.cardOutlineOnlyListed = await cardOutlineState(r.pg);
+  await r.pg.close();
+  // Phone: the photo bubble opens upward, unclipped, and carries the full credit.
+  r = await boundaryPage('boundary=ok&boundaryids=p5', '#/auctions', { width: 390, height: 844 });
+  results.cardOutlinePhone = await cardOutlineState(r.pg).then(s => ({ outlineCards: s.outlineCards, creditInBubble: s.creditInBubble, noPageOverflow: s.noPageOverflow }));
+  const bubbleBtn = r.pg.locator('.prop-card:has(.parcel-boundary) .pc-info .ib-btn').first();
+  await bubbleBtn.scrollIntoViewIfNeeded();
+  await bubbleBtn.click();
+  await r.pg.waitForTimeout(300);
+  results.cardOutlineBubbleOpen = await r.pg.evaluate(() => {
+    const ph = document.querySelector('.prop-card-photo.has-boundary');
+    const pop = ph && ph.querySelector('.pc-info .ib-pop');
+    if (!pop) return null;
+    const b = pop.getBoundingClientRect(), pb = ph.getBoundingClientRect();
+    return { shown: getComputedStyle(pop).display === 'block' && b.height > 0,
+      opensUpward: b.bottom <= pb.bottom + 1,
+      unclipped: getComputedStyle(ph).overflow === 'visible',
+      inViewport: b.top >= 0 && b.left >= 0 && b.right <= window.innerWidth + 1,
+      saysOutline: /Parcel outline: FIXTURE Utah/.test(pop.textContent),
+      captionIsText: (() => { const c = pop.querySelector('.photo-caption'); return !c || getComputedStyle(c).position === 'static'; })() };
+  });
   await r.pg.close();
   // Layout: outline and attribution stay inside the aerial box at tablet and phone widths.
   for (const [tag, vp] of [['desktop', { width: 1280, height: 900 }], ['tablet', { width: 768, height: 1000 }], ['phone', { width: 390, height: 844 }]]) {
@@ -7069,6 +7119,11 @@ const EXPECTED = {
   boundaryFl: {"host": true, "pid": "p5", "outline": true, "rings": 1, "attrib": "FIXTURE Florida Department of Revenue, Property Tax Oversight", "state": null, "bboxCenter": [-82.045, 26.934], "fitted": true, "label": "Aerial image with the parcel outline of this property (FIXTURE Florida Department of Revenue, Property Tax Oversight)", "credit": {"text": "Parcel outline: FIXTURE Florida Department of Revenue, Property Tax Oversight · Changes: FIXTURE: boundaries simplified for display · Source last refreshed by TAXACQ Oct 2, 2026 · Source publishes: Annual, about mid-August to early September · Outline is for orientation; it is not a survey and does not show ownership or title.", "links": []}},
   boundaryNoLicenceLink: {"outline": false, "credit": null},
   boundaryListNoCalls: 0,
+  cardOutlineIdReads: 1,
+  cardOutlineNotDeployed: {"calls": 0, "outlines": 0},
+  cardOutlineOnlyListed: {"calls": ["p5"], "outlineCards": ["p5"], "attrib": "FIXTURE Utah Geospatial Resource Center (UGRC)", "creditInBubble": true, "creditLinks": ["CC BY 4.0", "Source disclaimer", "Dataset metadata"], "creditBelowPhoto": false, "noPageOverflow": true},
+  cardOutlinePhone: {"outlineCards": ["p5"], "creditInBubble": true, "noPageOverflow": true},
+  cardOutlineBubbleOpen: {"shown": true, "opensUpward": true, "unclipped": true, "inViewport": true, "saysOutline": true, "captionIsText": true},
   boundaryLayout_desktop: {"overlayFills": true, "attribInside": true, "outlineInside": true, "captionClearsAttrib": true, "creditBelow": true, "noPageOverflow": true},
   boundaryLayout_tablet: {"overlayFills": true, "attribInside": true, "outlineInside": true, "captionClearsAttrib": true, "creditBelow": true, "noPageOverflow": true},
   boundaryLayout_phone: {"overlayFills": true, "attribInside": true, "outlineInside": true, "captionClearsAttrib": true, "creditBelow": true, "noPageOverflow": true},
@@ -7201,7 +7256,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v135"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v136"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },

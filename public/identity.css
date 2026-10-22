@@ -1101,9 +1101,12 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .naip-live{position:relative}
 /* xMidYMid slice matches the aerial's object-fit: cover, so the outline stays on the parcel at any box shape. */
 .parcel-boundary{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;overflow:hidden}
-.parcel-boundary .pb-halo{fill:none;stroke:rgba(0,0,0,.55);stroke-width:4.5px;stroke-linejoin:round;vector-effect:non-scaling-stroke}
-.parcel-boundary .pb-fill{fill:rgba(255,255,255,.10);stroke:none}
-.parcel-boundary .pb-line{fill:none;stroke:#fff;stroke-width:2px;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+/* A red line on the aerial, no fill (2026-10-22, the owner's reference): the
+   ground stays visible inside the parcel; a faint dark halo keeps the line
+   readable over light roofs and sand. */
+.parcel-boundary .pb-halo{fill:none;stroke:rgba(0,0,0,.35);stroke-width:4px;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.parcel-boundary .pb-fill{fill:none;stroke:none}
+.parcel-boundary .pb-line{fill:none;stroke:#ff2a1f;stroke-width:2.25px;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 /* With an outline drawn, the long caption is one truncated line on the left, so it never covers the parcel. */
 .naip-live.has-boundary .photo-caption{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;right:auto;box-sizing:border-box;max-width:calc(50% - .5rem)}
 .naip-live .pb-attrib{position:absolute;right:.4rem;bottom:.4rem;z-index:2;box-sizing:border-box;max-width:calc(50% - .5rem);padding:.1rem .4rem;border-radius:3px;
@@ -1150,3 +1153,17 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .prop-card-photo .pc-info{position:absolute;right:.5rem;bottom:.5rem;z-index:2}
 .prop-card-photo .pc-info .ib-btn{background:rgba(15,23,42,.74);color:#fff;border:0;border-radius:999px;font-size:.7rem;padding:.32rem .6rem}
 .prop-card-photo .pc-info .ib-pop{left:auto;right:0}
+/* Parcel outline on a card (2026-10-22): the short source credit sits bottom-left
+   on the picture (the card's own caption lives in the Photo bubble); the full
+   credit - licence, change notice, freshness, disclaimer, metadata - is in that
+   bubble, or in an "Outline source" bubble when the photo has none. */
+.prop-card-photo.naip-live .pb-attrib{left:.5rem;right:auto;bottom:.5rem;max-width:calc(100% - 7rem)}
+.prop-card-photo .ib-pop .pb-credit{margin:.45rem 0 0}
+/* The photo's bubbles sit at its bottom edge and the photo clips its overflow,
+   so a bubble opening downward was cut off: it opens upward, and the photo
+   stops clipping while one is open. */
+.prop-card-photo .pc-info .ib-pop{top:auto;bottom:calc(100% + .45rem);max-height:min(60vh,22rem);overflow:auto}
+/* The caption moved into the bubble is text there, not a chip on the picture. */
+.prop-card-photo .ib-pop .photo-caption{position:static;display:block;max-width:none;white-space:normal;overflow:visible;text-overflow:clip;
+  background:none;color:inherit;padding:0;margin:0 0 .35rem;border-radius:0;font-size:.72rem;letter-spacing:.04em;pointer-events:auto}
+.prop-card-photo:has(.pc-info .ib.open),.prop-card-photo:has(.pc-info .ib:hover),.prop-card-photo:has(.pc-info .ib:focus-within){overflow:visible;z-index:5}

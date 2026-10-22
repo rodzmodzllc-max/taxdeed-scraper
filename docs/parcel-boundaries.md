@@ -203,7 +203,9 @@ On the property page aerial and the map preview aerial (`public/parcel-boundary.
   - "Outline is for orientation; it is not a survey and does not show ownership or title."
 
 Display rules:
-- Cards never request a boundary.
+- Cards (2026-10-22): the app reads the state's outline ids once per load (`parcel_boundaries` `property_id`, the same RLS as
+  the outline itself) and only those cards request their outline. The card shows the outline with the short credit on the
+  picture; the full credit line sits in the photo's info bubble. A list with no outline ids costs no boundary request.
 - A boundary without credit or change notice, or with a licence named but no https link, is not drawn.
 - Only https links are rendered.
 - Exports, list payloads and saved searches never carry geometry: it is fetched per property into its own cache and is never put on a property row.
