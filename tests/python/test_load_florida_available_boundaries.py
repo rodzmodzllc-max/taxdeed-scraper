@@ -126,3 +126,142 @@ def test_apply_needs_the_confirmation_and_both_migrations():
     assert _run(rows, {}, {}, mode="apply")[0] == 2
     rc, db, text = _run(rows, {}, {}, applied=False)
     assert rc == 4 and "035" in text and db.upserts == []
+
+
+# --- match mode: validated_id_only -------------------------------------------
+# A record outlines in validated_id_only mode only through its validated NAL
+# PARCEL_ID (field_provenance fdor_nal matched_parcel_id). Never through its
+# listing parcel number, however unique, and never because its point lies inside
+# a polygon. SYNTHETIC identifiers only.
+
+class StoringDb(FakeDb):
+    """FakeDb that remembers what was upserted, so a rerun sees it as stored."""
+
+    def __init__(self, rows, applied=True):
+        super().__init__(rows, applied)
+        self.store = {}
+
+    def stored(self, ids):
+        return {i: self.store[i] for i in ids if i in self.store}
+
+    def upsert(self, source_id, rows):
+        self.upserts.append(rows)
+        for r in rows:
+            self.store[r["property_id"]] = {"source_id": source_id, "content_sha256": r["content_sha256"]}
+        return {"inserted": len(rows)}
+
+
+def _nal(row, nal, source="fdor_nal"):
+    return dict(row, field_provenance={"parcel": {"source": source, "matched_parcel_id": nal}})
+
+
+def _run_mode(rows, features, match_mode, mode="apply", db=None):
+    db = db or StoringDb(rows)
+    lines = []
+    counties = {}
+    for r in rows:
+        counties[r["county"]] = counties.get(r["county"], 0) + 1
+    rc = L.run(mode, "APPLY" if mode == "apply" else "", year=2026, db=db,
+               list_files=lambda y: {"Leon": "leon_2026pin.zip"},
+               fetch=lambda url, dest: _zip(features, "leon_2026pin")(url, dest),
+               counties_of=lambda d: counties, out=lines.append, match_mode=match_mode)
+    written = [r for batch in db.upserts for r in batch]
+    return rc, db, written, "\n".join(lines)
+
+
+def test_validated_id_only_joins_a_validated_nal_id_to_its_own_parcel():
+    rows = [_nal(_row("a", "Leon", "12-3456-0010", 30.4005, -84.2995), "1234560010")]
+    rc, db, written, text = _run_mode(rows, [("1234560010", (-84.30, 30.40)), ("1234560020", (-84.31, 30.41))],
+                                      "validated_id_only")
+    assert rc == 0
+    assert [(r["property_id"], r["match_method"]) for r in written] == [("a", "EXACT_PARCEL_ID")]
+    assert db.refreshes == [("COMPLETE", "Leon")]
+    assert '"match_mode": "validated_id_only"' in text and '"listing_join": false' in text
+
+
+def test_validated_id_only_never_falls_back_to_a_unique_listing_number_even_with_the_point_inside():
+    # Unique listing parcel, own point inside that polygon: the default mode
+    # outlines it, validated_id_only does not.
+    rows = [_row("a", "Leon", "12-3456-0010", 30.4005, -84.2995)]
+    feats = [("1234560010", (-84.30, 30.40))]
+    rc, _, written, text = _run_mode(rows, feats, "validated_id_only")
+    assert rc == 0 and written == []
+    assert "NO_VALIDATED_NAL_ID" in text and "PARCEL_NUMBER_LOCATION_CONFIRMED" not in text
+    rc, _, written, _ = _run_mode(rows, feats, "listing_location_confirmed")
+    assert [r["match_method"] for r in written] == ["PARCEL_NUMBER_LOCATION_CONFIRMED"]
+
+
+def test_validated_id_only_rejects_unvalidated_and_conflicting_ids():
+    unvalidated = _nal(_row("u", "Leon", "12-3456-0010", 30.4005, -84.2995), "1234560010", source="county_list")
+    conflicting = dict(_row("c", "Leon", "12-3456-0020", 30.4105, -84.3095),
+                       field_provenance={"parcel": {"source": "fdor_nal", "matched_parcel_id": "1234560020"},
+                                         "address": {"source": "fdor_nal", "matched_parcel_id": "1234560099"}})
+    missing = _row("m", "Leon", "", 30.4005, -84.2995)
+    rc, _, written, text = _run_mode([unvalidated, conflicting, missing],
+                                     [("1234560010", (-84.30, 30.40)), ("1234560020", (-84.31, 30.41))],
+                                     "validated_id_only")
+    assert rc == 0 and written == []
+    assert "CONFLICTING_NAL_IDS" in text and "NO_VALIDATED_NAL_ID" in text
+
+
+def test_validated_id_only_never_attaches_an_ambiguous_parcel():
+    rows = [_nal(_row("a", "Leon", "12-3456-0010", 30.4005, -84.2995), "1234560010")]
+    # Two different polygons near the record carry the same PARCELNO: never attached.
+    rc, _, written, _ = _run_mode(rows, [("1234560010", (-84.30, 30.40)), ("1234560010", (-84.3015, 30.4015))],
+                                  "validated_id_only")
+    assert rc == 0 and written == []
+
+
+def test_validated_id_only_keeps_condo_units_and_rights_of_way_out():
+    condo = dict(_nal(_row("k", "Leon", "12-3456-0010", 30.4005, -84.2995), "1234560010"), dor_use_code="04")
+    row_ = dict(_nal(_row("r", "Leon", "12-3456-0020", 30.4105, -84.3095), "1234560020"), dor_use_code="94")
+    rc, _, written, text = _run_mode([condo, row_], [("1234560010", (-84.30, 30.40)), ("1234560020", (-84.31, 30.41))],
+                                     "validated_id_only")
+    assert rc == 0 and written == []
+    assert "CONDO_UNIT" in text and "RIGHT_OF_WAY" in text
+
+
+def test_validated_id_only_rerun_writes_nothing_new():
+    rows = [_nal(_row("a", "Leon", "12-3456-0010", 30.4005, -84.2995), "1234560010")]
+    feats = [("1234560010", (-84.30, 30.40))]
+    rc, db, written, _ = _run_mode(rows, feats, "validated_id_only")
+    assert rc == 0 and len(written) == 1
+    rc, db, written, text = _run_mode(rows, feats, "validated_id_only", db=db)
+    assert rc == 0 and len(written) == 1          # nothing added on the rerun
+    assert "would write" not in text and len(db.store) == 1
+
+
+def test_validated_id_only_format_mismatch_fails_only_that_county_and_writes_nothing():
+    # The validated id's shape is not the file's PARCELNO shape: the join is not
+    # validated, nothing is attached and the county is recorded as unsuccessful.
+    rows = [_nal(_row("a", "Leon", "12-3456-0010", 30.4005, -84.2995), "12-3456-0010")]
+    rc, db, written, text = _run_mode(rows, [("1234560010", (-84.30, 30.40))], "validated_id_only")
+    assert rc == 1 and written == []
+    assert db.refreshes and all(status != "COMPLETE" for status, _ in db.refreshes)
+    assert "JOIN_NOT_VALIDATED" in text
+
+
+def test_validated_id_only_dry_run_writes_nothing():
+    rows = [_nal(_row("a", "Leon", "12-3456-0010", 30.4005, -84.2995), "1234560010")]
+    rc, db, written, text = _run_mode(rows, [("1234560010", (-84.30, 30.40))], "validated_id_only", mode="dry_run")
+    assert rc == 0 and written == [] and db.refreshes == []
+    assert "would write 1" in text and "1234560010" not in text
+
+
+def test_an_unknown_match_mode_is_refused_before_anything_is_read():
+    db = FakeDb([])
+    lines = []
+    rc = L.run("dry_run", "", year=2026, db=db, list_files=lambda y: (_ for _ in ()).throw(AssertionError("read")),
+               counties_of=lambda d: (_ for _ in ()).throw(AssertionError("read")), out=lines.append,
+               match_mode="nearest")
+    assert rc == 2 and db.sources == [] and "unknown match mode" in lines[0]
+
+
+def test_the_default_match_mode_is_unchanged_and_the_cli_and_workflow_expose_the_choice():
+    import inspect
+    assert L.DEFAULT_MATCH_MODE == "listing_location_confirmed"
+    assert inspect.signature(L.run).parameters["match_mode"].default == "listing_location_confirmed"
+    assert L.MATCH_MODES == {"listing_location_confirmed": True, "validated_id_only": False}
+    wf = (ROOT / ".github/workflows/parcel-boundaries-florida-available.yml").read_text(encoding="utf-8")
+    assert "options: [listing_location_confirmed, validated_id_only]" in wf
+    assert '--match-mode "$MATCH_MODE"' in wf

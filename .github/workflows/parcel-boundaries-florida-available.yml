@@ -34,6 +34,12 @@ on:
         type: string
         default: ""
         required: false
+      match_mode:
+        description: "validated_id_only = validated NAL PARCEL_ID only, never the listing's parcel number"
+        type: choice
+        options: [listing_location_confirmed, validated_id_only]
+        default: listing_location_confirmed
+        required: true
 
 permissions:
   contents: read
@@ -64,4 +70,5 @@ jobs:
           CONFIRM: ${{ inputs.confirm }}
           YEAR: ${{ inputs.year }}
           COUNTIES: ${{ inputs.counties }}
-        run: python3 scripts/load_florida_available_boundaries.py --mode "$MODE" --confirm "$CONFIRM" --year "$YEAR" --counties "$COUNTIES"
+          MATCH_MODE: ${{ inputs.match_mode }}
+        run: python3 scripts/load_florida_available_boundaries.py --mode "$MODE" --confirm "$CONFIRM" --year "$YEAR" --counties "$COUNTIES" --match-mode "$MATCH_MODE"

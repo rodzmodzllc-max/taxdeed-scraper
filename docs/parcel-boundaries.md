@@ -118,7 +118,8 @@ The product owner reviewed the Parcel Shapefiles Readme on 2026-10-20. The docum
   - `mode`: `dry_run` (the default) or `apply`;
   - `confirm`: must be `APPLY` for `apply`;
   - `year`;
-  - `counties`, optional.
+  - `counties`, optional;
+  - `match_mode`: `listing_location_confirmed` (the default, both joins above) or `validated_id_only` (only `EXACT_PARCEL_ID`; a record without a validated NAL PARCEL_ID is never joined, however unique its listing parcel number and wherever its point lies). Every run prints its mode first.
 - **Refresh:** each county is its own refresh unit. A failed download or read writes nothing for that county, and the other counties carry on.
 - **Overlap:** both Florida workflows share one concurrency group.
 - **Local dry run (2026-10-22, counts only):** all 25 counties with active Available properties read COMPLETE. 129 of 157 records would be outlined.
