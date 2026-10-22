@@ -6530,7 +6530,7 @@ await big.press('#globalSearchInput', 'Enter');
     const base = { source: 'laft', state: 'FL', county: 'Citrus', parcel: '1', case_no: '2024-0075TD', status: 'active', inventory_type: 'POST_SALE_FIXED_PRICE' };
     const ai = p => window.__tdwAmountInfo(p);
     // textContent, not innerText: the price note now lives in an info bubble, which is hidden until opened.
-    const card = p => { const d = document.createElement('div'); d.innerHTML = window.__tdwCardHtml(p); return (d.textContent || '').replace(/\s+/g, ' ').trim(); };
+    const card = p => { const d = document.createElement('div'); d.innerHTML = window.__tdwCardHtml(p).replace(/></g, '> <'); return (d.textContent || '').replace(/\s+/g, ' ').trim(); };
     const block = p => txt(window.__tdwAcquireBlockHtml(p));
     const out = {};
     // 13 + 1: every one of the 54 production rows' (county, source, kind).
