@@ -771,6 +771,24 @@ class MockQuery {
       // counted so a test can prove a state switch never removes anything.
       if (this._op === "select") result = { data: BIDLIST_SEED.map(id => ({ property_id: id })), error: null };
       else if (this._op === "delete") window.__stubBidListDeletes = (window.__stubBidListDeletes || 0) + 1;
+    } else if (this._op === "select" && this.table === "parcel_boundaries") {
+      // Which properties carry an outline (cards ask only for those). Follows
+      // ?boundary=: absent = table not deployed (PGRST205); none = no rows;
+      // error = read failure; any other mode = every fixture row with
+      // coordinates in the requested state, or only ?boundaryids=<id>,<id>.
+      const qs = new URLSearchParams(location.search);
+      const mode = qs.get("boundary");
+      window.__stubBoundaryIdReads = (window.__stubBoundaryIdReads || 0) + 1;
+      if (!mode) result = { data: null, error: { message: "Could not find the table 'public.parcel_boundaries' in the schema cache", code: "PGRST205" } };
+      else if (mode === "error") result = { data: null, error: { message: "stub: boundary id read failed", code: "XX000" } };
+      else if (mode === "none") result = { data: [], error: null };
+      else {
+        const only = qs.get("boundaryids") ? qs.get("boundaryids").split(",") : null;
+        const st = (this._filters.find(([c]) => c === "state") || [])[1];
+        result = { data: FIXTURE_PROPERTIES
+          .filter(r => typeof r.latitude === "number" && (!st || (r.state || "FL") === st) && (!only || only.includes(r.id)))
+          .map(r => ({ property_id: r.id })), error: null };
+      }
     } else if (this._op === "select") {
       const matches = row => this._filters.every(([c, v, kind]) => kind === "in" ? (v || []).includes(row[c]) : kind === "lt" ? String(row[c]) < String(v) : row[c] === v);
       if (this.table === "properties") {
