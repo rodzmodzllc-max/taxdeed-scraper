@@ -5171,7 +5171,7 @@ function card(p, showCounty) {
   // An auction the county's current list no longer carries: one muted line says
   // so, and that no result is published - the kicker alone does not say that.
   const offList = !isClosed && p.source === "auction" ? offCurrentSaleList(p) : null;
-  const offListNote = offList ? `<div class="prop-ledger-line" data-off-list="1"><span class="muted">Not on the county list read ${esc(offList.countyRead ? fmtDate(String(offList.countyRead).slice(0, 10)) : "")} · no result published</span></div>` : "";
+  const offListNote = offList ? `<div class="prop-ledger-line" data-off-list="1">${infoBubbleHtml("Not on county list", esc(`Not on the county list read ${offList.countyRead ? fmtDate(String(offList.countyRead).slice(0, 10)) : ""} · no result published`))}</div>` : "";
   // Lean card (remediation, 2026-10-11): the picture is the focus, then the
   // facts a customer needs at a glance - what it is, where, the price, and the
   // way in. Lien, homestead, value-ratio, acquisition and financing figures and
@@ -5191,16 +5191,72 @@ function card(p, showCounty) {
           ${cd}
         </div>
       </div>
-      <div class="prop-ids">
-        ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(parcelOf(p))}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
-        ${p.case_no ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
+      <div class="prop-row">
+        <div class="prop-where">
+          <div class="prop-county-line">${esc(p.county || "")}${p.county ? ", " : ""}${esc(regionOf(p))}</div>
+          <div class="prop-ids">
+            ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(parcelOf(p))}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
+            ${p.case_no ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
+          </div>
+        </div>
+        <div class="card-price">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
       </div>
-      <div class="card-price">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
+      ${cardStatsHtml(p)}
       ${offListNote}
       ${auctionLinkHtml(p, "cta-btn")}
-      <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View property →</button>
+      <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View Full Property →</button>
     </div>`;
+  // Photo overlays (the listing type, the county and the lot size) sit on the
+  // picture itself. Each is shown only when its source value exists.
+  const photoEl = el.querySelector(".prop-card-photo");
+  if (photoEl) {
+    // The photo's own caption (a cached photo's .photo-caption, or a placeholder's
+    // .vis-main / .vis-sub lines) is information, not a headline: those elements
+    // move into an info bubble on the picture, unchanged. The full property page
+    // shows the same caption under its picture.
+    const caption = photoEl.querySelectorAll(":scope > .photo-caption, :scope > .vis-main, :scope > .vis-sub");
+    photoEl.insertAdjacentHTML("beforeend", cardPhotoOverlayHtml(p));
+    if (caption.length) {
+      const wrap = document.createElement("span");
+      wrap.className = "pc-info";
+      wrap.innerHTML = infoBubbleHtml("Photo", "");
+      const pop = wrap.querySelector(".ib-pop");
+      caption.forEach(n => pop.appendChild(n));
+      photoEl.appendChild(wrap);
+    }
+  }
   return el;
+}
+
+// Listing type named as the source's own ledger, shown on the photo.
+function cardPhotoOverlayHtml(p) {
+  // Kept inside the function: card() can run during module start-up (see the
+  // TDZ notes above render()), so no top-level const may be read here.
+  const chip = { auction: "Auction", laft: "Available", certificate: "Lien" }[p.source] || "";
+  const lot = cardLotSize(p);
+  return `${p.county ? `<span class="pc-chip pc-county">${esc(p.county)}, ${esc(regionOf(p))}</span>` : ""}`
+    + `${chip ? `<span class="pc-chip pc-ledger">${esc(chip)}</span>` : ""}`
+    + `${lot ? `<span class="pc-size">Property size: ${esc(lot)}</span>` : ""}`;
+}
+
+// The card's lot size: a stored size of zero or less is not a published size, so
+// it reads "Not published" rather than "0 sq ft".
+function cardLotSize(p) {
+  return Number(p.lot_sqft) > 0 ? lotSize(p) : "";
+}
+
+// Four facts in the same order on every card. A fact the data does not hold
+// reads "Not tracked" or "Not published" - never a zero.
+function cardStatsHtml(p) {
+  const cell = (label, value, missing) => `<div class="pc-stat${missing ? " muted" : ""}"><span class="pc-stat-val">${value}</span><span class="pc-stat-label">${label}</span></div>`;
+  const sq = Number(p.living_area) > 0 ? fmtSqft(p.living_area) : "";
+  const lot = cardLotSize(p);
+  return `<div class="prop-stats">`
+    + cell("Beds", "Not tracked", true)
+    + cell("Baths", "Not tracked", true)
+    + cell("Sq ft", sq ? esc(sq) : "Not published", !sq)
+    + cell(lot && !/acres$/.test(lot) ? "Lot size" : "Acres", lot ? esc(lot) : "Not published", !lot)
+    + `</div>`;
 }
 
 // A quick visual read of "what will it cost me vs. what's it worth" - the
@@ -8210,7 +8266,7 @@ function availableHeadlineHtml(p) {
   const has = i.value !== null && i.value !== undefined;
   const cls = i.current ? "" : !has ? (i.state === "official_expired" ? " expired" : " unpublished") : i.state === "price" ? "" : " partial";
   return `<div class="card-stat-label">${esc(i.label)}</div><div class="card-stat-val bid${cls}" data-amount-state="${esc(i.state)}">${esc(has ? fmtShort(i.value) : (i.display || "Not published"))}</div>` +
-    (i.note ? `<div class="card-price-note${i.state === "official_expired" ? " expired" : ""}">${esc(i.note)}</div>` : "");
+    (i.note ? `<div class="card-price-info">${infoBubbleHtml("About this price", esc(i.note))}</div>` : "");
 }
 // The cost breakdown, driven by the source's terms (termsFor): the listed
 // figure, the items the source establishes as ADDED on top (only on a

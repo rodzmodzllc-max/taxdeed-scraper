@@ -4389,6 +4389,20 @@ await navMap.close();
     results.offListDefault = await n.evaluate(() => window.__tdwOffList('p9'));
     await n.close();
   }
+  // ---- Card facts never show a stored zero as a size (2026-10-22) ----
+  {
+    const z = await newPage({ viewport: { width: 1440, height: 900 } });
+    z.on('pageerror', e => errors.push('zerosize pageerror: ' + e.message));
+    await z.goto(BASE_URL + '?zerosize=1' + '#/auctions', { waitUntil: 'networkidle' });
+    await z.waitForTimeout(400);
+    results.cardZeroSizeStats = await z.evaluate(() => {
+      const c = document.querySelector('#main .prop-card[data-pid="p1"]');
+      if (!c) return null;
+      return { stats: [...c.querySelectorAll('.prop-stats .pc-stat')].map(s => s.textContent.trim()),
+        sizeOverlay: !!c.querySelector('.pc-size'), zero: /\b0 sq ft\b/.test(c.textContent) };
+    });
+    await z.close();
+  }
   // ---- Texas cause numbers are never parcel identity (2026-10-10) ----
   // ptx3 and ptx8 (?txcause=1) share one LGBS tax-suit cause but are two CAD
   // accounts - two parcels. Neither is "the same parcel" as the other, and the
@@ -6529,7 +6543,8 @@ await big.press('#globalSearchInput', 'Enter');
     const txt = html => { const d = document.createElement('div'); d.style.cssText = 'position:absolute;left:-9999px;width:900px'; d.innerHTML = html; document.body.appendChild(d); const t = d.innerText.replace(/\s+/g, ' ').trim(); d.remove(); return t; };
     const base = { source: 'laft', state: 'FL', county: 'Citrus', parcel: '1', case_no: '2024-0075TD', status: 'active', inventory_type: 'POST_SALE_FIXED_PRICE' };
     const ai = p => window.__tdwAmountInfo(p);
-    const card = p => txt(window.__tdwCardHtml(p));
+    // textContent, not innerText: the price note now lives in an info bubble, which is hidden until opened.
+    const card = p => { const d = document.createElement('div'); d.innerHTML = window.__tdwCardHtml(p).replace(/></g, '> <'); return (d.textContent || '').replace(/\s+/g, ' ').trim(); };
     const block = p => txt(window.__tdwAcquireBlockHtml(p));
     const out = {};
     // 13 + 1: every one of the 54 production rows' (county, source, kind).
@@ -7186,7 +7201,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v134"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v135"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -8359,6 +8374,7 @@ const EXPECTED = {
   offListCards: { p9: true, p8Upcoming: true, p9Line: true, p9Flag: true, p8Flag: null, neverReadCounty: null, commandCenter: true },
   offListDetail: true,
   offListDefault: null,
+  cardZeroSizeStats: {"stats": ["Not trackedBeds", "Not trackedBaths", "Not publishedSq ft", "Not publishedAcres"], "sizeOverlay": false, "zero": false},
   taxacqBrand: { title: true, rail: 'TAXACQ', sub: 'Tax Acquisition Intelligence', topbar: 'TAXACQ', noOldText: true, aboutWhy: true },
   identityLogin: {"brand": "TAXACQ", "tagline": "Tax Acquisition Intelligence", "bg": "rgb(243, 239, 232)", "signupFields": 6},
   identityPalette: {"noNavy": true, "body": "rgb(243, 239, 232)", "ledgerAccent": "#4E6B54", "display": true},

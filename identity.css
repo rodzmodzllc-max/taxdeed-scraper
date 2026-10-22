@@ -1121,3 +1121,32 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .pb-credit{margin:.35rem 0 0;font-size:.72rem;line-height:1.45;color:var(--ink-soft);overflow-wrap:anywhere}
 .pb-credit a{color:var(--copper);text-decoration:underline;text-underline-offset:2px}
 .pb-credit a:focus-visible{outline:2px solid var(--copper);outline-offset:2px}
+
+/* Property card layout (2026-10-22): the photo carries the county, the listing
+   type and the lot size; the price sits beside the location; four facts in a row;
+   one full-width action. A fact the data does not hold reads muted. */
+.prop-card-photo{position:relative}
+.pc-chip,.pc-size{position:absolute;z-index:1;color:#fff;background:rgba(15,23,42,.74);font-size:.7rem;font-weight:600;line-height:1;padding:.32rem .6rem;border-radius:999px;white-space:nowrap}
+.pc-county{top:.5rem;left:.5rem;max-width:calc(100% - 7rem);overflow:hidden;text-overflow:ellipsis}
+.pc-ledger{top:.5rem;right:.5rem;text-transform:uppercase;letter-spacing:.04em}
+.pc-size{left:.5rem;top:2.25rem;border-radius:4px;font-weight:500}
+.prop-row{display:flex;justify-content:space-between;align-items:flex-end;gap:.75rem;margin-top:.3rem}
+.prop-row .prop-where{min-width:0;flex:1 1 0}
+.prop-row .card-price{flex:0 1 46%;min-width:0;max-width:46%;text-align:right;margin:0}
+.prop-row .card-price *{white-space:normal;overflow-wrap:anywhere}
+.prop-county-line{font-size:.8rem;color:var(--ink-soft);font-weight:500}
+.prop-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.25rem;margin:.6rem 0 .4rem;padding:.5rem 0;border-top:1px solid var(--card-line);border-bottom:1px solid var(--card-line)}
+.pc-stat{display:flex;flex-direction:column;align-items:center;text-align:center;gap:.12rem;min-width:0}
+.pc-stat-val{font-size:.86rem;font-weight:700;overflow-wrap:anywhere}
+.pc-stat-label{font-size:.64rem;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em}
+.pc-stat.muted .pc-stat-val{font-size:.72rem;font-weight:500;color:var(--ink-soft)}
+.prop-body>.detail-btn{display:flex;justify-content:center;align-items:center;width:100%;min-height:40px;margin-top:.45rem;padding:.5rem .75rem;background:var(--accent);color:#fff;border-radius:6px;font-size:.86rem;font-weight:600;text-decoration:none}
+.prop-body>.detail-btn:hover{text-decoration:none;filter:brightness(1.06)}
+@media (max-width:420px){.pc-stat-val{font-size:.8rem}.pc-stat-label{font-size:.6rem}}
+@media (max-width:520px){.prop-row{flex-direction:column;align-items:stretch;gap:.4rem}.prop-row .prop-where{flex:0 0 auto}.prop-row .card-price{flex:0 0 auto;max-width:none;text-align:left}}
+
+/* Info bubbles on the card (2026-10-22): explanatory text is one tap away. */
+.card-price-info{margin-top:.2rem;text-align:right}
+.prop-card-photo .pc-info{position:absolute;right:.5rem;bottom:.5rem;z-index:2}
+.prop-card-photo .pc-info .ib-btn{background:rgba(15,23,42,.74);color:#fff;border:0;border-radius:999px;font-size:.7rem;padding:.32rem .6rem}
+.prop-card-photo .pc-info .ib-pop{left:auto;right:0}
