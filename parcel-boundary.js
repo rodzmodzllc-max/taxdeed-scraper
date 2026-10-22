@@ -152,7 +152,7 @@ export function boundaryAttribution(r) {
 }
 
 // Adapter. Returns one of:
-//   { status: "available", boundary: { polygons, bbox, attribution, sourceId, sourceDataset, sourceFeatureId, observedAt } }
+//   { status: "available", boundary: { polygons, bbox, attribution, sourceId, sourceDataset, sourceFeatureId, observedAt, matchMethod } }
 //   { status: "none" } | { status: "not_deployed" } | { status: "invalid", reason }
 //   { status: "error", code }
 // `row` is the property's own point (latitude / longitude), used only for
@@ -196,7 +196,8 @@ export async function fetchPropertyBoundary(sb, propertyId, row) {
     boundary: {
       polygons: v.polygons, bbox: v.bbox, attribution,
       sourceId: textOrEmpty(r.source_id), sourceDataset: textOrEmpty(r.source_dataset),
-      sourceFeatureId: textOrEmpty(r.source_feature_id), observedAt: r.source_observed_at || null
+      sourceFeatureId: textOrEmpty(r.source_feature_id), observedAt: r.source_observed_at || null,
+      matchMethod: textOrEmpty(r.match_method)
     }
   };
 }

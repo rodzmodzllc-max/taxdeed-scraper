@@ -99,7 +99,7 @@ def test_readme_is_recorded_as_reviewed_with_its_caveats():
 
 @pytest.mark.parametrize("col,val,expect", [
     ("last_successful_refresh", "Annual, mid-August", "last_successful_refresh"),
-    ("technical_readme_reviewed_on", "2026-10-21", "caveats were not recorded"),
+    ("technical_caveats", "NOT YET READ: placeholder", "caveats were not recorded"),
     ("evidence_received_on", "October", "not an ISO date"),
     ("status", "APPROVED_GRANDFATHERED", "status"),
     ("license_url", "http://creativecommons.org/licenses/by/4.0/", "https licence_url"),
@@ -126,12 +126,16 @@ def test_an_invalid_register_fails_the_conditions_closed(tmp_path, monkeypatch, 
 # --- Florida DOR: permission gate --------------------------------------------
 
 @pytest.mark.parametrize("op", ["fetch", "parse"])
-def test_florida_file_reads_are_permitted_once_the_readme_is_reviewed(perms, op):
-    """The Readme is reviewed (2026-10-20), so the technical condition holds.
-    No county file is read until a PIN file location is configured."""
+def test_florida_file_reads_wait_for_the_readme_review(tmp_path, monkeypatch, perms, op):
+    """Fetching / parsing the county files needs the Readme (the identifier
+    join comes from it) - a technical prerequisite, recorded as a condition.
+    It is recorded now; without it the reads are denied again."""
     d = perms.authorize(FL, op, state="FL", county="Leon", dataset=FL_DS, today=TODAY)
-    assert d.allowed
-    assert "technical_readme_reviewed" in d.conditions
+    assert d.allowed and "technical_readme_reviewed" in d.conditions
+    _register_with(tmp_path, monkeypatch, {(FL, "technical_readme_reviewed_on"): "",
+                                           (FL, "technical_caveats"): "NOT YET READ: test"})
+    d = perms.authorize(FL, op, state="FL", county="Leon", dataset=FL_DS, today=TODAY)
+    assert not d.allowed and d.reason_code == "CONDITION_UNMET"
 
 
 @pytest.mark.parametrize("op", ["store", "enrich", "display"])
@@ -331,12 +335,12 @@ def test_simplification_keeps_a_valid_closed_ring():
 
 
 def test_parcel_geometry_storage_lives_in_one_unapplied_migration_only():
-    """Exactly one migration creates boundary storage (034, written for review
-    and not applied); no other migration stores parcel geometry."""
+    """Boundary storage lives in 034 and its follow-up 035 only; no other
+    migration stores parcel geometry."""
     hits = []
     for m in sorted((REPO / "scripts" / "migrations").glob("*.sql")):
         text = m.read_text(encoding="utf-8").lower()
         if "geometry(multipolygon" in text or "parcel_boundaries" in text:
             hits.append(m.name)
-    assert hits == ["034_parcel_boundaries.sql"]
+    assert hits == ["034_parcel_boundaries.sql", "035_parcel_boundary_county_refresh.sql"]
     assert "not applied" in (REPO / "scripts/migrations/034_parcel_boundaries.sql").read_text(encoding="utf-8").lower()

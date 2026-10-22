@@ -32,6 +32,8 @@ TODAY = date(2026, 10, 21)
 FL, UT = "fl_dor_pto_parcel_gis", "ut_ugrc_lir_saltlake"
 APP = (REPO / "public/app.js").read_text(encoding="utf-8")
 M034 = (REPO / "scripts/migrations/034_parcel_boundaries.sql").read_text(encoding="utf-8")
+M035 = (REPO / "scripts/migrations/035_parcel_boundary_county_refresh.sql").read_text(encoding="utf-8")
+M_BOUNDARY = M034 + "\n" + M035          # 034 as deployed, then the 035 upgrade
 
 
 def poly(x, y, h=0.0003, extra=True):
@@ -89,6 +91,7 @@ def test_evidence_records_only_what_was_supplied():
         assert a.evidence_received_on == ""             # never supplied, never invented
         assert "Implement Confirmed Florida DOR and Utah UGRC Parcel Approvals" in a.evidence_ref
         assert "@" not in a.evidence_ref + a.evidence_sender   # no address recorded
+    assert A.load()[FL].readme_reviewed and A.load()[FL].technical_readme_reviewed_on == "2026-10-20"
     assert A.load()[FL].technical_caveats.startswith("Reviewed from the Parcel Shapefiles Readme")
     assert A.load()[FL].readme_reviewed
 
@@ -101,15 +104,11 @@ def test_utah_is_runnable_and_displayable():
                  "display_reason": "ALLOWED_DOCUMENTED"}
 
 
-def test_florida_display_is_allowed_and_no_file_is_read_until_a_county_location_exists():
+def test_florida_reads_local_dor_files_once_the_readme_is_recorded():
     r = S.readiness(S.FL_DOR, today=TODAY)
-    assert not r["runnable"] and r["display_allowed"]
-    # The Readme is reviewed (2026-10-20), so the condition no longer blocks;
-    # the county PIN file location is still not configured, so nothing is read.
-    assert "FETCH_CONDITION_UNMET" not in r["reasons"]
-    assert "JOIN_NOT_CONFIGURED" in r["reasons"] and "NO_SOURCE_LOCATION_CONFIGURED" in r["reasons"]
-    assert S.FL_DOR.feature_key_field == "PARCELNO" and S.FL_DOR.feature_id_field == "FID"
-    assert S.FL_DOR.layer_url is None
+    assert r["runnable"] and r["display_allowed"]
+    assert S.FL_DOR.location == "files" and S.FL_DOR.layer_url is None      # no download URL is guessed
+    assert S.FL_DOR.feature_key_field == "PARCELNO" and S.FL_DOR.id_rule == "exact"
 
 
 @pytest.mark.parametrize("source_id,state,dataset", [
@@ -270,10 +269,10 @@ class FakeDb:
         self.applied, self.records, self._stored = applied, records or [], stored or {}
         self.upserts, self.refreshes = [], []
 
-    def migration_applied(self):
+    def migration_applied(self, per_county=False):
         return self.applied
 
-    def properties(self, src):
+    def properties(self, src, county=None):
         return list(self.records)
 
     def stored(self, ids):
@@ -290,14 +289,16 @@ class FakeDb:
 def test_readiness_report_makes_no_request_and_prints_no_identifier(capsys):
     assert R.main([]) == 0
     out = capsys.readouterr().out
-    assert "READY     ut_ugrc_lir_saltlake" in out and "NOT READY fl_dor_pto_parcel_gis" in out
+    assert "READY     ut_ugrc_lir_saltlake" in out and "READY     fl_dor_pto_parcel_gis" in out
     assert "requests: 0; writes: 0" in out
 
 
 def test_florida_refuses_before_any_request_or_database_read():
     db, reads = FakeDb(), []
+    # Florida is read from local county files; without a county and a file
+    # nothing is read and nothing is written (no download URL is guessed).
     rc = R.run(FL, apply=True, db=db, read=lambda *a: reads.append(a) or ("COMPLETE", []), out=lambda m: None, today=TODAY)
-    assert rc == 3 and reads == [] and db.upserts == [] and db.refreshes == []
+    assert rc == 2 and reads == [] and db.upserts == [] and db.refreshes == []
 
 
 def test_without_migration_034_nothing_is_read_or_written():
@@ -376,7 +377,8 @@ def test_refresh_bookkeeping_only_advances_on_a_complete_read():
     s2 = A.apply_refresh(s1, status="COMPLETE", at="2026-10-22T00:00:00Z")
     assert s2.last_successful_refresh == "2026-10-22T00:00:00Z" and s2.expected_cadence == "Generally monthly"
     # The SQL bookkeeping follows the same rule.
-    assert "when upper(coalesce(p_status, '')) = 'COMPLETE' then p_at" in M034
+    assert "ok boolean := upper(coalesce(p_status, '')) = 'COMPLETE';" in M035
+    assert "last_successful_refresh_at = case when ok then p_at else last_successful_refresh_at end" in M035
 
 
 # --- attribution on every customer-facing surface ---------------------------------
@@ -391,12 +393,12 @@ def test_migration_seed_matches_the_approval_register():
         cols += ["license_name", "license_url"] if a.basis == "PUBLISHED_LICENSE" else []
         for col in cols:
             if attr[col]:
-                assert f"'{attr[col]}'" in M034, (sid, col)
-        assert a.expected_refresh_cadence.split(" (")[0] in M034
+                assert "'" + attr[col].replace("'", "''") + "'" in M_BOUNDARY, (sid, col)
+        assert a.expected_refresh_cadence.split(" (")[0] in M_BOUNDARY
 
 
 def test_the_read_contract_returns_the_full_attribution():
-    fn = M034[M034.index("create or replace function public.get_property_boundary"):]
+    fn = M035[M035.index("create or replace function public.get_property_boundary"):]   # the definition in force
     fn = fn[:fn.index("$$;")]
     for col in ("attribution text", "license_name text", "license_url text", "change_notice text", "disclaimer text",
                 "disclaimer_url text", "metadata_url text", "source_dataset text", "source_feature_id text"):
@@ -420,7 +422,7 @@ def test_exports_and_list_payloads_never_carry_geometry():
     assert not re.search(r"\bp\.(boundary|geom|geometry)\b", APP)
     assert "BOUNDARY_CACHE" in APP and "fetchPropertyBoundary(sb, pid, row)" in APP
     for path in sorted((REPO / "scripts/migrations").glob("0*.sql")):
-        if path.name in ("034_parcel_boundaries.sql",):
+        if path.name in ("034_parcel_boundaries.sql", "035_parcel_boundary_county_refresh.sql"):
             continue
         assert "parcel_boundaries" not in path.read_text(encoding="utf-8")
 
@@ -447,14 +449,14 @@ def test_the_owners_summaries_of_both_replies_are_recorded_as_summaries():
 
 def test_florida_pin_file_location_is_recorded_for_broward_only_and_nothing_reads_it():
     # The owner copied this exact link from the portal (2026-10-20). No other
-    # county is assumed from its pattern, and the source stays off until a
-    # reader exists and is tested.
+    # county is assumed from its pattern. Only the manual Broward loader reads it
+    # (dry run by default); the join itself is the validated-NAL-id rule.
     files = S.FL_DOR_PIN_FILES
     assert set(files) == {"Broward"}
     b = files["Broward"]
     assert b["url"] == ("https://floridarevenue.com/property/dataportal/Documents/PTO%20Data%20Portal/"
                         "Map%20Data/2025F/2025F%20PIN/broward_2025pin.zip")
     assert b["variant"] == "PIN" and b["tax_year"] == 2025 and b["copied_on"] == "2026-10-20"
-    assert S.FL_DOR.join_configured is False
-    r = S.readiness(S.FL_DOR, today=TODAY)
-    assert not r["runnable"] and "JOIN_NOT_CONFIGURED" in r["reasons"]
+    assert S.FL_DOR.join_configured is True and S.FL_DOR.location == "files" and S.FL_DOR.layer_url is None
+    assert S.FL_DOR.record_key == "join_key" and S.FL_DOR.id_rule == "exact"
+    assert S.FL_DOR.feature_key_field == "PARCELNO" and S.FL_DOR.feature_id_field == "FID"

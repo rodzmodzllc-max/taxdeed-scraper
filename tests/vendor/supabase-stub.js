@@ -413,6 +413,17 @@ if (new URLSearchParams(location.search).get("offlist") === "1") {
   if (p8) p8.last_seen_at = new Date(Date.now() - 3600 * 1000).toISOString();
 }
 
+// ?storedphoto=1 (2026-10-21 stored-aerial outline regression): p5 carries a
+// stored USDA NAIP aerial, as 62 of the 64 production properties with an
+// outline did. The image is a labelled fixture placard, never a real aerial.
+if (new URLSearchParams(location.search).get("storedphoto") === "1") {
+  const p5 = FIXTURE_PROPERTIES.find(r => r.id === "p5");
+  if (p5) {
+    p5.photo_source = "usda_naip";
+    p5.photo_url = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400'><rect width='100%' height='100%' fill='%2364748b'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='26' fill='%23ffffff'>FIXTURE STORED AERIAL</text></svg>";
+  }
+}
+
 // ?txcause=1 (2026-10-10 Texas cause-number regression): a second LGBS row in
 // Galveston listed under the SAME tax-suit cause as ptx3 but a different CAD
 // account (production: one cause on up to 26 different properties). The two
@@ -1105,7 +1116,8 @@ export function createClient() {
         const boundary = { type: "MultiPolygon", coordinates };
         return { data: [Object.assign({ property_id: row.id, boundary, display_permitted: mode !== "unauth",
           source_id: fl ? "fl_dor_pto_parcel_gis" : "ut_ugrc_lir_saltlake", source_dataset: "FIXTURE", source_feature_id: "fixture-1",
-          match_method: "EXACT_PARCEL_ID", source_observed_at: "2026-10-01T00:00:00Z",
+          match_method: qs.get("boundarymatch") === "listing" ? "PARCEL_NUMBER_LOCATION_CONFIRMED" : "EXACT_PARCEL_ID",
+          source_observed_at: "2026-10-01T00:00:00Z",
           source_last_successful_refresh_at: mode === "norefresh" ? null : "2026-10-02T06:00:00Z",
           source_expected_cadence: fl ? "Annual, about mid-August to early September" : "Generally monthly" }, attrib)], error: null };
       }

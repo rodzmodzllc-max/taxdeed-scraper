@@ -1,0 +1,74 @@
+# Parcel outlines for Florida AVAILABLE (Lands Available) properties, from the
+# DOR PTO county PIN shapefiles (Map Data / <year>F / <year>F PIN).
+#
+# MANUAL ONLY. There is no schedule, no push trigger and no other workflow calls
+# this one. Default mode is dry_run: it downloads each county's file, matches,
+# and prints counts. It writes nothing. apply needs the confirm input to be
+# exactly APPLY. Only Available records are read; auctions and certificates are
+# not. Needs the existing SUPABASE_URL / SUPABASE_SERVICE_KEY secrets and
+# migrations 034 + 035 applied. See scripts/load_florida_available_boundaries.py.
+
+name: parcel-boundaries-florida-available
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry_run (default, no writes) or apply"
+        type: choice
+        options: [dry_run, apply]
+        default: dry_run
+        required: true
+      confirm:
+        description: "Type APPLY to allow writes when mode is apply"
+        type: string
+        default: ""
+        required: false
+      year:
+        description: "DOR Map Data year folder (2026 = 2026F)"
+        type: string
+        default: "2026"
+        required: true
+      counties:
+        description: "Optional comma-separated counties; empty = every county with active Available properties"
+        type: string
+        default: ""
+        required: false
+      match_mode:
+        description: "validated_id_only = validated NAL PARCEL_ID only, never the listing's parcel number"
+        type: choice
+        options: [listing_location_confirmed, validated_id_only]
+        default: listing_location_confirmed
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parcel-boundaries-florida
+  cancel-in-progress: false
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests pyshp pyproj
+
+      - name: Load Florida Available outlines
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          MODE: ${{ inputs.mode }}
+          CONFIRM: ${{ inputs.confirm }}
+          YEAR: ${{ inputs.year }}
+          COUNTIES: ${{ inputs.counties }}
+          MATCH_MODE: ${{ inputs.match_mode }}
+        run: python3 scripts/load_florida_available_boundaries.py --mode "$MODE" --confirm "$CONFIRM" --year "$YEAR" --counties "$COUNTIES" --match-mode "$MATCH_MODE"

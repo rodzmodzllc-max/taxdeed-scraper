@@ -13,6 +13,8 @@ topics; the rules below apply to every source):
 * one feature claimed by two records (duplicate records) -> AMBIGUOUS for all;
 * a condominium unit or any record with no polygon of its own -> UNMATCHED;
 * a feature with no usable geometry -> INVALID_GEOMETRY for its record;
+* one geometry shared by features with DIFFERENT identifiers (a multi-parcel
+  polygon) -> refused for every one of them (MULTI_PARCEL_GEOMETRY);
 * a property that already holds another source's boundary keeps it.
 
 Pure functions, no I/O.
@@ -32,6 +34,8 @@ MULTI_PARCEL_SEPARATORS = re.compile(r"[,;|&/]|\s+AND\s+", re.I)
 
 
 def _key(src: BoundarySource):
+    if src.id_rule == "exact":
+        return lambda v: "" if v is None else str(v).rstrip(" \x00")
     return lambda v: normalize_id(v, src.id_rule) or ""
 
 
@@ -62,12 +66,30 @@ def prepare_features(raw_features: list[dict], src: BoundarySource) -> tuple[lis
             continue
         good.append({"attributes": attrs, "geometry": prep["geometry"], "sha256": prep["sha256"],
                      "feature_id": str(fid), "vertices_in": prep["vertices_in"], "vertices_out": prep["vertices_out"]})
+    # A multi-parcel polygon: the same geometry under different identifiers.
+    # It is not the boundary of any one of them, so none gets it.
+    keys_by_sha: dict = {}
+    for f in good:
+        keys_by_sha.setdefault(f["sha256"], set()).add(norm(f["attributes"].get(src.feature_key_field)))
+    shared = {sha for sha, keys in keys_by_sha.items() if len(keys) > 1}
+    multi_keys: set = set()
+    if shared:
+        kept = []
+        for f in good:
+            if f["sha256"] in shared:
+                refused["MULTI_PARCEL_GEOMETRY"] += 1
+                multi_keys.add(norm(f["attributes"].get(src.feature_key_field)))
+            else:
+                kept.append(f)
+        good = kept
     refused["_invalid_keys"] = invalid_keys  # type: ignore[assignment]
+    refused["_multi_keys"] = multi_keys  # type: ignore[assignment]
     return good, refused
 
 
 def plan_refresh(records: list[dict], raw_features: list[dict], stored: dict, src: BoundarySource, *,
-                 read_status: str, observed_at: str) -> dict:
+                 read_status: str, observed_at: str, dataset: str | None = None,
+                 dataset_date: str | None = None) -> dict:
     """What a refresh of `src` would write for `records`.
 
     records: property rows ({id, state, county, <record_key>}).
@@ -82,6 +104,7 @@ def plan_refresh(records: list[dict], raw_features: list[dict], stored: dict, sr
 
     features, refused = prepare_features(raw_features, src)
     invalid_keys = refused.pop("_invalid_keys")
+    multi_keys = refused.pop("_multi_keys")
     counts.update(refused)
     norm = _key(src)
 
@@ -97,6 +120,8 @@ def plan_refresh(records: list[dict], raw_features: list[dict], stored: dict, sr
     for m in matches:
         if m.outcome == "MATCHED" and claims[m.feature["feature_id"]] > 1:
             fixed.append(GeometryMatch(m.property_id, m.key, "AMBIGUOUS"))
+        elif m.outcome == "UNMATCHED" and m.key in multi_keys:
+            fixed.append(GeometryMatch(m.property_id, m.key, "MULTI_PARCEL_GEOMETRY"))
         elif m.outcome == "UNMATCHED" and m.key in invalid_keys:
             fixed.append(GeometryMatch(m.property_id, m.key, "INVALID_GEOMETRY"))
         else:
@@ -107,8 +132,9 @@ def plan_refresh(records: list[dict], raw_features: list[dict], stored: dict, sr
     # plan_geometry_refresh compares geometries; give it the content hashes.
     by_pid = {r.get("id"): r for r in eligible}
     hashed = [GeometryMatch(m.property_id, m.key, m.outcome, {"geometry": m.feature["sha256"], "_f": m.feature})
-              if m.outcome == "MATCHED" else GeometryMatch(m.property_id, m.key,
-                                                           "UNMATCHED" if m.outcome == "INVALID_GEOMETRY" else m.outcome)
+              if m.outcome == "MATCHED" else GeometryMatch(
+                  m.property_id, m.key,
+                  "UNMATCHED" if m.outcome in ("INVALID_GEOMETRY", "MULTI_PARCEL_GEOMETRY") else m.outcome)
               for m in fixed]
     own = {pid: {"geometry": row.get("content_sha256")} for pid, row in stored.items() if pid not in other}
     plan = plan_geometry_refresh(own, hashed, source_id=src.source_id, read_status="COMPLETE", observed_at=observed_at)
@@ -122,8 +148,10 @@ def plan_refresh(records: list[dict], raw_features: list[dict], stored: dict, sr
             rows.append({
                 "property_id": pid, "state": rec.get("state") or src.state, "county": rec.get("county") or "",
                 "parcel": str(rec.get(src.record_key) or ""), "source_id": src.source_id,
-                "source_dataset": src.dataset, "source_feature_id": f["feature_id"],
-                "geometry": f["geometry"], "content_sha256": f["sha256"], "match_method": "EXACT_PARCEL_ID",
+                "source_dataset": dataset or src.dataset, "source_feature_id": f["feature_id"],
+                "source_dataset_date": dataset_date,
+                "geometry": f["geometry"], "content_sha256": f["sha256"],
+                "match_method": rec.get("join_method") or "EXACT_PARCEL_ID",
                 "simplify_tolerance_deg": geometry.SIMPLIFY_TOLERANCE_DEG, "source_observed_at": observed_at,
                 "attribution": credit, "change": kind,
             })

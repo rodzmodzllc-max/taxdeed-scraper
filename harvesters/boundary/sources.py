@@ -10,14 +10,13 @@ when:
   read path, `display`),
 * its identifier join is configured from the source's own documentation.
 
-Florida DOR (fl_dor_pto_parcel_gis): the county parcel files DOR publishes on
-its PTO Data Portal. The join - which file variant (PIN / PAR), which field
-carries the parcel number (PARCELNO) and how it lines up with the tax roll's
-PARCEL_ID and with the identifier our records carry, how condominium units
-are handled - comes from the Parcel Shapefiles Readme. The Readme has not
-been read from this repository's environment, so the join is NOT configured
-and the source refuses before any request (`fetch` is also held by the
-`technical_readme_reviewed` condition). Nothing is guessed.
+Florida DOR (fl_dor_pto_parcel_gis): the county parcel shapefiles DOR
+publishes on its PTO Data Portal, read from local files a person downloaded
+(no download URL is configured or guessed). The join follows the Parcel
+Shapefiles Readme, reviewed by the product owner on 2026-10-20: PIN files,
+PARCELNO read as DBF text, matched to the record's VALIDATED NAL PARCEL_ID
+exactly, condominium and right-of-way records never attached - see
+harvesters/boundary/fl_dor.py.
 
 Utah UGRC (ut_ugrc_lir_saltlake): the Salt Lake County LIR layer whose fields
 were read live on 2026-09-30 (harvesters/enrichment/sources.py UT_UGRC_LIR):
@@ -44,33 +43,32 @@ class BoundarySource:
     layer_url: str | None
     feature_key_field: str | None    # the source's parcel identifier field
     feature_id_field: str | None     # the source's own feature identifier (kept as provenance)
-    record_key: str                  # the properties column matched against feature_key_field
-    id_rule: str                     # harvesters/enrichment/parcels.py ID_RULES key, applied to both sides
+    record_key: str                  # the record field matched against feature_key_field
+    id_rule: str                     # harvesters/enrichment/parcels.py ID_RULES key, or "exact" (no reformatting)
     join_configured: bool
     not_configured_reason: str = ""
+    location: str = "arcgis"         # arcgis (layer_url) | files (local shapefiles given per run)
 
 
 FL_DOR = BoundarySource(
     # Join from the Parcel Shapefiles Readme (reviewed 2026-10-20, recorded in
     # data/source_approvals.csv): PIN files only (FID, Shape, PARCELNO - no tax-roll
-    # attributes), PARCELNO in the shapefile to PARCEL_ID in NAL. The county file
-    # location is still not configured, so the source stays off.
+    # attributes), PARCELNO in the shapefile to the record's VALIDATED NAL PARCEL_ID
+    # (harvesters/boundary/fl_dor.py). Files are read locally, one county at a time;
+    # FID is the feature's position in its file (the dataset names the file).
     source_id="fl_dor_pto_parcel_gis", state="FL",
     provider="Florida Department of Revenue, Property Tax Oversight",
     dataset="DOR PTO Data Portal county GIS parcel files (PIN variant)",
     permission_dataset="county_parcel_geometry",
     counties=(), layer_url=None, feature_key_field="PARCELNO", feature_id_field="FID",
-    record_key="parcel", id_rule="alnum", join_configured=False,
-    not_configured_reason=("JOIN_NOT_CONFIGURED: the county PIN file reader (harvesters/boundary/shapefile.py) is "
-                           "tested on synthetic files only; the county download location and a manual run are not "
-                           "configured, so nothing reads a county file"),
+    record_key="join_key", id_rule="exact", join_configured=True, location="files",
 )
 
 # Florida DOR county PIN files, as the product owner copied them from the
 # portal (2026-10-20). Broward is the ONLY county recorded here: no other county
 # link is assumed from this pattern. The folder is 2025F, so this is a 2025 file,
-# not "current year"; the reader must check the year it reads. Nothing reads these
-# files yet: FL_DOR stays join_configured=False until a reader exists and is tested.
+# not "current year". Read only by the manual Broward loader
+# (scripts/load_florida_broward_boundaries.py), dry run by default.
 FL_DOR_PIN_FILES = {
     "Broward": {
         "url": ("https://floridarevenue.com/property/dataportal/Documents/PTO%20Data%20Portal/"
@@ -111,13 +109,15 @@ def readiness(src: BoundarySource, *, today=None) -> dict:
         reasons.append("NOT_IN_APPROVAL_REGISTER")
     elif not any(d.startswith(src.source_id + " <- ") and "MAPPED" in d for d in approval.covered_datasets):
         reasons.append("DATASET_NOT_MAPPED")
-    for op in ("fetch", "store"):
+    # A layer is requested (fetch); local shapefiles a person downloaded are
+    # read (parse). Either way the result is stored.
+    for op in (("fetch", "store") if src.location == "arcgis" else ("parse", "store")):
         d = authorize(src, op, today=today)
         if not d.allowed:
             reasons.append(f"{op.upper()}_{d.reason_code}")
     if not src.join_configured:
         reasons.append(src.not_configured_reason.split(":", 1)[0] or "JOIN_NOT_CONFIGURED")
-    if not src.layer_url:
+    if src.location == "arcgis" and not src.layer_url:
         reasons.append("NO_SOURCE_LOCATION_CONFIGURED")
     display = authorize(src, "display", today=today)
     return {"source_id": src.source_id, "runnable": not reasons, "reasons": reasons,

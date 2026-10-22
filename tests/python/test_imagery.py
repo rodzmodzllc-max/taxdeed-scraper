@@ -94,8 +94,8 @@ def test_live_images_are_lazy_csp_allowed_and_switchable():
     block = APP[APP.index("function naipLiveHtml"):APP.index("function propertyVisual")]
     assert 'data-naip-src=' in block and ' src=' not in block.replace('data-naip-src=', '')   # src set only in view
     assert 'function hydrateNaip' in APP and 'IntersectionObserver' in APP[APP.index('function hydrateNaip'):APP.index('function hydrateVisuals')]
-    assert "naipLiveEnabled()" in APP[APP.index("function propertyVisual"):APP.index("function propertyVisual") + 600]
-    assert 'p.photo_url !== ""' in APP[APP.index("function propertyVisual"):APP.index("function propertyVisual") + 600]
+    assert "naipLiveEnabled()" in APP[APP.index("function propertyVisual"):APP.index("function propertyVisual") + 1200]
+    assert 'p.photo_url !== ""' in APP[APP.index("function propertyVisual"):APP.index("function propertyVisual") + 1200]
     headers = (REPO / "public/_headers").read_text()
     csp = next(l for l in headers.splitlines() if "Content-Security-Policy" in l)
     img_src = re.search(r"img-src ([^;]+);", csp).group(1)

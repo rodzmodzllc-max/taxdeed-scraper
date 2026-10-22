@@ -119,6 +119,7 @@ test("fetchPropertyBoundary: verified and permitted geometry is available", asyn
   assert.equal(res.boundary.polygons.length, 1);
   assert.equal(res.boundary.sourceFeatureId, "7");
   assert.equal(res.boundary.sourceDataset, "D");
+  assert.equal(res.boundary.matchMethod, "EXACT_PARCEL_ID");
 });
 
 test("fetchPropertyBoundary sends the property id as text (properties.id is a uuid)", async () => {
