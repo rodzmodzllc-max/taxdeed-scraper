@@ -1881,8 +1881,24 @@ function naipLiveHtml(p, cls) {
   const bpid = (big || cls === "pv-visual") && p.id !== undefined && p.id !== null ? ` data-boundary-pid="${esc(String(p.id))}"` : "";
   return `<div class="${cls} has-photo naip-live" data-imagery="naip_live" data-match="${esc(match)}" data-basis="${esc(basis)}" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"${bpid}><img class="naip-live-img" data-naip-src="${esc(naipExportUrl(p.latitude, p.longitude, sz))}" alt="USDA NAIP aerial image centered on this record's coordinates" loading="lazy" decoding="async" width="${sz[0]}" height="${sz[1]}"><span class="photo-caption" title="${esc(IMAGERY_BASIS_LABELS[basis] + ". Imagery may be years old. " + IMAGERY_CONTEXT_NOTE)}">${esc(caption)}</span></div>`;
 }
+// A stored USDA NAIP aerial (photo_source usda_naip) on the property page or
+// the map preview: shown exactly as stored, but it also asks for the parcel
+// outline. Only when one exists is it re-drawn as the live aerial fitted to
+// the parcel (upgradeToLiveAerial); if that live image fails, the stored
+// photo comes back. Production 2026-10-21: 62 of the 64 properties with an
+// outline carried a stored aerial, so the outline never showed.
+function storedAerialOutlineHost(p, cls) {
+  return (cls === "detail-hero-photo" || cls === "pv-visual") && p.photo_source === "usda_naip"
+    && imageryHasCoords(p) && naipLiveEnabled() && p.id !== undefined && p.id !== null
+    && !naipFailedSet().has(naipKey(p.latitude, p.longitude));
+}
 function propertyVisual(p, cls) {
-  if (hasPhoto(p)) return photoOrPlaceholder(p, cls);
+  if (hasPhoto(p)) {
+    const html = photoOrPlaceholder(p, cls);
+    if (!storedAerialOutlineHost(p, cls)) return html;
+    const attrs = ` data-boundary-pid="${esc(String(p.id))}" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}" data-match="${esc(imageryMatchMethod(p))}" data-stored-photo="${esc(p.photo_url)}"`;
+    return html.replace(`class="${cls} has-photo"`, `class="${cls} has-photo pb-upgrade"${attrs}`);
+  }
   const coords = hasNum(p.latitude) && hasNum(p.longitude);
   if (coords && p.photo_url !== "" && naipLiveEnabled() && imageryHasCoords(p) && !naipFailedSet().has(naipKey(p.latitude, p.longitude))) return naipLiveHtml(p, cls);
   const sat = coords ? staticImageUrl(p) : null;
@@ -2078,7 +2094,7 @@ function naipExportUrlBox(box, w, h) {
 }
 function hydrateBoundaries(scope) {
   if (!scope || !scope.querySelectorAll) return;
-  scope.querySelectorAll(".naip-live[data-boundary-pid]:not([data-bnd])").forEach(host => {
+  scope.querySelectorAll(".naip-live[data-boundary-pid]:not([data-bnd]), .pb-upgrade[data-boundary-pid]:not([data-bnd])").forEach(host => {
     host.dataset.bnd = "1";
     applyBoundary(host);
   });
@@ -2090,13 +2106,35 @@ async function applyBoundary(host) {
   const gen = (host.__bgen = (host.__bgen || 0) + 1);
   const res = await boundaryFor(pid, { latitude: host.dataset.lat, longitude: host.dataset.lng });
   if (!host.isConnected || host.dataset.boundaryPid !== pid || host.__bgen !== gen) return;
-  if (res.status === "available") { drawBoundary(host, res.boundary); return; }
+  if (res.status === "available") {
+    if (!host.classList.contains("naip-live")) upgradeToLiveAerial(host);
+    drawBoundary(host, res.boundary);
+    return;
+  }
   if (res.status === "error") {
     console.warn("parcel boundary unavailable:", res.code);
     showBoundaryState(host, pid);
   }
   // none / not_deployed / invalid: the aerial stays unchanged, no outline, no message.
   if (res.status === "invalid") console.warn("parcel boundary refused:", res.reason);
+}
+// A stored aerial whose property has an outline becomes the live aerial (the
+// same USDA NAIP imagery), so drawBoundary() can fit it to the parcel. The
+// stored photo stays on the host (data-stored-photo) for the error fallback.
+function upgradeToLiveAerial(host) {
+  const big = host.classList.contains("detail-hero-photo");
+  const sz = big ? NAIP_DETAIL_SIZE : NAIP_THUMB_SIZE;
+  const img = host.querySelector("img");
+  if (!img) return;
+  img.className = "naip-live-img";
+  img.loading = "eager";
+  img.setAttribute("width", sz[0]);
+  img.setAttribute("height", sz[1]);
+  img.dataset.naipSrc = naipExportUrl(host.dataset.lat, host.dataset.lng, sz);
+  host.classList.remove("pb-upgrade");
+  host.classList.add("naip-live");
+  host.dataset.imagery = "naip_live";
+  host.dataset.nv = "1";
 }
 function showBoundaryState(host, pid) {
   if (host.querySelector(".pb-state")) return;
@@ -2208,6 +2246,19 @@ document.addEventListener("error", e => {
     const host = img.parentElement;
     if (!host) return;
     naipFailedSet().add(naipKey(host.dataset.lat, host.dataset.lng));
+    if (host.dataset.storedPhoto) {
+      // The outline was fitted to the live image; it does not line up with
+      // the stored one, so it goes with it.
+      host.querySelectorAll(".parcel-boundary, .pb-attrib, .pb-state").forEach(n => n.remove());
+      const credit = host.nextElementSibling;
+      if (credit && credit.matches && credit.matches("[data-pb-credit]")) credit.remove();
+      host.classList.remove("naip-live", "has-boundary");
+      host.removeAttribute("aria-label");
+      host.dataset.imagery = "stored";
+      img.className = "";
+      img.src = host.dataset.storedPhoto;
+      return;
+    }
     const sat = staticImageUrl({ latitude: host.dataset.lat, longitude: host.dataset.lng });
     host.classList.remove("naip-live");
     host.dataset.imagery = "naip_failed";
