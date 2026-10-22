@@ -981,29 +981,36 @@ results.detailModalHasLinks = await page.locator('#detailModalInner .detail-link
 results.detailProvenanceText = ((await page.locator('#detailModalInner .detail-provenance').textContent()) || '').trim();
 results.detailLinksHaveNoEstimatedSuffix = !(await page.locator('#detailModalInner .detail-links').textContent()).includes('estimated search');
 
+// The summary block and the section tabs are hidden on phones by design
+// (identity.css, 2026-10-23), so these checks read them on a desktop-width
+// page, where the detail opens in #detailPanel.
+const glancePage = await newPage({ viewport: { width: 1280, height: 900 } });
+await glancePage.goto(BASE_URL + '#/auctions/p1', { waitUntil: 'networkidle' });
+await glancePage.waitForTimeout(800);
 // --- Phase 66: "At a glance" summary + section nav on the full page ---
 // p1: FL auction, real address, parcel + case, published bid, just value
 // AND assessed on file, no photo (NULL), no coordinates, flood never
 // checked -> exactly those three gaps listed, nothing invented.
-results.oppCellLabels = await page.locator('#detailModalInner .opp-cell .opp-label').allTextContents();
+results.oppCellLabels = await glancePage.locator('#detailPanel .opp-cell .opp-label').allTextContents();
 // innerText, not textContent: the .opp-sub line is display:block, so the
 // rendered text has a break between the value and its sub-line.
-const oppText = n => page.locator('#detailModalInner .opp-cell').nth(n).locator('.opp-val').evaluate(el => el.innerText.replace(/\s+/g, ' ').trim());
+const oppText = n => glancePage.locator('#detailPanel .opp-cell').nth(n).locator('.opp-val').evaluate(el => el.innerText.replace(/\s+/g, ' ').trim());
 results.oppWhatText = await oppText(0);
 results.oppWhereText = await oppText(1);
-results.oppWhenClass = await page.locator('#detailModalInner .opp-cell').nth(2).locator('.opp-val').evaluate(el => el.className);
+results.oppWhenClass = await glancePage.locator('#detailPanel .opp-cell').nth(2).locator('.opp-val').evaluate(el => el.className);
 results.oppBidText = await oppText(3);
 results.oppValueText = await oppText(4);
-results.oppGaps = await page.locator('#detailModalInner .opp-gaps li').allTextContents();
-results.detailNavLabels = await page.locator('#detailModalInner .detail-nav button').allTextContents();
+results.oppGaps = await glancePage.locator('#detailPanel .opp-gaps li').allTextContents();
+results.detailNavLabels = await glancePage.locator('#detailPanel .detail-nav button').allTextContents();
 // Jumping to Risk & Legal scrolls the modal's own scroll box, and marks the pill.
-const scrollBefore = await page.locator('#detailModalInner').evaluate(el => el.scrollTop);
-await page.click('#detailModalInner .detail-nav button[data-target="risk"]');
+const scrollBefore = await glancePage.locator('#detailPanel').evaluate(el => el.scrollTop);
+await glancePage.click('#detailPanel .detail-nav button[data-target="risk"]');
 await page.waitForTimeout(500);
-results.detailNavJumpScrolled = (await page.locator('#detailModalInner').evaluate(el => el.scrollTop)) > scrollBefore;
-results.detailNavJumpMarksPill = await page.locator('#detailModalInner .detail-nav button[data-target="risk"]').evaluate(el => el.classList.contains('on'));
-results.showOnMapBtnText = ((await page.locator('#detailModalInner .show-on-map-btn').textContent()) || '').trim();
-await page.locator('#detailModalInner').evaluate(el => { el.scrollTop = 0; });
+results.detailNavJumpScrolled = (await glancePage.locator('#detailPanel').evaluate(el => el.scrollTop)) > scrollBefore;
+results.detailNavJumpMarksPill = await glancePage.locator('#detailPanel .detail-nav button[data-target="risk"]').evaluate(el => el.classList.contains('on'));
+results.showOnMapBtnText = ((await glancePage.locator('#detailPanel .show-on-map-btn').textContent()) || '').trim();
+await glancePage.locator('#detailPanel').evaluate(el => { el.scrollTop = 0; });
+await glancePage.close();
 
 // --- the tax-roll facts on the full property page ---
 // The card carries the three-fact summary; the page carries the rest,

@@ -1177,3 +1177,37 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
   .detail-nav{display:none}
   .detail-section[data-section="summary"]{display:none}
 }
+
+/* Touch targets, second pass (2026-10-23). Lives here, not in explore.css,
+   because the rules it must beat are declared later in this file or use
+   two-class selectors (.prop-body>.detail-btn, .quick-controls .export-btn).
+   A control on a phone or touch screen is at least 44px tall; a text link
+   keeps its own line. */
+@media (max-width: 768px), (pointer: coarse) {
+  .icon-btn, .ib-btn, .cta-btn, .detail-btn, .chip, .desk-county, .terms-btn,
+  .prop-body>.detail-btn, .prop-card-photo .pc-info .ib-btn,
+  .quick-controls .expand-all-btn, .quick-controls .export-btn, .quick-controls .filters-toggle,
+  .ledger-status-fold>summary, input[type="search"], input[type="text"] { min-height: 44px; }
+  .icon-btn { min-width: 44px; }
+  .link-btn { display: inline-flex; align-items: center; min-height: 44px; }
+  .ledger-status-fold>summary { display: flex; align-items: center; }
+}
+@media (max-width: 768px), (pointer: coarse) {
+  select, input.calc-input, .detail-close, .crumb, .show-on-map-btn, .related-open,
+  .copy-btn, .dossier-research-btn, .detail-nav button { min-height: 44px; }
+  .detail-close { min-width: 44px; }
+  .crumb { display: inline-flex; align-items: center; }
+}
+@media (max-width: 768px), (pointer: coarse) {
+  summary, .dossier-research-btn.dossier-dd, .note-save { min-height: 44px; }
+  summary { display: flex; align-items: center; }
+}
+/* Auctions and Available controls on a phone (2026-10-23): county beside Expand
+   all, Export beside Filters & Sort, in two rows instead of three. The export
+   label may wrap inside its half-width cell; it keeps its 44px target. */
+@media (max-width: 768px) {
+  .quick-controls { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .quick-controls > .table-toggle-btn { display: none; }
+  .quick-controls .export-btn { height: auto; min-height: 44px; white-space: normal; text-align: center; line-height: 1.2; padding: .4rem .5rem; }
+  .quick-controls .filters-toggle { justify-content: center; }
+}
