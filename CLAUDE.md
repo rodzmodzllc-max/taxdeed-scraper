@@ -3460,9 +3460,11 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   the manual Broward workflow calls it (dispatch only, `mode` dry_run default, `confirm=APPLY` to write).
 - **FGIO statewide parcels** (Florida GeoData item `efa909d6...` = `Florida_Statewide_Cadastral` = `fl_fdor_cadastral`)
   carry NAL attributes; NOT used for boundaries - follow-up in `docs/parcel-boundaries.md`.
-- **Front end** (`public/parcel-boundary.js`, app.js `drawBoundary()`): only the property page and the map preview
-  request a boundary. The outline is shown with the credit, licence link, change notice, disclaimer and metadata;
-  geometry never rides on a property row or in an export. Stub knob `?boundary=ok|fl|multi|none|unauth|invalid|
-  nolicencelink|error`.
-- `sw.js` -> `tdw-shell-v131` (v130 is held by the source-transparency PR).
+- **Front end** (`public/parcel-boundary.js`, app.js `drawBoundary()`): the property page, the map preview and, since
+  2026-10-22, the cards whose id is in the state's outline ids (`fetchBoundaryIds()`: one `parcel_boundaries` read per load,
+  `BOUNDARY_IDS`, `cardHasBoundary()`) request a boundary. The outline is shown with the credit, licence link, change
+  notice, disclaimer and metadata (on a card: short credit on the picture, the full line in the photo bubble); geometry
+  never rides on a property row or in an export. Stub knobs `?boundary=ok|fl|multi|none|unauth|invalid|nolicencelink|
+  error`, `?boundaryids=<id>,<id>` (outline ids the cards see).
+- `sw.js` -> `tdw-shell-v136` (outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
 
