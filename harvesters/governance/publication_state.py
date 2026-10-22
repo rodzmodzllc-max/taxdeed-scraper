@@ -193,14 +193,15 @@ class Context:
     acquisition_status: dict[tuple[str, str, str], dict] = field(default_factory=dict)
     acquisition_records: dict[tuple[str, str, str], dict] = field(default_factory=dict)
     now: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    # (source_id, state, county) -> may this source's records be shown to
-    # customers? The recorded `display` permission (permissions.py), fail closed.
-    display_permitted: Callable[[str, str, str], bool] = field(default_factory=lambda: _display_permitted)
+    # (source_id, state, county, ledger) -> may this source's records of that
+    # ledger be shown to customers? The recorded `display` permission for the
+    # ledger's listing dataset (permissions.listing_display), fail closed.
+    display_permitted: Callable[..., bool] = field(default_factory=lambda: _display_permitted)
 
 
-def _display_permitted(source_id: str, state: str, county: str) -> bool:
+def _display_permitted(source_id: str, state: str, county: str, ledger: str | None = None) -> bool:
     from . import permissions as PERM  # noqa: PLC0415
-    return PERM.authorize(source_id, "display", state=state, county=county or None).allowed
+    return PERM.listing_display(source_id, state=state, county=county or None, ledger=ledger).allowed
 
 
 def build_context(now: datetime | None = None, *, registry=None, ledgers=None, acquisition: dict | None = None,
@@ -354,7 +355,7 @@ def decide(row: dict, ctx: Context) -> Decision:
     st, county = str(row.get("state") or ""), str(row.get("county") or "")
     # 1. source
     publication = ctx.source_publication.get(sid)
-    if sid and publication in pub.PUBLISHABLE_STATUSES and ctx.display_permitted(sid, st, county):
+    if sid and publication in pub.PUBLISHABLE_STATUSES and ctx.display_permitted(sid, st, county, ledger):
         gates["source"] = "PASS"
     elif sid and publication in pub.PUBLISHABLE_STATUSES:
         # Publication approved but no recorded `display` permission (or it has

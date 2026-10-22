@@ -516,6 +516,24 @@ def authorize(source_id, operation, *, state, county=None, dataset=None, today=N
     return default().authorize(source_id, operation, state=state, county=county, dataset=dataset, today=today)
 
 
+# The dataset a ledger's listing records are recorded under in
+# data/source_permissions.csv. A record naming one of these matches only that
+# ledger's listings; a '*' record matches every ledger. Other datasets (parcel
+# geometry, closed results) are never a listing and are not consulted here.
+LISTING_DATASETS = {"AUCTIONS": "sale_calendar", "AVAILABLE": "lands_available",
+                    "LIENS_CERTIFICATES": "county_held_certificates"}
+
+
+def listing_display(source_id, *, state, county=None, ledger=None, today=None) -> PermissionDecision:
+    """May this source's listing records of `ledger` be shown? The `display`
+    decision for the ledger's listing dataset, so a source whose records are
+    per dataset (every Florida source) is judged by its own record instead of
+    falling through to NO_RECORD. Without a ledger only a '*' record applies.
+    Fails closed like authorize()."""
+    return authorize(source_id, "display", state=state, county=county,
+                     dataset=LISTING_DATASETS.get(ledger or ""), today=today)
+
+
 def require(source_id, operation, *, state, county=None, dataset=None, label: str = "") -> PermissionDecision:
     """authorize() and raise PermissionDenied when not allowed - for entry
     points that must stop before any request or write."""

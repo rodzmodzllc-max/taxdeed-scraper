@@ -78,7 +78,11 @@ def publishable(row) -> bool:
     recorded `display` permission for the source (2026-10-12)."""
     if row is None or effective_publication(row) not in PUBLISHABLE_STATUSES:
         return False
-    return permitted(row.source_id, "display", row.state).allowed
+    # The `display` record for each ledger this source feeds (a Florida record
+    # names its ledger's listing dataset); allowed when any of them allows it.
+    from harvesters.governance import permissions as PERM  # noqa: PLC0415
+    ledgers = sorted(getattr(row, "ledger_set", None) or [])
+    return any(PERM.listing_display(row.source_id, state=row.state, ledger=lg).allowed for lg in (ledgers or [None]))
 
 
 # A hard block: never requested, never written, never shown - not even to admins.
