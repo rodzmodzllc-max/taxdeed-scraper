@@ -307,3 +307,76 @@ def test_26_capture_skeleton_never_prints_identifiers():
     s = json.dumps(shape)
     assert "JOHN" not in s and "1513190" not in s and "Auction Sold" in s
     assert RR.vocab_or_shape("3rd Party Bidder") == "3rd Party Bidder"
+
+
+# ==================== partial reads are reported (2026-10-22) ====================
+# The closed listing pages at ten items and its anonymous pager hands back the
+# same page (docs/auction-outcomes.md). A repeated FULL page means the day may
+# hold more items than were read: it must be reported, never look complete.
+# SYNTHETIC pages only; no network.
+
+class _Resp:
+    def __init__(self, text, status=200):
+        self.text, self.status_code = text, status
+
+
+class _Session:
+    def __init__(self, pages):
+        self.pages, self.ajax_calls = list(pages), 0
+
+    def get(self, url, **kw):
+        if "Zmethod=UPDATE" in url:
+            body = self.pages[min(self.ajax_calls, len(self.pages) - 1)]
+            self.ajax_calls += 1
+            return _Resp(body)
+        return _Resp("<html>sale day</html>")
+
+
+def _paged(monkeypatch, pages):
+    from types import SimpleNamespace
+    monkeypatch.setattr(RR, "parse_items", lambda body: [SimpleNamespace(case_no=c) for c in body.split(",") if c])
+    monkeypatch.setattr(RR, "rlist_ids", lambda body: [])
+    monkeypatch.setattr(RR, "is_login_page", lambda body: False)
+    s = _Session(pages)
+    return RR.fetch_area(s, "jackson.realtaxdeed.com", "09/29/2026", pause=0), s
+
+
+def _cases(prefix, n):
+    return ",".join(f"{prefix}{i:02d}" for i in range(n))
+
+
+def test_a_repeated_full_page_marks_the_day_truncated(monkeypatch):
+    page = _cases("2024 TD 00", RR.PAGE_SIZE)
+    res, s = _paged(monkeypatch, [page, page])
+    assert res.truncated is True and len(res.items) == RR.PAGE_SIZE and s.ajax_calls == 2
+
+
+def test_a_repeated_short_page_is_a_complete_day(monkeypatch):
+    page = _cases("2024 TD 00", 3)
+    res, _ = _paged(monkeypatch, [page, page])
+    assert res.truncated is False and len(res.items) == 3
+
+
+def test_new_items_on_the_next_page_are_read_and_not_truncated(monkeypatch):
+    res, _ = _paged(monkeypatch, [_cases("A", RR.PAGE_SIZE), _cases("B", 4), ""])
+    assert res.truncated is False and len(res.items) == RR.PAGE_SIZE + 4
+
+
+def test_an_empty_listing_is_complete(monkeypatch):
+    res, _ = _paged(monkeypatch, [""])
+    assert res.truncated is False and res.items == []
+
+
+def test_a_truncated_day_is_reported_as_incomplete_and_writes_nothing_by_absence(monkeypatch):
+    page = _cases("2024 TD 00", RR.PAGE_SIZE)
+    res, _ = _paged(monkeypatch, [page, page])
+    read = AO.DayRead("Jackson", "2026-09-29", True, None, [], not res.truncated, URL)
+    assert read.complete is False
+    # An event missing from a partial read stays unknown: absence is never a result.
+    p = plan([read], [ev("e9", "2024 TD 0999")])
+    assert p.patches == [] and all(o["outcome"] == "unknown" for o in p.observations)
+
+
+def test_the_run_report_counts_possibly_truncated_days():
+    src = (REPO / "scripts" / "auction_outcomes.py").read_text(encoding="utf-8")
+    assert '"sale_days_possibly_truncated"' in src and "possibly truncated" in src

@@ -45,6 +45,8 @@ from typing import Any
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 MAX_PAGES = 12
+# The closed listing serves this many items per page (docs/auction-outcomes.md).
+PAGE_SIZE = 10
 AREA_CLOSED = "C"
 AREA_WAITING = "W"
 
@@ -141,7 +143,7 @@ class FetchResult:
     aids: list[str] = field(default_factory=list)
     update_raw: str | None = None
     update_error: str | None = None
-    truncated: bool = False           # the page limit was reached with items still arriving
+    truncated: bool = False           # page limit reached, or the pager repeated a full page: a partial read
 
 
 def sale_day_url(host: str, sale_date: str) -> str:
@@ -225,7 +227,14 @@ def fetch_area(session: Any, host: str, sale_date: str, *, area: str = AREA_CLOS
                 seen.add(key)
                 res.items.append(it)
                 fresh += 1
-            if not batch or fresh == 0:
+            if not batch:
+                break
+            if fresh == 0:
+                # The pager handed back items already read. A full page of them
+                # means more items may exist that this anonymous session cannot
+                # reach (docs/auction-outcomes.md): the day is a partial read.
+                if len(batch) >= PAGE_SIZE:
+                    res.truncated = True
                 break
         else:
             res.truncated = True

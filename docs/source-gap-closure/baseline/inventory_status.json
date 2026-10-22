@@ -1,0 +1,176 @@
+[
+    {
+        "state": "CO",
+        "source": "certificate",
+        "inventory_status": "certificate_listed",
+        "n": 141
+    },
+    {
+        "state": "CO",
+        "source": "certificate",
+        "inventory_status": "closed",
+        "n": 5
+    },
+    {
+        "state": "FL",
+        "source": "auction",
+        "inventory_status": "closed",
+        "n": 1579
+    },
+    {
+        "state": "FL",
+        "source": "auction",
+        "inventory_status": "upcoming",
+        "n": 1061
+    },
+    {
+        "state": "FL",
+        "source": "auction",
+        "inventory_status": "unknown",
+        "n": 4
+    },
+    {
+        "state": "FL",
+        "source": "certificate",
+        "inventory_status": "certificate_listed",
+        "n": 1611
+    },
+    {
+        "state": "FL",
+        "source": "certificate",
+        "inventory_status": "closed",
+        "n": 56
+    },
+    {
+        "state": "FL",
+        "source": "laft",
+        "inventory_status": "available_otc",
+        "n": 158
+    },
+    {
+        "state": "FL",
+        "source": "laft",
+        "inventory_status": "closed",
+        "n": 14
+    },
+    {
+        "state": "LA",
+        "source": "laft",
+        "inventory_status": "active",
+        "n": 10334
+    },
+    {
+        "state": "MI",
+        "source": "auction",
+        "inventory_status": "unknown",
+        "n": 35
+    },
+    {
+        "state": "MI",
+        "source": "auction",
+        "inventory_status": "sold",
+        "n": 5
+    },
+    {
+        "state": "MI",
+        "source": "auction",
+        "inventory_status": "upcoming",
+        "n": 3
+    },
+    {
+        "state": "MI",
+        "source": "laft",
+        "inventory_status": "available_otc",
+        "n": 30590
+    },
+    {
+        "state": "MI",
+        "source": "laft",
+        "inventory_status": "closed",
+        "n": 240
+    },
+    {
+        "state": "MI",
+        "source": "laft",
+        "inventory_status": "active",
+        "n": 17
+    },
+    {
+        "state": "MN",
+        "source": "laft",
+        "inventory_status": "available_otc",
+        "n": 2
+    },
+    {
+        "state": "MO",
+        "source": "laft",
+        "inventory_status": "available_otc",
+        "n": 9778
+    },
+    {
+        "state": "OK",
+        "source": "laft",
+        "inventory_status": "active",
+        "n": 195
+    },
+    {
+        "state": "PA",
+        "source": "laft",
+        "inventory_status": "active",
+        "n": 376
+    },
+    {
+        "state": "SC",
+        "source": "auction",
+        "inventory_status": "active",
+        "n": 853
+    },
+    {
+        "state": "SC",
+        "source": "laft",
+        "inventory_status": "active",
+        "n": 52
+    },
+    {
+        "state": "TN",
+        "source": "laft",
+        "inventory_status": "available_otc",
+        "n": 1787
+    },
+    {
+        "state": "TN",
+        "source": "laft",
+        "inventory_status": "closed",
+        "n": 324
+    },
+    {
+        "state": "TX",
+        "source": "auction",
+        "inventory_status": null,
+        "n": 122
+    },
+    {
+        "state": "TX",
+        "source": "laft",
+        "inventory_status": null,
+        "n": 421
+    },
+    {
+        "state": "WI",
+        "source": "auction",
+        "inventory_status": "sold",
+        "n": 8
+    },
+    {
+        "state": "WI",
+        "source": "auction",
+        "inventory_status": "closed",
+        "n": 1
+    },
+    {
+        "state": "WY",
+        "source": "auction",
+        "inventory_status": "unknown",
+        "n": 253
+    }
+]
