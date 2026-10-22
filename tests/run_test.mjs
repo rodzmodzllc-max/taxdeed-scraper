@@ -7041,10 +7041,12 @@ await big.press('#globalSearchInput', 'Enter');
   r = await boundaryPage('boundary=ok&boundaryids=p5', '#/auctions', { width: 390, height: 844 });
   results.cardOutlinePhone = await cardOutlineState(r.pg).then(s => ({ outlineCards: s.outlineCards, creditInBubble: s.creditInBubble, noPageOverflow: s.noPageOverflow }));
   const bubbleBtn = r.pg.locator('.prop-card:has(.parcel-boundary) .pc-info .ib-btn').first();
-  // Centred, clear of the sticky header and the bottom navigation bar.
+  // Centred, clear of the sticky header and the bottom navigation bar; the tap
+  // is dispatched to the button itself (a mouse hover would open the bubble
+  // before the click lands, which a touch screen never does).
   await bubbleBtn.evaluate(e => e.scrollIntoView({ block: 'center' }));
   await r.pg.waitForTimeout(200);
-  await bubbleBtn.click();
+  await bubbleBtn.dispatchEvent('click');
   await r.pg.waitForTimeout(300);
   results.cardOutlineBubbleOpen = await r.pg.evaluate(() => {
     const ph = document.querySelector('.prop-card-photo.has-boundary');
@@ -7056,7 +7058,10 @@ await big.press('#globalSearchInput', 'Enter');
       unclipped: getComputedStyle(ph).overflow === 'visible',
       inViewport: b.top >= 0 && b.left >= 0 && b.right <= window.innerWidth + 1,
       saysOutline: /Parcel outline: FIXTURE Utah/.test(pop.textContent),
-      captionIsText: (() => { const c = pop.querySelector('.photo-caption'); return !c || getComputedStyle(c).position === 'static'; })() };
+      captionIsText: (() => { const c = pop.querySelector('.photo-caption'); return !c || getComputedStyle(c).position === 'static'; })(),
+      // The open bubble never covers its own button.
+      buttonClear: (() => { const btn = ph.querySelector('.pc-info .ib-btn'); const r2 = btn.getBoundingClientRect();
+        const hit = document.elementFromPoint(r2.left + r2.width / 2, r2.top + r2.height / 2); return !!hit && btn.contains(hit); })() };
   });
   await r.pg.close();
   // Layout: outline and attribution stay inside the aerial box at tablet and phone widths.
@@ -7125,7 +7130,7 @@ const EXPECTED = {
   cardOutlineNotDeployed: {"calls": 0, "outlines": 0},
   cardOutlineOnlyListed: {"calls": ["p5"], "outlineCards": ["p5"], "attrib": "FIXTURE Utah Geospatial Resource Center (UGRC)", "creditInBubble": true, "creditLinks": ["CC BY 4.0", "Source disclaimer", "Dataset metadata"], "creditBelowPhoto": false, "noPageOverflow": true},
   cardOutlinePhone: {"outlineCards": ["p5"], "creditInBubble": true, "noPageOverflow": true},
-  cardOutlineBubbleOpen: {"shown": true, "opensUpward": true, "unclipped": true, "inViewport": true, "saysOutline": true, "captionIsText": true},
+  cardOutlineBubbleOpen: {"shown": true, "opensUpward": true, "unclipped": true, "inViewport": true, "saysOutline": true, "captionIsText": true, "buttonClear": true},
   boundaryLayout_desktop: {"overlayFills": true, "attribInside": true, "outlineInside": true, "captionClearsAttrib": true, "creditBelow": true, "noPageOverflow": true},
   boundaryLayout_tablet: {"overlayFills": true, "attribInside": true, "outlineInside": true, "captionClearsAttrib": true, "creditBelow": true, "noPageOverflow": true},
   boundaryLayout_phone: {"overlayFills": true, "attribInside": true, "outlineInside": true, "captionClearsAttrib": true, "creditBelow": true, "noPageOverflow": true},
