@@ -5114,7 +5114,7 @@ function card(p, showCounty) {
   // An auction the county's current list no longer carries: one muted line says
   // so, and that no result is published - the kicker alone does not say that.
   const offList = !isClosed && p.source === "auction" ? offCurrentSaleList(p) : null;
-  const offListNote = offList ? `<div class="prop-ledger-line" data-off-list="1"><span class="muted">Not on the county list read ${esc(offList.countyRead ? fmtDate(String(offList.countyRead).slice(0, 10)) : "")} · no result published</span></div>` : "";
+  const offListNote = offList ? `<div class="prop-ledger-line" data-off-list="1">${infoBubbleHtml("Not on county list", esc(`Not on the county list read ${offList.countyRead ? fmtDate(String(offList.countyRead).slice(0, 10)) : ""} · no result published`))}</div>` : "";
   // Lean card (remediation, 2026-10-11): the picture is the focus, then the
   // facts a customer needs at a glance - what it is, where, the price, and the
   // way in. Lien, homestead, value-ratio, acquisition and financing figures and
@@ -5152,7 +5152,14 @@ function card(p, showCounty) {
   // Photo overlays (the listing type, the county and the lot size) sit on the
   // picture itself. Each is shown only when its source value exists.
   const photoEl = el.querySelector(".prop-card-photo");
-  if (photoEl) photoEl.insertAdjacentHTML("beforeend", cardPhotoOverlayHtml(p));
+  if (photoEl) {
+    // The photo's own status caption ("No stored image", "not yet geocoded") is
+    // information, not a headline: it moves into a bubble on the picture. The
+    // full property page shows the same caption under its picture.
+    const capText = Array.from(photoEl.querySelectorAll(".vis-main, .vis-sub")).map(n => n.textContent.trim()).filter(Boolean).join(" · ");
+    photoEl.querySelectorAll(".photo-caption, .vis-main, .vis-sub").forEach(n => n.remove());
+    photoEl.insertAdjacentHTML("beforeend", cardPhotoOverlayHtml(p) + (capText ? `<span class="pc-info">${infoBubbleHtml("Photo", esc(capText))}</span>` : ""));
+  }
   return el;
 }
 
@@ -8188,7 +8195,7 @@ function availableHeadlineHtml(p) {
   const has = i.value !== null && i.value !== undefined;
   const cls = i.current ? "" : !has ? (i.state === "official_expired" ? " expired" : " unpublished") : i.state === "price" ? "" : " partial";
   return `<div class="card-stat-label">${esc(i.label)}</div><div class="card-stat-val bid${cls}" data-amount-state="${esc(i.state)}">${esc(has ? fmtShort(i.value) : (i.display || "Not published"))}</div>` +
-    (i.note ? `<div class="card-price-note${i.state === "official_expired" ? " expired" : ""}">${esc(i.note)}</div>` : "");
+    (i.note ? `<div class="card-price-info">${infoBubbleHtml("About this price", esc(i.note))}</div>` : "");
 }
 // The cost breakdown, driven by the source's terms (termsFor): the listed
 // figure, the items the source establishes as ADDED on top (only on a
