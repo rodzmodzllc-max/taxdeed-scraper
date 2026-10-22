@@ -54,7 +54,7 @@ Fill shares are taken over all rows, not only active ones.
 † "Approved" counts APPROVED and APPROVED_GRANDFATHERED. "Other" is UNREVIEWED.
 ‡ For Florida Available rows, the sale date is the original tax-deed sale date, not an upcoming auction.
 
-Read health per unit comes from the live `county_source_registry` (121 rows). 34 of those rows carry a NULL `source_id` (Florida Lands Available units); they match repository rows only through `state`, `county` and `harvester`, so any join on `source_id` alone undercounts the live registry:
+Read health per unit comes from the live `county_source_registry` (121 rows). 34 of those rows carry a NULL `source_id` (19 Texas, 15 Florida); they match repository rows only through `state`, `county` and `harvester`, so any join on `source_id` alone undercounts the live registry:
 
 | State | COMPLETE | EMPTY | FAILED | INCOMPLETE | No attempt recorded |
 |---|---|---|---|---|---|
