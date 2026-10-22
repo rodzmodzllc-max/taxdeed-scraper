@@ -107,6 +107,11 @@ own as the manual `job=outcomes`.
 - The closed listing pages at ten items and the site's pager could not be
   driven anonymously (`PageDir=1&doR=0` returned the same ten). On a sale day
   with more than ten closed items the rest stay "Outcome not yet verified".
+  Such a day is reported, not hidden: when the pager hands back a full page
+  of items already read, `fetch_area()` sets `truncated`, the day prints
+  "(listing may be truncated)" and the run report counts it as
+  `sale_days_possibly_truncated` (2026-10-22). A repeated short page is a
+  complete day.
 - Event history starts with the auction-event writer; earlier sales have no
   event row and are not reconstructed.
 - Okaloosa (Bid4Assets) and Texas have no outcome adapter; their outcomes
