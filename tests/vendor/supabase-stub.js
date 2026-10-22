@@ -1105,7 +1105,8 @@ export function createClient() {
         const boundary = { type: "MultiPolygon", coordinates };
         return { data: [Object.assign({ property_id: row.id, boundary, display_permitted: mode !== "unauth",
           source_id: fl ? "fl_dor_pto_parcel_gis" : "ut_ugrc_lir_saltlake", source_dataset: "FIXTURE", source_feature_id: "fixture-1",
-          match_method: "EXACT_PARCEL_ID", source_observed_at: "2026-10-01T00:00:00Z",
+          match_method: qs.get("boundarymatch") === "listing" ? "PARCEL_NUMBER_LOCATION_CONFIRMED" : "EXACT_PARCEL_ID",
+          source_observed_at: "2026-10-01T00:00:00Z",
           source_last_successful_refresh_at: mode === "norefresh" ? null : "2026-10-02T06:00:00Z",
           source_expected_cadence: fl ? "Annual, about mid-August to early September" : "Generally monthly" }, attrib)], error: null };
       }

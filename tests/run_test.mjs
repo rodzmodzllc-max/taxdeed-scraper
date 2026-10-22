@@ -6878,6 +6878,14 @@ await big.press('#globalSearchInput', 'Enter');
   results.boundaryOkCalls = await r.pg.evaluate(() => window.__stubBoundaryCalls || []);
   results.boundaryOkUsgsFitted = r.usgs.some(u => /bbox=/.test(u) && !/bbox=-82\.045.*,26\.935/.test(u));
   await r.pg.close();
+  // The caption names how the outline was matched.
+  const matchTitle = pg => pg.evaluate(() => ((document.querySelector('.detail-hero-photo.has-boundary .photo-caption') || {}).title || '').replace(/^.*?, (matched[^.]*)\..*$/, '$1'));
+  r = await boundaryPage('boundary=fl', '#/auctions/p5');
+  results.boundaryMatchExact = await matchTitle(r.pg);
+  await r.pg.close();
+  r = await boundaryPage('boundary=fl&boundarymatch=listing', '#/auctions/p5');
+  results.boundaryMatchListing = await matchTitle(r.pg);
+  await r.pg.close();
   r = await boundaryPage('boundary=norefresh', '#/auctions/p5');
   results.boundaryFreshnessNone = await r.pg.evaluate(() => (document.querySelector('[data-pb-credit] .pb-credit-fresh') || {}).textContent || '');
   await r.pg.close();
@@ -6980,6 +6988,8 @@ const EXPECTED = {
   boundaryOk: {"host": true, "pid": "p5", "outline": true, "rings": 1, "attrib": "FIXTURE Utah Geospatial Resource Center (UGRC)", "state": null, "bboxCenter": [-82.045, 26.934], "fitted": true, "label": "Aerial image with the parcel outline of this property (FIXTURE Utah Geospatial Resource Center (UGRC))", "credit": {"text": "Parcel outline: FIXTURE Utah Geospatial Resource Center (UGRC) · Licence: CC BY 4.0 · Changes: FIXTURE: boundaries reprojected and simplified · Source last refreshed by TAXACQ Oct 2, 2026 · Source publishes: Generally monthly · Source disclaimer · Dataset metadata · Outline is for orientation; it is not a survey and does not show ownership or title.", "links": [["CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/", "noopener noreferrer"], ["Source disclaimer", "https://gis.utah.gov/documentation/policy/license/", "noopener noreferrer"], ["Dataset metadata", "https://example.org/fixture-metadata", "noopener noreferrer"]]}},
   boundaryFreshnessOk: "Source last refreshed by TAXACQ Oct 2, 2026",
   boundaryFreshnessNone: "Source last refreshed by TAXACQ: not yet recorded",
+  boundaryMatchExact: "matched by exact parcel identifier",
+  boundaryMatchListing: "matched by the listing's parcel number (separators ignored) and confirmed by this property's own location inside the parcel",
   boundaryOkCalls: ["p5"],
   boundaryOkUsgsFitted: true,
   boundaryNone: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": null, "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null, "credit": null},

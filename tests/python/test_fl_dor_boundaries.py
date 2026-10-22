@@ -452,3 +452,103 @@ def test_a_files_source_needs_035_as_well_as_034(tmp_path):
     db, lines = FakeDb([rec("a", "700")], applied="034"), []
     assert R.run(FL, apply=True, db=db, out=lines.append, today=TODAY, files={"county": "Leon", "path": str(p)}) == 4
     assert db.upserts == [] and db.refreshes == [] and "035" in "\n".join(lines)
+
+
+# --- a malformed shape does not fail the county ------------------------------------
+
+def _zero_shape(shp_path, index):
+    """Rewrite record `index` as a polygon with no parts and no points (the
+    2026 Alachua file carried one such PolygonZ). Record length unchanged."""
+    data = bytearray(shp_path.read_bytes())
+    pos = 100
+    for _ in range(index):
+        pos += 8 + int.from_bytes(data[pos + 4:pos + 8], "big") * 2
+    body = pos + 8
+    data[body + 36:body + 40] = (0).to_bytes(4, "little")      # numParts
+    data[body + 40:body + 44] = (0).to_bytes(4, "little")      # numPoints
+    shp_path.write_bytes(bytes(data))
+
+
+def test_one_malformed_shape_is_counted_and_the_rest_of_the_county_reads(tmp_path):
+    p = write_shp(tmp_path, "leon_pin", [("1", [square(-84.30, 30.4)]), ("2", [square(-84.31, 30.4)]),
+                                          ("3", [square(-84.32, 30.4)])])
+    _zero_shape(p, 1)
+    r = FD.read_county(p, "Leon")
+    assert r.status == "COMPLETE" and r.counts == {"MALFORMED_SHAPE": 1}
+    assert [f["properties"]["PARCELNO"] for f in r.features] == ["1", "3"]
+    assert [f["properties"]["FID"] for f in r.features] == [0, 2]
+    scoped = FD.read_county(p, "Leon", keys={"2", "3"})
+    assert [f["properties"]["PARCELNO"] for f in scoped.features] == ["3"]
+    assert scoped.counts == {"MALFORMED_SHAPE": 1, "NOT_IN_SCOPE": 1}
+
+
+def test_a_truncated_file_still_fails_the_whole_county(tmp_path):
+    p = write_shp(tmp_path, "cut2", [("1", [square(-84.3, 30.4)]), ("2", [square(-84.31, 30.4)])])
+    p.write_bytes(p.read_bytes()[:-20])
+    r = FD.read_county(p, "Leon")
+    assert r.status == "FAILED" and "TRUNCATED_FILE" in r.reason
+
+
+# --- listing-parcel join, confirmed by the record's own point (2026-10-22) -----------
+
+def lrec(pid, parcel, lat=None, lon=None, use="00", nal=None):
+    row = dict(rec(pid, nal, use=use), parcel=parcel)
+    if lat is not None:
+        row.update(latitude=lat, longitude=lon)
+    return row
+
+
+class SourceDb(FakeDb):
+    def properties(self, src, county=None, source=None):
+        self.asked_source = source
+        return [r for r in self.rows if county is None or r["county"] == county]
+
+
+def run_listing(tmp_path, features, rows, **kw):
+    p = write_shp(tmp_path, "leon_pin", features)
+    db, lines = SourceDb(rows), []
+    rc = R.run(FL, apply=True, db=db, out=lines.append, today=TODAY,
+               files={"county": "Leon", "path": str(p), "source": "laft", "listing_join": True, **kw})
+    return rc, db, "\n".join(lines)
+
+
+def test_a_listing_parcel_joins_only_when_its_own_point_is_inside_the_polygon(tmp_path):
+    rc, db, text = run_listing(tmp_path,
+        [("1234560010", [square(-84.30, 30.40, 0.001)]), ("1234560020", [square(-84.31, 30.40, 0.001)])],
+        [lrec("in", "12-3456-0010", 30.4005, -84.2995),          # separators differ, point inside
+         lrec("out", "12-3456-0020", 30.4005, -84.2995),         # matches, but its point is in the other parcel
+         lrec("nopoint", "12-3456-0020")])
+    assert rc == 0 and db.asked_source == "laft"
+    rows = db.upserts[0][1]
+    assert [r["property_id"] for r in rows] == ["in"]
+    assert rows[0]["match_method"] == "PARCEL_NUMBER_LOCATION_CONFIRMED" and rows[0]["parcel"] == "1234560010"
+    assert "LOCATION_NOT_INSIDE" in text and "NO_RECORD_POINT" in text
+    assert "1234560010" not in text and "12-3456" not in text                    # counts only
+
+
+def test_leading_zeros_are_kept_and_ambiguous_spellings_are_refused(tmp_path):
+    rc, db, text = run_listing(tmp_path,
+        [("00123450", [square(-84.30, 30.40, 0.001)]),                           # zeros kept: 123450 never matches
+         ("9-8765", [square(-84.31, 30.40, 0.001)]), ("98-765", [square(-84.32, 30.40, 0.001)])],
+        [lrec("zeros", "123450", 30.4005, -84.2995), lrec("amb", "98765", 30.4005, -84.3095)])
+    assert db.upserts in ([], [(FL, [])])
+    assert "LISTING_UNMATCHED" in text and "LISTING_FORMAT_AMBIGUOUS" in text
+
+
+def test_validated_ids_still_join_exactly_and_listing_join_is_opt_in(tmp_path):
+    feats = [("0012345000", [square(-84.30, 30.40, 0.001)]), ("1234560010", [square(-84.31, 30.40, 0.001)])]
+    rc, db, _ = run_listing(tmp_path, feats, [lrec("v", "listing-v", 30.4005, -84.2995, nal="0012345000"),
+                                              lrec("l", "123456-0010", 30.4005, -84.3095)])
+    assert sorted((r["property_id"], r["match_method"]) for r in db.upserts[0][1]) == [
+        ("l", "PARCEL_NUMBER_LOCATION_CONFIRMED"), ("v", "EXACT_PARCEL_ID")]
+    p = write_shp(tmp_path, "leon_pin2", feats)
+    db2 = FakeDb([lrec("l", "123456-0010", 30.4005, -84.3095)])
+    R.run(FL, apply=True, db=db2, out=lambda m: None, today=TODAY, files={"county": "Leon", "path": str(p)})
+    assert db2.upserts in ([], [(FL, [])])                                      # without listing_join: nothing
+
+
+def test_condo_and_right_of_way_are_never_listing_joined(tmp_path):
+    rc, db, text = run_listing(tmp_path, [("1234560010", [square(-84.30, 30.40, 0.001)])],
+                               [lrec("c", "123456-0010", 30.4005, -84.2995, use="04"),
+                                lrec("r", "123456-0010", 30.4005, -84.2995, use="94")])
+    assert db.upserts in ([], [(FL, [])]) and "CONDO_UNIT" in text and "RIGHT_OF_WAY" in text

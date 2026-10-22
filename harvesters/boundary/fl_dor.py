@@ -138,20 +138,113 @@ def record_exclusion(row: dict, county: str) -> str:
     return ""
 
 
-def prepare_records(rows: list[dict], county: str) -> tuple[list[dict], dict]:
-    """The records that may be joined (each with `nal_parcel_id`) and the
-    counts of the ones that may not, by reason."""
+# How a record was joined (stored in parcel_boundaries.match_method):
+# * EXACT_PARCEL_ID - the record's validated NAL PARCEL_ID equals PARCELNO;
+# * PARCEL_NUMBER_LOCATION_CONFIRMED - the listing's own parcel number with
+#   separators removed (case ignored, every digit and leading zero kept) equals
+#   exactly one PARCELNO value in the county file, AND the record's own stored
+#   point lies inside that polygon. Chosen by the product owner on 2026-10-22
+#   for Florida Available records, most of which carry no validated NAL id.
+METHOD_VALIDATED = "EXACT_PARCEL_ID"
+METHOD_LISTING = "PARCEL_NUMBER_LOCATION_CONFIRMED"
+LISTING_KEY_MIN, LISTING_KEY_MAX = 4, 40
+
+
+def separators_removed(value) -> str:
+    """The listing-join key: letters and digits only, upper case. Leading
+    zeros and every digit are kept; only separators (dashes, spaces, dots,
+    slashes) and case are ignored."""
+    return re.sub(r"[^A-Za-z0-9]", "", "" if value is None else str(value)).upper()
+
+
+def _point(row: dict) -> tuple[float, float] | None:
+    try:
+        lat, lon = float(row.get("latitude")), float(row.get("longitude"))
+    except (TypeError, ValueError):
+        return None
+    return (lon, lat) if math.isfinite(lat) and math.isfinite(lon) else None
+
+
+def prepare_records(rows: list[dict], county: str, *, listing_join: bool = False) -> tuple[list[dict], dict]:
+    """The records that may be joined and the counts of the ones that may not,
+    by reason. A record with a validated NAL id joins on it (join_key set).
+    With listing_join, a record without one may join on its listing parcel
+    (listing_key set; join_key is resolved against the file later and the
+    record must carry its own point, which has to fall inside the polygon)."""
     eligible, counts = [], {}
     for row in rows:
         reason = record_exclusion(row, county)
         key = None
         if not reason:
             key, reason = nal_parcel_id(row)
-        if reason:
-            counts[reason] = counts.get(reason, 0) + 1
+        if key:
+            eligible.append(dict(row, nal_parcel_id=key, join_key=key, join_method=METHOD_VALIDATED))
             continue
-        eligible.append(dict(row, nal_parcel_id=key))
+        if listing_join and reason == "NO_VALIDATED_NAL_ID":
+            lk = separators_removed(row.get("parcel"))
+            if not (LISTING_KEY_MIN <= len(lk) <= LISTING_KEY_MAX and any(ch.isdigit() for ch in lk)):
+                reason = "NO_USABLE_LISTING_PARCEL"
+            elif _point(row) is None:
+                reason = "NO_RECORD_POINT"
+            else:
+                eligible.append(dict(row, listing_key=lk, join_key=None, join_method=METHOD_LISTING))
+                continue
+        counts[reason] = counts.get(reason, 0) + 1
     return eligible, counts
+
+
+def resolve_listing_keys(records: list[dict], features: list[dict]) -> tuple[list[dict], dict]:
+    """Give each listing-joined record the file's own PARCELNO spelling, when
+    exactly one PARCELNO value in the file has the same separators-removed
+    form. None -> LISTING_UNMATCHED; several -> LISTING_FORMAT_AMBIGUOUS."""
+    spellings: dict = {}
+    for f in features:
+        raw = f["properties"].get(IDENTIFIER_FIELD)
+        spellings.setdefault(separators_removed(raw), set()).add(raw)
+    out, counts = [], {}
+    for r in records:
+        if r.get("join_method") != METHOD_LISTING:
+            out.append(r)
+            continue
+        raws = spellings.get(r["listing_key"], set())
+        if len(raws) == 1:
+            out.append(dict(r, join_key=next(iter(raws))))
+            continue
+        why = "LISTING_UNMATCHED" if not raws else "LISTING_FORMAT_AMBIGUOUS"
+        counts[why] = counts.get(why, 0) + 1
+    return out, counts
+
+
+def point_in_multipolygon(lon: float, lat: float, geom) -> bool:
+    """Even-odd test over every ring of a GeoJSON MultiPolygon."""
+    inside = False
+    for poly in geom.get("coordinates") or []:
+        for ring in poly:
+            for (x1, y1), (x2, y2) in zip(ring, ring[1:]):
+                if (y1 > lat) != (y2 > lat) and lon < (x2 - x1) * (lat - y1) / (y2 - y1) + x1:
+                    inside = not inside
+    return inside
+
+
+def confirm_listing_points(records: list[dict], features: list[dict]) -> tuple[list[dict], dict]:
+    """A listing-joined record is kept only when its own stored point lies
+    inside the polygon carrying its PARCELNO (LOCATION_CONFIRMED_INSIDE);
+    otherwise it is not joined (LOCATION_NOT_INSIDE)."""
+    geoms: dict = {}
+    for f in features:
+        geoms.setdefault(f["properties"].get(IDENTIFIER_FIELD), []).append(f["geometry"])
+    out, counts = [], {}
+    for r in records:
+        if r.get("join_method") != METHOD_LISTING:
+            out.append(r)
+            continue
+        lon, lat = _point(r)
+        if any(point_in_multipolygon(lon, lat, g) for g in geoms.get(r["join_key"], [])):
+            counts["LOCATION_CONFIRMED_INSIDE"] = counts.get("LOCATION_CONFIRMED_INSIDE", 0) + 1
+            out.append(r)
+        else:
+            counts["LOCATION_NOT_INSIDE"] = counts.get("LOCATION_NOT_INSIDE", 0) + 1
+    return out, counts
 
 
 # --- the file's side ----------------------------------------------------------
@@ -170,7 +263,7 @@ class CountyRead:
 
 
 def read_county(path, county: str, *, variant: str = "PIN", allow_par_geometry: bool = False,
-                keys=None) -> CountyRead:
+                keys=None, listing_keys=None) -> CountyRead:
     """Read one county's DOR parcel shapefile (.shp with its siblings, or the
     county .zip) into GeoJSON features carrying PARCELNO and FID. Never
     raises: a problem is a FAILED or REFUSED read, which the refresh treats
@@ -197,19 +290,23 @@ def read_county(path, county: str, *, variant: str = "PIN", allow_par_geometry: 
             shp = Path(path)
             if shp.suffix.lower() == ".zip":
                 shp = shapefile.extract_zip(shp, td)
-            return _read_shp(shp, county, variant, keys)
+            return _read_shp(shp, county, variant, keys, listing_keys)
         except (shapefile.UnsupportedProjection, shapefile.UnsupportedFormat, RuntimeError, OSError) as exc:
             return CountyRead("FAILED", county, type(exc).__name__ + ": " + str(exc))
         except Exception as exc:  # noqa: BLE001 - a malformed file (pyshp raises its own types) is a failed read
             return CountyRead("FAILED", county, "MALFORMED_FILE: " + type(exc).__name__)
 
 
-def _read_shp(shp: Path, county: str, variant: str, keys=None) -> CountyRead:
+def _read_shp(shp: Path, county: str, variant: str, keys=None, listing_keys=None) -> CountyRead:
     expected = COUNTY_CODES[county]
     out = CountyRead("COMPLETE", county, dataset=f"DOR PTO {variant} parcel shapefile {shp.stem}",
                      dataset_date=shapefile.dbf_date(shp), crs="projected")
     counts: dict = {}
-    keep = None if keys is None else (lambda props: exact_key(props.get(IDENTIFIER_FIELD)) in keys)
+    keep = None
+    if keys is not None or listing_keys is not None:
+        exact, listing = set(keys or ()), set(listing_keys or ())
+        keep = (lambda props: exact_key(props.get(IDENTIFIER_FIELD)) in exact
+                or separators_removed(props.get(IDENTIFIER_FIELD)) in listing)
     keys_by_raw: dict = {}
     for f in shapefile.read_pin_features(shp, keep=keep):
         props = f["properties"]
@@ -226,7 +323,12 @@ def _read_shp(shp: Path, county: str, variant: str, keys=None) -> CountyRead:
             counts["NO_PARCELNO"] = counts.get("NO_PARCELNO", 0) + 1
             continue
         out.identifier_shapes.add(identifier_shape(key))
-        if keys is not None:
+        if f.get("malformed"):
+            counts["MALFORMED_SHAPE"] = counts.get("MALFORMED_SHAPE", 0) + 1
+            if keep is not None:
+                keys_by_raw.setdefault(f["raw_sha"], set()).add(key)
+            continue
+        if keep is not None:
             keys_by_raw.setdefault(f["raw_sha"], set()).add(key)
         if f.get("skipped"):
             counts["NOT_IN_SCOPE"] = counts.get("NOT_IN_SCOPE", 0) + 1
@@ -240,10 +342,10 @@ def _read_shp(shp: Path, county: str, variant: str, keys=None) -> CountyRead:
             continue
         feat = {"type": "Feature", "properties": {IDENTIFIER_FIELD: key, "FID": props["FID"]},
                 "geometry": f["geometry"]}
-        if keys is not None:
+        if keep is not None:
             feat["_raw_sha"] = f["raw_sha"]
         out.features.append(feat)
-    if keys is not None:
+    if keep is not None:
         kept = []
         for feat in out.features:
             if len(keys_by_raw.get(feat.pop("_raw_sha"), ())) > 1:
@@ -295,6 +397,7 @@ def location_check(records: list[dict], features: list[dict], *, tolerance_m: fl
             continue
         if math.isfinite(lat) and math.isfinite(lon):
             points.setdefault(r.get("nal_parcel_id"), []).append((lon, lat))
+    records = [r for r in records if r.get("join_method", METHOD_VALIDATED) == METHOD_VALIDATED]
     keys = {r.get("nal_parcel_id") for r in records}
     kept, counts = [], {}
     for f in features:

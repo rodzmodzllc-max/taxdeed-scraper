@@ -26,12 +26,24 @@
 -- * Florida's source-level refresh state is cleared: Florida is refreshed
 --   one county at a time, so a single county's read must never stand as the
 --   statewide refresh. A Broward read had set it (2026-10-21).
--- * Florida's change notice names the NAD83 to WGS84 step, only where the
---   stored notice is still 034's original text.
+-- * parcel_boundaries.match_method also allows PARCEL_NUMBER_LOCATION_CONFIRMED
+--   (listing parcel number, separators ignored, confirmed by the property's own
+--   point inside the polygon).
+-- * Florida's change notice names the NAD83 to WGS84 step and both match
+--   rules, only where the stored notice is still a text this repository wrote.
 --
 -- Nothing here deletes or rewrites a stored boundary.
 
 alter table public.parcel_boundaries add column if not exists source_dataset_date date;
+
+-- How a boundary was matched to its property (harvesters/boundary/fl_dor.py):
+-- EXACT_PARCEL_ID, or PARCEL_NUMBER_LOCATION_CONFIRMED - the listing's parcel
+-- number with separators ignored equals exactly one PARCELNO in the county
+-- file AND the property's own stored point lies inside that polygon (product
+-- owner's choice, 2026-10-22, for Florida Available records).
+alter table public.parcel_boundaries drop constraint if exists parcel_boundaries_match_method_check;
+alter table public.parcel_boundaries add constraint parcel_boundaries_match_method_check
+  check (match_method in ('EXACT_PARCEL_ID', 'PARCEL_NUMBER_LOCATION_CONFIRMED'));
 
 create table if not exists public.parcel_boundary_refresh_units (
   source_id                  text not null references public.parcel_boundary_sources(source_id),
@@ -234,9 +246,10 @@ update public.parcel_boundary_sources
  where source_id = 'fl_dor_pto_parcel_gis';
 
 update public.parcel_boundary_sources
-   set change_notice = 'Boundaries reprojected from the file''s own coordinate system to WGS84 (NAD83 treated as WGS84, under about 2 m) and simplified by TAXACQ for display (Douglas-Peucker, about 0.5 m); matched to records by exact parcel identifier only'
+   set change_notice = 'Boundaries reprojected from the file''s own coordinate system to WGS84 (NAD83 treated as WGS84, under about 2 m) and simplified by TAXACQ for display (Douglas-Peucker, about 0.5 m); matched to records by exact parcel identifier, or by the listing''s parcel number with separators ignored and only where the property''s own location falls inside the parcel'
  where source_id = 'fl_dor_pto_parcel_gis'
-   and change_notice = 'Boundaries reprojected to WGS84 and simplified by TAXACQ for display (Douglas-Peucker, about 0.5 m); matched to records by exact parcel identifier only';
+   and change_notice in ('Boundaries reprojected to WGS84 and simplified by TAXACQ for display (Douglas-Peucker, about 0.5 m); matched to records by exact parcel identifier only',
+                         'Boundaries reprojected from the file''s own coordinate system to WGS84 (NAD83 treated as WGS84, under about 2 m) and simplified by TAXACQ for display (Douglas-Peucker, about 0.5 m); matched to records by exact parcel identifier only');
 
 -- DOWN (manual): drop function public.parcel_boundary_refresh_of(text, text);
 --   drop table public.parcel_boundary_refresh_units; re-create 034's

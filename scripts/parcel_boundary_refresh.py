@@ -119,7 +119,7 @@ class Db:
         except Exception:  # noqa: BLE001 - absent table / function = not applied
             return False
 
-    def properties(self, src, county: str | None = None) -> list[dict]:
+    def properties(self, src, county: str | None = None, source: str | None = None) -> list[dict]:
         import rest_pages  # noqa: PLC0415 - scripts/ helper
         if src.location == "files":
             # Florida: the join key is derived from field_provenance; the use
@@ -128,6 +128,8 @@ class Db:
         else:
             select = f"id,state,county,{src.record_key}"
         params = {"select": select, "state": f"eq.{src.state}", "status": "eq.active"}
+        if source:
+            params["source"] = f"eq.{source}"       # one ledger only (e.g. laft = Available)
         if county:
             params["county"] = f'eq.{county}'
         elif src.counties:
@@ -161,32 +163,44 @@ class Db:
 
 
 def run_files(src, *, apply: bool, db, out, county: str = "", path: str = "", variant: str = "PIN",
-              allow_par_geometry: bool = False) -> int:
+              allow_par_geometry: bool = False, source: str | None = None, listing_join: bool = False) -> int:
     """One Florida DOR county shapefile. Nothing is written unless the file
-    read COMPLETE and the county's identifier format matches the validated
-    ids; a failed, refused or unvalidated read only records the attempt."""
+    read COMPLETE; validated-id records also need the county's identifier
+    format to match, listing-joined records (listing_join) need their own
+    point inside the polygon. A failed, refused or unvalidated read only
+    records the attempt. `source` limits the records to one ledger."""
     if not (county and path):
         out("a files source needs --county and --files: nothing read, nothing written")
         return 2
     started = now_iso()
-    rows = db.properties(src, county)
-    records, excluded = fl_dor.prepare_records(rows, county)
+    rows = db.properties(src, county, source=source) if source else db.properties(src, county)
+    records, excluded = fl_dor.prepare_records(rows, county, listing_join=listing_join)
+    validated = [r for r in records if r["join_method"] == fl_dor.METHOD_VALIDATED]
+    listing = [r for r in records if r["join_method"] == fl_dor.METHOD_LISTING]
     read = fl_dor.read_county(path, county, variant=variant, allow_par_geometry=allow_par_geometry,
-                              keys={r["nal_parcel_id"] for r in records})
+                              keys={r["nal_parcel_id"] for r in validated},
+                              listing_keys={r["listing_key"] for r in listing} if listing_join else None)
     status, note = read.status, read.reason
-    if status == "COMPLETE":
-        ok, why = fl_dor.format_check(records, read.features, read.identifier_shapes)
-        if not ok:
+    if status == "COMPLETE" and validated:
+        ok, why = fl_dor.format_check(validated, read.features, read.identifier_shapes)
+        if not ok and not listing:
             status, note = "JOIN_NOT_VALIDATED", why
-        else:
-            read.features, located = fl_dor.location_check(records, read.features)
-            read.counts = {**read.counts, **located}
+        elif not ok:
+            # The validated ids do not look like this file's PARCELNO: they are
+            # not joined; listing-joined records still need their own point.
+            records, note = listing, why
+            excluded["JOIN_FORMAT_MISMATCH"] = len(validated)
+    if status == "COMPLETE":
+        records, resolved = fl_dor.resolve_listing_keys(records, read.features)
+        read.features, located = fl_dor.location_check(records, read.features)
+        records, confirmed = fl_dor.confirm_listing_points(records, read.features)
+        read.counts = {**read.counts, **resolved, **located, **confirmed}
     plan = boundary_plan.plan_refresh(records, read.features if status == "COMPLETE" else [], db.stored(
         [x["id"] for x in records]) if status == "COMPLETE" else {}, src, read_status=status, observed_at=started,
         dataset=read.dataset or None, dataset_date=read.dataset_date)
     counts = {k: v for k, v in sorted({**read.counts, **plan["counts"]}.items()) if v}
     out(f"{src.source_id} [{county}]: read {status}{' (' + note + ')' if note else ''}; records {len(rows)} "
-        f"(joinable {len(records)}, not joinable {json.dumps(dict(sorted(excluded.items())))}); "
+        f"(joinable {len(validated) + len(listing)}, not joinable {json.dumps(dict(sorted(excluded.items())))}); "
         f"features {len(read.features)}; plan {json.dumps(counts)}")
     if not apply:
         out(f"dry run: would write {len(plan['rows'])}; would record {county} as {status}")
@@ -252,6 +266,11 @@ def main(argv=None) -> int:
     ap.add_argument("--county", default="", help="files sources: the county the file belongs to")
     ap.add_argument("--files", default="", help="files sources: a county shapefile (.zip or .shp with siblings)")
     ap.add_argument("--variant", default="PIN", choices=fl_dor.VARIANTS)
+    ap.add_argument("--records-source", default="", choices=["", "laft", "auction", "certificate"],
+                    help="files sources: only records of this ledger (laft = Available)")
+    ap.add_argument("--listing-join", action="store_true",
+                    help="files sources: also join on the listing parcel number, separators ignored, "
+                         "only when the record's own point lies inside the polygon")
     ap.add_argument("--allow-par-geometry", action="store_true",
                     help="read a PAR file's geometry (its attributes are never decoded)")
     a = ap.parse_args(argv)
@@ -267,7 +286,8 @@ def main(argv=None) -> int:
         return 2
     return run(a.source, apply=a.apply, db=Db(url, key),
                files={"county": a.county, "path": a.files, "variant": a.variant,
-                      "allow_par_geometry": a.allow_par_geometry})
+                      "allow_par_geometry": a.allow_par_geometry, "source": a.records_source or None,
+                      "listing_join": a.listing_join})
 
 
 if __name__ == "__main__":

@@ -28,7 +28,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: parcel-boundaries-broward
+  group: parcel-boundaries-florida
   cancel-in-progress: false
 
 jobs:

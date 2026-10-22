@@ -180,3 +180,17 @@ def test_l05_clients_cannot_write_or_call_the_writers(scratch):
             assert "permission denied" in scratch(as_user(USERS[who], stmt)), (who, stmt)
     # Anonymous callers read nothing at all.
     assert "permission denied" in scratch(f"set role anon; select * from public.get_property_boundary('{P_PUB}');")
+
+
+def test_l06_the_listing_join_method_is_storable_and_others_are_not(scratch):
+    from test_migration_034_parcel_boundaries import P_HELD
+    ok = row(P_HELD, "x#1", sq(-84.3, 30.4), "a").replace('"EXACT_PARCEL_ID"', '"PARCEL_NUMBER_LOCATION_CONFIRMED"')
+    out = upsert(scratch, FL, [ok])
+    assert '"inserted": 1' in out or '"replaced": 1' in out
+    assert scratch(f"select match_method from public.parcel_boundaries where property_id = '{P_HELD}';").strip() \
+        == "PARCEL_NUMBER_LOCATION_CONFIRMED"
+    bad = scratch(f"insert into public.parcel_boundaries (property_id, state, county, parcel, source_id, source_dataset, "
+                  f"source_feature_id, geom, match_method, simplify_tolerance_deg, content_sha256, source_observed_at) values "
+                  f"('{P_PUB}', 'FL', 'Bay', 'p', '{FL}', 'd', 'f', ST_GeomFromText('MULTIPOLYGON(((0 0,1 0,1 1,0 0)))', 4326), "
+                  f"'NEAREST', 0, repeat('a', 64), now());")
+    assert "parcel_boundaries_match_method_check" in bad

@@ -3429,6 +3429,12 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   polygon must lie in Florida and within 1 km of the record's own point when it has one (`LOCATION_MISMATCH`);
   per-county refresh in `parcel_boundary_refresh_units`. A county read reprojects only the joinable keys' polygons
   but sees the whole file for format, stacked and multi-parcel checks.
+- **Florida Available** (`scripts/load_florida_available_boundaries.py`, manual workflow
+  `parcel-boundaries-florida-available.yml`, owner's decision 2026-10-22): `laft` records only; county files from DOR's own
+  `Map Data/<year>F/<year>F PIN` listing (2026 default); a record without a validated NAL id may join on its listing parcel
+  with separators ignored (`fl_dor.separators_removed`, leading zeros kept) only when exactly one PARCELNO matches AND its
+  own stored point lies inside the polygon (`match_method` `PARCEL_NUMBER_LOCATION_CONFIRMED`, allowed by 035). A
+  malformed shape is skipped (`MALFORMED_SHAPE`); a truncated .shp fails the county.
 - **Utah:** display is allowed; the disclaimer is linked to UGRC's license and disclaimer policy page.
 - **Production (read-only, 2026-10-21):** 034 was applied directly (bodies = the repo file; not in the migration
   history) and workflow run #2 of `parcel-boundaries-broward` (main `e5ec234`, listing-parcel matching) wrote 64

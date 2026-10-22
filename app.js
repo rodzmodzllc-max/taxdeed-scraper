@@ -2122,6 +2122,12 @@ function boundaryCreditHtml(a) {
   parts.push(`<span class="pb-credit-note">Outline is for orientation; it is not a survey and does not show ownership or title.</span>`);
   return `<p class="pb-credit" data-pb-credit>${parts.join(" · ")}</p>`;
 }
+// How the outline was matched to this property (parcel_boundaries.match_method).
+function boundaryMatchText(method) {
+  return method === "PARCEL_NUMBER_LOCATION_CONFIRMED"
+    ? "matched by the listing's parcel number (separators ignored) and confirmed by this property's own location inside the parcel"
+    : "matched by exact parcel identifier";
+}
 function drawBoundary(host, boundary) {
   const img = host.querySelector("img.naip-live-img");
   if (!img) return;
@@ -2146,7 +2152,7 @@ function drawBoundary(host, boundary) {
   if (next && next.matches && next.matches("[data-pb-credit]")) next.remove();
   host.insertAdjacentHTML("afterend", boundaryCreditHtml(boundary.attribution));
   const cap = host.querySelector(".photo-caption");
-  if (cap) cap.title = "Parcel outline from " + boundary.attribution.credit + ", matched by exact parcel identifier. The aerial itself does not show ownership, current condition or title.";
+  if (cap) cap.title = "Parcel outline from " + boundary.attribution.credit + ", " + boundaryMatchText(boundary.matchMethod) + ". The aerial itself does not show ownership, current condition or title.";
   host.classList.add("has-boundary");
   host.dataset.boundarySource = boundary.sourceId;
   host.setAttribute("aria-label", "Aerial image with the parcel outline of this property (" + boundary.attribution.credit + ")");
