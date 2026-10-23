@@ -1034,6 +1034,7 @@ await glancePage.close();
 // --- the tax-roll facts on the full property page ---
 // The card carries the three-fact summary; the page carries the rest,
 // including the whole legal description rather than one clamped line.
+await page.evaluate(() => document.querySelectorAll('details.detail-more').forEach(d => { d.open = true; }));
 results.detailStatLabels = await page.locator('#detailModalInner .detail-stat-label').allTextContents();
 results.detailStatValues = await page.evaluate(() => {
   // Phase 35: a stat label can now carry a trailing infoTip() "i" glyph
@@ -1069,6 +1070,7 @@ results.homesteadStatAbsentForP1 = !(await page.evaluate(() =>
   [...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-stat-label')].some(e => e.textContent.trim() === 'Homestead Exemption')));
 // Florida-law reminder that survives every property, not just risky ones -
 // code/utility/IRS liens are never screened for by this app.
+await page.evaluate(() => document.querySelectorAll('details.detail-more').forEach(d => { d.open = true; }));
 results.muniLienNoteVisible = await page.locator('#detailModalInner .muni-lien-note').count();
 
 // --- Bid & profit calculator: the existing Fees/Walk-Away-Above math made
