@@ -4481,6 +4481,8 @@ await navMap.close();
     const m = await newPage({ viewport: { width: 390, height: 844 } });
     await m.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
     await m.waitForTimeout(400);
+    // The calendar is a closed fold by default; a reader opens it before the events count.
+    await m.evaluate(() => { const d = document.querySelector('.upcoming-fold'); if (d) d.open = true; });
     results.commandCenterMobile = await m.evaluate(() => ({
       visible: Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => !e.closest('details:not([open])') && e.getClientRects().length > 0).length,
       overflow: document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth,
