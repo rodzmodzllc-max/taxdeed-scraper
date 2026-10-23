@@ -7653,7 +7653,7 @@ const EXPECTED = {
   navMapDeepContext: 'Ledger: Available · County: Bay',
   navMapDeepHash: '#/map?ledger=laft&county=Bay',
   // Shell redesign (2026-10-04)
-  rdHome: {"title": "Public property you can research, verify and acquire.", "cards": ["laft:2", "auction:9", "certificate:1"], "statesCard": 1, "recentHasFirstSeen": true, "noScoreWords": true},
+  rdHome: {"title": "Public tax-sale and public-land listings, each with its source, its last read and what is verified about acquiring it.", "cards": ["laft:2", "auction:9", "certificate:1"], "statesCard": 1, "recentHasFirstSeen": true, "noScoreWords": true},
   rdHomeSearch: {"hash": "#/lands", "listSearch": "", "cards": 1, "chip": "Search: “Manatee”×"},
   rdChipRemoved: {"listSearch": "", "chips": 0, "hidden": true},
   rdPathChip: ["Purchase path: No online path on file×"],
