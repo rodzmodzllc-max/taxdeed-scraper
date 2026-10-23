@@ -7995,7 +7995,7 @@ const EXPECTED = {
   csvHomesteadBlankForP1: true,
   csvEnrichedCells: '90000|2025|1958|1840|16456|1|22000|68000|41500|2011',
   csvLegalUnclamped: true,
-  detailStatLabels: ['Opening Bid', '2025 County Just Value', 'County Assessed Value', 'Land Value', // Phase 35: Building / Improvement Value, Walk Away Above, and Gross
+  detailStatLabels: ['2025 County Just Value', 'County Assessed Value', 'Land Value', // Phase 35: Building / Improvement Value, Walk Away Above, and Gross
     // Equity Spread all gained an infoTip() marking them as calculated
     // (not county-sourced) - same "label carries an info tooltip glyph"
     // convention "Fees i" already used below.
