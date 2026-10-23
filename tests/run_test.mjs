@@ -2208,7 +2208,7 @@ await noHealthPage.goto(BASE_URL + '?health=none' + '#/auctions', { waitUntil: '
 await noHealthPage.waitForTimeout(500);
 await noHealthPage.click('.nav-item[data-page="dashboard"]');
 await noHealthPage.waitForTimeout(200);
-results.dashHealthMissingTable = ((await noHealthPage.locator('#dashSourceRows').textContent()) || '').includes('not recorded yet');
+results.dashHealthMissingTable = ((await noHealthPage.locator('#dashSourceRows').textContent()) || '').includes('not reported yet');
 results.dashHealthMissingTableNoBadges = await noHealthPage.locator('#dashSourceRows .health-badge').count();
 await noHealthPage.close();
 const noRegPage = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -2216,7 +2216,7 @@ await noRegPage.goto(BASE_URL + '?registry=none' + '#/auctions', { waitUntil: 'n
 await noRegPage.waitForTimeout(500);
 await noRegPage.click('.nav-item[data-page="dashboard"]');
 await noRegPage.waitForTimeout(200);
-results.dashUnitMissingColumns = ((await noRegPage.locator('#dashUnitRows').textContent()) || '').includes('not recorded yet');
+results.dashUnitMissingColumns = ((await noRegPage.locator('#dashUnitRows').textContent()) || '').includes('not reported yet');
 results.dashUnitMissingColumnsNoRows = await noRegPage.locator('#dashUnitRows .unit-row').count();
 await noRegPage.close();
 
@@ -7838,7 +7838,7 @@ const EXPECTED = {
   navDashTileHeading: 'Available',
   navPhoneBottomItems: 4,
   navPhoneBottomFits: true,
-  navPhoneBottomLabels: ['Home', 'Search', 'Map', 'Saved'],
+  navPhoneBottomLabels: ['Home', 'Properties', 'Map', 'Watchlist'],
   navWlCards: ['p4'],
   navWlRelated: ['Currently listed in Auctions · also on your watchlist'],
   navWlCount: '2/10',
