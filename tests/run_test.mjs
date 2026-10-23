@@ -4482,9 +4482,9 @@ await navMap.close();
     await m.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
     await m.waitForTimeout(400);
     results.commandCenterMobile = await m.evaluate(() => ({
-      visible: Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => e.offsetParent !== null).length,
+      visible: Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => e.getClientRects().length > 0).length,
       overflow: document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth,
-      minTap: Math.min(...Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => e.offsetParent !== null).flatMap(e => Array.from(e.querySelectorAll('.cc-link,.cc-dossier'))).map(a => Math.round(a.getBoundingClientRect().height))) }));
+      minTap: Math.min(...Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => e.getClientRects().length > 0).flatMap(e => Array.from(e.querySelectorAll('.cc-link,.cc-dossier'))).map(a => Math.round(a.getBoundingClientRect().height))) }));
     await m.close();
   }
   // ---- Financial position + documents & links, every Available state (2026-10-05) ----
@@ -7247,7 +7247,7 @@ const EXPECTED = {
   paidLegalConfigured: {"unconfigured": false, "operator": "Fixture Operator LLC", "contactHref": "mailto:fixture@example.com"},
   paidAuthLegalLinks: ["terms.html", "privacy.html", "acceptable-use.html", "source-disclaimer.html"],
   paidAdminNoEmailBeforeReveal: true,
-  paidAdminCustomers: {"status": "5 accounts: 1 administrator · 1 tester (beta) · 2 customer · 1 no access.", "rows": ["admin|admin_override|", "tester|tester_beta|", "customer|active|", "customer|payment_failed_grace|Payment failed 2026-10-03", "inactive|inactive|"]},
+  paidAdminCustomers: {"status": "5 accounts: 1 administrator · 1 tester (beta) · 2 customer · 1 no access.", "rows": ["admin|admin_override|", "tester|tester_beta|", "customer|active|", "customer|payment_failed_grace|Payment failed Oct 3, 2026", "inactive|inactive|"]},
   paidAdminCustomersLegacy: "Billing is not installed yet (migration 027 is not applied): access comes from approval only. 1 administrator · 1 tester (beta) · 0 no access.",
   // Boot resilience (2026-10-03).
   bootFallback: { authGate: true, source: "local", noted: true, panel: false },
@@ -7431,7 +7431,7 @@ const EXPECTED = {
   // All 67 counties now show (busiest-first, then alphabetical among the
   // zero-count ones) instead of only the ~8 with live scraped data - see
   // ALL_COUNTIES in app.js.
-  countyChipLabels: ['Alachua (3)', 'Duval (2)', 'Escambia (2)', 'Marion (2)', 'Baker (1)', 'Bay (1)', 'Brevard (1)', 'Charlotte (1)', 'Citrus (1)', 'Bradford (0)', 'Broward (0)', 'Calhoun (0)', 'Clay (0)', 'Collier (0)', 'Columbia (0)', 'DeSoto (0)', 'Dixie (0)', 'Flagler (0)', 'Franklin (0)', 'Gadsden (0)', 'Gilchrist (0)', 'Glades (0)', 'Gulf (0)', 'Hamilton (0)', 'Hardee (0)', 'Hendry (0)', 'Hernando (0)', 'Highlands (0)', 'Hillsborough (0)', 'Holmes (0)', 'Indian River (0)', 'Jackson (0)', 'Jefferson (0)', 'Lafayette (0)', 'Lake (0)', 'Lee (0)', 'Leon (0)', 'Levy (0)', 'Liberty (0)', 'Madison (0)', 'Manatee (0)', 'Martin (0)', 'Miami-Dade (0)', 'Monroe (0)', 'Nassau (0)', 'Okaloosa (0)', 'Okeechobee (0)', 'Orange (0)', 'Osceola (0)', 'Palm Beach (0)', 'Pasco (0)', 'Pinellas (0)', 'Polk (0)', 'Putnam (0)', 'Santa Rosa (0)', 'Sarasota (0)', 'Seminole (0)', 'St. Johns (0)', 'St. Lucie (0)', 'Sumter (0)', 'Suwannee (0)', 'Taylor (0)', 'Union (0)', 'Volusia (0)', 'Wakulla (0)', 'Walton (0)', 'Washington (0)'],
+  countyChipLabels: ["Alachua (2)", "Duval (2)", "Escambia (2)", "Marion (2)", "Baker (1)", "Brevard (1)", "Charlotte (1)", "Bay (0)", "Bradford (0)", "Broward (0)", "Calhoun (0)", "Citrus (0)", "Clay (0)", "Collier (0)", "Columbia (0)", "DeSoto (0)", "Dixie (0)", "Flagler (0)", "Franklin (0)", "Gadsden (0)", "Gilchrist (0)", "Glades (0)", "Gulf (0)", "Hamilton (0)", "Hardee (0)", "Hendry (0)", "Hernando (0)", "Highlands (0)", "Hillsborough (0)", "Holmes (0)", "Indian River (0)", "Jackson (0)", "Jefferson (0)", "Lafayette (0)", "Lake (0)", "Lee (0)", "Leon (0)", "Levy (0)", "Liberty (0)", "Madison (0)", "Manatee (0)", "Martin (0)", "Miami-Dade (0)", "Monroe (0)", "Nassau (0)", "Okaloosa (0)", "Okeechobee (0)", "Orange (0)", "Osceola (0)", "Palm Beach (0)", "Pasco (0)", "Pinellas (0)", "Polk (0)", "Putnam (0)", "Santa Rosa (0)", "Sarasota (0)", "Seminole (0)", "St. Johns (0)", "St. Lucie (0)", "Sumter (0)", "Suwannee (0)", "Taylor (0)", "Union (0)", "Volusia (0)", "Wakulla (0)", "Walton (0)", "Washington (0)"],
   filtersOpenAfterClick: true,
   brevardGroupMeta: /^Auction [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
   brevardGroupCount: '1/1 active',
@@ -7711,7 +7711,7 @@ const EXPECTED = {
   adminSourcesNoticeRows: 3,
   adminFreshnessHealthRows: 5,
   adminFreshnessUnitDetail: "FLBayfl_laft_pioneerStalelast read 2h ago (failed) · last complete read 3d ago · 3 rows at that read · 3 consecutive failed attempts · source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours · back-off: attempted at most once per 48 hours until a read succeeds",
-  adminInventoryMi: {"status": "MI: 7 collected rows across 3 sources; 2 sources awaiting customer-publication review.", "lots": "mi_detroit_landbank_lotsAvailableUnreviewed55102 of 4 with a verified structure2026-10-03", "programs": "mi_detroit_landbank_programsAvailableUnreviewed11100 of 0 with a verified structure2026-10-02"},
+  adminInventoryMi: {"status": "MI: 7 collected rows across 3 sources; 2 sources awaiting customer-publication review.", "lots": "mi_detroit_landbank_lotsAvailableUnreviewed55102 of 4 with a verified structureOct 3, 2026", "programs": "mi_detroit_landbank_programsAvailableUnreviewed11100 of 0 with a verified structureOct 2, 2026"},
   adminSignOutRedirected: true,
   adminAfterSignOutRedirected: true,
   signupFormOffered: true,
