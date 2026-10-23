@@ -1237,3 +1237,10 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .detail-more-summary::after{content:"Show";margin-left:auto;font-weight:600;color:var(--copper-deep,var(--copper))}
 .detail-more[open] > .detail-more-summary::after{content:"Hide"}
 .detail-more-summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Small metadata floor (2026-10-23): text that carries useful information is
+   at least 12px on phones (day labels, the bottom bar, map hints and legend). */
+@media (max-width: 768px) {
+  .desk-kicker, .desk-date span, .nav-bottom-item, .map-legend-label,
+  .explore-map-hint, .explore-map-note, .rail-head { font-size: 12px; }
+}

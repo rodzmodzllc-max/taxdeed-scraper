@@ -7676,7 +7676,7 @@ const EXPECTED = {
   navMapDeepContext: 'Ledger: Available · County: Bay',
   navMapDeepHash: '#/map?ledger=laft&county=Bay',
   // Shell redesign (2026-10-04)
-  rdHome: {"title": "Public tax-sale and public-land listings, each with its source, its last read and what is verified about acquiring it.", "cards": ["laft:2", "auction:9", "certificate:1"], "statesCard": 1, "recentHasFirstSeen": true, "noScoreWords": true},
+  rdHome: {"title": "Tax-sale and public-land listings", "cards": ["laft:2", "auction:9", "certificate:1"], "statesCard": 1, "recentHasFirstSeen": true, "noScoreWords": true},
   rdHomeSearch: {"hash": "#/lands", "listSearch": "", "cards": 1, "chip": "Search: “Manatee”×"},
   rdChipRemoved: {"listSearch": "", "chips": 0, "hidden": true},
   rdPathChip: ["Purchase path: No online path on file×"],
@@ -7995,16 +7995,11 @@ const EXPECTED = {
   csvHomesteadBlankForP1: true,
   csvEnrichedCells: '90000|2025|1958|1840|16456|1|22000|68000|41500|2011',
   csvLegalUnclamped: true,
-  detailStatLabels: [
-    'Opening Bid', '2025 County Just Value', 'County Assessed Value', 'Land Value',
-    // Phase 35: Building / Improvement Value, Walk Away Above, and Gross
+  detailStatLabels: ['Opening Bid', '2025 County Just Value', 'County Assessed Value', 'Land Value', // Phase 35: Building / Improvement Value, Walk Away Above, and Gross
     // Equity Spread all gained an infoTip() marking them as calculated
     // (not county-sourced) - same "label carries an info tooltip glyph"
     // convention "Fees i" already used below.
-    'Building / Improvement Value i',
-    'Fees i', 'Your ceiling (% setting) i', 'County value minus bid i',
-    'Year Built', 'Living Area', 'Lot Size', 'Buildings', 'Last Sale'
-  ],
+    'Building / Improvement Value i', 'Fees i', 'Your ceiling (% setting) i', 'County value minus bid i', 'Year Built', 'Living Area', 'Lot Size', 'Buildings', 'Last Sale'],
   detailStatValues: '1958 | 1,840 sq ft | 16,456 sq ft | 1 | $41,500 in 2011 | $22,000 | $68,000',
   detailLegalIsFull: true,
   detailNamesBothValues: true,

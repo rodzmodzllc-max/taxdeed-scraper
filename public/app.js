@@ -9455,7 +9455,8 @@ function detailHtml(p) {
   const stats = [];
   if (!isCert) {
     if (p.source === "laft") { const as = amountInfo(p); stats.push([as.label, as.value !== null && as.value !== undefined ? fmtMoney(as.value) : (as.display || "Not published"), "financial"]); }
-    else stats.push([auctionBidLabel(p, true), bidDisplay(p), "financial"]);
+    // An auction's opening bid is shown once, in the Auction decision block
+    // (its own row, with its source wording). It is not repeated here (2026-10-23).
     // Named for what it is - the appraiser's own just value for a stated roll
     // year - rather than the old "Market Value", which implied a live
     // estimate this app has never had and cannot legitimately obtain.
