@@ -1929,6 +1929,8 @@ if ((await p66.locator('#expandAllBtn').textContent()) === 'Expand all') { await
 // .sel + preview open on it). p1 has no coordinates, so no pin is expected.
 await p66.locator('.prop-card:has-text("1 Main St") .detail-btn[data-action="viewdetails"]').first().click();
 await p66.waitForTimeout(200);
+// On a phone the GIS card sits in the closed "Property, history, risk..." disclosure; open it as a reader would.
+await p66.evaluate(() => document.querySelectorAll('details.detail-more').forEach(d => { d.open = true; }));
 await p66.click('#detailModalInner .show-on-map-btn');
 await p66.waitForTimeout(900); // county zoom tween + redraw
 results.showOnMapClosesModal = await p66.locator('#detailModal').isHidden();
