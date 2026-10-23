@@ -6167,10 +6167,9 @@ results.monDetailSection = await monDetail.locator('#detailModalInner [data-sect
 results.monDetailStatus = ((await monDetail.locator('#detailModalInner .monitor-status').textContent()) || '').trim();
 results.monDetailHistory = await monDetail.locator('#detailModalInner .change-history li').evaluateAll(els => els.map(e => e.dataset.kind));
 results.monDetailNeverSold = await monDetail.locator('#detailModalInner [data-section="monitor"]').evaluate(el => /never as a sale/.test(el.textContent) && !/\bsold\b/i.test(el.textContent.replace(/never as a sale|not a sale/g, '')));
-// The monitor pill is added once the monitor section renders, which can trail the
-// fixed wait under suite load; wait for it (up to 5 s) rather than a timing guess.
-await monDetail.waitForSelector('#detailModalInner .detail-nav [data-target="monitor"]', { state: 'attached', timeout: 5000 }).catch(() => {});
-results.monDetailNavPill = await monDetail.locator('#detailModalInner .detail-nav [data-target="monitor"]').count();
+// The section nav is hidden on phones by design (identity.css), and newPage()
+// rewrites locator selectors to :visible, so count the pill in the DOM directly.
+results.monDetailNavPill = await monDetail.evaluate(() => document.querySelectorAll('#detailModalInner .detail-nav [data-target="monitor"]').length);
 // 7. Alerts inbox: two alerts, one unread; mark read clears the badge.
 await monDetail.evaluate(() => { document.getElementById('detailModal').hidden = true; });
 await monDetail.locator('#alertsMenuItem').evaluate(el => el.click());
