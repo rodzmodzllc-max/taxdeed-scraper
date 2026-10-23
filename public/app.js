@@ -8046,7 +8046,7 @@ async function hydrateInventoryHistory(container, p) {
   if (res.error) {
     const msg = String(res.error.message || "");
     const missing = res.error.code === "PGRST205" || res.error.code === "42P01" || /could not find the table|does not exist/i.test(msg);
-    slot.innerHTML = `<span class="muted">${missing ? "Lifecycle history is not available on this deployment yet (migration 021 has not been applied)." : "Couldn't load lifecycle history: " + esc(msg)}</span>`;
+    slot.innerHTML = `<span class="muted">${missing ? "Lifecycle history is not available yet." : "Couldn't load lifecycle history: " + esc(msg)}</span>`;
     return;
   }
   slot.innerHTML = inventoryHistoryHtml(p, res.data || []);
@@ -9267,7 +9267,7 @@ async function hydrateEventHistory(container, p) {
   if (ev.error) {
     const msg = String(ev.error.message || "");
     const missing = ev.error.code === "PGRST205" || ev.error.code === "42P01" || /could not find the table|does not exist/i.test(msg);
-    slot.innerHTML = `<p class="event-note">${missing ? "Sale event history is not available on this deployment yet (migration 014 has not been applied)." : "Couldn't load sale event history: " + esc(msg)}</p>`;
+    slot.innerHTML = `<p class="event-note">${missing ? "Sale event history is not available yet." : "Couldn't load sale event history: " + esc(msg)}</p>`;
     return;
   }
   const events = ev.data || [];
@@ -12559,7 +12559,7 @@ function sourceHealthRowHtml(rec) {
 }
 function sourceHealthRowsHtml(rows, pageState) {
   if (rows === null) {
-    return `<div class="dash-empty">Dataset health is not recorded yet on this deployment (migration 016 / scripts/source_health.py not live). The only freshness signal is the newest row date under Terms - a green workflow run does not by itself mean every dataset is complete.</div>`;
+    return `<div class="dash-empty">Dataset health is not reported yet. The only freshness signal is the newest row date under Terms - a green workflow run does not by itself mean every dataset is complete.</div>`;
   }
   const mine = rows.filter(r => r.state === pageState || r.state === "ALL");
   const rest = rows.filter(r => !(r.state === pageState || r.state === "ALL"));
@@ -12624,7 +12624,7 @@ function unitFreshnessRowHtml(u) {
   </div>`;
 }
 function unitFreshnessRowsHtml(rows, pageState) {
-  if (rows === null) return `<div class="dash-empty">Per-county freshness is not recorded yet on this deployment (migration 021 / scripts/unit_freshness.py not live).</div>`;
+  if (rows === null) return `<div class="dash-empty">County read history is not reported yet, so county freshness cannot be shown.</div>`;
   const mine = rows.filter(r => r.state === pageState && r.last_attempt_at);
   if (!mine.length) return `<div class="dash-empty">No county has a recorded read yet.</div>`;
   mine.sort((a, b) => String(a.county).localeCompare(String(b.county)) || String(a.source_id || "").localeCompare(String(b.source_id || "")));
@@ -12641,7 +12641,7 @@ function renderSourceHealthTerms() {
   const el = document.getElementById("sourceHealthTerms");
   if (!el) return;
   el.innerHTML = SOURCE_HEALTH === null
-    ? `<p class="event-note">Per-dataset health is not recorded yet on this deployment; the line above is the newest row across every source, which can hide a source that stopped.</p>`
+    ? `<p class="event-note">Per-dataset health is not reported yet; the line above is the newest row across every source, which can hide a source that stopped.</p>`
     : sourceHealthRowsHtml(SOURCE_HEALTH, PAGE_STATE);
 }
 
@@ -12841,7 +12841,7 @@ const deleteAccountUi = simpleModal("deleteaccount", { modal: "deleteAccountModa
       if (msg) {
         msg.className = "auth-msg err";
         msg.textContent = missing
-          ? "Account deletion is not available on this deployment yet (migration 015 has not been applied). Use Contact support to request deletion."
+          ? "Account deletion is not available yet. Use Contact support to request deletion."
           : "Couldn't delete the account: " + m;
       }
       return;
@@ -14201,7 +14201,7 @@ function changeHistoryListHtml(events) {
 }
 function monitorSectionHtml(p) {
   const watched = BIDLIST.has(p.id), fav = FAVS.has(p.id);
-  const status = watched && fav ? "On your watchlist and in your favorites." : watched ? "On your watchlist." : fav ? "In your favorites." : "Not watched. Add it to your watchlist to be told when it changes.";
+  const status = watched && fav ? "On your watchlist and in your favorites." : watched ? "On your watchlist." : fav ? "In your favorites." : "Not watched. Add it to your watchlist to check it for changes in this browser - there are no e-mail or push alerts.";
   const alertsLine = MONITOR.tables.user_alerts === true
     ? `Alerts for watched properties are ${MONITOR.prefs && MONITOR.prefs.watch_changes === false ? "<b>off</b>" : "<b>on</b>"} (account menu → Alerts). They appear in the Alerts inbox; e-mail delivery is not configured on this deployment.`
     : "Server alerts are not enabled on this deployment yet. Changes to watched properties are compared in this browser each time you load the app (Watchlist → changes).";
@@ -14217,14 +14217,14 @@ async function hydrateChangeHistory(container, p) {
   const slot = container.querySelector(`[data-changes-for="${cssEscape(String(p.id))}"]`);
   if (!slot) return;
   if (MONITOR.tables.property_change_events === false) {
-    slot.innerHTML = `<span class="muted">Server change history is not enabled on this deployment yet (migration 024 has not been applied).</span>`;
+    slot.innerHTML = `<span class="muted">Server change history is not available yet.</span>`;
     return;
   }
   const res = await sb.from("property_change_events").select("*").eq("property_id", p.id).order("observed_at", { ascending: false }).limit(50);
   if (!document.contains(slot)) return;
   if (res.error) {
     if (isMissingTable(res.error)) MONITOR.tables.property_change_events = false;
-    slot.innerHTML = `<span class="muted">${isMissingTable(res.error) ? "Server change history is not enabled on this deployment yet (migration 024 has not been applied)." : "Couldn't load change history: " + esc(res.error.message || "")}</span>`;
+    slot.innerHTML = `<span class="muted">${isMissingTable(res.error) ? "Server change history is not available yet." : "Couldn't load change history: " + esc(res.error.message || "")}</span>`;
     return;
   }
   MONITOR.tables.property_change_events = true;
@@ -14318,7 +14318,7 @@ function renderAlertsModal() {
   const body = document.getElementById("alertsBody");
   if (!body) return;
   if (MONITOR.tables.user_alerts !== true) {
-    body.innerHTML = `<div class="support-unconfigured" id="alertsUnavailable"><b>Alerts are not enabled on this deployment yet.</b> The server tables for alerts (migration 024) have not been installed. Until they are, changes to your watched properties are compared in this browser each time you load the app - see Watchlist.</div>`;
+    body.innerHTML = `<div class="support-unconfigured" id="alertsUnavailable"><b>Alerts are not available yet.</b> Changes to your watched properties are checked in this browser each time you load the app. No e-mail or push alerts are sent - see Watchlist.</div>`;
     return;
   }
   const prefs = MONITOR.prefs || { watch_changes: true, saved_search_matches: true, email_enabled: false };
@@ -14327,7 +14327,7 @@ function renderAlertsModal() {
     <div class="alert-prefs" id="alertPrefs">
       <label class="tog"><input type="checkbox" id="prefWatchChanges"${prefs.watch_changes !== false ? " checked" : ""}> <span>Changes to my watched properties</span></label>
       <label class="tog"><input type="checkbox" id="prefSavedSearch"${prefs.saved_search_matches !== false ? " checked" : ""}> <span>New matches for my saved searches</span></label>
-      <label class="tog"><input type="checkbox" id="prefEmail" disabled> <span>E-mail - not configured on this deployment; alerts appear here only</span></label>
+      <label class="tog"><input type="checkbox" id="prefEmail" disabled> <span>E-mail alerts are not available yet; alerts appear here only</span></label>
     </div>
     <div class="alert-actions"><span id="alertsUnreadText">${unread} unread</span>${unread ? ` <button type="button" class="detail-btn" id="alertsMarkRead">Mark all read</button>` : ""}</div>
     ${MONITOR.alerts.length ? `<ol class="dec-history alert-list" id="alertList">${MONITOR.alerts.map(alertItemHtml).join("")}</ol>`
@@ -14358,7 +14358,7 @@ function renderMonitorChrome() {
 // ledger - rows observed, newly listed, changed, no longer listed, listed
 // again. Not recorded yet = said so, never zeros.
 function observationRunsHtml(runs) {
-  if (runs === null) return `<div class="dash-empty" id="dashRunsUnavailable">Per-source change counts are not recorded on this deployment yet (migration 024 has not been applied).</div>`;
+  if (runs === null) return `<div class="dash-empty" id="dashRunsUnavailable">Per-source change counts are not reported yet.</div>`;
   const latest = new Map();
   runs.forEach(r => { const k = `${r.source_id}|${r.ledger || ""}`; if (!latest.has(k)) latest.set(k, r); });
   if (!latest.size) return `<div class="dash-empty">No change-detection run has been recorded for ${esc(STATE_INFO.name || PAGE_STATE)} yet.</div>`;
