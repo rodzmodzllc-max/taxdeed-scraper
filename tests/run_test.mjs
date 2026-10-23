@@ -4482,9 +4482,9 @@ await navMap.close();
     await m.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
     await m.waitForTimeout(400);
     results.commandCenterMobile = await m.evaluate(() => ({
-      visible: Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => e.getClientRects().length > 0).length,
+      visible: Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => !e.closest('details:not([open])') && e.getClientRects().length > 0).length,
       overflow: document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth,
-      minTap: Math.min(...Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => e.getClientRects().length > 0).flatMap(e => Array.from(e.querySelectorAll('.cc-link,.cc-dossier'))).map(a => Math.round(a.getBoundingClientRect().height))) }));
+      minTap: Math.min(...Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => !e.closest('details:not([open])') && e.getClientRects().length > 0).flatMap(e => Array.from(e.querySelectorAll('.cc-link,.cc-dossier'))).map(a => Math.round(a.getBoundingClientRect().height))) }));
     await m.close();
   }
   // ---- Financial position + documents & links, every Available state (2026-10-05) ----
