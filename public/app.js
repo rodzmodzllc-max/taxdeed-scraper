@@ -6152,7 +6152,7 @@ function countyDossierHtml(c, st) {
   const scope = viewerScope();
   const seeAll = scope === "all" || scope === "preview";
   const I = COUNTY_INTEL_LABELS[c.intel] || COUNTY_INTEL_LABELS.NOT_YET_RESEARCHED;
-  const rows = ALL.filter(p => p.county === c.county && regionOf(p) === st && countsToward(p));
+  const rows = ALL.filter(p => p.county === c.county && regionOf(p) === st && !HIDDEN.has(p.id) && !goneExpired(p));
   const ledgerHtml = DOSSIER_LEDGERS.map(([name, key]) => {
     const l = c.ledgers[name] || { coverage: "NO_SOURCE_BACKED_INVENTORY", sources: [] };
     const C = COUNTY_COVERAGE_LABELS[l.coverage] || COUNTY_COVERAGE_LABELS.NO_SOURCE_BACKED_INVENTORY;
@@ -6268,8 +6268,10 @@ var COUNTY_PAGE = COUNTY_PAGE || { view: "index", county: null, st: null, showAl
 // into what is on file now and every row including closed ones still in the
 // grace window (past auctions for the outcome history).
 function countyRowsFor(county, st) {
-  const all = ALL.filter(p => p.county === county && regionOf(p) === st && countsToward(p));
-  return { all, live: all.filter(p => !goneExpired(p) && !isGone(p)) };
+  // `all` keeps past sales: outcome evidence for a county comes from them.
+  // `live` is what the displayed counts use - the countsToward rule (not past-due).
+  const all = ALL.filter(p => p.county === county && regionOf(p) === st && !HIDDEN.has(p.id));
+  return { all, live: all.filter(p => countsToward(p) && !isGone(p)) };
 }
 function countyUnitFor(st, county, sid) {
   if (!Array.isArray(UNIT_FRESHNESS)) return null;
