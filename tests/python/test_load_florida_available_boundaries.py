@@ -322,3 +322,60 @@ def test_the_ledger_filter_and_the_workflow_input(monkeypatch):
     wf = (ROOT / ".github/workflows/parcel-boundaries-florida-available.yml").read_text(encoding="utf-8")
     assert 'options: [laft, "laft,auction,certificate"]' in wf and "default: laft" in wf
     assert '--ledgers "$LEDGERS"' in wf
+
+
+def _http_error(status):
+    import requests
+    resp = requests.Response()
+    resp.status_code = status
+    return requests.HTTPError(response=resp)
+
+
+def test_download_retries_a_dropped_connection_and_removes_the_partial_file(tmp_path):
+    import requests
+    dest = tmp_path / "f.zip"
+    calls, sleeps = [], []
+
+    def once(url, d):
+        calls.append(url)
+        d.write_bytes(b"partial")
+        if len(calls) < 3:
+            raise requests.ConnectionError("dropped")
+        d.write_bytes(b"whole")
+
+    L.download("u", dest, once=once, sleep=sleeps.append)
+    assert len(calls) == 3 and dest.read_bytes() == b"whole"
+    assert sleeps == list(L.DOWNLOAD_BACKOFF_S[:2])
+
+
+def test_download_gives_up_after_the_last_attempt(tmp_path):
+    import requests
+
+    def once(url, d):
+        raise requests.ConnectionError("dropped")
+
+    with pytest.raises(requests.ConnectionError):
+        L.download("u", tmp_path / "f.zip", once=once, sleep=lambda s: None)
+
+
+def test_download_retries_5xx_but_never_4xx(tmp_path):
+    seen = []
+
+    def once_5xx(url, d):
+        seen.append(1)
+        if len(seen) == 1:
+            raise _http_error(503)
+
+    L.download("u", tmp_path / "f.zip", once=once_5xx, sleep=lambda s: None)
+    assert len(seen) == 2
+
+    seen4 = []
+
+    def once_404(url, d):
+        seen4.append(1)
+        raise _http_error(404)
+
+    import requests
+    with pytest.raises(requests.HTTPError):
+        L.download("u", tmp_path / "g.zip", once=once_404, sleep=lambda s: None)
+    assert len(seen4) == 1

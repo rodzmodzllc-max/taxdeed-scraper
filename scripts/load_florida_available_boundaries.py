@@ -39,6 +39,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 import urllib.parse
 from pathlib import Path
 
@@ -102,12 +103,40 @@ def file_url(year: int, name: str) -> str:
     return "https://floridarevenue.com" + urllib.parse.quote(FOLDER.format(year=year) + "/" + name)
 
 
-def download(url: str, dest: Path) -> None:
+DOWNLOAD_ATTEMPTS = 4
+DOWNLOAD_BACKOFF_S = (15, 60, 180)
+RETRYABLE = (requests.ConnectionError, requests.Timeout, requests.exceptions.ChunkedEncodingError)
+
+
+def _download_once(url: str, dest: Path) -> None:
     with requests.get(url, timeout=1800, stream=True, headers={"User-Agent": USER_AGENT}) as r:
         r.raise_for_status()
         with open(dest, "wb") as fh:
             for chunk in r.iter_content(1 << 20):
                 fh.write(chunk)
+
+
+def download(url: str, dest: Path, *, once=_download_once, sleep=time.sleep) -> None:
+    """Download one county file, retrying a dropped connection or a 5xx.
+
+    The DOR portal drops a connection now and then (run 39876270785: 8 of 45
+    counties failed with ConnectionError, all of which read fine the run
+    before). A partial file is removed before each retry, so a county is only
+    ever read from a whole download; a 4xx or the last failure is raised and
+    the county fails as before (nothing written for it)."""
+    for attempt in range(DOWNLOAD_ATTEMPTS):
+        try:
+            once(url, dest)
+            return
+        except requests.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else 0
+            if status < 500 or attempt == DOWNLOAD_ATTEMPTS - 1:
+                raise
+        except RETRYABLE:
+            if attempt == DOWNLOAD_ATTEMPTS - 1:
+                raise
+        dest.unlink(missing_ok=True)
+        sleep(DOWNLOAD_BACKOFF_S[min(attempt, len(DOWNLOAD_BACKOFF_S) - 1)])
 
 
 def ledger_filter(ledgers) -> str:
