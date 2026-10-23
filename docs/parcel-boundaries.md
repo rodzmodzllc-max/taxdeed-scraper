@@ -104,7 +104,7 @@ The product owner reviewed the Parcel Shapefiles Readme on 2026-10-20. The docum
 - The full read took about 3.5 minutes. Peak memory was about 3 GB, nearly all of it from unpacking the 1.6 GB `.shp` into memory; ZIP extraction now streams to disk, and the reader itself stays under about 100 MB. Only the joinable keys' polygons are reprojected and kept.
 
 **Florida Available outlines** (`scripts/load_florida_available_boundaries.py`; manual workflow `.github/workflows/parcel-boundaries-florida-available.yml`; product owner's decision 2026-10-22):
-- **Scope:** active Florida Available (`laft`) properties only. Auctions and certificates are not read.
+- **Scope:** active Florida Available (`laft`) properties by default. `--ledgers laft,auction,certificate` (workflow input `ledgers`) also reads active Florida auctions and certificates, with the same join and the same exclusions; a ledger not named is never read.
 - **Files:** each county's file comes from DOR's own folder listing of `Map Data/<year>F/<year>F PIN`, 2026 by default. No URL is guessed, and condominium files are never used.
 - **Join**, one of two:
   - **`EXACT_PARCEL_ID`:** the validated NAL PARCEL_ID equals PARCELNO;
