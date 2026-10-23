@@ -4470,6 +4470,8 @@ await navMap.close();
         linksFromRows: links.length > 0 && links.every(h => /^https?:\/\//.test(h)),
         noInvented: !/deposit|registration deadline|bidder/i.test(cc.textContent) };
     });
+    // The calendar sits in a closed fold by default (identity.css / app.js, 2026-10-23).
+    await pg.evaluate(() => { const d = document.querySelector('.upcoming-fold'); if (d) d.open = true; });
     await pg.click('#upcomingSales .cc-dossier');
     results.commandCenterDossier = await pg.waitForSelector('#countyModal:not([hidden]) .dossier', { timeout: 5000 }).then(() => true).catch(() => false);
     await pg.close();
