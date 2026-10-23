@@ -111,8 +111,16 @@ async function newPage(opts) {
     get(target, prop) {
       const v = Reflect.get(target, prop, target);
       if (typeof v !== 'function') return v;
+      // On a phone the property page's secondary sections sit in a disclosure
+      // that starts closed (identity.css / app.js). A reader opens it to reach
+      // them, so the harness does the same before waiting for or clicking one.
+      const opensFirst = prop === 'waitForSelector' || prop === 'click';
       return (...args) => {
         if (typeof args[0] === 'string') args[0] = detailSurfaceSelector(args[0]);
+        if (opensFirst && typeof args[0] === 'string' && /#detail(ModalInner|Panel)/.test(args[0])) {
+          return raw.evaluate(() => document.querySelectorAll('details.detail-more').forEach(d => { d.open = true; }))
+            .catch(() => {}).then(() => v.apply(target, args));
+        }
         return v.apply(target, args);
       };
     }
