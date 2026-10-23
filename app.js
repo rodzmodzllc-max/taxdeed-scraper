@@ -10800,6 +10800,7 @@ function section(container, title, sub, rows, kind) {
   // actually do on it, and one live fact - so arriving at Certificates from
   // Auctions reads as going somewhere else, rather than as the same page with
   // a different word at the top.
+  const calendarHtml = kind === "auction" ? upcomingSalesHtml(shown) : "";
   sec.innerHTML = `
     <div class="mega-head ledger-head">
       ${cfg.question ? infoBubbleHtml(cfg.question, `<p class="mega-sub">${sub}</p>${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}`, { corner: true, dataAttr: `data-ledger-question="${esc(kind)}"` }) : ""}
@@ -10809,7 +10810,7 @@ function section(container, title, sub, rows, kind) {
       </div>
       ${facts ? `<p class="ledger-facts">${esc(facts)}</p>` : ""}
       ${shown.length ? `<details class="ledger-status-fold"><summary>Source status and coverage</summary>${ledgerStatusHtml(kind, shown)}</details>` : ledgerStatusHtml(kind, shown)}
-      ${kind === "auction" ? upcomingSalesHtml(shown) : ""}
+      ${calendarHtml ? `<details class="ledger-status-fold upcoming-fold"><summary>Auction calendar · next ${COMMAND_CENTER_DAYS} days</summary>${calendarHtml}</details>` : ""}
       <p class="ledger-legend" aria-label="What the colour on each card's left edge means">
         <span class="lgd lgd-active">Active</span>
         <span class="lgd lgd-stale">Not synced recently</span>
