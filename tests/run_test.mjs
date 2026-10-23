@@ -6187,6 +6187,8 @@ results.monResetClearsAcq = await monPage.locator('#acqStateFilter').inputValue(
 const monDetail = await newPage({ viewport: { width: 390, height: 844 } });
 await monDetail.goto(BASE_URL.replace('index.html', 'index.html?bidlist=p15') + '#/lands/p15', { waitUntil: 'networkidle' });
 await monDetail.waitForTimeout(700);
+// The monitor section sits in the phone's closed disclosure; a reader opens it to read it.
+await monDetail.evaluate(() => document.querySelectorAll('details.detail-more').forEach(d => { d.open = true; }));
 results.monDetailSection = await monDetail.locator('#detailModalInner [data-section="monitor"]').count();
 results.monDetailStatus = ((await monDetail.locator('#detailModalInner .monitor-status').textContent()) || '').trim();
 results.monDetailHistory = await monDetail.locator('#detailModalInner .change-history li').evaluateAll(els => els.map(e => e.dataset.kind));
