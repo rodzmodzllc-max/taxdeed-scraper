@@ -222,7 +222,9 @@ const STATE_LABELS = {
   payment_failed_grace: "Payment failed - in grace period", payment_failed: "Payment failed - access paused",
   cancelled: "Cancelled", inactive: "Pending / no subscription"
 };
-function dateOnly(v) { const t = v ? Date.parse(v) : NaN; return Number.isNaN(t) ? "" : new Date(t).toISOString().slice(0, 10); }
+// One date format across admin ("Oct 23, 2026", UTC), matching the other admin
+// date helpers. Previously this alone printed ISO dates (2026-10-23).
+function dateOnly(v) { const t = v ? Date.parse(v) : NaN; return Number.isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" }); }
 async function refreshCustomers() {
   const status = document.getElementById("adminCustomersStatus");
   const list = document.getElementById("adminCustomersList");
@@ -362,13 +364,22 @@ function renderFreshness() {
   const reg = REGISTRY_UNITS === null ? null : REGISTRY_UNITS.filter(u => u.last_attempt_at && (!st || u.state === st))
     .sort((a, b) => String(a.state).localeCompare(String(b.state)) || String(a.county).localeCompare(String(b.county)) || String(a.source_id || "").localeCompare(String(b.source_id || "")));
   const parts = [];
-  if (health === null) parts.push("Dataset health is not recorded on this deployment (migration 016 / scripts/source_health.py not live).");
-  else parts.push(`${health.length} dataset${health.length === 1 ? "" : "s"} with a recorded run.`);
-  if (reg === null) parts.push("Per-county freshness is not recorded on this deployment (migration 021 / scripts/unit_freshness.py not live).");
-  else parts.push(`${reg.length} county source unit${reg.length === 1 ? "" : "s"} with a recorded read.`);
+  // Two different records: the dataset-health table (one row per dataset run)
+  // and the county read status (one row per source unit). "Not recorded" in one
+  // says nothing about the other, so each is labelled by its own name.
+  if (health === null) parts.push("Dataset health (source_health table): not recorded on this deployment (migration 016 not live). This is not a failed read.");
+  else parts.push(`Dataset health (source_health): ${health.length} dataset${health.length === 1 ? "" : "s"} with a recorded run.`);
+  if (reg === null) parts.push("County read status (unit_freshness): not recorded on this deployment (migration 021 not live).");
+  else parts.push(`County read status (unit_freshness): ${reg.length} source unit${reg.length === 1 ? "" : "s"} with a recorded read. Each unit's CURRENT or STALE label is its own last read, not the dataset health above.`);
   status.textContent = parts.join(" ");
   list.innerHTML = health && health.length ? `<table class="admin-usage-table admin-sources-table admin-health-table"><thead><tr><th>State</th><th>Dataset</th><th>Health</th><th>Operator detail</th></tr></thead><tbody>${health.map(healthRowHtml).join("")}</tbody></table>` : "";
-  units.innerHTML = reg && reg.length ? `<table class="admin-usage-table admin-sources-table admin-units-table"><thead><tr><th>State</th><th>County</th><th>Source</th><th>Read</th><th>Operator detail</th></tr></thead><tbody>${reg.map(unitRowHtml).join("")}</tbody></table>` : "";
+  // Up to 50 units at once; the rest sit in a disclosure labelled with their count
+  // (the list was 360 rows on one screen).
+  const unitTable = rows => `<table class="admin-usage-table admin-sources-table admin-units-table"><thead><tr><th>State</th><th>County</th><th>Source</th><th>Read</th><th>Operator detail</th></tr></thead><tbody>${rows.map(unitRowHtml).join("")}</tbody></table>`;
+  const UNIT_FIRST = 50;
+  units.innerHTML = reg && reg.length
+    ? unitTable(reg.slice(0, UNIT_FIRST)) + (reg.length > UNIT_FIRST ? `<details class="admin-more-units"><summary>Show the other ${reg.length - UNIT_FIRST} county source units</summary>${unitTable(reg.slice(UNIT_FIRST))}</details>` : "")
+    : "";
 }
 
 // Collected inventory by source: what is collected in a state against what a
@@ -406,8 +417,8 @@ function initInventory() {
   if (!states.size) ["FL", "TX"].forEach(st => states.add(st));
   if (!sel.options.length) [...states].sort().forEach(st => sel.add(new Option(st, st)));
   if (mode) mode.textContent = String(cfg.publicationMode || "enforced") === "preview"
-    ? "Customer preview mode (config.js publicationMode): every collected source is shown to every user, labelled."
-    : "Customer mode: customers see approved sources only; administrators see every collected source, labelled.";
+    ? "Preview mode (config.js publicationMode = preview): customers see rows from every source except BLOCKED sources, labelled by review status; rows the publication and acquisition-path gates withhold stay hidden from customers. Administrators see every collected row."
+    : "Customer mode: customers see only approved sources, plus rows that pass the publication and acquisition-path gates. Unreviewed and blocked sources are withheld. Administrators see every collected row, labelled.";
   btn.addEventListener("click", () => loadInventory(sel.value));
 }
 async function loadInventory(st) {

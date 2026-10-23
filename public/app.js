@@ -4573,9 +4573,14 @@ function buildChips(id, values, set, labelFn, classFn) {
 // County chips carry a "(n)" count and sort busiest-first, so the picker
 // itself answers "how many properties does this county have" instead of
 // just being an alphabetical toggle list.
+// Counts are scoped to the ledger on screen, so a county's number matches the
+// ledger total it sits beside (fixed 2026-10-23: the picker counted every
+// ledger, so Santa Rosa showed Available + auction + lien rows under the
+// Auctions total). With no ledger set, every loaded row counts.
 function countyCounts() {
   const m = new Map();
-  ALL.forEach(p => m.set(p.county, (m.get(p.county) || 0) + 1));
+  const scoped = state.ledger ? ALL.filter(p => p.source === state.ledger) : ALL;
+  scoped.forEach(p => m.set(p.county, (m.get(p.county) || 0) + 1));
   return m;
 }
 function countyNamesByCount() {
@@ -10744,14 +10749,18 @@ function auctionCommandRows(rows) {
 function upcomingSalesHtml(rows) {
   const all = auctionCommandRows(rows);
   if (!all.length) return "";
-  const ev = all.slice(0, 8);
+  // The first eight events show at once; any others sit in a disclosure
+  // labelled with their count, so the total is never implied and never hidden
+  // (the old copy said "sort by sale date to see every one", which the list
+  // does not do).
+  const FIRST = 8;
+  const ev = all.slice(0, FIRST);
+  const rest = all.slice(FIRST);
   const word = (ledgerCopy("auction").nav || "Auction").replace(/s$/, "");
   const props = all.reduce((n, e) => n + e.count, 0);
   const watched = all.reduce((n, e) => n + e.watched, 0);
-  return `<div class="upcoming-sales command-center" id="upcomingSales" data-events="${all.length}">
-    <div class="cc-head"><span class="eyebrow">Auction command center · next ${COMMAND_CENTER_DAYS} days</span>
-      <span class="cc-sum">${all.length} sale event${all.length === 1 ? "" : "s"} · ${props.toLocaleString("en-US")} propert${props === 1 ? "y" : "ies"}${watched ? ` · ${watched} on your watchlist` : ""}</span></div>
-    <ol class="sales-timeline">${ev.map(e => {
+  const bidsTotal = all.reduce((n, e) => n + e.bids, 0);
+  const eventLi = e => {
     const d = new Date(e.date + "T12:00:00");
     const mon = isNaN(d) ? "" : d.toLocaleString("en-US", { month: "short" }).toUpperCase();
     const day = isNaN(d) ? "" : String(d.getDate());
@@ -10766,7 +10775,15 @@ function upcomingSalesHtml(rows) {
       <span class="cc-facts">${facts.map(t => `<span>${esc(t)}</span>`).join("")}</span>
     </button><span class="cc-actions">${e.link ? `<a class="cc-link" href="${esc(e.link.href)}" target="_blank" rel="noopener"${e.link.note ? ` title="${esc(e.link.note)}"` : ""}>${esc(e.link.kind === "sale" ? "Sale listing →" : "County auction site →")}</a>` : ""}
 <button type="button" class="cc-dossier" data-action="countyintel" data-county="${esc(e.county)}">County process</button></span></li>`;
-  }).join("")}</ol>${all.length > 4 ? `<p class="cc-more muted">${all.length} sale events in the next ${COMMAND_CENTER_DAYS} days${all.length > ev.length ? `, ${ev.length} shown here` : ""} - sort by sale date to see every one.</p>` : ""}</div>`;
+  };
+  const restBlock = rest.length
+    ? `<details class="cc-rest"><summary>Show the other ${rest.length} sale event${rest.length === 1 ? "" : "s"}</summary><ol class="sales-timeline" start="${FIRST + 1}">${rest.map(eventLi).join("")}</ol></details>`
+    : "";
+  return `<div class="upcoming-sales command-center" id="upcomingSales" data-events="${all.length}">
+    <div class="cc-head"><span class="eyebrow">Auction command center · next ${COMMAND_CENTER_DAYS} days</span>
+      <span class="cc-sum">${all.length} sale event${all.length === 1 ? "" : "s"} (county sale dates) · ${props.toLocaleString("en-US")} propert${props === 1 ? "y" : "ies"} listed for them · ${bidsTotal.toLocaleString("en-US")} with a published opening bid${watched ? ` · ${watched} on your watchlist` : ""}</span></div>
+    <ol class="sales-timeline">${ev.map(eventLi).join("")}</ol>${restBlock}${all.length > FIRST ? `<p class="cc-more muted">Showing ${ev.length} of ${all.length} sale events in the next ${COMMAND_CENTER_DAYS} days.</p>` : ""}</div>
+`;
 }
 // Info bubble (2026-10-13). A question or a note is shown as a small label; its
 // answer opens on hover, keyboard focus or tap, so the page reads as the

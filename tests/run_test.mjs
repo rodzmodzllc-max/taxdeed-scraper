@@ -4467,7 +4467,7 @@ await navMap.close();
       const cc = document.getElementById('upcomingSales');
       if (!cc) return null;
       const links = Array.from(cc.querySelectorAll('.cc-link')).map(a => a.getAttribute('href'));
-      return { events: Number(cc.dataset.events), shown: cc.querySelectorAll('.cc-event').length,
+      return { events: Number(cc.dataset.events), shown: cc.querySelectorAll(':scope > ol.sales-timeline > .cc-event').length, rest: cc.querySelectorAll('.cc-rest .cc-event').length,
         head: cc.querySelector('.cc-head .eyebrow').textContent.trim(),
         firstFacts: Array.from(cc.querySelectorAll('.cc-event')[0].querySelectorAll('.cc-facts span')).map(s => s.textContent),
         linksFromRows: links.length > 0 && links.every(h => /^https?:\/\//.test(h)),
@@ -8467,7 +8467,7 @@ const EXPECTED = {
   finderBadges: {"p3": ["path", "amount"], "p15": ["path"], "auctionAmountBadges": 0, "noScoreWords": true},
   finderSortPath: {"n": 2, "verifiedFirst": true},
   finderReadRecent: true,
-  commandCenter: {"events": 9, "shown": 8, "head": "Auction command center · next 45 days", "firstFacts": ["1 of 1 with a published bid", "Sale process not yet verified"], "linksFromRows": true, "noInvented": true},
+  commandCenter: {"events": 9, "shown": 8, "rest": 1, "head": "Auction command center · next 45 days", "firstFacts": ["1 of 1 with a published bid", "Sale process not yet verified"], "linksFromRows": true, "noInvented": true},
   commandCenterDossier: true,
   commandCenterMobile: {"visible": 4, "overflow": 0, "minTap": 44},
   // Financial position + documents & links (2026-10-05).
