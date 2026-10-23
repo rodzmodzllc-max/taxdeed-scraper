@@ -8467,7 +8467,7 @@ const EXPECTED = {
   finderBadges: {"p3": ["path", "amount"], "p15": ["path"], "auctionAmountBadges": 0, "noScoreWords": true},
   finderSortPath: {"n": 2, "verifiedFirst": true},
   finderReadRecent: true,
-  commandCenter: {"events": 9, "shown": 8, "rest": 1, "head": "Auction command center · next 45 days", "firstFacts": ["1 of 1 with a published bid", "Sale process not yet verified"], "linksFromRows": true, "noInvented": true},
+  commandCenter: {"events": 9, "shown": 4, "rest": 5, "head": "Auction command center · next 45 days", "firstFacts": ["1 of 1 with a published bid", "Sale process not yet verified"], "linksFromRows": true, "noInvented": true},
   commandCenterDossier: true,
   commandCenterMobile: {"visible": 4, "overflow": 0, "minTap": 44},
   // Financial position + documents & links (2026-10-05).

@@ -567,7 +567,7 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .command-center .cc-more{font-size:.74rem;margin:.4rem 0 0}
 @media (max-width:640px){
   .command-center .cc-event{grid-template-columns:minmax(0,1fr)}
-  .command-center .cc-event:nth-child(n+5){display:none}
+  /* Events beyond four are in the labelled disclosure at every width (app.js). */
   .command-center .cc-actions{flex-direction:row;justify-content:flex-start;gap:1.2rem;padding:0 0 .5rem 5.2rem}
   .command-center .cc-link,.command-center .cc-dossier{min-height:44px}
   .command-center .cc-facts{grid-column:1 / -1;grid-row:auto}

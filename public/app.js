@@ -10753,7 +10753,9 @@ function upcomingSalesHtml(rows) {
   // labelled with their count, so the total is never implied and never hidden
   // (the old copy said "sort by sale date to see every one", which the list
   // does not do).
-  const FIRST = 8;
+  // Four events at every width; the rest sit in the disclosure. (The phone CSS
+  // used to hide events 5-8 with nothing to reveal them.)
+  const FIRST = 4;
   const ev = all.slice(0, FIRST);
   const rest = all.slice(FIRST);
   const word = (ledgerCopy("auction").nav || "Auction").replace(/s$/, "");
