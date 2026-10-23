@@ -1421,6 +1421,14 @@ let mapFilter = { search: "", county: "ALL", ledger: "all", watchlistOnly: false
 // TDZ reason as mapFilter - render() reaches renderListHead() during init.
 let SHELL_UI = { gsTimer: null, gsActive: -1, gsMatches: [], picker: null };
 
+// The one definition of a record the default customer view counts: not hidden
+// by this viewer, not gone for longer than the grace period, and not a past sale
+// (past sales are archive-only). The picker counts, the County Intelligence
+// totals and the Map all use it, so one county reads the same figure in each
+// (2026-10-23). The Map and the List's own filters apply on top of it.
+function countsToward(p) {
+  return !HIDDEN.has(p.id) && !goneExpired(p) && !isPastDue(p);
+}
 function goneExpired(p) {
   if (!isGone(p) || !p.gone_since) return false;
   const flagged = FAVS.has(p.id) || (NOTES[p.id] || []).some(n => n.body || n.stage);
@@ -4578,8 +4586,12 @@ function buildChips(id, values, set, labelFn, classFn) {
 // ledger, so Santa Rosa showed Available + auction + lien rows under the
 // Auctions total). With no ledger set, every loaded row counts.
 function countyCounts() {
+  // The same rows the List can show for this ledger in its current status view
+  // (past-due rows are archive-only, so they count only in the archive view).
+  // Other filters - bid, value, acquisition - are not applied to these counts.
   const m = new Map();
-  const scoped = state.ledger ? ALL.filter(p => p.source === state.ledger) : ALL;
+  const archiving = state.statusView === "archive";
+  const scoped = ALL.filter(p => (!state.ledger || p.source === state.ledger) && (archiving ? (isPastDue(p) && !HIDDEN.has(p.id)) : countsToward(p)));
   scoped.forEach(p => m.set(p.county, (m.get(p.county) || 0) + 1));
   return m;
 }
@@ -6140,7 +6152,7 @@ function countyDossierHtml(c, st) {
   const scope = viewerScope();
   const seeAll = scope === "all" || scope === "preview";
   const I = COUNTY_INTEL_LABELS[c.intel] || COUNTY_INTEL_LABELS.NOT_YET_RESEARCHED;
-  const rows = ALL.filter(p => p.county === c.county && regionOf(p) === st && !HIDDEN.has(p.id) && !goneExpired(p));
+  const rows = ALL.filter(p => p.county === c.county && regionOf(p) === st && countsToward(p));
   const ledgerHtml = DOSSIER_LEDGERS.map(([name, key]) => {
     const l = c.ledgers[name] || { coverage: "NO_SOURCE_BACKED_INVENTORY", sources: [] };
     const C = COUNTY_COVERAGE_LABELS[l.coverage] || COUNTY_COVERAGE_LABELS.NO_SOURCE_BACKED_INVENTORY;
@@ -6256,7 +6268,7 @@ var COUNTY_PAGE = COUNTY_PAGE || { view: "index", county: null, st: null, showAl
 // into what is on file now and every row including closed ones still in the
 // grace window (past auctions for the outcome history).
 function countyRowsFor(county, st) {
-  const all = ALL.filter(p => p.county === county && regionOf(p) === st && !HIDDEN.has(p.id));
+  const all = ALL.filter(p => p.county === county && regionOf(p) === st && countsToward(p));
   return { all, live: all.filter(p => !goneExpired(p) && !isGone(p)) };
 }
 function countyUnitFor(st, county, sid) {
@@ -9374,7 +9386,7 @@ function detailStatusHtml(p) {
   // the list (ledgerRecordView: AUCTIONS / AVAILABLE / LIENS_CERTIFICATES).
   const rec = ledgerRecordView(p);
   const ledgerSub = rec && rec.ledger_name !== items[0][1] ? `<span class="dossier-sub">${esc(rec.ledger_name)} ledger</span>` : "";
-  return `<dl class="dossier-status" aria-label="Current status"${rec ? ` data-ledger-record="${esc(rec.ledger)}"` : ""}>${items.map(([t, v, c], i) => `<div><dt>${esc(t)}</dt><dd class="${esc(c)}">${esc(v)}${i === 0 ? ledgerSub : ""}</dd></div>`).join("")}${researchStatusCellHtml(p)}</dl>`;
+  return `<dl class="dossier-status" aria-label="Current status"${rec ? ` data-ledger-record="${esc(rec.ledger)}"` : ""}>${items.map(([t, v, c], i) => `<div><dt>${esc(t)}</dt><dd class="${esc(c)}">${esc(v)}${i === 0 ? ledgerSub : ""}</dd></div>`).join("")}${researchStatusCellHtml(p)}</dl>` + (p.source === "auction" ? `<p class="result-jump"><button type="button" class="link-btn" data-action="jump" data-target="decision">Sale result and bidding process ↓</button></p>` : "");
 }
 // The customer's own research state in the property page's status band
 // (2026-10-06): visible at the top so it is never buried, styled and labelled
@@ -12538,7 +12550,8 @@ function relativeTime(iso) {
   const h = Math.round((Date.now() - t) / 3600000);
   if (h < 1) return "under an hour ago";
   if (h < 48) return `${h}h ago`;
-  return `${Math.round(h / 24)}d ago`;
+  // Days-old reads name their date, so "633d ago" is never the only clue (2026-10-23).
+  return `${Math.round(h / 24)}d ago (${dateOnly(iso)})`;
 }
 // Customer wording for a source's health (remediation): one plain status and
 // the last update. The counts, incomplete-unit lists and retry detail are
@@ -13341,7 +13354,7 @@ if (navSettingsBtnEl) navSettingsBtnEl.addEventListener("click", e => { e.stopPr
 // giving the map its own page in the first place.
 function computeMapRows() {
   return ALL.filter(p => {
-    if (isPastDue(p) || HIDDEN.has(p.id) || goneExpired(p)) return false;
+    if (!countsToward(p)) return false;
     if (regionOf(p) !== PAGE_STATE) return false;
     if (mapFilter.ledger !== "all" && p.source !== mapFilter.ledger) return false;
     if (mapFilter.watchlistOnly && !BIDLIST.has(p.id)) return false;

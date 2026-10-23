@@ -119,6 +119,14 @@ async function newPage(opts) {
   });
   return pg;
 }
+// Ledger choice on the List: the desktop rail (.nav-ledger) when it is shown,
+// otherwise the inner ledger strip (.ledger-tab), which is what phones and
+// tablets use. The strip is hidden from 1024px, where the rail repeats it.
+async function clickLedger(pg, key) {
+  const rail = pg.locator(`.nav-ledger[data-nav-ledger="${key}"]`);
+  if (await rail.first().isVisible().catch(() => false)) return rail.first().click();
+  return pg.click(`.ledger-tab[data-ledger="${key}"]`);
+}
 const page = await newPage({ viewport: { width: 390, height: 844 } });
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));
 page.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
@@ -592,7 +600,7 @@ results.hiddenListBtnVisible = await page.locator('#hiddenListBtn').isVisible();
 // --- switch to Lands Available tab (fixture p3, Bay county) ---
 // AVAILABLE commercialization: the Available-only filter row is hidden on Auctions.
 results.availFiltersHiddenOnAuctions = await page.locator('#availableFilters').evaluate(el => el.hidden);
-await page.click('.ledger-tab[data-ledger="laft"]');
+await clickLedger(page, 'laft');
 await page.waitForTimeout(150);
 results.availFiltersShownOnAvailable = await page.locator('#availableFilters').evaluate(el => !el.hidden);
 // p14's source is RESTRICTED: withheld from the list and counted on the ledger page.
@@ -664,7 +672,7 @@ results.availFilterCounts = availCounts;
 // count assertion between here and there.
 
 // --- switch to Certificates tab (fixture p4) ---
-await page.click('.ledger-tab[data-ledger="certificate"]');
+await clickLedger(page, 'certificate');
 await page.waitForTimeout(150);
 results.certCardCount = await page.locator('.cert-card').count();
 results.certCardTitle = await page.locator('.cert-card .prop-address').first().textContent();
@@ -716,7 +724,7 @@ const certAccruedText = (await page.locator('.cert-card .card-stat-grid .card-st
 }
 
 // --- switch back to Auctions tab - expandedCounties from before should still hold ---
-await page.click('.ledger-tab[data-ledger="auction"]');
+await clickLedger(page, 'auction');
 await page.waitForTimeout(150);
 results.cardCountBackOnAuctionTab = await page.locator('.prop-card').count();
 
@@ -1196,7 +1204,7 @@ await page.waitForTimeout(200);
 // tab, before it turned out to inflate cardCountBackOnAuctionTab and
 // friends by counting the now-permanently-"prop-card"-classed
 // #detailModalInner shell as a ninth card).
-await page.click('.ledger-tab[data-ledger="laft"]');
+await clickLedger(page, 'laft');
 await page.waitForTimeout(150);
 // "Bay" was already expanded by the earlier LAFT-tab check and that state
 // persists across ledger switches - a blind click on its summary would
@@ -1246,7 +1254,7 @@ results.laftBareLandStat = await page.evaluate(() => {
 });
 await page.click('#detailModalInner [data-action="closedetail"]');
 await page.waitForTimeout(150);
-await page.click('.ledger-tab[data-ledger="auction"]');
+await clickLedger(page, 'auction');
 await page.waitForTimeout(150);
 // p1 (Alachua, clean/12x+ ratio potential) should be a top pick - confirm the
 // upgraded pill-style banner renders with its ratio callout.
@@ -1264,7 +1272,7 @@ results.spreadBarPresentP1 = await page.locator('.prop-card:has-text("1 Main St"
 // figures than the card (Est. Total Return needs the extra room), both
 // with an explanation tooltip. Safe to open here - every exact .prop-card
 // count assertion in this file has already run. ---
-await page.click('.ledger-tab[data-ledger="certificate"]');
+await clickLedger(page, 'certificate');
 await page.waitForTimeout(150);
 results.exportBtnLabelCertificate = (await page.locator('#exportCsvBtn').textContent() || '').trim();
 
@@ -1315,12 +1323,12 @@ results.certDetailYieldInfoTips = await page.locator(
 ).count();
 await page.click('#detailModalInner [data-action="closedetail"]');
 await page.waitForTimeout(150);
-await page.click('.ledger-tab[data-ledger="laft"]');
+await clickLedger(page, 'laft');
 await page.waitForTimeout(150);
 results.exportBtnLabelLaft = (await page.locator('#exportCsvBtn').textContent() || '').trim();
 results.laftPurchasePriceLabel = (await page.locator('.prop-card .card-stat-label').first().textContent() || '').trim();
 results.laftCtaText = (await page.locator('.prop-card .cta-btn').first().textContent() || '').trim();
-await page.click('.ledger-tab[data-ledger="auction"]');
+await clickLedger(page, 'auction');
 await page.waitForTimeout(150);
 
 // --- My Bid List: a small capped shortlist (⚐/⚑), separate from the
@@ -1375,7 +1383,7 @@ results.watchlistChipLabel = ((await page.locator('#bidListToggle').textContent(
 // Walk the three ledgers and record what makes each one a distinct page.
 const ledgerPages = {};
 for (const key of ['auction', 'laft', 'certificate']) {
-  await page.click(`.ledger-tab[data-ledger="${key}"]`);
+  await clickLedger(page, key);
   await page.waitForTimeout(400);
   ledgerPages[key] = await page.evaluate(() => ({
     hash: location.hash,
@@ -1639,7 +1647,7 @@ await page.waitForTimeout(150);
 results.detailPanelCalcNetAfterInput = (await page.locator('#detailPanel #calcNetResult').textContent() || '').trim();
 results.detailPanelCalcMaxBidAfterInput = (await page.locator('#detailPanel #calcMaxBidResult').textContent() || '').trim();
 
-await page.click('.ledger-tab[data-ledger="laft"]');
+await clickLedger(page, 'laft');
 await page.waitForTimeout(400);
 if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
   await page.click('#expandAllBtn');
@@ -1648,7 +1656,7 @@ if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
 results.desktopLaftListIsMultiColumn = await page.locator('.prop-list').first().evaluate(el =>
   getComputedStyle(el).gridTemplateColumns.trim().split(' ').length > 1);
 
-await page.click('.ledger-tab[data-ledger="certificate"]');
+await clickLedger(page, 'certificate');
 await page.waitForTimeout(400);
 if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
   await page.click('#expandAllBtn');
@@ -1794,7 +1802,7 @@ results.txRpcRowsExposeKindAndStatus = await page.evaluate(() => {
   results.txCsvLgbsRow = rowsByCase['TX-1'] ? [rowsByCase['TX-1'][iUrl], rowsByCase['TX-1'][iKind], rowsByCase['TX-1'][iStatus]] : null;
 }
 // Struck-off / future-sale LGBS rows live on the laft ledger.
-await page.click('.ledger-tab[data-ledger="laft"]');
+await clickLedger(page, 'laft');
 await page.waitForTimeout(200);
 if ((await page.locator('#expandAllBtn').count()) && (await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
   await page.click('#expandAllBtn');
@@ -1804,7 +1812,7 @@ results.txStruckOffKicker = ((await page.locator('.prop-card[data-pid="ptx3"] .k
 results.txStruckOffLink = await txAuctionLinkOf(page.locator('.prop-card[data-pid="ptx3"]'));
 results.txFutureSaleKicker = ((await page.locator('.prop-card[data-pid="ptx6"] .kicker-phase').textContent()) || '').trim();
 results.txFutureSaleLink = await txAuctionLinkOf(page.locator('.prop-card[data-pid="ptx6"]'));
-await page.click('.ledger-tab[data-ledger="auction"]');
+await clickLedger(page, 'auction');
 await page.waitForTimeout(200);
 // A RealAuction row whose sale date has passed is excluded from the live
 // list (isPastDue), so it is reached the way a saved link would reach it: a
@@ -1909,11 +1917,11 @@ results.placeholderLocationText = ((await p66.locator('.prop-card:has-text("1 Ma
 // No horizontal overflow at phone width, and the icon buttons have a real hit area.
 results.noHorizontalOverflowMobile = await p66.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
 results.iconBtnHitAreaMobile = await p66.locator('.prop-card .icon-btn').first().evaluate(el => { const r = el.getBoundingClientRect(); return r.width >= 32 && r.height >= 32; });
-await p66.click('.ledger-tab[data-ledger="laft"]');
+await clickLedger(p66, 'laft');
 await p66.waitForTimeout(200);
 if ((await p66.locator('#expandAllBtn').textContent()) === 'Expand all') { await p66.click('#expandAllBtn'); await p66.waitForTimeout(200); }
 results.photoNoCoverageText = ((await p66.locator('.prop-card:has-text("3 Oak Ave") .prop-card-photo.no-photo .vis-main').first().textContent()) || '').trim();
-await p66.click('.ledger-tab[data-ledger="auction"]');
+await clickLedger(p66, 'auction');
 await p66.waitForTimeout(200);
 if ((await p66.locator('#expandAllBtn').textContent()) === 'Expand all') { await p66.click('#expandAllBtn'); await p66.waitForTimeout(200); }
 // Full page -> "Show county on the Map page": modal closes, Map page opens
@@ -2146,12 +2154,12 @@ await dashPage.waitForTimeout(300);
 results.navListClickShowsListPage = await dashPage.locator('#pageList').evaluate(el => !el.hidden);
 results.navListClickLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navListClickHash = await dashPage.evaluate(() => location.hash);
-await dashPage.click('.ledger-tab[data-ledger="certificate"]');
+await clickLedger(dashPage, 'certificate');
 await dashPage.waitForTimeout(300);
 results.tabCertHash = await dashPage.evaluate(() => location.hash);
 results.tabCertNavLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.tabCertHeading = ((await dashPage.locator('.ledger-head h2').textContent()) || '').trim();
-await dashPage.click('.ledger-tab[data-ledger="laft"]');
+await clickLedger(dashPage, 'laft');
 await dashPage.waitForTimeout(300);
 results.tabLaftHash = await dashPage.evaluate(() => location.hash);
 results.tabLaftHeading = ((await dashPage.locator('.ledger-head h2').textContent()) || '').trim();
@@ -2180,12 +2188,12 @@ await dashPage.waitForTimeout(400);
 results.navWatchlistClosedLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navWatchlistClosedHash = await dashPage.evaluate(() => location.hash);
 results.navWatchlistClosedListVisible = await dashPage.locator('#pageList').evaluate(el => !el.hidden);
-await dashPage.click('.ledger-tab[data-ledger="auction"]');
+await clickLedger(dashPage, 'auction');
 await dashPage.waitForTimeout(300);
 // Shared property layer: the certificate (p4) and the auction row (p1) are
 // the same Alachua parcel 111 - each full page lists the other, and a
 // parcel with no match says so in words rather than showing nothing.
-await dashPage.click('.ledger-tab[data-ledger="certificate"]');
+await clickLedger(dashPage, 'certificate');
 await dashPage.waitForTimeout(300);
 await dashPage.locator('.county-group').first().evaluate(el => { if (!el.open) el.querySelector('summary.county-head').click(); });   // open by default when few counties
 await dashPage.waitForTimeout(200);
@@ -5895,7 +5903,7 @@ await navMap.close();
   fl.list = await snap(gs);
   const flPids = await cardPids(gs);
   fl.listOnlyFlorida = flPids.length > 0 && flPids.every(id => !id.startsWith('ptx'));
-  await gs.click('.ledger-tab[data-ledger="laft"]');
+  await clickLedger(gs, 'laft');
   await gs.waitForTimeout(300);
   await go(gs, 'map');
   fl.map = await snap(gs);
@@ -5916,7 +5924,7 @@ await navMap.close();
   tx.listLedgerOn = await gs.locator('.ledger-tab.on').getAttribute('data-ledger');
   const txPids = await cardPids(gs);
   tx.listOnlyTexas = txPids.every(id => id.startsWith('ptx'));
-  await gs.click('.ledger-tab[data-ledger="auction"]');
+  await clickLedger(gs, 'auction');
   await gs.waitForTimeout(300);
   const txAuctionPids = await cardPids(gs);
   tx.listAuctionOnlyTexas = txAuctionPids.length > 0 && txAuctionPids.every(id => id.startsWith('ptx'));
@@ -6074,7 +6082,7 @@ await navWl2.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await navWl2.waitForTimeout(500);
 await navWl2.locator('.prop-card[data-pid="p1"] [data-action="bidlist"]').dispatchEvent('click');
 await navWl2.waitForTimeout(300);
-await navWl2.click('.ledger-tab[data-ledger="certificate"]');
+await clickLedger(navWl2, 'certificate');
 await navWl2.waitForTimeout(300);
 await navWl2.locator('.prop-card[data-pid="p4"] [data-action="bidlist"]').dispatchEvent('click');
 await navWl2.waitForTimeout(300);
@@ -6098,7 +6106,7 @@ async function ledgerCardCounts(url) {
   await pg.waitForTimeout(500);
   const out = {};
   for (const l of ['auction', 'laft', 'certificate']) {
-    await pg.click(`.ledger-tab[data-ledger="${l}"]`);
+    await clickLedger(pg, l);
     await pg.waitForTimeout(200);
     out[l] = (await pg.locator('#main .prop-card').evaluateAll(els => els.map(e => e.dataset.pid).sort())).join(',');
   }
@@ -6136,7 +6144,7 @@ results.monSsItems = await monPage.locator('#savedSearchList .saved-search').cou
 results.monSsCounts = ((await monPage.locator('#savedSearchList .saved-search .ss-counts').first().textContent()) || '').replace(/\s+/g, ' ').trim();
 results.monSsAlertsToggle = await monPage.locator('#savedSearchList [data-ss-alerts]').count();
 await monPage.click('#savedSearchesCloseBtn');
-await monPage.click('.ledger-tab[data-ledger="auction"]');
+await clickLedger(monPage, 'auction');
 await monPage.waitForTimeout(200);
 await monPage.click('#navSavedSearchesBtn');
 await monPage.waitForTimeout(200);

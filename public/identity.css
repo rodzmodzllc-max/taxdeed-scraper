@@ -1219,3 +1219,11 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
   .map-page-head button, .map-toolbar button, .map-toolbar select, .map-toolbar input,
   .rail-row { min-height: 44px; }
 }
+
+/* Desktop navigation (2026-10-23): from 1024px the sidebar rail is the one
+   place to choose a ledger (its Available / Auctions / Liens & Certificates
+   entries open the List on that ledger). The List's inner ledger strip repeated
+   those three choices, so it is hidden there; phones and tablets keep it. */
+@media (min-width: 1024px) {
+  #ledgerTabs { display: none; }
+}
