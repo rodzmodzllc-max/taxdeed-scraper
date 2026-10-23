@@ -4704,8 +4704,8 @@ await navMap.close();
     for (const w of [390, 430, 768, 1024, 1440, 1920]) {
       const mp = await newPage({ viewport: { width: w, height: 900 } });
       await mp.goto(BASE_URL.replace('index.html', 'index.html?research=none') + '#/lands/p15', { waitUntil: 'networkidle' });
-      await mp.waitForSelector('#detailModalInner .research-panel .research-add', { timeout: 10000, state: 'attached' });
       await mp.evaluate(() => document.querySelectorAll('details.detail-more').forEach(d => { d.open = true; }));
+      await mp.waitForSelector('#detailModalInner .research-panel .research-add', { timeout: 10000, state: 'attached' });
       await mp.evaluate(() => { document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.research-new-name').value = 'Mobile list'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-action="researchnewsave"]')).click(); });
       await mp.waitForTimeout(300);
       // A full load (different query) - the saved list lives in this browser in this mode.
