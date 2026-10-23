@@ -6931,7 +6931,9 @@ await big.press('#globalSearchInput', 'Enter');
   await r.pg.close();
   r = await boundaryPage('boundary=none&storedphoto=1', '#/auctions/p5');
   results.boundaryStoredPhotoNone = await storedState(r.pg);
-  results.boundaryStoredPhotoNoneRequests = r.usgs.length;
+  // Only the detail hero is asked about (800x600). List cards that happen to be in
+  // view at this size also request a 400x300 aerial by design, so they are not counted.
+  results.boundaryStoredPhotoNoneRequests = r.usgs.filter(u => /size=800(%2C|,)600/.test(u)).length;
   await r.pg.close();
   {
     const pg = await newPage({ viewport: { width: 1280, height: 900 } });
