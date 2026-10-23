@@ -9408,6 +9408,12 @@ function researchStatusCellHtml(p) {
   const dd = `<button type="button" class="dossier-research-btn dossier-dd" data-action="jump" data-target="diligence" data-dd-verified="${c.VERIFIED}" data-dd-applicable="${applicable}">Due diligence: ${c.VERIFIED} of ${applicable} verified by the records <span aria-hidden="true">→</span></button>`;
   return `<div class="dossier-research" data-research-cell="${esc(String(p.id))}" data-research-state="${esc(state || "none")}"><dt>Your research <span class="dossier-own">(your label, not an official status)</span></dt><dd><button type="button" class="dossier-research-btn" data-action="jump" data-target="research">${value} <span aria-hidden="true">→</span></button>${dd}</dd></div>`;
 }
+// On a phone the secondary sections start closed, so the decision facts are the
+// first screen; each is one tap away under its summary. Desktop keeps them open.
+function collapseSecondaryOnPhone(root) {
+  if (!root || !window.matchMedia || !window.matchMedia("(max-width: 768px)").matches) return;
+  root.querySelectorAll("details.detail-more").forEach(d => d.removeAttribute("open"));
+}
 function detailHtml(p) {
   const isCert = p.source === "certificate";
   const fav = FAVS.has(p.id);
@@ -9579,6 +9585,8 @@ function detailHtml(p) {
     ${auctionDecisionHtml(p)}
     ${inventoryCardHtml(p)}
     ${statGroupHtml("Financial", stats.filter(s => s[2] === "financial"), "financial")}
+    <details class="detail-more" open>
+    <summary class="detail-more-summary">Property, history, risk, research and sources</summary>
     ${statGroupHtml("Property Details", stats.filter(s => s[2] === "property"), "property")}
     ${statGroupHtml("History", stats.filter(s => s[2] === "history"), "history")}
     ${!isCert && regionOf(p) === "FL" ? `<div class="lien-banner ${esc(p.lien_level)}">
@@ -9597,6 +9605,7 @@ function detailHtml(p) {
     ${monitorSectionHtml(p)}
     ${sourceTruthHtml(p)}
     ${acquisitionDocumentsHtml(p)}
+    </details>
     `}
     ${/* Phase 36 fix: the calculator's Net Profit Estimate subtracts fees(p),
         which is now null for non-FL rows (no verified TX fee formula exists) -
@@ -9696,6 +9705,7 @@ function openDetail(p) {
   // after a favourite or a watchlist change rebuilds the modal.
   inner.className = "detail-modal-inner prop-card " + cardStatus(p);
   inner.innerHTML = detailHtml(p);
+  collapseSecondaryOnPhone(inner);
   inner.dataset.pid = String(p.id);
   ensureFullProvenance(p);
   hydrateVisuals(inner);
@@ -13829,6 +13839,7 @@ function selectProperty(p) {
   try { history.replaceState(history.state, "", "#/" + (LEDGERS[p.source] || LEDGERS[state.ledger]).slug + "/" + p.id); } catch { /* file:// etc */ }
   panel.className = "detail-panel prop-card " + cardStatus(p);
   panel.innerHTML = detailHtml(p);
+  collapseSecondaryOnPhone(panel);
   ensureFullProvenance(p);
   hydrateVisuals(panel);
   // Same hydration openDetail() gives the modal: one property page, whichever

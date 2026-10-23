@@ -1227,3 +1227,13 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 @media (min-width: 1024px) {
   #ledgerTabs { display: none; }
 }
+
+/* Full property page (2026-10-23): the secondary sections sit in one disclosure
+   under this summary. On phones it starts closed; the decision facts above it
+   are the first screen. Touch target 44px; no motion. */
+.detail-more{margin:.5rem 0;border-top:1px solid var(--rule)}
+.detail-more-summary{display:flex;align-items:center;min-height:44px;padding:.4rem 0;cursor:pointer;font-weight:700;font-size:.8rem;letter-spacing:.04em;color:var(--ink);list-style:none}
+.detail-more-summary::-webkit-details-marker{display:none}
+.detail-more-summary::after{content:"Show";margin-left:auto;font-weight:600;color:var(--copper-deep,var(--copper))}
+.detail-more[open] > .detail-more-summary::after{content:"Hide"}
+.detail-more-summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
