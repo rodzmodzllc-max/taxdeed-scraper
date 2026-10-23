@@ -1495,7 +1495,7 @@ function updateSummary(byCounty) {
   if (note) {
     note.textContent = zoomCounty
       ? "Pins are the geocoded parcel locations we hold. Properties without coordinates are listed above but not pinned."
-      : "Bubbles are county-level counts, sized by how many properties match your filters \u2014 not exact parcel locations.";
+      : "Bubbles are county totals of the records that match your filters, listings, auctions and liens together when All ledgers is selected. They are not exact parcel locations, and records without coordinates are counted here but not pinned.";
   }
   const hint = $("exploreMapHint");
   if (hint) {
@@ -1529,7 +1529,7 @@ function renderBubbleLegend(byCounty) {
   const steps = min === max ? [max] : [min, max];
   el.hidden = false;
   el.innerHTML =
-    '<span class="map-legend-label">Bubble size = properties in that county</span>' +
+    '<span class="map-legend-label">Bubble size = matching records in that county</span>' +
     steps.map(n => `
       <span class="map-legend-item">
         <i class="map-legend-dot" style="--d:${dot(n)}px"></i>${n}

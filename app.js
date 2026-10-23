@@ -5195,7 +5195,7 @@ function card(p, showCounty) {
   const d = daysUntil(p);
   let cd = "";
   if (d !== null && d >= 0) { const cls = d <= 3 ? "urgent" : d <= SOON_DAYS ? "soon" : ""; cd = `<span class="countdown ${cls}">${d === 0 ? "TODAY" : d + "d"}</span>`; }
-  else if (d !== null && d < 0) { cd = `<span class="countdown past">${-d}d ago</span>`; }
+  else if (d !== null && d < 0) { cd = `<span class="countdown past" title="Sale date ${esc(fmtDate(p.sale_date))}">${-d}d since sale</span>`; }
   const tag = cardKickerHtml(p, showCounty);
 
   const street = realAddress(p);
@@ -5253,7 +5253,7 @@ function card(p, showCounty) {
             ${p.case_no ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
           </div>
         </div>
-        <div class="card-price">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
+        <div class="card-price">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}"${bidPublished ? ` title="${esc(`Exact amount ${fmtMoney(p.bid)}. Cards round to whole dollars.`)}"` : ""}>${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
       </div>
       ${cardStatsHtml(p)}
       ${offListNote}
@@ -5290,7 +5290,7 @@ function cardPhotoOverlayHtml(p) {
   const lot = cardLotSize(p);
   return `${p.county ? `<span class="pc-chip pc-county">${esc(p.county)}, ${esc(regionOf(p))}</span>` : ""}`
     + `${chip ? `<span class="pc-chip pc-ledger">${esc(chip)}</span>` : ""}`
-    + `${lot ? `<span class="pc-size">Property size: ${esc(lot)}</span>` : ""}`;
+    + `${lot ? `<span class="pc-size">Lot ${esc(lot)}</span>` : ""}`;
 }
 
 // The card's lot size: a stored size of zero or less is not a published size, so
@@ -5308,7 +5308,7 @@ function cardStatsHtml(p) {
   return `<div class="prop-stats">`
     + cell("Beds", "Not tracked", true)
     + cell("Baths", "Not tracked", true)
-    + cell("Sq ft", sq ? esc(sq) : "Not published", !sq)
+    + cell("Building sq ft", sq ? esc(sq) : "Not published", !sq)
     + cell(lot && !/acres$/.test(lot) ? "Lot size" : "Acres", lot ? esc(lot) : "Not published", !lot)
     + `</div>`;
 }
@@ -5347,7 +5347,7 @@ function refreshAuctionCountdowns() {
       el.textContent = d === 0 ? "TODAY" : d + "d";
     } else {
       el.className = "countdown past";
-      el.textContent = (-d) + "d ago";
+      el.textContent = (-d) + "d since sale";
     }
   });
 }
@@ -6881,7 +6881,7 @@ function researchStateSelectHtml(it) {
   return `<select class="research-state" data-research-item="${esc(it.id)}" aria-label="Your research state">${RESEARCH_STATES.map(s => `<option value="${s}"${it.research_state === s ? " selected" : ""}>${esc(RESEARCH_STATE_LABELS[s])}</option>`).join("")}</select>`;
 }
 function researchStorageNoteHtml() {
-  if (RESEARCH.mode === "local") return `<p class="research-storage" data-research-mode="local">Kept in this browser only - your research lists are not yet stored on your account, so they will not appear on another device and are lost if this browser's site data is cleared.</p>`;
+  if (RESEARCH.mode === "local") return `<p class="research-storage" data-research-mode="local">Kept in this browser only - your research lists are not yet stored on your account, so they will not appear on another device and are lost if this browser's site data is cleared. There is no export of research lists yet, so copy anything you need to keep.</p>`;
   if (RESEARCH.error) return `<p class="research-storage warn" data-research-mode="error">${esc(RESEARCH.error)}</p>`;
   return `<p class="research-storage" data-research-mode="server">Saved to your account. Only you can see your research lists.</p>`;
 }
@@ -12722,14 +12722,22 @@ function computeWatchChanges() {
   return { since: snap.savedAt || null, items };
 }
 function watchChangesHtml(wc) {
-  const watched = watchedIds().size;
+  // Only the watched properties of the state on screen are compared, so the
+  // count here is that state's; watched properties saved under another state
+  // are named separately, not counted as compared (fixed 2026-10-23).
+  const allWatched = watchedIds();
+  const here = new Set(ALL.map(p => p.id));
+  const watched = [...allWatched].filter(id => here.has(id)).length;
+  const elsewhere = allWatched.size - watched;
+  const scope = `${watched === 1 ? "watched property" : "watched properties"} in ${esc(STATE_INFO.name)}`;
+  const elsewhereNote = elsewhere ? ` ${elsewhere} more saved under another state ${elsewhere === 1 ? "is" : "are"} not compared here.` : "";
   if (!wc || !wc.since) {
-    return `<div class="dash-empty">No earlier visit recorded in this browser yet${watched ? ` - ${watched} watched propert${watched === 1 ? "y" : "ies"} snapshotted now` : ""}. Changes to sale date, opening bid, status or presence of your watchlist and favorites will be listed here on the next load.</div>
+    return `<div class="dash-empty">No earlier visit recorded in this browser yet${watched ? ` - ${watched} ${scope} snapshotted now` : ""}.${elsewhereNote} Changes to sale date, opening bid, status or presence of your watchlist and favorites will be listed here on the next load.</div>
       <p class="watch-changes-note">Tracked in this browser only. No e-mail or push notifications exist yet.</p>`;
   }
   const since = new Date(wc.since).toLocaleString();
   if (!wc.items.length) {
-    return `<div class="dash-empty">No changes to your ${watched} watched propert${watched === 1 ? "y" : "ies"} since ${esc(since)}.</div>
+    return `<div class="dash-empty">No changes to your ${watched} ${scope} since ${esc(since)}.${elsewhereNote}</div>
       <p class="watch-changes-note">Compares sale date, opening bid, status and presence. Tracked in this browser only - no e-mail or push notifications exist yet.</p>`;
   }
   return `<div class="watch-changes">${wc.items.map(it => `

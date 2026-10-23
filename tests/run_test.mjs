@@ -7933,7 +7933,7 @@ const EXPECTED = {
   archiveViewOtherCardsCount: 1,
   // Day-granular diff between two Date.now() reads in the same test run, so
   // this stays "6d ago" regardless of what day the suite actually runs on.
-  archiveCardAgoBadge: '6d ago',
+  archiveCardAgoBadge: '6d since sale',
   staleWarningClassPresent: 1,
   staleWarningText: '⚠ Data updated 9/20/2026, 12:00:00 AM - sync may be behind',
   // The value box is named for what the number actually is. It used to read
@@ -8460,7 +8460,7 @@ const EXPECTED = {
   offListCards: { p9: true, p8Upcoming: true, p9Line: true, p9Flag: true, p8Flag: null, neverReadCounty: null, commandCenter: true },
   offListDetail: true,
   offListDefault: null,
-  cardZeroSizeStats: {"stats": ["Not trackedBeds", "Not trackedBaths", "Not publishedSq ft", "Not publishedAcres"], "sizeOverlay": false, "zero": false},
+  cardZeroSizeStats: {"stats": ["Not trackedBeds", "Not trackedBaths", "Not publishedBuilding sq ft", "Not publishedAcres"], "sizeOverlay": false, "zero": false},
   taxacqBrand: { title: true, rail: 'TAXACQ', sub: 'Tax Acquisition Intelligence', topbar: 'TAXACQ', noOldText: true, aboutWhy: true },
   identityLogin: {"brand": "TAXACQ", "tagline": "Tax Acquisition Intelligence", "bg": "rgb(243, 239, 232)", "signupFields": 6},
   identityPalette: {"noNavy": true, "body": "rgb(243, 239, 232)", "ledgerAccent": "#4E6B54", "display": true},
