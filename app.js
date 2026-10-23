@@ -5672,6 +5672,11 @@ function dataGaps(p) {
       ? `Current purchase total not on file - the listed figure is the ${ai.label.toLowerCase()} only`
       : `Current amount due not on file - the listed figure is the ${ai.label.charAt(0).toLowerCase() + ai.label.slice(1)}`);
   } else if (!hasPublishedBid(p)) gaps.push("Opening bid not published");
+  // The auction decision answers "How do I register and bid?" from the same
+  // verified county process. Without it the row must say so here too, or the
+  // "What is not known?" list reads complete while that question says not yet
+  // verified (fixed 2026-10-23).
+  if (p.source === "auction" && !acquisitionOf(p).verified) gaps.push("Registration, deposit and payment rules not verified");
   if (!hasNum(p.market) && !hasNum(p.assessed)) gaps.push("No county value on file");
   if (p.source === "auction" && !p.sale_date) gaps.push("Sale date not scheduled");
   // Phase 72: no url_auction means the source published no link this
@@ -5766,7 +5771,7 @@ function opportunitySummaryHtml(p) {
   const gaps = dataGaps(p);
   const missing = gaps.length
     ? `<ul class="opp-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>`
-    : `<span class="ok">None of the gaps this app checks for</span>`;
+    : `<span class="ok">Nothing missing from the fields this page checks</span>`;
   const cells = [
     ["What", `${esc(what)}${src ? `<span class="opp-sub">Source: ${esc(src)}</span>` : ""}`, ""],
     ["Where", where, ""],
@@ -7332,7 +7337,7 @@ function diligenceEvidence(p, key, state) {
     case "cert_face": return hasPublishedBid(p) ? `${fmtMoney(p.bid)} as published - a lien, not a property price` : "Not published";
     case "cert_interest": return hasNum(p.interest_rate) ? `${p.interest_rate}% as published` : "Not published";
     case "cert_redemption": return p.expiration_date ? `Expires ${dateOnly(p.expiration_date)}` : "Not published";
-    case "source_record": return harvesterSourceLabel(p) || (p.source_id || p.harvester_source || "Not recorded");
+    case "source_record": return sourceNameFor(p) || "Not recorded";
     case "last_read": return p.last_seen_at ? `Last read ${dateOnly(p.last_seen_at)}${state === "VERIFIED" ? "" : " - more than 14 days ago or not recent"}` : "No read recorded";
     case "provenance": return Object.keys(fp).length ? `${Object.keys(fp).length} field(s) with a recorded origin` : "No field origin recorded";
     case "source_health": { const u = unitFreshnessFor(p); return sourceHealthText(u, { review: !isCustomerPublishable(p) }).label; }
@@ -7863,7 +7868,7 @@ function availableDecisionHtml(p) {
   rows.push(q("known", "What is known about it?", known.length ? esc(known.join(" · ")) : muted("Nothing beyond the identity the list published"), known.length ? "" : "muted"));
   // 7. What is not known?
   const gaps = dataGaps(p);
-  rows.push(q("unknown", "What is not known?", gaps.length ? `<ul class="dec-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>` : `<span class="ok">None of the gaps this app checks for</span>`, gaps.length ? "" : "ok"));
+  rows.push(q("unknown", "What is not known?", gaps.length ? `<ul class="dec-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>` : `<span class="ok">Nothing missing from the fields this page checks</span>`, gaps.length ? "" : "ok"));
   // 8. Where did the data come from?
   const src = [];
   const link = (href, label) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(label)} →</a>`;
@@ -7960,7 +7965,7 @@ function auctionDecisionHtml(p) {
   const rel = auctionAvailableRelation(p);
   rows.push(q("related", "Has this parcel appeared in another ledger?", `${rel ? esc(rel) + sub(esc(xl.text)) : (xl.cls ? muted(xl.text) : esc(xl.text))}`, rel ? "" : xl.cls));
   const gaps = dataGaps(p);
-  rows.push(q("unknown", "What is not known?", gaps.length ? `<ul class="dec-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>` : `<span class="ok">None of the gaps this app checks for</span>`, gaps.length ? "" : "ok"));
+  rows.push(q("unknown", "What is not known?", gaps.length ? `<ul class="dec-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>` : `<span class="ok">Nothing missing from the fields this page checks</span>`, gaps.length ? "" : "ok"));
   return detailSectionHtml("Auction decision", `<div class="dec-list">${rows.join("")}</div>`, "decision-card", "decision");
 }
 // The Liens & Certificates decision block: six questions about the
@@ -9043,7 +9048,7 @@ function provenanceCardHtml(p) {
   }
   if (p.provenance_scope !== "list" && p.otc_provenance !== undefined && p.otc_provenance) detail += otcProvenanceHtml(p.otc_provenance);
   const body = `<div class="detail-provenance">
-      ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
+      ${sourceNameFor(p) ? `<span>Data source: ${esc(sourceNameFor(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
     </div>
     ${sourceReviewHtml(p)}
@@ -9593,7 +9598,7 @@ function detailHtml(p) {
     <button class="detail-btn detail-report-btn" data-action="support" data-topic="source" data-pid="${p.id}" type="button">Report a source problem</button>`, "", "sources")}
     ${auctionLinkHtml(p, "detail-cta")}
     ${isCert && !hasFieldProvenance(p) ? `<div class="detail-provenance">
-      ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
+      ${sourceNameFor(p) ? `<span>Data source: ${esc(sourceNameFor(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
     </div>` : provenanceCardHtml(p)}
     ${noteHtml(p)}`;
@@ -14979,7 +14984,7 @@ function homeDeskRowHtml(p) {
     <span class="desk-title">${street ? esc(street) : lotTitle(p)}</span>
     <span class="desk-sub">${hasParcel(p) ? `Parcel ${esc(parcelOf(p))}` : "Parcel # not published"}</span>
     <span class="desk-money"><b class="${amt.state === "not_published" || amt.state === "official_expired" ? "unpublished" : ""}">${esc(amt.text)}</b><span>${esc(amt.label)}</span></span>
-    <span class="desk-meta">${a ? `<span>Acquisition <b>${esc(a.verified ? a.short || a.label : "Not yet verified")}</b></span>` : ""}<span>Source <b>${esc(harvesterSourceLabel(p) || "not recorded")}</b></span><span>${esc(seen)}</span></span>
+    <span class="desk-meta">${a ? `<span>Acquisition <b>${esc(a.verified ? a.short || a.label : "Not yet verified")}</b></span>` : ""}<span>Source <b>${esc(sourceNameFor(p) || "not recorded")}</b></span><span>${esc(seen)}</span></span>
   </button>`;
 }
 function renderHomeDesk() {

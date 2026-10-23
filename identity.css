@@ -1211,3 +1211,11 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
   .quick-controls .export-btn { height: auto; min-height: 44px; white-space: normal; text-align: center; line-height: 1.2; padding: .4rem .5rem; }
   .quick-controls .filters-toggle { justify-content: center; }
 }
+/* Map controls at touch size (2026-10-23): the Map page's pills, search, county
+   select, basemap buttons and list-filter toggle were 32-40px on phones. */
+@media (max-width: 768px), (pointer: coarse) {
+  .map-ledger-pills button, .map-watch-pill, #mapSearchInput, #mapCountySelect,
+  #mapStyleToggle button, #mapListFilters, .map-style-toggle button,
+  .map-page-head button, .map-toolbar button, .map-toolbar select, .map-toolbar input,
+  .rail-row { min-height: 44px; }
+}

@@ -1001,6 +1001,9 @@ results.oppWhenClass = await glancePage.locator('#detailPanel .opp-cell').nth(2)
 results.oppBidText = await oppText(3);
 results.oppValueText = await oppText(4);
 results.oppGaps = await glancePage.locator('#detailPanel .opp-gaps li').allTextContents();
+// Contradiction fixed 2026-10-23: an unverified auction process is named as a gap, so
+// "What is not known?" never reads clear while "How do I register and bid?" says not verified.
+results.oppGapNamesRegistration = results.oppGaps.includes('Registration, deposit and payment rules not verified');
 results.detailNavLabels = await glancePage.locator('#detailPanel .detail-nav button').allTextContents();
 // Jumping to Risk & Legal scrolls the modal's own scroll box, and marks the pill.
 const scrollBefore = await glancePage.locator('#detailPanel').evaluate(el => el.scrollTop);
@@ -7512,7 +7515,8 @@ const EXPECTED = {
   oppWhenClass: 'opp-val warn', // p1 sells in 3 days - inside SOON_DAYS
   oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
   oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
-  oppGaps: ['Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
+  oppGaps: ['Registration, deposit and payment rules not verified', 'Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
+  oppGapNamesRegistration: true,
   detailNavLabels: ["Overview", "Decision", "Tax & Value", "Property", "History", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
