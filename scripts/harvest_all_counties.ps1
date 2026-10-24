@@ -16,6 +16,15 @@ if (0 -ne $LASTEXITCODE) {
     Write-Host "::error title=source_permission::fl_realauction sale-calendar harvest not permitted (see the decision above) - stopping before any request or write"
     exit 3
 }
+# County-level records (e.g. Indian River: the Clerk grants no commercial use,
+# link only - owner's decision 2026-10-24) deny single counties. Those counties
+# are skipped below with 0 requests and recorded INCOMPLETE / NOT_PERMITTED,
+# so no row of theirs is written or closed out.
+$permDeniedCounties = @(& $permPython.Source (Join-Path $PSScriptRoot "source_permission_check.py") --source fl_realauction --operation fetch --operation parse --state FL --dataset sale_calendar --list-denied-counties (Join-Path $PSScriptRoot "../data/realauction_counties.csv"))
+if (0 -ne $LASTEXITCODE) {
+    Write-Host "::error title=source_permission::county permission list unavailable - stopping before any request or write"
+    exit 3
+}
 # --- end source permission gate ------------------------------------------------
 
 $ProgressPreference = "SilentlyContinue"
@@ -103,6 +112,17 @@ $ci = 0
     $ci++
     $hostName = $c.Host
     Write-Host ("[{0}/{1}] {2}" -f $ci, $counties.Count, $c.County) -ForegroundColor Cyan
+
+    if ($permDeniedCounties -contains $c.County) {
+        Write-Host "  not permitted (county-level record) - skipped, 0 requests" -ForegroundColor DarkYellow
+        $countyStatus += [pscustomobject]@{
+            county   = $c.County
+            status   = "INCOMPLETE"
+            rowCount = 0
+            reason   = "NOT_PERMITTED: data/source_permissions.csv denies this county (link only)"
+        }
+        continue countyLoop
+    }
 
     $jar = Join-Path $tmpDir ("ra_" + $c.County + ".txt")
     Remove-Item $jar -ErrorAction SilentlyContinue

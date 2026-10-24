@@ -238,6 +238,15 @@ def _publication_rule(row) -> bool:
     return pub in PUBLISHABLE_STATUSES or ("AVAILABLE" in (row.ledgers or "") and pub != "BLOCKED")
 
 
+# Owner's decision 2026-10-24: these record owners refused reuse in writing, so
+# their counties keep collecting but are not displayed to customers until legal
+# review (tests/python/test_permission_decisions_2026_10_24.py).
+HELD_FOR_REVIEW_COUNTIES = {("fl_realauction", "Indian River"), ("fl_laft_html", "Indian River"), ("fl_laft_pdfs", "Volusia")}
+# The RealAuction records were re-recorded on 2026-10-24 (risk acceptance);
+# parity is checked on a day they are in effect.
+PARITY_DAY = date(2026, 10, 25)
+
+
 def test_parity_every_currently_collected_registry_source_keeps_fetch_and_store():
     p = PERM.Permissions.from_file()
     for row in load_registry():
@@ -256,19 +265,21 @@ def test_parity_every_currently_collected_registry_source_keeps_fetch_and_store(
         else:
             ds = None
         for op in ("fetch", "store"):
-            d = p.authorize(row.source_id, op, state=row.state, county=row.county, dataset=ds, today=DAY)
+            d = p.authorize(row.source_id, op, state=row.state, county=row.county, dataset=ds, today=PARITY_DAY)
             assert d.allowed, (row.source_id, row.county, op, d.reason_code)
 
 
 def test_parity_every_currently_publishable_source_keeps_display():
     p = PERM.Permissions.from_file()
     for row in load_registry():
+        if (row.source_id, row.county) in HELD_FOR_REVIEW_COUNTIES:
+            continue
         if row.source_id and effective_publication(row) in PUBLISHABLE_STATUSES:
-            d = p.authorize(row.source_id, "display", state=row.state, county=row.county, today=DAY)
+            d = p.authorize(row.source_id, "display", state=row.state, county=row.county, today=PARITY_DAY)
             ds_d = p.authorize(row.source_id, "display", state=row.state, county=row.county,
                                dataset={"fl_realauction": "sale_calendar", "fl_lienhub_certificates": "county_held_certificates",
                                         "fl_bid4assets_okaloosa": "sale_calendar"}.get(row.source_id,
-                                        "lands_available" if row.source_id.startswith("fl_laft_") else None), today=DAY)
+                                        "lands_available" if row.source_id.startswith("fl_laft_") else None), today=PARITY_DAY)
             assert d.allowed or ds_d.allowed, (row.source_id, row.county)
 
 
@@ -463,13 +474,14 @@ def test_parcel_enrichment_requires_recorded_permission(monkeypatch):
     assert not ok and "CONFIG_INVALID" in why
 
 
-def test_fdor_coordinate_source_is_not_marked_licensed():
+def test_fdor_coordinate_source_rests_on_the_dor_written_permission():
     from harvesters.enrichment import geocode as G
-    assert G.FDOR_SOURCE.publication_status == "APPROVED_GRANDFATHERED"
+    # DOR's 2026-10-12 response is on file and covers the statewide data (owner, 2026-10-24).
+    assert G.FDOR_SOURCE.publication_status == "APPROVED"
     assert G.SANTA_ROSA_SOURCE.publication_status == "APPROVED_GRANDFATHERED"
     p = PERM.Permissions.from_file()
     d = p.authorize("fl_fdor_cadastral", "enrich", state="FL", dataset="parcel_centroid", today=DAY)
-    assert d.allowed and d.basis == "INTERIM" and not d.documented
+    assert d.allowed and d.basis == "DOCUMENTED" and d.documented and d.evidence_type == "WRITTEN_PERMISSION"
     for op in ("display", "redistribute", "store"):
         assert not p.authorize("fl_fdor_cadastral", op, state="FL", dataset="parcel_centroid", today=DAY).allowed
 

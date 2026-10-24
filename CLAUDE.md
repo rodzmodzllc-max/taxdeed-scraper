@@ -3468,3 +3468,23 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   error`, `?boundaryids=<id>,<id>` (outline ids the cards see).
 - `sw.js` -> `tdw-shell-v136` (outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
 
+
+## Permission decisions: DOR statewide, RealAuction minimal facts, link-only counties (2026-10-24, PR open, no migration)
+
+Full description: `docs/permission-decisions-2026-10-24.md`. Stable facts:
+- **Written documents on file:** `docs/agreements/` holds redacted transcripts (no e-mail address or phone) with each
+  original `.eml`'s SHA-256: Florida DOR PTO (2026-10-12) and UGRC (2026-10-13). A record may claim
+  `written_permission=True` only with such a file (`authorization.py` enforces it).
+- **DOR covers the statewide parcel data** (owner's decision): `fl_fdor_cadastral` attributes / centroid (fetch, enrich,
+  attribute display) are WRITTEN_PERMISSION; `FDOR_SOURCE.publication_status` is `APPROVED`. Redistribution and statewide
+  polygon storage are not covered.
+- **Owner's position:** listings are public records; TAXACQ sells an organizing service and links to the county /
+  vendor sites. **No working harvester is switched off**; data whose owner refused reuse is collected but not shown to
+  customers until legal review.
+- **RealAuction declined written permission (ticket 914220).** `fl_realauction` sale calendar and `tx_realauction` run on an
+  INTERNAL_RISK_ACCEPTANCE (expires 2027-04-12), never permission; collection and display unchanged.
+- **Held for legal review:** Indian River (RealAuction calendar + results, LAFT HTML) and Volusia LAFT PDF: fetch / parse /
+  store are an INTERNAL_RISK_ACCEPTANCE (still collected), display RESTRICTED (PROHIBITION_FOUND), link LINK_ONLY.
+  `app.js` `LINK_ONLY_UNITS` (pinned to the records) hides their rows from customers (admins see them labelled) and links
+  to the Clerk's pages. The harvesters' per-county checks skip a county only if its fetch is denied. `sw.js` ->
+  `tdw-shell-v137`.

@@ -63,10 +63,12 @@ def test_register_records_both_sources_with_conditions():
     for a in reg.values():
         assert a.status == "APPROVED_WITH_CONDITIONS"
         assert a.dataset_scope and a.excluded_scope and a.permitted_activities and a.conditions
-        assert a.evidence_sender and a.evidence_supplied_on == "2026-10-20"
-        assert "not in this repository" in a.evidence_limitation.lower()
-        # Never invented: the email's received date was not supplied.
-        assert a.evidence_received_on == ""
+        # The original emails were supplied on 2026-10-24; their own dates are
+        # recorded, and a redacted transcript with the .eml's SHA-256 is on file.
+        assert a.evidence_sender and a.evidence_supplied_on == "2026-10-24"
+        assert "kept out of this public repository" in a.evidence_limitation
+        assert "docs/agreements/" in a.evidence_ref
+    assert reg[FL].evidence_received_on == "2026-10-12" and reg[UT].evidence_received_on == "2026-10-13"
     assert reg[FL].basis == "WRITTEN_PERMISSION" and reg[UT].basis == "PUBLISHED_LICENSE"
     assert reg[UT].license_name == "CC BY 4.0" and reg[UT].license_url == "https://creativecommons.org/licenses/by/4.0/"
 
@@ -165,37 +167,44 @@ def test_florida_never_covers_export_proxy_other_datasets_or_states(tmp_path, mo
     assert perms.authorize(FL, "store", state="GA", dataset=FL_DS, today=TODAY).reason_code == "NO_RECORD"
 
 
-def test_florida_approval_leaves_existing_florida_sources_unchanged(tmp_path, monkeypatch, perms):
+def test_florida_approval_covers_the_statewide_cadastral_attributes_only(tmp_path, monkeypatch, perms):
     _register_with(tmp_path, monkeypatch, README_DONE)
-    # The existing statewide cadastral path keeps its interim attribute / centroid allowance only.
+    # Owner's decision 2026-10-24: DOR's 2026-10-12 response covers the statewide
+    # parcel data it names (fl_fdor_cadastral) - attributes and centroid, now on
+    # written permission. No statewide polygon is stored and nothing is exported.
     for ds in ("parcel_attributes", "parcel_centroid"):
-        d = perms.authorize("fl_fdor_cadastral", "enrich", state="FL", dataset=ds, today=TODAY)
-        assert d.allowed and d.basis == "INTERIM"
+        for op in ("fetch", "enrich"):
+            d = perms.authorize("fl_fdor_cadastral", op, state="FL", dataset=ds, today=TODAY)
+            assert d.allowed and d.basis == "DOCUMENTED", (ds, op)
         assert not perms.authorize("fl_fdor_cadastral", "store", state="FL", dataset=ds, today=TODAY).allowed
-        assert not perms.authorize("fl_fdor_cadastral", "display", state="FL", dataset=ds, today=TODAY).allowed
+        assert not perms.authorize("fl_fdor_cadastral", "redistribute", state="FL", dataset=ds, today=TODAY).allowed
+    assert perms.authorize("fl_fdor_cadastral", "display", state="FL", dataset="parcel_attributes", today=TODAY).allowed
+    assert not perms.authorize("fl_fdor_cadastral", "display", state="FL", dataset="parcel_centroid", today=TODAY).allowed
     assert not perms.authorize("fl_dor_statewide", "fetch", state="FL", today=TODAY).allowed
     # Tax-sale and auction feeds keep their own (interim) records.
     assert perms.authorize("fl_realauction", "display", state="FL", county="Leon", dataset="sale_calendar",
-                           today=TODAY).basis == "INTERIM"
+                           today=date(2026, 10, 25)).basis == "INTERIM"   # re-recorded 2026-10-24
     for blocked in sorted(P.HARD_BLOCKED_SOURCE_IDS):
         assert perms.authorize(blocked, "fetch", state="TX", today=TODAY).reason_code == "HARD_BLOCKED"
 
 
-def test_dor_authorization_record_claims_no_document_it_does_not_have():
+def test_dor_authorization_record_points_at_the_document_on_file():
     recs = authorizations_for_source(FL)
     assert len(recs) == 1
     r = recs[0]
     assert r.authorization_status in AUTHORIZATION_GRANTED_STATUSES
-    assert r.written_permission is False and r.document.is_pending and r.document.document_location is None
-    assert r.contact_email is None and r.document.document_hash is None
+    assert r.written_permission is True and not r.document.is_pending
+    loc = REPO / r.document.document_location
+    assert loc.is_file() and r.document.document_hash.removeprefix("sha256:") in loc.read_text(encoding="utf-8")
+    assert r.contact_email is None
     for granted in ("automated_access", "commercial_use", "storage", "normalization", "derived_data",
                     "customer_display", "image_display"):
         assert r.scope.get(granted).authorized, granted
     for not_granted in ("customer_export", "api_redistribution", "document_use", "image_download"):
         assert not r.scope.get(not_granted).authorized, not_granted
-    # Only the DOR record is granted; no other source gains a grant.
+    # Only the DOR response is granted (county files + the statewide data it names).
     assert {a.source_id for a in PROVIDER_AUTHORIZATIONS.values()
-            if a.authorization_status in AUTHORIZATION_GRANTED_STATUSES} == {FL}
+            if a.authorization_status in AUTHORIZATION_GRANTED_STATUSES} == {FL, "fl_fdor_cadastral"}
 
 
 # --- Utah UGRC: permission gate ----------------------------------------------
@@ -209,10 +218,15 @@ def test_utah_collection_is_allowed_on_the_published_licence(perms, op):
 
 def test_utah_display_needs_the_full_attribution_including_a_disclaimer(tmp_path, monkeypatch, perms):
     # The register links UGRC's own disclaimer (its data license and disclaimer
-    # policy page) rather than transcribing it, so display is allowed.
+    # policy page) and records the text UGRC supplied on 2026-10-13, so display
+    # is allowed. Either one is enough; with neither, display is denied.
     assert A.get(UT).disclaimer_url == "https://gis.utah.gov/documentation/policy/license/"
+    assert A.get(UT).disclaimer.startswith("The data, including but not limited to geographic data")
+    assert "hold the State of Utah harmless" in A.get(UT).disclaimer
     assert perms.authorize(UT, "display", state="UT", today=TODAY).allowed
     _register_with(tmp_path, monkeypatch, {(UT, "disclaimer_url"): ""})
+    assert perms.authorize(UT, "display", state="UT", today=TODAY).allowed   # the text alone
+    _register_with(tmp_path, monkeypatch, {(UT, "disclaimer_url"): "", (UT, "disclaimer"): ""})
     d = perms.authorize(UT, "display", state="UT", today=TODAY)
     assert not d.allowed and d.reason_code == "CONDITION_UNMET"          # no disclaimer at all
     for col in ("credit", "change_notice", "metadata_url", "license_url"):
@@ -239,8 +253,8 @@ def test_utah_never_covers_export_other_sources_or_states(perms):
 
 
 def test_the_two_approvals_are_independent(tmp_path, monkeypatch, perms):
-    # Removing Utah's disclaimer link denies Utah display only.
-    _register_with(tmp_path, monkeypatch, {(UT, "disclaimer_url"): ""})
+    # Removing Utah's disclaimer (link and text) denies Utah display only.
+    _register_with(tmp_path, monkeypatch, {(UT, "disclaimer_url"): "", (UT, "disclaimer"): ""})
     assert not perms.authorize(UT, "display", state="UT", today=TODAY).allowed
     assert perms.authorize(FL, "display", state="FL", dataset=FL_DS, today=TODAY).allowed
     # Recording Florida's Readme opens Florida's file reads only.

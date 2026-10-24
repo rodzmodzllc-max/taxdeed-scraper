@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import datetime
 
+from pathlib import Path
+
 import pytest
 
 from harvesters.governance import INGESTION_ALLOWED_STATUSES, SOURCE_REGISTRY, SourceStatus, check_ingestion_gate
@@ -363,7 +365,10 @@ def test_real_realauction_records_are_county_scoped_not_provider_wide():
 # The only granted records, each backed by an owner-relayed written response
 # and an "approved" audit entry (2026-10-20). Adding one is a deliberate,
 # reviewed change to this set - never a side effect.
-GRANTED_RECORDS = frozenset({"fl_dor_pto_parcel_gis__provider__dor_pto"})
+GRANTED_RECORDS = frozenset({"fl_dor_pto_parcel_gis__provider__dor_pto", "fl_fdor_cadastral__provider__dor_pto"})
+# Records whose written document is actually on file (a transcript with the
+# original's SHA-256 under docs/agreements/, 2026-10-24).
+DOCUMENTED_RECORDS = GRANTED_RECORDS
 
 
 def test_no_authorization_record_claims_written_permission():
@@ -379,6 +384,11 @@ def test_no_authorization_record_claims_written_permission():
         record = PROVIDER_AUTHORIZATIONS[rid]
         assert any(e.event == "approved" for e in record.audit_log), rid
     for record in PROVIDER_AUTHORIZATIONS.values():
+        if record.authorization_id in DOCUMENTED_RECORDS:
+            loc = Path(__file__).resolve().parents[2] / record.document.document_location
+            assert record.written_permission is True and not record.document.is_pending, record.authorization_id
+            assert loc.is_file() and record.document.document_hash, record.authorization_id
+            continue
         assert record.written_permission is False, record.authorization_id
         assert record.document.is_pending is True, record.authorization_id
         assert record.document.document_location is None, record.authorization_id
