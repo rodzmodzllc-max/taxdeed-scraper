@@ -1241,6 +1241,8 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 /* Small metadata floor (2026-10-23): text that carries useful information is
    at least 12px on phones (day labels, the bottom bar, map hints and legend). */
 @media (max-width: 768px) {
-  .desk-kicker, .desk-date span, .nav-bottom-item, .map-legend-label,
+  .desk-kicker, .desk-money span, .desk-date span, .nav-bottom-item, .map-legend-label,
   .explore-map-hint, .explore-map-note, .rail-head { font-size: 12px; }
 }
+/* Map bubble hit area (2026-10-24): invisible, catches the tap. */
+.cluster-bubble .bubble-hit{fill:transparent;stroke:none;pointer-events:all}

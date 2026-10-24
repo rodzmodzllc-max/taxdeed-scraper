@@ -7872,10 +7872,9 @@ function availableDecisionHtml(p) {
   // 5. Where is it?
   rows.push(q("where", "Where is it?", `${street ? esc(street) : muted("No street address in the listing")}${sub(esc(`${p.county} ${UNIT_WORD}, ${region}`))}${sub(coords ? `<span class="mono">${Number(p.latitude).toFixed(5)}, ${Number(p.longitude).toFixed(5)}</span> · authoritative coordinates on file` : `<span class="muted">Not yet geocoded - no point is shown for this parcel</span>`)}`));
   // 6. What is known about it?
+  // Parcel facts only. The county values (just, assessed, taxable) are shown
+  // once, in Financial, not repeated here (2026-10-24).
   const known = [];
-  if (hasNum(p.market)) known.push(`${valueLabel(p)} ${fmtShort(p.market)}`);
-  if (hasNum(p.assessed)) known.push(`${assessedSourceLabel(p)} ${fmtShort(p.assessed)}`);
-  if (hasNum(p.taxable_value)) known.push(`Taxable value ${fmtShort(p.taxable_value)}`);
   if (hasNum(p.acreage)) known.push(`${Number(p.acreage).toFixed(2)} ac`);
   if (p.land_use) known.push(`Land use ${p.land_use}`);
   else if (p.dor_use_code && dorUseLabel(p.dor_use_code)) known.push(`State DOR use code ${p.dor_use_code} (${dorUseLabel(p.dor_use_code)})`);
@@ -7935,10 +7934,9 @@ function auctionDecisionHtml(p) {
   if (p.tx_sale_status) when += ` · source status "${p.tx_sale_status}"`;
   rows.push(q("when", "When is the sale?", esc(when), whenCls));
   rows.push(q("bid", "Opening / minimum bid, if published?", hasPublishedBid(p) ? `${esc(fmtMoney(p.bid))}${hasNum(p.market) && marketOf(p) > 0 ? sub(esc(`Value ÷ bid ${valueRatio(p).toFixed(1)}× - a screening ratio, not a return`)) : ""}` : muted("Not published"), hasPublishedBid(p) ? "" : "muted"));
+  // Parcel facts only. The county values (just, assessed, taxable) are shown
+  // once, in Financial, not repeated here (2026-10-24).
   const known = [];
-  if (hasNum(p.market)) known.push(`${valueLabel(p)} ${fmtShort(p.market)}`);
-  if (hasNum(p.assessed)) known.push(`${assessedSourceLabel(p)} ${fmtShort(p.assessed)}`);
-  if (hasNum(p.taxable_value)) known.push(`Taxable value ${fmtShort(p.taxable_value)}`);
   if (hasNum(p.acreage)) known.push(`${Number(p.acreage).toFixed(2)} ac`);
   if (p.land_use) known.push(`Land use ${p.land_use}`);
   else if (p.dor_use_code && dorUseLabel(p.dor_use_code)) known.push(`State DOR use code ${p.dor_use_code} (${dorUseLabel(p.dor_use_code)})`);
@@ -10858,8 +10856,7 @@ function section(container, title, sub, rows, kind) {
         <h2>${title}</h2>
       </div>
       ${facts ? `<p class="ledger-facts">${esc(facts)}</p>` : ""}
-      ${shown.length ? `<details class="ledger-status-fold"><summary>Source status and coverage</summary>${ledgerStatusHtml(kind, shown)}</details>` : ledgerStatusHtml(kind, shown)}
-      ${calendarHtml ? `<details class="ledger-status-fold upcoming-fold"><summary>Auction calendar · next ${COMMAND_CENTER_DAYS} days</summary>${calendarHtml}</details>` : ""}
+      ${shown.length ? `<details class="ledger-status-fold${calendarHtml ? " upcoming-fold" : ""}"><summary>${calendarHtml ? `Auction calendar · next ${COMMAND_CENTER_DAYS} days, and source status` : "Source status and coverage"}</summary>${calendarHtml}${ledgerStatusHtml(kind, shown)}</details>` : (calendarHtml ? `<details class="ledger-status-fold upcoming-fold"><summary>Auction calendar · next ${COMMAND_CENTER_DAYS} days</summary>${calendarHtml}</details>` : ledgerStatusHtml(kind, shown))}
       <p class="ledger-legend" aria-label="What the colour on each card's left edge means">
         <span class="lgd lgd-active">Active</span>
         <span class="lgd lgd-stale">Not synced recently</span>

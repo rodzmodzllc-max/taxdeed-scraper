@@ -826,6 +826,20 @@ function draw() {
         (selectedCounty === county ? " - selected, activate to clear" : " - activate to filter the list"));
       g.setAttribute("aria-pressed", selectedCounty === county ? "true" : "false");
 
+      // Touch target (2026-10-24): a small bubble is well under 44px on a phone.
+      // A transparent hit circle behind it guarantees a 44px target on screen,
+      // sized from the SVG's current scale (viewBox units per rendered pixel).
+      const vbW = (svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number)[2] || svg.clientWidth || 1;
+      const unitsPerPx = vbW / Math.max(1, svg.clientWidth || vbW);
+      const hitR = Math.max(r, 22 * unitsPerPx);
+      if (hitR > r) {
+        const hit = document.createElementNS(NS, "circle");
+        hit.setAttribute("class", "bubble-hit");
+        hit.setAttribute("cx", c.cx);
+        hit.setAttribute("cy", c.cy);
+        hit.setAttribute("r", hitR);
+        g.appendChild(hit);
+      }
       const circle = document.createElementNS(NS, "circle");
       circle.setAttribute("cx", c.cx);
       circle.setAttribute("cy", c.cy);
