@@ -2543,7 +2543,7 @@ const txClPage = await newPage({ viewport: { width: 1200, height: 900 } });
 await txClPage.goto(TX_BASE_URL + '#/lands/ptx3', { waitUntil: 'networkidle' });
 await txClPage.waitForTimeout(500);
 results.txStruckOffDetailTag = ((await txClPage.locator('#detailModalInner .prop-county-tag').textContent()) || '').trim();
-results.txStruckOffWhat = ((await txClPage.locator('#detailModalInner .decision-card .dec-row[data-q="what"] .dec-a').textContent()) || '').replace(/\s+/g, ' ').trim();
+results.txStruckOffWhat = ((await txClPage.locator('#detailModalInner .dossier-status .record-kind').textContent()) || '').replace(/\s+/g, ' ').trim();
 results.txStruckOffNeverLandsAvailable = !((await txClPage.locator('#detailModalInner').textContent()) || '').includes('Lands Available for Taxes');
 // Residual from the final review of PR #35: the county-group header on the
 // Texas struck-off ledger used the Florida "Lands Available - fixed price,
@@ -2711,7 +2711,9 @@ results.decP3How = await decA(decPage, 'how');
 results.decP3HowLinkCount = await decPage.locator('#detailModalInner .decision-card .dec-row[data-q="how"] a').count();
 results.decP3Available = await decA(decPage, 'available');
 results.decP3Where = await decA(decPage, 'where');
-results.decP3Fresh = await decA(decPage, 'fresh');
+// The fixture's last complete read is "now - 3 days", so the absolute date in
+// parentheses changes every day; the relative part is what the check pins.
+results.decP3Fresh = (await decA(decPage, 'fresh')).replace(/\((\w{3} \d{1,2}, \d{4})\)/, '(<date>)');
 results.decP3History = await decA(decPage, 'history');
 results.decP3Related = await decA(decPage, 'related');
 results.decP3Contact = await decA(decPage, 'contact');
@@ -7301,7 +7303,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v136"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v137"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -8167,7 +8169,7 @@ const EXPECTED = {
   notesVisibilityText: 'Shared with every approved member, with your email name - not private',
   tableHeaderValue: 'County value',
   txStruckOffDetailTag: 'Galveston County, TX · Struck-off inventory',
-  txStruckOffWhat: 'WhatTexas struck-off / future-sale inventory (vendor listing)Source: LGBS (taxsales.lgbs.com)',
+  txStruckOffWhat: 'Texas struck-off / future-sale inventory (vendor listing)',
   txStruckOffNeverLandsAvailable: true,
   txStruckOffGroupMetaCount: 2,
   txStruckOffGroupMetaText: "Struck-off / future-sale inventory - no auction date; see each card's status",
@@ -8251,13 +8253,13 @@ const EXPECTED = {
   decP3How: "Phone the county First step: Call or e-mail the Tax Deed Department for the current purchase amount Call or e-mail the Tax Deed Department for the current purchase amount Pay the quoted amount at the Clerk's office County process: the county publishes this acquisition process for the properties on its list. It is not an approval for this parcel, and being listed does not prove the county will still sell it today. Acquisition process last verified Sep 30, 2026 \u00b7 County source not fully read at the last attempt; retry pending - this is the last verified process.",
   decP3Contact: "Office Clerk of Court - Tax Deed Department (fixture) Phone (850) 555-0100 E-mail taxdeeds@bayclerk.example.gov",
   decP3Why: "Lands Available - over the counter from the clerk, no bidding (F.S. 197.502(7)) Property-specific: this parcel appears on the official county list. Basis: harvester constant (F.S. 197.502(7) Lands Available list) County list page → · List document (PDF / file) → · list dated Aug 10, 2026 Matched to the list by case no C-1 (parcel 333) · read Aug 11, 2026",
-  decP3Glance: "Phone the county Clerk of Court - Tax Deed Department (fixture)",
+  decP3Glance: "Phone the county First step: Call or e-mail the Tax Deed Department for the current purchase amount Call or e-mail the Tax Deed Department for the current purchase amount Pay the quoted amount at the Clerk's office County process: the county publishes this acquisition process for the properties on its list. It is not an approval for this parcel, and being listed does not prove the county will still sell it today. Acquisition process last verified Sep 30, 2026 · County source not fully read at the last attempt; retry pending - this is the last verified process.",
   decP3GapNamesAcquisition: true,
   purchasePathNoneAcquire: 'Not yet verified - no published acquisition process established from evidence',
   decP3HowLinkCount: 0,   // nothing verified = no link, ever
   decP3Available: 'Available over the counter basis: list presence · observed Aug 11, 2026 last verified: read from the source Aug 11, 2026 · county source unavailable at the last attempt - inventory kept, nothing closed',
   decP3Where: '3 Oak Ave Bay County, FL Not yet geocoded - no point is shown for this parcel',
-  decP3Fresh: "Source date: list dated Aug 10, 2026 · Observation date: Aug 11, 2026 · Last verified: read from the source Aug 11, 2026 County source: source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours (last complete read 3d ago (Oct 20, 2026)) · update unsuccessful; retry pending · 3 rows at the last complete read",
+  decP3Fresh: "Source date: list dated Aug 10, 2026 · Observation date: Aug 11, 2026 · Last verified: read from the source Aug 11, 2026 County source: source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours (last complete read 3d ago (<date>)) · update unsuccessful; retry pending · 3 rows at the last complete read",
   decP3History: 'Aug 11, 2026 Last read from the source (continued on the list) Append-only record. Absence from a list is recorded as a removal, never as a sale; a result appears only when the source published one.',
   decP3Related: 'No record for parcel 333 in the other ledgers in the current dataset',
   decP3PathEvidenceLine: "Phone or mail process (published by the source; no online path) \u00b7 source-level \u00b7 Clerk's Lands Available page: call or e-mail the Tax Deed department for the current amount (fixture) \u00b7 observed Sep 30, 2026",
@@ -8272,7 +8274,7 @@ const EXPECTED = {
   decP15ContactLinks: ['tel:0000000000', 'mailto:taxdeeds@example.gov'],
   decP15Why: "Lands Available - over the counter from the clerk, no bidding (F.S. 197.502(7)) Property-specific: this parcel appears on the official county list. Basis: harvester constant (F.S. 197.502(7) Lands Available list) County list page → · list dated Sep 19, 2026 Matched to the list by case no CI-7 (parcel 1515) · read Sep 20, 2026",
   decP15SourceDocHrefs: ['https://x/citrus-list', 'https://www.citrusclerk.example.gov/lands-available/how-to-purchase', 'https://www.citrusclerk.example.gov/lands-available/application.pdf'],
-  decP15Glance: 'Multi-step county process Fixture County Clerk - Tax Deed Division (fixture)',
+  decP15Glance: 'Multi-step county process First step: Download and complete the application (fixture) Download and complete the application (fixture) E-mail taxdeeds@example.gov with the case number (fixture) Pay in certified funds at 1 Example Ave (fixture) Application / instructions document → · County purchase-instructions page (published by the source) → County process: the county publishes this acquisition process for the properties on its list. It is not an approval for this parcel, and being listed does not prove the county will still sell it today. Acquisition process last verified Sep 18, 2026',
   decP15InvAcquire: 'Multi-step county process Fixture County Clerk - Tax Deed Division (fixture) - full process in "How do I acquire it?" above',
   availCsvP15Acquisition: true,
   decP15Scope: 'source',
