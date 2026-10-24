@@ -83,7 +83,8 @@ def test_a_pdf_is_never_a_purchase_link():
 
 def test_detail_page_places_money_after_acquire_and_documents_after_source_truth():
     # Redesign PR1 (2026-10-24): the Acquire sheet, then its decision fold, then
-    # Financial position; Source truth, provenance, then Documents & links.
+    # Financial position; in the Source group, Documents & links directly after
+    # Source truth (the browser suite pins documents = truth + 1), then provenance.
     i = APP.index("acquireBlockHtml(p) : auctionAcquireHtml(p)}\n    ${decisionFoldHtml(p)}\n    ${financialPositionHtml(p)}")
-    j = APP.index("sourceTruthHtml(p), provenanceCardHtml(p), acquisitionDocumentsHtml(p)")
+    j = APP.index("sourceTruthHtml(p), acquisitionDocumentsHtml(p), provenanceCardHtml(p)")
     assert 0 < i < j

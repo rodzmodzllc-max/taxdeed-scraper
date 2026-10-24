@@ -9513,8 +9513,8 @@ function detailStatusHtml(p) {
   const recAttr = rec ? ` data-ledger-record="${esc(rec.ledger)}"` : "";
   // The kicker already says "<County>, <ST> · Auction / Lands Available", so
   // the record kind is repeated only where it adds a fact: a Texas struck-off
-  // row, a dated Parish list, a non-Florida program (review H7).
-  const kind = p.source === "laft" && regionOf(p) !== "FL" ? recordKindText(p) : null;
+  // row, a dated Parish list, a non-Florida program or tax sale (review H7).
+  const kind = regionOf(p) !== "FL" ? recordKindText(p) : null;
   // The record's own ledger, named when this state calls the list something else.
   const ledgerName = rec && rec.ledger_name !== (ledgerCopy(p.source).title || k.type) ? rec.ledger_name : null;
   const sub = (t, cls) => `<span class="dossier-sub${cls ? " " + cls : ""}">${t}</span>`;
@@ -9857,7 +9857,7 @@ function detailHtml(p) {
       riskLegalCardHtml(p)])}
     ${detailGroupHtml("map", "Map & location", [propertyVisual(p, "detail-hero-photo"), gisLocationCardHtml(p)])}
     ${detailGroupHtml("related", "Same parcel & timeline", [relatedRecordsHtml(p), parcelTimelineHtml(p), eventHistorySlotHtml(p)])}
-    ${detailGroupHtml("source", "Source", [sourceTruthHtml(p), provenanceCardHtml(p), acquisitionDocumentsHtml(p), sourcesHtml,
+    ${detailGroupHtml("source", "Source", [sourceTruthHtml(p), acquisitionDocumentsHtml(p), provenanceCardHtml(p), sourcesHtml,
       p.source === "laft" ? auctionLinkHtml(p, "detail-cta") : "", whySeeingHtml(p)])}
     ${detailGroupHtml("mine", "Mine", [researchBandHtml(p), detailSectionHtml("My research", researchPanelHtml(p), "research-section", "research"), diligenceSectionHtml(p), monitorSectionHtml(p), noteHtml(p)])}
     `}

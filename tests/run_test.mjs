@@ -4993,7 +4993,7 @@ await navMap.close();
     await ip.goto(BASE_URL.replace('index.html', 'index.html?v=countyonly') + '#/lands/p3', { waitUntil: 'networkidle' });
     await ip.waitForFunction(() => !!document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-hero-photo'), null, { timeout: 10000 });
     // Redesign PR1: the hero sits in the Map & location group, closed on a phone; the reader opens it as a tap would.
-    await ip.evaluate(() => { const d = document.querySelector('details.detail-group[data-group="map"]'); if (d) d.open = true; });
+    await ip.evaluate(() => { const d = document.querySelector('details.detail-group[data-group="map"]'); if (d) d.open = true; const h = document.querySelector('.detail-hero-photo'); if (h) h.scrollIntoView(); });   // the mini-map hydrates from an IntersectionObserver, so the hero must be in view
     await ip.waitForFunction(() => !!document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-hero-photo svg'), null, { timeout: 8000 }).catch(() => {});
     results.countyOnlyImagery = await ip.evaluate(() => { const h = document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-hero-photo');
       return { countyOnly: h.classList.contains('minimap-county'), drawn: !!h.querySelector('svg .mm-county'), noPoint: !h.querySelector('.mm-dot, .mm-halo'), caption: [...h.querySelectorAll('.photo-caption > span')].map(x => x.textContent) }; });
@@ -7255,6 +7255,14 @@ await big.press('#globalSearchInput', 'Enter');
 await browser.close();
 
 const EXPECTED = {
+  // Redesign PR1 (2026-10-24): first fold at 390x844 and the desktop contents list - pinned from DUMP_RESULTS.
+  firstFoldAuction: {"dts": ["Sale", "Opening bid", "Value on file", "Source · last read"], "figure": "$8,000.00", "value": "$95,000", "provPrefix": "Source not recorded", "saleWithin": true, "figureWithin": true, "unknown": "Not known from the record: Registration, deposit and payment rules not verified · Image not checked yet · Flood zone not checked. Nothing here is estimated.", "unknownWithin": true, "cta": "View sale listing", "ctaWithin": true, "acquireFirstSection": "acquire", "figureOnce": true, "valueOnce": true, "groupsClosed": true, "decisionClosed": true, "navHidden": true, "actbar": ["Favorite", "Watchlist", "Acquire →"], "actbarOnScreen": true, "actbarTargets": true, "verifiedLine": "Verified: Not yet · the county's registration, deposit and payment rules for this sale have not been captured from its own page. Check the county's sale page before bidding; nothing here is assumed.", "sectionIds": ["acquire", "decision", "financial", "risk", "map", "related", "timeline", "events", "truth", "documents", "provenance", "sources", "research", "diligence", "monitor"], "saleIsDate": true, "saleOnceInFold": 1},
+  firstFoldJumpOpensDecision: {"open": true, "scrolled": true},
+  firstFoldActbarFav: {"bar": true, "top": "♥ Favorited"},
+  firstFoldAvailable: {"dts": ["Availability", "Price", "Value on file", "Source · last read"], "figure": "Not published", "value": "$26,000", "figureWithin": true, "cta": "Download application", "ctaWithin": true, "unknown": "Not known from the record: Price not published · Image not checked yet · Flood zone not checked. Nothing here is estimated.", "unknownWithin": true, "acquireFirstSection": "acquire", "verifiedLine": null, "groupsClosed": true, "actbar": ["Favorite", "Watchlist", "Acquire →"], "valueOnce": true},
+  firstFoldUnverifiedAvailable: {"verifiedLine": "Verified: Not yet · no county page or document establishing how to acquire from this list has been verified; the listing is the source's own statement of availability.", "cta": 0, "order": ["detail-section-head", "acq-verified-state", "acq-checklist-wrap", "acq-block"]},
+  detailContents: {"afterFacts": true, "entries": [["01", "Acquire", "acquire", "Registration not yet verified"], ["02", "Money", "financial", "$90,000 value on file · County Assessed Value $80,000"], ["03", "Property & history", "property", "House · built 1958 · 16,456 sq ft lot · last sale $41,500 in 2011"], ["04", "Risk & legal", "risk", "Flood zone: Not checked · Manual lien notes: No flags noted"], ["05", "Map & location", "map", "Not yet geocoded"], ["06", "Same parcel & timeline", "timeline", "1 record in other ledgers · sale scheduled, no result yet"], ["07", "Source", "truth", "Fl Realauction Alachua · last read not recorded"], ["08", "Mine", "research", "On your account · Not saved · 7 of 15 verified"]], "groupsOpen": true, "actbarHidden": true, "noScoreWords": true},
+  detailContentsJumpOpensGroup: {"open": true, "on": true},
   // Parcel boundaries (2026-10-20, migration 034): fixture geometry only.
   boundaryOk: {"host": true, "pid": "p5", "outline": true, "rings": 1, "attrib": "FIXTURE Utah Geospatial Resource Center (UGRC)", "state": null, "bboxCenter": [-82.045, 26.934], "fitted": true, "label": "Aerial image with the parcel outline of this property (FIXTURE Utah Geospatial Resource Center (UGRC))", "credit": {"text": "Parcel outline: FIXTURE Utah Geospatial Resource Center (UGRC) · Licence: CC BY 4.0 · Changes: FIXTURE: boundaries reprojected and simplified · Source last refreshed by TAXACQ Oct 2, 2026 · Source publishes: Generally monthly · Source disclaimer · Dataset metadata · Outline is for orientation; it is not a survey and does not show ownership or title.", "links": [["CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/", "noopener noreferrer"], ["Source disclaimer", "https://gis.utah.gov/documentation/policy/license/", "noopener noreferrer"], ["Dataset metadata", "https://example.org/fixture-metadata", "noopener noreferrer"]]}},
   boundaryFreshnessOk: "Source last refreshed by TAXACQ Oct 2, 2026",
@@ -7401,7 +7409,7 @@ const EXPECTED = {
   detroitSubsetVectors: {"cases": 50, "mismatches": []},
   availDefaultLanding: {"FL": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "LA": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "WY": {"hash": "#/auctions", "activeTab": "auction", "cards": true, "ledgers": ["auction"]}},   // 2026-10-04: WY fixture row pwy1 (landing-ledger test)
   // Acquisition-path semantics (2026-10-03): Horry's county-wide bid-form PDF.
-  acqPathHorryDetail: {"modes": ["bid"], "saysOnline": false, "saysPropertyLink": false, "saysBid": true, "pdfLinks": ["Bid form →", "Download bid form", "Bid form →", "County process page →", "Application form to download (published by the source) →", "Application / purchase instructions →", "Download the form - complete and submit it offline →"], "pathEvidence": true},
+  acqPathHorryDetail: {"modes": ["bid"], "saysOnline": false, "saysPropertyLink": false, "saysBid": true, "pdfLinks": ["Download bid form", "Bid form →", "Bid form →", "County process page →", "Application form to download (published by the source) →", "Application / purchase instructions →", "Download the form - complete and submit it offline →"], "pathEvidence": true},   // redesign PR1: the acquisition CTA ("Download bid form") leads the Acquire sheet, above the checklist
   // Collection vs customer publication (2026-10-02).
   devVisAdminMiLands: {"cards": 6, "reviewChips": ["Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published"], "programs": ["Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Own It Now", "Side Lot For Sale"], "pending": "6 records from sources awaiting customer-publication review are shown to you as an admin, each labelled \"Source review\". Customers in published mode do not see them.", "withheld": null},
   devVisAdminDetail: {"banner": "Source review: Unreviewed. This record comes from a source awaiting customer-publication review - shown to you as an admin. It is not customer-published. Its availability below is the source's own statement and is a separate fact.", "reviewRow": "Source publication review: Unreviewed Customer-visible: No (shown to you as an admin) Customer-publication gate: Not enforced on this deployment (migration 031 not applied) Source program / status: Side Lot For Sale Detroit customer subset: Not included in current Detroit customer subset - no structure in the source's own status (vacant lot or program record) · structure evidence: none in the source's status", "identifier": true, "program": true, "lastRead": true, "neverApproved": true},
@@ -7646,7 +7654,7 @@ const EXPECTED = {
   // Phase 66: "At a glance" summary + section nav + photo states + show-on-map
   glanceBlockRemoved: 0,
   decGapNamesRegistration: true,
-  detailNavLabels: ["Decision", "Tax & Value", "Property", "History", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
+  detailNavLabels: ["01 Acquire Registration not yet verified", "02 Money $90,000 value on file · County Assessed Value $80,000", "03 Property & history House · built 1958 · 16,456 sq ft lot · last sale $41,500 in 2011", "04 Risk & legal Flood zone: Not checked · Manual lien notes: No flags noted", "05 Map & location Not yet geocoded", "06 Same parcel & timeline 1 record in other ledgers · sale scheduled, no result yet", "07 Source Fl Realauction Alachua · last read not recorded", "08 Mine On your account · Not saved · 7 of 15 verified"],   // redesign PR1: the numbered contents list (group · honest status) replaces the section pills
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
   showOnMapBtnText: 'Show county on the Map page',
@@ -7791,7 +7799,7 @@ const EXPECTED = {
   rdNavAuction: {"hash": "#/auctions", "title": "Auction Properties"},
   rdGlobal: {"rows": ["p15:Available"], "all": "See all 1 result in the list →", "expanded": "true"},
   rdGlobalOpen: {"modal": false, "crumbs": ["Home/Available/15 Manatee Ln"]},
-  rdDetail: {"tabs": ["How to acquire", "Financial position", "Decision", "Inventory", "Tax & Value", "Property", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago (Sep 20, 2026).", "Its source is approved for customer publication."], "acquire": 1},
+  rdDetail: {"tabs": ["01 Acquire Multi-step county process", "02 Money $26,000 value on file · County Assessed Value $25,000", "03 Property & history Vacant Lot", "04 Risk & legal Flood zone: Not checked · Manual lien notes: Not reviewed", "05 Map & location Coordinates on file", "06 Same parcel & timeline No other ledger record", "07 Source FL LAFT Html · last read Sep 20, 2026", "08 Mine On your account · Not saved · 7 of 17 verified"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago (Sep 20, 2026).", "Its source is approved for customer publication."], "acquire": 1},
   rdCrumbHome: {"modalHidden": true, "dashVisible": true},
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
@@ -8190,7 +8198,7 @@ const EXPECTED = {
   txRaCardScopeNote: true,
   txRaCardLabelNotPropertySpecific: true,
   txRaDetailLink: { kind: 'sale', anchors: 1 },
-  txRaDetailLinkText: /^View sale listing for [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
+  txRaDetailLinkText: /^View sale listing$/,   // redesign PR1 (review H7): the Sale cell carries the date; the sheet CTA does not repeat it. The card keeps "View sale listing for <date>".
   txRaDetailHrefMatchesCard: true,
   txRaDetailProvenanceText: /Data source: RealAuction county sheriff-sale site/,
   txRaNoHostCardLink: { text: 'Auction link not published', kind: 'none', anchors: 0 },
@@ -8649,10 +8657,10 @@ const EXPECTED = {
   diligenceKeyFirst: {"states": ["VERIFIED", "NOT_VERIFIED", "NOT_PUBLISHED", "NOT_APPLICABLE", "SOURCE_UNAVAILABLE"], "beforeItems": true},
   diligenceCellCount: {"verified": 7, "applicable": 17, "matchesChecklist": true},
   diligenceAmountDateWording: "NOT_PUBLISHED:No dated amount published by the source",
-  researchCellBefore: {"state": "none", "own": true, "besideOfficial": 4},
+  researchCellBefore: {"state": "none", "own": true, "besideOfficial": 1},   // redesign PR1: the research cell is its own band in Mine, no longer beside the official cells
   researchSectionOrder: {"afterProperty": true, "afterAcquire": true},
   researchCellJump: true,
-  researchCellAfter: {"state": "DISCOVERED", "own": true, "besideOfficial": 4},
+  researchCellAfter: {"state": "DISCOVERED", "own": true, "besideOfficial": 1},
   researchEmptyStart: {"steps": 4, "browse": true, "counties": true},
   researchEmptyToCounties: "#/counties",
   researchPipeline: ["DISCOVERED=1", "RESEARCHING=0", "DUE_DILIGENCE=1", "ACQUISITION_READY=0", "PASSED=0", "ACQUIRED=0"],
@@ -8689,7 +8697,7 @@ const EXPECTED = {
   gateEnforcedAdmin: {"cards": 4, "chipped": ["p14", "p15", "p3"], "chip": {"cls": "metadata_gap", "text": "Withheld from customers: Missing record metadata"}, "freshChip": false},
   gateTruthRow: {"cls": "metadata_gap", "verdict": "Missing record metadata", "subs": ["The record was not read from its source in the last 14 days · No acquisition-evidence status exists for this source and county", "Gate not enforced on this deployment: shown for information."]},
   refineLedgerQuestions: {"laft": "What can I acquire now?", "auction": "What is coming up for sale?", "certificate": "What tax lien or certificate am I buying?"},
-  refineDossier: {"status": ["Ledger", "Status", "Last read", "Your research (your label, not an official status)"], "lastRead": "Sep 20, 2026", "order": ["dossier-status", "acquire", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},
+  refineDossier: {"status": ["Availability", "Price", "Value on file", "Source · last read"], "lastRead": "Sep 20, 2026", "order": ["dossier-status", "acquire", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},   // redesign PR1: the four-fact row (Availability / Price / Value on file / Source · last read)
   refineViewports: [],
   // Available price honesty (2026-10-05).
   priceWording: {"openingBid": {"label": "Opening bid", "partial": true, "note": "Not the full price: the source publishes this as a starting amount. Ask the county for the current total.", "total": null, "expired": null, "gap": "Current purchase total not on file - the listed figure is the opening bid only"}, "fixed": {"label": "Purchase price", "partial": false, "note": "As the source publishes it - confirm the amount due before paying.", "total": null, "expired": null, "gap": null}, "expiredStatement": {"label": "Total due", "partial": true, "note": "Last clerk statement $27,689.42, valid through Aug 31, 2026 - that date has passed. Request an updated statement from the clerk.", "total": 27689.42, "expired": true, "gap": "County purchase statement has expired - request an updated total"}, "currentStatement": {"label": "Total due from purchaser", "partial": true, "note": "Clerk statement, valid if received by Dec 31, 2099.", "total": 27689.42, "expired": false, "gap": null}}
