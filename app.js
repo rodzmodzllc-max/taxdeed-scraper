@@ -9583,7 +9583,7 @@ function detailGroupHtml(key, title, parts) {
 function decisionFoldHtml(p) {
   const inner = p.source === "auction" ? auctionDecisionHtml(p) : availableDecisionHtml(p);
   if (!inner) return "";
-  return `<details class="detail-more decision-fold" open><summary class="detail-more-summary">${p.source === "auction" ? "Auction decision" : "Available decision"} · every question the record answers</summary>${inner}</details>`;
+  return `<details class="detail-more decision-fold" open><summary class="detail-more-summary">${p.source === "auction" ? "Auction decision" : "Available decision"} · the record's questions</summary>${inner}</details>`;
 }
 // Auctions: the sale and its process as the first section - the one link the
 // source published (auctionLinkInfo: a sale-day listing, a property page, a

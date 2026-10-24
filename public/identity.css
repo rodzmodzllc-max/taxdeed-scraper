@@ -1298,6 +1298,11 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .dossier-research-band > .dossier-research{background:var(--copper-soft);border-left:2px dashed var(--copper);padding:.45rem .8rem}
 .dossier-research-band dt{font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin:0}
 .dossier-research-band dd{margin:.1rem 0 0;font-size:.86rem;font-weight:600;color:var(--ink)}
+/* The close button keeps its sticky corner but no longer takes a row of its
+   own (#detailModalInner is a flex column, so float never applied): the crumbs
+   flow up beside it and the facts row starts ~50px higher on a phone. */
+#detailModalInner > .detail-close{align-self:flex-end;margin-bottom:-2.75rem}
+#detailModalInner > .detail-crumbs{margin-right:3.2rem}
 /* Bottom action bar (graft C): sticky inside the modal's own scroll box.
    flex-shrink:0 - #detailModalInner is a flex column with a max height. */
 .detail-actbar{position:sticky;bottom:0;z-index:4;flex-shrink:0;display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:.5rem;margin:1rem -1.1rem -1.6rem;padding:.5rem 1.1rem calc(.6rem + env(safe-area-inset-bottom,0px));background:var(--paper-white);border-top:1px solid var(--rule-strong)}

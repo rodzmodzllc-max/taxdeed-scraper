@@ -76,6 +76,11 @@ const THIRD_PARTY_EMBED = /:\/\/(www\.)?openstreetmap\.org\//;
 // :visible so the hidden one never matches. Selectors without the modal
 // container are passed through untouched.
 const DETAIL_MODAL_SEL = '#detailModalInner';
+// Redesign PR1 (2026-10-24): on phones the property page's secondary groups
+// (Property & history, Risk & legal, Map & location, Same parcel & timeline,
+// Source, Mine) and the decision fold start closed. A check that reads inside
+// one opens the folds first, the way a reader taps "Show".
+const openDetailFolds = pg => pg.evaluate(() => document.querySelectorAll('details.detail-more').forEach(d => { d.open = true; }));
 function detailSurfaceSelector(sel) {
   if (typeof sel !== 'string' || !sel.includes(DETAIL_MODAL_SEL)) return sel;
   return sel.split(',').map(part => part.trim()).flatMap(part => part.includes(DETAIL_MODAL_SEL)
@@ -986,6 +991,7 @@ const firstDetailBtn = page.locator('.detail-btn[data-action="viewdetails"]').fi
 await firstDetailBtn.click();
 await page.waitForTimeout(150);
 results.detailModalVisibleAfterOpen = await page.locator('#detailModal').isVisible();
+await openDetailFolds(page);
 results.detailModalHasAddress = await page.locator('#detailModalInner .detail-address').count();
 results.detailModalHasLinks = await page.locator('#detailModalInner .detail-links a').count();
 // --- Phase 35: provenance block (data source + last-synced line). p1 has
@@ -1701,6 +1707,7 @@ const txCard = page.locator('.prop-card[data-pid="ptx1"]');
 // surface as the provenance line's data-source text.
 await txCard.locator('.detail-btn').click();
 await page.waitForTimeout(300);
+await openDetailFolds(page);
 results.txDetailLinksText = (await page.locator('#detailModalInner .detail-links').textContent()) || '';
 results.txDetailProvenanceText = ((await page.locator('#detailModalInner .detail-provenance').textContent()) || '').trim();
 // Launch-readiness honesty pass: the Texas page must not carry Florida fee or
@@ -1762,6 +1769,7 @@ results.txRaCardLabelNotPropertySpecific = !/property|bid on/i.test(results.txRa
 splitLinkText('txRaCardLink');
 await txRaCard.locator('.detail-btn').click();
 await page.waitForTimeout(300);
+await openDetailFolds(page);
 results.txRaDetailLink = await txAuctionLinkOf(page.locator('#detailModalInner'));
 splitLinkText('txRaDetailLink');
 results.txRaDetailHref = await page.locator('#detailModalInner a.detail-cta').getAttribute('href');
@@ -5431,6 +5439,13 @@ await navMap.close();
     results.naipRequestedOnlyUsgs = requested.length > 0 && requested.every(u => u.startsWith('https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?'));
     await pg.close();
     ({ pg } = await naipPage(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands/pla1'));
+    // Redesign PR1: the hero image sits in the Map & location group, below the
+    // first fold, and hydrates when scrolled into view - as a reader would.
+    for (let i = 0; i < 20; i++) {
+      await pg.evaluate(() => { const h = document.querySelector('#detailPanel .detail-hero-photo, #detailModalInner .detail-hero-photo'); if (h) h.scrollIntoView({ block: 'center' }); });
+      await pg.waitForTimeout(250);
+      if (await pg.evaluate(() => { const i = document.querySelector('.detail-hero-photo.naip-live img'); return !!(i && i.src); })) break;
+    }
     results.naipDetail = await pg.evaluate(() => {
       const m = (document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner'));
       const hero = m && m.querySelector('.detail-hero-photo.naip-live');
@@ -5581,7 +5596,8 @@ await navMap.close();
       const st = m.querySelector('.dossier-status');
       const order = [...m.querySelectorAll('.dossier-status, [data-section="acquire"], [data-section="truth"], .lien-banner, [data-section="risk"], [data-section="sources"]')].map(e => e.dataset.section || e.className.split(' ')[0]);
       const truth = m.querySelector('[data-section="truth"]');
-      return { status: [...st.querySelectorAll('dt')].map(e => e.textContent.trim()), lastRead: st.querySelectorAll('dd')[2].textContent.trim(), order,
+      // Redesign PR1: the fourth cell is the provenance line ("Read from … · last synced … · last read …"); the last-read segment is pinned (the synced age changes daily).
+      return { status: [...st.querySelectorAll('dt')].map(e => e.textContent.trim()), lastRead: st.querySelectorAll('dd')[3].textContent.trim().split(' · ').pop(), order,
         lede: !!truth.querySelector('.truth-lede'), noScoreWords: !/\b(score|confidence|AI verified|AI confidence|great investment|ROI|undervalued)\b/i.test(truth.textContent) };
     });
     await pg.close();
@@ -7138,6 +7154,103 @@ await browser.close();
 // ============================================================
 
 
+// ============================================================
+// Redesign PR1 (2026-10-24): property page first fold
+// ============================================================
+// At 390px the opening bid, the sale date and the Acquire CTA sit inside the
+// first 844px of #detailModalInner; the gaps line comes straight from
+// dataGaps(); the secondary groups start closed; the bottom action bar is on
+// screen; no fact string repeats inside the first fold.
+{
+  const foldOf = async (pg) => pg.evaluate(() => {
+    const m = document.getElementById('detailModalInner');
+    const top = m.getBoundingClientRect().top;
+    const bottomOf = sel => { const e = m.querySelector(sel); return e ? Math.round(e.getBoundingClientRect().bottom - top) : null; };
+    const within = sel => { const b = bottomOf(sel); return b !== null && b <= 844; };
+    const st = m.querySelector('.dossier-status.facts');
+    const dd = [...st.querySelectorAll('dd')];
+    const firstText = e => (e.firstChild && e.firstChild.nodeType === 3 ? e.firstChild.textContent : e.textContent).trim();
+    // Text rendered inside the first 844px (closed folds are not rendered).
+    const walker = document.createTreeWalker(m, NodeFilter.SHOW_TEXT);
+    let foldText = '';
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const el = n.parentElement; if (!el || !el.offsetParent && getComputedStyle(el).position !== 'fixed' && getComputedStyle(el).position !== 'sticky') continue;
+      const r = el.getBoundingClientRect(); if (r.top - top < 844 && r.height) foldText += n.textContent + ' ';
+    }
+    const count = s => s ? foldText.split(s).length - 1 : null;
+    const cta = m.querySelector('[data-section="acquire"] .detail-cta, [data-section="acquire"] .detail-cta-none, [data-section="acquire"] .acq-cta');
+    const sale = firstText(dd[0]).replace(/ · .*$/, '');
+    return {
+      dts: [...st.querySelectorAll('dt')].map(e => e.textContent.trim()),
+      sale, figure: firstText(dd[1]), value: firstText(dd[2]), provStartsWithReadFrom: /^Read from /.test(dd[3].textContent.trim()),
+      saleWithin: within('.dossier-status.facts > div:nth-child(1)'), figureWithin: within('.dossier-status.facts > div:nth-child(2)'),
+      unknown: (m.querySelector('.unknown') || { textContent: '' }).textContent.replace(/\s+/g, ' ').trim(),
+      unknownWithin: within('.unknown'),
+      cta: cta ? cta.textContent.trim() : null, ctaWithin: within('[data-section="acquire"] .detail-cta, [data-section="acquire"] .detail-cta-none, [data-section="acquire"] .acq-cta'),
+      acquireFirstSection: (m.querySelector('.detail-section') || {}).dataset ? m.querySelector('.detail-section').dataset.section : null,
+      figureOnce: count(firstText(dd[1])) === 1, saleOnce: count(sale), valueOnce: count(firstText(dd[2])) === 1,
+      groupsClosed: [...m.querySelectorAll('details.detail-group')].every(d => !d.open), decisionClosed: !m.querySelector('.decision-fold').open,
+      navHidden: getComputedStyle(m.querySelector('.detail-nav')).display === 'none',
+      actbar: [...m.querySelectorAll('.detail-actbar button')].map(b => b.getAttribute('aria-label') || b.textContent.replace(/\s+/g, ' ').trim()),
+      actbarOnScreen: (() => { const r = m.querySelector('.detail-actbar').getBoundingClientRect(); return r.bottom <= window.innerHeight + 1 && r.top >= 0; })(),
+      actbarTargets: [...m.querySelectorAll('.detail-actbar button')].every(b => b.getBoundingClientRect().height >= 44),
+      verifiedLine: (m.querySelector('[data-section="acquire"] .acq-verified-state') || { textContent: null }).textContent,
+      sectionIds: [...m.querySelectorAll('[data-section]')].map(e => e.dataset.section)
+    };
+  });
+  const ff = await newPage({ viewport: { width: 390, height: 844 } });
+  ff.on('pageerror', e => errors.push('firstfold pageerror: ' + e.message));
+  await ff.goto(BASE_URL + '#/auctions/p5', { waitUntil: 'networkidle' });
+  await ff.waitForSelector('#detailModal:not([hidden]) .dossier-status.facts', { timeout: 8000 });
+  await ff.waitForTimeout(400);
+  const f5 = await foldOf(ff);
+  results.firstFoldAuction = { ...f5, sale: undefined, saleOnce: undefined, saleIsDate: /^[A-Z][a-z]{2} \d{1,2}, \d{4}$/.test(f5.sale), saleOnceInFold: f5.saleOnce, cta: f5.cta.replace(/ for .*$/, ''), unknown: f5.unknown };
+  // The result jump opens the decision fold (closed on phones) and scrolls to it.
+  await ff.click('#detailModalInner .result-jump button');
+  await ff.waitForTimeout(600);
+  results.firstFoldJumpOpensDecision = await ff.evaluate(() => ({ open: document.querySelector('#detailModalInner .decision-fold').open, scrolled: document.getElementById('detailModalInner').scrollTop > 0 }));
+  // The bottom bar's Favorite is the same action as the top row's.
+  await ff.evaluate(() => document.querySelector('#detailModalInner .detail-actbar .actbar-fav').click());
+  await ff.waitForTimeout(400);
+  results.firstFoldActbarFav = await ff.evaluate(() => ({ bar: document.querySelector('#detailModalInner .actbar-fav').classList.contains('on'), top: document.querySelector('#detailModalInner .prop-top-actions .heart-btn').textContent.trim() }));
+  await ff.evaluate(() => document.querySelector('#detailModalInner .detail-actbar .actbar-fav').click());
+  await ff.waitForTimeout(300);
+  await ff.close();
+  const fa = await newPage({ viewport: { width: 390, height: 844 } });
+  await fa.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
+  await fa.waitForSelector('#detailModal:not([hidden]) .dossier-status.facts', { timeout: 8000 });
+  await fa.waitForTimeout(400);
+  const f15 = await foldOf(fa);
+  results.firstFoldAvailable = { dts: f15.dts, figure: f15.figure, value: f15.value, figureWithin: f15.figureWithin, cta: f15.cta, ctaWithin: f15.ctaWithin, unknown: f15.unknown, unknownWithin: f15.unknownWithin, acquireFirstSection: f15.acquireFirstSection, verifiedLine: f15.verifiedLine, groupsClosed: f15.groupsClosed, actbar: f15.actbar, valueOnce: f15.valueOnce };
+  await fa.close();
+  // An unverified Available row says so on the sheet, above the checklist.
+  const fu = await newPage({ viewport: { width: 390, height: 844 } });
+  await fu.goto(BASE_URL + '#/lands/p3', { waitUntil: 'networkidle' });
+  await fu.waitForTimeout(500);
+  results.firstFoldUnverifiedAvailable = await fu.evaluate(() => { const m = document.getElementById('detailModalInner'); const a = m.querySelector('[data-section="acquire"]');
+    return { verifiedLine: (a.querySelector('.acq-verified-state') || { textContent: null }).textContent, cta: a.querySelectorAll('.acq-cta').length, order: [...a.children].map(e => e.className.split(' ')[0]) }; });
+  await fu.close();
+  // Desktop: the contents list follows the facts row, one numbered entry per
+  // group with the group's honest state, sticky in the modal, and a jump opens
+  // the group it points at.
+  const fd = await newPage({ viewport: { width: 1280, height: 900 } });
+  await fd.goto(BASE_URL + '#/auctions/p1', { waitUntil: 'networkidle' });
+  await fd.waitForTimeout(800);
+  results.detailContents = await fd.evaluate(() => {
+    const m = document.getElementById('detailPanel');
+    const nav = m.querySelector('.detail-nav');
+    return { afterFacts: nav.compareDocumentPosition(m.querySelector('.dossier-status.facts')) & Node.DOCUMENT_POSITION_PRECEDING ? true : false,
+      entries: [...nav.querySelectorAll('button')].map(b => [b.querySelector('.toc-n').textContent, b.querySelector('.toc-t').textContent, b.dataset.target, b.querySelector('.toc-s').textContent]),
+      groupsOpen: [...m.querySelectorAll('details.detail-group')].every(d => d.open), actbarHidden: getComputedStyle(m.querySelector('.detail-actbar')).display === 'none',
+      noScoreWords: !/\b(score|confidence|recommend|rating)\b/i.test(nav.textContent) };
+  });
+  await fd.evaluate(() => { document.querySelectorAll('#detailPanel details.detail-group').forEach(d => { d.open = false; }); });
+  await fd.click('#detailPanel .detail-nav button[data-target="truth"]');
+  await fd.waitForTimeout(500);
+  results.detailContentsJumpOpensGroup = await fd.evaluate(() => ({ open: document.querySelector('#detailPanel details.detail-group[data-group="source"]').open, on: document.querySelector('#detailPanel .detail-nav button[data-target="truth"]').classList.contains('on') }));
+  await fd.close();
+}
+
 const EXPECTED = {
   // Parcel boundaries (2026-10-20, migration 034): fixture geometry only.
   boundaryOk: {"host": true, "pid": "p5", "outline": true, "rings": 1, "attrib": "FIXTURE Utah Geospatial Resource Center (UGRC)", "state": null, "bboxCenter": [-82.045, 26.934], "fitted": true, "label": "Aerial image with the parcel outline of this property (FIXTURE Utah Geospatial Resource Center (UGRC))", "credit": {"text": "Parcel outline: FIXTURE Utah Geospatial Resource Center (UGRC) · Licence: CC BY 4.0 · Changes: FIXTURE: boundaries reprojected and simplified · Source last refreshed by TAXACQ Oct 2, 2026 · Source publishes: Generally monthly · Source disclaimer · Dataset metadata · Outline is for orientation; it is not a survey and does not show ownership or title.", "links": [["CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/", "noopener noreferrer"], ["Source disclaimer", "https://gis.utah.gov/documentation/policy/license/", "noopener noreferrer"], ["Dataset metadata", "https://example.org/fixture-metadata", "noopener noreferrer"]]}},
@@ -7303,7 +7416,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v137"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v138"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
