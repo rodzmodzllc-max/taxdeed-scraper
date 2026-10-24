@@ -1749,7 +1749,7 @@ const splitLinkText = key => { results[key + 'Text'] = results[key].text; result
 results.txLgbsDetailLink = await txAuctionLinkOf(page.locator('#detailModalInner'));
 results.txLgbsDetailGapsNameTheLink = ((await page.locator('#detailModalInner .decision-card .dec-gaps').textContent()) || '').includes('Auction link not published');
 // The full page's "When" cell carries the vendor's raw status verbatim.
-results.txLgbsDetailWhen = ((await page.locator('#detailModalInner .source-program').first().textContent()) || '').replace(/\s+/g, ' ').trim();
+results.txLgbsDetailWhen = ((await page.locator('#detailModalInner .dossier-status .source-status-raw').first().textContent()) || '').replace(/\s+/g, ' ').trim();
 await page.keyboard.press('Escape');
 await page.waitForTimeout(300);
 results.txLgbsCardLink = await txAuctionLinkOf(txCard);
@@ -8063,7 +8063,7 @@ const EXPECTED = {
   // url_auction_kind (migration 013), never inferred in the browser.
   txLgbsDetailLink: { text: 'Auction link not published', kind: 'none', anchors: 0 },
   txLgbsDetailGapsNameTheLink: true,
-  txLgbsDetailWhen: /^[A-Z][a-z]{2} \d{1,2}, \d{4} · in \d+d · Scheduled for Online Auction$/,
+  txLgbsDetailWhen: 'Source status: Scheduled for Online Auction',   // the source's own wording, verbatim, in the status block (2026-10-24)
   txLgbsCardLink: { text: 'Auction link not published', kind: 'none', anchors: 0 },
   txLgbsCardKicker: / · online$/,
   txRaCardLink: { kind: 'sale', anchors: 1 },

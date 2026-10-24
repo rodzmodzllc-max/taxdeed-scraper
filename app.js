@@ -9389,7 +9389,10 @@ function detailStatusHtml(p) {
   // the list (ledgerRecordView: AUCTIONS / AVAILABLE / LIENS_CERTIFICATES).
   const rec = ledgerRecordView(p);
   const ledgerSub = rec && rec.ledger_name !== items[0][1] ? `<span class="dossier-sub">${esc(rec.ledger_name)} ledger</span>` : "";
-  return `<dl class="dossier-status" aria-label="Current status"${rec ? ` data-ledger-record="${esc(rec.ledger)}"` : ""}>${items.map(([t, v, c], i) => `<div><dt>${esc(t)}</dt><dd class="${esc(c)}">${esc(v)}${i === 0 ? ledgerSub : ""}</dd></div>`).join("")}${researchStatusCellHtml(p)}</dl>` + (p.source === "auction" ? `<p class="result-jump"><button type="button" class="link-btn" data-action="jump" data-target="decision">Sale result and bidding process ↓</button></p>` : "");
+  // The source's own sale-status wording, verbatim (Texas tx_sale_status). It
+  // used to appear only in the At-a-glance block; since 2026-10-24 it sits here.
+  const statusSub = p.tx_sale_status ? `<span class="dossier-sub source-status-raw" title="The source's own status wording, verbatim">Source status: ${esc(String(p.tx_sale_status))}</span>` : "";
+  return `<dl class="dossier-status" aria-label="Current status"${rec ? ` data-ledger-record="${esc(rec.ledger)}"` : ""}>${items.map(([t, v, c], i) => `<div><dt>${esc(t)}</dt><dd class="${esc(c)}">${esc(v)}${i === 0 ? ledgerSub : i === 1 ? statusSub : ""}</dd></div>`).join("")}${researchStatusCellHtml(p)}</dl>` + (p.source === "auction" ? `<p class="result-jump"><button type="button" class="link-btn" data-action="jump" data-target="decision">Sale result and bidding process ↓</button></p>` : "");
 }
 // The customer's own research state in the property page's status band
 // (2026-10-06): visible at the top so it is never buried, styled and labelled
