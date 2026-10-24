@@ -141,6 +141,14 @@ async function clickLedger(pg, key) {
   return pg.click(`.ledger-tab[data-ledger="${key}"]`);
 }
 const page = await newPage({ viewport: { width: 390, height: 844 } });
+// Redesign PR2 (2026-10-24): the status chips (Shown / Active / No longer
+// listed) and the List's own search (#searchInput) live inside the Filters
+// panel, so a step that uses them opens the panel first - by asking its state,
+// since a bare #filtersToggle click would close an already-open panel.
+const ensureFiltersOpenOn = async pg => {
+  const open = await pg.locator('#filtersPanel').evaluate(el => el.classList.contains('open'));
+  if (!open) { await pg.click('#filtersToggle'); await pg.waitForTimeout(200); }
+};
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));
 page.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
 // The "hide" action now confirms before it does anything (a real user would
@@ -318,7 +326,8 @@ await page.waitForTimeout(100);
 results.cardCountAfterInterestSort = await page.locator('.prop-card').count();
 await page.selectOption('#sortBy', 'county');
 
-// --- status chips ---
+// --- status chips (inside Filters since redesign PR2) ---
+await ensureFiltersOpenOn(page);
 await page.click('.chip[data-status="gone"]');
 await page.waitForTimeout(150);
 results.goneChipOn = await page.locator('.chip[data-status="gone"]').evaluate(el => el.classList.contains('on'));
@@ -745,6 +754,7 @@ results.cardCountBackOnAuctionTab = await page.locator('.prop-card').count();
 // never render, in any status view - it's excluded in passes() regardless of
 // the statusView toggle, not just filtered out of the default "live" view ---
 results.pastDueCardVisibleDefault = await page.locator('.prop-card:has-text("Past Due Ln")').count();
+await ensureFiltersOpenOn(page);
 await page.click('.summary-strip .chip[data-status="all"]');
 await page.waitForTimeout(150);
 results.pastDueCardVisibleAllView = await page.locator('.prop-card:has-text("Past Due Ln")').count();
@@ -790,6 +800,7 @@ results.archiveToggleUntickedAfterExit = await page.locator('#archiveToggle').is
 results.staleWarningClassPresent = await page.locator('#generatedAt.stale').count();
 results.staleWarningText = (await page.locator('#generatedAt').textContent()) || '';
 
+await ensureFiltersOpenOn(page);
 await page.click('.summary-strip .chip[data-status="live"]');
 await page.waitForTimeout(150);
 
@@ -868,6 +879,9 @@ results.duvalGroupClosedBeforeSearch = await page.locator('.county-group[data-co
 
 // --- search: "Searchable" should isolate p7 (12 Searchable Blvd, Duval) and
 // auto-expand its county group even though it was just collapsed ---
+// Redesign PR2: at phone width the List's one search box (#globalSearch) is
+// re-homed inside Filters, so the panel is opened first; Enter applies it.
+await ensureFiltersOpenOn(page);
 await page.fill('#globalSearchInput', 'Searchable');
 await page.press('#globalSearchInput', 'Enter');
 await page.waitForTimeout(200);
@@ -7427,7 +7441,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v138"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v139"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },

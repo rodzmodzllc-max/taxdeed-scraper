@@ -5058,9 +5058,10 @@ function cardFactsHtml(p) {
     const a = acquisitionOf(p);
     facts.push(`<span><b>Acquire</b><span class="${a.verified ? "" : "muted"}">${esc(a.verified ? a.short : (a.mode === "none" ? "None (stated)" : "Not yet verified"))}</span></span>`);
   }
-  if (hasPublishedBid(p) && marketOf(p) > 0) {
-    facts.push(`<span title="County value on file divided by the opening bid - a screening ratio, not a return"><b>Value ÷ bid</b><span>${valueRatio(p).toFixed(1)}×</span></span>`);
-  }
+  // Redesign PR2 (2026-10-24): the value / bid ratio is no longer on the card -
+  // a screening ratio beside the published figure read as a second headline.
+  // isTopPick() still uses valueRatio(); the property page keeps the figure
+  // with its caveat.
   return `<div class="prop-facts">${facts.join("")}</div>`;
 }
 
@@ -5199,6 +5200,50 @@ function recordBadgesHtml(p) {
 window.__tdwRecordBadges = id => { const p = ALL.find(x => String(x.id) === String(id)); return p ? recordBadges(p).map(b => b.key) : null; };
 window.__tdwEvidenceSort = (name, source) => { SORT_KEY_CACHE = new Map(); return ALL.filter(p => p.source === source).sort(SORT_COMPARATORS[name]).map(p => String(p.id)); };
 
+// Redesign PR2 (2026-10-24): the card's identity line - parcel number (or its
+// stated absence), case number and the property type, each as the source
+// published it. County and state are already in the kicker and never repeat
+// here. `.prop-parcel-line` / `.prop-case-line` keep their text (pinned).
+function cardIdentityHtml(p, hasAddress) {
+  const bits = [];
+  if (hasAddress) bits.push(hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(parcelOf(p))}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`);
+  if (p.case_no) bits.push(`<span class="prop-case-line">Case ${esc(p.case_no)}</span>`);
+  if (hasAddress && p.prop_type) bits.push(`<span class="prop-type-line">${esc(p.prop_type)}</span>`);
+  return bits.length ? `<div class="prop-ids">${bits.join("")}</div>` : "";
+}
+// The card's one money block: the headline figure labelled as the source
+// labels it (auctionBidLabel / amountInfo; "Not published" when none), with
+// the county value on file as its right-hand context - valueLabel(p)'s figure,
+// else the assessed figure under its own source label, else "No county value
+// on file". No ratio, no estimate. `.card-price` stays the headline's wrapper
+// (pinned by the suite).
+function cardMoneyHtml(p) {
+  const bidPublished = hasPublishedBid(p);
+  const head = p.source === "laft" ? availableHeadlineHtml(p)
+    : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}"${bidPublished ? ` title="${esc(`Exact amount ${fmtMoney(p.bid)}. Cards round to whole dollars.`)}"` : ""}>${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`;
+  let ctxLabel, ctxVal, ctxCls = "";
+  if (hasNum(p.market)) { ctxLabel = valueLabel(p); ctxVal = fmtShort(p.market); }
+  else if (hasNum(p.assessed)) { ctxLabel = assessedSourceLabel(p); ctxVal = fmtShort(p.assessed); }
+  else { ctxLabel = "Value on file"; ctxVal = "No county value on file"; ctxCls = " unpublished"; }
+  return `<div class="money"><div class="card-price money-main">${head}</div><div class="money-ctx"><div class="card-stat-label">${esc(ctxLabel)}</div><div class="card-stat-val value${ctxCls}">${esc(ctxVal)}</div></div></div>`;
+}
+// The "More" fold: the tax-roll size facts (cardStatsHtml), location / flood
+// (cardFactsHtml), the last recorded sale and the legal description when the
+// row carries them, and the county's own listing link (auctionLinkHtml - a
+// stored URL by its kind, or the stated absence). Closed by default so the
+// first card is on screen at once; nothing here is dropped from the DOM.
+function cardMoreHtml(p) {
+  const sale = lastSaleText(p);
+  const legal = p.legal_desc ? String(p.legal_desc) : "";
+  return `<details class="card-more"><summary>More · facts &amp; history</summary><div class="card-more-body">
+    ${cardStatsHtml(p)}
+    ${cardFactsHtml(p)}
+    ${sale ? `<div class="prop-lastsale"><b>Last sale</b><span>${esc(sale)}</span></div>` : ""}
+    ${legal ? `<div class="prop-legal" title="${esc(legal)}">${esc(legal)}</div>` : ""}
+    <div class="card-more-link">${auctionLinkHtml(p, "cta-btn")}</div>
+  </div></details>`;
+}
+
 function card(p, showCounty) {
   const el = document.createElement("div");
   const fav = FAVS.has(p.id), top = isTopPick(p);
@@ -5216,7 +5261,6 @@ function card(p, showCounty) {
   const street = realAddress(p);
   const hasAddress = !!street;
   const titleLine = hasAddress ? esc(street) : lotTitle(p);
-  const bidPublished = hasPublishedBid(p);
 
   // Kept deliberately lean: header, parcel #, opening bid, and an estimated
   // value (real market value when we have it, otherwise the county's
@@ -5233,19 +5277,20 @@ function card(p, showCounty) {
   // of a tax deed/LAFT listing is "what will it cost me vs. what's it
   // worth" - so they get a 2-up grid instead of being crowded by a third
   // box; Parcel # moves to a quiet reference line right under the address.
-  const marketVal = marketOf(p);
-  const spec = specBits(p);
-  const sale = lastSaleText(p);
   const isClosed = isGone(p);
   // An auction the county's current list no longer carries: one muted line says
   // so, and that no result is published - the kicker alone does not say that.
   const offList = !isClosed && p.source === "auction" ? offCurrentSaleList(p) : null;
   const offListNote = offList ? `<div class="prop-ledger-line" data-off-list="1">${infoBubbleHtml("Not on county list", esc(`Not on the county list read ${offList.countyRead ? fmtDate(String(offList.countyRead).slice(0, 10)) : ""} · no result published`))}</div>` : "";
-  // Lean card (remediation, 2026-10-11): the picture is the focus, then the
-  // facts a customer needs at a glance - what it is, where, the price, and the
-  // way in. Lien, homestead, value-ratio, acquisition and financing figures and
-  // the source / record badges move to the full property page, where each
-  // carries its own source and caveat.
+  // Redesign PR2 (2026-10-24, direction A): one home per fact. Kicker = where ·
+  // ledger · when; the address; one identity line (parcel · case · type as the
+  // source published them); ONE headline figure labelled as the source labels
+  // it with the county value on file as its context (cardMoneyHtml); one
+  // provenance line (provenanceLineText - the same wording as the property
+  // page); the quiet facts (location, flood, tax-roll size, last sale, legal
+  // description, the county's own listing link) behind "More"; and two
+  // actions: Watchlist and Open record. Nothing on the face is derived or
+  // estimated, and no fact appears twice.
   el.innerHTML = `
     ${isClosed ? `<div class="closed-banner${Number(p.sold_price) > 0 ? " sold" : ""}" title="${esc(GONE_STATUS_CAVEAT)}">${esc(outcomeText(p))}${p.gone_since ? ` <span class="closed-when">since ${esc(fmtDate(String(p.gone_since).slice(0, 10)))}</span>` : ""}</div>` : ""}
     ${propertyVisual(p, "prop-card-photo")}
@@ -5255,25 +5300,19 @@ function card(p, showCounty) {
         <div class="prop-address">${titleLine}</div>
         <div class="prop-top-actions">
           <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite" aria-label="Favorite">${fav ? "♥" : "♡"}</button>
-          ${bidListBtnHtml(p, true)}
           <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide" aria-label="Hide">✕</button>
           ${cd}
         </div>
       </div>
-      <div class="prop-row">
-        <div class="prop-where">
-          <div class="prop-county-line">${esc(p.county || "")}${p.county ? ", " : ""}${esc(regionOf(p))}</div>
-          <div class="prop-ids">
-            ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(parcelOf(p))}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
-            ${p.case_no ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
-          </div>
-        </div>
-        <div class="card-price">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}"${bidPublished ? ` title="${esc(`Exact amount ${fmtMoney(p.bid)}. Cards round to whole dollars.`)}"` : ""}>${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
-      </div>
-      ${cardStatsHtml(p)}
+      ${cardIdentityHtml(p, hasAddress)}
+      ${cardMoneyHtml(p)}
       ${offListNote}
-      ${auctionLinkHtml(p, "cta-btn")}
-      <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View Full Property →</button>
+      <div class="prop-prov">${esc(provenanceLineText(p))}</div>
+      ${cardMoreHtml(p)}
+      <div class="card-actions">
+        ${bidListBtnHtml(p, false)}
+        <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">Open record →</button>
+      </div>
     </div>`;
   // Photo overlays (the listing type, the county and the lot size) sit on the
   // picture itself. Each is shown only when its source value exists.
@@ -11101,20 +11140,20 @@ function section(container, title, sub, rows, kind) {
   // Auctions reads as going somewhere else, rather than as the same page with
   // a different word at the top.
   const calendarHtml = kind === "auction" ? upcomingSalesHtml(shown) : "";
+  // Redesign PR2 (2026-10-24): the head is the ledger's name, its live fact
+  // and the source-status fold. The 45-day calendar and the ledger explainer
+  // (what this ledger is, what you do on it, the card-edge legend) sit in two
+  // folds UNDER the cards (ledgerFootHtml), so the first property is on screen
+  // at once. Nothing is removed: #upcomingSales, .mega-sub, .ledger-how and
+  // .ledger-legend render exactly as before, lower on the page.
   sec.innerHTML = `
     <div class="mega-head ledger-head">
-      ${cfg.question ? infoBubbleHtml(cfg.question, `<p class="mega-sub">${sub}</p>${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}`, { corner: true, dataAttr: `data-ledger-question="${esc(kind)}"` }) : ""}
       <div class="ledger-head-top">
         <span class="ledger-head-icon" aria-hidden="true">${cfg.icon || ""}</span>
         <h2>${title}</h2>
       </div>
       ${facts ? `<p class="ledger-facts">${esc(facts)}</p>` : ""}
-      ${shown.length ? `<details class="ledger-status-fold${calendarHtml ? " upcoming-fold" : ""}"><summary>${calendarHtml ? `Auction calendar · next ${COMMAND_CENTER_DAYS} days, and source status` : "Source status and coverage"}</summary>${calendarHtml}${ledgerStatusHtml(kind, shown)}</details>` : (calendarHtml ? `<details class="ledger-status-fold upcoming-fold"><summary>Auction calendar · next ${COMMAND_CENTER_DAYS} days</summary>${calendarHtml}</details>` : ledgerStatusHtml(kind, shown))}
-      <p class="ledger-legend" aria-label="What the colour on each card's left edge means">
-        <span class="lgd lgd-active">Active</span>
-        <span class="lgd lgd-stale">Not synced recently</span>
-        <span class="lgd lgd-closed">No longer listed</span>
-      </p>
+      ${shown.length ? `<details class="ledger-status-fold"><summary>Source status and coverage</summary>${ledgerStatusHtml(kind, shown)}</details>` : ledgerStatusHtml(kind, shown)}
       ${REVIEW_PENDING_SHOWN[kind] ? `<p class="ledger-review-pending" id="ledgerReviewPending">${REVIEW_PENDING_SHOWN[kind]} record${REVIEW_PENDING_SHOWN[kind] === 1 ? "" : "s"} from sources awaiting customer-publication review ${REVIEW_PENDING_SHOWN[kind] === 1 ? "is" : "are"} ${esc(reviewViewerReason())}, each labelled "Source review". Customers in published mode do not see ${REVIEW_PENDING_SHOWN[kind] === 1 ? "it" : "them"}.</p>` : ""}
       ${WITHHELD[kind] ? `<p class="ledger-withheld" id="ledgerWithheld">${WITHHELD[kind]} record${WITHHELD[kind] === 1 ? "" : "s"} withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.</p>` : ""}
       ${publicationWithheldText(kind) ? `<p class="ledger-withheld ledger-pub-withheld" id="ledgerPublicationWithheld">${esc(publicationWithheldText(kind))}. ${IS_ADMIN ? "Shown to you as an admin, each labelled \"Not customer-published\" with its reasons and the step that publishes it; customers do not see them." : "Counted, not shown: each becomes visible once its source, the state rules, the record, its acquisition path and its observation are verified."}</p>` : ""}
@@ -11159,7 +11198,9 @@ function section(container, title, sub, rows, kind) {
         if (why) e.insertAdjacentHTML("beforeend", why);
       }
     }
-    sec.appendChild(e); container.appendChild(sec);
+    sec.appendChild(e);
+    sec.insertAdjacentHTML("beforeend", ledgerFootHtml(kind, cfg, sub, calendarHtml));
+    container.appendChild(sec);
     return { shown };
   }
 
@@ -11289,8 +11330,30 @@ function section(container, title, sub, rows, kind) {
     sec.appendChild(det);
   });
 
+  sec.insertAdjacentHTML("beforeend", ledgerFootHtml(kind, cfg, sub, calendarHtml));
   container.appendChild(sec);
   return { shown };
+}
+
+// Redesign PR2 (2026-10-24): the two folds under a ledger's cards - the
+// auction calendar (upcomingSalesHtml, auctions only, when it has events) and
+// the ledger explainer: the ledger's question as the summary, the same
+// .mega-sub / .ledger-how copy the head's info bubble used to hold, and the
+// card-edge legend. Both closed by default; the calendar keeps its
+// `.upcoming-fold` class (the suite opens it by that name).
+function ledgerFootHtml(kind, cfg, sub, calendarHtml) {
+  const calendar = calendarHtml
+    ? `<details class="ledger-foot upcoming-fold"><summary>Auction calendar · next ${COMMAND_CENTER_DAYS} days</summary>${calendarHtml}</details>`
+    : "";
+  const q = cfg.question || `What is ${ledgerNavName(kind)}?`;
+  return `${calendar}<details class="ledger-foot ledger-explainer" data-ledger-question="${esc(kind)}"><summary>${esc(q)}</summary>
+      <p class="mega-sub">${sub}</p>${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}
+      <p class="ledger-legend" aria-label="What the colour on each card's left edge means">
+        <span class="lgd lgd-active">Active</span>
+        <span class="lgd lgd-stale">Not synced recently</span>
+        <span class="lgd lgd-closed">No longer listed</span>
+      </p>
+    </details>`;
 }
 
 function groupMoreButton(key, n, total) {
@@ -13524,6 +13587,8 @@ function showPage(name) {
   });
   if (name === "map" && shellPage !== "map") track("map_used", { action: "opened" });
   shellPage = name;
+  document.documentElement.dataset.page = name;
+  homeGlobalSearch();
   syncLedgerNav(name);
 
   if (name === "dashboard") renderDashboard();
@@ -13541,6 +13606,25 @@ function showPage(name) {
 
   window.scrollTo({ top: 0, behavior: "auto" });
 }
+
+// Redesign PR2 (2026-10-24): there is ONE search box (#globalSearch - the
+// 2026-10-10 remediation removed the List's duplicate). On the List at phone
+// width it moves out of the header into the Filters panel (#listSearchHost),
+// so the toolbar row is the county select and Filters only; everywhere else,
+// and at every wider width, it sits in the header where it was. The element
+// is re-homed, never cloned, so its id, handlers and results list are the
+// same object in both places.
+var GS_HOME = null;
+function homeGlobalSearch() {
+  const gs = document.getElementById("globalSearch");
+  if (!gs) return;
+  if (!GS_HOME) GS_HOME = { parent: gs.parentElement, next: gs.nextSibling };
+  const host = document.getElementById("listSearchHost");
+  const inFilters = !!host && shellPage === "list" && window.matchMedia("(max-width:767.98px)").matches;
+  if (inFilters) { if (gs.parentElement !== host) host.appendChild(gs); }
+  else if (GS_HOME.parent && gs.parentElement !== GS_HOME.parent) GS_HOME.parent.insertBefore(gs, GS_HOME.next && GS_HOME.next.parentElement === GS_HOME.parent ? GS_HOME.next : null);
+}
+try { window.matchMedia("(max-width:767.98px)").addEventListener("change", homeGlobalSearch); } catch { /* older engines: the page re-homes on the next navigation */ }
 
 // Three first-class ledgers (2026-09-30): the sidebar and the phone bottom
 // bar carry one entry per ledger (Auctions / Available / Liens &
