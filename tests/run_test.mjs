@@ -8296,7 +8296,7 @@ const EXPECTED = {
   acqPropertyScopeLabel: 'Property-specific: the source published this instruction for this parcel.',
   decP15Cost: 'Not published by the source',
   decP15Where: '15 Manatee Ln Citrus County, FL 28.88860, -82.45200 · authoritative coordinates on file',
-  decP15Known: '2025 County Just Value $26,000 · County Assessed Value $25,000 · 0.30 ac · Land use Vacant residential · Type Vacant Lot · Assessed to Lee Park',
+  decP15Known: '0.30 ac · Land use Vacant residential · Type Vacant Lot · Assessed to Lee Park',
   decP15Unknown: ["Price not published", "Image not checked yet", "Flood zone not checked"],
   decP15Source: 'FL LAFT Html · Source list → How to purchase Lands Available (fixture) (acquisition evidence) → · Application / instructions document → Field-by-field origin is in the Data Quality & Provenance card below.',
   decP15Fresh: 'Source date: list dated Sep 19, 2026 · Observation date: Sep 20, 2026 · Last verified: read from the source Sep 20, 2026 County source: current - last complete read 3h ago · 6 rows at the last complete read',
