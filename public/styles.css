@@ -1234,6 +1234,10 @@ the field read as one control. */
 .cert-stat-grid{grid-template-columns:repeat(3,1fr)}
 /* AVAILABLE commercialization (2026-09-30): withheld-inventory note, provenance legend. */
 .ledger-withheld{margin:.4rem 0 0;font-size:.76rem;color:var(--ink-soft);border-left:3px solid var(--card-line);padding-left:.55rem}
+.ledger-link-only{margin:.4rem 0 0;font-size:.76rem;color:var(--ink-soft);border-left:3px solid var(--card-line);padding-left:.55rem}
+.ledger-link-only p{margin:0}
+.ledger-link-only ul{margin:.2rem 0 0;padding-left:1rem}
+.ledger-link-only a{white-space:nowrap}
 /* Collection vs customer publication (2026-10-02): a source's review status
    is its own fact, labelled apart from the property's availability. */
 /* Scale (2026-10-02): "Show next" inside a county group / the data table. */

@@ -3827,7 +3827,7 @@
    "access": "ACCESSIBLE",
    "access_note": "scripts/enrich_property_details.py (FDOR)",
    "county": "STATEWIDE",
-   "evidence": "data/source_permissions.csv (fl_fdor_cadastral): enrich interim (GRANDFATHERED_PRACTICE, status LEGAL_REVIEW_REQUIRED; not documented permission), expires 2027-04-12; fetch interim (GRANDFATHERED_PRACTICE, status LEGAL_REVIEW_REQUIRED; not documented permission), expires 2027-04-12",
+   "evidence": "data/source_permissions.csv (fl_fdor_cadastral): enrich documented (WRITTEN_PERMISSION), re-read by 2027-10-24; fetch documented (WRITTEN_PERMISSION), re-read by 2027-10-24",
    "governance": "APPROVED",
    "governance_reason": "",
    "last_checked": "",

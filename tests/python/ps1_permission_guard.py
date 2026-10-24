@@ -68,5 +68,9 @@ def assert_ps1_governance_only_through_guard() -> None:
         assert "--state" in args and args[args.index("--state") + 1] == "FL", name
         assert "--source" in args, name
         # Fail closed: exit 3 on a missing Python and on any non-zero check.
-        assert sum(1 for l in block.split("\n") if l.strip() == "exit 3") == 2, f"{name}: guard must exit 3 on missing Python and on denial"
+        # One exit for a missing Python, one per check (a harvester that also
+        # reads its county-level denials checks twice).
+        checks = block.count("if (0 -ne $LASTEXITCODE) {")
+        assert sum(1 for l in block.split("\n") if l.strip() == "exit 3") == 1 + checks >= 2, \
+            f"{name}: guard must exit 3 on missing Python and on denial"
         assert "if (0 -ne $LASTEXITCODE) {" in block, name

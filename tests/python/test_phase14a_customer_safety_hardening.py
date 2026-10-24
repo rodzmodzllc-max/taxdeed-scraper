@@ -200,10 +200,12 @@ def test_D_florida_assessed_writers_are_unchanged():
     fl_cert_sync = _read("scripts", "sync-certificates-to-supabase.ps1")
     # Fill-blank-only enrichment path, unchanged since Phase 13.
     assert '_num(row.get("assessed")) is None' in fl_enrich
-    # The two FL sync scripts still forward whatever the harvester itself
+    # The certificate sync still forwards whatever the harvester itself
     # scraped, unconditionally (not fill-blank at the sync layer - only
-    # enrich_property_details.py is fill-blank).
-    assert "assessed      = $p.assessed" in fl_deed_sync
+    # enrich_property_details.py is fill-blank). The deed sync no longer writes
+    # an assessed value at all (owner's decision 2026-10-24: RealAuction rows
+    # carry minimal facts only - harvesters/governance/minimal_facts.py).
+    assert "assessed      = $p.assessed" not in fl_deed_sync
     assert "assessed = ToNum $p.assessed" in fl_cert_sync
 
 

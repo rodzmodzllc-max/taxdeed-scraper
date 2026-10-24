@@ -413,6 +413,19 @@ if (new URLSearchParams(location.search).get("offlist") === "1") {
   if (p8) p8.last_seen_at = new Date(Date.now() - 3600 * 1000).toISOString();
 }
 
+// ?linkonly=1 (2026-10-24 link-only counties): one stored Indian River
+// auction, one Indian River and one Volusia Lands Available row - records
+// saved before the record owners refused reuse. A customer never sees them;
+// the ledger names the county and links to its official pages instead.
+if (new URLSearchParams(location.search).get("linkonly") === "1") {
+  const a = FIXTURE_PROPERTIES.find(r => r.id === "p1"), l = FIXTURE_PROPERTIES.find(r => r.id === "p3");
+  if (a) FIXTURE_PROPERTIES.push({ ...a, id: "plo1", county: "Indian River", case_no: "IR-1", parcel: "IR111", address: "9 Link Only Way", harvester_source: "fl_realauction" });
+  if (l) {
+    FIXTURE_PROPERTIES.push({ ...l, id: "plo2", county: "Indian River", case_no: "IRL-1", parcel: "IRL1", address: "8 Link Only Way", harvester_source: "fl_laft_html" });
+    FIXTURE_PROPERTIES.push({ ...l, id: "plo3", county: "Volusia", case_no: "VOL-1", parcel: "VOL1", address: "7 Link Only Way", harvester_source: "fl_laft_pdfs" });
+  }
+}
+
 // ?zerosize=1 (2026-10-22 card facts): p1 carries a stored living area and lot
 // size of zero. The card must read "Not published", never "0 sq ft".
 if (new URLSearchParams(location.search).get("zerosize") === "1") {

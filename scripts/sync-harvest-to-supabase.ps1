@@ -159,7 +159,11 @@ foreach ($p in $harvest) {
         parcel        = $p.parcel
         address       = $p.address
         bid           = $p.bid
-        assessed      = $p.assessed
+        # No assessed value (owner's decision 2026-10-24, "minimal facts plus
+        # a deep link" - see minimal_facts.py in the Python package): RealAuction
+        # declined written permission for automated reading, so only the sale
+        # facts and the official links are written from its pages. The value
+        # comes from the DOR statewide parcel data (written permission).
         sale_date     = ConvertTo-IsoDate $p.sale_date
         url_appraiser = $p.appraiser
         url_auction   = $p.auction_url
