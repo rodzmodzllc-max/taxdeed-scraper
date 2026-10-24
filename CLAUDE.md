@@ -3478,12 +3478,13 @@ Full description: `docs/permission-decisions-2026-10-24.md`. Stable facts:
 - **DOR covers the statewide parcel data** (owner's decision): `fl_fdor_cadastral` attributes / centroid (fetch, enrich,
   attribute display) are WRITTEN_PERMISSION; `FDOR_SOURCE.publication_status` is `APPROVED`. Redistribution and statewide
   polygon storage are not covered.
+- **Owner's position:** listings are public records; TAXACQ sells an organizing service and links to the county /
+  vendor sites. **No working harvester is switched off**; data whose owner refused reuse is collected but not shown to
+  customers until legal review.
 - **RealAuction declined written permission (ticket 914220).** `fl_realauction` sale calendar and `tx_realauction` run on an
-  INTERNAL_RISK_ACCEPTANCE (expires 2027-04-12), never permission, writing only
-  `harvesters/governance/minimal_facts.MINIMAL_FACT_COLUMNS` (the FL PowerShell sync no longer writes `assessed`; the TX sync
-  applies `minimal_row()`). The closed-results feed is unchanged.
-- **Link-only counties:** Indian River (RealAuction calendar + results, LAFT HTML) and Volusia LAFT PDF are RESTRICTED
-  (PROHIBITION_FOUND) on fetch / parse / store / display and LINK_ONLY on link. Harvesters skip them before any request
-  (`source_permission_check.py --list-denied-counties` in the PowerShell guard; per-county checks in the LAFT HTML / PDF
-  harvesters and `auction_outcomes.py`). `app.js` `LINK_ONLY_UNITS` (pinned to the records) hides their stored rows from
-  customers and links to the Clerk's pages. `sw.js` -> `tdw-shell-v137`.
+  INTERNAL_RISK_ACCEPTANCE (expires 2027-04-12), never permission; collection and display unchanged.
+- **Held for legal review:** Indian River (RealAuction calendar + results, LAFT HTML) and Volusia LAFT PDF: fetch / parse /
+  store are an INTERNAL_RISK_ACCEPTANCE (still collected), display RESTRICTED (PROHIBITION_FOUND), link LINK_ONLY.
+  `app.js` `LINK_ONLY_UNITS` (pinned to the records) hides their rows from customers (admins see them labelled) and links
+  to the Clerk's pages. The harvesters' per-county checks skip a county only if its fetch is denied. `sw.js` ->
+  `tdw-shell-v137`.

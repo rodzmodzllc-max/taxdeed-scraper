@@ -866,18 +866,19 @@ function inCustomerInventory(p) {
   return d === null || d === "in_subset";
 }
 window.__tdwDetroitSubset = { status: detroitSubsetStatus, fnv1a32 };
-// ==================== Link-only counties (owner's decision 2026-10-24) ====================
-// The record owner refused reuse in writing, so TAXACQ copies nothing from it
-// and only links to its own pages (data/source_permissions.csv: RESTRICTED on
-// fetch / store / display, LINK_ONLY on link). Rows stored before the decision
-// are never shown to a customer; the ledger names the county and links out.
+// ==================== Counties held for legal review (owner's decision 2026-10-24) ====================
+// The record owner refused reuse in writing. TAXACQ keeps collecting the
+// listings pending legal review (an internal risk acceptance, not permission)
+// but never shows them to a customer: data/source_permissions.csv records
+// display RESTRICTED and link LINK_ONLY for the county. Admins see the rows,
+// labelled; the ledger names the county and links to its official pages.
 // One entry per (state, county, ledger); a test pins this list to the
 // permission records. `var` / function declarations: render() runs during
 // module init (TDZ).
 var LINK_ONLY_UNITS = [
-  {"state": "FL", "county": "Indian River", "ledger": "auction", "source_id": "fl_realauction", "office": "Indian River County Clerk of Circuit Court & Comptroller", "why": "The Clerk does not permit commercial use of its tax-deed listings.", "links": [{"label": "Properties for auction (Clerk)", "url": "https://taxdeeds.indian-river.org/TaxDeeds"}, {"label": "Bid on the county auction site", "url": "https://www.indian-river.realtaxdeed.com/"}]},
-  {"state": "FL", "county": "Indian River", "ledger": "laft", "source_id": "fl_laft_html", "office": "Indian River County Clerk of Circuit Court & Comptroller", "why": "The Clerk does not permit commercial use of its Lands Available list.", "links": [{"label": "Lands available for taxes (Clerk)", "url": "https://indianriverclerk.com/land-available-for-taxes/"}]},
-  {"state": "FL", "county": "Volusia", "ledger": "laft", "source_id": "fl_laft_pdfs", "office": "Volusia County Clerk of the Circuit Court", "why": "The Clerk's terms prohibit publishing its data online.", "links": [{"label": "Lands available for taxes (Clerk)", "url": "https://app02.clerk.org/cm_rpt/?id=lat"}]}
+  {"state": "FL", "county": "Indian River", "ledger": "auction", "source_id": "fl_realauction", "office": "Indian River County Clerk of Circuit Court & Comptroller", "why": "The Clerk has not permitted commercial use of its tax-deed listings; they are held for legal review.", "links": [{"label": "Properties for auction (Clerk)", "url": "https://taxdeeds.indian-river.org/TaxDeeds"}, {"label": "Bid on the county auction site", "url": "https://www.indian-river.realtaxdeed.com/"}]},
+  {"state": "FL", "county": "Indian River", "ledger": "laft", "source_id": "fl_laft_html", "office": "Indian River County Clerk of Circuit Court & Comptroller", "why": "The Clerk has not permitted commercial use of its Lands Available list; it is held for legal review.", "links": [{"label": "Lands available for taxes (Clerk)", "url": "https://indianriverclerk.com/land-available-for-taxes/"}]},
+  {"state": "FL", "county": "Volusia", "ledger": "laft", "source_id": "fl_laft_pdfs", "office": "Volusia County Clerk of the Circuit Court", "why": "The Clerk's terms restrict publishing its data online; the list is held for legal review.", "links": [{"label": "Lands available for taxes (Clerk)", "url": "https://app02.clerk.org/cm_rpt/?id=lat"}]}
 ];
 var LINK_ONLY_HIDDEN = { auction: 0, laft: 0, certificate: 0 };
 function linkOnlyUnitFor(p) {
@@ -895,7 +896,7 @@ function linkOnlyNoticeHtml(kind) {
   const units = linkOnlyUnitsFor(kind);
   if (!units.length) return "";
   const items = units.map(u => `<li data-link-only="${esc(u.county)}"><b>${esc(u.county)} County</b> - ${esc(u.why)} Listings are not shown here; see them on the official site: ${u.links.map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" data-acq-link="source">${esc(l.label)} ↗</a>`).join(" · ")}</li>`).join("");
-  return `<div class="ledger-link-only" id="ledgerLinkOnly"><p>Link only, at the county's request${IS_ADMIN && LINK_ONLY_HIDDEN[kind] ? ` (${LINK_ONLY_HIDDEN[kind]} stored record${LINK_ONLY_HIDDEN[kind] === 1 ? "" : "s"} shown to you as an admin, labelled; customers do not see ${LINK_ONLY_HIDDEN[kind] === 1 ? "it" : "them"})` : ""}:</p><ul>${items}</ul></div>`;
+  return `<div class="ledger-link-only" id="ledgerLinkOnly"><p>Not shown here until legal review${IS_ADMIN && LINK_ONLY_HIDDEN[kind] ? ` (${LINK_ONLY_HIDDEN[kind]} stored record${LINK_ONLY_HIDDEN[kind] === 1 ? "" : "s"} shown to you as an admin, labelled; customers do not see ${LINK_ONLY_HIDDEN[kind] === 1 ? "it" : "them"})` : ""}:</p><ul>${items}</ul></div>`;
 }
 // Shown in THIS session. Admins see every collected row (labelled); preview
 // and customers see the customer inventory (the Detroit subset stage above),
@@ -929,7 +930,7 @@ function sourceLineHtml(p) {
   const bits = [];
   if (p.source === "laft" && p.inventory_status_raw) bits.push(`<span class="source-program" title="The source's own status / program wording, verbatim">${esc(p.inventory_status_raw)}</span>`);
   if (!isCustomerPublishable(p)) bits.push(`<span class="source-review-chip" title="The source's customer-publication review status - not the property's availability">Source review: ${esc(sourceReviewLabel(p))} · not customer-published</span>`);
-  if (linkOnlyUnitFor(p)) bits.push(`<span class="source-review-chip link-only-chip" data-link-only-row="1" title="${esc(linkOnlyUnitFor(p).why)}">Link only · not shown to customers</span>`);
+  if (linkOnlyUnitFor(p)) bits.push(`<span class="source-review-chip link-only-chip" data-link-only-row="1" title="${esc(linkOnlyUnitFor(p).why)}">Held for legal review · not shown to customers</span>`);
   const ps = publicationStateOf(p);
   if (ps && ps !== "CUSTOMER_PUBLISHED") bits.push(`<span class="pub-state-chip" data-pub-state="${esc(ps)}" title="${esc(`Customer-publication gate: ${PUBLICATION_STATE_LABELS[ps] || ps}. ${publicationReasonsText(p)}`)}">Not customer-published: ${esc(PUBLICATION_STATE_LABELS[ps] || ps)}</span>`);
   const det = detroitSubsetStatus(p);

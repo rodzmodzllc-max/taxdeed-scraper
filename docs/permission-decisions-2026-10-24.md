@@ -45,36 +45,25 @@ three decisions. This page records what changed, and where.
   licence page.
 - **Basis:** still the published licence. Utah is still not an activated state.
 
-## 3. RealAuction: minimal facts plus a deep link
+## The owner's position (2026-10-24, revised the same day)
 
-- **Evidence:** RealAuction's reply of 2026-10-21 (ticket 914220): "we will not
-  be providing any form of written permission to use automated means for
-  scanning or crawling our auction sites."
-- **Owner's decision:** keep the sale calendars (`fl_realauction` sale calendar
-  and `tx_realauction`) as an **internal risk acceptance, never permission**.
-  - Only the columns in `harvesters/governance/minimal_facts.py` are written:
-    county, sale date, case or certificate number, parcel, situs address, the
-    published opening or minimum bid and the published sale status.
-  - Links go to the county's own auction and appraiser pages.
-  - No assessed or market value, legal description or coordinates from the
-    vendor.
-- **Records changed:**
-  - `data/source_permissions.csv` evidence becomes INTERNAL_RISK_ACCEPTANCE,
-    citing the refusal. The record still expires 2027-04-12.
-  - `authorization.py`: the Alachua and Volusia RealAuction records now read
-    `request_status=DECLINED`, with a `declined` audit entry.
-- **Code changed:**
-  - `scripts/sync-harvest-to-supabase.ps1` no longer writes `assessed`. The
-    value comes from the DOR statewide data instead.
-  - `scripts/sync-texas-to-supabase.py` passes `tx_realauction` rows through
-    `minimal_row()`.
-- **Values already stored stay stored.** Removing them is a separate,
-  owner-authorized data change.
-- **Not decided here:** the closed-results feed (`fl_realauction` /
-  `closed_results`, verified outcomes) is unchanged. It still rests on its
-  grandfathered allowance.
+The owner holds that these listings are public records: TAXACQ sells a service that organizes the acquisition path and
+links to the county and its vendor sites, sending them traffic, and does not sell the data. Some counties referred the
+owner to their public-records request process. **No working harvester is switched off.** Records whose owner refused reuse
+keep being collected and are not shown to customers until legal review.
 
-## 4. Indian River and Volusia: link only
+## 3. RealAuction: collection unchanged, recorded as a risk acceptance
+
+- **Evidence:** RealAuction's reply of 2026-10-21 (ticket 914220): "we will not be providing any form of written
+  permission to use automated means for scanning or crawling our auction sites."
+- **Records:** the `fl_realauction` sale-calendar and `tx_realauction` evidence is now INTERNAL_RISK_ACCEPTANCE (the
+  owner's decision, citing the refusal and the owner's position) - never permission. It still expires 2027-04-12.
+  `authorization.py`: the Alachua and Volusia RealAuction records read `request_status=DECLINED` with a `declined` audit
+  entry.
+- **Code:** unchanged. The harvesters and syncs collect the same fields as before; customer display is as today.
+- The closed-results feed is unchanged.
+
+## 4. Indian River and Volusia: collected, not shown to customers until legal review
 
 | County | Ledgers | Record owner's reply |
 |---|---|---|
@@ -83,33 +72,14 @@ three decisions. This page records what changed, and where.
 
 Volusia's RealAuction sale calendar is a separate source and is unchanged.
 
-### Records
-
-`data/source_permissions.csv` adds county-level records for these sources:
-- RESTRICTED (PROHIBITION_FOUND) on fetch, parse, store and display;
-- LINK_ONLY on link.
-
-### Enforcement before any request
-
-- **`scripts/harvest_all_counties.ps1`:** its permission guard lists the denied
-  counties (`source_permission_check.py --list-denied-counties`). It skips
-  them, records them INCOMPLETE / NOT_PERMITTED and makes no request.
-- **`scripts/harvest_laft_html.py`:** checks each county, the same way as the
-  PDF harvester. Volusia's PDF is already skipped through its county record.
-- **`scripts/auction_outcomes.py`:** skips a denied county's sale days.
-
-### Website
-
-`public/app.js` `LINK_ONLY_UNITS` lists these units, and a test pins the list to
-the permission records:
-- rows stored before the decision are never shown to a customer;
-- admins see them labelled "Link only";
-- the ledger names the county and links to the Clerk's own pages.
-
-`sw.js` is now `tdw-shell-v137`.
-
-### Rows already stored
-
-Rows already stored (8 Indian River auctions, 2 Indian River and 10 Volusia
-Lands Available rows on 2026-10-24) stay in the database, hidden. Closing or
-deleting them is a separate, owner-authorized data change.
+- **Records** (`data/source_permissions.csv`, county level): fetch / parse / store are LEGAL_REVIEW_REQUIRED on an
+  INTERNAL_RISK_ACCEPTANCE (collection continues, expires 2027-04-12); display is RESTRICTED (PROHIBITION_FOUND, quoting
+  the Clerk); link is LINK_ONLY.
+- **Harvesters:** every one keeps running. The per-county checks added here
+  (`source_permission_check.py --list-denied-counties` in the PowerShell guard, the county check in `harvest_laft_html.py`
+  and `auction_outcomes.py`) skip a county only if its fetch is ever denied - none is today.
+- **Website:** `public/app.js` `LINK_ONLY_UNITS` (pinned by a test to the display-RESTRICTED / LINK_ONLY records) keeps
+  these rows away from customers; admins see them labelled "Held for legal review"; the ledger names the county and links
+  to the Clerk's own pages. `sw.js` is now `tdw-shell-v137`.
+- **To show them later:** after legal review, change the county's `display` record and remove its `LINK_ONLY_UNITS` entry
+  (the test keeps the two in step).

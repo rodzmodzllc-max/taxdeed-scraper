@@ -180,7 +180,6 @@ def _store_permitted(source_id) -> bool:
         _STORE_CACHE[source_id] = PERM.authorize(source_id, "store", state="TX").allowed
     return _STORE_CACHE[source_id]
 from harvesters.texas_harvester import build_row_provenance  # noqa: E402  (Phase 12)
-from harvesters.governance import minimal_facts as MINIMAL_FACTS  # noqa: E402  (2026-10-24)
 
 BATCH_SIZE = 40  # matches the FL sync scripts' batch size
 
@@ -360,10 +359,6 @@ def main() -> None:
         if LEDGER_RECORDS.problems(row):
             skipped_ledger_contract += 1
             continue
-        # Owner's decision 2026-10-24 (harvesters/governance/minimal_facts.py):
-        # a RealAuction row keeps only the sale facts and the official links -
-        # no market value, legal description or coordinates from the vendor.
-        row = MINIMAL_FACTS.minimal_row(row, harvester_source)
 
         projected_row = authorized_for_customer_output(row, harvester_source, county=county)
         if projected_row is None:

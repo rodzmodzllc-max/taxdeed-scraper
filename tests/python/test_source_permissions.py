@@ -239,10 +239,11 @@ def _publication_rule(row) -> bool:
 
 
 # Owner's decision 2026-10-24: these record owners refused reuse in writing, so
-# their counties are link only (tests/python/test_permission_decisions_2026_10_24.py).
-LINK_ONLY_COUNTIES = {("fl_realauction", "Indian River"), ("fl_laft_html", "Indian River"), ("fl_laft_pdfs", "Volusia")}
-# The RealAuction records were re-recorded on 2026-10-24 (minimal facts, risk
-# acceptance); parity is checked on a day they are in effect.
+# their counties keep collecting but are not displayed to customers until legal
+# review (tests/python/test_permission_decisions_2026_10_24.py).
+HELD_FOR_REVIEW_COUNTIES = {("fl_realauction", "Indian River"), ("fl_laft_html", "Indian River"), ("fl_laft_pdfs", "Volusia")}
+# The RealAuction records were re-recorded on 2026-10-24 (risk acceptance);
+# parity is checked on a day they are in effect.
 PARITY_DAY = date(2026, 10, 25)
 
 
@@ -250,8 +251,6 @@ def test_parity_every_currently_collected_registry_source_keeps_fetch_and_store(
     p = PERM.Permissions.from_file()
     for row in load_registry():
         if not row.source_id or not row.is_production or not _publication_rule(row):
-            continue
-        if (row.source_id, row.county) in LINK_ONLY_COUNTIES:
             continue
         if row.source_id in ("tx_lgbs", "tx_realauction"):
             ds = None
@@ -273,7 +272,7 @@ def test_parity_every_currently_collected_registry_source_keeps_fetch_and_store(
 def test_parity_every_currently_publishable_source_keeps_display():
     p = PERM.Permissions.from_file()
     for row in load_registry():
-        if (row.source_id, row.county) in LINK_ONLY_COUNTIES:
+        if (row.source_id, row.county) in HELD_FOR_REVIEW_COUNTIES:
             continue
         if row.source_id and effective_publication(row) in PUBLISHABLE_STATUSES:
             d = p.authorize(row.source_id, "display", state=row.state, county=row.county, today=PARITY_DAY)
