@@ -5487,7 +5487,8 @@ await navMap.close();
       band[k] = await pg.evaluate(() => {
         const st = document.querySelector('#detailModal:not([hidden]) .dossier-status');
         const dd = st.querySelector('dd');
-        const sub = dd.querySelector('.dossier-sub');
+        // The ledger-name sub only; the record-kind sub ("Florida tax deed auction") is a separate line since 2026-10-24.
+        const sub = dd.querySelector('.dossier-sub:not(.record-kind)');
         return { ledger: st.dataset.ledgerRecord || null, sub: sub ? sub.textContent.trim() : null };
       });
       await pg.close();
