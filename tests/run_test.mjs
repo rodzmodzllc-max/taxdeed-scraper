@@ -5601,7 +5601,8 @@ await navMap.close();
       pg.on('pageerror', e => errors.push('refine pageerror: ' + e.message));
       await pg.goto(BASE_URL + h, { waitUntil: 'networkidle' });
       await pg.waitForTimeout(300);
-      q[k] = await pg.evaluate(k => { const e = document.querySelector(`[data-ledger-question="${k}"]`); return e ? e.textContent.trim() : null; }, k);
+      // Redesign PR2: the question is the summary of the explainer fold under the cards.
+      q[k] = await pg.evaluate(k => { const e = document.querySelector(`[data-ledger-question="${k}"]`); const t = e && e.tagName === 'DETAILS' ? e.querySelector('summary') : e; return t ? t.textContent.trim() : null; }, k);
       await pg.close();
     }
     results.refineLedgerQuestions = q;
@@ -5793,6 +5794,7 @@ await navMap.close();
     await pg.waitForTimeout(200);
     results.rdPhoneAccount = await pg.locator('#accountMenu').evaluate(el => !el.hidden);
     results.rdPhoneSearchVisible = await pg.locator('#globalSearchInput').isVisible();
+    results.rdPhoneSearchHost = await pg.locator('#globalSearch').evaluate(el => el.parentElement.id);
     await pg.close();
 
   }
@@ -6034,8 +6036,10 @@ await navMap.close();
       // Shell redesign (2026-10-04): the phone header is two rows by design -
       // brand / state / account, then the global search across the full
       // width. Each row stays compact.
-      headerCompact: (() => { const gsr = document.getElementById('globalSearch').getBoundingClientRect();
-        return Math.max(sel.bottom, acc.bottom) - bar.top <= 64 && gsr.top >= Math.max(sel.bottom, acc.bottom) && gsr.height <= 48 && bar.height <= 120; })(),
+      // Redesign PR2: on the List at phone width the search box is re-homed into
+      // Filters, so the second-row check applies only while it is in the header.
+      headerCompact: (() => { const gsEl = document.getElementById('globalSearch'); const gsr = gsEl.getBoundingClientRect(); const inBar = bar.contains ? document.querySelector('.topbar').contains(gsEl) : true;
+        return Math.max(sel.bottom, acc.bottom) - bar.top <= 64 && (!inBar || (gsr.top >= Math.max(sel.bottom, acc.bottom) && gsr.height <= 48)) && bar.height <= 120; })(),
       noHorizontalScroll: document.documentElement.scrollWidth <= window.innerWidth,
       value: document.getElementById('stateSelect').value
     };
@@ -6242,6 +6246,8 @@ results.monWatchServerChanges = await monDetail.locator('#watchServerChanges li'
 // 9. Analytics: session_start + property_viewed; a search never sends its text.
 await monDetail.goto(BASE_URL.replace('index.html', 'index.html?an=1') + '#/lands', { waitUntil: 'networkidle' });
 await monDetail.waitForTimeout(600);
+// Redesign PR2: on the List at phone width the search box sits inside Filters.
+await ensureFiltersOpenOn(monDetail);
 await monDetail.fill('#globalSearchInput', 'Manatee');
 await monDetail.press('#globalSearchInput', 'Enter');
 await monDetail.waitForTimeout(1900);
@@ -7825,7 +7831,8 @@ const EXPECTED = {
   rdPickerProbeFail: "WY=auction|laft|certificate!unchecked",
   rdPhoneBottom: ["Home", "Properties", "Map", "Watchlist"],
   rdPhoneAccount: true,
-  rdPhoneSearchVisible: true,
+  rdPhoneSearchVisible: false,  // redesign PR2: on the List at phone width the one search box sits inside Filters (closed here)
+  rdPhoneSearchHost: 'listSearchHost',
   landCO: { hash: '#/certificates', cards: 2, issue: 0 },
   landWY: { hash: '#/auctions', cards: 1, issue: 0 },
   landLA: { hash: '#/lands', cards: 2, issue: 0 },
@@ -7903,7 +7910,7 @@ const EXPECTED = {
   xsPages: Object.fromEntries([['MI', 'Michigan'], ['WY', 'Wyoming'], ['SC', 'South Carolina'], ['CO', 'Colorado'], ['WI', 'Wisconsin'],
     ['MO', 'Missouri'], ['OK', 'Oklahoma'], ['PA', 'Pennsylvania'], ['MN', 'Minnesota'], ['TN', 'Tennessee']].map(([c, n]) => [c,
     { state: c, title: `Auctions · TAXACQ — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN', 'TN'], floridaWording: false, basemapOk: true }])),
-  xsMiCard: { count: 1, county: true, sev: false, noJustValue: true },  // State Equalized Value moved off the card face to the property page
+  xsMiCard: { count: 1, county: true, sev: true, noJustValue: true },  // redesign PR2: the card's value-on-file context is the source's own label (State Equalized Value (county list)), never Just Value
   xsCoCardCount: true,
   xsCoDetail: { treasurer: true, steps: true, noStreetView: true, noUndefined: true, sourceNamed: true },
   xsCoDouglas: { attribution: true, assignment: true, noStreetView: true, noUndefined: true },
@@ -7920,7 +7927,7 @@ const EXPECTED = {
   laCardSaysAvailableNow: false,
   laCardSaysParish: true,
   laCardSaysCounty: false,
-  laCardValueLabel: false,  // the tax-roll value label moved off the card face; the property page carries it
+  laCardValueLabel: true,  // redesign PR2: the card's value-on-file context carries the source's own label (2023 Fair Market Value (tax roll)), never Just Value
   laCardNoUndefined: true,
   laDetailNotVerifiedAvailable: true,
   laDetailInventoryLabel: true,
@@ -8090,7 +8097,7 @@ const EXPECTED = {
   // cannot legitimately obtain - the Zestimate API was retired in 2021. It is
   // the county appraiser's statutory just value, and value_year says which
   // roll year, so the label can say so exactly.
-  cardStatLabelsFirst: ['Opening Bid'],
+  cardStatLabelsFirst: ['Opening Bid', '2025 County Just Value'],  // redesign PR2: the headline figure plus the county value on file as context
   // 16,456 sq ft is under the 20,000 threshold, so the lot stays in square
   // feet rather than being quoted as 0.38 acres.
   unenrichedCardExtras: '0,0,0',
@@ -8171,8 +8178,8 @@ const EXPECTED = {
   laftPurchasePriceLabel: 'Opening bid',   // 2026-10-05: an opening bid is never called the purchase price
   laftCtaText: 'View county Lands Available list',
   bidListChipTextInitial: '0/10',
-  bidBtnIconBefore: '⚐',
-  bidBtnIconAfterAdd: '⚑',
+  bidBtnIconBefore: '⚐ Add to Watchlist',  // redesign PR2: the card's Watchlist action is the full-label button
+  bidBtnIconAfterAdd: '⚑ On Watchlist',
   bidListChipTextAfterAdd: '1/10',
   bidListModalVisible: true,
   bidListPageHash: '#/watchlist',
