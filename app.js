@@ -5748,6 +5748,9 @@ function availableCoverageHtml(c) {
   }
   return `<span class="empty-hint available-coverage" data-coverage="${esc(c.status)}"><b>Why this list is empty:</b> ${esc(AVAILABLE_COVERAGE_LABELS[c.status])}${sub ? ` ${esc(sub)}` : ""}</span>`;
 }
+// Not rendered since 2026-10-24: every cell (what, where, when, bid, value,
+// missing) is shown once in the title, the Decision block or Financial, and the
+// block repeated the bid and county values on desktop. Kept for reference.
 function opportunitySummaryHtml(p) {
   const region = regionOf(p);
   const isLaft = p.source === "laft";
@@ -9579,7 +9582,6 @@ function detailHtml(p) {
     ${sourceReviewBannerHtml(p)}
     ${acquireBlockHtml(p)}
     ${financialPositionHtml(p)}
-    ${opportunitySummaryHtml(p)}
     ${availableDecisionHtml(p)}
     ${auctionDecisionHtml(p)}
     ${inventoryCardHtml(p)}
