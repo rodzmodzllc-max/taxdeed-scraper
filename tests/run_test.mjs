@@ -2093,7 +2093,7 @@ results.eventItemsP1 = await evPage.locator('#detailModalInner .event-item').cou
 results.eventLifecycleP1 = ((await evPage.locator('#detailModalInner .event-item .ev-life').first().textContent()) || '').trim();
 results.eventOutcomeP1 = ((await evPage.locator('#detailModalInner .event-item .ev-outcome').first().textContent()) || '').replace(/\s+/g, ' ').trim();
 results.eventBidChangeP1 = ((await evPage.locator('#detailModalInner .event-item .ev-meta').nth(1).textContent()) || '').trim();
-results.eventNavPill = await evPage.locator('#detailModalInner .detail-nav button[data-target="events"]').count();
+results.eventNavPill = await evPage.locator('#detailModalInner .detail-nav button[data-group="related"]').count();   // redesign PR1: Sale events sit in the Same parcel & timeline group
 await evPage.close();
 const evPage2 = await newPage({ viewport: { width: 1200, height: 900 } });
 await evPage2.goto(BASE_URL + '#/auctions/p13', { waitUntil: 'networkidle' });
@@ -2683,7 +2683,7 @@ results.purchasePathNoneHasNoAnchorInPurchaseGroup = purchaseUi.none.anchors.len
 results.purchasePathListPageIsOnlySourceListLink = purchaseUi.none.allAnchors === 1;
 results.inventoryCardGroups = purchaseUi.none.groups;
 results.purchasePathNoneAcquire = purchaseUi.none.acquire;
-results.flInventoryNavHasInventory = (await flInvPage.locator('#detailModalInner .detail-nav button').allTextContents()).includes('Inventory');
+results.flInventoryNavHasInventory = (await flInvPage.locator('#detailModalInner .detail-nav button[data-group="money"]').count()) === 1 && (await flInvPage.locator('#detailModalInner [data-section="inventory"]').count()) === 1;   // redesign PR1: Inventory & Purchase sits in the Money group
 results.flInventoryNoAiBadge = !/score|confidence|AI /i.test((await flInvPage.locator('#detailModalInner .inventory-card').textContent()) || '');
 await flInvPage.close();
 const flLandsPage = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -2714,7 +2714,7 @@ const decPage = await newPage({ viewport: { width: 1200, height: 900 } });
 await decPage.goto(BASE_URL + '#/lands/p3', { waitUntil: 'networkidle' });
 await decPage.waitForTimeout(700);
 results.decQuestions = await decPage.locator('#detailModalInner .decision-card .dec-q').allTextContents();
-results.decNavHasDecision = await decPage.locator('#detailModalInner .detail-nav button[data-target="decision"]').count();
+results.decNavHasDecision = await decPage.locator('#detailModalInner .detail-nav button[data-group="acquire"]').count();   // redesign PR1: the decision fold sits under the Acquire group
 results.decP3How = await decA(decPage, 'how');
 results.decP3HowLinkCount = await decPage.locator('#detailModalInner .decision-card .dec-row[data-q="how"] a').count();
 results.decP3Available = await decA(decPage, 'available');
@@ -4412,7 +4412,7 @@ await navMap.close();
     await d.waitForTimeout(500);
     results.offListDetail = await d.evaluate(() => {
       const st = document.querySelector('.dossier-status');
-      return st ? /Not on the county list read /.test(st.textContent) && !!st.querySelector('dd.warn') : null;
+      return st ? /Not on the county list read /.test(st.textContent) && !!st.querySelector('dd.warn, dd .warn') : null;
     });
     await d.close();
     const n = await newPage({ viewport: { width: 1440, height: 900 } });
@@ -4538,7 +4538,8 @@ await navMap.close();
           total: money ? money.querySelector('.fp-total').dataset.fpTotal : null,
           totalText: money ? money.querySelector('.fp-total .fp-acq-val').textContent.trim() : null,
           docs: docs ? [...docs.querySelectorAll('[data-doc-class]')].map(e => e.dataset.docClass) : null,
-          order: order.indexOf('acquire') >= 0 && order.indexOf('money') === order.indexOf('acquire') + 1 && order.indexOf('documents') === order.indexOf('truth') + 1,
+          // Redesign PR1: the decision fold (data-section="decision") sits between Acquire and Money.
+          order: order.indexOf('acquire') >= 0 && order.indexOf('money') === order.indexOf('acquire') + (order[order.indexOf('acquire') + 1] === 'decision' ? 2 : 1) && order.indexOf('documents') === order.indexOf('truth') + 1,
           noScore: !/\b(score|ROI|undervalued|great investment|hot property)\b/i.test(money ? money.textContent : '') };
       });
       await d.close();
@@ -4924,7 +4925,7 @@ await navMap.close();
       items: [...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.parcel-timeline li')].map(li => `${li.dataset.ledger}:${li.dataset.kind}${li.dataset.self ? ':self' : ''}`),
       note: /appears in 2 ledgers/.test(document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-section="timeline"]').textContent),
       neverSold: /never a sale, a redemption or a forfeiture/.test(document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-section="timeline"]').textContent),
-      navPill: [...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-nav button')].some(b => b.textContent === 'Timeline'),
+      navPill: [...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-nav button')].some(b => b.dataset.group === 'related'),   // redesign PR1: the timeline sits in the Same parcel & timeline group
       countyLink: !!document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.related-county [data-action="countypage"]')
     }));
     // Certificate -> the same parcel's auction record, from the timeline.
@@ -4991,6 +4992,8 @@ await navMap.close();
     ip.on('pageerror', e => errors.push('county-only imagery pageerror: ' + e.message));
     await ip.goto(BASE_URL.replace('index.html', 'index.html?v=countyonly') + '#/lands/p3', { waitUntil: 'networkidle' });
     await ip.waitForFunction(() => !!document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-hero-photo'), null, { timeout: 10000 });
+    // Redesign PR1: the hero sits in the Map & location group, closed on a phone; the reader opens it as a tap would.
+    await ip.evaluate(() => { const d = document.querySelector('details.detail-group[data-group="map"]'); if (d) d.open = true; });
     await ip.waitForFunction(() => !!document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-hero-photo svg'), null, { timeout: 8000 }).catch(() => {});
     results.countyOnlyImagery = await ip.evaluate(() => { const h = document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-hero-photo');
       return { countyOnly: h.classList.contains('minimap-county'), drawn: !!h.querySelector('svg .mm-county'), noPoint: !h.querySelector('.mm-dot, .mm-halo'), caption: [...h.querySelectorAll('.photo-caption > span')].map(x => x.textContent) }; });
@@ -5502,7 +5505,7 @@ await navMap.close();
       band[k] = await pg.evaluate(() => {
         const st = document.querySelector('#detailModal:not([hidden]) .dossier-status');
         const dd = st.querySelector('dd');
-        const sub = dd.querySelector('.dossier-sub');
+        const sub = dd.querySelector('.dossier-sub.ledger-name');
         return { ledger: st.dataset.ledgerRecord || null, sub: sub ? sub.textContent.trim() : null };
       });
       await pg.close();
@@ -5597,7 +5600,7 @@ await navMap.close();
       const order = [...m.querySelectorAll('.dossier-status, [data-section="acquire"], [data-section="truth"], .lien-banner, [data-section="risk"], [data-section="sources"]')].map(e => e.dataset.section || e.className.split(' ')[0]);
       const truth = m.querySelector('[data-section="truth"]');
       // Redesign PR1: the fourth cell is the provenance line ("Read from … · last synced … · last read …"); the last-read segment is pinned (the synced age changes daily).
-      return { status: [...st.querySelectorAll('dt')].map(e => e.textContent.trim()), lastRead: st.querySelectorAll('dd')[3].textContent.trim().split(' · ').pop(), order,
+      return { status: [...st.querySelectorAll('dt')].map(e => e.textContent.trim()), lastRead: st.querySelectorAll('dd')[3].textContent.trim().split(' · ').pop().replace(/^last read /, ''), order,
         lede: !!truth.querySelector('.truth-lede'), noScoreWords: !/\b(score|confidence|AI verified|AI confidence|great investment|ROI|undervalued)\b/i.test(truth.textContent) };
     });
     await pg.close();
@@ -6207,7 +6210,7 @@ results.monDetailHistory = await monDetail.locator('#detailModalInner .change-hi
 results.monDetailNeverSold = await monDetail.locator('#detailModalInner [data-section="monitor"]').evaluate(el => /never as a sale/.test(el.textContent) && !/\bsold\b/i.test(el.textContent.replace(/never as a sale|not a sale/g, '')));
 // The section nav is hidden on phones by design (identity.css), and newPage()
 // rewrites locator selectors to :visible, so count the pill in the DOM directly.
-results.monDetailNavPill = await monDetail.evaluate(() => document.querySelectorAll('#detailModalInner .detail-nav [data-target="monitor"]').length);
+results.monDetailNavPill = await monDetail.evaluate(() => document.querySelectorAll('#detailModalInner .detail-nav [data-group="mine"]').length);   // redesign PR1: Watch sits in the Mine group
 // 7. Alerts inbox: two alerts, one unread; mark read clears the badge.
 await monDetail.evaluate(() => { document.getElementById('detailModal').hidden = true; });
 await monDetail.locator('#alertsMenuItem').evaluate(el => el.click());
@@ -7144,8 +7147,6 @@ await big.press('#globalSearchInput', 'Enter');
 }
 
 
-await browser.close();
-
 // ============================================================
 // Assertions - EXPECTED is a locked-in snapshot of known-good behavior.
 // A `RegExp` value means "must match this pattern" (used for the handful of
@@ -7182,10 +7183,10 @@ await browser.close();
     const sale = firstText(dd[0]).replace(/ · .*$/, '');
     return {
       dts: [...st.querySelectorAll('dt')].map(e => e.textContent.trim()),
-      sale, figure: firstText(dd[1]), value: firstText(dd[2]), provStartsWithReadFrom: /^Read from /.test(dd[3].textContent.trim()),
+      sale, figure: firstText(dd[1]), value: firstText(dd[2]), provPrefix: (dd[3].textContent.trim().match(/^(Read from |Source not recorded)/) || [null])[0],
       saleWithin: within('.dossier-status.facts > div:nth-child(1)'), figureWithin: within('.dossier-status.facts > div:nth-child(2)'),
-      unknown: (m.querySelector('.unknown') || { textContent: '' }).textContent.replace(/\s+/g, ' ').trim(),
-      unknownWithin: within('.unknown'),
+      unknown: (m.querySelector('.record-gaps') || { textContent: '' }).textContent.replace(/\s+/g, ' ').trim(),
+      unknownWithin: within('.record-gaps'),
       cta: cta ? cta.textContent.trim() : null, ctaWithin: within('[data-section="acquire"] .detail-cta, [data-section="acquire"] .detail-cta-none, [data-section="acquire"] .acq-cta'),
       acquireFirstSection: (m.querySelector('.detail-section') || {}).dataset ? m.querySelector('.detail-section').dataset.section : null,
       figureOnce: count(firstText(dd[1])) === 1, saleOnce: count(sale), valueOnce: count(firstText(dd[2])) === 1,
@@ -7204,7 +7205,7 @@ await browser.close();
   await ff.waitForSelector('#detailModal:not([hidden]) .dossier-status.facts', { timeout: 8000 });
   await ff.waitForTimeout(400);
   const f5 = await foldOf(ff);
-  results.firstFoldAuction = { ...f5, sale: undefined, saleOnce: undefined, saleIsDate: /^[A-Z][a-z]{2} \d{1,2}, \d{4}$/.test(f5.sale), saleOnceInFold: f5.saleOnce, cta: f5.cta.replace(/ for .*$/, ''), unknown: f5.unknown };
+  results.firstFoldAuction = { ...f5, sale: undefined, saleOnce: undefined, saleIsDate: /^[A-Z][a-z]{2} \d{1,2}, \d{4}$/.test(f5.sale), saleOnceInFold: f5.saleOnce, cta: f5.cta, unknown: f5.unknown };
   // The result jump opens the decision fold (closed on phones) and scrolls to it.
   await ff.click('#detailModalInner .result-jump button');
   await ff.waitForTimeout(600);
@@ -7225,7 +7226,7 @@ await browser.close();
   await fa.close();
   // An unverified Available row says so on the sheet, above the checklist.
   const fu = await newPage({ viewport: { width: 390, height: 844 } });
-  await fu.goto(BASE_URL + '#/lands/p3', { waitUntil: 'networkidle' });
+  await fu.goto(BASE_URL.replace(/index\.html$/, 'tx.html') + '#/lands/ptx6', { waitUntil: 'networkidle' });
   await fu.waitForTimeout(500);
   results.firstFoldUnverifiedAvailable = await fu.evaluate(() => { const m = document.getElementById('detailModalInner'); const a = m.querySelector('[data-section="acquire"]');
     return { verifiedLine: (a.querySelector('.acq-verified-state') || { textContent: null }).textContent, cta: a.querySelectorAll('.acq-cta').length, order: [...a.children].map(e => e.className.split(' ')[0]) }; });
@@ -7250,6 +7251,8 @@ await browser.close();
   results.detailContentsJumpOpensGroup = await fd.evaluate(() => ({ open: document.querySelector('#detailPanel details.detail-group[data-group="source"]').open, on: document.querySelector('#detailPanel .detail-nav button[data-target="truth"]').classList.contains('on') }));
   await fd.close();
 }
+
+await browser.close();
 
 const EXPECTED = {
   // Parcel boundaries (2026-10-20, migration 034): fixture geometry only.

@@ -2836,7 +2836,10 @@ function auctionLinkInfo(p) {
   if (kind === "sale") {
     const d = p.sale_date ? daysUntil(p) : null;
     if (isGone(p) || (d !== null && d < 0)) {
-      return { href: null, kind, label: "Sale listing no longer current" + (p.sale_date ? " · sale date " + fmtDate(p.sale_date) + " has passed" : ""), note: null };
+      // A row that left the feed before its date was scheduled for that date;
+      // only a date that is actually behind us "has passed" (review H1).
+      const dateClause = !p.sale_date ? "" : (d !== null && d < 0) ? " · sale date " + fmtDate(p.sale_date) + " has passed" : " · was scheduled for " + fmtDate(p.sale_date);
+      return { href: null, kind, label: "Sale listing no longer current" + dateClause, note: null };
     }
     return {
       href, kind,
@@ -2855,10 +2858,10 @@ function auctionLinkInfo(p) {
   if (kind === "info") return { href, kind, label: "View county tax-sale information", note: null };
   return { href, kind: null, label: "View listing", note: "The scope of this link has not been recorded." };
 }
-function auctionLinkHtml(p, cls) {
+function auctionLinkHtml(p, cls, labelOverride) {
   const l = auctionLinkInfo(p);
   if (!l.href) return `<span class="${cls}-none auction-link-none" data-auction-link="none">${esc(l.label)}</span>`;
-  return `<a class="${cls}" href="${esc(l.href)}" target="_blank" rel="noopener" data-auction-link="${esc(l.kind || "unknown")}"${l.note ? ` title="${esc(l.note)}"` : ""}>${cls === "detail-cta" ? svgIcon("gavel") : ""}${esc(l.label)}</a>`;
+  return `<a class="${cls}" href="${esc(l.href)}" target="_blank" rel="noopener" data-auction-link="${esc(l.kind || "unknown")}"${l.note ? ` title="${esc(l.note)}"` : ""}>${cls === "detail-cta" ? svgIcon("gavel") : ""}${esc(labelOverride || l.label)}</a>`;
 }
 
 function saleTime(p) {
@@ -6955,6 +6958,13 @@ function hydrateResearchPanels(pid) {
 async function researchAfterOpen(p) {
   await loadResearch();
   hydrateResearchPanels(p.id);
+  // The contents list rendered before the research loaded; its Mine entry is
+  // refreshed in place (review PR1-06).
+  document.querySelectorAll(".detail-modal-inner, .detail-panel").forEach(host => {
+    if (!host.querySelector(`[data-research-cell="${CSS.escape(String(p.id))}"]`)) return;
+    const el = host.querySelector('.detail-toc button[data-group="mine"] .toc-s');
+    if (el) el.textContent = detailGroupStatus(p, "mine");
+  });
   if (typeof hydrateDiligence === "function") hydrateDiligence(p.id);
 }
 // ==================== State rules page (#/rules, 2026-10-10) ====================
@@ -7745,7 +7755,7 @@ function acquireBlockHtml(p) {
   // The one CTA that exists leads the section (redesign PR1), above the
   // checklist; "Verified: Not yet" leads when no path has been verified.
   const ctaRow = cta ? `<p class="acq-cta-row">${ext(cta.href, cta.label, "acq-cta", /^(mailto|tel):/.test(cta.href) ? "instructions" : (cta.href === a.applicationUrl || ["application_download", "application_page"].includes(a.type) ? "form" : "instructions"))}${cta.sub ? `<span class="acq-cta-sub">${esc(cta.sub)}</span>` : ""}</p>` : "";
-  const verifiedLine = a.verified ? "" : `<p class="acq-verified-state" data-verified="no"><b>Verified: Not yet</b> · ${esc(a.mode === "none" ? "the source states there is no purchase path for this listing." : "no county page or document establishing how to acquire from this list has been verified; the official listing is the source's own statement of availability.")}</p>`;
+  const verifiedLine = a.verified ? "" : `<p class="acq-verified-state" data-verified="no"><b>Verified: Not yet</b> · ${esc(a.mode === "none" ? "the source states there is no purchase path for this listing." : "no county page or document establishing how to acquire from this list has been verified; the listing is the source's own statement of availability.")}</p>`;
   const howHtml = dl(howRows);
   // 4. What form do I need?
   const formsHtml = acquisitionFormsHtml(p);
@@ -8115,8 +8125,8 @@ function detailGroupStatus(p, key) {
     return a.verified ? a.label : (a.mode === "none" ? "No purchase path (stated by the source)" : "Acquisition path not yet verified");
   }
   if (key === "money") {
-    if (hasNum(p.market)) return `${fmtShort(p.market)} value on file${hasNum(p.assessed) ? ` · assessed ${fmtShort(p.assessed)}` : ""}`;
-    return hasNum(p.assessed) ? `Assessed ${fmtShort(p.assessed)}` : "No county value on file";
+    if (hasNum(p.market)) return `${fmtShort(p.market)} value on file${hasNum(p.assessed) ? ` · ${assessedSourceLabel(p)} ${fmtShort(p.assessed)}` : ""}`;
+    return hasNum(p.assessed) ? `${assessedSourceLabel(p)} ${fmtShort(p.assessed)}` : "No county value on file";
   }
   if (key === "property") {
     const bits = [];
@@ -8126,11 +8136,12 @@ function detailGroupStatus(p, key) {
     const sale = lastSaleText(p); if (sale) bits.push(`last sale ${sale}`);
     return bits.length ? bits.join(" · ") : "Identity only - no tax-roll facts on file";
   }
-  if (key === "risk") return `Flood zone: ${floodShort(p).text.toLowerCase()} · liens not tracked`;
+  if (key === "risk") return `Flood zone: ${floodShort(p).text} · ${regionOf(p) === "FL" ? `Manual lien notes: ${LIEN_LABEL[p.lien_level] || "Not reviewed"}` : "liens not tracked"}`;
   if (key === "map") return hasNum(p.latitude) && hasNum(p.longitude) ? "Coordinates on file" : "Not yet geocoded";
   if (key === "related") {
     const n = hasParcel(p) ? relatedRecordsFor(p).length : 0;
     const rel = !hasParcel(p) ? "No parcel number to match" : n ? `${n} record${n === 1 ? "" : "s"} in other ledgers` : "No other ledger record";
+    if (p.source === "auction" && isGone(p)) return `${rel} · ${outcomeText(p)}`;
     const ost = p.source === "auction" ? auctionOutcomeState(p) : null;
     return ost ? `${rel} · ${ost.key === "scheduled" ? "sale scheduled, no result yet" : ost.verified ? ost.label : ost.label.toLowerCase()}` : rel;
   }
@@ -8145,17 +8156,25 @@ function detailGroupStatus(p, key) {
   }
   return "";
 }
-function detailNavHtml(bodyHtml, p) {
-  const ids = [];
+function detailGroupEntries(bodyHtml, p) {
+  const ids = [], groups = [];
   bodyHtml.replace(/data-section="([a-z]+)"/g, (m, id) => { if (DETAIL_NAV_LABELS[id] && !ids.includes(id)) ids.push(id); return m; });
-  if (ids.length < 2) return "";
+  bodyHtml.replace(/data-group="([a-z]+)"/g, (m, id) => { if (!groups.includes(id)) groups.push(id); return m; });
+  if (ids.length < 2) return [];
   const entries = [];
   DETAIL_GROUPS.forEach(([key, label, secs]) => {
-    const target = secs.find(id => ids.includes(id));
+    // A rendered group with no named section (e.g. Property & history holding
+    // only the legal description and the identifier row) is still listed; its
+    // target is the group itself (the jump action resolves data-group too).
+    const target = secs.find(id => ids.includes(id)) || (groups.includes(key) ? key : null);
     if (!target) return;
     entries.push({ key, label: p && p.source === "certificate" && key === "acquire" ? "Decision" : label, target, status: p ? detailGroupStatus(p, key) : "" });
   });
-  if (entries.length < 2) return "";
+  return entries.length < 2 ? [] : entries;
+}
+function detailNavHtml(bodyHtml, p) {
+  const entries = detailGroupEntries(bodyHtml, p);
+  if (!entries.length) return "";
   return `<nav class="detail-nav detail-toc" aria-label="Contents"><ol>${entries.map((e, i) => `<li><button type="button" data-action="jump" data-target="${e.target}" data-group="${e.key}"><span class="toc-n">${String(i + 1).padStart(2, "0")}</span> <span class="toc-t">${esc(e.label)}</span> <span class="toc-s">${esc(e.status)}</span></button></li>`).join("")}</ol></nav>`;
 }
 // Always rendered for a deed/LAFT property (never for a certificate) - the
@@ -9459,7 +9478,8 @@ function imageryTruthHtml(p) {
 // and the per-row last read as a date or "not recorded". Never a relative time
 // without its date, never a source name the row does not carry.
 function provenanceLineText(p) {
-  const src = sourceNameFor(p) || "Source not recorded";
+  const srcName = sourceNameFor(p);
+  const src = srcName ? `Read from ${srcName}` : "Source not recorded";
   let synced = "sync date not recorded";
   if (p && p.updated_at) {
     const t = Date.parse(p.updated_at);
@@ -9470,7 +9490,7 @@ function provenanceLineText(p) {
     }
   }
   const read = p && p.last_seen_at ? `last read ${dateOnly(p.last_seen_at)}` : "last read not recorded";
-  return `Read from ${src} · ${synced} · ${read}`;
+  return `${src} · ${synced} · ${read}`;
 }
 window.__tdwProvenanceLine = provenanceLineText;
 // What the record does NOT carry, said once at the top of the page, straight
@@ -9478,7 +9498,7 @@ window.__tdwProvenanceLine = provenanceLineText;
 function unknownLineHtml(p) {
   if (!p || p.source === "certificate") return "";
   const gaps = dataGaps(p);
-  return `<p class="unknown" data-gaps="${gaps.length}"><b>Not known from the record:</b> ${gaps.length ? esc(gaps.join(" · ")) : "nothing missing from the fields this page checks"}. Nothing here is estimated.</p>`;
+  return `<p class="record-gaps" data-gaps="${gaps.length}"><b>Not known from the record:</b> ${gaps.length ? esc(gaps.join(" · ")) : "nothing missing from the fields this page checks"}. Nothing here is estimated.</p>`;
 }
 // The four-fact row at the top of the property page (redesign PR1, 2026-10-24):
 // when (sale / list / expiry), the published figure named as its source names
@@ -9491,7 +9511,12 @@ function detailStatusHtml(p) {
   // the list (ledgerRecordView: AUCTIONS / AVAILABLE / LIENS_CERTIFICATES).
   const rec = ledgerRecordView(p);
   const recAttr = rec ? ` data-ledger-record="${esc(rec.ledger)}"` : "";
-  const kind = recordKindText(p);
+  // The kicker already says "<County>, <ST> · Auction / Lands Available", so
+  // the record kind is repeated only where it adds a fact: a Texas struck-off
+  // row, a dated Parish list, a non-Florida program or tax sale (review H7).
+  const kind = regionOf(p) !== "FL" ? recordKindText(p) : null;
+  // The record's own ledger, named when this state calls the list something else.
+  const ledgerName = rec && rec.ledger_name !== (ledgerCopy(p.source).title || k.type) ? rec.ledger_name : null;
   const sub = (t, cls) => `<span class="dossier-sub${cls ? " " + cls : ""}">${t}</span>`;
   const off = offCurrentSaleList(p);
   const cells = [];
@@ -9510,6 +9535,7 @@ function detailStatusHtml(p) {
     if (ost) whenV += sub(esc(ost.key === "scheduled" ? "Scheduled · no result yet" : ost.label));
   }
   if (off) whenV += sub(esc(`Not on the county list read ${dateOnly(off.countyRead)}${off.lastRead ? ` · last listed ${dateOnly(off.lastRead)}` : ""}`), "warn");
+  if (ledgerName) whenV += sub(esc(ledgerName + " ledger"), "ledger-name");
   if (kind) whenV += `<span class="dossier-sub record-kind">${esc(kind)}</span>`;
   // The source's own sale-status wording, verbatim (Texas tx_sale_status).
   if (p.tx_sale_status) whenV += `<span class="dossier-sub source-status-raw" title="The source's own status wording, verbatim">Source status: ${esc(String(p.tx_sale_status))}</span>`;
@@ -9527,7 +9553,7 @@ function detailStatusHtml(p) {
   } else cells.push([auctionBidLabel(p), esc(bidDisplay(p)), hasPublishedBid(p) ? "" : "muted"]);
   // 3. Value on file: the appraiser's figure named for what it is, or its absence.
   if (isCert) cells.push(["Interest rate", hasNum(p.interest_rate) ? `${esc(String(p.interest_rate))}%${sub("As published; no return is estimated")}` : "Not published", hasNum(p.interest_rate) ? "" : "muted"]);
-  else if (hasNum(p.market)) cells.push(["Value on file", `${esc(fmtShort(p.market))}${sub(esc(valueLabel(p) + (hasNum(p.assessed) ? ` · assessed ${fmtShort(p.assessed)}` : "")))}`, ""]);
+  else if (hasNum(p.market)) cells.push(["Value on file", `${esc(fmtShort(p.market))}${sub(esc(valueLabel(p) + (hasNum(p.assessed) ? ` · ${assessedSourceLabel(p)} ${fmtShort(p.assessed)}` : "")))}`, ""]);
   else if (hasNum(p.assessed)) cells.push(["Value on file", `${esc(fmtShort(p.assessed))}${sub(esc(assessedSourceLabel(p)))}`, ""]);
   else cells.push(["Value on file", "No county value on file", "muted"]);
   // 4. Source · last read: the one provenance line.
@@ -9575,7 +9601,9 @@ function collapseSecondaryOnPhone(root) {
 function detailGroupHtml(key, title, parts) {
   const body = parts.filter(Boolean).join("");
   if (!body.trim()) return "";
-  return `<details class="detail-more detail-group" data-group="${esc(key)}" open><summary class="detail-more-summary">${esc(title)}</summary>${body}</details>`;
+  // The number is filled in by detailHtml() from the contents list, so the
+  // page and the list count the same groups (review H8).
+  return `<details class="detail-more detail-group" data-group="${esc(key)}" open><summary class="detail-more-summary"><span class="dgroup-n" data-group-n="${esc(key)}"></span>${esc(title)}</summary>${body}</details>`;
 }
 // The decision Q&A (the record's questions, with its own gap list) stays
 // reachable under the Acquire group; the result-jump link, refineLedgerQuestions
@@ -9594,9 +9622,18 @@ function auctionAcquireHtml(p) {
   const a = acquisitionOf(p);
   const link = auctionLinkInfo(p);
   const q = (n, title, body) => `<div class="acq-q" data-acq-q="${n}"><div class="acq-h">${esc(title)}</div>${body}</div>`;
-  const where = `<p class="acq-cta-row">${auctionLinkHtml(p, "detail-cta")}</p>` +
+  // The Sale cell above already carries the date, so the CTA does not repeat
+  // it (the first fold states each fact once).
+  const d = p.sale_date ? daysUntil(p) : null;
+  const ctaLabel = link.href && link.kind === "sale" ? "View sale listing" : null;
+  // A row that left the county list is described as exactly that - a past
+  // date is the only case where "after the sale" can be said.
+  const noLink = !p.url_auction ? "The source published no sale link this pipeline could verify."
+    : isGone(p) && !(d !== null && d < 0) ? `${outcomeText(p)} - why (redeemed, cancelled, postponed, sold) is not recorded; check the county record.`
+    : "The sale-day page is no longer current: after the sale the county publishes results there, not bids.";
+  const where = `<p class="acq-cta-row">${auctionLinkHtml(p, "detail-cta", ctaLabel)}</p>` +
     (link.note ? `<p class="acq-muted">${esc(link.note)}</p>` : "") +
-    (link.href ? "" : `<p class="acq-muted">${esc(p.url_auction ? "The sale-day page is no longer current: after the sale the county publishes results there, not bids." : "The source published no sale link this pipeline could verify.")}</p>`);
+    (link.href ? "" : `<p class="acq-muted">${esc(noLink)}</p>`);
   const process = a.verified ? auctionProcessHtml(p)
     : `<p class="acq-verified-state" data-verified="no"><b>Verified: Not yet</b> · the county's registration, deposit and payment rules for this sale have not been captured from its own page. Check the county's sale page before bidding; nothing here is assumed.</p>`;
   // The result and the record's other questions sit in the decision fold just
@@ -9782,28 +9819,19 @@ function detailHtml(p) {
     ${sourceLineHtml(p)}
     ${regionOf(p) === "TX" && classificationBadgeHtml(p) ? `<div class="prop-classification-line" style="margin:.2rem 0 .5rem">${classificationBadgeHtml(p)}</div>` : ""}
     ${isCert ? `
-    ${whySeeingHtml(p)}
     ${certStatusLinesHtml(p)}
     ${certificateDecisionHtml(p)}
     <div class="detail-grid">
       ${stats.map(detailStatTileHtml).join("")}
     </div>
-    ${researchBandHtml(p)}
-    ${detailSectionHtml("My research", researchPanelHtml(p), "research-section", "research")}
-    ${diligenceSectionHtml(p)}
-    ${relatedRecordsHtml(p)}
-    ${parcelTimelineHtml(p)}
-    ${sourceTruthHtml(p)}
-    ${monitorSectionHtml(p)}
-    ${legalHtml}
-    ${copyRowHtml}
-    ${sourcesHtml}
-    ${auctionLinkHtml(p, "detail-cta")}
-    ${!hasFieldProvenance(p) ? `<div class="detail-provenance">
+    ${detailGroupHtml("property", "Property & history", [legalHtml, copyRowHtml])}
+    ${detailGroupHtml("related", "Same parcel & timeline", [relatedRecordsHtml(p), parcelTimelineHtml(p)])}
+    ${detailGroupHtml("source", "Source", [sourceTruthHtml(p), sourcesHtml, auctionLinkHtml(p, "detail-cta"),
+      !hasFieldProvenance(p) ? `<div class="detail-provenance">
       ${sourceNameFor(p) ? `<span>Data source: ${esc(sourceNameFor(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
-    </div>` : provenanceCardHtml(p)}
-    ${noteHtml(p)}` : `
+    </div>` : provenanceCardHtml(p), whySeeingHtml(p)])}
+    ${detailGroupHtml("mine", "Mine", [researchBandHtml(p), detailSectionHtml("My research", researchPanelHtml(p), "research-section", "research"), diligenceSectionHtml(p), monitorSectionHtml(p), noteHtml(p)])}` : `
     ${sourceReviewBannerHtml(p)}
     ${p.source === "laft" ? acquireBlockHtml(p) : auctionAcquireHtml(p)}
     ${decisionFoldHtml(p)}
@@ -9829,14 +9857,18 @@ function detailHtml(p) {
       riskLegalCardHtml(p)])}
     ${detailGroupHtml("map", "Map & location", [propertyVisual(p, "detail-hero-photo"), gisLocationCardHtml(p)])}
     ${detailGroupHtml("related", "Same parcel & timeline", [relatedRecordsHtml(p), parcelTimelineHtml(p), eventHistorySlotHtml(p)])}
-    ${detailGroupHtml("source", "Source", [sourceTruthHtml(p), provenanceCardHtml(p), acquisitionDocumentsHtml(p), sourcesHtml,
+    ${detailGroupHtml("source", "Source", [sourceTruthHtml(p), acquisitionDocumentsHtml(p), provenanceCardHtml(p), sourcesHtml,
       p.source === "laft" ? auctionLinkHtml(p, "detail-cta") : "", whySeeingHtml(p)])}
     ${detailGroupHtml("mine", "Mine", [researchBandHtml(p), detailSectionHtml("My research", researchPanelHtml(p), "research-section", "research"), diligenceSectionHtml(p), monitorSectionHtml(p), noteHtml(p)])}
     `}
     ${detailActionBarHtml(p)}`;
   // Phase 66: the section nav is built from the sections that actually
   // rendered above (see detailNavHtml), so it is spliced in afterwards.
-  return html.replace("<!--NAV-->", detailNavHtml(html, p));
+  // The group summaries carry the same numbers as the contents list.
+  const numbers = {};
+  detailGroupEntries(html, p).forEach((e, i) => { numbers[e.key] = String(i + 1).padStart(2, "0"); });
+  return html.replace("<!--NAV-->", detailNavHtml(html, p))
+    .replace(/data-group-n="([a-z]+)"/g, (m, k) => numbers[k] ? `${m} data-n="${numbers[k]}"` : m);
 }
 
 // The detail modal and the hidden-properties modal are fixed-position
@@ -9992,7 +10024,19 @@ function refreshOpenDetail(pid) {
   const modal = document.getElementById("detailModal");
   if (!modal || modal.hidden) return;
   const p = ALL.find(x => x.id === pid);
-  if (p) openDetail(p);
+  if (!p) return;
+  // The rebuild keeps the reader's place: the folds they opened stay open and
+  // the scroll position is restored (the bottom action bar made Favorite /
+  // Watchlist reachable from deep inside a group - review PR1-05).
+  const inner = document.getElementById("detailModalInner");
+  const open = inner ? [...inner.querySelectorAll("details")].map(d => d.open) : null;
+  const scrollTop = inner ? inner.scrollTop : 0;
+  openDetail(p);
+  if (inner && open) {
+    const after = [...inner.querySelectorAll("details")];
+    if (after.length === open.length) after.forEach((d, i) => { d.open = open[i]; });
+    inner.scrollTop = scrollTop;
+  }
 }
 const detailModalEl = document.getElementById("detailModal");
 if (detailModalEl) detailModalEl.addEventListener("click", e => { if (e.target === detailModalEl) closeDetail(); });
@@ -10530,7 +10574,7 @@ document.addEventListener("click", async e => {
     // whichever container is showing this page (the modal, or the desktop
     // side panel) - both are their own scroll boxes.
     const host = btn.closest(".detail-modal-inner, .detail-panel");
-    const target = host && host.querySelector(`[data-section="${btn.dataset.target}"]`);
+    const target = host && (host.querySelector(`[data-section="${btn.dataset.target}"]`) || host.querySelector(`details.detail-group[data-group="${btn.dataset.target}"]`));
     // A folded group opens before the scroll (redesign PR1): the groups and the
     // decision fold are <details>, and a jump into a closed one lands nowhere.
     openDetailFolds(host, target);
