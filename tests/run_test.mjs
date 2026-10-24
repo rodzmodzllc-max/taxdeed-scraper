@@ -111,13 +111,29 @@ async function newPage(opts) {
     get(target, prop) {
       const v = Reflect.get(target, prop, target);
       if (typeof v !== 'function') return v;
+      // On a phone the property page's secondary sections sit in a disclosure
+      // that starts closed (identity.css / app.js). A reader opens it to reach
+      // them, so the harness does the same before waiting for or clicking one.
+      const opensFirst = prop === 'waitForSelector' || prop === 'click';
       return (...args) => {
         if (typeof args[0] === 'string') args[0] = detailSurfaceSelector(args[0]);
+        if (opensFirst && typeof args[0] === 'string' && /#detail(ModalInner|Panel)/.test(args[0])) {
+          return raw.evaluate(() => document.querySelectorAll('details.detail-more').forEach(d => { d.open = true; }))
+            .catch(() => {}).then(() => v.apply(target, args));
+        }
         return v.apply(target, args);
       };
     }
   });
   return pg;
+}
+// Ledger choice on the List: the desktop rail (.nav-ledger) when it is shown,
+// otherwise the inner ledger strip (.ledger-tab), which is what phones and
+// tablets use. The strip is hidden from 1024px, where the rail repeats it.
+async function clickLedger(pg, key) {
+  const rail = pg.locator(`.nav-ledger[data-nav-ledger="${key}"]`);
+  if (await rail.first().isVisible().catch(() => false)) return rail.first().click();
+  return pg.click(`.ledger-tab[data-ledger="${key}"]`);
 }
 const page = await newPage({ viewport: { width: 390, height: 844 } });
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));
@@ -592,7 +608,7 @@ results.hiddenListBtnVisible = await page.locator('#hiddenListBtn').isVisible();
 // --- switch to Lands Available tab (fixture p3, Bay county) ---
 // AVAILABLE commercialization: the Available-only filter row is hidden on Auctions.
 results.availFiltersHiddenOnAuctions = await page.locator('#availableFilters').evaluate(el => el.hidden);
-await page.click('.ledger-tab[data-ledger="laft"]');
+await clickLedger(page, 'laft');
 await page.waitForTimeout(150);
 results.availFiltersShownOnAvailable = await page.locator('#availableFilters').evaluate(el => !el.hidden);
 // p14's source is RESTRICTED: withheld from the list and counted on the ledger page.
@@ -664,7 +680,7 @@ results.availFilterCounts = availCounts;
 // count assertion between here and there.
 
 // --- switch to Certificates tab (fixture p4) ---
-await page.click('.ledger-tab[data-ledger="certificate"]');
+await clickLedger(page, 'certificate');
 await page.waitForTimeout(150);
 results.certCardCount = await page.locator('.cert-card').count();
 results.certCardTitle = await page.locator('.cert-card .prop-address').first().textContent();
@@ -716,7 +732,7 @@ const certAccruedText = (await page.locator('.cert-card .card-stat-grid .card-st
 }
 
 // --- switch back to Auctions tab - expandedCounties from before should still hold ---
-await page.click('.ledger-tab[data-ledger="auction"]');
+await clickLedger(page, 'auction');
 await page.waitForTimeout(150);
 results.cardCountBackOnAuctionTab = await page.locator('.prop-card').count();
 
@@ -981,33 +997,44 @@ results.detailModalHasLinks = await page.locator('#detailModalInner .detail-link
 results.detailProvenanceText = ((await page.locator('#detailModalInner .detail-provenance').textContent()) || '').trim();
 results.detailLinksHaveNoEstimatedSuffix = !(await page.locator('#detailModalInner .detail-links').textContent()).includes('estimated search');
 
+// The summary block and the section tabs are hidden on phones by design
+// (identity.css, 2026-10-23), so these checks read them on a desktop-width
+// page, where the detail opens in #detailPanel.
+const glancePage = await newPage({ viewport: { width: 1280, height: 900 } });
+await glancePage.goto(BASE_URL + '#/auctions/p1', { waitUntil: 'networkidle' });
+await glancePage.waitForTimeout(800);
 // --- Phase 66: "At a glance" summary + section nav on the full page ---
 // p1: FL auction, real address, parcel + case, published bid, just value
 // AND assessed on file, no photo (NULL), no coordinates, flood never
 // checked -> exactly those three gaps listed, nothing invented.
-results.oppCellLabels = await page.locator('#detailModalInner .opp-cell .opp-label').allTextContents();
+results.oppCellLabels = await glancePage.locator('#detailPanel .opp-cell .opp-label').allTextContents();
 // innerText, not textContent: the .opp-sub line is display:block, so the
 // rendered text has a break between the value and its sub-line.
-const oppText = n => page.locator('#detailModalInner .opp-cell').nth(n).locator('.opp-val').evaluate(el => el.innerText.replace(/\s+/g, ' ').trim());
+const oppText = n => glancePage.locator('#detailPanel .opp-cell').nth(n).locator('.opp-val').evaluate(el => el.innerText.replace(/\s+/g, ' ').trim());
 results.oppWhatText = await oppText(0);
 results.oppWhereText = await oppText(1);
-results.oppWhenClass = await page.locator('#detailModalInner .opp-cell').nth(2).locator('.opp-val').evaluate(el => el.className);
+results.oppWhenClass = await glancePage.locator('#detailPanel .opp-cell').nth(2).locator('.opp-val').evaluate(el => el.className);
 results.oppBidText = await oppText(3);
 results.oppValueText = await oppText(4);
-results.oppGaps = await page.locator('#detailModalInner .opp-gaps li').allTextContents();
-results.detailNavLabels = await page.locator('#detailModalInner .detail-nav button').allTextContents();
+results.oppGaps = await glancePage.locator('#detailPanel .opp-gaps li').allTextContents();
+// Contradiction fixed 2026-10-23: an unverified auction process is named as a gap, so
+// "What is not known?" never reads clear while "How do I register and bid?" says not verified.
+results.oppGapNamesRegistration = results.oppGaps.includes('Registration, deposit and payment rules not verified');
+results.detailNavLabels = await glancePage.locator('#detailPanel .detail-nav button').allTextContents();
 // Jumping to Risk & Legal scrolls the modal's own scroll box, and marks the pill.
-const scrollBefore = await page.locator('#detailModalInner').evaluate(el => el.scrollTop);
-await page.click('#detailModalInner .detail-nav button[data-target="risk"]');
+const scrollBefore = await glancePage.locator('#detailPanel').evaluate(el => el.scrollTop);
+await glancePage.click('#detailPanel .detail-nav button[data-target="risk"]');
 await page.waitForTimeout(500);
-results.detailNavJumpScrolled = (await page.locator('#detailModalInner').evaluate(el => el.scrollTop)) > scrollBefore;
-results.detailNavJumpMarksPill = await page.locator('#detailModalInner .detail-nav button[data-target="risk"]').evaluate(el => el.classList.contains('on'));
-results.showOnMapBtnText = ((await page.locator('#detailModalInner .show-on-map-btn').textContent()) || '').trim();
-await page.locator('#detailModalInner').evaluate(el => { el.scrollTop = 0; });
+results.detailNavJumpScrolled = (await glancePage.locator('#detailPanel').evaluate(el => el.scrollTop)) > scrollBefore;
+results.detailNavJumpMarksPill = await glancePage.locator('#detailPanel .detail-nav button[data-target="risk"]').evaluate(el => el.classList.contains('on'));
+results.showOnMapBtnText = ((await glancePage.locator('#detailPanel .show-on-map-btn').textContent()) || '').trim();
+await glancePage.locator('#detailPanel').evaluate(el => { el.scrollTop = 0; });
+await glancePage.close();
 
 // --- the tax-roll facts on the full property page ---
 // The card carries the three-fact summary; the page carries the rest,
 // including the whole legal description rather than one clamped line.
+await page.evaluate(() => document.querySelectorAll('details.detail-more').forEach(d => { d.open = true; }));
 results.detailStatLabels = await page.locator('#detailModalInner .detail-stat-label').allTextContents();
 results.detailStatValues = await page.evaluate(() => {
   // Phase 35: a stat label can now carry a trailing infoTip() "i" glyph
@@ -1043,6 +1070,7 @@ results.homesteadStatAbsentForP1 = !(await page.evaluate(() =>
   [...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-stat-label')].some(e => e.textContent.trim() === 'Homestead Exemption')));
 // Florida-law reminder that survives every property, not just risky ones -
 // code/utility/IRS liens are never screened for by this app.
+await page.evaluate(() => document.querySelectorAll('details.detail-more').forEach(d => { d.open = true; }));
 results.muniLienNoteVisible = await page.locator('#detailModalInner .muni-lien-note').count();
 
 // --- Bid & profit calculator: the existing Fees/Walk-Away-Above math made
@@ -1186,7 +1214,7 @@ await page.waitForTimeout(200);
 // tab, before it turned out to inflate cardCountBackOnAuctionTab and
 // friends by counting the now-permanently-"prop-card"-classed
 // #detailModalInner shell as a ninth card).
-await page.click('.ledger-tab[data-ledger="laft"]');
+await clickLedger(page, 'laft');
 await page.waitForTimeout(150);
 // "Bay" was already expanded by the earlier LAFT-tab check and that state
 // persists across ledger switches - a blind click on its summary would
@@ -1236,7 +1264,7 @@ results.laftBareLandStat = await page.evaluate(() => {
 });
 await page.click('#detailModalInner [data-action="closedetail"]');
 await page.waitForTimeout(150);
-await page.click('.ledger-tab[data-ledger="auction"]');
+await clickLedger(page, 'auction');
 await page.waitForTimeout(150);
 // p1 (Alachua, clean/12x+ ratio potential) should be a top pick - confirm the
 // upgraded pill-style banner renders with its ratio callout.
@@ -1254,7 +1282,7 @@ results.spreadBarPresentP1 = await page.locator('.prop-card:has-text("1 Main St"
 // figures than the card (Est. Total Return needs the extra room), both
 // with an explanation tooltip. Safe to open here - every exact .prop-card
 // count assertion in this file has already run. ---
-await page.click('.ledger-tab[data-ledger="certificate"]');
+await clickLedger(page, 'certificate');
 await page.waitForTimeout(150);
 results.exportBtnLabelCertificate = (await page.locator('#exportCsvBtn').textContent() || '').trim();
 
@@ -1305,12 +1333,12 @@ results.certDetailYieldInfoTips = await page.locator(
 ).count();
 await page.click('#detailModalInner [data-action="closedetail"]');
 await page.waitForTimeout(150);
-await page.click('.ledger-tab[data-ledger="laft"]');
+await clickLedger(page, 'laft');
 await page.waitForTimeout(150);
 results.exportBtnLabelLaft = (await page.locator('#exportCsvBtn').textContent() || '').trim();
 results.laftPurchasePriceLabel = (await page.locator('.prop-card .card-stat-label').first().textContent() || '').trim();
 results.laftCtaText = (await page.locator('.prop-card .cta-btn').first().textContent() || '').trim();
-await page.click('.ledger-tab[data-ledger="auction"]');
+await clickLedger(page, 'auction');
 await page.waitForTimeout(150);
 
 // --- My Bid List: a small capped shortlist (⚐/⚑), separate from the
@@ -1365,7 +1393,7 @@ results.watchlistChipLabel = ((await page.locator('#bidListToggle').textContent(
 // Walk the three ledgers and record what makes each one a distinct page.
 const ledgerPages = {};
 for (const key of ['auction', 'laft', 'certificate']) {
-  await page.click(`.ledger-tab[data-ledger="${key}"]`);
+  await clickLedger(page, key);
   await page.waitForTimeout(400);
   ledgerPages[key] = await page.evaluate(() => ({
     hash: location.hash,
@@ -1629,7 +1657,7 @@ await page.waitForTimeout(150);
 results.detailPanelCalcNetAfterInput = (await page.locator('#detailPanel #calcNetResult').textContent() || '').trim();
 results.detailPanelCalcMaxBidAfterInput = (await page.locator('#detailPanel #calcMaxBidResult').textContent() || '').trim();
 
-await page.click('.ledger-tab[data-ledger="laft"]');
+await clickLedger(page, 'laft');
 await page.waitForTimeout(400);
 if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
   await page.click('#expandAllBtn');
@@ -1638,7 +1666,7 @@ if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
 results.desktopLaftListIsMultiColumn = await page.locator('.prop-list').first().evaluate(el =>
   getComputedStyle(el).gridTemplateColumns.trim().split(' ').length > 1);
 
-await page.click('.ledger-tab[data-ledger="certificate"]');
+await clickLedger(page, 'certificate');
 await page.waitForTimeout(400);
 if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
   await page.click('#expandAllBtn');
@@ -1784,7 +1812,7 @@ results.txRpcRowsExposeKindAndStatus = await page.evaluate(() => {
   results.txCsvLgbsRow = rowsByCase['TX-1'] ? [rowsByCase['TX-1'][iUrl], rowsByCase['TX-1'][iKind], rowsByCase['TX-1'][iStatus]] : null;
 }
 // Struck-off / future-sale LGBS rows live on the laft ledger.
-await page.click('.ledger-tab[data-ledger="laft"]');
+await clickLedger(page, 'laft');
 await page.waitForTimeout(200);
 if ((await page.locator('#expandAllBtn').count()) && (await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
   await page.click('#expandAllBtn');
@@ -1794,7 +1822,7 @@ results.txStruckOffKicker = ((await page.locator('.prop-card[data-pid="ptx3"] .k
 results.txStruckOffLink = await txAuctionLinkOf(page.locator('.prop-card[data-pid="ptx3"]'));
 results.txFutureSaleKicker = ((await page.locator('.prop-card[data-pid="ptx6"] .kicker-phase').textContent()) || '').trim();
 results.txFutureSaleLink = await txAuctionLinkOf(page.locator('.prop-card[data-pid="ptx6"]'));
-await page.click('.ledger-tab[data-ledger="auction"]');
+await clickLedger(page, 'auction');
 await page.waitForTimeout(200);
 // A RealAuction row whose sale date has passed is excluded from the live
 // list (isPastDue), so it is reached the way a saved link would reach it: a
@@ -1899,11 +1927,11 @@ results.placeholderLocationText = ((await p66.locator('.prop-card:has-text("1 Ma
 // No horizontal overflow at phone width, and the icon buttons have a real hit area.
 results.noHorizontalOverflowMobile = await p66.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
 results.iconBtnHitAreaMobile = await p66.locator('.prop-card .icon-btn').first().evaluate(el => { const r = el.getBoundingClientRect(); return r.width >= 32 && r.height >= 32; });
-await p66.click('.ledger-tab[data-ledger="laft"]');
+await clickLedger(p66, 'laft');
 await p66.waitForTimeout(200);
 if ((await p66.locator('#expandAllBtn').textContent()) === 'Expand all') { await p66.click('#expandAllBtn'); await p66.waitForTimeout(200); }
 results.photoNoCoverageText = ((await p66.locator('.prop-card:has-text("3 Oak Ave") .prop-card-photo.no-photo .vis-main').first().textContent()) || '').trim();
-await p66.click('.ledger-tab[data-ledger="auction"]');
+await clickLedger(p66, 'auction');
 await p66.waitForTimeout(200);
 if ((await p66.locator('#expandAllBtn').textContent()) === 'Expand all') { await p66.click('#expandAllBtn'); await p66.waitForTimeout(200); }
 // Full page -> "Show county on the Map page": modal closes, Map page opens
@@ -1911,6 +1939,8 @@ if ((await p66.locator('#expandAllBtn').textContent()) === 'Expand all') { await
 // .sel + preview open on it). p1 has no coordinates, so no pin is expected.
 await p66.locator('.prop-card:has-text("1 Main St") .detail-btn[data-action="viewdetails"]').first().click();
 await p66.waitForTimeout(200);
+// On a phone the GIS card sits in the closed "Property, history, risk..." disclosure; open it as a reader would.
+await p66.evaluate(() => document.querySelectorAll('details.detail-more').forEach(d => { d.open = true; }));
 await p66.click('#detailModalInner .show-on-map-btn');
 await p66.waitForTimeout(900); // county zoom tween + redraw
 results.showOnMapClosesModal = await p66.locator('#detailModal').isHidden();
@@ -2136,12 +2166,12 @@ await dashPage.waitForTimeout(300);
 results.navListClickShowsListPage = await dashPage.locator('#pageList').evaluate(el => !el.hidden);
 results.navListClickLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navListClickHash = await dashPage.evaluate(() => location.hash);
-await dashPage.click('.ledger-tab[data-ledger="certificate"]');
+await clickLedger(dashPage, 'certificate');
 await dashPage.waitForTimeout(300);
 results.tabCertHash = await dashPage.evaluate(() => location.hash);
 results.tabCertNavLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.tabCertHeading = ((await dashPage.locator('.ledger-head h2').textContent()) || '').trim();
-await dashPage.click('.ledger-tab[data-ledger="laft"]');
+await clickLedger(dashPage, 'laft');
 await dashPage.waitForTimeout(300);
 results.tabLaftHash = await dashPage.evaluate(() => location.hash);
 results.tabLaftHeading = ((await dashPage.locator('.ledger-head h2').textContent()) || '').trim();
@@ -2170,12 +2200,12 @@ await dashPage.waitForTimeout(400);
 results.navWatchlistClosedLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navWatchlistClosedHash = await dashPage.evaluate(() => location.hash);
 results.navWatchlistClosedListVisible = await dashPage.locator('#pageList').evaluate(el => !el.hidden);
-await dashPage.click('.ledger-tab[data-ledger="auction"]');
+await clickLedger(dashPage, 'auction');
 await dashPage.waitForTimeout(300);
 // Shared property layer: the certificate (p4) and the auction row (p1) are
 // the same Alachua parcel 111 - each full page lists the other, and a
 // parcel with no match says so in words rather than showing nothing.
-await dashPage.click('.ledger-tab[data-ledger="certificate"]');
+await clickLedger(dashPage, 'certificate');
 await dashPage.waitForTimeout(300);
 await dashPage.locator('.county-group').first().evaluate(el => { if (!el.open) el.querySelector('summary.county-head').click(); });   // open by default when few counties
 await dashPage.waitForTimeout(200);
@@ -2198,7 +2228,7 @@ await noHealthPage.goto(BASE_URL + '?health=none' + '#/auctions', { waitUntil: '
 await noHealthPage.waitForTimeout(500);
 await noHealthPage.click('.nav-item[data-page="dashboard"]');
 await noHealthPage.waitForTimeout(200);
-results.dashHealthMissingTable = ((await noHealthPage.locator('#dashSourceRows').textContent()) || '').includes('not recorded yet');
+results.dashHealthMissingTable = ((await noHealthPage.locator('#dashSourceRows').textContent()) || '').includes('not reported yet');
 results.dashHealthMissingTableNoBadges = await noHealthPage.locator('#dashSourceRows .health-badge').count();
 await noHealthPage.close();
 const noRegPage = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -2206,7 +2236,7 @@ await noRegPage.goto(BASE_URL + '?registry=none' + '#/auctions', { waitUntil: 'n
 await noRegPage.waitForTimeout(500);
 await noRegPage.click('.nav-item[data-page="dashboard"]');
 await noRegPage.waitForTimeout(200);
-results.dashUnitMissingColumns = ((await noRegPage.locator('#dashUnitRows').textContent()) || '').includes('not recorded yet');
+results.dashUnitMissingColumns = ((await noRegPage.locator('#dashUnitRows').textContent()) || '').includes('not reported yet');
 results.dashUnitMissingColumnsNoRows = await noRegPage.locator('#dashUnitRows .unit-row').count();
 await noRegPage.close();
 
@@ -4457,22 +4487,26 @@ await navMap.close();
       const cc = document.getElementById('upcomingSales');
       if (!cc) return null;
       const links = Array.from(cc.querySelectorAll('.cc-link')).map(a => a.getAttribute('href'));
-      return { events: Number(cc.dataset.events), shown: cc.querySelectorAll('.cc-event').length,
+      return { events: Number(cc.dataset.events), shown: cc.querySelectorAll(':scope > ol.sales-timeline > .cc-event').length, rest: cc.querySelectorAll('.cc-rest .cc-event').length,
         head: cc.querySelector('.cc-head .eyebrow').textContent.trim(),
         firstFacts: Array.from(cc.querySelectorAll('.cc-event')[0].querySelectorAll('.cc-facts span')).map(s => s.textContent),
         linksFromRows: links.length > 0 && links.every(h => /^https?:\/\//.test(h)),
         noInvented: !/deposit|registration deadline|bidder/i.test(cc.textContent) };
     });
+    // The calendar sits in a closed fold by default (identity.css / app.js, 2026-10-23).
+    await pg.evaluate(() => { const d = document.querySelector('.upcoming-fold'); if (d) d.open = true; });
     await pg.click('#upcomingSales .cc-dossier');
     results.commandCenterDossier = await pg.waitForSelector('#countyModal:not([hidden]) .dossier', { timeout: 5000 }).then(() => true).catch(() => false);
     await pg.close();
     const m = await newPage({ viewport: { width: 390, height: 844 } });
     await m.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
     await m.waitForTimeout(400);
+    // The calendar is a closed fold by default; a reader opens it before the events count.
+    await m.evaluate(() => { const d = document.querySelector('.upcoming-fold'); if (d) d.open = true; });
     results.commandCenterMobile = await m.evaluate(() => ({
-      visible: Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => e.offsetParent !== null).length,
+      visible: Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => !e.closest('details:not([open])') && e.getClientRects().length > 0).length,
       overflow: document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth,
-      minTap: Math.min(...Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => e.offsetParent !== null).flatMap(e => Array.from(e.querySelectorAll('.cc-link,.cc-dossier'))).map(a => Math.round(a.getBoundingClientRect().height))) }));
+      minTap: Math.min(...Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => !e.closest('details:not([open])') && e.getClientRects().length > 0).flatMap(e => Array.from(e.querySelectorAll('.cc-link,.cc-dossier'))).map(a => Math.round(a.getBoundingClientRect().height))) }));
     await m.close();
   }
   // ---- Financial position + documents & links, every Available state (2026-10-05) ----
@@ -4680,6 +4714,7 @@ await navMap.close();
     for (const w of [390, 430, 768, 1024, 1440, 1920]) {
       const mp = await newPage({ viewport: { width: w, height: 900 } });
       await mp.goto(BASE_URL.replace('index.html', 'index.html?research=none') + '#/lands/p15', { waitUntil: 'networkidle' });
+      await mp.evaluate(() => document.querySelectorAll('details.detail-more').forEach(d => { d.open = true; }));
       await mp.waitForSelector('#detailModalInner .research-panel .research-add', { timeout: 10000, state: 'attached' });
       await mp.evaluate(() => { document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.research-new-name').value = 'Mobile list'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-action="researchnewsave"]')).click(); });
       await mp.waitForTimeout(300);
@@ -5881,7 +5916,7 @@ await navMap.close();
   fl.list = await snap(gs);
   const flPids = await cardPids(gs);
   fl.listOnlyFlorida = flPids.length > 0 && flPids.every(id => !id.startsWith('ptx'));
-  await gs.click('.ledger-tab[data-ledger="laft"]');
+  await clickLedger(gs, 'laft');
   await gs.waitForTimeout(300);
   await go(gs, 'map');
   fl.map = await snap(gs);
@@ -5902,7 +5937,7 @@ await navMap.close();
   tx.listLedgerOn = await gs.locator('.ledger-tab.on').getAttribute('data-ledger');
   const txPids = await cardPids(gs);
   tx.listOnlyTexas = txPids.every(id => id.startsWith('ptx'));
-  await gs.click('.ledger-tab[data-ledger="auction"]');
+  await clickLedger(gs, 'auction');
   await gs.waitForTimeout(300);
   const txAuctionPids = await cardPids(gs);
   tx.listAuctionOnlyTexas = txAuctionPids.length > 0 && txAuctionPids.every(id => id.startsWith('ptx'));
@@ -6060,7 +6095,7 @@ await navWl2.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await navWl2.waitForTimeout(500);
 await navWl2.locator('.prop-card[data-pid="p1"] [data-action="bidlist"]').dispatchEvent('click');
 await navWl2.waitForTimeout(300);
-await navWl2.click('.ledger-tab[data-ledger="certificate"]');
+await clickLedger(navWl2, 'certificate');
 await navWl2.waitForTimeout(300);
 await navWl2.locator('.prop-card[data-pid="p4"] [data-action="bidlist"]').dispatchEvent('click');
 await navWl2.waitForTimeout(300);
@@ -6084,7 +6119,7 @@ async function ledgerCardCounts(url) {
   await pg.waitForTimeout(500);
   const out = {};
   for (const l of ['auction', 'laft', 'certificate']) {
-    await pg.click(`.ledger-tab[data-ledger="${l}"]`);
+    await clickLedger(pg, l);
     await pg.waitForTimeout(200);
     out[l] = (await pg.locator('#main .prop-card').evaluateAll(els => els.map(e => e.dataset.pid).sort())).join(',');
   }
@@ -6122,7 +6157,7 @@ results.monSsItems = await monPage.locator('#savedSearchList .saved-search').cou
 results.monSsCounts = ((await monPage.locator('#savedSearchList .saved-search .ss-counts').first().textContent()) || '').replace(/\s+/g, ' ').trim();
 results.monSsAlertsToggle = await monPage.locator('#savedSearchList [data-ss-alerts]').count();
 await monPage.click('#savedSearchesCloseBtn');
-await monPage.click('.ledger-tab[data-ledger="auction"]');
+await clickLedger(monPage, 'auction');
 await monPage.waitForTimeout(200);
 await monPage.click('#navSavedSearchesBtn');
 await monPage.waitForTimeout(200);
@@ -6154,11 +6189,15 @@ results.monResetClearsAcq = await monPage.locator('#acqStateFilter').inputValue(
 const monDetail = await newPage({ viewport: { width: 390, height: 844 } });
 await monDetail.goto(BASE_URL.replace('index.html', 'index.html?bidlist=p15') + '#/lands/p15', { waitUntil: 'networkidle' });
 await monDetail.waitForTimeout(700);
+// The monitor section sits in the phone's closed disclosure; a reader opens it to read it.
+await monDetail.evaluate(() => document.querySelectorAll('details.detail-more').forEach(d => { d.open = true; }));
 results.monDetailSection = await monDetail.locator('#detailModalInner [data-section="monitor"]').count();
 results.monDetailStatus = ((await monDetail.locator('#detailModalInner .monitor-status').textContent()) || '').trim();
 results.monDetailHistory = await monDetail.locator('#detailModalInner .change-history li').evaluateAll(els => els.map(e => e.dataset.kind));
 results.monDetailNeverSold = await monDetail.locator('#detailModalInner [data-section="monitor"]').evaluate(el => /never as a sale/.test(el.textContent) && !/\bsold\b/i.test(el.textContent.replace(/never as a sale|not a sale/g, '')));
-results.monDetailNavPill = await monDetail.locator('#detailModalInner .detail-nav [data-target="monitor"]').count();
+// The section nav is hidden on phones by design (identity.css), and newPage()
+// rewrites locator selectors to :visible, so count the pill in the DOM directly.
+results.monDetailNavPill = await monDetail.evaluate(() => document.querySelectorAll('#detailModalInner .detail-nav [data-target="monitor"]').length);
 // 7. Alerts inbox: two alerts, one unread; mark read clears the badge.
 await monDetail.evaluate(() => { document.getElementById('detailModal').hidden = true; });
 await monDetail.locator('#alertsMenuItem').evaluate(el => el.click());
@@ -6922,7 +6961,9 @@ await big.press('#globalSearchInput', 'Enter');
   await r.pg.close();
   r = await boundaryPage('boundary=none&storedphoto=1', '#/auctions/p5');
   results.boundaryStoredPhotoNone = await storedState(r.pg);
-  results.boundaryStoredPhotoNoneRequests = r.usgs.length;
+  // Only the detail hero is asked about (800x600). List cards that happen to be in
+  // view at this size also request a 400x300 aerial by design, so they are not counted.
+  results.boundaryStoredPhotoNoneRequests = r.usgs.filter(u => /size=800(%2C|,)600/.test(u)).length;
   await r.pg.close();
   {
     const pg = await newPage({ viewport: { width: 1280, height: 900 } });
@@ -7231,7 +7272,7 @@ const EXPECTED = {
   paidLegalConfigured: {"unconfigured": false, "operator": "Fixture Operator LLC", "contactHref": "mailto:fixture@example.com"},
   paidAuthLegalLinks: ["terms.html", "privacy.html", "acceptable-use.html", "source-disclaimer.html"],
   paidAdminNoEmailBeforeReveal: true,
-  paidAdminCustomers: {"status": "5 accounts: 1 administrator · 1 tester (beta) · 2 customer · 1 no access.", "rows": ["admin|admin_override|", "tester|tester_beta|", "customer|active|", "customer|payment_failed_grace|Payment failed 2026-10-03", "inactive|inactive|"]},
+  paidAdminCustomers: {"status": "5 accounts: 1 administrator · 1 tester (beta) · 2 customer · 1 no access.", "rows": ["admin|admin_override|", "tester|tester_beta|", "customer|active|", "customer|payment_failed_grace|Payment failed Oct 3, 2026", "inactive|inactive|"]},
   paidAdminCustomersLegacy: "Billing is not installed yet (migration 027 is not applied): access comes from approval only. 1 administrator · 1 tester (beta) · 0 no access.",
   // Boot resilience (2026-10-03).
   bootFallback: { authGate: true, source: "local", noted: true, panel: false },
@@ -7306,7 +7347,7 @@ const EXPECTED = {
   investorAcqLinkEvent: true,
   investorEventsNoUrls: true,
   monAnalyticsNoText: true,
-  monNoneHistory: 'Server change history is not enabled on this deployment yet (migration 024 has not been applied).',
+  monNoneHistory: 'Server change history is not available yet.',
   monNoneStorage: 'Saved in this browser only - t',
   monNoneCounts: ['2 matching', '1 new', '1 changed', '1 no longer matching'],
   monNoneRemovedWording: '9 Gone Rd · Bay · no longer in the current data - not a sale',
@@ -7415,7 +7456,7 @@ const EXPECTED = {
   // All 67 counties now show (busiest-first, then alphabetical among the
   // zero-count ones) instead of only the ~8 with live scraped data - see
   // ALL_COUNTIES in app.js.
-  countyChipLabels: ['Alachua (3)', 'Duval (2)', 'Escambia (2)', 'Marion (2)', 'Baker (1)', 'Bay (1)', 'Brevard (1)', 'Charlotte (1)', 'Citrus (1)', 'Bradford (0)', 'Broward (0)', 'Calhoun (0)', 'Clay (0)', 'Collier (0)', 'Columbia (0)', 'DeSoto (0)', 'Dixie (0)', 'Flagler (0)', 'Franklin (0)', 'Gadsden (0)', 'Gilchrist (0)', 'Glades (0)', 'Gulf (0)', 'Hamilton (0)', 'Hardee (0)', 'Hendry (0)', 'Hernando (0)', 'Highlands (0)', 'Hillsborough (0)', 'Holmes (0)', 'Indian River (0)', 'Jackson (0)', 'Jefferson (0)', 'Lafayette (0)', 'Lake (0)', 'Lee (0)', 'Leon (0)', 'Levy (0)', 'Liberty (0)', 'Madison (0)', 'Manatee (0)', 'Martin (0)', 'Miami-Dade (0)', 'Monroe (0)', 'Nassau (0)', 'Okaloosa (0)', 'Okeechobee (0)', 'Orange (0)', 'Osceola (0)', 'Palm Beach (0)', 'Pasco (0)', 'Pinellas (0)', 'Polk (0)', 'Putnam (0)', 'Santa Rosa (0)', 'Sarasota (0)', 'Seminole (0)', 'St. Johns (0)', 'St. Lucie (0)', 'Sumter (0)', 'Suwannee (0)', 'Taylor (0)', 'Union (0)', 'Volusia (0)', 'Wakulla (0)', 'Walton (0)', 'Washington (0)'],
+  countyChipLabels: ["Duval (2)", "Escambia (2)", "Marion (2)", "Alachua (1)", "Brevard (1)", "Charlotte (1)", "Baker (0)", "Bay (0)", "Bradford (0)", "Broward (0)", "Calhoun (0)", "Citrus (0)", "Clay (0)", "Collier (0)", "Columbia (0)", "DeSoto (0)", "Dixie (0)", "Flagler (0)", "Franklin (0)", "Gadsden (0)", "Gilchrist (0)", "Glades (0)", "Gulf (0)", "Hamilton (0)", "Hardee (0)", "Hendry (0)", "Hernando (0)", "Highlands (0)", "Hillsborough (0)", "Holmes (0)", "Indian River (0)", "Jackson (0)", "Jefferson (0)", "Lafayette (0)", "Lake (0)", "Lee (0)", "Leon (0)", "Levy (0)", "Liberty (0)", "Madison (0)", "Manatee (0)", "Martin (0)", "Miami-Dade (0)", "Monroe (0)", "Nassau (0)", "Okaloosa (0)", "Okeechobee (0)", "Orange (0)", "Osceola (0)", "Palm Beach (0)", "Pasco (0)", "Pinellas (0)", "Polk (0)", "Putnam (0)", "Santa Rosa (0)", "Sarasota (0)", "Seminole (0)", "St. Johns (0)", "St. Lucie (0)", "Sumter (0)", "Suwannee (0)", "Taylor (0)", "Union (0)", "Volusia (0)", "Wakulla (0)", "Walton (0)", "Washington (0)"],
   filtersOpenAfterClick: true,
   brevardGroupMeta: /^Auction [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
   brevardGroupCount: '1/1 active',
@@ -7499,7 +7540,8 @@ const EXPECTED = {
   oppWhenClass: 'opp-val warn', // p1 sells in 3 days - inside SOON_DAYS
   oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
   oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
-  oppGaps: ['Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
+  oppGaps: ['Registration, deposit and payment rules not verified', 'Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
+  oppGapNamesRegistration: true,
   detailNavLabels: ["Overview", "Decision", "Tax & Value", "Property", "History", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
@@ -7634,7 +7676,7 @@ const EXPECTED = {
   navMapDeepContext: 'Ledger: Available · County: Bay',
   navMapDeepHash: '#/map?ledger=laft&county=Bay',
   // Shell redesign (2026-10-04)
-  rdHome: {"title": "Public property you can research, verify and acquire.", "cards": ["laft:2", "auction:9", "certificate:1"], "statesCard": 1, "recentHasFirstSeen": true, "noScoreWords": true},
+  rdHome: {"title": "Tax-sale and public-land listings", "cards": ["laft:2", "auction:9", "certificate:1"], "statesCard": 1, "recentHasFirstSeen": true, "noScoreWords": true},
   rdHomeSearch: {"hash": "#/lands", "listSearch": "", "cards": 1, "chip": "Search: “Manatee”×"},
   rdChipRemoved: {"listSearch": "", "chips": 0, "hidden": true},
   rdPathChip: ["Purchase path: No online path on file×"],
@@ -7645,7 +7687,7 @@ const EXPECTED = {
   rdNavAuction: {"hash": "#/auctions", "title": "Auction Properties"},
   rdGlobal: {"rows": ["p15:Available"], "all": "See all 1 result in the list →", "expanded": "true"},
   rdGlobalOpen: {"modal": false, "crumbs": ["Home/Available/15 Manatee Ln"]},
-  rdDetail: {"tabs": ["How to acquire", "Financial position", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication."], "acquire": 1},
+  rdDetail: {"tabs": ["How to acquire", "Financial position", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago (Sep 20, 2026).", "Its source is approved for customer publication."], "acquire": 1},
   rdCrumbHome: {"modalHidden": true, "dashVisible": true},
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
@@ -7655,7 +7697,7 @@ const EXPECTED = {
   rdPickerEscape: true,
   rdPickerAdminMI: "MI=auction|laft",
   rdPickerProbeFail: "WY=auction|laft|certificate!unchecked",
-  rdPhoneBottom: ["Home", "Search", "Map", "Saved"],
+  rdPhoneBottom: ["Home", "Properties", "Map", "Watchlist"],
   rdPhoneAccount: true,
   rdPhoneSearchVisible: true,
   landCO: { hash: '#/certificates', cards: 2, issue: 0 },
@@ -7694,7 +7736,7 @@ const EXPECTED = {
   adminSourcesNoticeRows: 3,
   adminFreshnessHealthRows: 5,
   adminFreshnessUnitDetail: "FLBayfl_laft_pioneerStalelast read 2h ago (failed) · last complete read 3d ago · 3 rows at that read · 3 consecutive failed attempts · source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours · back-off: attempted at most once per 48 hours until a read succeeds",
-  adminInventoryMi: {"status": "MI: 7 collected rows across 3 sources; 2 sources awaiting customer-publication review.", "lots": "mi_detroit_landbank_lotsAvailableUnreviewed55102 of 4 with a verified structure2026-10-03", "programs": "mi_detroit_landbank_programsAvailableUnreviewed11100 of 0 with a verified structure2026-10-02"},
+  adminInventoryMi: {"status": "MI: 7 collected rows across 3 sources; 2 sources awaiting customer-publication review.", "lots": "mi_detroit_landbank_lotsAvailableUnreviewed55102 of 4 with a verified structureOct 3, 2026", "programs": "mi_detroit_landbank_programsAvailableUnreviewed11100 of 0 with a verified structureOct 2, 2026"},
   adminSignOutRedirected: true,
   adminAfterSignOutRedirected: true,
   signupFormOffered: true,
@@ -7819,7 +7861,7 @@ const EXPECTED = {
   navDashTileHeading: 'Available',
   navPhoneBottomItems: 4,
   navPhoneBottomFits: true,
-  navPhoneBottomLabels: ['Home', 'Search', 'Map', 'Saved'],
+  navPhoneBottomLabels: ['Home', 'Properties', 'Map', 'Watchlist'],
   navWlCards: ['p4'],
   navWlRelated: ['Currently listed in Auctions · also on your watchlist'],
   navWlCount: '2/10',
@@ -7914,7 +7956,7 @@ const EXPECTED = {
   archiveViewOtherCardsCount: 1,
   // Day-granular diff between two Date.now() reads in the same test run, so
   // this stays "6d ago" regardless of what day the suite actually runs on.
-  archiveCardAgoBadge: '6d ago',
+  archiveCardAgoBadge: '6d since sale',
   staleWarningClassPresent: 1,
   staleWarningText: '⚠ Data updated 9/20/2026, 12:00:00 AM - sync may be behind',
   // The value box is named for what the number actually is. It used to read
@@ -7953,16 +7995,11 @@ const EXPECTED = {
   csvHomesteadBlankForP1: true,
   csvEnrichedCells: '90000|2025|1958|1840|16456|1|22000|68000|41500|2011',
   csvLegalUnclamped: true,
-  detailStatLabels: [
-    'Opening Bid', '2025 County Just Value', 'County Assessed Value', 'Land Value',
-    // Phase 35: Building / Improvement Value, Walk Away Above, and Gross
+  detailStatLabels: ['2025 County Just Value', 'County Assessed Value', 'Land Value', // Phase 35: Building / Improvement Value, Walk Away Above, and Gross
     // Equity Spread all gained an infoTip() marking them as calculated
     // (not county-sourced) - same "label carries an info tooltip glyph"
     // convention "Fees i" already used below.
-    'Building / Improvement Value i',
-    'Fees i', 'Your ceiling (% setting) i', 'County value minus bid i',
-    'Year Built', 'Living Area', 'Lot Size', 'Buildings', 'Last Sale'
-  ],
+    'Building / Improvement Value i', 'Fees i', 'Your ceiling (% setting) i', 'County value minus bid i', 'Year Built', 'Living Area', 'Lot Size', 'Buildings', 'Last Sale'],
   detailStatValues: '1958 | 1,840 sq ft | 16,456 sq ft | 1 | $41,500 in 2011 | $22,000 | $68,000',
   detailLegalIsFull: true,
   detailNamesBothValues: true,
@@ -8137,7 +8174,7 @@ const EXPECTED = {
   deleteWrongWordRefused: true,
   deleteNotCalledYet: 0,
   deleteSignedOutReason: 'deleted',
-  deleteMissingRpcMessage: 'Account deletion is not available on this deployment yet (migration 015 has not been applied). Use Contact support to request deletion.',
+  deleteMissingRpcMessage: 'Account deletion is not available yet. Use Contact support to request deletion.',
   deleteMissingRpcNoSignOut: null,
   detailStatusPill: 'Listed',
   detailStatusPillClass: 'pill active',
@@ -8234,7 +8271,7 @@ const EXPECTED = {
   decP3HowLinkCount: 0,   // nothing verified = no link, ever
   decP3Available: 'Available over the counter basis: list presence · observed Aug 11, 2026 last verified: read from the source Aug 11, 2026 · county source unavailable at the last attempt - inventory kept, nothing closed',
   decP3Where: '3 Oak Ave Bay County, FL Not yet geocoded - no point is shown for this parcel',
-  decP3Fresh: 'Source date: list dated Aug 10, 2026 · Observation date: Aug 11, 2026 · Last verified: read from the source Aug 11, 2026 County source: source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours (last complete read 3d ago) · update unsuccessful; retry pending · 3 rows at the last complete read',
+  decP3Fresh: "Source date: list dated Aug 10, 2026 · Observation date: Aug 11, 2026 · Last verified: read from the source Aug 11, 2026 County source: source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours (last complete read 3d ago (Oct 20, 2026)) · update unsuccessful; retry pending · 3 rows at the last complete read",
   decP3History: 'Aug 11, 2026 Last read from the source (continued on the list) Append-only record. Absence from a list is recorded as a removal, never as a sale; a result appears only when the source published one.',
   decP3Related: 'No record for parcel 333 in the other ledgers in the current dataset',
   decP3PathEvidenceLine: "Phone or mail process (published by the source; no online path) \u00b7 source-level \u00b7 Clerk's Lands Available page: call or e-mail the Tax Deed department for the current amount (fixture) \u00b7 observed Sep 30, 2026",
@@ -8259,7 +8296,7 @@ const EXPECTED = {
   acqPropertyScopeLabel: 'Property-specific: the source published this instruction for this parcel.',
   decP15Cost: 'Not published by the source',
   decP15Where: '15 Manatee Ln Citrus County, FL 28.88860, -82.45200 · authoritative coordinates on file',
-  decP15Known: '2025 County Just Value $26,000 · County Assessed Value $25,000 · 0.30 ac · Land use Vacant residential · Type Vacant Lot · Assessed to Lee Park',
+  decP15Known: '0.30 ac · Land use Vacant residential · Type Vacant Lot · Assessed to Lee Park',
   decP15Unknown: ["Price not published", "Image not checked yet", "Flood zone not checked"],
   decP15Source: 'FL LAFT Html · Source list → How to purchase Lands Available (fixture) (acquisition evidence) → · Application / instructions document → Field-by-field origin is in the Data Quality & Provenance card below.',
   decP15Fresh: 'Source date: list dated Sep 19, 2026 · Observation date: Sep 20, 2026 · Last verified: read from the source Sep 20, 2026 County source: current - last complete read 3h ago · 6 rows at the last complete read',
@@ -8267,7 +8304,7 @@ const EXPECTED = {
   decP15HistoryNote: 'Append-only record. Absence from a list is recorded as a removal, never as a sale; a result appears only when the source published one.',
   decP15PathEvidenceLine: "County purchase-instructions page (published by the source) · source-level · Clerk's 'How to purchase Lands Available' page names the application and payment steps (data/purchase_path_evidence.csv, observed 2026-09-18) · observed Sep 18, 2026",
   decP15GapsNamePathKind: true,
-  decHistoryMissing: 'Lifecycle history is not available on this deployment yet (migration 021 has not been applied).',
+  decHistoryMissing: 'Lifecycle history is not available yet.',
   availLandUseOptions: ['Any', 'Vacant residential'],   // only values Available rows carry
   availAfterLandUse: 1,
   availAfterGeocoded: 1,
@@ -8441,7 +8478,7 @@ const EXPECTED = {
   offListCards: { p9: true, p8Upcoming: true, p9Line: true, p9Flag: true, p8Flag: null, neverReadCounty: null, commandCenter: true },
   offListDetail: true,
   offListDefault: null,
-  cardZeroSizeStats: {"stats": ["Not trackedBeds", "Not trackedBaths", "Not publishedSq ft", "Not publishedAcres"], "sizeOverlay": false, "zero": false},
+  cardZeroSizeStats: {"stats": ["Not trackedBeds", "Not trackedBaths", "Not publishedBuilding sq ft", "Not publishedAcres"], "sizeOverlay": false, "zero": false},
   taxacqBrand: { title: true, rail: 'TAXACQ', sub: 'Tax Acquisition Intelligence', topbar: 'TAXACQ', noOldText: true, aboutWhy: true },
   identityLogin: {"brand": "TAXACQ", "tagline": "Tax Acquisition Intelligence", "bg": "rgb(243, 239, 232)", "signupFields": 6},
   identityPalette: {"noNavy": true, "body": "rgb(243, 239, 232)", "ledgerAccent": "#4E6B54", "display": true},
@@ -8450,7 +8487,7 @@ const EXPECTED = {
   finderBadges: {"p3": ["path", "amount"], "p15": ["path"], "auctionAmountBadges": 0, "noScoreWords": true},
   finderSortPath: {"n": 2, "verifiedFirst": true},
   finderReadRecent: true,
-  commandCenter: {"events": 9, "shown": 8, "head": "Auction command center · next 45 days", "firstFacts": ["1 of 1 with a published bid", "Sale process not yet verified"], "linksFromRows": true, "noInvented": true},
+  commandCenter: {"events": 9, "shown": 4, "rest": 5, "head": "Auction command center · next 45 days", "firstFacts": ["1 of 1 with a published bid", "Sale process not yet verified"], "linksFromRows": true, "noInvented": true},
   commandCenterDossier: true,
   commandCenterMobile: {"visible": 4, "overflow": 0, "minTap": 44},
   // Financial position + documents & links (2026-10-05).

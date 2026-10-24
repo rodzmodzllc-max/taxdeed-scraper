@@ -826,6 +826,20 @@ function draw() {
         (selectedCounty === county ? " - selected, activate to clear" : " - activate to filter the list"));
       g.setAttribute("aria-pressed", selectedCounty === county ? "true" : "false");
 
+      // Touch target (2026-10-24): a small bubble is well under 44px on a phone.
+      // A transparent hit circle behind it guarantees a 44px target on screen,
+      // sized from the SVG's current scale (viewBox units per rendered pixel).
+      const vbW = (svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number)[2] || svg.clientWidth || 1;
+      const unitsPerPx = vbW / Math.max(1, svg.clientWidth || vbW);
+      const hitR = Math.max(r, 22 * unitsPerPx);
+      if (hitR > r) {
+        const hit = document.createElementNS(NS, "circle");
+        hit.setAttribute("class", "bubble-hit");
+        hit.setAttribute("cx", c.cx);
+        hit.setAttribute("cy", c.cy);
+        hit.setAttribute("r", hitR);
+        g.appendChild(hit);
+      }
       const circle = document.createElementNS(NS, "circle");
       circle.setAttribute("cx", c.cx);
       circle.setAttribute("cy", c.cy);
@@ -1495,7 +1509,7 @@ function updateSummary(byCounty) {
   if (note) {
     note.textContent = zoomCounty
       ? "Pins are the geocoded parcel locations we hold. Properties without coordinates are listed above but not pinned."
-      : "Bubbles are county-level counts, sized by how many properties match your filters \u2014 not exact parcel locations.";
+      : "Bubbles are county totals of the records that match your filters, listings, auctions and liens together when All ledgers is selected. They are not exact parcel locations, and records without coordinates are counted here but not pinned.";
   }
   const hint = $("exploreMapHint");
   if (hint) {
@@ -1529,7 +1543,7 @@ function renderBubbleLegend(byCounty) {
   const steps = min === max ? [max] : [min, max];
   el.hidden = false;
   el.innerHTML =
-    '<span class="map-legend-label">Bubble size = properties in that county</span>' +
+    '<span class="map-legend-label">Bubble size = matching records in that county</span>' +
     steps.map(n => `
       <span class="map-legend-item">
         <i class="map-legend-dot" style="--d:${dot(n)}px"></i>${n}

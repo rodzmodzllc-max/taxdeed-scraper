@@ -1421,6 +1421,14 @@ let mapFilter = { search: "", county: "ALL", ledger: "all", watchlistOnly: false
 // TDZ reason as mapFilter - render() reaches renderListHead() during init.
 let SHELL_UI = { gsTimer: null, gsActive: -1, gsMatches: [], picker: null };
 
+// The one definition of a record the default customer view counts: not hidden
+// by this viewer, not gone for longer than the grace period, and not a past sale
+// (past sales are archive-only). The picker counts, the County Intelligence
+// totals and the Map all use it, so one county reads the same figure in each
+// (2026-10-23). The Map and the List's own filters apply on top of it.
+function countsToward(p) {
+  return !HIDDEN.has(p.id) && !goneExpired(p) && !isPastDue(p);
+}
 function goneExpired(p) {
   if (!isGone(p) || !p.gone_since) return false;
   const flagged = FAVS.has(p.id) || (NOTES[p.id] || []).some(n => n.body || n.stage);
@@ -4573,9 +4581,18 @@ function buildChips(id, values, set, labelFn, classFn) {
 // County chips carry a "(n)" count and sort busiest-first, so the picker
 // itself answers "how many properties does this county have" instead of
 // just being an alphabetical toggle list.
+// Counts are scoped to the ledger on screen, so a county's number matches the
+// ledger total it sits beside (fixed 2026-10-23: the picker counted every
+// ledger, so Santa Rosa showed Available + auction + lien rows under the
+// Auctions total). With no ledger set, every loaded row counts.
 function countyCounts() {
+  // The same rows the List can show for this ledger in its current status view
+  // (past-due rows are archive-only, so they count only in the archive view).
+  // Other filters - bid, value, acquisition - are not applied to these counts.
   const m = new Map();
-  ALL.forEach(p => m.set(p.county, (m.get(p.county) || 0) + 1));
+  const archiving = state.statusView === "archive";
+  const scoped = ALL.filter(p => (!state.ledger || p.source === state.ledger) && (archiving ? (isPastDue(p) && !HIDDEN.has(p.id)) : countsToward(p)));
+  scoped.forEach(p => m.set(p.county, (m.get(p.county) || 0) + 1));
   return m;
 }
 function countyNamesByCount() {
@@ -5190,7 +5207,7 @@ function card(p, showCounty) {
   const d = daysUntil(p);
   let cd = "";
   if (d !== null && d >= 0) { const cls = d <= 3 ? "urgent" : d <= SOON_DAYS ? "soon" : ""; cd = `<span class="countdown ${cls}">${d === 0 ? "TODAY" : d + "d"}</span>`; }
-  else if (d !== null && d < 0) { cd = `<span class="countdown past">${-d}d ago</span>`; }
+  else if (d !== null && d < 0) { cd = `<span class="countdown past" title="Sale date ${esc(fmtDate(p.sale_date))}">${-d}d since sale</span>`; }
   const tag = cardKickerHtml(p, showCounty);
 
   const street = realAddress(p);
@@ -5248,7 +5265,7 @@ function card(p, showCounty) {
             ${p.case_no ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
           </div>
         </div>
-        <div class="card-price">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
+        <div class="card-price">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}"${bidPublished ? ` title="${esc(`Exact amount ${fmtMoney(p.bid)}. Cards round to whole dollars.`)}"` : ""}>${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
       </div>
       ${cardStatsHtml(p)}
       ${offListNote}
@@ -5285,7 +5302,7 @@ function cardPhotoOverlayHtml(p) {
   const lot = cardLotSize(p);
   return `${p.county ? `<span class="pc-chip pc-county">${esc(p.county)}, ${esc(regionOf(p))}</span>` : ""}`
     + `${chip ? `<span class="pc-chip pc-ledger">${esc(chip)}</span>` : ""}`
-    + `${lot ? `<span class="pc-size">Property size: ${esc(lot)}</span>` : ""}`;
+    + `${lot ? `<span class="pc-size">Lot ${esc(lot)}</span>` : ""}`;
 }
 
 // The card's lot size: a stored size of zero or less is not a published size, so
@@ -5303,7 +5320,7 @@ function cardStatsHtml(p) {
   return `<div class="prop-stats">`
     + cell("Beds", "Not tracked", true)
     + cell("Baths", "Not tracked", true)
-    + cell("Sq ft", sq ? esc(sq) : "Not published", !sq)
+    + cell("Building sq ft", sq ? esc(sq) : "Not published", !sq)
     + cell(lot && !/acres$/.test(lot) ? "Lot size" : "Acres", lot ? esc(lot) : "Not published", !lot)
     + `</div>`;
 }
@@ -5342,7 +5359,7 @@ function refreshAuctionCountdowns() {
       el.textContent = d === 0 ? "TODAY" : d + "d";
     } else {
       el.className = "countdown past";
-      el.textContent = (-d) + "d ago";
+      el.textContent = (-d) + "d since sale";
     }
   });
 }
@@ -5672,6 +5689,11 @@ function dataGaps(p) {
       ? `Current purchase total not on file - the listed figure is the ${ai.label.toLowerCase()} only`
       : `Current amount due not on file - the listed figure is the ${ai.label.charAt(0).toLowerCase() + ai.label.slice(1)}`);
   } else if (!hasPublishedBid(p)) gaps.push("Opening bid not published");
+  // The auction decision answers "How do I register and bid?" from the same
+  // verified county process. Without it the row must say so here too, or the
+  // "What is not known?" list reads complete while that question says not yet
+  // verified (fixed 2026-10-23).
+  if (p.source === "auction" && !acquisitionOf(p).verified) gaps.push("Registration, deposit and payment rules not verified");
   if (!hasNum(p.market) && !hasNum(p.assessed)) gaps.push("No county value on file");
   if (p.source === "auction" && !p.sale_date) gaps.push("Sale date not scheduled");
   // Phase 72: no url_auction means the source published no link this
@@ -5766,7 +5788,7 @@ function opportunitySummaryHtml(p) {
   const gaps = dataGaps(p);
   const missing = gaps.length
     ? `<ul class="opp-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>`
-    : `<span class="ok">None of the gaps this app checks for</span>`;
+    : `<span class="ok">Nothing missing from the fields this page checks</span>`;
   const cells = [
     ["What", `${esc(what)}${src ? `<span class="opp-sub">Source: ${esc(src)}</span>` : ""}`, ""],
     ["Where", where, ""],
@@ -6246,8 +6268,10 @@ var COUNTY_PAGE = COUNTY_PAGE || { view: "index", county: null, st: null, showAl
 // into what is on file now and every row including closed ones still in the
 // grace window (past auctions for the outcome history).
 function countyRowsFor(county, st) {
+  // `all` keeps past sales: outcome evidence for a county comes from them.
+  // `live` is what the displayed counts use - the countsToward rule (not past-due).
   const all = ALL.filter(p => p.county === county && regionOf(p) === st && !HIDDEN.has(p.id));
-  return { all, live: all.filter(p => !goneExpired(p) && !isGone(p)) };
+  return { all, live: all.filter(p => countsToward(p) && !isGone(p)) };
 }
 function countyUnitFor(st, county, sid) {
   if (!Array.isArray(UNIT_FRESHNESS)) return null;
@@ -6871,7 +6895,7 @@ function researchStateSelectHtml(it) {
   return `<select class="research-state" data-research-item="${esc(it.id)}" aria-label="Your research state">${RESEARCH_STATES.map(s => `<option value="${s}"${it.research_state === s ? " selected" : ""}>${esc(RESEARCH_STATE_LABELS[s])}</option>`).join("")}</select>`;
 }
 function researchStorageNoteHtml() {
-  if (RESEARCH.mode === "local") return `<p class="research-storage" data-research-mode="local">Kept in this browser only - your research lists are not yet stored on your account, so they will not appear on another device and are lost if this browser's site data is cleared.</p>`;
+  if (RESEARCH.mode === "local") return `<p class="research-storage" data-research-mode="local">Kept in this browser only - your research lists are not yet stored on your account, so they will not appear on another device and are lost if this browser's site data is cleared. There is no export of research lists yet, so copy anything you need to keep.</p>`;
   if (RESEARCH.error) return `<p class="research-storage warn" data-research-mode="error">${esc(RESEARCH.error)}</p>`;
   return `<p class="research-storage" data-research-mode="server">Saved to your account. Only you can see your research lists.</p>`;
 }
@@ -7332,7 +7356,7 @@ function diligenceEvidence(p, key, state) {
     case "cert_face": return hasPublishedBid(p) ? `${fmtMoney(p.bid)} as published - a lien, not a property price` : "Not published";
     case "cert_interest": return hasNum(p.interest_rate) ? `${p.interest_rate}% as published` : "Not published";
     case "cert_redemption": return p.expiration_date ? `Expires ${dateOnly(p.expiration_date)}` : "Not published";
-    case "source_record": return harvesterSourceLabel(p) || (p.source_id || p.harvester_source || "Not recorded");
+    case "source_record": return sourceNameFor(p) || "Not recorded";
     case "last_read": return p.last_seen_at ? `Last read ${dateOnly(p.last_seen_at)}${state === "VERIFIED" ? "" : " - more than 14 days ago or not recent"}` : "No read recorded";
     case "provenance": return Object.keys(fp).length ? `${Object.keys(fp).length} field(s) with a recorded origin` : "No field origin recorded";
     case "source_health": { const u = unitFreshnessFor(p); return sourceHealthText(u, { review: !isCustomerPublishable(p) }).label; }
@@ -7848,10 +7872,9 @@ function availableDecisionHtml(p) {
   // 5. Where is it?
   rows.push(q("where", "Where is it?", `${street ? esc(street) : muted("No street address in the listing")}${sub(esc(`${p.county} ${UNIT_WORD}, ${region}`))}${sub(coords ? `<span class="mono">${Number(p.latitude).toFixed(5)}, ${Number(p.longitude).toFixed(5)}</span> · authoritative coordinates on file` : `<span class="muted">Not yet geocoded - no point is shown for this parcel</span>`)}`));
   // 6. What is known about it?
+  // Parcel facts only. The county values (just, assessed, taxable) are shown
+  // once, in Financial, not repeated here (2026-10-24).
   const known = [];
-  if (hasNum(p.market)) known.push(`${valueLabel(p)} ${fmtShort(p.market)}`);
-  if (hasNum(p.assessed)) known.push(`${assessedSourceLabel(p)} ${fmtShort(p.assessed)}`);
-  if (hasNum(p.taxable_value)) known.push(`Taxable value ${fmtShort(p.taxable_value)}`);
   if (hasNum(p.acreage)) known.push(`${Number(p.acreage).toFixed(2)} ac`);
   if (p.land_use) known.push(`Land use ${p.land_use}`);
   else if (p.dor_use_code && dorUseLabel(p.dor_use_code)) known.push(`State DOR use code ${p.dor_use_code} (${dorUseLabel(p.dor_use_code)})`);
@@ -7863,7 +7886,7 @@ function availableDecisionHtml(p) {
   rows.push(q("known", "What is known about it?", known.length ? esc(known.join(" · ")) : muted("Nothing beyond the identity the list published"), known.length ? "" : "muted"));
   // 7. What is not known?
   const gaps = dataGaps(p);
-  rows.push(q("unknown", "What is not known?", gaps.length ? `<ul class="dec-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>` : `<span class="ok">None of the gaps this app checks for</span>`, gaps.length ? "" : "ok"));
+  rows.push(q("unknown", "What is not known?", gaps.length ? `<ul class="dec-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>` : `<span class="ok">Nothing missing from the fields this page checks</span>`, gaps.length ? "" : "ok"));
   // 8. Where did the data come from?
   const src = [];
   const link = (href, label) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(label)} →</a>`;
@@ -7911,10 +7934,9 @@ function auctionDecisionHtml(p) {
   if (p.tx_sale_status) when += ` · source status "${p.tx_sale_status}"`;
   rows.push(q("when", "When is the sale?", esc(when), whenCls));
   rows.push(q("bid", "Opening / minimum bid, if published?", hasPublishedBid(p) ? `${esc(fmtMoney(p.bid))}${hasNum(p.market) && marketOf(p) > 0 ? sub(esc(`Value ÷ bid ${valueRatio(p).toFixed(1)}× - a screening ratio, not a return`)) : ""}` : muted("Not published"), hasPublishedBid(p) ? "" : "muted"));
+  // Parcel facts only. The county values (just, assessed, taxable) are shown
+  // once, in Financial, not repeated here (2026-10-24).
   const known = [];
-  if (hasNum(p.market)) known.push(`${valueLabel(p)} ${fmtShort(p.market)}`);
-  if (hasNum(p.assessed)) known.push(`${assessedSourceLabel(p)} ${fmtShort(p.assessed)}`);
-  if (hasNum(p.taxable_value)) known.push(`Taxable value ${fmtShort(p.taxable_value)}`);
   if (hasNum(p.acreage)) known.push(`${Number(p.acreage).toFixed(2)} ac`);
   if (p.land_use) known.push(`Land use ${p.land_use}`);
   else if (p.dor_use_code && dorUseLabel(p.dor_use_code)) known.push(`State DOR use code ${p.dor_use_code} (${dorUseLabel(p.dor_use_code)})`);
@@ -7960,7 +7982,7 @@ function auctionDecisionHtml(p) {
   const rel = auctionAvailableRelation(p);
   rows.push(q("related", "Has this parcel appeared in another ledger?", `${rel ? esc(rel) + sub(esc(xl.text)) : (xl.cls ? muted(xl.text) : esc(xl.text))}`, rel ? "" : xl.cls));
   const gaps = dataGaps(p);
-  rows.push(q("unknown", "What is not known?", gaps.length ? `<ul class="dec-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>` : `<span class="ok">None of the gaps this app checks for</span>`, gaps.length ? "" : "ok"));
+  rows.push(q("unknown", "What is not known?", gaps.length ? `<ul class="dec-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>` : `<span class="ok">Nothing missing from the fields this page checks</span>`, gaps.length ? "" : "ok"));
   return detailSectionHtml("Auction decision", `<div class="dec-list">${rows.join("")}</div>`, "decision-card", "decision");
 }
 // The Liens & Certificates decision block: six questions about the
@@ -8036,7 +8058,7 @@ async function hydrateInventoryHistory(container, p) {
   if (res.error) {
     const msg = String(res.error.message || "");
     const missing = res.error.code === "PGRST205" || res.error.code === "42P01" || /could not find the table|does not exist/i.test(msg);
-    slot.innerHTML = `<span class="muted">${missing ? "Lifecycle history is not available on this deployment yet (migration 021 has not been applied)." : "Couldn't load lifecycle history: " + esc(msg)}</span>`;
+    slot.innerHTML = `<span class="muted">${missing ? "Lifecycle history is not available yet." : "Couldn't load lifecycle history: " + esc(msg)}</span>`;
     return;
   }
   slot.innerHTML = inventoryHistoryHtml(p, res.data || []);
@@ -9043,7 +9065,7 @@ function provenanceCardHtml(p) {
   }
   if (p.provenance_scope !== "list" && p.otc_provenance !== undefined && p.otc_provenance) detail += otcProvenanceHtml(p.otc_provenance);
   const body = `<div class="detail-provenance">
-      ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
+      ${sourceNameFor(p) ? `<span>Data source: ${esc(sourceNameFor(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
     </div>
     ${sourceReviewHtml(p)}
@@ -9257,7 +9279,7 @@ async function hydrateEventHistory(container, p) {
   if (ev.error) {
     const msg = String(ev.error.message || "");
     const missing = ev.error.code === "PGRST205" || ev.error.code === "42P01" || /could not find the table|does not exist/i.test(msg);
-    slot.innerHTML = `<p class="event-note">${missing ? "Sale event history is not available on this deployment yet (migration 014 has not been applied)." : "Couldn't load sale event history: " + esc(msg)}</p>`;
+    slot.innerHTML = `<p class="event-note">${missing ? "Sale event history is not available yet." : "Couldn't load sale event history: " + esc(msg)}</p>`;
     return;
   }
   const events = ev.data || [];
@@ -9364,7 +9386,7 @@ function detailStatusHtml(p) {
   // the list (ledgerRecordView: AUCTIONS / AVAILABLE / LIENS_CERTIFICATES).
   const rec = ledgerRecordView(p);
   const ledgerSub = rec && rec.ledger_name !== items[0][1] ? `<span class="dossier-sub">${esc(rec.ledger_name)} ledger</span>` : "";
-  return `<dl class="dossier-status" aria-label="Current status"${rec ? ` data-ledger-record="${esc(rec.ledger)}"` : ""}>${items.map(([t, v, c], i) => `<div><dt>${esc(t)}</dt><dd class="${esc(c)}">${esc(v)}${i === 0 ? ledgerSub : ""}</dd></div>`).join("")}${researchStatusCellHtml(p)}</dl>`;
+  return `<dl class="dossier-status" aria-label="Current status"${rec ? ` data-ledger-record="${esc(rec.ledger)}"` : ""}>${items.map(([t, v, c], i) => `<div><dt>${esc(t)}</dt><dd class="${esc(c)}">${esc(v)}${i === 0 ? ledgerSub : ""}</dd></div>`).join("")}${researchStatusCellHtml(p)}</dl>` + (p.source === "auction" ? `<p class="result-jump"><button type="button" class="link-btn" data-action="jump" data-target="decision">Sale result and bidding process ↓</button></p>` : "");
 }
 // The customer's own research state in the property page's status band
 // (2026-10-06): visible at the top so it is never buried, styled and labelled
@@ -9383,6 +9405,12 @@ function researchStatusCellHtml(p) {
   const applicable = c.VERIFIED + c.NOT_VERIFIED + c.NOT_PUBLISHED + c.SOURCE_UNAVAILABLE;
   const dd = `<button type="button" class="dossier-research-btn dossier-dd" data-action="jump" data-target="diligence" data-dd-verified="${c.VERIFIED}" data-dd-applicable="${applicable}">Due diligence: ${c.VERIFIED} of ${applicable} verified by the records <span aria-hidden="true">→</span></button>`;
   return `<div class="dossier-research" data-research-cell="${esc(String(p.id))}" data-research-state="${esc(state || "none")}"><dt>Your research <span class="dossier-own">(your label, not an official status)</span></dt><dd><button type="button" class="dossier-research-btn" data-action="jump" data-target="research">${value} <span aria-hidden="true">→</span></button>${dd}</dd></div>`;
+}
+// On a phone the secondary sections start closed, so the decision facts are the
+// first screen; each is one tap away under its summary. Desktop keeps them open.
+function collapseSecondaryOnPhone(root) {
+  if (!root || !window.matchMedia || !window.matchMedia("(max-width: 768px)").matches) return;
+  root.querySelectorAll("details.detail-more").forEach(d => d.removeAttribute("open"));
 }
 function detailHtml(p) {
   const isCert = p.source === "certificate";
@@ -9425,7 +9453,8 @@ function detailHtml(p) {
   const stats = [];
   if (!isCert) {
     if (p.source === "laft") { const as = amountInfo(p); stats.push([as.label, as.value !== null && as.value !== undefined ? fmtMoney(as.value) : (as.display || "Not published"), "financial"]); }
-    else stats.push([auctionBidLabel(p, true), bidDisplay(p), "financial"]);
+    // An auction's opening bid is shown once, in the Auction decision block
+    // (its own row, with its source wording). It is not repeated here (2026-10-23).
     // Named for what it is - the appraiser's own just value for a stated roll
     // year - rather than the old "Market Value", which implied a live
     // estimate this app has never had and cannot legitimately obtain.
@@ -9555,6 +9584,8 @@ function detailHtml(p) {
     ${auctionDecisionHtml(p)}
     ${inventoryCardHtml(p)}
     ${statGroupHtml("Financial", stats.filter(s => s[2] === "financial"), "financial")}
+    <details class="detail-more" open>
+    <summary class="detail-more-summary">Property, history, risk, research and sources</summary>
     ${statGroupHtml("Property Details", stats.filter(s => s[2] === "property"), "property")}
     ${statGroupHtml("History", stats.filter(s => s[2] === "history"), "history")}
     ${!isCert && regionOf(p) === "FL" ? `<div class="lien-banner ${esc(p.lien_level)}">
@@ -9573,6 +9604,7 @@ function detailHtml(p) {
     ${monitorSectionHtml(p)}
     ${sourceTruthHtml(p)}
     ${acquisitionDocumentsHtml(p)}
+    </details>
     `}
     ${/* Phase 36 fix: the calculator's Net Profit Estimate subtracts fees(p),
         which is now null for non-FL rows (no verified TX fee formula exists) -
@@ -9593,7 +9625,7 @@ function detailHtml(p) {
     <button class="detail-btn detail-report-btn" data-action="support" data-topic="source" data-pid="${p.id}" type="button">Report a source problem</button>`, "", "sources")}
     ${auctionLinkHtml(p, "detail-cta")}
     ${isCert && !hasFieldProvenance(p) ? `<div class="detail-provenance">
-      ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
+      ${sourceNameFor(p) ? `<span>Data source: ${esc(sourceNameFor(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
     </div>` : provenanceCardHtml(p)}
     ${noteHtml(p)}`;
@@ -9672,6 +9704,7 @@ function openDetail(p) {
   // after a favourite or a watchlist change rebuilds the modal.
   inner.className = "detail-modal-inner prop-card " + cardStatus(p);
   inner.innerHTML = detailHtml(p);
+  collapseSecondaryOnPhone(inner);
   inner.dataset.pid = String(p.id);
   ensureFullProvenance(p);
   hydrateVisuals(inner);
@@ -10739,14 +10772,20 @@ function auctionCommandRows(rows) {
 function upcomingSalesHtml(rows) {
   const all = auctionCommandRows(rows);
   if (!all.length) return "";
-  const ev = all.slice(0, 8);
+  // The first eight events show at once; any others sit in a disclosure
+  // labelled with their count, so the total is never implied and never hidden
+  // (the old copy said "sort by sale date to see every one", which the list
+  // does not do).
+  // Four events at every width; the rest sit in the disclosure. (The phone CSS
+  // used to hide events 5-8 with nothing to reveal them.)
+  const FIRST = 4;
+  const ev = all.slice(0, FIRST);
+  const rest = all.slice(FIRST);
   const word = (ledgerCopy("auction").nav || "Auction").replace(/s$/, "");
   const props = all.reduce((n, e) => n + e.count, 0);
   const watched = all.reduce((n, e) => n + e.watched, 0);
-  return `<div class="upcoming-sales command-center" id="upcomingSales" data-events="${all.length}">
-    <div class="cc-head"><span class="eyebrow">Auction command center · next ${COMMAND_CENTER_DAYS} days</span>
-      <span class="cc-sum">${all.length} sale event${all.length === 1 ? "" : "s"} · ${props.toLocaleString("en-US")} propert${props === 1 ? "y" : "ies"}${watched ? ` · ${watched} on your watchlist` : ""}</span></div>
-    <ol class="sales-timeline">${ev.map(e => {
+  const bidsTotal = all.reduce((n, e) => n + e.bids, 0);
+  const eventLi = e => {
     const d = new Date(e.date + "T12:00:00");
     const mon = isNaN(d) ? "" : d.toLocaleString("en-US", { month: "short" }).toUpperCase();
     const day = isNaN(d) ? "" : String(d.getDate());
@@ -10761,7 +10800,15 @@ function upcomingSalesHtml(rows) {
       <span class="cc-facts">${facts.map(t => `<span>${esc(t)}</span>`).join("")}</span>
     </button><span class="cc-actions">${e.link ? `<a class="cc-link" href="${esc(e.link.href)}" target="_blank" rel="noopener"${e.link.note ? ` title="${esc(e.link.note)}"` : ""}>${esc(e.link.kind === "sale" ? "Sale listing →" : "County auction site →")}</a>` : ""}
 <button type="button" class="cc-dossier" data-action="countyintel" data-county="${esc(e.county)}">County process</button></span></li>`;
-  }).join("")}</ol>${all.length > 4 ? `<p class="cc-more muted">${all.length} sale events in the next ${COMMAND_CENTER_DAYS} days${all.length > ev.length ? `, ${ev.length} shown here` : ""} - sort by sale date to see every one.</p>` : ""}</div>`;
+  };
+  const restBlock = rest.length
+    ? `<details class="cc-rest"><summary>Show the other ${rest.length} sale event${rest.length === 1 ? "" : "s"}</summary><ol class="sales-timeline" start="${FIRST + 1}">${rest.map(eventLi).join("")}</ol></details>`
+    : "";
+  return `<div class="upcoming-sales command-center" id="upcomingSales" data-events="${all.length}">
+    <div class="cc-head"><span class="eyebrow">Auction command center · next ${COMMAND_CENTER_DAYS} days</span>
+      <span class="cc-sum">${all.length} sale event${all.length === 1 ? "" : "s"} (county sale dates) · ${props.toLocaleString("en-US")} propert${props === 1 ? "y" : "ies"} listed for them · ${bidsTotal.toLocaleString("en-US")} with a published opening bid${watched ? ` · ${watched} on your watchlist` : ""}</span></div>
+    <ol class="sales-timeline">${ev.map(eventLi).join("")}</ol>${restBlock}${all.length > FIRST ? `<p class="cc-more muted">Showing ${ev.length} of ${all.length} sale events in the next ${COMMAND_CENTER_DAYS} days.</p>` : ""}</div>
+`;
 }
 // Info bubble (2026-10-13). A question or a note is shown as a small label; its
 // answer opens on hover, keyboard focus or tap, so the page reads as the
@@ -10800,6 +10847,7 @@ function section(container, title, sub, rows, kind) {
   // actually do on it, and one live fact - so arriving at Certificates from
   // Auctions reads as going somewhere else, rather than as the same page with
   // a different word at the top.
+  const calendarHtml = kind === "auction" ? upcomingSalesHtml(shown) : "";
   sec.innerHTML = `
     <div class="mega-head ledger-head">
       ${cfg.question ? infoBubbleHtml(cfg.question, `<p class="mega-sub">${sub}</p>${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}`, { corner: true, dataAttr: `data-ledger-question="${esc(kind)}"` }) : ""}
@@ -10808,8 +10856,7 @@ function section(container, title, sub, rows, kind) {
         <h2>${title}</h2>
       </div>
       ${facts ? `<p class="ledger-facts">${esc(facts)}</p>` : ""}
-      ${shown.length ? `<details class="ledger-status-fold"><summary>Source status and coverage</summary>${ledgerStatusHtml(kind, shown)}</details>` : ledgerStatusHtml(kind, shown)}
-      ${kind === "auction" ? upcomingSalesHtml(shown) : ""}
+      ${shown.length ? `<details class="ledger-status-fold${calendarHtml ? " upcoming-fold" : ""}"><summary>${calendarHtml ? `Auction calendar · next ${COMMAND_CENTER_DAYS} days, and source status` : "Source status and coverage"}</summary>${calendarHtml}${ledgerStatusHtml(kind, shown)}</details>` : (calendarHtml ? `<details class="ledger-status-fold upcoming-fold"><summary>Auction calendar · next ${COMMAND_CENTER_DAYS} days</summary>${calendarHtml}</details>` : ledgerStatusHtml(kind, shown))}
       <p class="ledger-legend" aria-label="What the colour on each card's left edge means">
         <span class="lgd lgd-active">Active</span>
         <span class="lgd lgd-stale">Not synced recently</span>
@@ -12513,7 +12560,8 @@ function relativeTime(iso) {
   const h = Math.round((Date.now() - t) / 3600000);
   if (h < 1) return "under an hour ago";
   if (h < 48) return `${h}h ago`;
-  return `${Math.round(h / 24)}d ago`;
+  // Days-old reads name their date, so "633d ago" is never the only clue (2026-10-23).
+  return `${Math.round(h / 24)}d ago (${dateOnly(iso)})`;
 }
 // Customer wording for a source's health (remediation): one plain status and
 // the last update. The counts, incomplete-unit lists and retry detail are
@@ -12534,7 +12582,7 @@ function sourceHealthRowHtml(rec) {
 }
 function sourceHealthRowsHtml(rows, pageState) {
   if (rows === null) {
-    return `<div class="dash-empty">Dataset health is not recorded yet on this deployment (migration 016 / scripts/source_health.py not live). The only freshness signal is the newest row date under Terms - a green workflow run does not by itself mean every dataset is complete.</div>`;
+    return `<div class="dash-empty">Dataset health is not reported yet. The only freshness signal is the newest row date under Terms - a green workflow run does not by itself mean every dataset is complete.</div>`;
   }
   const mine = rows.filter(r => r.state === pageState || r.state === "ALL");
   const rest = rows.filter(r => !(r.state === pageState || r.state === "ALL"));
@@ -12599,7 +12647,7 @@ function unitFreshnessRowHtml(u) {
   </div>`;
 }
 function unitFreshnessRowsHtml(rows, pageState) {
-  if (rows === null) return `<div class="dash-empty">Per-county freshness is not recorded yet on this deployment (migration 021 / scripts/unit_freshness.py not live).</div>`;
+  if (rows === null) return `<div class="dash-empty">County read history is not reported yet, so county freshness cannot be shown.</div>`;
   const mine = rows.filter(r => r.state === pageState && r.last_attempt_at);
   if (!mine.length) return `<div class="dash-empty">No county has a recorded read yet.</div>`;
   mine.sort((a, b) => String(a.county).localeCompare(String(b.county)) || String(a.source_id || "").localeCompare(String(b.source_id || "")));
@@ -12616,7 +12664,7 @@ function renderSourceHealthTerms() {
   const el = document.getElementById("sourceHealthTerms");
   if (!el) return;
   el.innerHTML = SOURCE_HEALTH === null
-    ? `<p class="event-note">Per-dataset health is not recorded yet on this deployment; the line above is the newest row across every source, which can hide a source that stopped.</p>`
+    ? `<p class="event-note">Per-dataset health is not reported yet; the line above is the newest row across every source, which can hide a source that stopped.</p>`
     : sourceHealthRowsHtml(SOURCE_HEALTH, PAGE_STATE);
 }
 
@@ -12697,14 +12745,22 @@ function computeWatchChanges() {
   return { since: snap.savedAt || null, items };
 }
 function watchChangesHtml(wc) {
-  const watched = watchedIds().size;
+  // Only the watched properties of the state on screen are compared, so the
+  // count here is that state's; watched properties saved under another state
+  // are named separately, not counted as compared (fixed 2026-10-23).
+  const allWatched = watchedIds();
+  const here = new Set(ALL.map(p => p.id));
+  const watched = [...allWatched].filter(id => here.has(id)).length;
+  const elsewhere = allWatched.size - watched;
+  const scope = `${watched === 1 ? "watched property" : "watched properties"} in ${esc(STATE_INFO.name)}`;
+  const elsewhereNote = elsewhere ? ` ${elsewhere} more saved under another state ${elsewhere === 1 ? "is" : "are"} not compared here.` : "";
   if (!wc || !wc.since) {
-    return `<div class="dash-empty">No earlier visit recorded in this browser yet${watched ? ` - ${watched} watched propert${watched === 1 ? "y" : "ies"} snapshotted now` : ""}. Changes to sale date, opening bid, status or presence of your watchlist and favorites will be listed here on the next load.</div>
+    return `<div class="dash-empty">No earlier visit recorded in this browser yet${watched ? ` - ${watched} ${scope} snapshotted now` : ""}.${elsewhereNote} Changes to sale date, opening bid, status or presence of your watchlist and favorites will be listed here on the next load.</div>
       <p class="watch-changes-note">Tracked in this browser only. No e-mail or push notifications exist yet.</p>`;
   }
   const since = new Date(wc.since).toLocaleString();
   if (!wc.items.length) {
-    return `<div class="dash-empty">No changes to your ${watched} watched propert${watched === 1 ? "y" : "ies"} since ${esc(since)}.</div>
+    return `<div class="dash-empty">No changes to your ${watched} ${scope} since ${esc(since)}.${elsewhereNote}</div>
       <p class="watch-changes-note">Compares sale date, opening bid, status and presence. Tracked in this browser only - no e-mail or push notifications exist yet.</p>`;
   }
   return `<div class="watch-changes">${wc.items.map(it => `
@@ -12816,7 +12872,7 @@ const deleteAccountUi = simpleModal("deleteaccount", { modal: "deleteAccountModa
       if (msg) {
         msg.className = "auth-msg err";
         msg.textContent = missing
-          ? "Account deletion is not available on this deployment yet (migration 015 has not been applied). Use Contact support to request deletion."
+          ? "Account deletion is not available yet. Use Contact support to request deletion."
           : "Couldn't delete the account: " + m;
       }
       return;
@@ -13308,7 +13364,7 @@ if (navSettingsBtnEl) navSettingsBtnEl.addEventListener("click", e => { e.stopPr
 // giving the map its own page in the first place.
 function computeMapRows() {
   return ALL.filter(p => {
-    if (isPastDue(p) || HIDDEN.has(p.id) || goneExpired(p)) return false;
+    if (!countsToward(p)) return false;
     if (regionOf(p) !== PAGE_STATE) return false;
     if (mapFilter.ledger !== "all" && p.source !== mapFilter.ledger) return false;
     if (mapFilter.watchlistOnly && !BIDLIST.has(p.id)) return false;
@@ -13781,6 +13837,7 @@ function selectProperty(p) {
   try { history.replaceState(history.state, "", "#/" + (LEDGERS[p.source] || LEDGERS[state.ledger]).slug + "/" + p.id); } catch { /* file:// etc */ }
   panel.className = "detail-panel prop-card " + cardStatus(p);
   panel.innerHTML = detailHtml(p);
+  collapseSecondaryOnPhone(panel);
   ensureFullProvenance(p);
   hydrateVisuals(panel);
   // Same hydration openDetail() gives the modal: one property page, whichever
@@ -14176,7 +14233,7 @@ function changeHistoryListHtml(events) {
 }
 function monitorSectionHtml(p) {
   const watched = BIDLIST.has(p.id), fav = FAVS.has(p.id);
-  const status = watched && fav ? "On your watchlist and in your favorites." : watched ? "On your watchlist." : fav ? "In your favorites." : "Not watched. Add it to your watchlist to be told when it changes.";
+  const status = watched && fav ? "On your watchlist and in your favorites." : watched ? "On your watchlist." : fav ? "In your favorites." : "Not watched. Add it to your watchlist to check it for changes in this browser - there are no e-mail or push alerts.";
   const alertsLine = MONITOR.tables.user_alerts === true
     ? `Alerts for watched properties are ${MONITOR.prefs && MONITOR.prefs.watch_changes === false ? "<b>off</b>" : "<b>on</b>"} (account menu → Alerts). They appear in the Alerts inbox; e-mail delivery is not configured on this deployment.`
     : "Server alerts are not enabled on this deployment yet. Changes to watched properties are compared in this browser each time you load the app (Watchlist → changes).";
@@ -14192,14 +14249,14 @@ async function hydrateChangeHistory(container, p) {
   const slot = container.querySelector(`[data-changes-for="${cssEscape(String(p.id))}"]`);
   if (!slot) return;
   if (MONITOR.tables.property_change_events === false) {
-    slot.innerHTML = `<span class="muted">Server change history is not enabled on this deployment yet (migration 024 has not been applied).</span>`;
+    slot.innerHTML = `<span class="muted">Server change history is not available yet.</span>`;
     return;
   }
   const res = await sb.from("property_change_events").select("*").eq("property_id", p.id).order("observed_at", { ascending: false }).limit(50);
   if (!document.contains(slot)) return;
   if (res.error) {
     if (isMissingTable(res.error)) MONITOR.tables.property_change_events = false;
-    slot.innerHTML = `<span class="muted">${isMissingTable(res.error) ? "Server change history is not enabled on this deployment yet (migration 024 has not been applied)." : "Couldn't load change history: " + esc(res.error.message || "")}</span>`;
+    slot.innerHTML = `<span class="muted">${isMissingTable(res.error) ? "Server change history is not available yet." : "Couldn't load change history: " + esc(res.error.message || "")}</span>`;
     return;
   }
   MONITOR.tables.property_change_events = true;
@@ -14293,7 +14350,7 @@ function renderAlertsModal() {
   const body = document.getElementById("alertsBody");
   if (!body) return;
   if (MONITOR.tables.user_alerts !== true) {
-    body.innerHTML = `<div class="support-unconfigured" id="alertsUnavailable"><b>Alerts are not enabled on this deployment yet.</b> The server tables for alerts (migration 024) have not been installed. Until they are, changes to your watched properties are compared in this browser each time you load the app - see Watchlist.</div>`;
+    body.innerHTML = `<div class="support-unconfigured" id="alertsUnavailable"><b>Alerts are not available yet.</b> Changes to your watched properties are checked in this browser each time you load the app. No e-mail or push alerts are sent - see Watchlist.</div>`;
     return;
   }
   const prefs = MONITOR.prefs || { watch_changes: true, saved_search_matches: true, email_enabled: false };
@@ -14302,7 +14359,7 @@ function renderAlertsModal() {
     <div class="alert-prefs" id="alertPrefs">
       <label class="tog"><input type="checkbox" id="prefWatchChanges"${prefs.watch_changes !== false ? " checked" : ""}> <span>Changes to my watched properties</span></label>
       <label class="tog"><input type="checkbox" id="prefSavedSearch"${prefs.saved_search_matches !== false ? " checked" : ""}> <span>New matches for my saved searches</span></label>
-      <label class="tog"><input type="checkbox" id="prefEmail" disabled> <span>E-mail - not configured on this deployment; alerts appear here only</span></label>
+      <label class="tog"><input type="checkbox" id="prefEmail" disabled> <span>E-mail alerts are not available yet; alerts appear here only</span></label>
     </div>
     <div class="alert-actions"><span id="alertsUnreadText">${unread} unread</span>${unread ? ` <button type="button" class="detail-btn" id="alertsMarkRead">Mark all read</button>` : ""}</div>
     ${MONITOR.alerts.length ? `<ol class="dec-history alert-list" id="alertList">${MONITOR.alerts.map(alertItemHtml).join("")}</ol>`
@@ -14333,7 +14390,7 @@ function renderMonitorChrome() {
 // ledger - rows observed, newly listed, changed, no longer listed, listed
 // again. Not recorded yet = said so, never zeros.
 function observationRunsHtml(runs) {
-  if (runs === null) return `<div class="dash-empty" id="dashRunsUnavailable">Per-source change counts are not recorded on this deployment yet (migration 024 has not been applied).</div>`;
+  if (runs === null) return `<div class="dash-empty" id="dashRunsUnavailable">Per-source change counts are not reported yet.</div>`;
   const latest = new Map();
   runs.forEach(r => { const k = `${r.source_id}|${r.ledger || ""}`; if (!latest.has(k)) latest.set(k, r); });
   if (!latest.size) return `<div class="dash-empty">No change-detection run has been recorded for ${esc(STATE_INFO.name || PAGE_STATE)} yet.</div>`;
@@ -14978,7 +15035,7 @@ function homeDeskRowHtml(p) {
     <span class="desk-title">${street ? esc(street) : lotTitle(p)}</span>
     <span class="desk-sub">${hasParcel(p) ? `Parcel ${esc(parcelOf(p))}` : "Parcel # not published"}</span>
     <span class="desk-money"><b class="${amt.state === "not_published" || amt.state === "official_expired" ? "unpublished" : ""}">${esc(amt.text)}</b><span>${esc(amt.label)}</span></span>
-    <span class="desk-meta">${a ? `<span>Acquisition <b>${esc(a.verified ? a.short || a.label : "Not yet verified")}</b></span>` : ""}<span>Source <b>${esc(harvesterSourceLabel(p) || "not recorded")}</b></span><span>${esc(seen)}</span></span>
+    <span class="desk-meta">${a ? `<span>Acquisition <b>${esc(a.verified ? a.short || a.label : "Not yet verified")}</b></span>` : ""}<span>Source <b>${esc(sourceNameFor(p) || "not recorded")}</b></span><span>${esc(seen)}</span></span>
   </button>`;
 }
 function renderHomeDesk() {

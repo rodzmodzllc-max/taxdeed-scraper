@@ -567,7 +567,7 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .command-center .cc-more{font-size:.74rem;margin:.4rem 0 0}
 @media (max-width:640px){
   .command-center .cc-event{grid-template-columns:minmax(0,1fr)}
-  .command-center .cc-event:nth-child(n+5){display:none}
+  /* Events beyond four are in the labelled disclosure at every width (app.js). */
   .command-center .cc-actions{flex-direction:row;justify-content:flex-start;gap:1.2rem;padding:0 0 .5rem 5.2rem}
   .command-center .cc-link,.command-center .cc-dossier{min-height:44px}
   .command-center .cc-facts{grid-column:1 / -1;grid-row:auto}
@@ -1167,3 +1167,82 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .prop-card-photo .ib-pop .photo-caption{position:static;display:block;max-width:none;white-space:normal;overflow:visible;text-overflow:clip;
   background:none;color:inherit;padding:0;margin:0 0 .35rem;border-radius:0;font-size:.72rem;letter-spacing:.04em;pointer-events:auto}
 .prop-card-photo:has(.pc-info .ib.open),.prop-card-photo:has(.pc-info .ib:hover),.prop-card-photo:has(.pc-info .ib:focus-within){overflow:visible;z-index:5}
+
+
+/* Full property page on phones (2026-10-22): the section tabs and the "At a
+   glance" block repeat what Decision, Financial and the title already show,
+   so a phone reader gets one scroll instead of a tab bar plus a summary. The
+   DOM is unchanged; desktop keeps both. */
+@media (max-width:768px){
+  .detail-nav{display:none}
+  .detail-section[data-section="summary"]{display:none}
+}
+
+/* Touch targets, second pass (2026-10-23). Lives here, not in explore.css,
+   because the rules it must beat are declared later in this file or use
+   two-class selectors (.prop-body>.detail-btn, .quick-controls .export-btn).
+   A control on a phone or touch screen is at least 44px tall; a text link
+   keeps its own line. */
+@media (max-width: 768px), (pointer: coarse) {
+  .icon-btn, .ib-btn, .cta-btn, .detail-btn, .chip, .desk-county, .terms-btn,
+  .prop-body>.detail-btn, .prop-card-photo .pc-info .ib-btn,
+  .quick-controls .expand-all-btn, .quick-controls .export-btn, .quick-controls .filters-toggle,
+  .ledger-status-fold>summary, input[type="search"], input[type="text"] { min-height: 44px; }
+  .icon-btn { min-width: 44px; }
+  .link-btn { display: inline-flex; align-items: center; min-height: 44px; }
+  .ledger-status-fold>summary { display: flex; align-items: center; }
+}
+@media (max-width: 768px), (pointer: coarse) {
+  select, input.calc-input, .detail-close, .crumb, .show-on-map-btn, .related-open,
+  .copy-btn, .dossier-research-btn, .detail-nav button { min-height: 44px; }
+  .detail-close { min-width: 44px; }
+  .crumb { display: inline-flex; align-items: center; }
+}
+@media (max-width: 768px), (pointer: coarse) {
+  summary, .dossier-research-btn.dossier-dd, .note-save { min-height: 44px; }
+  summary { display: flex; align-items: center; }
+}
+/* Auctions and Available controls on a phone (2026-10-23): county beside Expand
+   all, Export beside Filters & Sort, in two rows instead of three. The export
+   label may wrap inside its half-width cell; it keeps its 44px target. */
+@media (max-width: 768px) {
+  .quick-controls { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .quick-controls > .table-toggle-btn { display: none; }
+  .quick-controls .export-btn { height: auto; min-height: 44px; white-space: normal; text-align: center; line-height: 1.2; padding: .4rem .5rem; }
+  .quick-controls .filters-toggle { justify-content: center; }
+}
+/* Map controls at touch size (2026-10-23): the Map page's pills, search, county
+   select, basemap buttons and list-filter toggle were 32-40px on phones. */
+@media (max-width: 768px), (pointer: coarse) {
+  .map-ledger-pills button, .map-watch-pill, #mapSearchInput, #mapCountySelect,
+  #mapStyleToggle button, #mapListFilters, .map-style-toggle button,
+  .map-page-head button, .map-toolbar button, .map-toolbar select, .map-toolbar input,
+  .rail-row { min-height: 44px; }
+}
+
+/* Desktop navigation (2026-10-23): from 1024px the sidebar rail is the one
+   place to choose a ledger (its Available / Auctions / Liens & Certificates
+   entries open the List on that ledger). The List's inner ledger strip repeated
+   those three choices, so it is hidden there; phones and tablets keep it. */
+@media (min-width: 1024px) {
+  #ledgerTabs { display: none; }
+}
+
+/* Full property page (2026-10-23): the secondary sections sit in one disclosure
+   under this summary. On phones it starts closed; the decision facts above it
+   are the first screen. Touch target 44px; no motion. */
+.detail-more{margin:.5rem 0;border-top:1px solid var(--rule)}
+.detail-more-summary{display:flex;align-items:center;min-height:44px;padding:.4rem 0;cursor:pointer;font-weight:700;font-size:.8rem;letter-spacing:.04em;color:var(--ink);list-style:none}
+.detail-more-summary::-webkit-details-marker{display:none}
+.detail-more-summary::after{content:"Show";margin-left:auto;font-weight:600;color:var(--copper-deep,var(--copper))}
+.detail-more[open] > .detail-more-summary::after{content:"Hide"}
+.detail-more-summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Small metadata floor (2026-10-23): text that carries useful information is
+   at least 12px on phones (day labels, the bottom bar, map hints and legend). */
+@media (max-width: 768px) {
+  .desk-kicker, .desk-money span, .desk-date span, .nav-bottom-item, .map-legend-label,
+  .explore-map-hint, .explore-map-note, .rail-head { font-size: 12px; }
+}
+/* Map bubble hit area (2026-10-24): invisible, catches the tap. */
+.cluster-bubble .bubble-hit{fill:transparent;stroke:none;pointer-events:all}
