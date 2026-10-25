@@ -866,6 +866,10 @@
     {
      "url": "https://www.escambiaclerk.com/362/Tax-Deeds",
      "doc_kind": "SOURCE_PAGE"
+    },
+    {
+     "url": "https://www.escambiaclerk.com/255/Tax-Deeds-Lands-Available",
+     "doc_kind": "PROCEDURE"
     }
    ]
   },
@@ -1017,6 +1021,18 @@
     {
      "url": "https://putnamtax.com/faq/specific-tax-deed-information/",
      "doc_kind": "SOURCE_PAGE"
+    },
+    {
+     "url": "https://putnamclerk.com/county-services/property-sales/",
+     "doc_kind": "SOURCE_PAGE"
+    },
+    {
+     "url": "https://apps.putnam-fl.com/coc/taxdeeds/public/print_LAFT.php",
+     "doc_kind": "SOURCE_PAGE"
+    },
+    {
+     "url": "https://apps.putnam-fl.com/coc/taxdeeds/public/disclaimer.php",
+     "doc_kind": "SOURCE_PAGE"
     }
    ]
   },
@@ -1157,6 +1173,10 @@
     {
      "url": "https://www.hendryclerk.org/clerk-services/property-sales/",
      "doc_kind": "SOURCE_PAGE"
+    },
+    {
+     "url": "https://library.municode.com/FL/hendry_clerk_of_courts/munidocs/munidocs?nodeId=4b2b2ea877a65",
+     "doc_kind": "OTHER_OFFICIAL_DOCUMENT"
     }
    ]
   },
@@ -1325,6 +1345,14 @@
     {
      "url": "https://www.mypalmbeachclerk.com/services/forms-library/forms-a-z",
      "doc_kind": "SOURCE_PAGE"
+    },
+    {
+     "url": "https://www.mypalmbeachclerk.com/departments/courts/tax-deeds",
+     "doc_kind": "PROCEDURE"
+    },
+    {
+     "url": "https://www.mypalmbeachclerk.com/departments/courts/tax-deeds/sale-information",
+     "doc_kind": "PROCEDURE"
     }
    ]
   },
