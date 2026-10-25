@@ -2141,32 +2141,27 @@ await dashPage.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await dashPage.waitForTimeout(500);
 await dashPage.click('.nav-item[data-page="dashboard"]');
 await dashPage.waitForTimeout(200);
-results.dashHealthRows = await dashPage.locator('#dashSourceRows .health-row').evaluateAll(els => els.map(e => e.dataset.source + ':' + e.dataset.health));
-// Customer wording (remediation): one plain status per source; the schedule and counts are admin-only.
-results.dashHealthBadgeTexas = ((await dashPage.locator('#dashSourceRows .health-row[data-source="tx_sales"] .health-badge').textContent()) || '').trim() === 'Partly updated';
-results.dashHealthIncompleteNames = ((await dashPage.locator('#dashSourceRows .health-row[data-source="fl_certificates"] .health-badge').textContent()) || '').trim() === 'Partly updated';
-// Per-county freshness (county_source_registry + migration 021): FL rows
-// with a recorded read only (Bradford, never attempted, is omitted; the
-// Texas row belongs to tx.html), Current vs Stale by the last attempt.
-results.dashUnitRows = await dashPage.locator('#dashUnitRows .unit-row').evaluateAll(els => els.map(e => e.dataset.county + ':' + e.dataset.fresh));
-results.dashUnitStaleText = ((await dashPage.locator('#dashUnitRows .unit-row[data-county="Bay"] .health-sub').textContent()) || '').replace(/\s+/g, ' ').trim();
-results.dashUnitCurrentText = ((await dashPage.locator('#dashUnitRows .unit-row[data-county="Alachua"] .health-sub').textContent()) || '').replace(/\s+/g, ' ').trim();
+// Redesign PR3 (2026-10-25): Home's "Data read" block - one plain status
+// (CUSTOMER_HEALTH_TEXT) and a date per ledger of the open state, from the
+// dataset health rows (fl_deeds -> Auctions, fl_laft -> Available,
+// fl_certificates -> Liens & Certificates). The per-dataset and per-county
+// operator rows left Home; admin.html carries them (adminFreshness* below).
+results.dashHealthRows = await dashPage.locator('#homeDataRead .read-row').evaluateAll(els => els.map(e => e.dataset.ledger + ':' + e.dataset.health));
+results.dashHealthBadgeTexas = await (async () => { const tp = await newPage({ viewport: { width: 1200, height: 900 } }); await tp.goto(TX_BASE_URL + '#/dashboard', { waitUntil: 'networkidle' }); await tp.waitForTimeout(500);
+  const v = await tp.locator('#homeDataRead .read-row[data-ledger="auction"] .health-badge').textContent().catch(() => ''); await tp.close(); return (v || '').trim() === 'Partly updated'; })();
+// Incomplete units are operator detail: the certificate line says "Partly
+// updated" and never names the counties (Baker, Gulf) or a count.
+results.dashHealthIncompleteNames = await dashPage.evaluate(() => { const b = document.getElementById('homeDataRead'); const r = b && b.querySelector('.read-row[data-ledger="certificate"] .health-badge');
+  return !!r && r.textContent.trim() === 'Partly updated' && !/Baker|Gulf|\bof \d+ count|blocked|source id/i.test(b.textContent); });
+results.dashUnitRows = await dashPage.evaluate(() => ({ unitRows: document.querySelectorAll('#dashUnitRows, #dashSourceRows, .unit-row').length, countyNames: /Alachua|Bay|Citrus|Dixie/.test((document.getElementById('homeDataRead') || {}).textContent || '') }));
 results.dashWatchFirstVisit = ((await dashPage.locator('#dashWatchChanges').textContent()) || '').includes('No earlier visit recorded in this browser yet');
 results.dashWatchNoNotificationsClaim = ((await dashPage.locator('#dashWatchChanges').textContent()) || '').includes('No e-mail or push notifications exist yet');
-// Three ledgers (2026-09-30): per-county freshness is grouped under one
-// heading per ledger; the fixture's registry rows feed Available only, so
-// the Auctions and Liens & Certificates groups say so rather than borrowing
-// Available's rows - a failed read in one ledger never reads as another's.
-results.dashUnitLedgerHeads = await dashPage.locator('#dashUnitRows .unit-head').evaluateAll(els => els.map(e => e.dataset.ledgerHead));
-results.dashUnitRowsUnderAvailable = await dashPage.locator('#dashUnitRows .unit-head[data-ledger-head="laft"] ~ .unit-row').evaluateAll(els => els.map(e => e.dataset.county));
-results.dashUnitEmptyGroups = await dashPage.locator('#dashUnitRows .unit-empty').count();
 // Remediation (2026-10-10): the "By Ledger" panel repeated the ledger tiles
 // above it, so it is removed; the withheld count is stated once, on the tile.
 results.dashLedgerPanelRemoved = (await dashPage.locator('#dashLedgerRows').count()) === 0;
 // Remediation (2026-10-10): the ledger totals - and the withheld count - are
 // shown once, on the Home ledger cards; the operating view's tiles are gone.
 results.dashWithheldShownOnce = ((await dashPage.locator('#homeLedgers').textContent()) || '').includes('1 withheld') && (await dashPage.locator('#dashStats').count()) === 0;
-results.dashUnitBayUnavailable = await dashPage.locator('#dashUnitRows .unit-row[data-county="Bay"]').getAttribute('data-unavailable');
 // Unified navigation (2026-09-30): exactly four destinations - Dashboard,
 // List, Map, Watchlist - in the rail and the bottom bar, no per-ledger
 // entries; the ledger is picked inside the List page (#ledgerTabs) and the
@@ -2243,7 +2238,10 @@ await noHealthPage.goto(BASE_URL + '?health=none' + '#/auctions', { waitUntil: '
 await noHealthPage.waitForTimeout(500);
 await noHealthPage.click('.nav-item[data-page="dashboard"]');
 await noHealthPage.waitForTimeout(200);
-results.dashHealthMissingTable = ((await noHealthPage.locator('#dashSourceRows').textContent()) || '').includes('not reported yet');
+// Without the dataset-health table the Data read block falls back to the
+// county reads: the fixture's registry rows feed Available only (one county
+// unavailable -> Partly updated); the other two ledgers say "Status not recorded".
+results.dashHealthMissingTable = await noHealthPage.locator('#homeDataRead .read-row').evaluateAll(els => els.map(e => e.dataset.ledger + ':' + e.querySelector('.health-badge').textContent.trim()));
 results.dashHealthMissingTableNoBadges = await noHealthPage.locator('#dashSourceRows .health-badge').count();
 await noHealthPage.close();
 const noRegPage = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -2251,8 +2249,7 @@ await noRegPage.goto(BASE_URL + '?registry=none' + '#/auctions', { waitUntil: 'n
 await noRegPage.waitForTimeout(500);
 await noRegPage.click('.nav-item[data-page="dashboard"]');
 await noRegPage.waitForTimeout(200);
-results.dashUnitMissingColumns = ((await noRegPage.locator('#dashUnitRows').textContent()) || '').includes('not reported yet');
-results.dashUnitMissingColumnsNoRows = await noRegPage.locator('#dashUnitRows .unit-row').count();
+results.dashUnitMissingColumns = await noRegPage.locator('#homeDataRead .read-row').evaluateAll(els => els.map(e => e.dataset.ledger + ':' + e.dataset.health));
 await noRegPage.close();
 
 // --- Watchlist change signals: seed the snapshot a previous visit would
@@ -2560,7 +2557,7 @@ await clPage.waitForTimeout(500);
 results.detailStatusPill = ((await clPage.locator('#detailModalInner .prop-top-actions .pill').textContent()) || '').trim();
 results.detailStatusPillClass = await clPage.locator('#detailModalInner .prop-top-actions .pill').evaluate(el => el.className);
 results.notesVisibilityText = ((await clPage.locator('#detailModalInner .notes-visibility').textContent()) || '').trim();
-results.tableHeaderValue = ((await clPage.locator('.data-table-wrap thead th').nth(3).textContent()) || '').trim();
+results.tableHeaderValue = ((await clPage.locator('.data-table-wrap thead th').nth(6).textContent()) || '').trim();   // redesign PR3: the value column is the 7th of the figure columns
 await clPage.close();
 const txClPage = await newPage({ viewport: { width: 1200, height: 900 } });
 await txClPage.goto(TX_BASE_URL + '#/lands/ptx3', { waitUntil: 'networkidle' });
@@ -4359,7 +4356,7 @@ await navMap.close();
         return { railTop: !!r && r.width >= window.innerWidth - 2 && r.height < 160 && rail.offsetParent !== null,
           primaryRow: !!prim && getComputedStyle(prim).flexDirection === 'row',
           bottom: !!document.getElementById('navBottom') && getComputedStyle(document.getElementById('navBottom')).display !== 'none',
-          desk: ['homeAvailableNow', 'homeUpcomingSales', 'homeCountyIntel', 'homeSaved'].every(id => !!document.getElementById(id)) };
+          desk: ['homeUpcomingSales', 'homeSaved', 'homeDataRead'].every(id => !!document.getElementById(id)) };   // redesign PR3: next sales, your work, data read
       });
       if (w >= 1024 && !(shell.railTop && shell.primaryRow)) problems.push(`${w}:masthead`);
       if (w < 1024 && !shell.bottom) problems.push(`${w}:bottombar`);
@@ -6114,11 +6111,14 @@ results.navDashDeepVisible = await navDash.locator('#pageDashboard').evaluate(el
 results.navDashTiles = await navDash.locator('#homeLedgers .home-ledger-card[data-ledger]').evaluateAll(els => els.map(e => e.dataset.ledger + ':' + e.querySelector('.home-ledger-count').textContent.trim()));
 results.navDashNoTiles = (await navDash.locator('#dashStats, .stat-tile').count()) === 0;
 results.navDashNoValueTile = await navDash.locator('#pageDashboard').evaluate(el => !/Sum of county values/.test(el.textContent));
-results.navDashAttention = await navDash.locator('#dashAttentionRows .dash-row').evaluateAll(els => els.map(e => e.dataset.att + ':' + e.querySelector('.dash-row-vals').textContent.replace(/\s+/g, ' ').trim()));
-results.navDashRecentPanelRemoved = (await navDash.locator('#dashRecentRows').count()) === 0; // Remediation: the Recent panel duplicated Home's recent changes
-results.navDashPaths = await navDash.locator('#dashPathRows .dash-row').evaluateAll(els => els.map(e => (e.dataset.path || e.dataset.pathType) + ':' + e.querySelector('.dash-row-vals').textContent.replace(/\s+/g, ' ').trim()));
+// Redesign PR3 (2026-10-25): the operating view's panels left Home - no
+// attention, verified-path, recent, dataset or county panel remains; Home's
+// next-sales block names each sale's published bid as the source names it.
+results.navDashAttention = await navDash.evaluate(() => ['dashAttentionRows', 'dashPathRows', 'dashRecentRows', 'dashSourceRows', 'dashUnitRows', 'dashRunRows'].filter(id => document.getElementById(id)));
+results.navDashRecentPanelRemoved = (await navDash.locator('#dashRecentRows').count()) === 0;
+results.navDashPaths = await navDash.locator('#homeUpcomingSales .home-sale').evaluateAll(els => els.map(e => e.querySelector('.desk-event-where').textContent.trim() + ' | ' + e.querySelector('.desk-event-what').textContent.replace(/\s+/g, ' ').trim()));
 results.navDashNoScoreWords = await navDash.locator('#pageDashboard').evaluate(el => !/\b(score|ranking|recommend|AI)\b/i.test(el.textContent));
-results.navDashSubtitle = ((await navDash.locator('#dashSubtitle').textContent()) || '').trim();
+results.navDashSubtitle = await navDash.locator('#dashSubtitle').count();   // redesign PR3: the operating-view subtitle is gone
 await navDash.click('#homeLedgers [data-home-ledger="laft"]');
 await navDash.waitForTimeout(300);
 results.navDashTileOpensList = await navDash.locator('#pageList').evaluate(el => !el.hidden);
@@ -6334,15 +6334,26 @@ await monNone.locator('#alertsMenuItem').evaluate(el => el.click());
 await monNone.waitForTimeout(200);
 results.monNoneAlerts = await monNone.locator('#alertsUnavailable').count();
 await monNone.locator('#alertsCloseBtn').click();
-await monNone.click('.nav-list .nav-item[data-page="dashboard"]');
-await monNone.waitForTimeout(300);
-results.monNoneRuns = await monNone.locator('#dashRunsUnavailable').count();
 await monNone.close();
-// 11. Dashboard: latest change-detection run per source.
-const monDash = await newPage({ viewport: { width: 1200, height: 900 } });
-await monDash.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
-await monDash.waitForTimeout(700);
-results.monDashRuns = await monDash.locator('#dashRunRows .run-row').evaluateAll(els => els.map(e => e.dataset.source + ':' + Array.from(e.querySelectorAll('.dash-row-vals span')).map(x => x.textContent.trim()).join(' / ')));
+// Redesign PR3: the change-detection runs are an admin.html card now (operator
+// detail). An admin session, then the admin page, with and without 024.
+const adminRunsPage = async (q) => {
+  const ap = await newPage({ viewport: { width: 1200, height: 900 } });
+  await ap.goto(BASE_URL + '?stubauth=1' + (q || '') + '#/auctions', { waitUntil: 'networkidle' });
+  await ap.fill('#email', 'admin@example.com'); await ap.fill('#password', 'fixture-admin-pass');
+  await ap.click('#signInBtn'); await ap.waitForTimeout(700);
+  await ap.goto(BASE_URL.replace(/index\.html$/, 'admin.html') + '?stubauth=1' + (q || ''), { waitUntil: 'networkidle' });
+  await ap.waitForSelector('#adminRunsList > *', { timeout: 8000 }).catch(() => {});
+  return ap;
+};
+const monNoneAdmin = await adminRunsPage('&monitor=none');
+results.monNoneRuns = await monNoneAdmin.locator('#adminRunsUnavailable').count();
+await monNoneAdmin.close();
+results.monNoneHomeNoRuns = await (async () => { const hp = await newPage({ viewport: { width: 1200, height: 900 } }); await hp.goto(BASE_URL + '?monitor=none#/dashboard', { waitUntil: 'networkidle' }); await hp.waitForTimeout(400);
+  const n = await hp.locator('#dashRunRows, #dashRunsUnavailable').count(); await hp.close(); return n; })();
+// 11. Admin area: latest change-detection run per source (moved from Home, redesign PR3).
+const monDash = await adminRunsPage('');
+results.monDashRuns = await monDash.locator('#adminRunsList .run-row').evaluateAll(els => els.map(e => e.dataset.source + ':' + Array.from(e.querySelectorAll('.run-counts span')).map(x => x.textContent.trim()).join(' / ')));
 await monDash.close();
 
 // Storage-optimization sprint: stored imagery is now WebP. A WebP produced by
@@ -6554,7 +6565,7 @@ await monDash.close();
     cardsInDocument: document.querySelectorAll('.prop-card').length,
     wayneCount: (document.querySelector('.county-group[data-county="Wayne"] .county-count') || {}).textContent,
     groupMore: (document.querySelector('.county-group[data-county="Wayne"] .group-more') || {}).textContent,
-    tableRows: document.querySelectorAll('#dataTableBody tr:not(.table-more-row)').length,
+    tableRows: document.querySelectorAll('#dataTableBody tr[data-pid]').length,   // property rows only (redesign PR3 adds divider rows)
     tableMore: (document.getElementById('tableMoreBtn') || {}).textContent,
     domUnder15k: document.getElementsByTagName('*').length < 15000
   }));
@@ -7289,9 +7300,104 @@ await big.press('#globalSearchInput', 'Enter');
   await fd.close();
 }
 
+// ---- Redesign PR3 (2026-10-25): Home, map preview, table mode ----
+{
+  // Home at 390: three ledger lines + browse-by-state, at most three next
+  // sales with the bid named, the folds closed with their counts, one Data
+  // read line per ledger, and no operator panel. The page is one screen of
+  // content, not the ~11,000px operating view.
+  const hp = await newPage({ viewport: { width: 390, height: 844 } });
+  hp.on('pageerror', e => errors.push('pr3 home pageerror: ' + e.message));
+  await hp.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+  await hp.waitForTimeout(600);
+  results.pr3Home = await hp.evaluate(() => ({
+    lines: [...document.querySelectorAll('#homeLedgers .home-ledger-card')].map(e => (e.dataset.homeLedger || e.id) + ':' + e.querySelector('.home-ledger-count').textContent.trim()),
+    sales: document.querySelectorAll('#homeUpcomingSales .home-sale').length,
+    folds: [...document.querySelectorAll('#homeSaved details.home-fold')].map(d => d.dataset.homeFold + ':' + d.querySelector('.home-fold-count').textContent.trim() + ':' + (d.open ? 'open' : 'closed')),
+    read: [...document.querySelectorAll('#homeDataRead .read-row')].map(e => e.querySelector('.read-ledger').textContent.trim() + ':' + e.querySelector('.health-badge').textContent.trim() + ':' + /^Last updated [A-Z][a-z]{2} \d{1,2}, \d{4}$/.test(e.querySelector('.read-when').textContent.trim())),
+    operatorPanels: document.querySelectorAll('#pageDashboard .dash-panel, #pageDashboard .dash-grid').length,
+    recentFoldClosed: !document.getElementById('homeRecentSection').open,
+    pageUnder2600: document.getElementById('pageDashboard').getBoundingClientRect().height < 2600,
+    noOperatorWords: !/blocked|retry pending \d|of \d+ counties|source id|fl_deeds|fl_laft/i.test(document.getElementById('homeDataRead').textContent)
+  }));
+  await hp.close();
+  // Map toolbar at 390: county + Filters on row 1, ledger pills + basemap on
+  // row 2; Watchlist only / List filters behind Filters. The three basemap
+  // buttons keep their ids and stay clickable (Phase 61 sequence).
+  const mp = await newPage({ viewport: { width: 390, height: 844 } });
+  mp.on('pageerror', e => errors.push('pr3 map pageerror: ' + e.message));
+  await mp.goto(BASE_URL + '#/map', { waitUntil: 'networkidle' });
+  await mp.waitForTimeout(600);
+  const tops = () => mp.evaluate(() => { const top = id => { const e = document.getElementById(id); const r = e.getBoundingClientRect(); return r.width ? Math.round(r.top) : null; };
+    return { county: top('mapCountySelect'), filters: top('mapFiltersToggle'), pills: top('mapLedgerPills'), style: top('mapStyleToggle'), watch: top('mapWatchlistOnly'), list: top('mapListFilters') }; });
+  const before = await tops();
+  await mp.click('#mapFiltersToggle'); await mp.waitForTimeout(150);
+  const after = await tops();
+  await mp.click('#mapWatchlistOnly'); await mp.waitForTimeout(250);
+  const badge = await mp.evaluate(() => document.getElementById('mapFiltersBadge').textContent);
+  await mp.click('#mapWatchlistOnly'); await mp.waitForTimeout(250);
+  for (const id of ['mapStyleGoogle', 'mapStyleMaptiler', 'mapStyleGoogle']) { await mp.click('#' + id); await mp.waitForTimeout(150); }
+  results.pr3MapToolbar = { row1: before.county !== null && Math.abs(before.county - before.filters) < 8, row2: Math.abs(before.pills - before.style) < 8 && before.pills > before.county,
+    hiddenFirst: before.watch === null && before.list === null, shownAfter: after.watch !== null && after.list !== null && after.watch > before.style,
+    expanded: await mp.evaluate(() => document.getElementById('mapFiltersToggle').getAttribute('aria-expanded')), badgeWithWatch: badge,
+    googleOn: await mp.evaluate(() => document.getElementById('mapStyleGoogle').classList.contains('on')),
+    overflow: await mp.evaluate(() => document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth) };
+  await mp.close();
+  // Map preview at 1280: the card's money block, the provenance line, the
+  // Watchlist action (toggles in place) and Open record; the strip card of
+  // the open property is a marker only (no second date / figure).
+  const pv = await newPage({ viewport: { width: 1280, height: 900 } });
+  pv.on('pageerror', e => errors.push('pr3 preview pageerror: ' + e.message));
+  await pv.goto(BASE_URL + '#/map', { waitUntil: 'networkidle' });
+  await pv.waitForTimeout(500);
+  await pv.selectOption('#mapCountySelect', 'Charlotte');
+  await pv.waitForTimeout(800);
+  await pv.locator('#exploreMapCanvas .map-pin[data-pid="p5"]').click({ force: true });
+  await pv.waitForTimeout(300);
+  const pvState = () => pv.evaluate(() => { const c = document.getElementById('explorePreview'); const s = document.querySelector('#exploreStrip .strip-card.sel');
+    return { prov: (c.querySelector('.pv-prov') || {}).textContent || null, watch: ((c.querySelector('.pv-actions .bid-btn') || {}).textContent || '').trim(), open: ((c.querySelector('.pv-actions .preview-open') || {}).textContent || '').trim(),
+      bidTitle: c.querySelector('.pv-val.bid').getAttribute('title'), stripMarker: !!s && s.classList.contains('in-preview') && !s.querySelector('.strip-bid') ? s.querySelector('.strip-sub').textContent.trim() : null,
+      provMatchesCard: (c.querySelector('.pv-prov') || {}).textContent === window.__tdwProvenanceLine((window.__tdwMapLastRender.rows || []).find(r => r.id === 'p5')) }; });
+  const pv1 = await pvState();
+  await pv.click('#explorePreview .pv-actions .bid-btn'); await pv.waitForTimeout(500);
+  const pv2 = await pvState();
+  await pv.click('#explorePreview .pv-actions .bid-btn'); await pv.waitForTimeout(500);
+  results.pr3Preview = { ...pv1, prov: pv1.prov && pv1.prov.replace(/\(\d+ days? ago\)|\(today\)/, '(N days ago)'), watchAfterAdd: pv2.watch };
+  await pv.close();
+  // Table mode at 1280: figure columns, no ratio column, divider rows by
+  // county in the default order and by sale date in date order.
+  const tb = await newPage({ viewport: { width: 1280, height: 900 } });
+  tb.on('pageerror', e => errors.push('pr3 table pageerror: ' + e.message));
+  await tb.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+  await tb.waitForTimeout(500);
+  await tb.click('#tableToggleBtn'); await tb.waitForTimeout(200);
+  const tbState = () => tb.evaluate(() => ({ head: [...document.querySelectorAll('#dataTable thead th')].map(e => e.textContent.trim()),
+    dividers: [...document.querySelectorAll('#dataTableBody tr.dt-divider')].map(e => e.textContent.trim()).slice(0, 3),
+    rows: document.querySelectorAll('#dataTableBody tr[data-pid]').length,
+    first: (() => { const r = document.querySelector('#dataTableBody tr[data-pid]'); return r ? [...r.children].slice(0, 8).map(td => td.textContent.replace(/\s+/g, ' ').trim()) : null; })(),
+    noRatio: !/÷|ratio/i.test(document.getElementById('dataTable').textContent) }));
+  const t1 = await tbState();
+  await tb.evaluate(() => { const s = document.getElementById('sortBy'); s.value = 'dateAsc'; s.dispatchEvent(new Event('change', { bubbles: true })); });
+  await tb.waitForTimeout(300);
+  const t2 = await tbState();
+  // Sale dates are relative to today in the fixture; the shape is pinned, not the day.
+  const undate = s => s.replace(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), [A-Z][a-z]+ \d{1,2}, \d{4}/, '<long date>').replace(/[A-Z][a-z]{2} \d{1,2}, \d{4}/, '<date>');
+  results.pr3Table = { head: t1.head, countyDividers: t1.dividers, rows: t1.rows, first: t1.first && t1.first.map(undate), noRatio: t1.noRatio, dateDividers: t2.dividers.map(undate), defaultIsCards: true };
+  await tb.close();
+  const dflt = await newPage({ viewport: { width: 1280, height: 900 } });
+  await dflt.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' }); await dflt.waitForTimeout(400);
+  results.pr3Table.defaultIsCards = await dflt.evaluate(() => document.body.dataset.listmode !== 'table' && getComputedStyle(document.getElementById('dataTableWrap')).display === 'none');
+  await dflt.close();
+}
+
 await browser.close();
 
 const EXPECTED = {
+  // Redesign PR3 (2026-10-25): Home, map toolbar / preview, table mode - pinned from DUMP_RESULTS.
+  pr3Home: {"lines": ["laft:2", "auction:9", "certificate:1", "homeStatesCard:13"], "sales": 3, "folds": ["watch:0 / 10:closed", "searches:0:closed", "research:0:closed"], "read": ["Auctions:Current:true", "Available:Update unsuccessful; retry pending:true", "Liens & Certificates:Partly updated:true"], "operatorPanels": 0, "recentFoldClosed": true, "pageUnder2600": true, "noOperatorWords": true},
+  pr3MapToolbar: {"row1": true, "row2": true, "hiddenFirst": true, "shownAfter": true, "expanded": "true", "badgeWithWatch": "1", "googleOn": true, "overflow": 0},
+  pr3Preview: {"prov": "Source not recorded · last synced Aug 10, 2026 (N days ago) · may be stale · last read not recorded", "watch": "⚐ Add to Watchlist", "open": "Open record →", "bidTitle": "Exact amount $8,000.00. Rounded to whole dollars here.", "stripMarker": "Open in the preview · tap to close", "provMatchesCard": true, "watchAfterAdd": "⚑ On Watchlist"},
+  pr3Table: {"head": ["Sale", "County", "Address", "Parcel", "Case", "Published figure", "Value on file", "Status", ""], "countyDividers": ["Alachua County", "Brevard County", "Charlotte County"], "rows": 9, "first": ["Sale <date>", "Alachua", "1 Main St", "111", "A-1", "$5,000.00Opening bid", "$90,0002025 County Just Value", "Listed"], "noRatio": true, "dateDividers": ["Sale <long date>", "Sale <long date>", "Sale <long date>"], "defaultIsCards": true},
   // Redesign PR1 (2026-10-24): first fold at 390x844 and the desktop contents list - pinned from DUMP_RESULTS.
   firstFoldAuction: {"dts": ["Sale", "Opening bid", "Value on file", "Source · last read"], "figure": "$8,000.00", "value": "$95,000", "provPrefix": "Source not recorded", "saleWithin": true, "figureWithin": true, "unknown": "Not known from the record: Registration, deposit and payment rules not verified · Image not checked yet · Flood zone not checked. Nothing here is estimated.", "unknownWithin": true, "cta": "View sale listing", "ctaWithin": true, "acquireFirstSection": "acquire", "figureOnce": true, "valueOnce": true, "groupsClosed": true, "decisionClosed": true, "navHidden": true, "actbar": ["Favorite", "Watchlist", "Acquire →"], "actbarOnScreen": true, "actbarTargets": true, "verifiedLine": "Verified: Not yet · the county's registration, deposit and payment rules for this sale have not been captured from its own page. Check the county's sale page before bidding; nothing here is assumed.", "sectionIds": ["acquire", "decision", "financial", "risk", "map", "related", "timeline", "events", "truth", "documents", "provenance", "sources", "research", "diligence", "monitor"], "saleIsDate": true, "saleOnceInFold": 1},
   firstFoldJumpOpensDecision: {"open": true, "scrolled": true},
@@ -7464,8 +7570,8 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v139"]},
-  brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v140"]},
+  brandShell: { shellNoOtherState: true, dataSourcesHead: false, title: "Auctions · TAXACQ — Michigan" },   // redesign PR3: the every-state dataset panel left the customer page (admin.html lists every state)
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
   brandTxContext: { title: "OTC Catalog — Struck-Off Inventory · TAXACQ — Texas", ledgerTab: "laft", hash: "#/lands" },
@@ -7510,6 +7616,7 @@ const EXPECTED = {
   monNoneCountsAfterSeen: ['2 matching', '0 new', '0 changed', '0 no longer matching'],
   monNoneAlerts: 1,
   monNoneRuns: 1,
+  monNoneHomeNoRuns: 0,
   monDashRuns: ['fl_realauction:812 observed / 14 new / 40 changed / 9 no longer listed', 'fl_laft_html:120 observed / 3 new / 5 changed / 2 no longer listed / 1 listed again'],
   acqWithheldLineCount: 0,
   acqP16State: 'none',
@@ -7682,7 +7789,6 @@ const EXPECTED = {
   flPurchaseModeLine: "How to purchase | Phone or mail process (published by the source; no online path)",
   dashLedgerPanelRemoved: true,
   dashWithheldShownOnce: true,
-  dashUnitBayUnavailable: '1',
   bayStripCardCount: 1,
   bayPinCount: 0,
   bayPreviewHasAvailability: true,
@@ -7728,7 +7834,7 @@ const EXPECTED = {
   pinClickStripSel: 1,
   previewKicker: /^Charlotte County, FL · Auction · Sale [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
   previewCoords: '26.93420, -82.04540',
-  previewBid: '$8,000.00',
+  previewBid: "$8,000",   // redesign PR3: the preview formats an auction figure as its card does (exact amount in the title)
   previewValueLabel: 'County Just Value',
   previewIds: ['444', 'D-1'],
   previewFlood: 'Not checked',
@@ -8002,11 +8108,11 @@ const EXPECTED = {
   navDashNoValueTile: true,
   // Fixture p15 was last read 2026-09-20: from 2026-10-05 on it is permanently
   // outside the 14-day window, so it is not "read recently" and counts as stale.
-  navDashAttention: ['soon:4 properties · 4 sale dates', 'watched-gone:None', 'stale:2 of 2', 'sources:1 unavailable at the last read · 1 update unsuccessful; retry pending'],
+  navDashAttention: [],   // redesign PR3: no operator panel remains on Home
   navDashRecentPanelRemoved: true,
-  navDashPaths: ["verified:2 of 2", "phone_mail:1", "county_instructions:1", "unverified:0"],   // the Florida fixture rows both carry a verified path
+  navDashPaths: ["Brevard County | 42 Palm Ave · Opening bid $11,000", "Alachua County | 1 Main St · Opening bid $5,000", "Charlotte County | 500 Elm Way · Opening bid $8,000"],   // redesign PR3: Home's next three sales, bid named as the source names it
   navDashNoScoreWords: true,
-  navDashSubtitle: 'What needs attention, verified acquisition paths, source freshness and your watchlist - counts over the records loaded for this state.',
+  navDashSubtitle: 0,   // redesign PR3: the operating-view subtitle is gone
   navDashTileOpensList: true,
   navDashTileHash: '#/lands',
   navDashTileHeading: 'Available',
@@ -8276,25 +8382,19 @@ const EXPECTED = {
   eventSectionSaysNotPublished: 2,
   eventOutcomeSourcePublished: "Outcome: Unsold / struck off - verified Source: The auction source · Evidence: the source's own status for this sale (property-specific) · Source wording “Struck off to Jurisdiction” · Observed Sep 20, 2026 · Purchaser identity and bidder count are not recorded",
   eventNoteSaysSourceOnly: true,
-  dashHealthRows: ['fl_deeds:HEALTHY', 'fl_certificates:INCOMPLETE', 'fl_laft:FAILED', 'db_backup:STALE', 'tx_sales:INCOMPLETE'],
+  dashHealthRows: ["auction:HEALTHY", "laft:FAILED", "certificate:INCOMPLETE"],   // redesign PR3: one Data read line per ledger
   dashHealthBadgeTexas: true,
   dashHealthIncompleteNames: true,
-  dashUnitRows: ["Alachua:current", "Bay:stale", "Citrus:current", "Dixie:current"],
-  dashUnitLedgerHeads: ['auction', 'laft', 'certificate'],
-  dashUnitRowsUnderAvailable: ["Alachua", "Bay", "Citrus", "Dixie"],
-  dashUnitEmptyGroups: 2,
+  dashUnitRows: { unitRows: 0, countyNames: false },   // redesign PR3: no county rows or names on Home; admin.html carries them (adminFreshnessUnitDetail)
   certDetailRelated: ['auction:p1:Auctions'],
   certDetailStatusLines: 4,
   relatedOpenLandsOnAuctionRow: '1 Main St',
   auctionDetailRelated: ['certificate:p4'],
   certStatusLines: ['Status On the county-held list', 'Issued Jun 1, 2023 · tax year 2022', 'Redemption Not published by the source', 'Property Parcel # 111 · 1 record in other ledgers'],
-  dashUnitStaleText: 'Source unavailable at the last check - existing listings are kept',
-  dashUnitCurrentText: 'Last updated 2h ago',
-  dashUnitMissingColumns: true,
-  dashUnitMissingColumnsNoRows: 0,
+  dashUnitMissingColumns: ["auction:HEALTHY", "laft:FAILED", "certificate:INCOMPLETE"],   // without the county registry columns the dataset health still decides
   dashWatchFirstVisit: true,
   dashWatchNoNotificationsClaim: true,
-  dashHealthMissingTable: true,
+  dashHealthMissingTable: ["auction:Status not recorded", "laft:Partly updated", "certificate:Status not recorded"],   // without dataset health: Available from its county reads (Bay unavailable), the others not recorded
   dashHealthMissingTableNoBadges: 0,
   watchChangeItems: ['p1', 'gone1'],
   watchChangeBidLine: 'Opening bid: $4,000.00 → $5,000.00',
@@ -8330,7 +8430,7 @@ const EXPECTED = {
   detailStatusPill: 'Listed',
   detailStatusPillClass: 'pill active',
   notesVisibilityText: 'Shared with every approved member, with your email name - not private',
-  tableHeaderValue: 'County value',
+  tableHeaderValue: "Value on file",   // redesign PR3: figure columns; the value column is named for what it holds
   txStruckOffDetailTag: 'Galveston County, TX · Struck-off inventory',
   txStruckOffWhat: 'Texas struck-off / future-sale inventory (vendor listing)',
   txStruckOffNeverLandsAvailable: true,

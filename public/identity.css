@@ -1489,3 +1489,12 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
   padding:.45rem .55rem;border-bottom:1px solid var(--rule-strong);letter-spacing:0;text-transform:none;cursor:default}
 .data-table tbody tr.dt-divider:hover{background:transparent}
 .home-watch-changes .dash-empty{text-align:left}
+/* Phone sheet, collapsed: it must leave more than half the stage to the map
+   (mobilePreviewCoversLessThanHalfStage). The actions stay on one line. */
+@media (max-width:1023px){
+  .pv-actions{flex-wrap:nowrap}
+  .pv-actions .bid-btn,.pv-actions .pv-expand,.pv-actions .preview-open{white-space:nowrap;padding:0 .55rem}
+  .map-page-map .explore-map-stage > .explore-preview:not(.expanded){gap:.3rem;padding:.45rem .6rem .45rem}
+  .explore-preview:not(.expanded) .pv-money{padding-top:.25rem;gap:.2rem .8rem}
+  .explore-preview:not(.expanded) .pv-head-fig .pv-val{font-size:1.25rem}
+}
