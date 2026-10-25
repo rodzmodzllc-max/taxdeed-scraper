@@ -189,7 +189,7 @@ def test_acquisition_unit_counts_after_the_sprint():
     by = {}
     for u in ACQ["status"]:
         by[u["status"]] = by.get(u["status"], 0) + 1
-    assert len(ACQ["status"]) == 72 and by == {"VERIFIED": 26, "NEEDS_REVIEW": 8, "UNAVAILABLE": 6, "NOT_FOUND": 32}
+    assert len(ACQ["status"]) == 72 and by == {"VERIFIED": 29, "NEEDS_REVIEW": 6, "UNAVAILABLE": 5, "NOT_FOUND": 32}  # +Sarasota, Indian River, St. Lucie (2026-10-25)
 
 
 # ------------------------------------------------------------------ A2 county procedure rules
@@ -198,7 +198,7 @@ def test_every_applicable_evidence_row_has_its_procedure_rule_and_nothing_is_inv
     rules = SR.load_rules()
     assert PR.problems(rules) == []
     expected = PR.expected_rules(changed_on="2026-10-11")
-    assert len(expected) == len(PR.applicable_evidence()) == 30             # 29 before this sprint + the DLBA policy row; Morgan CO: one county, two ledgers
+    assert len(expected) == len(PR.applicable_evidence()) == 33             # 29 before this sprint + the DLBA policy row; Morgan CO: one county, two ledgers; +3 FL 2026-10-25
     by_key = {(r.state, r.county, r.topic): r for r in rules}
     for r in expected:
         cur = by_key[(r.state, r.county, r.topic)]
@@ -246,10 +246,10 @@ def test_gap_queue_is_generated_from_the_records_and_pinned():
     assert out.returncode == 0, out.stdout
     doc = json.loads((ROOT / "data/current_state/gap-queue.json").read_text(encoding="utf-8"))
     assert doc == GQ.build()
-    assert doc["denominators"]["acquisition_units"] == 72 and doc["denominators"]["acquisition_unresolved"] == 46
+    assert doc["denominators"]["acquisition_units"] == 72 and doc["denominators"]["acquisition_unresolved"] == 43
     assert doc["denominators"]["state_ledger_units"] == 39
     assert set(doc["summary"]["by_category"]) <= set(GQ.CATEGORIES)
-    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 46 + 33
+    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 43 + 33
     for u in doc["units"]:
         assert u["category"] in GQ.CATEGORIES and u["next_action"] and u["source_accessible"] and "reason" in u
         assert u["completable_now"] == (u["category"] == "A")
@@ -257,7 +257,8 @@ def test_gap_queue_is_generated_from_the_records_and_pinned():
     assert by[("FL", "Escambia", "fl_laft_html", "AVAILABLE")]["category"] == "D"          # HTTP 403 to the runner
     assert by[("TX", "Harris", "tx_hctax", "AVAILABLE")]["category"] == "E"               # legal review
     assert by[("TX", "Liberty", "tx_lgbs", "AVAILABLE")]["category"] == "F"               # no official resale process
-    assert by[("FL", "Indian River", "fl_laft_html", "AVAILABLE")]["category"] == "B"     # script-rendered page
+    assert ("FL", "Indian River", "fl_laft_html", "AVAILABLE") not in by                 # closed 2026-10-25 (page read live)
+    assert by[("FL", "Hillsborough", "fl_laft_hillsborough", "AVAILABLE")]["category"] == "C"
     assert by[("TN", "*", "", "AVAILABLE")]["category"] == "E"                            # owner publication review
     assert by[("LA", "*", "", "AVAILABLE")]["category"] == "A"                            # fix exists, awaiting deploy
     assert by[("FL", "*", "", "LIENS_CERTIFICATES")]["category"] == "D"                  # LienHub 403

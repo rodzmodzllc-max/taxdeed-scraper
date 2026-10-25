@@ -241,7 +241,7 @@ def test_g14_committed_evidence_from_the_candidate_capture():
         assert "run 36858070184" in e.notes and e.review_state == "verified" and e.steps, key
     assert by[("FL", "Duval")].application_url.endswith("392460_2_Land-s-Available-Request-Form.pdf")
     # Counties whose official pages published no acquisition process stay without a row (fail closed).
-    for key in [("FL", c) for c in ("Bay", "Hillsborough", "Indian River", "Miami-Dade", "Polk", "Putnam", "St. Lucie", "Escambia",
-                                    "Hendry", "Lee", "Osceola", "Palm Beach", "Sarasota", "Gadsden")] + \
+    for key in [("FL", c) for c in ("Bay", "Hillsborough", "Miami-Dade", "Polk", "Putnam", "Escambia",
+                                    "Hendry", "Lee", "Osceola", "Palm Beach", "Gadsden")] + \
                [("TX", c) for c in ("Liberty", "Leon", "Maverick", "Jim Wells", "Hardin", "Van Zandt", "Goliad")]:
         assert key not in by, key

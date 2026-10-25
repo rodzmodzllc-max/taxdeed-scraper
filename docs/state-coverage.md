@@ -30,7 +30,7 @@ CO - LIENS_CERTIFICATES: 141 active rows; 0 never stamped, 0 older than 36 h at 
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
 | AUCTIONS | OFFERED | CURRENT | 47 / 47 / 47 | 1185 | 251 | 69 | 0 of 0 | Keep reading; raise field population where a verified official layer exists (see fields). |
-| AVAILABLE | OFFERED | CURRENT | 64 / 52 / 52 | 157 | 3 | 13 | 19 of 52 | Keep reading; raise field population where a verified official layer exists (see fields). |
+| AVAILABLE | OFFERED | CURRENT | 64 / 52 / 52 | 157 | 3 | 13 | 22 of 52 | Keep reading; raise field population where a verified official layer exists (see fields). |
 | LIENS_CERTIFICATES | OFFERED | SOURCE_FAILED_OR_STALE | 32 / 32 / 32 | 1611 | 1611 | 0 | 0 of 0 | Investigate the last read's error category (registry last_error_category / unit freshness) and restore the read; rows are kept, never closed, until a COMPLETE read. |
 
 FL - AUCTIONS field population (active rows, snapshot): amount 1184/1185; bid_amount_mismatch 0/1185; coords 942/1185; dup_parcel 0/1185; flood_checked 942/1185; laft_bid_without_amount 0/1185; link_not_https 0/1185; list_as_of 0/1185; list_as_of_future 0/1185; never_seen 251/1185; parcel 1146/1185; parcel_no_digit 0/1185; past_sale 4/1185; path_typed 0/1185; provenance 243/1185; seen_gt36h 78/1185; seen_order_bad 0/1185; source_link 1185/1185

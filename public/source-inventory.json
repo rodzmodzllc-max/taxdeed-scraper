@@ -106,7 +106,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:CO:Douglas:27",
+   "source_id": "evidence:CO:Douglas:30",
    "source_type": "DOCUMENT",
    "state": "CO",
    "url": "https://www.douglasco.gov/documents/request-for-assignment-of-county-held.pdf/"
@@ -216,7 +216,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:CO:Morgan:22",
+   "source_id": "evidence:CO:Morgan:25",
    "source_type": "GOVERNMENT",
    "state": "CO",
    "url": "https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates"
@@ -238,7 +238,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:CO:Morgan:29",
+   "source_id": "evidence:CO:Morgan:32",
    "source_type": "GOVERNMENT",
    "state": "CO",
    "url": "https://morgancounty.colorado.gov/bidding-rules-and-information"
@@ -1443,6 +1443,28 @@
    "url": "https://www.escambiaclerk.com/362/Tax-Deeds"
   },
   {
+   "access": "SOURCE_UNAVAILABLE",
+   "access_note": "SOURCE_UNAVAILABLE: HTTP 403 to the runner on every candidate page",
+   "county": "Escambia",
+   "evidence": "runs 36858070184 / 36865836152 (docs/available-ledger.md 13.5)",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-01",
+   "legacy_status": "",
+   "name": "Clerk Tax Deeds / Lands Available page; HTTP 403 to the assistant's reader 2026-10-25",
+   "next_action": "Manual review of the page (automated capture refused)",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:FL:Escambia:54",
+   "source_type": "GOVERNMENT",
+   "state": "FL",
+   "url": "https://www.escambiaclerk.com/255/Tax-Deeds-Lands-Available"
+  },
+  {
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_lienhub_certificates.ps1; last completeness UNKNOWN",
    "county": "Flagler",
@@ -1787,6 +1809,28 @@
    ],
    "source_id": "FL:Hendry:fl_laft_pdfs",
    "source_type": "DOCUMENT",
+   "state": "FL",
+   "url": "https://library.municode.com/FL/hendry_clerk_of_courts/munidocs/munidocs?nodeId=4b2b2ea877a65"
+  },
+  {
+   "access": "SOURCE_UNAVAILABLE",
+   "access_note": "SOURCE_UNAVAILABLE: HTTP 403 to the runner on every candidate page",
+   "county": "Hendry",
+   "evidence": "runs 36858070184 / 36865836152 (docs/available-ledger.md 13.5)",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-01",
+   "legacy_status": "",
+   "name": "Clerk's 'Tax Deeds & Lands Available' document library; HTTP 403 to the assistant's reader 2026-10-25",
+   "next_action": "Manual review of the page (automated capture refused)",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:FL:Hendry:57",
+   "source_type": "GOVERNMENT",
    "state": "FL",
    "url": "https://library.municode.com/FL/hendry_clerk_of_courts/munidocs/munidocs?nodeId=4b2b2ea877a65"
   },
@@ -2239,6 +2283,28 @@
    "source_type": "GOVERNMENT",
    "state": "FL",
    "url": "https://indianriverclerk.com/recording-services/tax-deed-faqs/"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "verified capture, observed 2026-10-25",
+   "county": "Indian River",
+   "evidence": "Read live on 2026-10-25 from the official page through the assistant's web reader (WebFetch), which returns page text through a summarizer: the instructions column keeps only the sentences it returned in quotation marks; reviewed by the mai",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-25",
+   "legacy_status": "",
+   "name": "Land Available for Taxes - Indian River Clerk of the Circuit Court & Comptroller",
+   "next_action": "",
+   "origin": "evidence",
+   "publisher": "Indian River County Tax Collector",
+   "roles": [
+    "acquisition",
+    "source_date"
+   ],
+   "source_id": "evidence:FL:Indian River:23",
+   "source_type": "GOVERNMENT",
+   "state": "FL",
+   "url": "https://indianriverclerk.com/land-available-for-taxes/"
   },
   {
    "access": "ACCESSIBLE",
@@ -2796,7 +2862,7 @@
    "name": "Tax Deeds | Marion County Clerk of Court and Comptroller",
    "next_action": "",
    "origin": "evidence",
-   "publisher": "Marion County Clerk of Court and Comptroller",
+   "publisher": "Marion County Clerk of Court and Comptroller - Tax Deeds",
    "roles": [
     "acquisition",
     "source_date"
@@ -3485,6 +3551,50 @@
    "url": "https://www.mypalmbeachclerk.com/services/forms-library/forms-a-z"
   },
   {
+   "access": "SOURCE_UNAVAILABLE",
+   "access_note": "SOURCE_UNAVAILABLE: HTTP 403 to the runner on every candidate page",
+   "county": "Palm Beach",
+   "evidence": "runs 36858070184 / 36865836152 (docs/available-ledger.md 13.5)",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-01",
+   "legacy_status": "",
+   "name": "Clerk Tax Deeds page; HTTP 403 to the assistant's reader 2026-10-25",
+   "next_action": "Manual review of the page (automated capture refused)",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:FL:Palm Beach:55",
+   "source_type": "GOVERNMENT",
+   "state": "FL",
+   "url": "https://www.mypalmbeachclerk.com/departments/courts/tax-deeds"
+  },
+  {
+   "access": "SOURCE_UNAVAILABLE",
+   "access_note": "SOURCE_UNAVAILABLE: HTTP 403 to the runner on every candidate page",
+   "county": "Palm Beach",
+   "evidence": "runs 36858070184 / 36865836152 (docs/available-ledger.md 13.5)",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-01",
+   "legacy_status": "",
+   "name": "Clerk Tax Deeds sale information; HTTP 403 to the assistant's reader 2026-10-25; search index names a Request for Lands Available form (not read)",
+   "next_action": "Manual review of the page (automated capture refused)",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:FL:Palm Beach:56",
+   "source_type": "GOVERNMENT",
+   "state": "FL",
+   "url": "https://www.mypalmbeachclerk.com/departments/courts/tax-deeds/sale-information"
+  },
+  {
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_lienhub_certificates.ps1; last completeness UNKNOWN",
    "county": "Pasco",
@@ -3787,6 +3897,50 @@
    "governance_reason": "",
    "last_checked": "2026-10-01",
    "legacy_status": "",
+   "name": "Clerk Property Sales page; read 2026-10-25 - links the LAFT list but publishes no purchase process",
+   "next_action": "Look for a separate Lands Available / resale process document",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:FL:Putnam:58",
+   "source_type": "GOVERNMENT",
+   "state": "FL",
+   "url": "https://putnamclerk.com/county-services/property-sales/"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "SOURCE_EMPTY: Official pages read; they describe the auction only - no Lands Available purchase step",
+   "county": "Putnam",
+   "evidence": "runs 36858070184 / 36865836152 (docs/available-ledger.md 13.5)",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-01",
+   "legacy_status": "",
+   "name": "Printable LAFT list; read 2026-10-25 - fees and 90-day notice only; no purchase process",
+   "next_action": "Look for a separate Lands Available / resale process document",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:FL:Putnam:59",
+   "source_type": "GOVERNMENT",
+   "state": "FL",
+   "url": "https://apps.putnam-fl.com/coc/taxdeeds/public/print_LAFT.php"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "SOURCE_EMPTY: Official pages read; they describe the auction only - no Lands Available purchase step",
+   "county": "Putnam",
+   "evidence": "runs 36858070184 / 36865836152 (docs/available-ledger.md 13.5)",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-01",
+   "legacy_status": "",
    "name": "Tax Collector tax-deed FAQ",
    "next_action": "Look for a separate Lands Available / resale process document",
    "origin": "candidate",
@@ -3799,6 +3953,28 @@
    "source_type": "GOVERNMENT",
    "state": "FL",
    "url": "https://putnamtax.com/faq/specific-tax-deed-information/"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "SOURCE_EMPTY: Official pages read; they describe the auction only - no Lands Available purchase step",
+   "county": "Putnam",
+   "evidence": "runs 36858070184 / 36865836152 (docs/available-ledger.md 13.5)",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-01",
+   "legacy_status": "",
+   "name": "Clerk tax deed list disclaimer page (not read)",
+   "next_action": "Look for a separate Lands Available / resale process document",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:FL:Putnam:60",
+   "source_type": "GOVERNMENT",
+   "state": "FL",
+   "url": "https://apps.putnam-fl.com/coc/taxdeeds/public/disclaimer.php"
   },
   {
    "access": "NOT_CHECKED",
@@ -4032,6 +4208,28 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "verified capture, observed 2026-10-25",
+   "county": "Sarasota",
+   "evidence": "Read live on 2026-10-25 from the official page through the assistant's web reader (WebFetch), which returns page text through a summarizer: the instructions column keeps only the sentences it returned in quotation marks; reviewed by the mai",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-25",
+   "legacy_status": "",
+   "name": "List of Lands Available | Sarasota Clerk of the Circuit Court and County Comptroller",
+   "next_action": "",
+   "origin": "evidence",
+   "publisher": "Sarasota County Clerk of the Circuit Court and County Comptroller - Tax Deed Department",
+   "roles": [
+    "acquisition",
+    "source_date"
+   ],
+   "source_id": "evidence:FL:Sarasota:22",
+   "source_type": "GOVERNMENT",
+   "state": "FL",
+   "url": "https://www.sarasotaclerk.com/Home-and-Property/Tax-Deeds/List-of-Lands-Available"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_lienhub_certificates.ps1; last completeness UNKNOWN",
    "county": "Seminole",
    "evidence": "data/florida_certificate_sale_platforms.csv; harvesters/governance/registry.py fl_lienhub_certificates",
@@ -4230,6 +4428,28 @@
     "discovery"
    ],
    "source_id": "candidate:FL:St. Lucie:24",
+   "source_type": "GOVERNMENT",
+   "state": "FL",
+   "url": "https://stlucieclerk.gov/faqs2/online-auctions-faqs"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "verified capture, observed 2026-10-25",
+   "county": "St. Lucie",
+   "evidence": "Read live on 2026-10-25 from the official page through the assistant's web reader (WebFetch), which returns page text through a summarizer: the instructions column keeps only the sentences it returned in quotation marks; reviewed by the mai",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-25",
+   "legacy_status": "",
+   "name": "Online Auctions FAQs - St. Lucie County Clerk",
+   "next_action": "",
+   "origin": "evidence",
+   "publisher": "St. Lucie County Clerk of the Circuit Court and Comptroller",
+   "roles": [
+    "acquisition",
+    "source_date"
+   ],
+   "source_id": "evidence:FL:St. Lucie:24",
    "source_type": "GOVERNMENT",
    "state": "FL",
    "url": "https://stlucieclerk.gov/faqs2/online-auctions-faqs"
@@ -4936,7 +5156,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:MI:Eaton:24",
+   "source_id": "evidence:MI:Eaton:27",
    "source_type": "GOVERNMENT",
    "state": "MI",
    "url": "https://www.eatoncounty.org/1530/2026-Foreclosure-Sale"
@@ -4980,7 +5200,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:MI:Lenawee:25",
+   "source_id": "evidence:MI:Lenawee:28",
    "source_type": "GOVERNMENT",
    "state": "MI",
    "url": "https://www.lenawee.mi.us/712/Tax-Sale"
@@ -5074,7 +5294,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:MI:Wayne:30",
+   "source_id": "evidence:MI:Wayne:33",
    "source_type": "DOCUMENT",
    "state": "MI",
    "url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/DLBA+Policies/POLICIES+-+Vacant+Land+Policy+(FINAL+Oct+2023).pdf"
@@ -5773,7 +5993,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:SC:York:26",
+   "source_id": "evidence:SC:York:29",
    "source_type": "DOCUMENT",
    "state": "SC",
    "url": "https://www.yorkcountysc.gov/DocumentCenter/View/5241/Tax-Sale-Fact-Sheet"
@@ -7995,7 +8215,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:WI:Dane:28",
+   "source_id": "evidence:WI:Dane:31",
    "source_type": "GOVERNMENT",
    "state": "WI",
    "url": "https://treasurer.danecounty.gov/Tax-Deed-Details"
@@ -8039,7 +8259,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:WI:Green:23",
+   "source_id": "evidence:WI:Green:26",
    "source_type": "GOVERNMENT",
    "state": "WI",
    "url": "https://www.greencountywi.org/492/Current-Tax-Deed-Sales"
@@ -8244,7 +8464,7 @@
    "sources": 8
   },
   "FL": {
-   "APPROVED": 176,
+   "APPROVED": 186,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 17,
    "by_type": {
@@ -8252,10 +8472,10 @@
     "COURT_PUBLIC_RECORD": 1,
     "DOCUMENT": 13,
     "GIS": 1,
-    "GOVERNMENT": 98,
+    "GOVERNMENT": 108,
     "PUBLIC_NOTICE": 1
    },
-   "sources": 193
+   "sources": 203
   },
   "LA": {
    "APPROVED": 8,

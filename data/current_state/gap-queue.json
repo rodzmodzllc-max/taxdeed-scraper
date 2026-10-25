@@ -9,13 +9,13 @@
  },
  "denominators": {
   "acquisition_by_status": {
-   "NEEDS_REVIEW": 8,
+   "NEEDS_REVIEW": 6,
    "NOT_FOUND": 32,
-   "UNAVAILABLE": 6,
-   "VERIFIED": 26
+   "UNAVAILABLE": 5,
+   "VERIFIED": 29
   },
   "acquisition_units": 72,
-  "acquisition_unresolved": 46,
+  "acquisition_unresolved": 43,
   "state_ledger_by_classification": {
    "APPROVAL_UNRESOLVED": 7,
    "CURRENT": 6,
@@ -35,12 +35,12 @@
   "registry": "data/county_source_registry.csv"
  },
  "summary": {
-  "acquisition_units_queued": 46,
+  "acquisition_units_queued": 43,
   "by_category": {
    "A": 2,
-   "B": 4,
+   "B": 2,
    "C": 29,
-   "D": 7,
+   "D": 6,
    "E": 10,
    "F": 27
   },
@@ -83,46 +83,6 @@
    "source_accessible": "yes",
    "state": "WI",
    "status": "OFFERED_VERIFIED_EMPTY"
-  },
-  {
-   "approved_for_customers": true,
-   "candidate_pages": 2,
-   "category": "B",
-   "completable_now": false,
-   "county": "Indian River",
-   "kind": "acquisition_unit",
-   "ledger": "AVAILABLE",
-   "next_action": "Implement a browser-rendered capture for the county's script-rendered process page, then record the evidence row",
-   "process_verified": false,
-   "publication_status": "APPROVED_GRANDFATHERED",
-   "reason": "The process wording is rendered by script and was not in the captured text (twice)",
-   "requires": "needs a parser / extractor / adapter / enrichment implementation",
-   "rule_verified": null,
-   "source": "registry source fl_laft_html",
-   "source_accessible": "yes",
-   "source_id": "fl_laft_html",
-   "state": "FL",
-   "status": "NEEDS_REVIEW"
-  },
-  {
-   "approved_for_customers": true,
-   "candidate_pages": 1,
-   "category": "B",
-   "completable_now": false,
-   "county": "St. Lucie",
-   "kind": "acquisition_unit",
-   "ledger": "AVAILABLE",
-   "next_action": "Implement a browser-rendered capture for the county's script-rendered process page, then record the evidence row",
-   "process_verified": false,
-   "publication_status": "APPROVED_GRANDFATHERED",
-   "reason": "The process wording is rendered by script and was not in the captured text (twice)",
-   "requires": "needs a parser / extractor / adapter / enrichment implementation",
-   "rule_verified": null,
-   "source": "registry source fl_laft_stlucie",
-   "source_accessible": "yes",
-   "source_id": "fl_laft_stlucie",
-   "state": "FL",
-   "status": "NEEDS_REVIEW"
   },
   {
    "approved_for_customers": false,
@@ -244,7 +204,7 @@
   },
   {
    "approved_for_customers": true,
-   "candidate_pages": 2,
+   "candidate_pages": 5,
    "category": "C",
    "completable_now": false,
    "county": "Putnam",
@@ -704,7 +664,7 @@
   },
   {
    "approved_for_customers": true,
-   "candidate_pages": 2,
+   "candidate_pages": 3,
    "category": "D",
    "completable_now": false,
    "county": "Escambia",
@@ -724,7 +684,7 @@
   },
   {
    "approved_for_customers": true,
-   "candidate_pages": 2,
+   "candidate_pages": 3,
    "category": "D",
    "completable_now": false,
    "county": "Hendry",
@@ -784,7 +744,7 @@
   },
   {
    "approved_for_customers": true,
-   "candidate_pages": 2,
+   "candidate_pages": 4,
    "category": "D",
    "completable_now": false,
    "county": "Palm Beach",
@@ -799,26 +759,6 @@
    "source": "registry source fl_laft_pioneer",
    "source_accessible": "no",
    "source_id": "fl_laft_pioneer",
-   "state": "FL",
-   "status": "UNAVAILABLE"
-  },
-  {
-   "approved_for_customers": true,
-   "candidate_pages": 1,
-   "category": "D",
-   "completable_now": false,
-   "county": "Sarasota",
-   "kind": "acquisition_unit",
-   "ledger": "AVAILABLE",
-   "next_action": "The county's official pages answer HTTP 403 to the GitHub runner; a records request or an allow-listed capture host is the only way forward",
-   "process_verified": false,
-   "publication_status": "APPROVED_GRANDFATHERED",
-   "reason": "Every official candidate page returned HTTP 403 to the capture runner",
-   "requires": "blocked by source access or a technical restriction",
-   "rule_verified": null,
-   "source": "registry source fl_laft_realtdm",
-   "source_accessible": "no",
-   "source_id": "fl_laft_realtdm",
    "state": "FL",
    "status": "UNAVAILABLE"
   },
