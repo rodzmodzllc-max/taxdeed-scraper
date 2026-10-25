@@ -4647,6 +4647,31 @@
    "url": "https://washington.realtdm.com/public/cases/list"
   },
   {
+   "access": "NOT_CHECKED",
+   "access_note": "verification MANUAL_REVIEW_REQUIRED",
+   "county": "Cook",
+   "evidence": "LIVE READ 2026-10-25 (development sandbox, counts only; no evidence-job run): Cook County - il_cook_landbank; linked from the Land Bank's own site (the pre-qualification application page); NO PUBLICATION DECISION YET (UNREVIEWED); state not activated; docs/sources-batch-2026-10-25-epropertyplus.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-25",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live from the development sandbox (2026-10-25); the state is registered but NOT activated, so the source is never requested and no row is written; publication UNREVIEWED - an admin review and the state's activation are both still required.)",
+   "origin": "registry",
+   "publisher": "Cook County",
+   "roles": [
+    "acquisition",
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "IL:Cook:il_cook_landbank",
+   "source_type": "GOVERNMENT",
+   "state": "IL",
+   "url": "https://public-cclba.epropertyplus.com/landmgmtpub/app/base/landing"
+  },
+  {
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_state_inventory.py --state LA; last completeness UNKNOWN",
    "county": "East Baton Rouge",
@@ -8190,6 +8215,7 @@
   "AZ",
   "CO",
   "FL",
+  "IL",
   "LA",
   "MI",
   "MN",
@@ -8256,6 +8282,15 @@
     "PUBLIC_NOTICE": 1
    },
    "sources": 193
+  },
+  "IL": {
+   "APPROVED": 0,
+   "HARD_BLOCKED": 0,
+   "REVIEW_REQUIRED": 1,
+   "by_type": {
+    "GOVERNMENT": 1
+   },
+   "sources": 1
   },
   "LA": {
    "APPROVED": 8,

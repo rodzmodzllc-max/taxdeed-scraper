@@ -27,6 +27,20 @@ exactly one of
             `size` - nothing read is trusted, never a partial zero
 
 Free text (`comments`) and the portal's thumbnail URLs are never mapped.
+
+Per-portal configuration (2026-10-25, Cook County Land Bank): tenants do not
+publish the same fields. Shelby publishes `currentStatus` + `available`; the
+Cook County Land Bank Authority's portal (public-cclba) publishes
+`currentStatus` but no `available` flag, and the fields a tenant leaves out
+of its public list are simply absent from every row. So the fields a read
+REQUIRES are derived from the configuration (`required_fields()`: the
+parcel number, the fields named by `offered` / `excluded`, the county field)
+instead of one fixed tuple; `offered` may be empty (every published row is
+read on list presence, the row's own status kept verbatim), `excluded`
+names (field, value) pairs that are never read (e.g. a parcel the land bank
+only TARGETS for acquisition), and `county_field` / `county_values` keep a
+portal that publishes more than one county to the county the registry row
+names (anything else is counted, never silently re-labelled).
 """
 from __future__ import annotations
 
@@ -38,9 +52,11 @@ from urllib.parse import urlencode
 
 from ..model import AmountKind, InventoryType, OtcRecord, PurchaseUrlKind, SourceAuthority
 
-__all__ = ["EppConfig", "EppResult", "fetch_all", "list_date", "page_url", "parse_rows"]
+__all__ = ["EppConfig", "EppResult", "fetch_all", "list_date", "page_url", "parse_rows", "required_fields"]
 
 LIST_PATH = "/landmgmtpub/remote/public/property/getPublishedProperties"
+# What the Shelby configuration requires (kept as the documented baseline; the
+# live rule is required_fields(cfg), which derives the same tuple for Shelby).
 REQUIRED = ("parcelNumber", "currentStatus", "available")
 NO_VALUE = frozenset({"", "NA", "N/A", "TBD", "NONE"})
 
@@ -52,8 +68,19 @@ class EppConfig:
     county: str
     portal: str                                   # https://<tenant>.epropertyplus.com
     list_url: str                                 # the public page a person opens
-    offered: tuple[tuple[str, str], ...]          # every (field, value) must hold for a row to be offered
+    offered: tuple[tuple[str, str], ...]          # every (field, value) must hold for a row to be offered; () = every published row
     id_pattern: str
+    # (field, value) pairs a row must NOT carry to be read (counted as
+    # excluded_status, like a row failing `offered`). A tenant that publishes
+    # no availability flag may still publish a status that says the land
+    # bank does not hold the parcel yet.
+    excluded: tuple[tuple[str, str], ...] = ()
+    # A portal that publishes more than one county: only rows whose
+    # `county_field` is one of `county_values` (case-insensitive) belong to
+    # this configuration's county; the rest are counted (excluded_county).
+    # None = the portal publishes one county (Shelby) and the field is not read.
+    county_field: str | None = None
+    county_values: tuple[str, ...] = ()
     inventory_type: InventoryType | None = InventoryType.POST_SALE
     record_source: str = "laft"
     source_authority: SourceAuthority = SourceAuthority.GOVERNMENT_DIRECT
@@ -83,10 +110,25 @@ class EppResult:
     excluded_status: int = 0
     rejected_ids: int = 0
     duplicates: int = 0
+    excluded_county: int = 0
 
 
 def page_url(cfg: EppConfig, page: int) -> str:
     return f"{cfg.portal}{LIST_PATH}?{urlencode({'page': page, 'limit': cfg.page_limit})}"
+
+
+def required_fields(cfg: EppConfig) -> tuple[str, ...]:
+    """The row fields a page must carry for this configuration: the parcel
+    number, every field an `offered` / `excluded` rule reads, and the county
+    field when one is configured - in first-seen order. A page whose first
+    row lacks one is a format change (FAILED), never read around."""
+    out = ["parcelNumber"]
+    for f, _ in cfg.offered + cfg.excluded:
+        if f not in out:
+            out.append(f)
+    if cfg.county_field and cfg.county_field not in out:
+        out.append(cfg.county_field)
+    return tuple(out)
 
 
 def _text(v: Any) -> str | None:
@@ -129,15 +171,34 @@ def list_date(v: Any) -> date | None:
 
 
 def _offered(row: dict, cfg: EppConfig) -> bool:
+    if any((_text(row.get(f)) or "").upper() == v.upper() for f, v in cfg.excluded):
+        return False
     return all((_text(row.get(f)) or "").upper() == v.upper() for f, v in cfg.offered)
+
+
+def _in_county(row: dict, cfg: EppConfig) -> bool:
+    if not cfg.county_field:
+        return True
+    return (_text(row.get(cfg.county_field)) or "").upper() in {v.upper() for v in cfg.county_values}
+
+
+def _offered_rule(cfg: EppConfig) -> str:
+    parts = [" and ".join(f"{f} = {v!r}" for f, v in cfg.offered)
+             or "every published row (the portal publishes no availability flag; the row's own status is kept verbatim)"]
+    if cfg.excluded:
+        parts.append("never " + " or ".join(f"{f} = {v!r}" for f, v in cfg.excluded))
+    return "; ".join(parts)
 
 
 def parse_rows(cfg: EppConfig, rows: list[dict], *, retrieved_at: datetime) -> tuple[list[OtcRecord], dict]:
     """Rows of the portal's list -> offered records, plus counts."""
-    counts = {"excluded_status": 0, "rejected_ids": 0, "duplicates": 0}
+    counts = {"excluded_status": 0, "rejected_ids": 0, "duplicates": 0, "excluded_county": 0}
     seen: set[str] = set()
     out: list[OtcRecord] = []
     for row in rows:
+        if not _in_county(row, cfg):
+            counts["excluded_county"] += 1
+            continue
         if not _offered(row, cfg):
             counts["excluded_status"] += 1
             continue
@@ -164,7 +225,7 @@ def parse_rows(cfg: EppConfig, rows: list[dict], *, retrieved_at: datetime) -> t
             "portal": cfg.portal,
             "list_endpoint": LIST_PATH,
             "portal_property_id": row.get("id"),
-            "offered_rule": " and ".join(f"{f} = {v!r}" for f, v in cfg.offered),
+            "offered_rule": _offered_rule(cfg),
             "amount": (f"field {cfg.amount_field!r} ({cfg.amount_label}) = {kind.value}" if amount is not None
                        else "no amount on the row"),
         }
@@ -172,6 +233,8 @@ def parse_rows(cfg: EppConfig, rows: list[dict], *, retrieved_at: datetime) -> t
             prov["portal_inventory_type"] = _text(row.get("inventoryType"))      # the source's own wording
         if coords:
             prov["coordinates"] = "the portal's own latitude / longitude for the parcel"
+        if cfg.county_field:
+            prov["county_rule"] = f"field {cfg.county_field!r} in {sorted(cfg.county_values)} (rows of another county are counted, never re-labelled)"
         as_of = list_date(row.get(cfg.list_as_of_field)) if cfg.list_as_of_field else None
         prov["list_as_of"] = (f"field {cfg.list_as_of_field!r} (the portal's own date)" if as_of
                               else "not stated by the portal - never the read time")
@@ -181,6 +244,7 @@ def parse_rows(cfg: EppConfig, rows: list[dict], *, retrieved_at: datetime) -> t
             inventory_type=cfg.inventory_type, retrieved_at=retrieved_at,
             parcel=pid,
             address=_text(row.get("propertyAddress1")),
+            legal_desc=_text(row.get("legalDescription")),
             amount=amount, amount_kind=kind,
             list_url=cfg.list_url, purchase_url=cfg.purchase_url, purchase_url_kind=cfg.purchase_url_kind,
             provenance=prov, record_source=cfg.record_source,
@@ -213,8 +277,9 @@ def fetch_all(cfg: EppConfig, fetch_json: Callable[[str], Any], *, retrieved_at:
             return EppResult("FAILED", error_category="PARSE_FORMAT_CHANGE", error_detail=f"page {page}: no total size")
         size = payload["size"]
         batch = payload["rows"]
-        if batch and any(k not in batch[0] for k in REQUIRED):
-            missing = [k for k in REQUIRED if k not in batch[0]]
+        required = required_fields(cfg)
+        if batch and any(k not in batch[0] for k in required):
+            missing = [k for k in required if k not in batch[0]]
             return EppResult("FAILED", error_category="PARSE_FORMAT_CHANGE", error_detail=f"missing field(s) {missing}")
         rows += batch
         if not batch or len(rows) >= size:

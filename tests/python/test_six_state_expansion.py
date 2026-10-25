@@ -61,6 +61,7 @@ AVAILABLE_FIVE_HOSTS = {   # AVAILABLE expansion 2026-10-04 (docs/available-expa
     "pa_fayette_repository": "https://www.fayettecountypa.org/DocumentCenter/View/9761/",
     "mn_ramsey_tax_forfeit": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/",
     "tn_shelby_landbank": "https://public-sctn.epropertyplus.com",     # Tennessee 2026-10-08 (docs/tennessee-survey.md)
+    "il_cook_landbank": "https://public-cclba.epropertyplus.com",      # Illinois 2026-10-25, NOT activated (docs/sources-batch-2026-10-25-epropertyplus.md)
 }
 FIVE_STATE_HOSTS = {
     "co_douglas_county_held_liens": "https://services.arcgis.com/seTexOicoRXDvRsJ/",
@@ -124,7 +125,8 @@ def test_r01_one_production_row_per_source_with_the_owner_decision():
 
 def test_r02_every_config_is_column_verified_and_pinned_to_its_host():
     for st, srcs in EX.SOURCES.items():
-        assert st in NEW
+        # IL (2026-10-25): a configuration in a registered, NOT activated state.
+        assert st in NEW or (states.get_state(st) is not None and not states.is_activated(st)), st
         for src in srcs:
             cfg = src.config
             assert cfg.columns_verified and cfg.state == st
@@ -135,7 +137,7 @@ def test_r02_every_config_is_column_verified_and_pinned_to_its_host():
     certs = {"co_morgan_county_held_certificates", "co_douglas_county_held_liens"}
     assert {kinds[k] for k in certs} == {"certificate"}
     # AVAILABLE only where the source itself offers government-held property (the AVAILABLE sprint's sources).
-    available = EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS
+    available = EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS | EX.EPP_BATCH2_SOURCE_IDS
     assert {kinds[k] for k in available} == {"laft"}
     assert {v for k, v in kinds.items() if k not in certs | available} == {"auction"}
 

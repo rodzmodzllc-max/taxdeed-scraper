@@ -3468,3 +3468,19 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   error`, `?boundaryids=<id>,<id>` (outline ids the cards see).
 - `sw.js` -> `tdw-shell-v137` (2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
 
+
+## ePropertyPlus land banks, batch 2: Cook County IL (2026-10-25, PR open, no migration)
+
+Full description: `docs/sources-batch-2026-10-25-epropertyplus.md`. Stable facts:
+- **IL is registered NON-production** (`states.IL`): representable, never runnable; no state page, no front end.
+  `il_cook_landbank` (`expansion.IL_COOK_LANDBANK`, `SOURCES["IL"]`) is UNREVIEWED with one candidate registry row
+  (MANUAL_REVIEW_REQUIRED, no harvester). `harvest_expansion.gate()` and `runnable_sources()` (`STATE_NOT_ACTIVATED`)
+  both refuse a non-activated state before any request.
+- **ePropertyPlus is per-portal now:** `required_fields(cfg)` derives the fields a page must carry (Shelby unchanged:
+  parcelNumber / currentStatus / available); `offered=()` reads every published row, `excluded` drops (field, value)
+  pairs (Cook: `Target - Dlqt Taxes`), `county_field` / `county_values` count other counties (`excluded_county`).
+  Cook publishes no availability flag; its `currentStatus` is kept verbatim. `minimumBid` = OPENING_BID (terms basis
+  MINIMUM_BID); `askingPrice` never mapped.
+- Permissions: fetch / parse / store only (INTERNAL_RISK_ACCEPTANCE, excluded_from_paid_tier, expires 2027-04-12).
+- **Kansas City (MO) is a candidate only** (`mo_kc_landbank_portal` in `data/available_source_candidates.csv`): the
+  portal answers, but the Land Bank's own linkage could not be verified (its domain now serves an unrelated login).

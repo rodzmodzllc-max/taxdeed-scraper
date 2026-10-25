@@ -459,8 +459,58 @@ TN_SHELBY_LANDBANK = EppConfig(
           "Offer to Purchase and Sales Agreement packet; no per-parcel purchase link is constructed.")
 
 
+# ---- ePropertyPlus land banks, batch 2 (2026-10-25): Cook County, IL ------
+# The Cook County Land Bank Authority's public portal, read LIVE from the
+# development sandbox on 2026-10-25 (counts only; no evidence-job run yet -
+# the sandbox can reach the portal, the runner has not read it). Linked from
+# the Land Bank's own site: cookcountylandbank.org/pre-qualification-
+# application-purchasing-property/ ("To view our current property inventory
+# and submit a corresponding application, please click below" -> the
+# portal's propertySearch page). 923 published rows, all county 'Cook' /
+# state 'IL'; parcelNumber shape 99-99-999-999-9999 (923 distinct).
+# currentStatus: 'Acquired' (914), 'Rehab In Progress' (8), 'Target - Dlqt
+# Taxes' (1) - an ownership / pipeline status, NOT an availability flag; the
+# portal publishes no `available` field (Shelby's rule cannot apply). So
+# every published row is read on list presence with its status verbatim,
+# except a TARGET row (a parcel the Land Bank pursues through the tax
+# certificate program, not one it holds). inventoryType ('Vacant Land' 763,
+# 'Residential Home' 86, 'Commercial Property' 64, ...) and propertyClass
+# are the portal's own wording. minimumBid is filled on 918 rows and
+# askingPrice on 108: the field the portal names a minimum bid is kept as
+# the published minimum bid (OPENING_BID - the Horry / Fayette precedent for
+# a 'minimum bid' column); askingPrice is NOT mapped (one amount per row,
+# and what distinguishes the two under the CCLBA Policies & Procedures has
+# not been read). The page says only "All final dispositions of property
+# are governed by the CCLBA Policies & Procedures" - no per-parcel purchase
+# link is constructed; the pre-qualification page is the application path.
+# `comments`, the NSI/NCST broker fields, court / case custom fields and
+# thumbnails are never mapped. Illinois is a NON-production state
+# (harvesters/governance/states.py IL): the runner's gate refuses the state
+# before any request, whatever this configuration says.
+IL_EVIDENCE_READ = "2026-10-25 (development sandbox, counts only; no evidence-job run)"
+IL_COOK_LANDBANK = EppConfig(
+    source_id="il_cook_landbank", state="IL", county="Cook",
+    portal="https://public-cclba.epropertyplus.com",
+    list_url="https://public-cclba.epropertyplus.com/landmgmtpub/app/base/landing",
+    offered=(),                                               # no availability flag published
+    excluded=(("currentStatus", "TARGET - DLQT TAXES"),),
+    county_field="county", county_values=("Cook",),
+    id_pattern=r"\d{2}-\d{2}-\d{3}-\d{3}-\d{4}",
+    amount_field="minimumBid", amount_kind=AmountKind.OPENING_BID, amount_label="Minimum Bid",
+    purchase_url="https://cookcountylandbank.org/pre-qualification-application-purchasing-property/",
+    purchase_url_kind=PurchaseUrlKind.APPLICATION_FORM,
+    columns_verified=True,
+    notes="Cook County Land Bank Authority inventory on its ePropertyPlus portal (linked from the Land Bank's "
+          "pre-qualification application page). The portal publishes no availability flag: every published row is read "
+          "on list presence with its own currentStatus kept verbatim ('Acquired', 'Rehab In Progress'); a 'Target - Dlqt "
+          "Taxes' row (pursued, not held) is never read. minimumBid is kept as the published minimum bid; askingPrice is "
+          "not mapped. Applications through the Land Bank's pre-qualification page; no per-parcel purchase link.")
+
 HELD_AVAILABLE = ("AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for "
                   "development, labelled UNREVIEWED; not customer-published until an admin review approves it.")
+HELD_NOT_ACTIVATED = ("AVAILABLE source read live from the development sandbox (2026-10-25); the state is registered but NOT "
+                      "activated, so the source is never requested and no row is written; publication UNREVIEWED - an admin "
+                      "review and the state's activation are both still required.")
 PUBLICATION = {
     "mi_eaton_treasurer_sale": ("APPROVED", OWNER_APPROVED_2026_09_30),
     "mi_lenawee_tax_sale": ("APPROVED", OWNER_APPROVED_2026_09_30),
@@ -483,6 +533,7 @@ PUBLICATION = {
     "pa_fayette_repository": ("UNREVIEWED", HELD_AVAILABLE),
     "mn_ramsey_tax_forfeit": ("UNREVIEWED", HELD_AVAILABLE),
     "tn_shelby_landbank": ("UNREVIEWED", HELD_AVAILABLE),
+    "il_cook_landbank": ("UNREVIEWED", HELD_NOT_ACTIVATED),
 }
 
 
@@ -516,6 +567,10 @@ SOURCES: dict[str, tuple[ExpansionSource, ...]] = {
     "PA": (ExpansionSource("pdf_table", PA_FAYETTE_REPOSITORY, PA_FAYETTE_REPOSITORY.document_url),),
     "MN": (ExpansionSource("arcgis", MN_RAMSEY_TAX_FORFEIT, MN_RAMSEY_TAX_FORFEIT.layer_url),),
     "TN": (ExpansionSource("epropertyplus", TN_SHELBY_LANDBANK, TN_SHELBY_LANDBANK.portal),),
+    # Illinois is NOT activated (states.py): harvest_expansion.gate() refuses
+    # the state before any request; this entry exists so the configuration
+    # is registered, validated and fixture-tested, nothing more.
+    "IL": (ExpansionSource("epropertyplus", IL_COOK_LANDBANK, IL_COOK_LANDBANK.portal),),
 }
 
 
@@ -524,3 +579,8 @@ AVAILABLE_SPRINT_SOURCE_IDS = frozenset({"mi_detroit_landbank_lots", "mi_detroit
 AVAILABLE_FIVE_SOURCE_IDS = frozenset({"mo_stl_lra_inventory", "ok_oklahoma_county_owned", "pa_fayette_repository",
                                        "mn_ramsey_tax_forfeit"})
 TN_SOURCE_IDS = frozenset({"tn_shelby_landbank"})
+# ePropertyPlus land banks, batch 2 (2026-10-25): registered in a NON-activated
+# state, never requested. Kansas City (MO) was NOT added: see
+# data/available_source_candidates.csv (the portal's official linkage from the
+# Land Bank's own site could not be verified).
+EPP_BATCH2_SOURCE_IDS = frozenset({"il_cook_landbank"})

@@ -189,7 +189,8 @@ def test_acquisition_unit_counts_after_the_sprint():
     by = {}
     for u in ACQ["status"]:
         by[u["status"]] = by.get(u["status"], 0) + 1
-    assert len(ACQ["status"]) == 72 and by == {"VERIFIED": 26, "NEEDS_REVIEW": 8, "UNAVAILABLE": 6, "NOT_FOUND": 32}
+    # 73 (2026-10-25) = 72 + Cook County IL (il_cook_landbank, registered in a NON-activated state, NOT_FOUND).
+    assert len(ACQ["status"]) == 73 and by == {"VERIFIED": 26, "NEEDS_REVIEW": 8, "UNAVAILABLE": 6, "NOT_FOUND": 33}
 
 
 # ------------------------------------------------------------------ A2 county procedure rules
@@ -246,10 +247,10 @@ def test_gap_queue_is_generated_from_the_records_and_pinned():
     assert out.returncode == 0, out.stdout
     doc = json.loads((ROOT / "data/current_state/gap-queue.json").read_text(encoding="utf-8"))
     assert doc == GQ.build()
-    assert doc["denominators"]["acquisition_units"] == 72 and doc["denominators"]["acquisition_unresolved"] == 46
+    assert doc["denominators"]["acquisition_units"] == 73 and doc["denominators"]["acquisition_unresolved"] == 47
     assert doc["denominators"]["state_ledger_units"] == 39
     assert set(doc["summary"]["by_category"]) <= set(GQ.CATEGORIES)
-    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 46 + 33
+    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 47 + 33
     for u in doc["units"]:
         assert u["category"] in GQ.CATEGORIES and u["next_action"] and u["source_accessible"] and "reason" in u
         assert u["completable_now"] == (u["category"] == "A")

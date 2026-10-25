@@ -1531,6 +1531,15 @@
    ]
   },
   {
+   "state": "IL",
+   "source_id": "il_cook_landbank",
+   "county": "Cook",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
    "state": "LA",
    "source_id": "la_ebr_adjudicated",
    "county": "East Baton Rouge",

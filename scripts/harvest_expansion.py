@@ -135,6 +135,11 @@ def runnable_sources(state: str, reg: dict) -> tuple[list, list[tuple[str, str]]
     PERMISSION_<reason> and makes zero requests."""
     import source_publication as SP  # noqa: PLC0415
     run, gated = [], []
+    if not states.is_activated(state):
+        # A registered but NOT activated state (Illinois, 2026-10-25): every
+        # source is gated, whatever its publication decision - collection
+        # starts only once the state is activated (gate() refuses it too).
+        return [], [(src.config.source_id, "STATE_NOT_ACTIVATED") for src in EX.SOURCES.get(state, ())]
     for src in EX.SOURCES.get(state, ()):
         row = reg.get(src.config.source_id)
         if SP.collectable(row, src.config.record_source):

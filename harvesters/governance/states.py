@@ -375,6 +375,26 @@ UT = _register(StateConfig(
     production_inventory_types=frozenset({""}), lifecycle_inventory_type=None, production=False,
     activation=frozenset({"governance_approved"})))
 
+# Illinois (2026-10-25): the Cook County Land Bank Authority's public
+# ePropertyPlus portal (public-cclba.epropertyplus.com), the same platform as
+# Shelby TN. Linked from the Land Bank's own site (the "pre-qualification
+# application - purchasing property" page sends applicants to the portal's
+# property search). Read LIVE from the development sandbox on 2026-10-25
+# (counts only - not yet by the manual evidence job): 923 published rows,
+# every one Cook County, one 18-character parcel shape. The portal publishes
+# NO availability flag (unlike Shelby's `available`), its currentStatus is
+# an ownership / pipeline status ("ACQUIRED", "REHAB IN PROGRESS",
+# "TARGET - DLQT TAXES"), and what its minimumBid means under the CCLBA
+# Policies & Procedures has not been read - so inventory and amount
+# semantics are NOT established. Registered so the configuration
+# (harvesters/otc/adapters/expansion.py IL_COOK_LANDBANK) can be represented
+# and tested; NOT production, never runnable, no state page, no front-end.
+IL = _register(StateConfig(
+    code="IL", name="Illinois", publishing_units=(PublishingUnit.COUNTY.value,),
+    production_inventory_types=frozenset({"", "POST_SALE"}), lifecycle_inventory_type=None, production=False,
+    activation=frozenset({"source_of_record_identified", "live_source_verified", "publishing_unit_coverage_established",
+                          "identifier_format_established", "parser_fixture_validated"})))
+
 # States whose rows may exist in public.properties: exactly the activated ones.
 PRODUCTION_STATES = frozenset(code for code, cfg in _STATES.items() if cfg.activated)
 

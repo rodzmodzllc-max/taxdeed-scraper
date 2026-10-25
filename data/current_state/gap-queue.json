@@ -10,12 +10,12 @@
  "denominators": {
   "acquisition_by_status": {
    "NEEDS_REVIEW": 8,
-   "NOT_FOUND": 32,
+   "NOT_FOUND": 33,
    "UNAVAILABLE": 6,
    "VERIFIED": 26
   },
-  "acquisition_units": 72,
-  "acquisition_unresolved": 46,
+  "acquisition_units": 73,
+  "acquisition_unresolved": 47,
   "state_ledger_by_classification": {
    "APPROVAL_UNRESOLVED": 7,
    "CURRENT": 6,
@@ -35,14 +35,14 @@
   "registry": "data/county_source_registry.csv"
  },
  "summary": {
-  "acquisition_units_queued": 46,
+  "acquisition_units_queued": 47,
   "by_category": {
    "A": 2,
    "B": 4,
    "C": 29,
    "D": 7,
    "E": 10,
-   "F": 27
+   "F": 28
   },
   "completable_now": 2,
   "state_ledger_units_queued": 33
@@ -1420,6 +1420,26 @@
    "source_accessible": "unknown",
    "source_id": "fl_laft_realtdm",
    "state": "FL",
+   "status": "NOT_FOUND"
+  },
+  {
+   "approved_for_customers": false,
+   "candidate_pages": 0,
+   "category": "F",
+   "completable_now": false,
+   "county": "Cook",
+   "kind": "acquisition_unit",
+   "ledger": "AVAILABLE",
+   "next_action": "No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it",
+   "process_verified": false,
+   "publication_status": "UNREVIEWED",
+   "reason": "No official acquisition page identified yet",
+   "requires": "the jurisdiction's process or product cannot yet be established authoritatively",
+   "rule_verified": null,
+   "source": "registry source il_cook_landbank",
+   "source_accessible": "unknown",
+   "source_id": "il_cook_landbank",
+   "state": "IL",
    "status": "NOT_FOUND"
   },
   {
