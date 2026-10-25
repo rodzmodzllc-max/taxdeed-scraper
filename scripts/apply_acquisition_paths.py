@@ -149,16 +149,15 @@ def _req(method: str, url: str, key: str, body: dict | None = None):
 
 
 def fetch_rows(base: str, key: str, state: str, source_id: str | None) -> list[dict]:
-    rows, offset = [], 0
-    while True:
-        q = {"select": SELECT, "state": f"eq.{state}", "source": "eq.laft", "order": "id", "limit": "1000", "offset": str(offset)}
-        if source_id:
-            q["source_id"] = f"eq.{source_id}"
-        page = _req("GET", f"{base.rstrip('/')}/rest/v1/properties?{urllib.parse.urlencode(q)}", key) or []
-        rows.extend(page)
-        if len(page) < 1000:
-            return rows
-        offset += 1000
+    """Every laft row of the state (and source), by keyset pages with a
+    bounded retry (rest_pages.read_all). Offset pages crossed the statement
+    timeout under load (HTTP 500, run 40206132797, 2026-10-25)."""
+    import rest_pages as RP  # noqa: PLC0415
+    params = {"select": SELECT, "state": f"eq.{state}", "source": "eq.laft"}
+    if source_id:
+        params["source_id"] = f"eq.{source_id}"
+    hdr = {"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT}
+    return RP.read_all(base, "properties", hdr, params)
 
 
 def store_permitted_for(state: str, *, decide=None):
