@@ -88,8 +88,16 @@ SC_YORK = ArcGisLayerConfig(
     fields=ArcGisFieldMap(case_no="TAXMAPID", parcel="TAXMAPID", owner_name="Owner1", address="PropertyAddress",
                           legal_desc="LegalDescription", land_use="LandUseDesc", acreage="deededacres",
                           market="AprTotVal", land_value="AprLandVal", improvement_value="AprBldgVal",
-                          taxable_value="TaxTotVal", assessed="AsdTotVal", tax_year="TAX_YEAR"),
+                          taxable_value="TaxTotVal", assessed="AsdTotVal", tax_year="TAX_YEAR", record_url="URL"),
     list_url=_item("0bf91b9d18f14702873af5f3ad870429"), columns_verified=True, centroid=True,
+    # Acquisition-path sprint (2026-10-25, read live, counts only): the layer's
+    # own `URL` attribute is filled on 853 of 853 features, every one
+    # https://maps.yorkcountygov.com/omlink/index.html?search=parcel&id=<the
+    # row's own TAXMAPID> - York County's One Map link, whose script
+    # (omlink/js/redirectmin.js) looks the id up in the county's Parcels layer
+    # and opens that parcel's Parcel Report. Kept per row as url_auction kind
+    # 'property'; the ArcGIS item stays the list page.
+    record_url_host="maps.yorkcountygov.com",
     notes="Item 'Tax Sale Properties 2026 View' (layer named TaxSaleProperties2025_update, edited 2026-09-29). The "
           "layer publishes no bid amount. Values are the layer's own appraisal / taxable / assessed columns; the "
           "coordinates are the centroid of the layer's own parcel polygon.")
