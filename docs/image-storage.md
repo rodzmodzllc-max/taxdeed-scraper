@@ -10,7 +10,13 @@ does not touch publication, acquisition, ledger or source rules.
   (`photo_source = 'usda_naip'`).
 - Before this sprint each one was a lossless PNG of 600 × 450, about 290 KB.
 - The bucket held 3,518 objects and 967.5 MB, against the application's
-  950 MB budget.
+  950 MB budget. That was the state before the optimisation run. Read-only
+  check on 2026-10-25: 9,921 objects, 476.2 MB (9,795 WebP, 126 PNG), so
+  the budget guard is not blocking. About 50 KB per image leaves room for
+  roughly 9,000 more images. 50,141 rows still have no image check, 48,887
+  of them with coordinates (about 2.4 GB at that size), so the backlog
+  needs a storage decision (quota, image size, or budget), not only the
+  optimiser.
 
 ## Optimization (`scripts/image_storage.py`)
 
