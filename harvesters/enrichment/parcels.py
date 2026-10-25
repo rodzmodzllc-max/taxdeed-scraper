@@ -41,7 +41,7 @@ from typing import Any, Callable, Iterable
 from urllib.parse import urlencode
 
 __all__ = ["ID_RULES", "ParcelSourceConfig", "MatchResult", "Coverage", "normalize_id", "enrichment_allowed",
-           "query_urls", "index_features", "match_rows", "plan_update", "polygon_centroid", "LAYER_URL_RE"]
+           "query_urls", "query_batches", "batch_key", "post_form", "index_features", "match_rows", "plan_update", "polygon_centroid", "LAYER_URL_RE"]
 
 LAYER_URL_RE = re.compile(r"^https://[^?#\s]+/(FeatureServer|MapServer)/\d+$")
 # A Socrata (SODA) dataset resource: https://<host>/resource/<4x4>.json
@@ -250,21 +250,34 @@ def _sql_str(v: str) -> str:
     return "'" + v.replace("'", "''") + "'"
 
 
-def query_urls(cfg: ParcelSourceConfig, county: str, raw_ids: Iterable[str]) -> list[str]:
+def batch_key(cfg: ParcelSourceConfig, raw: Any) -> str | None:
+    """The key a row's own identifier is batched under by query_batches()
+    (None when the row carries no queryable identifier)."""
+    s = str(raw or "").strip()
+    if not s:
+        return None
+    if cfg.id_query == "number":
+        k = normalize_id(s, cfg.id_rule)
+        return k if k and k.isdigit() else None
+    return s
+
+
+def query_batches(cfg: ParcelSourceConfig, county: str, raw_ids: Iterable[str]) -> list[tuple[str, frozenset]]:
     """ArcGIS /query URLs asking for exactly these identifiers (as the
     property rows carry them - the layer's own spelling is matched after
-    normalization on both sides). Batched; county-scoped when the layer is
-    statewide."""
-    ids = sorted({str(i).strip() for i in raw_ids if str(i or "").strip()})
-    if cfg.id_query == "number":
-        ids = sorted({k for k in (normalize_id(i, cfg.id_rule) for i in ids) if k and k.isdigit()}, key=int)
-    urls = []
+    normalization on both sides), each with the batch keys it asks for, so a
+    failed batch withholds only its own rows. Batched; county-scoped when the
+    layer is statewide."""
+    ids = {k for k in (batch_key(cfg, i) for i in raw_ids) if k}
+    ids = sorted(ids, key=int) if cfg.id_query == "number" else sorted(ids)
+    out = []
     for i in range(0, len(ids), cfg.batch_size):
         chunk = ids[i:i + cfg.batch_size]
         in_list = ",".join(x if cfg.id_query == "number" else _sql_str(x) for x in chunk)
         if cfg.transport == "socrata":
             where = " OR ".join(f"{f} in({in_list})" for f in cfg.id_fields())
-            urls.append(cfg.layer_url + "?" + urlencode({"$where": where, "$select": ",".join(cfg.out_fields()), "$limit": 5000}))
+            out.append((cfg.layer_url + "?" + urlencode({"$where": where, "$select": ",".join(cfg.out_fields()), "$limit": 5000}),
+                        frozenset(chunk)))
             continue
         where = " OR ".join(f"{f} IN ({in_list})" for f in cfg.id_fields())
         where = f"({where})" if len(cfg.id_fields()) > 1 else where
@@ -274,8 +287,25 @@ def query_urls(cfg: ParcelSourceConfig, county: str, raw_ids: Iterable[str]) -> 
             where = f"UPPER({cfg.county_field}) = {_sql_str(cfg.county_value(county).upper())} AND ({where})"
         params = {"where": where, "outFields": ",".join(cfg.out_fields()), "returnGeometry": "true" if cfg.centroid else "false",
                   "outSR": "4326", "f": "json"}
-        urls.append(cfg.layer_url + "/query?" + urlencode(params))
-    return urls
+        out.append((cfg.layer_url + "/query?" + urlencode(params), frozenset(chunk)))
+    return out
+
+
+def query_urls(cfg: ParcelSourceConfig, county: str, raw_ids: Iterable[str]) -> list[str]:
+    """The URLs of query_batches(), without their keys."""
+    return [u for u, _ in query_batches(cfg, county, raw_ids)]
+
+
+def post_form(url: str) -> tuple[str, bytes] | None:
+    """An ArcGIS REST /query URL as (endpoint, form body) for a POST, or None
+    for any other URL (a Socrata resource, a metadata read). ArcGIS accepts
+    every query parameter as a form POST; some hosts' filters reject certain
+    long GET query strings outright (Detroit's parcel layer answered HTTP 404
+    to 2 of 10 GET batches, every time, and 10 of 10 as POST on 2026-10-25)."""
+    base, sep, query = url.partition("?")
+    if not sep or not base.endswith("/query") or "$where" in query:
+        return None
+    return base, query.encode("ascii")
 
 
 def index_features(cfg: ParcelSourceConfig, features: Iterable[dict]) -> dict[tuple[str, str], list[dict]]:
