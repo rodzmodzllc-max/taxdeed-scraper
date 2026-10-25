@@ -297,6 +297,16 @@
    "quote": "portal field 'askingPrice' (display name 'Asking Price'); the Land Bank's Policies & Procedures page links the 'Offer to Purchase and Sales Agreement Packet'",
    "evidence": "tn_shelby evidence runs 37856189946 / 37856396525 (docs/tennessee-survey.md)",
    "observed_on": "2026-10-08"
+  },
+  {
+   "state": "IL",
+   "source_id": "il_cook_landbank",
+   "basis": "MINIMUM_BID",
+   "figure_label": "Minimum bid (Land Bank portal)",
+   "figure_note": "The portal's own 'minimumBid' field. What it binds under the CCLBA Policies & Procedures has not been read; the portal's separate 'askingPrice' field is not mapped. Applications go through the Land Bank's pre-qualification application.",
+   "quote": "portal field 'minimumBid'; the Land Bank's pre-qualification page: 'All final dispositions of property are governed by the CCLBA Policies & Procedures'",
+   "evidence": "live read 2026-10-25 from the development sandbox, counts and field names only (docs/sources-batch-2026-10-25-epropertyplus.md); no evidence-job run",
+   "observed_on": "2026-10-25"
   }
  ]
 }

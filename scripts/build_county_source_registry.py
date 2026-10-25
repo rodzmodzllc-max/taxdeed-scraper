@@ -438,6 +438,7 @@ LA_EBR = dict(
 # restriction column says so on every row.
 
 def expansion_rows() -> list[dict]:
+    from harvesters.governance import states
     from harvesters.governance.states import EXPANSION_EVIDENCE
     from harvesters.otc.adapters import expansion as EX
     rows, seen = [], set()
@@ -447,6 +448,15 @@ def expansion_rows() -> list[dict]:
             if cfg.source_id in seen:
                 continue                      # WI: one source, two tables on one page
             seen.add(cfg.source_id)
+            if not states.is_activated(state):
+                # A configuration registered in a NON-activated state (Illinois,
+                # 2026-10-25): a candidate row - no harvester (a non-production
+                # row may not name one), MANUAL_REVIEW_REQUIRED (read live from
+                # the development sandbox, not by an evidence-job run; the
+                # state's activation and an owner review are still required),
+                # TERMS_NOT_VERIFIED, UNREVIEWED. Never runnable.
+                rows.append(_candidate_expansion_row(state, src))
+                continue
             ev = EXPANSION_EVIDENCE[state]
             ledger = {"auction": AUCTIONS, "certificate": LIENS, "laft": AVAILABLE}[cfg.record_source]
             arcgis = src.kind == "arcgis"
@@ -493,6 +503,31 @@ def expansion_rows() -> list[dict]:
                 ledgers=ledger, publication_status=publication, restrictions=restrictions,
             ))
     return rows
+
+
+def _candidate_expansion_row(state: str, src) -> dict:
+    from harvesters.otc.adapters import expansion as EX
+    cfg = src.config
+    publication, restrictions = EX.PUBLICATION[cfg.source_id]
+    assert src.kind == "epropertyplus", f"{cfg.source_id}: only the ePropertyPlus candidate shape is defined"
+    unit_name = cfg.county if cfg.county.endswith(" City") else f"{cfg.county} County"
+    return _row(
+        state=state, county=cfg.county, source_id=cfg.source_id, harvester="",
+        inventory_type=cfg.inventory_type.value if cfg.inventory_type else "",
+        source_authority=cfg.source_authority.value,
+        canonical_url=cfg.list_url, document_url=cfg.portal + "/landmgmtpub/remote/public/property/getPublishedProperties",
+        purchase_url=cfg.purchase_url or "", purchase_url_kind=cfg.purchase_url_kind.value if cfg.purchase_url_kind else "",
+        access_method="JSON_ENDPOINT", machine_format="JSON",
+        verification_status="MANUAL_REVIEW_REQUIRED", governance_status="TERMS_NOT_VERIFIED",
+        last_checked="2026-10-25", completeness_status="UNKNOWN",
+        evidence_ref=(f"LIVE READ {EX.IL_EVIDENCE_READ}: {unit_name} - {cfg.source_id}; linked from the Land Bank's own site "
+                      "(the pre-qualification application page); NO PUBLICATION DECISION YET (UNREVIEWED); state not activated; "
+                      "docs/sources-batch-2026-10-25-epropertyplus.md"),
+        notes=cfg.notes, publishing_unit="COUNTY", publishing_unit_name=unit_name,
+        amount_kind=cfg.amount_kind.value, update_frequency="not published by the source (not read on any schedule)",
+        source_terminology="government-held property the source itself offers for acquisition (AVAILABLE)",
+        ledgers=AVAILABLE, publication_status=publication, restrictions=restrictions,
+    )
 
 
 def ar_rows() -> list[dict]:

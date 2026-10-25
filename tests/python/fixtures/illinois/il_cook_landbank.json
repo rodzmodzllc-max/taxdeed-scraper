@@ -1,0 +1,25 @@
+[
+ {"success": true, "successMessage": null, "size": 6, "metaData": null, "rows": [
+  {"id": 9001, "parcelNumber": "00-00-000-000-0001", "currentStatus": "Acquired", "county": "Cook", "state": "IL",
+   "inventoryType": "Vacant Land", "propertyClass": "Residential Land", "minimumBid": 1500, "askingPrice": 9999,
+   "latitude": 41.85, "longitude": -87.65, "propertyAddress1": "1 SYNTHETIC ST", "legalDescription": "SYNTHETIC LOT 1",
+   "comments": "SYNTHETIC FREE TEXT - NEVER MAPPED"},
+  {"id": 9002, "parcelNumber": "00-00-000-000-0002", "currentStatus": "Rehab In Progress", "county": "Cook", "state": "IL",
+   "inventoryType": "Residential Home", "propertyClass": "Residential Structure", "minimumBid": null, "askingPrice": null,
+   "latitude": 41.80, "longitude": -87.70, "propertyAddress1": "2 SYNTHETIC ST", "legalDescription": null},
+  {"id": 9003, "parcelNumber": "00-00-000-000-0003", "currentStatus": "Target - Dlqt Taxes", "county": "Cook", "state": "IL",
+   "inventoryType": "Vacant Land - Certificate", "propertyClass": "Residential Land", "minimumBid": 500,
+   "latitude": 41.81, "longitude": -87.71, "propertyAddress1": "3 SYNTHETIC ST"}
+ ]},
+ {"success": true, "successMessage": null, "size": 6, "metaData": null, "rows": [
+  {"id": 9004, "parcelNumber": "00-00-000-000-0004", "currentStatus": "Acquired", "county": "DuPage", "state": "IL",
+   "inventoryType": "Vacant Land", "propertyClass": "Residential Land", "minimumBid": 700,
+   "latitude": 41.82, "longitude": -88.10, "propertyAddress1": "4 SYNTHETIC ST"},
+  {"id": 9005, "parcelNumber": "SYNTHETIC-BAD", "currentStatus": "Acquired", "county": "Cook", "state": "IL",
+   "inventoryType": "Vacant Land", "propertyClass": "Residential Land", "minimumBid": 700,
+   "latitude": 41.83, "longitude": -87.60, "propertyAddress1": "5 SYNTHETIC ST"},
+  {"id": 9006, "parcelNumber": "00-00-000-000-0001", "currentStatus": "Acquired", "county": "Cook", "state": "IL",
+   "inventoryType": "Vacant Land", "propertyClass": "Residential Land", "minimumBid": 1500,
+   "latitude": 41.85, "longitude": -87.65, "propertyAddress1": "1 SYNTHETIC ST"}
+ ]}
+]

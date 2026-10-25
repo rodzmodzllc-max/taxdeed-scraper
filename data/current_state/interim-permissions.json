@@ -1783,6 +1783,69 @@
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "harvesters/otc/adapters/expansion.py IL_COOK_LANDBANK (UNREVIEWED; Illinois registered, NOT activated); docs/sources-batch-2026-10-25-epropertyplus.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "IL",
+   "operation": "fetch",
+   "reviewer": "product owner (data-enrichment direction 2026-10-25: collect public records to fill gaps; nothing sold until legal review)",
+   "source_id": "il_cook_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "harvesters/otc/adapters/expansion.py IL_COOK_LANDBANK (UNREVIEWED; Illinois registered, NOT activated); docs/sources-batch-2026-10-25-epropertyplus.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "IL",
+   "operation": "parse",
+   "reviewer": "product owner (data-enrichment direction 2026-10-25: collect public records to fill gaps; nothing sold until legal review)",
+   "source_id": "il_cook_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "harvesters/otc/adapters/expansion.py IL_COOK_LANDBANK (UNREVIEWED; Illinois registered, NOT activated); docs/sources-batch-2026-10-25-epropertyplus.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "IL",
+   "operation": "store",
+   "reviewer": "product owner (data-enrichment direction 2026-10-25: collect public records to fill gaps; nothing sold until legal review)",
+   "source_id": "il_cook_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
    "conditions": [],
    "dataset": "*",
    "effective_on": "2026-10-02",
@@ -2908,12 +2971,12 @@
  "interim_max_days": 210,
  "summary": {
   "by_expiry": {
-   "2027-04-12": 133
+   "2027-04-12": 136
   },
   "by_finding": {
    "REVIEWER_IS_NOT_A_DECISION": 77
   },
-  "records": 133,
-  "sources": 36
+  "records": 136,
+  "sources": 37
  }
 }
