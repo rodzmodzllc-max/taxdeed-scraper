@@ -113,3 +113,48 @@ Python:  3018 passed, 129 skipped
 ```
 
 Root mirror identical to `public/`; `scripts/build_state_page.py --check` passes.
+
+## Review fixes (2026-10-25)
+
+Two reviews (card/list contract and touch targets) returned 17 findings. Each was
+checked against the code and the served build before acting.
+
+| Id | Verdict | What changed |
+|---|---|---|
+| C1 (major) | Confirmed, fixed | `cardIdentityHtml()` uses `caseIdentText(p)`: a Texas tax-suit row (tx_lgbs / tx_realauction) reads `Parcel # <CAD account> · Cause <cause #>` (ptx1 `Cause TX999`, ptx5 `Cause 20-11-0957-CVA (1)`), never the account twice under "Case". `.prop-parcel-line` text unchanged. |
+| C2 (major) | Confirmed, fixed | `provenanceLineText()` prints `Read from <name>` only for a confirmed publisher name (`HARVESTER_SOURCE_NAMES`). An unmapped id reads `Read from source id <raw id>` (e.g. `source id la_ebr_adjudicated`, `source id fl_realauction_alachua`), never a title-cased id that looks like the publisher's name. The "Read from " / "Source not recorded" prefixes the suite reads are unchanged. `sourceNameFor()` elsewhere is untouched. |
+| C3 | Confirmed, fixed | The case/cause bit is omitted when its value equals the parcel shown (pla1 now reads `Parcel # 012-3456-7` once). |
+| C4 | Partly agreed | The plan keeps `.pc-chip` (this week's imagery work), so the chips stay. The `card()` header comment no longer claims "no fact appears twice"; it names the deliberate repeats on the photo. |
+| C5 | Deferred to PR3 | Certificate cards keep their current layout this PR (out of `card()` scope). PR3 should give `certCard()` the provenance line and the Watchlist + "Open record →" row, and move "Est. Accrued Interest" off the card face with its caveat. Recorded here so it is not lost. |
+| C6 | Confirmed, fixed | The no-value text follows `UNIT_WORD`: `No parish value on file` in Louisiana, unchanged `No county value on file` elsewhere. Same fix in the PR1 facts-row cell. `dataGaps()` wording is unchanged (pinned). |
+| C7 | Confirmed, fixed | The explainer fold's fallback summary is `About this list`, never an invented question. |
+| C8 | Deviation recorded | On phones the toolbar is county + Filters, then one scrolling tools line (Expand all · Export · Watchlist). The search box is re-homed into Filters, not hidden: the List has no second search box since the 2026-10-10 remediation removed `#searchInput`, so hiding it would leave the List with no search on a phone. Folding the tools line into Filters is left to the owner. |
+| C9 | Confirmed, fixed | When a row has both market and assessed figures, the More fold adds the assessed figure under `assessedSourceLabel(p)` (p1: `County Assessed Value $100,000`). Image status is already in the photo's info bubble, so it is not repeated. |
+| F1 (major) | Confirmed, fixed | The card's Watchlist and Open record actions are 44px under the phone / coarse-pointer query (were 36px). |
+| F2 (major) | Confirmed, fixed | Expand all, Export and the Watchlist chip on the phone tools line are `min-height:44px` again. They keep the quiet, borderless look. |
+| F3 | Confirmed, fixed | The card's "More" summary is 44px on phones (was 32px). |
+| F4 | Confirmed, fixed | The county listing link inside More is `inline-flex` with a 44px target on phones (was a 17px inline link). |
+| F5 | Confirmed, fixed | New check `gsPhoneHomeHeader` (tx.html#/dashboard at 360px): the search box is in the header, visible, below the selector row, and at most 48px tall. |
+| F6 | Confirmed, fixed | The `ensureFiltersOpenOn` comment names `#globalSearch` / `#globalSearchInput` and `#listSearchHost`. |
+| F7 | Partly agreed | The unused `document.documentElement.dataset.page` write is removed. The query carried over from Home or Map stays visible as the List's filter chip, so the re-homing is unchanged. |
+| F8 | Confirmed, fixed | The phone rule now targets `.quick-controls .qc-tools .table-toggle-btn`. The two rationale comments (the Archive chip; why the id still says `bidList`) are restored beside the status chips and `#bidListToggle` on every state page (index, la, tx, and the generated pages via `build_state_page.py`, whose `--check` passes). |
+| OK1 | n/a | Verification summary; no action. |
+
+The viewportSweep's 44px selector list now also covers `.prop-card .card-actions button`,
+`.prop-card .card-more>summary` and `.quick-controls .qc-tools button`.
+
+Re-pins: none. One added check (`gsPhoneHomeHeader`, 1270 -> 1271). The first
+post-fix run caught a real slip: the new assessed row first reused the
+`.prop-lastsale` class, so `unenrichedCardExtras` saw a "last sale" on the
+unenriched p5 card (`0,1,0`). The row got its own `.prop-assessed` class and
+the check's pinned `0,0,0` is unchanged. Screenshots in
+`docs/review/redesign-pr2/` were re-taken on the fixed build.
+
+Verification after the review fixes:
+
+```
+Browser: PASS: all 1271 checks matched, 8 console error(s) all allowlisted.
+Python:  3018 passed, 129 skipped, 1639 warnings
+```
+
+Root mirror identical to `public/`; `scripts/build_state_page.py --check` passes.

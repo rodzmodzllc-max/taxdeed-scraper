@@ -5207,7 +5207,12 @@ window.__tdwEvidenceSort = (name, source) => { SORT_KEY_CACHE = new Map(); retur
 function cardIdentityHtml(p, hasAddress) {
   const bits = [];
   if (hasAddress) bits.push(hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(parcelOf(p))}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`);
-  if (p.case_no) bits.push(`<span class="prop-case-line">Case ${esc(p.case_no)}</span>`);
+  // caseIdentText(): the tax-suit cause on a Texas vendor row (whose case_no is
+  // the parcel shown above), the case otherwise - and never the same
+  // identifier twice (a source that publishes one id in both fields).
+  const ci = caseIdentText(p);
+  const ciVal = causeInParcel(p) ? p.parcel : p.case_no;
+  if (ci && !(hasParcel(p) && String(ciVal).trim() === String(parcelOf(p)).trim())) bits.push(`<span class="prop-case-line">${esc(ci)}</span>`);
   if (hasAddress && p.prop_type) bits.push(`<span class="prop-type-line">${esc(p.prop_type)}</span>`);
   return bits.length ? `<div class="prop-ids">${bits.join("")}</div>` : "";
 }
@@ -5224,7 +5229,7 @@ function cardMoneyHtml(p) {
   let ctxLabel, ctxVal, ctxCls = "";
   if (hasNum(p.market)) { ctxLabel = valueLabel(p); ctxVal = fmtShort(p.market); }
   else if (hasNum(p.assessed)) { ctxLabel = assessedSourceLabel(p); ctxVal = fmtShort(p.assessed); }
-  else { ctxLabel = "Value on file"; ctxVal = "No county value on file"; ctxCls = " unpublished"; }
+  else { ctxLabel = "Value on file"; ctxVal = `No ${UNIT_WORD.toLowerCase()} value on file`; ctxCls = " unpublished"; }
   return `<div class="money"><div class="card-price money-main">${head}</div><div class="money-ctx"><div class="card-stat-label">${esc(ctxLabel)}</div><div class="card-stat-val value${ctxCls}">${esc(ctxVal)}</div></div></div>`;
 }
 // The "More" fold: the tax-roll size facts (cardStatsHtml), location / flood
@@ -5235,8 +5240,13 @@ function cardMoneyHtml(p) {
 function cardMoreHtml(p) {
   const sale = lastSaleText(p);
   const legal = p.legal_desc ? String(p.legal_desc) : "";
+  // The headline's value context shows the market figure when there is one;
+  // the assessed figure then lives here, under its own source label.
+  const assessed = hasNum(p.market) && hasNum(p.assessed)
+    ? `<div class="prop-assessed"><b>${esc(assessedSourceLabel(p))}</b><span>${esc(fmtShort(p.assessed))}</span></div>` : "";
   return `<details class="card-more"><summary>More · facts &amp; history</summary><div class="card-more-body">
     ${cardStatsHtml(p)}
+    ${assessed}
     ${cardFactsHtml(p)}
     ${sale ? `<div class="prop-lastsale"><b>Last sale</b><span>${esc(sale)}</span></div>` : ""}
     ${legal ? `<div class="prop-legal" title="${esc(legal)}">${esc(legal)}</div>` : ""}
@@ -5290,7 +5300,8 @@ function card(p, showCounty) {
   // page); the quiet facts (location, flood, tax-roll size, last sale, legal
   // description, the county's own listing link) behind "More"; and two
   // actions: Watchlist and Open record. Nothing on the face is derived or
-  // estimated, and no fact appears twice.
+  // estimated. The photo keeps its county / ledger chips and lot size (this
+  // week's card-imagery work), so those three repeat on the picture by design.
   el.innerHTML = `
     ${isClosed ? `<div class="closed-banner${Number(p.sold_price) > 0 ? " sold" : ""}" title="${esc(GONE_STATUS_CAVEAT)}">${esc(outcomeText(p))}${p.gone_since ? ` <span class="closed-when">since ${esc(fmtDate(String(p.gone_since).slice(0, 10)))}</span>` : ""}</div>` : ""}
     ${propertyVisual(p, "prop-card-photo")}
@@ -9517,8 +9528,12 @@ function imageryTruthHtml(p) {
 // and the per-row last read as a date or "not recorded". Never a relative time
 // without its date, never a source name the row does not carry.
 function provenanceLineText(p) {
-  const srcName = sourceNameFor(p);
-  const src = srcName ? `Read from ${srcName}` : "Source not recorded";
+  // Only a confirmed publisher name is printed as "Read from <name>"; an
+  // unmapped harvester / registry id is shown as the id it is, never
+  // title-cased into something that reads like the publisher's own name.
+  const rawId = p ? (p.harvester_source || p.source_id || null) : null;
+  const named = p ? (HARVESTER_SOURCE_NAMES[p.harvester_source] || HARVESTER_SOURCE_NAMES[p.source_id] || null) : null;
+  const src = named ? `Read from ${named}` : rawId ? `Read from source id ${rawId}` : "Source not recorded";
   let synced = "sync date not recorded";
   if (p && p.updated_at) {
     const t = Date.parse(p.updated_at);
@@ -9594,7 +9609,7 @@ function detailStatusHtml(p) {
   if (isCert) cells.push(["Interest rate", hasNum(p.interest_rate) ? `${esc(String(p.interest_rate))}%${sub("As published; no return is estimated")}` : "Not published", hasNum(p.interest_rate) ? "" : "muted"]);
   else if (hasNum(p.market)) cells.push(["Value on file", `${esc(fmtShort(p.market))}${sub(esc(valueLabel(p) + (hasNum(p.assessed) ? ` · ${assessedSourceLabel(p)} ${fmtShort(p.assessed)}` : "")))}`, ""]);
   else if (hasNum(p.assessed)) cells.push(["Value on file", `${esc(fmtShort(p.assessed))}${sub(esc(assessedSourceLabel(p)))}`, ""]);
-  else cells.push(["Value on file", "No county value on file", "muted"]);
+  else cells.push(["Value on file", `No ${UNIT_WORD.toLowerCase()} value on file`, "muted"]);
   // 4. Source · last read: the one provenance line.
   cells.push(["Source · last read", `<span class="prov-line">${esc(provenanceLineText(p))}</span>`, "prov"]);
   return `<dl class="dossier-status facts" aria-label="Key facts"${recAttr}>${cells.map(([t, v, c]) => `<div><dt>${esc(t)}</dt><dd class="${esc(c || "")}">${v}</dd></div>`).join("")}</dl>`
@@ -11345,7 +11360,7 @@ function ledgerFootHtml(kind, cfg, sub, calendarHtml) {
   const calendar = calendarHtml
     ? `<details class="ledger-foot upcoming-fold"><summary>Auction calendar · next ${COMMAND_CENTER_DAYS} days</summary>${calendarHtml}</details>`
     : "";
-  const q = cfg.question || `What is ${ledgerNavName(kind)}?`;
+  const q = cfg.question || "About this list";
   return `${calendar}<details class="ledger-foot ledger-explainer" data-ledger-question="${esc(kind)}"><summary>${esc(q)}</summary>
       <p class="mega-sub">${sub}</p>${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}
       <p class="ledger-legend" aria-label="What the colour on each card's left edge means">
@@ -13587,7 +13602,6 @@ function showPage(name) {
   });
   if (name === "map" && shellPage !== "map") track("map_used", { action: "opened" });
   shellPage = name;
-  document.documentElement.dataset.page = name;
   homeGlobalSearch();
   syncLedgerNav(name);
 

@@ -335,6 +335,11 @@ Watchlist chip form a quiet tools line (a second row on a phone). -->
 <button class="table-toggle-btn" id="tableToggleBtn" type="button" title="Dense table view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18M3 12h18M3 19h18"/></svg> Table</button>
 <button class="expand-all-btn" id="expandAllBtn" type="button">Expand all</button>
 <button class="export-btn" id="exportCsvBtn" type="button"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v13M7 11l5 5 5-5M4 21h16"/></svg> Export CSV</button>
+<!-- Not a status-view filter chip (no data-status, so it's excluded from
+that click-toggle group in app.js) - this opens the Watchlist page instead.
+The id and class still say "bidList" on purpose: the Supabase table is
+`bid_list` and its 10-row cap is a trigger on that table, both owned by the
+backend. Only the label changed. -->
 <button class="chip bidlist" id="bidListToggle" type="button" title="The short list you're actively tracking - capped at 10"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg> Watchlist&nbsp;<b id="bidListCount">0/10</b></button>
 </div>
 </div>
@@ -361,6 +366,12 @@ Same ids, same handlers. -->
 <div class="filters-section filters-search-status">
 <div class="filters-section-head"><span class="filters-section-title">Search &amp; status</span></div>
 <div class="list-search-host" id="listSearchHost"></div>
+<!-- The Archive chip used to sit beside these status chips. It is now a
+toggle in Filters & Sort ("Quick Toggles" -> Show past auctions). It could not
+simply be deleted: past-due auctions are excluded from Shown/Active/Gone
+outright by isPastDue() in app.js, so with no way back into archive mode,
+every note, favorite and watchlist entry on a property whose sale date has
+passed becomes unreachable. Hidden, not removed. -->
 <div class="summary-strip" role="group" aria-label="Status view">
 <button class="chip total" data-status="all" type="button">Shown&nbsp;<b id="chipTotal">0</b></button>
 <button class="chip ok" data-status="live" type="button">Active&nbsp;<b id="chipActive">0</b></button>

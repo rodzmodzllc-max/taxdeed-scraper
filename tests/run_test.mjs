@@ -142,7 +142,8 @@ async function clickLedger(pg, key) {
 }
 const page = await newPage({ viewport: { width: 390, height: 844 } });
 // Redesign PR2 (2026-10-24): the status chips (Shown / Active / No longer
-// listed) and the List's own search (#searchInput) live inside the Filters
+// listed) and the one search box (#globalSearch / #globalSearchInput, re-homed
+// into #listSearchHost by homeGlobalSearch()) live inside the Filters
 // panel, so a step that uses them opens the panel first - by asking its state,
 // since a bare #filtersToggle click would close an already-open panel.
 const ensureFiltersOpenOn = async pg => {
@@ -4110,7 +4111,10 @@ await navMap.close();
         if ((w === 390 || w === 430) && (k === 'listLA' || k === 'detail' || k === 'map' || k === 'home')) {
           const small = await pg.evaluate(() => {
             const sel = ['#stateSelect', '#accountBtn', '#ledgerTabs .ledger-tab', '#mapCountySelect', '.map-ledger-pills button',
-              '#detailModal:not([hidden]) [data-section="acquire"] a'];
+              '#detailModal:not([hidden]) [data-section="acquire"] a',
+              // Redesign PR2 review fix: the card's actions, its More summary and
+              // the list toolbar's tools line keep the 44px target on a phone.
+              '.prop-card .card-actions button', '.prop-card .card-more>summary', '.quick-controls .qc-tools button'];
             return sel.flatMap(q => [...document.querySelectorAll(q)].filter(e => e.offsetParent !== null).map(e => [q, Math.round(e.getBoundingClientRect().height)]))
               .filter(([, h]) => h > 0 && h < 44).map(([q, h]) => q + ':' + h);
           });
@@ -6046,6 +6050,19 @@ await navMap.close();
   });
   results.gsPhoneBottomNav = await ph.locator('.nav-bottom .nav-bottom-item').evaluateAll(els => els.map(e => e.dataset.page));
   await ph.close();
+  // Redesign PR2 review fix: on the List the search row moves into Filters, so
+  // the header's second row is checked on Home, where the search stays in it.
+  const phHome = await newPage({ viewport: { width: 360, height: 780 } });
+  await phHome.goto(TX_BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+  await phHome.waitForTimeout(600);
+  results.gsPhoneHomeHeader = await phHome.evaluate(() => {
+    const sel = document.getElementById('stateSelect').getBoundingClientRect();
+    const acc = document.getElementById('accountBtn').getBoundingClientRect();
+    const gsEl = document.getElementById('globalSearch'); const gsr = gsEl.getBoundingClientRect();
+    return { inBar: document.querySelector('.topbar').contains(gsEl), visible: gsr.width > 0 && gsr.height > 0,
+      belowSelector: gsr.top >= Math.max(sel.bottom, acc.bottom), rowCompact: gsr.height <= 48 };
+  });
+  await phHome.close();
 }
 
 // Legacy deep links keep working: #map (old Map link), #/lands (ledger
@@ -7948,6 +7965,7 @@ const EXPECTED = {
   gsMapBackCounty: "ALL",
   gsDeepLinkTexas: {"state": "TX", "modal": true},
   gsDeepLinkSwitch: {"file": "index.html", "hash": "#/auctions", "state": "FL", "modal": false},
+  gsPhoneHomeHeader: {"inBar": true, "visible": true, "belowSelector": true, "rowCompact": true},
   gsPhone: {"bothVisible": true, "inViewport": true, "sameRow": true, "selectorFirst": true, "headerCompact": true, "noHorizontalScroll": true, "value": "TX"},
   gsPhoneBottomNav: ["dashboard", "list", "map", "watchlist"],
   navMapHasNoOwnStateSelect: true,
