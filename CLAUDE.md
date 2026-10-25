@@ -3468,3 +3468,23 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   error`, `?boundaryids=<id>,<id>` (outline ids the cards see).
 - `sw.js` -> `tdw-shell-v137` (2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
 
+## Florida sources batch: Charlotte LAFT, Leon TC certificates, Lake candidate (2026-10-25, branch, no migration)
+
+Full description: `docs/sources-batch-2026-10-25-florida.md`. Stable facts:
+- **Gated readers, wired into no workflow and read by no sync:**
+  - `scripts/harvest_laft_charlotte.py` (`fl_laft_charlotte`). The Clerk's Lands grid is Kendo JSON
+    (`POST /TaxDeed/GetTaxDeedViewByLandsAvailable` + the page's anti-forgery token). EMPTY only on the
+    endpoint's own `Total 0`.
+  - `scripts/harvest_leon_certificates.py` (`fl_leon_tc_certificates`). It reads the Tax Collector's dated
+    county-held zip (one `.xlsx`), whose link is discovered on the page by name. It writes its OWN status
+    file, `out/harvest_certificates_leon_status.json`. Owner name, owner mailing address and holder are
+    never mapped.
+- **Permissions:** both sources have `fetch` / `parse` / `store` records only, on
+  `INTERNAL_RISK_ACCEPTANCE` (`excluded_from_paid_tier`, expiring 2027-04-12, "not sold until legal
+  review."). There is no `display` record.
+- **Registry:** both are `MANUAL_REVIEW_REQUIRED` / `UNREVIEWED` candidate rows (never runnable). To make
+  either production, change the registry builder and add a workflow step and a sync, all in a reviewed
+  change.
+- **Lake:** stays a candidate. `lake.realtdm.com` returns 403 to the sandbox, as does the production tenant
+  Alachua. Never add it to `data/laft_realtdm_counties.csv` (that makes it production) until a runner read
+  shows the real "List of Lands" status.

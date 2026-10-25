@@ -2288,11 +2288,11 @@
      "acquisition": {
       "by_status": {
        "NEEDS_REVIEW": 3,
-       "NOT_FOUND": 24,
+       "NOT_FOUND": 25,
        "UNAVAILABLE": 6,
        "VERIFIED": 19
       },
-      "units": 52,
+      "units": 53,
       "verified_units": [
        "Calhoun (fl_laft_html)",
        "Dixie (fl_laft_html)",
@@ -3214,19 +3214,19 @@
        {
         "amount_kind": "",
         "approved_for_customers": false,
-        "canonical_url": "https://www.charlotteclerk.com/departments/taxdeed/",
+        "canonical_url": "https://taxdeeds.charlotteclerk.com/TaxDeed/Lands",
         "county": "Charlotte",
         "governance_status": "TERMS_NOT_VERIFIED",
         "harvester": "",
         "has_evidence": true,
         "implemented": false,
-        "last_checked": "2026-09-29",
+        "last_checked": "2026-10-25",
         "publication_status": "UNREVIEWED",
         "publishing_unit_name": "",
         "restrictions": "",
-        "source_id": "",
+        "source_id": "fl_laft_charlotte",
         "update_frequency": "",
-        "verification_status": "SOURCE_EXISTS_ACCESS_UNKNOWN"
+        "verification_status": "MANUAL_REVIEW_REQUIRED"
        },
        {
         "amount_kind": "OPENING_BID",
@@ -3639,13 +3639,13 @@
        {
         "amount_kind": "",
         "approved_for_customers": false,
-        "canonical_url": "https://taxdeeds.lakecountyclerk.org",
+        "canonical_url": "https://lake.realtdm.com/public/cases/list",
         "county": "Lake",
         "governance_status": "TERMS_NOT_VERIFIED",
         "harvester": "",
         "has_evidence": true,
         "implemented": false,
-        "last_checked": "2026-09-29",
+        "last_checked": "2026-10-25",
         "publication_status": "UNREVIEWED",
         "publishing_unit_name": "",
         "restrictions": "",
@@ -4963,7 +4963,7 @@
        "Walton"
       ],
       "implemented": 32,
-      "known": 32,
+      "known": 33,
       "restricted": 32,
       "rows": [
        {
@@ -5239,6 +5239,23 @@
         "verification_status": "PRODUCTION_VERIFIED"
        },
        {
+        "amount_kind": "",
+        "approved_for_customers": false,
+        "canonical_url": "https://www.leontaxcollector.net/Services/property-taxes/Certificate-Lists",
+        "county": "Leon",
+        "governance_status": "TERMS_NOT_VERIFIED",
+        "harvester": "",
+        "has_evidence": true,
+        "implemented": false,
+        "last_checked": "2026-10-25",
+        "publication_status": "UNREVIEWED",
+        "publishing_unit_name": "Leon County Tax Collector",
+        "restrictions": "",
+        "source_id": "fl_leon_tc_certificates",
+        "update_frequency": "per the page: first business day after the discount period's due date, and the first business day of each month from April",
+        "verification_status": "MANUAL_REVIEW_REQUIRED"
+       },
+       {
         "amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
         "approved_for_customers": true,
         "canonical_url": "https://lienhub.com/county/martin/countyheld/certificates",
@@ -5511,7 +5528,7 @@
         "verification_status": "PRODUCTION_VERIFIED"
        }
       ],
-      "with_evidence": 32
+      "with_evidence": 33
      },
      "tracked": "TRACKED",
      "withheld": {

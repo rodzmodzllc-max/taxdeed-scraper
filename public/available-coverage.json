@@ -94,11 +94,11 @@
      "county": "Charlotte",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
-     "name": "county list",
+     "name": "fl_laft_charlotte",
      "publication_review": "",
      "read_at": "",
-     "source_id": "FL:Charlotte:unharvested_list",
-     "url": "https://www.charlotteclerk.com/departments/taxdeed/"
+     "source_id": "FL:Charlotte:fl_laft_charlotte",
+     "url": "https://taxdeeds.charlotteclerk.com/TaxDeed/Lands"
     },
     {
      "access": "NOT_CHECKED",
@@ -158,7 +158,7 @@
      "publication_review": "",
      "read_at": "",
      "source_id": "FL:Lake:unharvested_list",
-     "url": "https://taxdeeds.lakecountyclerk.org"
+     "url": "https://lake.realtdm.com/public/cases/list"
     },
     {
      "access": "NOT_CHECKED",

@@ -360,7 +360,10 @@ def test_g03_registry_only_run_takes_no_reviews_and_writes_the_report(tmp_path, 
     assert PG.main(["--state", "FL", "--report", str(report)]) == 0
     data = json.loads(report.read_text(encoding="utf-8"))
     assert data["mode"] == "registry-only (no credentials)" and "reviews" not in data
-    assert all(d["publication"] == "APPROVED_GRANDFATHERED" for k, d in data["sources"].items() if k.startswith("fl_laft_") and "candidate" not in k)
+    # fl_laft_charlotte (2026-10-25) is a gated, UNREVIEWED candidate - never grandfathered.
+    assert all(d["publication"] == "APPROVED_GRANDFATHERED" for k, d in data["sources"].items()
+               if k.startswith("fl_laft_") and "candidate" not in k and k != "fl_laft_charlotte")
+    assert data["sources"]["fl_laft_charlotte"]["publication"] == "UNREVIEWED"
 
 
 # ==================== 5. migration 023 ====================
