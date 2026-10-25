@@ -1264,6 +1264,6 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .look-menu button:hover,.look-menu button:focus-visible{background:var(--copper-soft);outline:none}
 .look-menu button[aria-checked="true"]{background:var(--copper-soft);color:var(--copper-deep)}
 .look-menu .look-sub{font-size:.75rem;font-weight:400;color:var(--warm-gray)}
-@media (max-width:640px){.look-btn .look-label{display:none}.look-btn{padding:0 10px}}
+@media (max-width:640px){.look-btn .look-label,.look-btn .look-name{display:none}.look-btn{width:44px;padding:0;justify-content:center}.look-switch{flex:0 0 auto}}
 .xp-stage[hidden]{display:none}
 html[data-experience-ready="tactile"] #main,html[data-experience-ready="terrain"] #main{display:none}

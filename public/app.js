@@ -15596,7 +15596,7 @@ function applyExperience(name, persist) {
 function syncLookButton() {
   const name = document.documentElement.dataset.experience || "classic";
   const btn = document.getElementById("lookBtn");
-  if (btn) btn.querySelector(".look-name").textContent = EXPERIENCES[name];
+  if (btn) { btn.querySelector(".look-name").textContent = EXPERIENCES[name]; btn.setAttribute("aria-label", "Look: " + EXPERIENCES[name]); }
   document.querySelectorAll("#lookMenu [data-look]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.look === name)));
 }
 function installLookSwitch() {
