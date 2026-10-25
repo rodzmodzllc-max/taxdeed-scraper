@@ -21,6 +21,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections import defaultdict
@@ -43,6 +44,31 @@ def http_json(url: str, *, headers: dict | None = None, method: str = "GET", bod
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         raw = resp.read()
     return json.loads(raw) if raw else None
+
+
+def query_json(url: str, *, attempts: int = 3, pause: float = 2.0, http=None, sleep=time.sleep):
+    """One layer query: an ArcGIS /query URL is sent as a form POST
+    (P.post_form), anything else as a GET. A transport error, a 5xx or a 429
+    is retried up to `attempts` times with a growing pause; any other HTTP
+    error is final. Raises the last error - the caller withholds that batch."""
+    http = http or http_json
+    form = P.post_form(url)
+    last: Exception | None = None
+    for n in range(max(1, attempts)):
+        try:
+            if form:
+                return http(form[0], method="POST", body=form[1],
+                            headers={"Content-Type": "application/x-www-form-urlencoded"})
+            return http(url)
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code < 500 and e.code != 429:
+                raise
+        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as e:
+            last = e
+        if n + 1 < attempts:
+            sleep(pause * (n + 1))
+    raise last  # type: ignore[misc]
 
 
 def fetch_rows(base: str, key: str, state: str, id_column: str = "parcel") -> list[dict]:
@@ -93,30 +119,34 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
     for r in rows:
         by_county[r.get("county") or ""].append(r)
     for county, crow in sorted(by_county.items()):
-        features, failed = [], False
-        for url in P.query_urls(cfg, county, [r.get(cfg.row_id_column) for r in crow]):
+        features, failed_keys, failed_batches = [], set(), 0
+        for url, keys in P.query_batches(cfg, county, [r.get(cfg.row_id_column) for r in crow]):
             try:
                 data = fetch_json(url)
-            except Exception:  # noqa: BLE001 - a failed query attaches nothing
-                failed = True
-                break
+            except Exception:  # noqa: BLE001 - a failed query attaches nothing to its own rows
+                data = None
             if cfg.transport == "socrata":
                 # A SODA resource answers with a list of records (or an error object).
                 if not isinstance(data, list):
-                    failed = True
-                    break
+                    failed_keys |= keys
+                    failed_batches += 1
+                    continue
                 features += [{"attributes": rec} for rec in data if isinstance(rec, dict)]
                 continue
             if not isinstance(data, dict) or "error" in data:
-                failed = True
-                break
+                failed_keys |= keys
+                failed_batches += 1
+                continue
             features += data.get("features") or []
-        if failed:
-            cov.failed_queries += 1
-            cov.rows_considered += len(crow)
+        if failed_batches:
+            # Only the rows whose identifier rode in a failed batch are withheld
+            # (SOURCE_UNAVAILABLE); every other row is matched as usual.
+            cov.failed_queries += failed_batches
+            lost = [r for r in crow if P.batch_key(cfg, r.get(cfg.row_id_column)) in failed_keys]
+            cov.rows_considered += len(lost)
             if outcomes is not None:
-                outcomes.update({r["id"]: "SOURCE_UNAVAILABLE" for r in crow})
-            continue
+                outcomes.update({r["id"]: "SOURCE_UNAVAILABLE" for r in lost})
+            crow = [r for r in crow if P.batch_key(cfg, r.get(cfg.row_id_column)) not in failed_keys]
         idx = P.index_features(cfg, features)
         for m, row in zip(P.match_rows(cfg, crow, idx), crow):
             cov.add(m)
@@ -161,7 +191,7 @@ def main(argv=None) -> int:
 
     def fetch_json(url):
         time.sleep(0.3)
-        return http_json(url)
+        return query_json(url)
 
     report = run(st, rows, fetch_json, write=None if a.dry_run else (lambda i, f: patch(base, key, i, f)),
                  recorded_at=FP.now_iso())

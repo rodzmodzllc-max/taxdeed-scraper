@@ -236,30 +236,39 @@ def from_feature_count(features: list, state: str, *, point_of, matched_identifi
 
 def lookup_parcel_layer(src: CoordinateSource, rows: list[dict], fetch_json) -> dict[str, Lookup]:
     """Batch lookup against one ArcGIS parcel layer (row id -> Lookup).
-    A failed / error query marks every row of the county SOURCE_UNAVAILABLE."""
+    A failed / error query marks the rows of that batch SOURCE_UNAVAILABLE."""
     cfg = src.parcel_cfg
     out: dict[str, Lookup] = {}
     by_county: dict[str, list[dict]] = {}
     for r in rows:
         by_county.setdefault(str(r.get("county") or ""), []).append(r)
     for county, crow in sorted(by_county.items()):
-        features, failed, parse_fail = [], False, False
-        for url in P.query_urls(cfg, county, [r.get(cfg.row_id_column) for r in crow]):
+        features, failed_keys, parse_keys = [], set(), set()
+        for url, keys in P.query_batches(cfg, county, [r.get(cfg.row_id_column) for r in crow]):
             try:
                 data = fetch_json(url)
             except ValueError:
-                parse_fail = True
-                break
+                parse_keys |= keys
+                continue
             except Exception:  # noqa: BLE001 - transport / HTTP failure
-                failed = True
-                break
+                failed_keys |= keys
+                continue
             if not isinstance(data, dict) or "error" in data or not isinstance(data.get("features"), list):
-                failed = True
-                break
+                failed_keys |= keys
+                continue
             features += data["features"]
-        if failed or parse_fail:
-            status = "PARSER_FAILURE" if parse_fail else "SOURCE_UNAVAILABLE"
-            out.update({r["id"]: Lookup(status, reason="the layer query failed") for r in crow})
+        # A failed batch withholds only its own rows; the rest are matched.
+        keep = []
+        for r in crow:
+            k = P.batch_key(cfg, r.get(cfg.row_id_column))
+            if k in parse_keys:
+                out[r["id"]] = Lookup("PARSER_FAILURE", reason="the layer query failed")
+            elif k in failed_keys:
+                out[r["id"]] = Lookup("SOURCE_UNAVAILABLE", reason="the layer query failed")
+            else:
+                keep.append(r)
+        crow = keep
+        if not crow:
             continue
         idx = P.index_features(cfg, features)
         for m in P.match_rows(cfg, crow, idx):

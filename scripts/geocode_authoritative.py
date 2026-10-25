@@ -60,6 +60,13 @@ def http_json(url: str, *, headers: dict | None = None, method: str = "GET", bod
     return json.loads(raw) if raw else None
 
 
+def _layer_query(url: str):
+    """A parcel-layer query: POST for ArcGIS /query, bounded retries
+    (enrich_statewide_parcels.query_json, the one implementation)."""
+    from scripts import enrich_statewide_parcels as ESP  # noqa: PLC0415
+    return ESP.query_json(url)
+
+
 def read_rows(base: str, key: str, states: list[str]) -> list[dict]:
     """Every active / available row of the states, paged by id (PostgREST
     caps any response at 1,000 rows)."""
@@ -189,7 +196,7 @@ def main(argv=None) -> int:
         return 0
     write = (lambda rid, fields: patch(base, key, rid, fields)) if a.mode == "apply" else None
     report = run(rows, mode=a.mode, allow_upgrade=a.allow_upgrade, limit=a.limit, ctx=PR.Context.from_repo(),
-                 fetch_json=lambda url: http_json(url), fl_lookup_fn=fl_lookup, write=write, pace=FL_PACING_SECONDS)
+                 fetch_json=lambda url: _layer_query(url), fl_lookup_fn=fl_lookup, write=write, pace=FL_PACING_SECONDS)
     report["states"] = states
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
