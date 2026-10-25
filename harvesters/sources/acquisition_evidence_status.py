@@ -84,6 +84,8 @@ _AUTHORITY = {
     "sc_horry_forfeited_land": ("other_government", "Horry County Forfeited Land Commission"),
     "sc_georgetown_forfeited_land": ("other_government", "Georgetown County Forfeited Land Commission"),
     "tn_shelby_landbank": ("county_land_bank", "Shelby County Land Bank"),
+    "pa_philadelphia_lama_available": ("county_land_bank", "Philadelphia Land Bank"),
+    "al_ador_transcripts": ("other_government", "Alabama Department of Revenue, Property Tax Division"),
 }
 _AUTHORITY_COUNTY = {("tx_lgbs", "Galveston"): ("other_government", "Galveston County Sheriff's Office")}
 

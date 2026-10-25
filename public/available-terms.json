@@ -259,6 +259,15 @@
    "observed_on": "2026-10-04"
   },
   {
+   "state": "PA",
+   "source_id": "pa_philadelphia_lama_available",
+   "basis": "OFFER_NEGOTIATED",
+   "figure_note": "No price on the layer. The Land Bank sets a Valuation Price (appraisal or in-house opinion of value) and an applicant submits an offer price with an application; eligible uses may get nominal or discounted pricing. Ask the Land Bank.",
+   "quote": "The Agency may negotiate an offer price that considers the cost of addressing such issues.",
+   "evidence": "Philadelphia Land Bank Disposition Policies (November 2025 PDF, linked from phillylandbank.org/acquisition-and-disposition-policies-landing/); docs/sources-batch-2026-10-25-phl-al.md",
+   "observed_on": "2026-10-25"
+  },
+  {
    "state": "MN",
    "source_id": "mn_ramsey_tax_forfeit",
    "basis": "MINIMUM_BID",
@@ -297,6 +306,15 @@
    "quote": "portal field 'askingPrice' (display name 'Asking Price'); the Land Bank's Policies & Procedures page links the 'Offer to Purchase and Sales Agreement Packet'",
    "evidence": "tn_shelby evidence runs 37856189946 / 37856396525 (docs/tennessee-survey.md)",
    "observed_on": "2026-10-08"
+  },
+  {
+   "state": "AL",
+   "source_id": "al_ador_transcripts",
+   "basis": "QUOTED_ON_REQUEST",
+   "figure_note": "The transcript's 'Amt Bid at Tax Sale' is the amount due at the county tax sale, not the State's price. The price is quoted on an electronic application and must be paid within 10 calendar days.",
+   "quote": "You may request a price quote for state-held tax delinquent property by submitting an electronic application.",
+   "evidence": "ADOR 'Tax Delinquent Property and Land Sales' page (read 2026-10-25); docs/sources-batch-2026-10-25-phl-al.md",
+   "observed_on": "2026-10-25"
   }
  ]
 }

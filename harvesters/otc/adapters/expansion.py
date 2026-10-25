@@ -524,3 +524,62 @@ AVAILABLE_SPRINT_SOURCE_IDS = frozenset({"mi_detroit_landbank_lots", "mi_detroit
 AVAILABLE_FIVE_SOURCE_IDS = frozenset({"mo_stl_lra_inventory", "ok_oklahoma_county_owned", "pa_fayette_repository",
                                        "mn_ramsey_tax_forfeit"})
 TN_SOURCE_IDS = frozenset({"tn_shelby_landbank"})
+
+
+# ---- Sources batch 2026-10-25: Philadelphia (PA) --------------------------
+# One self-contained block, appended after everything above (never
+# interleaved), so it merges cleanly with other branches editing this file.
+#
+# Philadelphia's surplus-property layer "LAMAAssets" (the City's Land
+# Management database: "This layer depicts surplus property in
+# Philadelphia"; 7,853 features, read live 2026-10-25, value-free counts).
+# The Philadelphia Land Bank's own "Available Properties in Philadelphia" map
+# (phillylandbank.org/view-properties-map/ -> ArcGIS instant app
+# cb23daec00b543f8a5ea00c11f69f50d -> web map 58c5fc01ae3e42b28dff14780fde43f7)
+# draws THIS layer with the definition expression copied below, so the rows
+# read are exactly the ones the Land Bank itself calls available. Live
+# counts by status_1 (2026-10-25): 'Owned - Available' 1,736, '... (no
+# construction permitted)' 20, '... (not for SY)' 13, '... (Garden
+# Agreement)' 0 -> 1,769. Every other status (On Hold, Not Available,
+# Processing Applicant, Sale Pending, Managed, RFP Released, Research
+# Pending, ...) is not read. Identifier: mapreg_1 (the City's registry map
+# number; filled and unique on all 1,769). opabrt (the OPA account number)
+# is the parcel when present (36 of 1,769 blank; stray whitespace on a few,
+# which the adapter strips). `agency` (the owning public agency) is an owner
+# column and is never mapped; neither are councildistrict /
+# sideyardeligible / zoning. The layer is polygons: the centroid of each
+# feature's own polygon is derived (geometry present on every sampled
+# feature). No price on the layer: the Land Bank's Disposition Policies (Nov
+# 2025) set a Valuation Price by appraisal / opinion of value, and an
+# applicant submits an offer price with an application.
+BATCH_2026_10_25_EVIDENCE = ("live read 2026-10-25 (assistant sandbox, value-free counts; "
+                             "docs/sources-batch-2026-10-25-phl-al.md)",)
+PHL_AVAILABLE_STATUSES = ("Owned - Available", "Owned - Available (Garden Agreement)",
+                          "Owned - Available (no construction permitted)", "Owned - Available (not for SY)")
+PA_PHILADELPHIA_LAMA = ArcGisLayerConfig(
+    source_id="pa_philadelphia_lama_available", state="PA", county="Philadelphia",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
+    layer_url="https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/LAMAAssets/FeatureServer/0",
+    fields=ArcGisFieldMap(case_no="mapreg_1", parcel="opabrt", address="location", status="status_1"),
+    where=" OR ".join(f"(STATUS_1 = '{s}')" for s in PHL_AVAILABLE_STATUSES),
+    centroid=True,
+    list_url="https://phillylandbank.org/view-properties-map/",
+    purchase_url="https://phillylandbank.org/acquisition-and-disposition-policies-landing/",
+    purchase_url_kind=PurchaseUrlKind.PURCHASE_INSTRUCTIONS, columns_verified=True,
+    notes="City of Philadelphia LAMA surplus-property layer, filtered with the Philadelphia Land Bank's own 'Available "
+          "Properties in Philadelphia' map definition (status_1 'Owned - Available' and its three qualified variants). "
+          "mapreg_1 = registry map number (identifier), opabrt = OPA account (parcel). The owning-agency column is "
+          "not read. No price: the Land Bank sets a Valuation Price and takes an offer price with an application "
+          "(Disposition Policies, Nov 2025).")
+
+PUBLICATION.update({"pa_philadelphia_lama_available": ("UNREVIEWED", HELD_AVAILABLE)})
+SOURCES["PA"] = SOURCES["PA"] + (ExpansionSource("arcgis", PA_PHILADELPHIA_LAMA, PA_PHILADELPHIA_LAMA.layer_url),)
+BATCH_2026_10_25_SOURCE_IDS = frozenset({"pa_philadelphia_lama_available"})
+
+# Collection hold (2026-10-25). An AVAILABLE source awaiting review is
+# normally COLLECTED (scripts/source_publication.collectable). A source named
+# here is not requested at all: scripts/harvest_expansion.runnable_sources()
+# reports it GATED and makes zero requests until the owner removes it from
+# this set in a reviewed commit. This batch ships gated - nothing enabled in
+# production.
+COLLECTION_HOLD = frozenset({"pa_philadelphia_lama_available"})

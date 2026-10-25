@@ -202,6 +202,9 @@ AVAILABLE_OFFERED_WORDINGS: dict[str, tuple[str, ...]] = {
     "mo_stl_lra_inventory": ("Available",),
     "mn_ramsey_tax_forfeit": ("Available for purchase",),
     "tn_shelby_landbank": ("FOR SALE",),
+    # Sources batch 2026-10-25: the Philadelphia Land Bank map's own filter.
+    "pa_philadelphia_lama_available": ("Owned - Available", "Owned - Available (Garden Agreement)",
+                                       "Owned - Available (no construction permitted)", "Owned - Available (not for SY)"),
 }
 
 

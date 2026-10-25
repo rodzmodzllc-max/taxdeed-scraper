@@ -29,6 +29,7 @@ sys.path.insert(0, str(ROOT / "harvesters"))
 from harvesters.governance import permissions as PERM  # noqa: E402
 from harvesters.governance.county_source_registry import BLOCKED_SOURCE_IDS, load_registry  # noqa: E402
 from harvesters.governance.publication import PUBLISHABLE_STATUSES, effective_publication  # noqa: E402
+from harvesters.otc.adapters import expansion as EX  # noqa: E402
 from permission_fixtures import install, permissions_with, record  # noqa: E402
 
 DAY = date(2026, 10, 12)  # the day these records were verified
@@ -243,6 +244,8 @@ def test_parity_every_currently_collected_registry_source_keeps_fetch_and_store(
     for row in load_registry():
         if not row.source_id or not row.is_production or not _publication_rule(row):
             continue
+        if row.source_id in EX.COLLECTION_HOLD:
+            continue        # shipped gated (expansion.COLLECTION_HOLD): not collected, so nothing to keep
         if row.source_id in ("tx_lgbs", "tx_realauction"):
             ds = None
         elif row.source_id == "fl_realauction":

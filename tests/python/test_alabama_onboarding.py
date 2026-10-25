@@ -124,7 +124,9 @@ def _al_kwargs(**over):
 
 def test_g01_committed_registry_has_exactly_one_alabama_candidate_that_is_not_production():
     al = [r for r in ROWS if r.state == "AL"]
-    assert len(al) == 1 and AL_ROW is al[0]
+    # 2026-10-25: + the ADOR transcripts (alabama_transcripts.py), also non-production.
+    assert [r.source_id for r in al] == ["al_ador_state_land", "al_ador_transcripts"] and AL_ROW is al[0]
+    assert not any(r.is_production or r.runnable for r in al)
     assert AL_ROW.publishing_unit == "STATE" and AL_ROW.county == STATEWIDE_UNIT
     assert "Alabama Department of Revenue" in AL_ROW.publishing_unit_name
     assert AL_ROW.verification_status == "SEARCH_EVIDENCE_ONLY" and AL_ROW.governance_status == "TERMS_NOT_VERIFIED"
@@ -323,7 +325,8 @@ def test_x01_adapter_can_never_run_today_and_has_no_transport():
     assert hosts == {ala.ADOR_HOST}, hosts
     # The one ADOR row of the registry carries exactly those URLs and nothing else names the host.
     csv_text = (REPO / "data/county_source_registry.csv").read_text(encoding="utf-8")
-    assert csv_text.count("https://www.revenue.alabama.gov/") == 2 and csv_text.count("\nAL,") == 1
+    # 2 for the search-page row + 2 for the transcripts row (2026-10-25: land-sales page as list and as instructions).
+    assert csv_text.count("https://www.revenue.alabama.gov/") == 4 and csv_text.count("\nAL,") == 2
 
 
 def test_x02_the_gate_registry_and_lifecycle_all_refuse_alabama():

@@ -37,8 +37,14 @@ NEW = set(FIXTURE)
 
 
 def _src(st):
-    (src,) = EX.SOURCES[st]
+    # PA also carries Philadelphia since 2026-10-25 (shipped gated, test_sources_batch_phl_al.py).
+    (src,) = [s for s in EX.SOURCES[st] if s.config.source_id == FIXTURE[st][0]]
     return src
+
+
+def _held(st):
+    """The state's sources shipped gated (expansion.COLLECTION_HOLD), as runnable_sources() reports them."""
+    return [(s.config.source_id, "UNREVIEWED (collection hold)") for s in EX.SOURCES[st] if s.config.source_id in EX.COLLECTION_HOLD]
 
 
 def _reg(st):
@@ -85,7 +91,7 @@ def test_every_source_is_available_ledger_unreviewed_and_collected_not_published
         assert SP.collectable(row, "laft") and not SP.publishable(row)        # admin collection, no customer release
         assert HE.gate(st, reg=_reg(st)) == []
         run, gated = HE.runnable_sources(st, _reg(st))
-        assert [s.config.source_id for s in run] == [cfg.source_id] and gated == []
+        assert [s.config.source_id for s in run] == [cfg.source_id] and gated == _held(st)
 
 
 def test_a_blocked_review_makes_zero_requests():
@@ -94,7 +100,7 @@ def test_a_blocked_review_makes_zero_requests():
         reg = dict(_reg(st))
         reg[sid] = dataclasses.replace(reg[sid], publication_status="BLOCKED")
         run, gated = HE.runnable_sources(st, reg)
-        assert run == [] and gated == [(sid, "BLOCKED")]
+        assert run == [] and gated == [(sid, "BLOCKED")] + _held(st)
 
 
 def test_registry_rows_carry_the_source_urls_and_formats():

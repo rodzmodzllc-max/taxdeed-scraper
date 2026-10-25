@@ -366,8 +366,41 @@ AL_STATE_LAND = dict(
 )
 
 
+# 2026-10-25: the same agency's weekly county transcripts (68 PDFs), a second
+# Alabama source (harvesters/otc/adapters/alabama_transcripts.py). The
+# land-sales page and ONE transcript were read live (value-free); the
+# parser runs on SYNTHETIC fixtures only. Non-production (Alabama is not
+# activated): MANUAL_REVIEW_REQUIRED / TERMS_NOT_VERIFIED, no harvester.
+from harvesters.otc.adapters.alabama_transcripts import TRANSCRIPT_SOURCE  # noqa: E402
+
+AL_TRANSCRIPTS = dict(
+    state="AL", county="STATEWIDE", source_id=TRANSCRIPT_SOURCE.source_id, harvester="",
+    inventory_type=TRANSCRIPT_SOURCE.inventory_type.value, source_authority=TRANSCRIPT_SOURCE.source_authority.value,
+    canonical_url=TRANSCRIPT_SOURCE.list_url, document_url="",
+    purchase_url=TRANSCRIPT_SOURCE.purchase_url, purchase_url_kind=TRANSCRIPT_SOURCE.purchase_url_kind.value,
+    access_method="HTTP_GET_PDF", machine_format="PDF",
+    verification_status="MANUAL_REVIEW_REQUIRED", governance_status="TERMS_NOT_VERIFIED",
+    last_checked="2026-10-25", completeness_status="UNKNOWN",
+    evidence_ref="LIVE READ 2026-10-25 (assistant sandbox, value-free): the land-sales page's 68 county transcript links, "
+                 "the agency's 'How to Read the Transcript' PDF and ONE transcript (file 01); "
+                 "docs/sources-batch-2026-10-25-phl-al.md",
+    notes="ADOR 'Transcripts of Delinquent Property' - 'a listing by county of tax delinquent properties currently in State "
+          "inventory', 'updated weekly', no physical address. One PDF per county (WWW_TRANS_<NN>.PDF, 68 files: Jefferson "
+          "split Birmingham 01 / Bessemer 68; the file number is the page's own mapping, not alphabetical). Identifier = "
+          "C/S# (certificate of sale number). Price quoted on electronic application (the land-sales page). The NAME "
+          "column (assessed name) and the 'Amt Bid at Tax Sale' are never read. Parser on synthetic fixtures only; "
+          "nothing COMPLETE or EMPTY until fixture-validated; not activated.",
+    publishing_unit="STATE",
+    publishing_unit_name=TRANSCRIPT_SOURCE.publishing_unit_name,
+    amount_kind=TRANSCRIPT_SOURCE.amount_kind.value,
+    update_frequency="weekly (the land-sales page: 'The transcripts are updated weekly', read 2026-10-25)",
+    source_terminology=TRANSCRIPT_SOURCE.source_terminology,
+    ledgers=AVAILABLE, publication_status="UNREVIEWED",
+)
+
+
 def al_rows() -> list[dict]:
-    return [_row(**AL_STATE_LAND)]
+    return [_row(**AL_STATE_LAND), _row(**AL_TRANSCRIPTS)]
 
 
 # 2026-09-30: Arkansas (COSL Post Auction Sales List) and Louisiana (East
@@ -453,16 +486,17 @@ def expansion_rows() -> list[dict]:
             publication, restrictions = EX.PUBLICATION[cfg.source_id]
             five = cfg.source_id in EX.AVAILABLE_FIVE_SOURCE_IDS   # AVAILABLE expansion 2026-10-04
             tn = cfg.source_id in EX.TN_SOURCE_IDS                  # Tennessee 2026-10-08
-            available = cfg.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS or five or tn
+            b25 = cfg.source_id in getattr(EX, "BATCH_2026_10_25_SOURCE_IDS", frozenset())   # sources batch 2026-10-25
+            available = cfg.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS or five or tn or b25
             # The six PR #57 sources were read in the expansion passes; the
             # five-state sprint's sources in its own three passes; the AVAILABLE
             # sprint's in the available_sources / sc_available captures.
             new = cfg.source_id not in EX.SIX_STATE_SOURCE_IDS
-            runs = (EX.TN_EVIDENCE_RUNS if tn else EX.AVAILABLE_FIVE_EVIDENCE_RUNS if five else EX.AVAILABLE_SPRINT_EVIDENCE_RUNS if available
+            runs = (EX.BATCH_2026_10_25_EVIDENCE if b25 else EX.TN_EVIDENCE_RUNS if tn else EX.AVAILABLE_FIVE_EVIDENCE_RUNS if five else EX.AVAILABLE_SPRINT_EVIDENCE_RUNS if available
                     else EX.FIVE_STATE_EVIDENCE_RUNS if new else EX.EVIDENCE_RUNS)
             decision = (("LICENCE STATED BY THE SOURCE (quoted in restrictions)" if publication == "APPROVED"
                          else "NO PUBLICATION DECISION YET (UNREVIEWED)") if new else "OWNER PUBLICATION DECISION 2026-09-30")
-            day = "2026-10-08" if tn else "2026-10-04" if five else "2026-10-02" if available else "2026-10-01" if new else "2026-09-30"
+            day = "2026-10-25" if b25 else "2026-10-08" if tn else "2026-10-04" if five else "2026-10-02" if available else "2026-10-01" if new else "2026-09-30"
             doc = {"arcgis": getattr(cfg, "layer_url", ""), "sc_flc_pdf": getattr(cfg, "document_url", ""),
                    "csv": getattr(cfg, "document_url", ""), "pdf_table": getattr(cfg, "document_url", ""),
                    "epropertyplus": getattr(cfg, "portal", "") + "/landmgmtpub/remote/public/property/getPublishedProperties"}.get(src.kind, "")
@@ -481,9 +515,9 @@ def expansion_rows() -> list[dict]:
                 access_method=access, machine_format=fmt,
                 verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
                 last_checked=day, completeness_status="UNKNOWN",
-                evidence_ref=(f"LIVE CAPTURE {day} (GitHub Actions runs {', '.join(runs)}): "
+                evidence_ref=((f"LIVE READ {day} ({'; '.join(runs)}): " if b25 else f"LIVE CAPTURE {day} (GitHub Actions runs {', '.join(runs)}): ")
                               + (f"{unit_name} - {cfg.source_id}; " if new else f"{ev['source_of_record_identified']}; ")
-                              + f"{decision}; docs/{'tennessee-survey' if tn else 'available-expansion-2026-10' if five else 'available-inventory' if available else 'five-state-enrichment' if new else 'six-state-expansion'}.md"),
+                              + f"{decision}; docs/{'sources-batch-2026-10-25-phl-al' if b25 else 'tennessee-survey' if tn else 'available-expansion-2026-10' if five else 'available-inventory' if available else 'five-state-enrichment' if new else 'six-state-expansion'}.md"),
                 notes=cfg.notes, publishing_unit="COUNTY", publishing_unit_name=unit_name,
                 amount_kind=cfg.amount_kind.value, update_frequency="not published by the source (read on each run)",
                 source_terminology=ev["inventory_semantics_established"] if not new else {

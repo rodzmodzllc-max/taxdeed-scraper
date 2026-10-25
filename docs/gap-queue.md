@@ -2,7 +2,7 @@
 
 Generated from public/acquisition-evidence.json, data/current_state/state-coverage.json, data/acquisition_candidate_pages.csv and the registry. Counts only.
 
-- Acquisition-path units: 72 total, 46 unresolved (NEEDS_REVIEW 8, NOT_FOUND 32, UNAVAILABLE 6, VERIFIED 26).
+- Acquisition-path units: 73 total, 46 unresolved (NEEDS_REVIEW 8, NOT_FOUND 32, UNAVAILABLE 6, VERIFIED 27).
 - State x ledger units: 39 total (APPROVAL_UNRESOLVED 7, CURRENT 6, OFFERED_SOURCE_NOT_IMPLEMENTED 1, OFFERED_VERIFIED_EMPTY 1, RULES_NOT_VERIFIED 19, SOURCE_FAILED_OR_STALE 4, SOURCE_IMPLEMENTED_NEVER_READ 1).
 - Queue: 79 entries - by category A 2, B 4, C 29, D 7, E 10, F 27; completable now from the repository: 2.
 
@@ -77,7 +77,7 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | MN * | AVAILABLE | APPROVAL_UNRESOLVED | yes | no | no | no | Owner publication review of the source (admin publication panel): approve, restrict or block |
 | MO * | AVAILABLE | APPROVAL_UNRESOLVED | yes | no | no | no | Owner publication review of the source (admin publication panel): approve, restrict or block |
 | OK * | AVAILABLE | APPROVAL_UNRESOLVED | yes | no | no | yes | Owner publication review of the source (admin publication panel): approve, restrict or block |
-| PA * | AVAILABLE | APPROVAL_UNRESOLVED | yes | no | no | no | Owner publication review of the source (admin publication panel): approve, restrict or block |
+| PA * | AVAILABLE | APPROVAL_UNRESOLVED | yes | no | no | yes | Owner publication review of the source (admin publication panel): approve, restrict or block |
 | SC * | AVAILABLE | APPROVAL_UNRESOLVED | yes | no | no | yes | Owner publication review of the source (admin publication panel): approve, restrict or block |
 | TN * | AVAILABLE | APPROVAL_UNRESOLVED | yes | no | no | no | Owner publication review of the source (admin publication panel): approve, restrict or block |
 | TX * | AUCTIONS | SOURCE_FAILED_OR_STALE | yes | yes | no | yes | Manual-only source by owner decision (job=texas); a read happens only when the owner dispatches it |

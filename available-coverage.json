@@ -14,6 +14,18 @@
      "read_at": "",
      "source_id": "AL:STATEWIDE:al_ador_state_land",
      "url": "https://www.revenue.alabama.gov/property-tax/delinquent-search/"
+    },
+    {
+     "access": "NOT_CHECKED",
+     "availability": "NOT_READ",
+     "county": "STATEWIDE",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "Transcripts of Delinquent Property: 'tax delinquent properties currently in State inventory' (weekly per-county PDF); C/S# certificate of sale number; price quote by electronic application",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "AL:STATEWIDE:al_ador_transcripts",
+     "url": "https://www.revenue.alabama.gov/property-tax/tax-delinquent-property-and-land-sales/"
     }
    ],
    "last_reads": {},
@@ -448,6 +460,18 @@
      "read_at": "",
      "source_id": "PA:Fayette:pa_fayette_repository",
      "url": "https://www.fayettecountypa.org/DocumentCenter/View/9761/Repository-Update-10-7-2025"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Philadelphia",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "PA:Philadelphia:pa_philadelphia_lama_available",
+     "url": "https://phillylandbank.org/view-properties-map/"
     }
    ],
    "last_reads": {},

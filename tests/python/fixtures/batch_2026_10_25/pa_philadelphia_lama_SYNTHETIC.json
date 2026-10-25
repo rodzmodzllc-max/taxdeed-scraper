@@ -1,0 +1,13 @@
+{"objectIdFieldName": "objectid", "geometryType": "esriGeometryPolygon", "spatialReference": {"wkid": 4326},
+ "features": [
+  {"attributes": {"objectid": 1, "mapreg_1": "000N000001", "opabrt": "000000001", "location": "1 SYNTHETIC ST",
+                  "status_1": "Owned - Available"},
+   "geometry": {"rings": [[[-75.1601, 39.9801], [-75.1601, 39.9803], [-75.1597, 39.9803], [-75.1597, 39.9801], [-75.1601, 39.9801]]]}},
+  {"attributes": {"objectid": 2, "mapreg_1": "000N000002", "opabrt": " 000000002\n", "location": "3 SYNTHETIC ST",
+                  "status_1": "Owned - Available (no construction permitted)"},
+   "geometry": {"rings": [[[-75.2001, 39.9501], [-75.2001, 39.9503], [-75.1997, 39.9503], [-75.1997, 39.9501], [-75.2001, 39.9501]]]}},
+  {"attributes": {"objectid": 3, "mapreg_1": "000N000003", "opabrt": null, "location": "5 SYNTHETIC ST",
+                  "status_1": "Owned - Available (not for SY)"},
+   "geometry": {"rings": [[[-75.1201, 40.0201], [-75.1201, 40.0203], [-75.1197, 40.0203], [-75.1197, 40.0201], [-75.1201, 40.0201]]]}}
+ ],
+ "exceededTransferLimit": false}

@@ -212,7 +212,8 @@ def test_g01_module_never_fetches_and_nothing_is_configured():
         # hosts are pinned by tests/python/test_six_state_expansion.py.
         # sc_flc.py (2026-10-02) names the Georgetown / Spartanburg FLC pages it was
         # configured from; tests/python/test_sc_available.py pins those hosts.
-        if path.name in ("alabama.py", "arkansas.py", "louisiana.py", "arizona.py", "expansion.py", "sc_flc.py"):
+        # alabama_transcripts.py (2026-10-25) names ADOR pages; tests/python/test_sources_batch_phl_al.py pins them.
+        if path.name in ("alabama.py", "alabama_transcripts.py", "arkansas.py", "louisiana.py", "arizona.py", "expansion.py", "sc_flc.py"):
             continue
         text = path.read_text(encoding="utf-8")
         assert not re.search(r"https?://[^\s\"']*(\.gov|arcgis\.com)", text) and "mississippi" not in text.lower(), path.name
