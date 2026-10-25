@@ -832,14 +832,14 @@
   },
   {
    "access": "NOT_CHECKED",
-   "access_note": "verification SOURCE_EXISTS_ACCESS_UNKNOWN",
+   "access_note": "verification MANUAL_REVIEW_REQUIRED",
    "county": "Charlotte",
-   "evidence": "MASTER LAFT/OTC/STRUCK-OFF AUDIT 2026-09-29 s5",
+   "evidence": "docs/sources-batch-2026-10-25-florida.md",
    "governance": "REVIEW_REQUIRED",
    "governance_reason": "no publication / reuse review recorded yet",
-   "last_checked": "2026-09-29",
+   "last_checked": "2026-10-25",
    "legacy_status": "UNREVIEWED",
-   "name": "county list",
+   "name": "fl_laft_charlotte",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
    "publisher": "GOVERNMENT_DIRECT",
@@ -849,10 +849,10 @@
     "lifecycle",
     "source_date"
    ],
-   "source_id": "FL:Charlotte:unharvested_list",
+   "source_id": "FL:Charlotte:fl_laft_charlotte",
    "source_type": "GOVERNMENT",
    "state": "FL",
-   "url": "https://www.charlotteclerk.com/departments/taxdeed/"
+   "url": "https://taxdeeds.charlotteclerk.com/TaxDeed/Lands"
   },
   {
    "access": "ACCESSIBLE",
@@ -2379,15 +2379,15 @@
    "access": "NOT_CHECKED",
    "access_note": "verification SOURCE_EXISTS_ACCESS_UNKNOWN",
    "county": "Lake",
-   "evidence": "MASTER LAFT/OTC/STRUCK-OFF AUDIT 2026-09-29 s5",
+   "evidence": "docs/sources-batch-2026-10-25-florida.md",
    "governance": "REVIEW_REQUIRED",
    "governance_reason": "no publication / reuse review recorded yet",
-   "last_checked": "2026-09-29",
+   "last_checked": "2026-10-25",
    "legacy_status": "UNREVIEWED",
    "name": "county list",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "GOVERNMENT_PLATFORM",
    "roles": [
     "availability",
     "identity",
@@ -2397,7 +2397,7 @@
    "source_id": "FL:Lake:unharvested_list",
    "source_type": "GOVERNMENT",
    "state": "FL",
-   "url": "https://taxdeeds.lakecountyclerk.org"
+   "url": "https://lake.realtdm.com/public/cases/list"
   },
   {
    "access": "ACCESSIBLE",
@@ -2532,6 +2532,28 @@
    "source_type": "AUCTION_VENDOR",
    "state": "FL",
    "url": "https://leon.realtaxdeed.com/index.cfm?zaction=USER&zmethod=CALENDAR"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "verification MANUAL_REVIEW_REQUIRED",
+   "county": "Leon",
+   "evidence": "docs/sources-batch-2026-10-25-florida.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-25",
+   "legacy_status": "UNREVIEWED",
+   "name": "Certificate Lists - All County Held Certificates (OpenCountyCertificates<YYYYMMDD>.zip, one .xlsx)",
+   "next_action": "Publication / rights review (registry restrictions: none recorded)",
+   "origin": "registry",
+   "publisher": "Leon County Tax Collector",
+   "roles": [
+    "identity",
+    "lifecycle"
+   ],
+   "source_id": "FL:Leon:fl_leon_tc_certificates",
+   "source_type": "DOCUMENT",
+   "state": "FL",
+   "url": "https://www.leontaxcollector.net/Services/property-taxes/Certificate-Lists"
   },
   {
    "access": "ACCESSIBLE",
@@ -8246,16 +8268,16 @@
   "FL": {
    "APPROVED": 176,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 17,
+   "REVIEW_REQUIRED": 18,
    "by_type": {
     "AUCTION_VENDOR": 79,
     "COURT_PUBLIC_RECORD": 1,
-    "DOCUMENT": 13,
+    "DOCUMENT": 14,
     "GIS": 1,
     "GOVERNMENT": 98,
     "PUBLIC_NOTICE": 1
    },
-   "sources": 193
+   "sources": 194
   },
   "LA": {
    "APPROVED": 8,

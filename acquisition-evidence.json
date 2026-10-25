@@ -792,6 +792,17 @@
  "status": [
   {
    "state": "FL",
+   "source_id": "fl_laft_charlotte",
+   "county": "Charlotte",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "county_clerk",
+   "authority": "Clerk of the Circuit Court",
+   "scope": "source"
+  },
+  {
+   "state": "FL",
    "source_id": "fl_laft_hillsborough",
    "county": "Hillsborough",
    "status": "NEEDS_REVIEW",

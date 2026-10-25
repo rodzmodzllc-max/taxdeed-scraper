@@ -10,12 +10,12 @@
  "denominators": {
   "acquisition_by_status": {
    "NEEDS_REVIEW": 8,
-   "NOT_FOUND": 32,
+   "NOT_FOUND": 33,
    "UNAVAILABLE": 6,
    "VERIFIED": 26
   },
-  "acquisition_units": 72,
-  "acquisition_unresolved": 46,
+  "acquisition_units": 73,
+  "acquisition_unresolved": 47,
   "state_ledger_by_classification": {
    "APPROVAL_UNRESOLVED": 7,
    "CURRENT": 6,
@@ -35,14 +35,14 @@
   "registry": "data/county_source_registry.csv"
  },
  "summary": {
-  "acquisition_units_queued": 46,
+  "acquisition_units_queued": 47,
   "by_category": {
    "A": 2,
    "B": 4,
    "C": 29,
    "D": 7,
    "E": 10,
-   "F": 27
+   "F": 28
   },
   "completable_now": 2,
   "state_ledger_units_queued": 33
@@ -835,7 +835,7 @@
    "reason": "1611 of 1611 active rows never stamped, 0 read more than 36 h before the snapshot",
    "requires": "blocked by source access or a technical restriction",
    "rule_verified": true,
-   "source": "32 production source(s) of 32 known",
+   "source": "32 production source(s) of 33 known",
    "source_accessible": "no",
    "state": "FL",
    "status": "SOURCE_FAILED_OR_STALE"
@@ -1039,6 +1039,26 @@
    "source": "registry source fl_laft_pdfs",
    "source_accessible": "unknown",
    "source_id": "fl_laft_pdfs",
+   "state": "FL",
+   "status": "NOT_FOUND"
+  },
+  {
+   "approved_for_customers": false,
+   "candidate_pages": 0,
+   "category": "F",
+   "completable_now": false,
+   "county": "Charlotte",
+   "kind": "acquisition_unit",
+   "ledger": "AVAILABLE",
+   "next_action": "No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it",
+   "process_verified": false,
+   "publication_status": "UNREVIEWED",
+   "reason": "No official acquisition page identified yet",
+   "requires": "the jurisdiction's process or product cannot yet be established authoritatively",
+   "rule_verified": null,
+   "source": "registry source fl_laft_charlotte",
+   "source_accessible": "unknown",
+   "source_id": "fl_laft_charlotte",
    "state": "FL",
    "status": "NOT_FOUND"
   },

@@ -389,6 +389,72 @@
   },
   {
    "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "lands_available",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "docs/sources-batch-2026-10-25-florida.md; scripts/harvest_laft_charlotte.py (taxdeeds.charlotteclerk.com/TaxDeed/Lands read 2026-10-25)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "product owner (internal decision 2026-10-25: collect public records to demonstrate coverage)",
+   "source_id": "fl_laft_charlotte",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "lands_available",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "docs/sources-batch-2026-10-25-florida.md; scripts/harvest_laft_charlotte.py (taxdeeds.charlotteclerk.com/TaxDeed/Lands read 2026-10-25)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL",
+   "operation": "parse",
+   "reviewer": "product owner (internal decision 2026-10-25: collect public records to demonstrate coverage)",
+   "source_id": "fl_laft_charlotte",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "lands_available",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "docs/sources-batch-2026-10-25-florida.md; scripts/harvest_laft_charlotte.py (taxdeeds.charlotteclerk.com/TaxDeed/Lands read 2026-10-25)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL",
+   "operation": "store",
+   "reviewer": "product owner (internal decision 2026-10-25: collect public records to demonstrate coverage)",
+   "source_id": "fl_laft_charlotte",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
     "scripts/harvest_laft_hillsborough.py",
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
@@ -1383,6 +1449,69 @@
    "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
    "source_id": "fl_laft_stlucie",
    "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "county_held_certificates",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "docs/sources-batch-2026-10-25-florida.md; scripts/harvest_leon_certificates.py (leontaxcollector.net Certificate Lists county-held zip read 2026-10-25)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "product owner (internal decision 2026-10-25: collect public records to demonstrate coverage)",
+   "source_id": "fl_leon_tc_certificates",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "county_held_certificates",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "docs/sources-batch-2026-10-25-florida.md; scripts/harvest_leon_certificates.py (leontaxcollector.net Certificate Lists county-held zip read 2026-10-25)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL",
+   "operation": "parse",
+   "reviewer": "product owner (internal decision 2026-10-25: collect public records to demonstrate coverage)",
+   "source_id": "fl_leon_tc_certificates",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "county_held_certificates",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "docs/sources-batch-2026-10-25-florida.md; scripts/harvest_leon_certificates.py (leontaxcollector.net Certificate Lists county-held zip read 2026-10-25)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL",
+   "operation": "store",
+   "reviewer": "product owner (internal decision 2026-10-25: collect public records to demonstrate coverage)",
+   "source_id": "fl_leon_tc_certificates",
+   "status": "OWNER_PERMISSION_REQUIRED"
   },
   {
    "call_sites": [
@@ -2908,12 +3037,12 @@
  "interim_max_days": 210,
  "summary": {
   "by_expiry": {
-   "2027-04-12": 133
+   "2027-04-12": 139
   },
   "by_finding": {
    "REVIEWER_IS_NOT_A_DECISION": 77
   },
-  "records": 133,
-  "sources": 36
+  "records": 139,
+  "sources": 38
  }
 }

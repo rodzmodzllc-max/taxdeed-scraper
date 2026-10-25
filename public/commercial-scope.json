@@ -116,6 +116,18 @@
    "reason": "Registered, not collected."
   },
   {
+   "source_id": "fl_laft_charlotte",
+   "state": "FL",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "fl_laft_hillsborough",
    "state": "FL",
    "publication_status": "APPROVED_GRANDFATHERED",
@@ -267,6 +279,18 @@
     "acquisition": "gap"
    },
    "reason": "APPROVED_GRANDFATHERED: legacy approval, never explicitly reviewed for paid reuse. Requires a publication decision."
+  },
+  {
+   "source_id": "fl_leon_tc_certificates",
+   "state": "FL",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
   },
   {
    "source_id": "fl_lienhub_certificates",

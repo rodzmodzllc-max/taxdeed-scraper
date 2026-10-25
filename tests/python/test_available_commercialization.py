@@ -164,7 +164,10 @@ def test_g05_gate_script_reports_without_credentials_and_measures_a_rows_file(tm
     assert r.returncode == 0 and "registry-only" in r.stdout, r.stdout + r.stderr
     rep = json.loads(report.read_text(encoding="utf-8"))
     assert rep["mode"].startswith("registry-only") and "measurement" not in rep
-    assert all(v["publication"] == "APPROVED_GRANDFATHERED" for v in rep["sources"].values())
+    # The 2026-10-25 gated candidates (Charlotte LAFT, Leon Tax Collector certificates) are UNREVIEWED.
+    held = {"fl_laft_charlotte", "fl_leon_tc_certificates"}
+    assert all(v["publication"] == "APPROVED_GRANDFATHERED" for k, v in rep["sources"].items() if k not in held)
+    assert {rep["sources"][k]["publication"] for k in held} == {"UNREVIEWED"}
     rows_file = tmp_path / "rows.json"
     rows_file.write_text(json.dumps([{"id": "a", "state": "FL", "source": "laft", "county": "Bay", "source_id": "fl_laft_pioneer"},
                                      {"id": "b", "state": "FL", "source": "laft", "county": "Broward", "harvester_source": "unknown_thing"}]), encoding="utf-8")

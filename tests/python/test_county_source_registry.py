@@ -30,7 +30,9 @@ def test_r02_every_florida_county_has_exactly_one_row_and_52_are_production():
     # row; the AUCTIONS and LIENS & CERTIFICATES rows sit beside them.
     fl = [r for r in ROWS if r.state == "FL"]
     avail = [r for r in fl if "AVAILABLE" in r.ledger_set or not r.ledger_set]
-    assert len(fl) == 146 and len(avail) == 67 and len({r.county for r in avail}) == 67 and len({r.county for r in fl}) == 67
+    # 147 since 2026-10-25: + the Leon Tax Collector county-held certificate
+    # candidate (fl_leon_tc_certificates, LIENS_CERTIFICATES, not production).
+    assert len(fl) == 147 and len(avail) == 67 and len({r.county for r in avail}) == 67 and len({r.county for r in fl}) == 67
     prod = [r for r in csr.production_rows(ROWS, "FL") if "AVAILABLE" in r.ledger_set]
     assert len(prod) == 52
     assert csr.expected_harvest_units(ROWS) == sorted((r.source_id, r.county) for r in prod)
@@ -66,10 +68,17 @@ def test_r04_candidates_are_never_runnable_and_blocked_vendors_carry_no_url():
             assert r.completeness_status == "UNKNOWN", r
         if r.source_id in csr.BLOCKED_SOURCE_IDS:
             assert r.governance_status == "BLOCKED" and r.canonical_url == "" and r.verification_status == "BLOCKED_VENDOR_ONLY", r
-    fl_cands = {r.county: r.verification_status for r in ROWS if r.state == "FL" and not r.is_production}
+    # Scoped to the AVAILABLE ledger: Leon's only candidate is the Tax
+    # Collector's certificate list (2026-10-25), asserted below.
+    fl_cands = {r.county: r.verification_status for r in ROWS
+                if r.state == "FL" and not r.is_production and "LIENS_CERTIFICATES" not in r.ledger_set}
+    fl_cert_cands = [(r.county, r.source_id, r.verification_status) for r in ROWS
+                     if r.state == "FL" and not r.is_production and "LIENS_CERTIFICATES" in r.ledger_set]
+    assert fl_cert_cands == [("Leon", "fl_leon_tc_certificates", "MANUAL_REVIEW_REQUIRED")]
     assert fl_cands == {
         "Broward": "SEARCH_EVIDENCE_ONLY", "Okaloosa": "SEARCH_EVIDENCE_ONLY", "DeSoto": "SEARCH_EVIDENCE_ONLY", "Wakulla": "SEARCH_EVIDENCE_ONLY",
-        "Charlotte": "SOURCE_EXISTS_ACCESS_UNKNOWN", "Collier": "SOURCE_EXISTS_ACCESS_UNKNOWN", "Gilchrist": "SOURCE_EXISTS_ACCESS_UNKNOWN",
+        # Charlotte: read live 2026-10-25 (JSON endpoint), gated reader, not production.
+        "Charlotte": "MANUAL_REVIEW_REQUIRED", "Collier": "SOURCE_EXISTS_ACCESS_UNKNOWN", "Gilchrist": "SOURCE_EXISTS_ACCESS_UNKNOWN",
         "Lake": "SOURCE_EXISTS_ACCESS_UNKNOWN", "Monroe": "SOURCE_EXISTS_ACCESS_UNKNOWN", "Nassau": "SOURCE_EXISTS_ACCESS_UNKNOWN",
         "Suwannee": "SOURCE_EXISTS_ACCESS_UNKNOWN", "Jefferson": "HISTORICAL_ONLY",
         "Baker": "NOT_FOUND_AFTER_SEARCH", "Jackson": "NOT_FOUND_AFTER_SEARCH", "Liberty": "NOT_FOUND_AFTER_SEARCH",

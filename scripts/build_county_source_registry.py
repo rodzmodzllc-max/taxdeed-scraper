@@ -206,13 +206,30 @@ FL_CANDIDATES = [
     ("Wakulla", "SEARCH_EVIDENCE_ONLY", "GOVERNMENT_DIRECT",
      "https://www.wakullaclerk.org/official_records/tax_deed_sales.php", "UNKNOWN",
      "Clerk page reportedly says the List of Lands currently has no parcels. NOT VERIFIED."),
-    ("Charlotte", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_DIRECT", "https://www.charlotteclerk.com/departments/taxdeed/", "UNKNOWN",
-     "Tax Collector says the listing is obtained by contacting the Clerk; portal at or.charlotteclerk.com/TaxDeeds unexamined."),
+    # 2026-10-25 (Florida sources batch): read live - the Clerk's Lands page
+    # loads its Kendo grid from a token-protected JSON endpoint (4 LANDS
+    # AVAILABLE rows on 2026-10-25). scripts/harvest_laft_charlotte.py reads
+    # it; wired into no workflow, so the row stays a candidate.
+    ("Charlotte", "MANUAL_REVIEW_REQUIRED", "GOVERNMENT_DIRECT", "https://taxdeeds.charlotteclerk.com/TaxDeed/Lands", "JSON",
+     "Clerk tax-deed site; the Lands grid loads from POST /TaxDeed/GetTaxDeedViewByLandsAvailable (Kendo JSON, anti-forgery token). "
+     "Read live 2026-10-25: endpoint Total 4, 4 rows, every row Status LANDS AVAILABLE. Reader scripts/harvest_laft_charlotte.py "
+     "(source fl_laft_charlotte; fetch/parse/store on internal risk acceptance, excluded from the paid tier); wired into no workflow; "
+     "reuse terms not reviewed."),
     ("Collier", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_DIRECT", "https://www.collierclerk.com/accessing-tax-deed-sales-in-collier-county/", "UNKNOWN",
      "Auctions described; no LAFT list seen."),
     ("Gilchrist", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_DIRECT", "https://www.gilchristclerk.com/tax-deeds/", "UNKNOWN", "No list seen."),
-    ("Lake", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_DIRECT", "https://taxdeeds.lakecountyclerk.org", "UNKNOWN",
-     "Portal plus a 2022-2023 dated PDF; no newer document seen."),
+    # 2026-10-25 (Florida sources batch): Lake was reported on the realTDM
+    # platform. lake.realtdm.com answered the sandbox with an AWS ELB 403 -
+    # the same answer the production tenant alachua.realtdm.com gave in the
+    # same minute, so it is the sandbox's address being refused, and the
+    # tenant could not be confirmed real (osceola / nassau are TEST
+    # placeholders). Not added to data/laft_realtdm_counties.csv, which
+    # would make it a production row.
+    ("Lake", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_PLATFORM", "https://lake.realtdm.com/public/cases/list", "HTML_CARDS",
+     "Reported 2026-10-25 as a realTDM tenant (harvest_laft_realtdm.py platform). Sandbox read 2026-10-25: HTTP 403 from the vendor's "
+     "AWS load balancer, identical to the production tenant alachua.realtdm.com, so not a tenant check; a placeholder (TEST) tenant is not "
+     "ruled out. Clerk portal taxdeeds.lakecountyclerk.org (2022-2023 dated PDF seen earlier) unreachable from the sandbox. Add to "
+     "data/laft_realtdm_counties.csv only after a runner read shows the real 'List of Lands' status on this tenant."),
     ("Monroe", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_DIRECT", "https://www.monroe-clerk.com", "UNKNOWN", "Home page only."),
     ("Nassau", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_DIRECT", "https://www.nassauclerk.com/view-tax-deeds-1", "UNKNOWN", "No list URL."),
     ("Suwannee", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_DIRECT", "https://www.suwgov.org/tax-deed-sales/", "UNKNOWN",
@@ -225,16 +242,49 @@ FL_CANDIDATES = [
 ]
 
 
+# Candidates re-read on 2026-10-25 (docs/sources-batch-2026-10-25-florida.md):
+# the source id a gated reader uses, how the source is read, and the date.
+BATCH_2026_10_25 = "docs/sources-batch-2026-10-25-florida.md"
+FL_CANDIDATE_OVERRIDES = {
+    "Charlotte": dict(source_id="fl_laft_charlotte", access_method="JSON_ENDPOINT",
+                      document_url="https://taxdeeds.charlotteclerk.com/TaxDeed/GetTaxDeedViewByLandsAvailable",
+                      last_checked="2026-10-25", evidence_ref=BATCH_2026_10_25),
+    "Lake": dict(access_method="HTTP_POST_FORM", last_checked="2026-10-25", evidence_ref=BATCH_2026_10_25),
+}
+
+
 def fl_candidate_rows() -> list[dict]:
     rows = []
     for county, verification, authority, url, fmt, note in FL_CANDIDATES:
         found = verification != "NOT_FOUND_AFTER_SEARCH"
-        rows.append(_row(state="FL", county=county, source_id="", harvester="", inventory_type=FL_INVENTORY if found else "",
-                         ledgers=AVAILABLE if found else "", publication_status="UNREVIEWED",
-                         source_authority=authority, canonical_url=url, access_method="UNKNOWN" if url else "NONE",
-                         machine_format=fmt, verification_status=verification, governance_status="TERMS_NOT_VERIFIED" if url else "NOT_APPLICABLE",
-                         last_checked="2026-09-29", completeness_status="UNKNOWN", evidence_ref=f"{AUDIT} s5", notes=note))
+        row = dict(state="FL", county=county, source_id="", harvester="", inventory_type=FL_INVENTORY if found else "",
+                   ledgers=AVAILABLE if found else "", publication_status="UNREVIEWED",
+                   source_authority=authority, canonical_url=url, access_method="UNKNOWN" if url else "NONE",
+                   machine_format=fmt, verification_status=verification, governance_status="TERMS_NOT_VERIFIED" if url else "NOT_APPLICABLE",
+                   last_checked="2026-09-29", completeness_status="UNKNOWN", evidence_ref=f"{AUDIT} s5", notes=note)
+        row.update(FL_CANDIDATE_OVERRIDES.get(county, {}))
+        rows.append(_row(**row))
     return rows
+
+
+# 2026-10-25 (Florida sources batch): Leon County's county-held tax
+# certificates, published by the Tax Collector (Leon is not a LienHub county)
+# as a dated zipped Excel workbook. Read once: 121 certificates, list as of
+# 2026-10-01. scripts/harvest_leon_certificates.py reads it; wired into no
+# workflow, so the row is a candidate.
+def fl_certificate_candidate_rows() -> list[dict]:
+    return [_row(state="FL", county="Leon", source_id="fl_leon_tc_certificates", harvester="", inventory_type="",
+                 ledgers=LIENS, publication_status="UNREVIEWED", source_authority="GOVERNMENT_DIRECT",
+                 canonical_url="https://www.leontaxcollector.net/Services/property-taxes/Certificate-Lists",
+                 access_method="UNKNOWN", machine_format="XLSX", verification_status="MANUAL_REVIEW_REQUIRED",
+                 governance_status="TERMS_NOT_VERIFIED", last_checked="2026-10-25", completeness_status="UNKNOWN",
+                 evidence_ref=BATCH_2026_10_25, publishing_unit_name="Leon County Tax Collector",
+                 update_frequency="per the page: first business day after the discount period's due date, and the first business day of each month from April",
+                 source_terminology="Certificate Lists - All County Held Certificates (OpenCountyCertificates<YYYYMMDD>.zip, one .xlsx)",
+                 notes="Tax Collector's dated county-held certificate workbook (zipped .xlsx; link discovered on the page by name, never "
+                       "constructed). Read 2026-10-25: 121 certificates, list as of 2026-10-01; direct requests from the sandbox were refused "
+                       "(Akamai 403). Reader scripts/harvest_leon_certificates.py (fetch/parse/store on internal risk acceptance, excluded "
+                       "from the paid tier); wired into no workflow; reuse terms not reviewed.")]
 
 
 # Texas counties whose struck-off / future-resale rows are in production
@@ -668,7 +718,7 @@ def az_rows() -> list[dict]:
 
 
 def build_rows() -> list[dict]:
-    rows = (fl_production_rows() + fl_candidate_rows() + fl_auction_rows() + fl_certificate_rows()
+    rows = (fl_production_rows() + fl_candidate_rows() + fl_auction_rows() + fl_certificate_rows() + fl_certificate_candidate_rows()
             + tx_rows() + tx_auction_rows() + al_rows() + ar_rows() + la_rows() + az_rows() + expansion_rows())
     rows.sort(key=lambda r: (r["state"], r["county"], r["source_id"]))
     return rows

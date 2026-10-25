@@ -59,6 +59,18 @@
   },
   {
    "state": "FL",
+   "source_id": "fl_laft_charlotte",
+   "basis": "OPENING_BID_PLUS_ADDITIONS",
+   "figure_note": "Not the price to buy now: the county's total adds omitted taxes, accrued interest and deed fees. Request the current Lands Available statement from the clerk.",
+   "additions": "interest|omitted_taxes|doc_stamps|recording_fees",
+   "included_in_figure": "Already inside the opening bid (F.S. 197.502(6)) and never added again: the outstanding tax certificates, the delinquent, omitted and current taxes then due, interest, and the costs and fees as of when the opening bid was set - plus half the assessed value on homestead property.",
+   "official_total": "The clerk's Lands Available statement - request it from the clerk; it is valid only until the date printed on it.",
+   "quote": "Thereafter, any person ... may purchase the property from the clerk ... for the opening bid ... Interest on the opening bid continues to accrue through the month of sale (F.S. 197.502(7)); the purchaser pays the documentary stamp tax and the recording fees, and delinquent taxes accrued after the tax deed application (F.S. 197.542(1)). Duval: \"the opening bid, subsequent omitted taxes, and any accrued interest. Documentary stamps and recording fees are also assessed\".",
+   "evidence": "2026 Florida Statutes 197.502(6)-(7), 197.542(1) (read 2026-10-05, run 37248930656); scripts/harvest_laft_charlotte.py - the Clerk's Lands grid column 'Base Bid' on LANDS AVAILABLE cases (read 2026-10-25); docs/sources-batch-2026-10-25-florida.md",
+   "observed_on": "2026-10-25"
+  },
+  {
+   "state": "FL",
    "source_id": "fl_laft_osceola",
    "basis": "OPENING_BID_PLUS_ADDITIONS",
    "figure_note": "Not the price to buy now: the county's total adds omitted taxes, accrued interest and deed fees. Request the current Lands Available statement from the clerk.",

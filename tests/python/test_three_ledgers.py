@@ -192,7 +192,8 @@ def test_r02_auction_and_certificate_rows_mirror_the_harvesters_own_county_lists
         assert row.is_production and row.inventory_type == "" and row.source_authority == "VENDOR_AUCTION"
     with open(REPO / "data/florida_certificate_sale_platforms.csv", newline="", encoding="utf-8") as fh:
         lienhub = {r["County"] for r in csv.DictReader(fh) if r["Platform"] == "LienHub"}
-    fl_cert = {r.county: r for r in ROWS if r.state == "FL" and r.ledger_set == {"LIENS_CERTIFICATES"}}
+    # Production rows only: Leon's Tax Collector list (2026-10-25) is a gated candidate.
+    fl_cert = {r.county: r for r in ROWS if r.state == "FL" and r.ledger_set == {"LIENS_CERTIFICATES"} and r.is_production}
     assert set(fl_cert) == lienhub and len(fl_cert) == 32
     for county, row in fl_cert.items():
         slug = re.sub(r"[^a-z]", "", county.lower())
