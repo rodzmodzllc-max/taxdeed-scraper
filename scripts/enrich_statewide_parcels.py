@@ -58,9 +58,29 @@ def fetch_rows(base: str, key: str, state: str, id_column: str = "parcel") -> li
         offset += 1000
 
 
-def patch(base: str, key: str, row_id: str, fields: dict) -> None:
+PATCH_ATTEMPTS = 4
+PATCH_TRANSIENT = frozenset({500, 502, 503, 504, 520, 521, 522, 523, 524})
+
+
+def patch(base: str, key: str, row_id: str, fields: dict, *, http=None, sleep=time.sleep) -> None:
+    """One row's fill. A PATCH by id with the same body is idempotent, so a
+    transient failure (a statement timeout under load, a gateway error) is
+    retried with a growing pause; a 4xx is final. One transient 500 in a
+    30,549-row Detroit write must not end the whole step."""
+    http = http or http_json
     hdr = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json", "Prefer": "return=minimal"}
-    http_json(f"{base}/rest/v1/properties?id=eq.{row_id}", headers=hdr, method="PATCH", body=json.dumps(fields).encode())
+    body = json.dumps(fields).encode()
+    for n in range(PATCH_ATTEMPTS):
+        try:
+            http(f"{base}/rest/v1/properties?id=eq.{row_id}", headers=hdr, method="PATCH", body=body)
+            return
+        except urllib.error.HTTPError as e:
+            if e.code not in PATCH_TRANSIENT or n + 1 == PATCH_ATTEMPTS:
+                raise
+        except (urllib.error.URLError, TimeoutError, ConnectionError):
+            if n + 1 == PATCH_ATTEMPTS:
+                raise
+        sleep(2.0 * (2 ** n))
 
 
 def blank_for(row: dict, column: str) -> bool:
