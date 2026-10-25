@@ -5,8 +5,7 @@
    RealAuction's refusal (ticket 914220) - never permission.
 2. Indian River (every ledger) and Volusia Lands Available: the record owners
    refused reuse in writing. Collection continues pending legal review; the
-   records are never shown to customers, and the website names the county and
-   links to its official pages.
+   records' display is RESTRICTED (the website side is the UI session's).
 3. Florida DOR's written response (2026-10-12) is on file and covers the
    statewide parcel data it names (fl_fdor_cadastral).
 """
@@ -95,32 +94,20 @@ def test_no_working_harvester_is_switched_off():
     assert loop.index("if ($permDeniedCounties -contains $c.County)") < loop.index("& curl")   # guard stays first
 
 
-def _app_link_only_units() -> list[dict]:
-    app = (ROOT / "public" / "app.js").read_text(encoding="utf-8")
-    m = re.search(r"var LINK_ONLY_UNITS = (\[.*?\n\]);", app, flags=re.S)
-    assert m, "LINK_ONLY_UNITS not found in app.js"
-    return json.loads(m.group(1))
-
-
-def test_the_website_held_list_matches_the_permission_records():
+def test_every_held_county_has_a_link_and_no_display():
+    # The website side (hiding these rows from customers and linking to the
+    # Clerk's pages) is the UI session's to build; the records it will read are
+    # pinned here: each held unit has a LINK_ONLY record naming an https link
+    # and a RESTRICTED display record.
     with (ROOT / "data" / "source_permissions.csv").open(newline="", encoding="utf-8") as f:
-        all_recs = list(csv.DictReader(f))
-    recs = [r for r in all_recs if r["status"] == "LINK_ONLY" and r["source_id"] in LEDGER_OF_SOURCE]
-    restricted = {(r["source_id"], r["jurisdiction"]) for r in all_recs if r["operation"] == "display" and r["status"] == "RESTRICTED"}
-    assert {(r["source_id"], r["jurisdiction"]) for r in recs} <= restricted
-    expected = {(r["jurisdiction"].split(":")[0], r["jurisdiction"].split(":")[1], LEDGER_OF_SOURCE[r["source_id"]], r["source_id"])
-                for r in recs}
-    units = _app_link_only_units()
-    assert {(u["state"], u["county"], u["ledger"], u["source_id"]) for u in units} == expected
-    by_key = {(r["jurisdiction"], r["source_id"]): r for r in recs}
-    for u in units:
-        rec = by_key[(f"{u['state']}:{u['county']}", u["source_id"])]
-        assert u["links"], u
-        for link in u["links"]:
-            assert link["url"].startswith("https://") and link["url"] in rec["reason"], (u["county"], link["url"])
+        recs = list(csv.DictReader(f))
+    links = {(r["source_id"], r["jurisdiction"]): r for r in recs if r["status"] == "LINK_ONLY" and r["source_id"] in LEDGER_OF_SOURCE}
+    restricted = {(r["source_id"], r["jurisdiction"]) for r in recs if r["operation"] == "display" and r["status"] == "RESTRICTED"}
+    assert set(links) == {("fl_realauction", "FL:Indian River"), ("fl_laft_html", "FL:Indian River"), ("fl_laft_pdfs", "FL:Volusia")}
+    assert set(links) <= restricted
+    for rec in links.values():
+        assert "https://" in rec["reason"]
 
-
-# --- 3. DOR: written permission on file, statewide data covered ---------------
 
 def test_dor_written_permission_is_on_file_and_covers_the_statewide_data():
     from harvesters.governance import authorization as A

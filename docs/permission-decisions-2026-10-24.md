@@ -78,8 +78,9 @@ Volusia's RealAuction sale calendar is a separate source and is unchanged.
 - **Harvesters:** every one keeps running. The per-county checks added here
   (`source_permission_check.py --list-denied-counties` in the PowerShell guard, the county check in `harvest_laft_html.py`
   and `auction_outcomes.py`) skip a county only if its fetch is ever denied - none is today.
-- **Website:** `public/app.js` `LINK_ONLY_UNITS` (pinned by a test to the display-RESTRICTED / LINK_ONLY records) keeps
-  these rows away from customers; admins see them labelled "Held for legal review"; the ledger names the county and links
-  to the Clerk's own pages. `sw.js` is now `tdw-shell-v137`.
-- **To show them later:** after legal review, change the county's `display` record and remove its `LINK_ONLY_UNITS` entry
-  (the test keeps the two in step).
+- **Website (not in this PR):** hiding these rows from customers, labelling them "Held for legal review" for admins
+  and linking to the Clerk's pages is left to the session working on the UI. The records it should read are display
+  RESTRICTED and link LINK_ONLY for `fl_realauction` / `fl_laft_html` in `FL:Indian River` and `fl_laft_pdfs` in
+  `FL:Volusia`; each LINK_ONLY record's reason names the Clerk's https pages. Until that ships, the stored rows are
+  still visible as today (migration 031, once applied, would enforce `display` server-side).
+- **To show them later:** after legal review, change the county's `display` record (and drop the website's hiding entry).

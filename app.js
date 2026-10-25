@@ -866,45 +866,12 @@ function inCustomerInventory(p) {
   return d === null || d === "in_subset";
 }
 window.__tdwDetroitSubset = { status: detroitSubsetStatus, fnv1a32 };
-// ==================== Counties held for legal review (owner's decision 2026-10-24) ====================
-// The record owner refused reuse in writing. TAXACQ keeps collecting the
-// listings pending legal review (an internal risk acceptance, not permission)
-// but never shows them to a customer: data/source_permissions.csv records
-// display RESTRICTED and link LINK_ONLY for the county. Admins see the rows,
-// labelled; the ledger names the county and links to its official pages.
-// One entry per (state, county, ledger); a test pins this list to the
-// permission records. `var` / function declarations: render() runs during
-// module init (TDZ).
-var LINK_ONLY_UNITS = [
-  {"state": "FL", "county": "Indian River", "ledger": "auction", "source_id": "fl_realauction", "office": "Indian River County Clerk of Circuit Court & Comptroller", "why": "The Clerk has not permitted commercial use of its tax-deed listings; they are held for legal review.", "links": [{"label": "Properties for auction (Clerk)", "url": "https://taxdeeds.indian-river.org/TaxDeeds"}, {"label": "Bid on the county auction site", "url": "https://www.indian-river.realtaxdeed.com/"}]},
-  {"state": "FL", "county": "Indian River", "ledger": "laft", "source_id": "fl_laft_html", "office": "Indian River County Clerk of Circuit Court & Comptroller", "why": "The Clerk has not permitted commercial use of its Lands Available list; it is held for legal review.", "links": [{"label": "Lands available for taxes (Clerk)", "url": "https://indianriverclerk.com/land-available-for-taxes/"}]},
-  {"state": "FL", "county": "Volusia", "ledger": "laft", "source_id": "fl_laft_pdfs", "office": "Volusia County Clerk of the Circuit Court", "why": "The Clerk's terms restrict publishing its data online; the list is held for legal review.", "links": [{"label": "Lands available for taxes (Clerk)", "url": "https://app02.clerk.org/cm_rpt/?id=lat"}]}
-];
-var LINK_ONLY_HIDDEN = { auction: 0, laft: 0, certificate: 0 };
-function linkOnlyUnitFor(p) {
-  if (!p) return null;
-  const st = p.state || PAGE_STATE;
-  for (const u of LINK_ONLY_UNITS) {
-    if (u.state === st && u.county === p.county && u.ledger === p.source) return u;
-  }
-  return null;
-}
-function linkOnlyUnitsFor(kind) {
-  return LINK_ONLY_UNITS.filter(u => u.state === PAGE_STATE && u.ledger === kind);
-}
-function linkOnlyNoticeHtml(kind) {
-  const units = linkOnlyUnitsFor(kind);
-  if (!units.length) return "";
-  const items = units.map(u => `<li data-link-only="${esc(u.county)}"><b>${esc(u.county)} County</b> - ${esc(u.why)} Listings are not shown here; see them on the official site: ${u.links.map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" data-acq-link="source">${esc(l.label)} ↗</a>`).join(" · ")}</li>`).join("");
-  return `<div class="ledger-link-only" id="ledgerLinkOnly"><p>Not shown here until legal review${IS_ADMIN && LINK_ONLY_HIDDEN[kind] ? ` (${LINK_ONLY_HIDDEN[kind]} stored record${LINK_ONLY_HIDDEN[kind] === 1 ? "" : "s"} shown to you as an admin, labelled; customers do not see ${LINK_ONLY_HIDDEN[kind] === 1 ? "it" : "them"})` : ""}:</p><ul>${items}</ul></div>`;
-}
 // Shown in THIS session. Admins see every collected row (labelled); preview
 // and customers see the customer inventory (the Detroit subset stage above),
 // and customers only what the publication gate also allows.
 function isPublishable(p) {
   if (p && p.publication_status === "BLOCKED") return false;
   if (IS_ADMIN) return true;
-  if (linkOnlyUnitFor(p)) return false;
   // Defence in depth for the acquisition-path gate: the server already
   // returns only CUSTOMER_PUBLISHED rows to a customer; a row that somehow
   // carries another decision is never shown to one.
@@ -930,7 +897,6 @@ function sourceLineHtml(p) {
   const bits = [];
   if (p.source === "laft" && p.inventory_status_raw) bits.push(`<span class="source-program" title="The source's own status / program wording, verbatim">${esc(p.inventory_status_raw)}</span>`);
   if (!isCustomerPublishable(p)) bits.push(`<span class="source-review-chip" title="The source's customer-publication review status - not the property's availability">Source review: ${esc(sourceReviewLabel(p))} · not customer-published</span>`);
-  if (linkOnlyUnitFor(p)) bits.push(`<span class="source-review-chip link-only-chip" data-link-only-row="1" title="${esc(linkOnlyUnitFor(p).why)}">Held for legal review · not shown to customers</span>`);
   const ps = publicationStateOf(p);
   if (ps && ps !== "CUSTOMER_PUBLISHED") bits.push(`<span class="pub-state-chip" data-pub-state="${esc(ps)}" title="${esc(`Customer-publication gate: ${PUBLICATION_STATE_LABELS[ps] || ps}. ${publicationReasonsText(p)}`)}">Not customer-published: ${esc(PUBLICATION_STATE_LABELS[ps] || ps)}</span>`);
   const det = detroitSubsetStatus(p);
@@ -4340,8 +4306,6 @@ function applyLedgerRows() {
   // Publication is the source decision only - an Available row without a
   // captured acquisition path is still published (acquisitionGaps()).
   REVIEW_PENDING_SHOWN = { auction: 0, laft: 0, certificate: 0 };
-  LINK_ONLY_HIDDEN = { auction: 0, laft: 0, certificate: 0 };
-  rows.forEach(p => { if (linkOnlyUnitFor(p) && p.source in LINK_ONLY_HIDDEN) LINK_ONLY_HIDDEN[p.source]++; });
   DETROIT_SUMMARY = { collected: 0, structure: 0, subset: 0 };
   rows.forEach(p => {
     const d = detroitSubsetStatus(p);
@@ -4374,9 +4338,6 @@ function applyLedgerRows() {
       if (!isCustomerPublishable(p) && p.source in REVIEW_PENDING_SHOWN) REVIEW_PENDING_SHOWN[p.source]++;
       return true;
     }
-    // Link-only counties are named on the ledger with their official links,
-    // never counted as "withheld" by review or by the acquisition-path gate.
-    if (linkOnlyUnitFor(p)) return false;
     // Withheld by the acquisition-path gate (enforced, non-admin): counted
     // on its own, by class, never folded into the source-review count.
     if (p.source === "laft" && !acqGateAllows(p) && (isCustomerPublishable(p) || viewerScope() === "preview")) {
@@ -10902,7 +10863,6 @@ function section(container, title, sub, rows, kind) {
         <span class="lgd lgd-closed">No longer listed</span>
       </p>
       ${REVIEW_PENDING_SHOWN[kind] ? `<p class="ledger-review-pending" id="ledgerReviewPending">${REVIEW_PENDING_SHOWN[kind]} record${REVIEW_PENDING_SHOWN[kind] === 1 ? "" : "s"} from sources awaiting customer-publication review ${REVIEW_PENDING_SHOWN[kind] === 1 ? "is" : "are"} ${esc(reviewViewerReason())}, each labelled "Source review". Customers in published mode do not see ${REVIEW_PENDING_SHOWN[kind] === 1 ? "it" : "them"}.</p>` : ""}
-      ${linkOnlyNoticeHtml(kind)}
       ${WITHHELD[kind] ? `<p class="ledger-withheld" id="ledgerWithheld">${WITHHELD[kind]} record${WITHHELD[kind] === 1 ? "" : "s"} withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.</p>` : ""}
       ${publicationWithheldText(kind) ? `<p class="ledger-withheld ledger-pub-withheld" id="ledgerPublicationWithheld">${esc(publicationWithheldText(kind))}. ${IS_ADMIN ? "Shown to you as an admin, each labelled \"Not customer-published\" with its reasons and the step that publishes it; customers do not see them." : "Counted, not shown: each becomes visible once its source, the state rules, the record, its acquisition path and its observation are verified."}</p>` : ""}
       ${kind === "laft" && GATE_WITHHELD.total ? `<p class="ledger-withheld ledger-gate-withheld" id="ledgerGateWithheld">${GATE_WITHHELD.total} record${GATE_WITHHELD.total === 1 ? "" : "s"} withheld pending acquisition-path verification (${Object.entries(GATE_WITHHELD.by).map(([c, n]) => `${n} ${(ACQ_GATE_CLASS_LABELS[c] || c).toLowerCase()}`).join(" · ")}). Counted, not shown: a listing without a verified way to acquire it is not an actionable opportunity.</p>` : ""}

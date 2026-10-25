@@ -4419,24 +4419,6 @@ await navMap.close();
     results.offListDefault = await n.evaluate(() => window.__tdwOffList('p9'));
     await n.close();
   }
-  // ---- Link-only counties (owner's decision 2026-10-24) ----
-  {
-    const lo = await newPage({ viewport: { width: 1440, height: 900 } });
-    lo.on('pageerror', e => errors.push('linkonly pageerror: ' + e.message));
-    await lo.goto(BASE_URL + '?linkonly=1' + '#/auctions', { waitUntil: 'networkidle' });
-    await lo.waitForTimeout(400);
-    const read = () => lo.evaluate(() => {
-      const box = document.getElementById('ledgerLinkOnly');
-      return { counties: box ? [...box.querySelectorAll('[data-link-only]')].map(li => li.dataset.linkOnly) : null,
-        links: box ? [...box.querySelectorAll('a')].map(a => a.href) : [],
-        cards: ['plo1', 'plo2', 'plo3'].filter(id => document.querySelector(`.prop-card[data-pid="${id}"]`)) };
-    });
-    results.linkOnlyAuctions = await read();
-    await clickLedger(lo, 'laft');
-    await lo.waitForTimeout(250);
-    results.linkOnlyAvailable = await read();
-    await lo.close();
-  }
   // ---- Card facts never show a stored zero as a size (2026-10-22) ----
   {
     const z = await newPage({ viewport: { width: 1440, height: 900 } });
@@ -7327,7 +7309,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v137"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v136"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -7529,8 +7511,6 @@ const EXPECTED = {
   laftCardFaceParts: { photo: true, price: true, cta: true, legacySpec: 0, legacyLedgerLine: 0, legacyStatGrid: 0, legacyPrimary: 0 },
   availFiltersHiddenOnAuctions: true,
   availFiltersShownOnAvailable: true,
-  linkOnlyAuctions: { counties: ["Indian River"], links: ["https://taxdeeds.indian-river.org/TaxDeeds", "https://www.indian-river.realtaxdeed.com/"], cards: [] },
-  linkOnlyAvailable: { counties: ["Indian River", "Volusia"], links: ["https://indianriverclerk.com/land-available-for-taxes/", "https://app02.clerk.org/cm_rpt/?id=lat"], cards: [] },
   ledgerWithheldText: '1 record withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.',
   withheldRowNeverRendered: 0,
   // Fixture p15 was last read 2026-09-20: from 2026-10-05 on it is permanently

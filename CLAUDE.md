@@ -3485,6 +3485,6 @@ Full description: `docs/permission-decisions-2026-10-24.md`. Stable facts:
   INTERNAL_RISK_ACCEPTANCE (expires 2027-04-12), never permission; collection and display unchanged.
 - **Held for legal review:** Indian River (RealAuction calendar + results, LAFT HTML) and Volusia LAFT PDF: fetch / parse /
   store are an INTERNAL_RISK_ACCEPTANCE (still collected), display RESTRICTED (PROHIBITION_FOUND), link LINK_ONLY.
-  `app.js` `LINK_ONLY_UNITS` (pinned to the records) hides their rows from customers (admins see them labelled) and links
-  to the Clerk's pages. The harvesters' per-county checks skip a county only if its fetch is denied. `sw.js` ->
-  `tdw-shell-v137`.
+  The website side (hide these rows from customers, admins see them labelled, link to the Clerk's pages) is left to
+  the UI session; `test_permission_decisions_2026_10_24.py` pins the records it will read. The harvesters' per-county
+  checks skip a county only if its fetch is denied.
