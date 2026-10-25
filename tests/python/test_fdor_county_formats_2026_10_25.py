@@ -66,7 +66,9 @@ def test_alt_key_rules_for_marion_and_monroe(enrich):
     assert enrich.alt_key_candidate("Monroe", "145287") is None
     # Hillsborough: LienHub's "A" + 10-digit folio -> the bare folio
     assert enrich.alt_key_candidate("Hillsborough", "A0012345678") == "0012345678"
-    assert enrich.alt_key_candidate("Hillsborough", "0012345678") is None
+    assert enrich.alt_key_candidate("Hillsborough", "0012345678") == "0012345678"   # bare folio (auction / LAFT)
+    assert enrich.alt_key_candidate("Hillsborough", "B0012345678") is None
+    assert enrich.alt_key_candidate("Hillsborough", "00123456789") is None
     assert enrich.alt_key_candidate("Hillsborough", "A001234567") is None
 
 
