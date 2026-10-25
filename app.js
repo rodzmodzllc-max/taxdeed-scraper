@@ -15549,7 +15549,8 @@ function currentExperience() {
     if (q && EXPERIENCES[q]) { try { localStorage.setItem(EXPERIENCE_KEY, q); } catch {} return q; }
   } catch {}
   try { const v = localStorage.getItem(EXPERIENCE_KEY); if (v && EXPERIENCES[v]) return v; } catch {}
-  return "classic";
+  // look/tactile preview branch: this copy of the site opens in the Tactile look.
+  return "tactile";
 }
 function ensureExperienceStage() {
   let stage = document.getElementById("xpStage");
