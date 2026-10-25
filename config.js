@@ -45,7 +45,8 @@ window.TDW_CONFIG = {
   // are never shown and the Detroit customer subset still applies. Set this
   // back to "enforced" (or delete the line) before selling to customers, so
   // customers see approved sources only.
-  publicationMode: "preview",
+  // 2026-10-25, owner: only properties with a path of acquisition are shown.
+  publicationMode: "enforced",
 
   // Acquisition-path gate (2026-10-10, docs/acquisition-gate.md). "off": the
   // source publication decision alone decides what a customer sees (today's
@@ -58,7 +59,9 @@ window.TDW_CONFIG = {
   // read-only dry run (docs/review/acquisition-gate-dryrun-2026-10-10.md)
   // shows what enforcing would withhold; switching it on is the owner's
   // decision. Nothing else changes: no row is deleted or closed.
-  availableGate: "off",
+  // 2026-10-25, owner: "Any properties that we are publishing have to have a
+  // path of acquisition." Enforced.
+  availableGate: "enforce",
 
   // Paid beta (2026-10-05). Switched OFF until the owner completes the
   // production steps in docs/commercial-layer.md (Stripe account, monthly

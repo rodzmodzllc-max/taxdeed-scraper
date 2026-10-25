@@ -315,9 +315,9 @@ def test_enrichment_never_writes_publication_status(script):
     assert not re.search(r"""["']publication_status["']\s*:""", src), script
 
 
-def test_frontend_keeps_preview_mode_and_the_withheld_wording():
+def test_frontend_enforces_publication_and_keeps_the_withheld_wording():
     cfg = (ROOT / "config.js").read_text(encoding="utf-8")
-    assert re.search(r'publicationMode:\s*"preview"', cfg)
+    assert re.search(r'publicationMode:\s*"enforced"', cfg)   # owner, 2026-10-25: customers see approved sources only
     app = (ROOT / "public/app.js").read_text(encoding="utf-8")
     assert "withheld - source not approved for customer publication" in app and "Source review: " in app
     assert "function isCustomerPublishable" in app

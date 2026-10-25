@@ -52,7 +52,7 @@ def test_k04_billing_ships_switched_off_and_without_keys():
     block = cfg.split("billing: {", 1)[1].split("}", 1)[0]
     assert "enabled: false" in block and 'planName: ""' in block and 'priceDisplay: ""' in block
     assert "stripe" not in block.lower().replace("checkoutfunction", "").replace("portalfunction", "")
-    assert 'publicationMode: "preview"' in cfg                            # the tester preview stays on
+    assert 'publicationMode: "enforced"' in cfg                           # owner, 2026-10-25: approved sources only
     legal = cfg.split("legal: {", 1)[1].split("}", 1)[0]
     assert all(f'{k}: ""' in legal for k in ("operatorName", "governingLaw", "effectiveDate", "contactEmail"))
 

@@ -162,7 +162,7 @@ def test_g08_acquisition_gaps_and_frontend_parity_and_no_withholding():
     assert "acquisitionGap" not in pub and "acqGateAllows(p)" in pub and "if (IS_ADMIN) return true;" in pub
     allows = re.search(r"function acqGateAllows\(p\) \{(.*?)\n\}", APP, re.S).group(1)
     assert 'if (ACQ_GATE_MODE !== "enforce" || !p || p.source !== "laft") return true;' in allows
-    assert 'availableGate: "off"' in (REPO / "config.js").read_text(encoding="utf-8")
+    assert 'availableGate: "enforce"' in (REPO / "config.js").read_text(encoding="utf-8")   # owner, 2026-10-25
     assert "WITHHELD_ACQ" not in APP and "ledgerWithheldAcq" not in APP
     assert PE.acquisition_state(_published()) == "partial"                   # a path without steps: partial, still a path
 

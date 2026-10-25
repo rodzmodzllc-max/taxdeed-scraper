@@ -85,7 +85,8 @@ def test_app_js_mirrors_the_vocabulary():
         assert f'{cls}: "{label}"' in app, cls
     for name, value in (("ACQ_GATE_OBSERVATION_DAYS", G.OBSERVATION_DAYS), ("ACQ_GATE_LIST_DAYS", G.LIST_DAYS), ("ACQ_GATE_EVIDENCE_DAYS", G.EVIDENCE_DAYS)):
         assert re.search(rf"var {name} = {value};", app), name
-    # Staged: off unless config.js says enforce, and never applied to an admin.
+    # Off unless config.js says enforce, and never applied to an admin. The owner
+    # switched it on 2026-10-25: a published property must have an acquisition path.
     assert 'String((window.TDW_CONFIG || {}).availableGate || "off")' in app
     cfg = (REPO / "config.js").read_text(encoding="utf-8")
-    assert 'availableGate: "off"' in cfg
+    assert 'availableGate: "enforce"' in cfg
