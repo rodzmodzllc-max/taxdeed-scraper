@@ -105,4 +105,11 @@ in through the Playwright stub (`tests/vendor/supabase-stub.js`), saved in
 
 ## Verification
 
-VERIFICATION
+On head `d6e2817` (before review):
+
+```
+Browser: PASS: all 1270 checks matched, 8 console error(s) all allowlisted.
+Python:  3018 passed, 129 skipped
+```
+
+Root mirror identical to `public/`; `scripts/build_state_page.py --check` passes.
