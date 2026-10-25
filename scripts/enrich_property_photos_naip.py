@@ -153,8 +153,14 @@ def drop_unavailable_columns(fields: dict) -> dict:
 
 
 def bbox_for(latitude: float, longitude: float) -> str:
-    half = BOX_DEGREES / 2.0
-    return f"{longitude - half},{latitude - half},{longitude + half},{latitude + half}"
+    # Latitude half-height is BOX_DEGREES / 2; the longitude half-width is
+    # scaled by the image aspect ratio in metres, so the export is not
+    # stretched (a square box in degrees is ~1.5x too wide at FL latitudes).
+    import math
+    w, h = (int(v) for v in IMAGE_SIZE.split(","))
+    half_lat = BOX_DEGREES / 2.0
+    half_lng = half_lat * (w / h) / math.cos(math.radians(latitude))
+    return f"{longitude - half_lng},{latitude - half_lat},{longitude + half_lng},{latitude + half_lat}"
 
 
 def fetch_naip_image(latitude, longitude):
