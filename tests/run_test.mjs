@@ -6038,7 +6038,7 @@ await navMap.close();
       // width. Each row stays compact.
       // Redesign PR2: on the List at phone width the search box is re-homed into
       // Filters, so the second-row check applies only while it is in the header.
-      headerCompact: (() => { const gsEl = document.getElementById('globalSearch'); const gsr = gsEl.getBoundingClientRect(); const inBar = bar.contains ? document.querySelector('.topbar').contains(gsEl) : true;
+      headerCompact: (() => { const gsEl = document.getElementById('globalSearch'); const gsr = gsEl.getBoundingClientRect(); const inBar = document.querySelector('.topbar').contains(gsEl);
         return Math.max(sel.bottom, acc.bottom) - bar.top <= 64 && (!inBar || (gsr.top >= Math.max(sel.bottom, acc.bottom) && gsr.height <= 48)) && bar.height <= 120; })(),
       noHorizontalScroll: document.documentElement.scrollWidth <= window.innerWidth,
       value: document.getElementById('stateSelect').value
