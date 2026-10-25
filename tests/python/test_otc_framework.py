@@ -153,7 +153,8 @@ def test_t03_adapter_package_never_fetches():
 
 def test_g01_every_texas_candidate_is_refused_and_florida_production_is_allowed():
     for county, fmt, family, blocker in TX_CANDIDATES:
-        row = lookup(ROWS, "TX", county, "tx_hctax" if county == "Harris" else "")
+        # 2026-10-25: Bexar's candidate carries the gated reader's source id.
+        row = lookup(ROWS, "TX", county, {"Harris": "tx_hctax", "Bexar": "tx_bexar_struckoff"}.get(county, ""))
         assert row is not None, county
         d = evaluate_source(row)
         assert d.allowed is False and d.layer in ("verification", "vendor_registry"), (county, d)

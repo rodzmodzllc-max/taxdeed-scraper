@@ -370,12 +370,19 @@ TX_CANDIDATES: tuple[tuple[str, str, str, str], ...] = (
     ("Montgomery", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
     ("Collin", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
     ("Brazoria", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
-    ("Dallas", "HTML_TABLE", "tabular (HTML) or a downloadable list", "fetch; locate the list file; terms"),
+    # 2026-10-25 (docs/sources-batch-2026-10-25-texas.md): the County page
+    # links its list only to the LGBS vendor map; the County's own PDFs 404.
+    ("Dallas", "HTML_TABLE", "none - the County publishes no list document today",
+     "a County-published struck-off list (not the vendor map); terms"),
     ("Jefferson", "PDF", "PDF header-map (scripts/harvest_laft_pdfs.py pattern)", "fetch dated PDFs; distinguish resale list from sale notice; terms"),
     ("Gregg", "PDF", "PDF header-map", "fetch; read columns; terms"),
     ("Orange", "PDF", "PDF header-map", "fetch 04.09.25 listing; confirm currency; terms"),
     ("Jim Wells", "PDF", "PDF header-map", "fetch; read columns; terms; reconcile with the LGBS rows"),
     ("Tom Green", "HTML_TABLE", "tabular (HTML) + procedures PDF", "fetch; read columns; terms"),
     ("Trinity", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
-    ("Bexar", "UNKNOWN", "unknown until the DocumentCenter container is opened", "open DocumentCenter View/41852; terms"),
+    # 2026-10-25: read live - a scanned PDF with an OCR text layer, read by
+    # its own gated script (scripts/harvest_tx_bexar_struckoff.py), not a
+    # TabularConfig; registry source id tx_bexar_struckoff.
+    ("Bexar", "PDF", "own reader (OCR text layer; scripts/harvest_tx_bexar_struckoff.py)",
+     "reuse review; a runner read; the multiple-account section; terms"),
 )

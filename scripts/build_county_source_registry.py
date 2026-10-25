@@ -273,6 +273,42 @@ TX_CANDIDATES = [
     ("Bee", "https://www.beecounty.texas.gov", "DOCX", "TERMS_NOT_VERIFIED", "'TAX FORECLOSURE RESALE' DOCX; list or procedure unknown."),
 ]
 
+# Candidates re-read on 2026-10-25 (docs/sources-batch-2026-10-25-texas.md).
+# Bexar: the County's own list was read live and
+# scripts/harvest_tx_bexar_struckoff.py reads it - wired into no workflow and
+# no sync, so the row stays a candidate. Dallas: the County's page now links
+# its "List of Tax Sale Properties" only to the LGBS vendor map (LGBS is
+# REVIEW_REQUIRED and never becomes a new source); the County's own earlier
+# struck-off PDFs answer 404. No vendor URL is recorded here.
+BATCH_TX_2026_10_25 = "docs/sources-batch-2026-10-25-texas.md"
+TX_CANDIDATE_OVERRIDES = {
+    "Bexar": dict(
+        source_id="tx_bexar_struckoff", inventory_type="STRUCK_OFF_HELD_IN_TRUST",
+        canonical_url="https://www.bexar.org/1670/About-Us",
+        document_url="https://www.bexar.org/DocumentCenter/View/41852/Bexar-County-Resale-Properties-Distribution-List-4-2-24",
+        access_method="HTTP_GET_PDF", machine_format="PDF", verification_status="MANUAL_REVIEW_REQUIRED",
+        last_checked="2026-10-25", evidence_ref=BATCH_TX_2026_10_25,
+        # publisher / amount kind / cadence / terminology stay blank on a
+        # candidate row (only production rows name them -
+        # test_alabama_onboarding); they are in the notes, the reader and
+        # data/available_financial_terms.csv.
+        notes="Public Works 'About Us' page links 'Current Struck-Off Property List' (DocumentCenter PDF; the reader finds the link by "
+              "its text, never constructs it). Read live 2026-10-25: scanned PDF with an OCR text layer, 2 pages, list updated "
+              "2026-10-06; 41 one-account rows kept, 3 lines refused (OCR-garbled identifiers), a 'MULTIPLE ACCOUNTS' section "
+              "(7 accounts) not read -> INCOMPLETE. Properties struck off and deeded in trust to Bexar County, sold by private sale "
+              "or the semi-annual resale auction (County information sheet, DocumentCenter 41851). Reader "
+              "scripts/harvest_tx_bexar_struckoff.py (fetch/parse/store on internal risk acceptance, excluded from the paid tier); "
+              "wired into no workflow; reuse terms not reviewed."),
+    "Dallas": dict(
+        verification_status="HISTORICAL_ONLY", last_checked="2026-10-25", evidence_ref=BATCH_TX_2026_10_25,
+        notes="Public Works Property Division 'Tax Foreclosure Resales' page (read live 2026-10-25) links its 'List of Tax Sale "
+              "Properties' only to the delinquent-tax counsel's vendor map (LGBS, REVIEW_REQUIRED - never a new source); no County "
+              "document is linked. The County's own FAQ (TaxFCResaleFAQ_2024_Bids.pdf, read) says struck-off properties are listed "
+              "on that page for download; earlier County PDFs (StruckListWorking 2023 / 2024 inventory) appear in a search index but "
+              "answer HTTP 404. No reader; nothing collected."),
+}
+
+
 # Counties whose only known publication is a BLOCKED vendor (PBFCM / MVBA).
 # No URL is recorded: a blocked vendor's document must never enter a
 # machine-readable registry a future adapter could pick up.
@@ -302,13 +338,15 @@ def tx_rows() -> list[dict]:
                          update_frequency="not published by the vendor; read only when the texas job is dispatched by hand (never on cron); not retried after the 2026-09-29 INCOMPLETE read",
                          source_terminology="LGBS struck-off / resale listing: 'Minimum Bid', cause number, account (AVAILABLE and AUCTIONS by the vendor's own sale status)"))
     for county, url, fmt, governance, note in TX_CANDIDATES:
-        rows.append(_row(state="TX", county=county, source_id=("tx_hctax" if county == "Harris" else ""), harvester="",
-                         inventory_type="", source_authority="GOVERNMENT_DIRECT", canonical_url=url, ledgers=AVAILABLE,
-                         publication_status="RESTRICTED" if county == "Harris" else "UNREVIEWED",
-                         restrictions="LEGAL_REVIEW_REQUIRED (registry tx_hctax, Phase 9.5): hctax.net terms not cleared for redistribution; gate refuses until resolved" if county == "Harris" else "",
-                         access_method="UNKNOWN", machine_format=fmt, verification_status="SEARCH_EVIDENCE_ONLY",
-                         governance_status=governance, last_checked="2026-09-29", completeness_status="UNKNOWN",
-                         evidence_ref=f"{AUDIT} s5", notes=note + " NOT VERIFIED (search index only)."))
+        row = dict(state="TX", county=county, source_id=("tx_hctax" if county == "Harris" else ""), harvester="",
+                   inventory_type="", source_authority="GOVERNMENT_DIRECT", canonical_url=url, ledgers=AVAILABLE,
+                   publication_status="RESTRICTED" if county == "Harris" else "UNREVIEWED",
+                   restrictions="LEGAL_REVIEW_REQUIRED (registry tx_hctax, Phase 9.5): hctax.net terms not cleared for redistribution; gate refuses until resolved" if county == "Harris" else "",
+                   access_method="UNKNOWN", machine_format=fmt, verification_status="SEARCH_EVIDENCE_ONLY",
+                   governance_status=governance, last_checked="2026-09-29", completeness_status="UNKNOWN",
+                   evidence_ref=f"{AUDIT} s5", notes=note + " NOT VERIFIED (search index only).")
+        row.update(TX_CANDIDATE_OVERRIDES.get(county, {}))
+        rows.append(_row(**row))
     for sid, counties in TX_BLOCKED_VENDOR_ONLY.items():
         for county in counties:
             rows.append(_row(state="TX", county=county, source_id=sid, harvester="", inventory_type="",

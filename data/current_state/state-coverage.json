@@ -9087,10 +9087,10 @@
     "AVAILABLE": {
      "acquisition": {
       "by_status": {
-       "NOT_FOUND": 8,
+       "NOT_FOUND": 9,
        "VERIFIED": 1
       },
-      "units": 9,
+      "units": 10,
       "verified_units": [
        "Galveston (tx_lgbs)"
       ]
@@ -9451,19 +9451,19 @@
        {
         "amount_kind": "",
         "approved_for_customers": false,
-        "canonical_url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information",
+        "canonical_url": "https://www.bexar.org/1670/About-Us",
         "county": "Bexar",
         "governance_status": "TERMS_NOT_VERIFIED",
         "harvester": "",
         "has_evidence": true,
         "implemented": false,
-        "last_checked": "2026-09-29",
+        "last_checked": "2026-10-25",
         "publication_status": "UNREVIEWED",
         "publishing_unit_name": "",
         "restrictions": "",
-        "source_id": "",
+        "source_id": "tx_bexar_struckoff",
         "update_frequency": "",
-        "verification_status": "SEARCH_EVIDENCE_ONLY"
+        "verification_status": "MANUAL_REVIEW_REQUIRED"
        },
        {
         "amount_kind": "",
@@ -9525,13 +9525,13 @@
         "harvester": "",
         "has_evidence": true,
         "implemented": false,
-        "last_checked": "2026-09-29",
+        "last_checked": "2026-10-25",
         "publication_status": "UNREVIEWED",
         "publishing_unit_name": "",
         "restrictions": "",
         "source_id": "",
         "update_frequency": "",
-        "verification_status": "SEARCH_EVIDENCE_ONLY"
+        "verification_status": "HISTORICAL_ONLY"
        },
        {
         "amount_kind": "",

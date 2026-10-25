@@ -6006,14 +6006,14 @@
   },
   {
    "access": "NOT_CHECKED",
-   "access_note": "verification SEARCH_EVIDENCE_ONLY",
+   "access_note": "verification MANUAL_REVIEW_REQUIRED",
    "county": "Bexar",
-   "evidence": "MASTER LAFT/OTC/STRUCK-OFF AUDIT 2026-09-29 s5",
+   "evidence": "docs/sources-batch-2026-10-25-texas.md",
    "governance": "REVIEW_REQUIRED",
    "governance_reason": "no publication / reuse review recorded yet",
-   "last_checked": "2026-09-29",
+   "last_checked": "2026-10-25",
    "legacy_status": "UNREVIEWED",
-   "name": "county list",
+   "name": "tx_bexar_struckoff",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
    "publisher": "GOVERNMENT_DIRECT",
@@ -6023,10 +6023,10 @@
     "lifecycle",
     "source_date"
    ],
-   "source_id": "TX:Bexar:unharvested_list",
-   "source_type": "GOVERNMENT",
+   "source_id": "TX:Bexar:tx_bexar_struckoff",
+   "source_type": "DOCUMENT",
    "state": "TX",
-   "url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information"
+   "url": "https://www.bexar.org/1670/About-Us"
   },
   {
    "access": "NOT_CHECKED",
@@ -6210,12 +6210,12 @@
   },
   {
    "access": "NOT_CHECKED",
-   "access_note": "verification SEARCH_EVIDENCE_ONLY",
+   "access_note": "verification HISTORICAL_ONLY",
    "county": "Dallas",
-   "evidence": "MASTER LAFT/OTC/STRUCK-OFF AUDIT 2026-09-29 s5",
+   "evidence": "docs/sources-batch-2026-10-25-texas.md",
    "governance": "REVIEW_REQUIRED",
    "governance_reason": "no publication / reuse review recorded yet",
-   "last_checked": "2026-09-29",
+   "last_checked": "2026-10-25",
    "legacy_status": "UNREVIEWED",
    "name": "county list",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
@@ -8355,9 +8355,9 @@
    "by_type": {
     "AUCTION_VENDOR": 24,
     "COURT_PUBLIC_RECORD": 1,
-    "DOCUMENT": 12,
+    "DOCUMENT": 13,
     "GIS": 5,
-    "GOVERNMENT": 24,
+    "GOVERNMENT": 23,
     "PUBLIC_NOTICE": 1,
     "THIRD_PARTY": 23
    },

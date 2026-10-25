@@ -155,7 +155,7 @@ TN - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
 | AUCTIONS | COUNTY_DEPENDENT | SOURCE_FAILED_OR_STALE | 32 / 32 / 32 | 122 | 122 | 0 | 1 of 8 | Investigate the last read's error category (registry last_error_category / unit freshness) and restore the read; rows are kept, never closed, until a COMPLETE read. |
-| AVAILABLE | NOT_VERIFIED | SOURCE_FAILED_OR_STALE | 28 / 8 / 8 | 421 | 39 | 382 | 1 of 9 | Investigate the last read's error category (registry last_error_category / unit freshness) and restore the read; rows are kept, never closed, until a COMPLETE read. |
+| AVAILABLE | NOT_VERIFIED | SOURCE_FAILED_OR_STALE | 28 / 8 / 8 | 421 | 39 | 382 | 1 of 10 | Investigate the last read's error category (registry last_error_category / unit freshness) and restore the read; rows are kept, never closed, until a COMPLETE read. |
 | LIENS_CERTIFICATES | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
 
 TX - AUCTIONS field population (active rows, snapshot): amount 122/122; bid_amount_mismatch 0/122; coords 82/122; dup_parcel 3/122; flood_checked 82/122; laft_bid_without_amount 0/122; link_not_https 0/122; list_as_of 0/122; list_as_of_future 0/122; never_seen 122/122; parcel 122/122; parcel_no_digit 0/122; past_sale 122/122; path_typed 0/122; provenance 0/122; seen_gt36h 0/122; seen_order_bad 0/122; source_link 103/122

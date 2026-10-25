@@ -85,7 +85,11 @@ def test_r05_texas_rows_are_lgbs_production_search_candidates_or_blocked_only():
     auctions_only = [r for r in tx if r.is_production and "AVAILABLE" not in r.ledger_set]
     assert len(auctions_only) == 24 and all(r.source_id == "tx_realauction" and r.ledger_set == {"AUCTIONS"} for r in auctions_only)
     cands = [r for r in tx if r.verification_status == "SEARCH_EVIDENCE_ONLY"]
-    assert len(cands) == 20 and all(r.inventory_type == "" and r.source_authority == "GOVERNMENT_DIRECT" for r in cands)
+    # 2026-10-25 (Texas sources batch): Bexar was read (MANUAL_REVIEW_REQUIRED,
+    # tx_bexar_struckoff) and Dallas re-checked (HISTORICAL_ONLY), 20 -> 18.
+    assert len(cands) == 18 and all(r.inventory_type == "" and r.source_authority == "GOVERNMENT_DIRECT" for r in cands)
+    reread = {r.county: r.verification_status for r in tx if r.county in ("Bexar", "Dallas") and not r.is_production}
+    assert reread == {"Bexar": "MANUAL_REVIEW_REQUIRED", "Dallas": "HISTORICAL_ONLY"}
     harris = csr.lookup(ROWS, "TX", "Harris")
     assert harris.governance_status == "LEGAL_REVIEW_REQUIRED" and harris.source_id == "tx_hctax" and not harris.runnable
     blocked = [r for r in tx if r.verification_status == "BLOCKED_VENDOR_ONLY"]
@@ -149,4 +153,5 @@ def test_r09_generator_is_deterministic_and_registers_no_new_source_as_productio
     for county, *_ in builder.FL_CANDIDATES:
         assert csr.lookup(ROWS, "FL", county).verification_status != "PRODUCTION_VERIFIED"
     for county, *_ in builder.TX_CANDIDATES:
-        assert csr.lookup(ROWS, "TX", county, "" if county != "Harris" else "tx_hctax").verification_status != "PRODUCTION_VERIFIED"
+        sid = "tx_hctax" if county == "Harris" else builder.TX_CANDIDATE_OVERRIDES.get(county, {}).get("source_id", "")
+        assert csr.lookup(ROWS, "TX", county, sid).verification_status != "PRODUCTION_VERIFIED"
