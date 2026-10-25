@@ -132,24 +132,26 @@ def test_n07_list_and_map_share_one_ledger_definition_from_the_backend_source_co
     assert set(LEDGER_BY_SOURCE) == {"auction", "laft", "certificate"}
 
 
-def test_n08_dashboard_is_an_operating_view_with_no_score_and_honest_not_tracked_wording():
-    block = APP[APP.index("function dashboardOps"):APP.index("// ---- desktop data table ----")]
-    # Remediation (2026-10-10): the Recent, By County, By Ledger and Upcoming
-    # panels repeated figures shown on Home; they are gone from the page.
-    for panel in ("dashAttentionRows", "dashPathRows", "dashSourceRows", "dashUnitRows", "dashWatchChanges"):
-        assert panel in block, panel
-        assert f'id="{panel}"' in INDEX and f'id="{panel}"' in TX, panel
-    for gone in ("dashRecentRows", "dashCountyRows", "dashLedgerRows", "dashUpcomingRows"):
-        assert f'id="{gone}"' not in INDEX and f'id="{gone}"' not in TX, gone
-    assert "First-recorded date not tracked" in block and "Per-row read date not tracked" in block
-    assert "Not recorded on this deployment" in block
-    assert "Not yet verified - no purchase path established from evidence" in block
-    assert "Sum of county values" not in block
+def test_n08_home_carries_no_operator_panels_and_one_customer_worded_data_read_block():
+    # Redesign PR3 (2026-10-25): the operating view (attention, verified paths,
+    # dataset health, county freshness, change-detection runs) left Home; the
+    # operator detail is in admin.html. Home keeps one "Data read" block in
+    # CUSTOMER_HEALTH_TEXT's wording and the watchlist changes in its fold.
+    for panel in ("dashAttentionRows", "dashPathRows", "dashSourceRows", "dashUnitRows", "dashRecentRows",
+                  "dashCountyRows", "dashLedgerRows", "dashUpcomingRows", "dashStats", "dashWatchChanges"):
+        assert f'id="{panel}"' not in INDEX and f'id="{panel}"' not in TX, panel
+    block = APP[APP.index("function homeNextSalesHtml"):APP.index("function renderHome() {")]
+    assert 'id="dashWatchChanges"' in block and "watchChangesHtml(WATCH_CHANGES)" in block
+    assert "CUSTOMER_HEALTH_TEXT[r.health]" in block and 'id="homeDataRead"' in block
+    read = block[block.index("function ledgerReadStatus"):block.index("function renderHomeDesk")]
+    # No county names, counts or source ids reach the customer: the status
+    # function returns only a health key and a date.
+    assert "return { health" in read and "county" not in read.replace("UNIT_FRESHNESS", "")
     assert not re.search(r"\b(score|rank|recommend|estimate)\w*", block, re.I)
-    # Remediation (2026-10-10): the ledger totals are shown once, on the Home
-    # ledger cards; the operating view's own tiles (#dashStats) are gone.
-    assert 'id="dashStats"' not in INDEX and 'id="dashStats"' not in TX
-    assert "data-go-ledger" not in block and 'data-home-ledger="${esc(k)}"' in APP
+    assert "blocked" not in block.lower()
+    assert 'data-home-ledger="${esc(k)}"' in APP
+    admin = (REPO / "public" / "admin.js").read_text()
+    assert "source_observation_runs" in admin and 'id="runs"' in (REPO / "public" / "admin.html").read_text()
 
 
 def test_n09_watchlist_folds_the_same_parcel_across_ledgers_and_is_a_destination():
@@ -165,6 +167,6 @@ def test_n09_watchlist_folds_the_same_parcel_across_ledgers_and_is_a_destination
 
 
 def test_n10_service_worker_bumped_and_root_mirror_matches_public():
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v139"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v140"') == 1
     for f in ("app.js", "styles.css", "sw.js", "index.html", "tx.html", "explore.css"):
         assert (REPO / f).read_bytes() == (REPO / "public" / f).read_bytes(), f

@@ -1140,14 +1140,25 @@ function renderStrip(list, placedCount) {
     : "";
   strip.dataset.listed = String(shownN);
   strip.dataset.total = String(list.length);
-  strip.innerHTML = note + '<div class="strip-rail">' + page.map(p => `
-    <button class="strip-card${hasPin(p) ? " mapped" : ""}${activeProp && activeProp.id === p.id ? " sel" : ""}"
+  // Redesign PR3: while a property is open in the preview, its strip card is
+  // the selected marker only - its title and "in the preview" - never a
+  // second copy of the date and figure the preview already shows. A tap on
+  // it still closes the preview (the toggle the strip always had).
+  strip.innerHTML = note + '<div class="strip-rail">' + page.map(p => {
+    const sel = !!(activeProp && activeProp.id === p.id);
+    return sel ? `
+    <button class="strip-card sel in-preview${hasPin(p) ? " mapped" : ""}" type="button" data-pid="${escAttr(p.id)}" aria-pressed="true">
+      <span class="strip-title">${escHtml(pinLabel(p))}</span>
+      <span class="strip-sub">Open in the preview · tap to close</span>
+    </button>` : `
+    <button class="strip-card${hasPin(p) ? " mapped" : ""}"
             type="button" data-pid="${escAttr(p.id)}">
       <span class="strip-title">${escHtml(pinLabel(p))}</span>
       <span class="strip-sub">${escHtml(stripSubText(p))}</span>
       <span class="strip-bid">${bidText(p)}</span>
       ${hasPin(p) ? '<span class="strip-flag" aria-label="on the map">◉</span>' : ""}
-    </button>`).join("") + more + "</div>";
+    </button>`;
+  }).join("") + more + "</div>";
   strip.hidden = false;
 }
 
@@ -1255,17 +1266,21 @@ function showPreview(p) {
 
   const f = facts(p);
   const visual = typeof propertyVisual === "function" ? propertyVisual(p, "pv-visual") : "";
+  // Redesign PR3: the card's money block - one headline figure named as the
+  // source names it, the value on file as its right-hand context - then the
+  // card's provenance line and its two actions (Watchlist, Open record).
   const money = f ? `
     <div class="pv-money">
-      <div class="pv-stat"><span class="pv-label">${escHtml(f.bidLabel)}</span><b class="pv-val bid${f.bid ? "" : " muted"}">${escHtml(f.bid || "Not published")}</b>${f.bidNote ? `<small class="pv-amount-note">${escHtml(f.bidNote)}</small>` : ""}</div>
-      <div class="pv-stat"><span class="pv-label">Value on file</span><b class="pv-val${f.value ? "" : " muted"}">${escHtml(f.value || "No county value on file")}</b>${f.valueLabel ? `<small>${escHtml(f.valueLabel)}</small>` : ""}</div>
+      <div class="pv-stat pv-head-fig"><span class="pv-label">${escHtml(f.bidLabel)}</span><b class="pv-val bid${f.bid ? "" : " muted"}"${f.bidExact ? ` title="${escAttr(f.bidExact)}"` : ""}>${escHtml(f.bid || "Not published")}</b>${f.bidNote ? `<small class="pv-amount-note">${escHtml(f.bidNote)}</small>` : ""}</div>
+      <div class="pv-stat pv-ctx"><span class="pv-label">Value on file</span><b class="pv-val${f.value ? "" : " muted"}">${escHtml(f.value || "No county value on file")}</b>${f.valueLabel ? `<small>${escHtml(f.valueLabel)}</small>` : ""}</div>
     </div>` : `
     <div class="pv-money"><div class="pv-stat"><b class="pv-val bid">${bidText(p)}</b></div></div>`;
+  const prov = f && f.provenance ? `<p class="pv-prov">${escHtml(f.provenance)}</p>` : "";
+  const actions = `<div class="pv-actions"><span class="pv-watch">${f && f.watchHtml ? f.watchHtml : ""}</span><button class="pv-expand" type="button" data-act="expand" aria-expanded="false">Details</button><button class="preview-open" type="button" data-act="open">Open record →</button></div>`;
   const ids = f ? `
     <dl class="pv-ids">
       <div><dt>${escHtml(f.parcelLabel)}</dt><dd${f.parcel ? "" : ' class="muted"'}>${escHtml(f.parcel || "Not published")}</dd></div>
       ${f.caseNo ? `<div><dt>Case</dt><dd>${escHtml(f.caseNo)}</dd></div>` : ""}
-      ${f.source ? `<div><dt>Source</dt><dd>${escHtml(f.source)}</dd></div>` : ""}
     </dl>` : "";
   const loc = hasPin(p)
     ? `<div class="pv-loc"><span class="pv-label">Location</span><span class="pv-coords">${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}</span><button type="button" class="pv-center" data-act="center">Center on map</button></div>`
@@ -1292,15 +1307,15 @@ function showPreview(p) {
     </div>
     ${visual}
     ${money}
-    <button class="pv-expand" type="button" data-act="expand" aria-expanded="false">Details</button>
+    ${prov}
+    ${actions}
     <div class="pv-body">
       ${ids}
       ${loc}
       ${link}
       ${risk}
       ${more}
-    </div>
-    <button class="preview-open" type="button" data-act="open">Full property page →</button>`;
+    </div>`;
   card.hidden = false;
   card.dataset.pid = String(p.id);
   if (typeof hydrateVisuals === "function") hydrateVisuals(card);
@@ -1749,8 +1764,20 @@ function absorb(detail) {
   // in sync however the county was chosen - and still self-corrects safely
   // if a county somehow isn't in the SVG, since zoomTo() itself falls back
   // zoomCounty to null when countyViewBox() can't find a box for it.
+  refreshPreviewWatch();
   if (svgLoaded && zoomCounty !== selectedCounty) { zoomTo(selectedCounty); return; }
   if (svgLoaded) draw();
+}
+// The preview's Watchlist button is app.js's own (bidListBtnHtml, through
+// previewFacts); after a toggle app.js re-renders the map, and this swaps in
+// the button's new state without rebuilding the open preview.
+function refreshPreviewWatch() {
+  const card = $("explorePreview");
+  if (!card || card.hidden || !activeProp) return;
+  const p = propById(activeProp.id) || activeProp;
+  const f = facts(p);
+  const w = card.querySelector(".pv-watch");
+  if (w && f && f.watchHtml) w.innerHTML = f.watchHtml;
 }
 
 window.addEventListener("tdw:maprendered", e => absorb(e.detail));

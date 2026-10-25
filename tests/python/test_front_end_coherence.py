@@ -55,7 +55,8 @@ def test_source_is_named_from_source_id_and_verified_path_needs_a_source():
     assert "function sourceNameFor(p)" in APP
     assert 'harvesterSourceLabel(p) || "Source not recorded"' not in APP
     assert "function hasVerifiedPath(p)" in APP
-    assert "const typed = laft.filter(hasVerifiedPath);" in APP
+    # The Home "Verified purchase paths" count that used it left Home with the
+    # operating view (redesign PR3); the rule itself stays defined here.
 
 
 def test_password_minimum_is_one_constant_everywhere():

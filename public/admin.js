@@ -65,6 +65,7 @@ async function gate() {
   await refreshUsage();
   await refreshSources();
   await refreshFreshness();
+  await refreshRuns();
   initInventory();
 }
 
@@ -338,6 +339,21 @@ function unitRowHtml(u) {
   if (Number(u.consecutive_failures) >= 3) bits.push("back-off: attempted at most once per 48 hours until a read succeeds");
   return `<tr class="unit-row" data-state="${esc(u.state)}" data-county="${esc(u.county)}" data-source="${esc(u.source_id || "")}" data-fresh="${ok ? "current" : "stale"}" data-unavailable="${unavailable ? "1" : "0"}"><td>${esc(u.state)}</td><td>${esc(u.county)}</td><td class="admin-sub">${esc(u.source_id || "")}${u.ledgers ? ` · ${esc(u.ledgers)}` : ""}</td><td><span class="health-badge ${ok ? "healthy" : "stale"}">${ok ? "Current" : "Stale"}</span></td><td>${esc(bits.join(" · "))}</td></tr>`;
 }
+// Change-detection runs (moved from the customer Home, redesign PR3): the
+// latest run per source + ledger, every state. Not recorded = said so,
+// never zeros.
+async function refreshRuns() {
+  const el = document.getElementById("adminRunsList");
+  if (!el) return;
+  const { data, error } = await sb.from("source_observation_runs").select("*").order("run_at", { ascending: false }).limit(500);
+  if (error) { el.innerHTML = `<p class="admin-note" id="adminRunsUnavailable">Per-source change counts are not reported on this deployment (migration 024 not live).</p>`; return; }
+  const latest = new Map();
+  (data || []).forEach(r => { const k = `${r.state || ""}|${r.source_id}|${r.ledger || ""}`; if (!latest.has(k)) latest.set(k, r); });
+  if (!latest.size) { el.innerHTML = `<p class="admin-note">No change-detection run has been recorded yet.</p>`; return; }
+  el.innerHTML = `<table class="admin-usage-table admin-sources-table"><thead><tr><th>State</th><th>Source</th><th>Ledger</th><th>Last run</th><th>Counts</th></tr></thead><tbody>${Array.from(latest.values()).map(r =>
+    `<tr class="run-row" data-source="${esc(r.source_id)}" data-state="${esc(r.state || "")}"><td>${esc(r.state || "")}</td><td>${esc(r.source_id)}</td><td>${esc(r.ledger || "")}</td><td>${esc(relativeTime(r.run_at))}</td><td class="run-counts"><span>${r.rows_observed} observed</span> / <span>${r.rows_added} new</span> / <span>${r.rows_changed} changed</span> / <span>${r.rows_closed} no longer listed</span>${r.rows_reactivated ? ` / <span>${r.rows_reactivated} listed again</span>` : ""}</td></tr>`).join("")}</tbody></table>`;
+}
+
 let HEALTH_ROWS = null;
 async function refreshFreshness() {
   const status = document.getElementById("adminFreshnessStatus");

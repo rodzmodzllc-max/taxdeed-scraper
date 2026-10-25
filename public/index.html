@@ -251,7 +251,7 @@ other people's profiles rows in the first place). -->
 <!-- Home (2026-10-04): search first, then the three ledgers with their real
 counts for the selected state, browse-by-state, and the most recently first
 observed properties. Every figure is computed from loaded rows - see
-renderHome() in app.js. The operating view below it is unchanged. -->
+renderHome() / renderHomeDesk() in app.js. -->
 <div class="home-hero" id="homeHero">
 <span class="home-eyebrow eyebrow">Find property</span>
 <h1 class="home-title">Tax-sale and public-land listings</h1>
@@ -264,56 +264,20 @@ renderHome() in app.js. The operating view below it is unchanged. -->
 <p class="home-scope" id="homeScope"></p>
 </div>
 <div class="home-ledgers" id="homeLedgers"></div>
-<!-- The workstation (identity redesign, 2026-10-05): Available now, upcoming
-     sales, county intelligence and the customer's saved work, each a ruled
-     list built from loaded rows by renderHomeDesk() in app.js. -->
+<!-- Home (redesign PR3): the next sales, the customer's own work (folded,
+     with counts) and one customer-worded "Data read" block, built from
+     loaded rows by renderHomeDesk() in app.js. -->
 <div class="home-desk" id="homeDesk"></div>
-<div class="home-section" id="homeRecentSection">
-<div class="home-section-head"><h2>Recent changes · newly observed</h2><button type="button" class="link-btn" id="homeRecentAll">View all &rarr;</button></div>
+<!-- Newly observed properties (first_seen_at), folded so Home stays one
+screen (redesign PR3). The operating view that used to follow - attention,
+verified paths, dataset health, county freshness, change-detection runs -
+lives in the administrator area (admin.html); Home's customer-worded
+"Data read" block and the watchlist changes are built by renderHomeDesk(). -->
+<details class="home-section home-fold home-recent-fold" id="homeRecentSection">
+<summary class="home-section-head"><h2>Recently observed</h2><span class="home-fold-count"></span></summary>
 <div class="home-recent" id="homeRecent"></div>
-</div>
-<div class="dash-head dash-head-row">
-<div>
-<h2 class="dash-title">Operating view</h2>
-<p id="dashSubtitle">What needs attention, verified acquisition paths, source freshness and your watchlist - counts over the records loaded for this state.</p>
-</div>
-</div>
-<!-- Unified navigation (2026-09-30): an operating view - what needs
-attention, verified purchase paths, source freshness and watchlist changes,
-every figure a count over data the app already holds; "Not tracked" where
-it holds none. The per-ledger totals used to be repeated here as tiles
-(#dashStats); the ledger cards above (#homeLedgers) are the one place they
-are shown now (remediation, 2026-10-10). See renderDashboard() /
-dashboardOps() in app.js. -->
-<div class="dash-grid">
-<div class="dash-panel">
-<div class="dash-panel-head">Needs attention</div>
-<div id="dashAttentionRows"></div>
-</div>
-<div class="dash-panel">
-<div class="dash-panel-head">Verified purchase paths (Available)</div>
-<div id="dashPathRows"></div>
-</div>
-<!-- Dataset health, one row per source, from public.source_health
-(migration 016, written by scripts/source_health.py after each harvest
-job). Derived at read time - see healthOf() in app.js. -->
-<div class="dash-panel">
-<div class="dash-panel-head">Data sources (all states)</div>
-<div id="dashSourceRows"></div>
-<!-- Per-county freshness (county_source_registry + migration 021's columns,
-written by scripts/unit_freshness.py): last read / last complete read per
-county. Not recorded yet = said so; never shown as current. -->
-<div id="dashUnitRows"></div>
-</div>
-<!-- Changes to watchlist / favorite rows since this browser last loaded
-the app - computed from the rows the app already has against a snapshot
-in localStorage. Per browser, no notifications - see watchChanges() in
-app.js and docs/production-configuration.md section 7. -->
-<div class="dash-panel">
-<div class="dash-panel-head">Watchlist changes</div>
-<div id="dashWatchChanges"></div>
-</div>
-</div>
+<button type="button" class="link-btn" id="homeRecentAll">View all &rarr;</button>
+</details>
 </section>
 
 <section class="page" id="pageList">
@@ -559,7 +523,7 @@ chips - each summary shows how many are currently selected. -->
 </div>
 <div class="data-table-wrap" id="dataTableWrap">
 <table class="data-table" id="dataTable">
-<thead><tr><th>Property</th><th>County</th><th class="dt-num" title="Auctions: the opening bid. Available: the listed figure, named in each row (opening bid, minimum bid, clerk total ...) - never assumed to be the price">Amount</th><th class="dt-num" title="County just/assessed value on file for the stated roll year - not a market estimate">County value</th><th>Status</th><th></th></tr></thead>
+<thead><tr><th>Sale</th><th>County</th><th>Address</th><th>Parcel</th><th>Case</th><th class="dt-num" title="Auctions: the opening (or minimum) bid. Available: the listed figure, named in each row - never assumed to be the price. Certificates: the face amount as published.">Published figure</th><th class="dt-num" title="The county value on file under its own label (just value, assessed value) - not a market estimate">Value on file</th><th>Status</th><th></th></tr></thead>
 <tbody id="dataTableBody"></tbody>
 </table>
 </div>

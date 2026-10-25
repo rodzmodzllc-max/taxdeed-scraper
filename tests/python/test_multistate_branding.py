@@ -27,7 +27,9 @@ def test_auth_gate_and_static_title_name_no_state():
         assert "across supported states" in gate, page
         title = re.search(r"<title>(.*?)</title>", html).group(1)
         assert title == "TAXACQ — Tax Acquisition Intelligence", page
-        assert '<div class="dash-panel-head">Data sources (all states)</div>' in html, page
+        # The every-state dataset list left the customer pages (redesign PR3);
+        # admin.html's "Source freshness and health" lists every state.
+        assert 'id="dashSourceRows"' not in html, page
         for stale in ("Florida Tax Deed Intelligence", "Texas Tax Sale Intelligence", "Adjudicated Property Tracking", "County Tax Sale Tracking"):
             assert stale not in html, (page, stale)
 

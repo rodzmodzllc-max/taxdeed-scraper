@@ -73,6 +73,13 @@ row-level security) whether the signed-in account is an admin. Anyone else
     <div class="admin-freshness" id="adminFreshnessList"></div>
     <div class="admin-freshness-units" id="adminUnitList"></div>
   </section>
+  <!-- Change-detection runs (redesign PR3): moved from the customer Home,
+       where per-source ids and row counts were operator detail. -->
+  <section class="admin-card" id="runs" aria-labelledby="adminRunsLabel">
+    <p class="admin-label" id="adminRunsLabel">Change-detection runs</p>
+    <p class="admin-note">The latest run per source and ledger (public.source_observation_runs, migration 024): rows observed, newly listed, changed, no longer listed, listed again. "No longer listed" means the row left the source list - never a sale or a result.</p>
+    <div class="admin-runs" id="adminRunsList"></div>
+  </section>
   <section class="admin-card" id="inventory" aria-labelledby="adminInventoryLabel">
     <p class="admin-label" id="adminInventoryLabel">Collected inventory by source</p>
     <p class="admin-note">Every collected source in a state: its customer-publication review status, what is collected, how much of it is active, what a customer would see, the Detroit customer subset where it applies, and when it was last read. Read on request (the rows are paged from the properties table under your own row-level security); counts only.</p>

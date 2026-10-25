@@ -159,7 +159,7 @@ def test_health_labels_match_python_states():
 
 
 def test_manual_only_sources_mirrored():
-    m = re.search(r"const MANUAL_ONLY_SOURCE_IDS = \[(.*?)\]", APP)
+    m = re.search(r"(?:const|var) MANUAL_ONLY_SOURCE_IDS = \[(.*?)\]", APP)
     assert set(re.findall(r'"([a-z_]+)"', m.group(1))) == set(UF.MANUAL_ONLY_SOURCES)
 
 

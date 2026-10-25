@@ -96,7 +96,7 @@ def test_s03_derive_health_vocabulary():
 
 def test_s04_app_mirror_of_derive_health_exists_with_the_same_rules():
     assert "function healthOf(rec, now)" in APP
-    assert "const HEALTH_STALE_MULTIPLIER = 2;" in APP and sh.STALE_MULTIPLIER == 2
+    assert "var HEALTH_STALE_MULTIPLIER = 2;" in APP and sh.STALE_MULTIPLIER == 2
     fn = APP.split("function healthOf(rec, now)")[1].split("\n}\n")[0]
     for line in ('return "NOT_RUN"', 'return "FAILED"', 'return "INCOMPLETE"', 'return "STALE"', 'return "HEALTHY"'):
         assert line in fn, line

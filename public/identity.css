@@ -259,18 +259,6 @@ a{color:var(--copper-deep)}
 .home-desk-head h2{margin:0}
 .home-desk-head .home-desk-sub{font-size:.74rem;color:var(--ink-soft)}
 .home-desk-empty{padding:.8rem 0;font-size:.82rem;color:var(--ink-soft)}
-.desk-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.15rem 1rem;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--rule);
-  padding:.7rem 0;color:var(--ink);font:inherit;cursor:pointer}
-.desk-row:hover .desk-title{text-decoration:underline;text-underline-offset:3px}
-.desk-kicker{grid-column:1 / -1;font-size:.64rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--lc,var(--ink-soft))}
-.desk-title{font-family:var(--font-display);font-weight:600;font-size:1.05rem;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.desk-sub{font-size:.74rem;color:var(--ink-soft)}
-.desk-money{grid-column:2;grid-row:2 / span 2;text-align:right;align-self:center}
-.desk-money b{display:block;font-family:var(--font-mono);font-size:1rem;font-weight:600;color:var(--ink)}
-.desk-money span{display:block;font-size:.66rem;color:var(--ink-soft);max-width:16ch}
-.desk-money b.unpublished{font-family:var(--font-sans);font-size:.8rem;color:var(--ink-soft)}
-.desk-meta{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:.2rem .9rem;font-size:.7rem;color:var(--ink-soft)}
-.desk-meta b{color:var(--ink);font-weight:600}
 /* Upcoming sales: a dated timeline, the auction ledger's own rhythm. */
 .desk-event{display:grid;grid-template-columns:4.2rem minmax(0,1fr) auto;gap:.1rem 1rem;align-items:center;width:100%;text-align:left;background:none;border:0;
   border-bottom:1px solid var(--rule);padding:.65rem 0;color:var(--ink);font:inherit;cursor:pointer}
@@ -281,17 +269,6 @@ a{color:var(--copper-deep)}
 .desk-event-what{font-size:.78rem;color:var(--ink-soft)}
 .desk-event-n{grid-row:1 / span 2;font-family:var(--font-mono);font-size:.82rem;text-align:right}
 .desk-event:hover .desk-event-where{text-decoration:underline}
-.desk-counties{display:flex;flex-direction:column}
-.desk-county{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--rule);background:none;border-left:0;border-right:0;border-top:0;
-  width:100%;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
-.desk-county b{font-family:var(--font-display);font-weight:600;font-size:.98rem}
-.desk-county span.n{font-family:var(--font-mono);font-size:.78rem;color:var(--ink-soft);margin-left:auto}
-.desk-saved{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--rule)}
-.desk-saved button{display:flex;flex-direction:column;align-items:flex-start;gap:.15rem;background:none;border:0;padding:.8rem 0;text-align:left;font:inherit;color:var(--ink);cursor:pointer}
-.desk-saved button + button{border-left:1px solid var(--rule);padding-left:1rem}
-.desk-saved b{font-family:var(--font-display);font-size:1.7rem;font-weight:700}
-.desk-saved span{font-size:.72rem;color:var(--ink-soft)}
-
 /* Recent changes: a ruled list, not a carousel of cards. */
 .home-section{border-top:2px solid var(--rule-strong);padding-top:.1rem}
 .home-section-head{border-bottom:1px solid var(--rule);padding:.5rem 0}
@@ -1408,3 +1385,107 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .ledger-foot .mega-sub{max-width:68ch;margin:.2rem 0 .6rem}
 .ledger-foot .ledger-how{max-width:68ch}
 .ledger-foot .ledger-legend{margin:.7rem 0 .4rem}
+
+/* ==== Redesign PR3 (2026-10-25): Home, map preview, table mode ==== */
+/* Home: the three ledgers (and browse-by-state) as ruled lines - name and
+   one fact on the left, the count on the right. Four columns on desktop. */
+.home-ledgers{grid-template-columns:1fr!important}
+@media (min-width:1024px){ .home-ledgers{grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,.8fr)!important} }
+.home-ledger-card{display:grid!important;grid-template-columns:minmax(0,1fr) auto 1.1rem;grid-template-rows:auto auto auto;align-items:center;gap:.05rem .8rem;
+  border-top:0!important;border-left:3px solid var(--lc,var(--rule-strong))!important;padding:.7rem .9rem!important;min-height:44px!important}
+.home-ledger-card + .home-ledger-card{border-top:1px solid var(--rule)!important}
+@media (max-width:639.98px){ .home-ledger-card + .home-ledger-card{border-left:3px solid var(--lc,var(--rule-strong))!important} }
+@media (min-width:1024px){ .home-ledger-card + .home-ledger-card{border-top:0!important} }
+.home-ledger-kicker{grid-column:1;grid-row:1;letter-spacing:.04em!important;text-transform:none;font-family:var(--font-display);font-size:1.05rem!important;font-weight:600}
+.home-ledger-unit{grid-column:1;grid-row:2;font-size:.76rem!important;font-weight:500!important}
+.home-ledger-blurb{grid-column:1;grid-row:3;margin:0!important;font-size:.74rem!important;color:var(--ink-soft)!important}
+.home-ledger-count{grid-column:2;grid-row:1 / span 3;font-size:1.7rem!important;line-height:1!important;font-family:var(--font-mono)!important;font-weight:600!important}
+.home-ledger-go{grid-column:3;grid-row:1 / span 3;margin:0!important;padding:0!important;font-size:.95rem!important}
+/* Home blocks: next sales, your work, data read. */
+.home-desk{grid-template-columns:1fr;gap:1.4rem 2rem}
+@media (min-width:1024px){ .home-desk{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr)} }
+.home-sale .desk-event-what{color:var(--ink)}
+.home-fold{border-bottom:1px solid var(--rule)}
+.home-fold>summary{display:flex;align-items:center;justify-content:space-between;gap:.6rem;min-height:44px;padding:.35rem 0;cursor:pointer;list-style:none}
+.home-fold>summary::-webkit-details-marker{display:none}
+.home-fold>summary::after{content:"+";font-family:var(--font-mono);color:var(--copper);margin-left:.4rem}
+.home-fold[open]>summary::after{content:"\2212"}
+.home-fold-title{font-family:var(--font-display);font-weight:600;font-size:1rem;margin-right:auto}
+.home-fold-count{font-family:var(--font-mono);font-size:.82rem;color:var(--ink-soft)}
+.home-fold-body{padding:0 0 .8rem}
+.home-fold-note{font-size:.78rem;color:var(--ink-soft);margin:.2rem 0 .5rem}
+.home-fold-body .link-btn{min-height:44px;display:inline-flex;align-items:center}
+.home-watch-changes .dash-empty{font-size:.78rem;padding:.3rem 0}
+.read-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.1rem .8rem;align-items:center;padding:.55rem 0;border-bottom:1px solid var(--rule)}
+.read-ledger{font-family:var(--font-display);font-weight:600;font-size:.95rem}
+.read-row .health-badge{justify-self:end}
+.read-when{grid-column:1 / -1;font-size:.72rem;color:var(--ink-soft)}
+#homeDataRead .home-desk-head a{white-space:nowrap}
+.home-recent-fold{border-bottom:1px solid var(--rule)}
+.home-recent-fold>summary{display:flex;align-items:center;justify-content:space-between;cursor:pointer;list-style:none;min-height:44px}
+.home-recent-fold>summary::-webkit-details-marker{display:none}
+.home-recent-fold>summary::after{content:"+";font-family:var(--font-mono);color:var(--copper);margin-left:.6rem}
+.home-recent-fold[open]>summary::after{content:"\2212"}
+.home-recent-fold>summary .home-fold-count{margin-left:auto}
+.home-recent-fold #homeRecentAll{min-height:44px}
+@media (max-width:1023.98px){ .home-desk{margin:0 .6rem 1.6rem} }
+/* Map toolbar (redesign PR3). Desktop / tablet: the Filters button is not
+   needed - "Watchlist only" and "Same filters as the List" stay in the
+   toolbar. Phone: county + Filters on one row, the ledger pills and the
+   basemap toggle on the next, and the two map-only filters behind Filters. */
+.map-filters-toggle{display:none}
+.map-more-filters{display:contents}
+@media (max-width:767.98px){
+  .map-toolbar{display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:.45rem .5rem!important;align-items:center}
+  .map-toolbar .map-page-titlebox{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .map-toolbar .qc-field.qc-county{grid-column:1;grid-row:1;max-width:none!important;min-width:0}
+  .map-filters-toggle{grid-column:2;grid-row:1;display:inline-flex;align-items:center;gap:.4rem;min-height:44px;padding:0 .9rem;
+    border:1px solid var(--rule-strong);border-radius:var(--radius-sm,3px);background:var(--paper-white);color:var(--ink);font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
+  .map-filters-toggle[aria-expanded="true"]{border-color:var(--copper);color:var(--copper-deep)}
+  .map-filters-badge{display:inline-flex;align-items:center;justify-content:center;min-width:1.25rem;height:1.25rem;padding:0 .3rem;border-radius:2px;background:var(--copper);color:var(--paper-white);font-family:var(--font-mono);font-size:.7rem}
+  .map-filters-badge[hidden]{display:none}
+  .map-more-filters{display:none;grid-column:1 / -1;grid-row:3;gap:.45rem}
+  .map-more-filters.open{display:flex}
+  .map-toolbar .map-ledger-pills{grid-column:1;grid-row:2;flex:none!important;min-width:0;max-width:100%;overflow-x:auto;scrollbar-width:none}
+  .map-toolbar .map-ledger-pills::-webkit-scrollbar{display:none}
+  .map-toolbar .map-style-toggle{grid-column:2;grid-row:2;margin:0!important;flex:none!important}
+  .map-toolbar .map-style-toggle button{padding:.38rem .45rem;font-size:.68rem}
+}
+/* Map preview (redesign PR3): the card's money block - the headline figure
+   in display type, the value on file as quieter context beside it - then the
+   card's provenance line and its actions (Watchlist, Details on phones, Open
+   record). Same rules as .prop-card .money, so the two read as one design. */
+.explore-preview .pv-money{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:.4rem 1rem;align-items:end;padding-top:.45rem;border-top:1px solid var(--rule)}
+.explore-preview .pv-stat{background:none!important;border:0!important;padding:0!important;border-radius:0}
+.explore-preview .pv-label{color:var(--warm-gray)}
+.explore-preview .pv-head-fig .pv-val{font-family:var(--font-display);font-size:1.4rem;line-height:1.1;font-weight:600;color:var(--ink)}
+.explore-preview .pv-head-fig .pv-val.muted{font-family:inherit;font-size:.9rem;font-weight:500;font-style:normal}
+.explore-preview .pv-ctx .pv-val{font-family:var(--font-mono);font-size:.95rem;font-weight:600;color:var(--ink-soft)}
+.explore-preview .pv-ctx .pv-val.muted{font-family:inherit;font-size:.78rem;font-weight:500;font-style:normal}
+.pv-prov{margin:0;font-family:var(--font-mono);font-size:.66rem;line-height:1.4;color:var(--warm-gray);overflow-wrap:anywhere}
+.pv-actions{display:flex;align-items:center;gap:.4rem}
+.pv-actions .pv-watch{display:contents}
+.pv-actions .bid-btn{min-height:40px;padding:0 .7rem;font-size:.76rem;width:auto}
+.pv-actions .preview-open{flex:1 1 auto;width:auto;min-height:40px}
+@media (max-width:1023px){
+  .explore-preview .preview-open{display:inline-flex!important;align-items:center;justify-content:center}
+  .pv-actions .pv-expand{flex:0 0 auto;min-height:40px;padding:0 .7rem}
+  .explore-preview:not(.expanded) .pv-prov{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .explore-preview:not(.expanded) .pv-money{padding-top:.3rem}
+}
+@media (max-width:768px),(pointer:coarse){ .pv-actions .bid-btn,.pv-actions .preview-open,.pv-actions .pv-expand{min-height:44px} }
+/* The strip card of the property open in the preview is a marker, not a copy. */
+.strip-card.in-preview .strip-sub{font-style:normal;color:var(--copper-deep)}
+/* Table mode (redesign PR3, graft B): figure columns and divider rows. */
+.data-table-wrap{overflow-x:auto}
+.data-table{font-size:.76rem}
+.data-table thead th{white-space:nowrap}
+.data-table tbody td{padding:.5rem .55rem}
+.data-table .dt-when{white-space:nowrap;font-size:.72rem}
+.data-table .dt-mono{font-family:var(--font-mono);font-size:.72rem;overflow-wrap:anywhere;max-width:11ch}
+.data-table .dt-sub{display:block;font-family:var(--font-sans);font-size:.62rem;color:var(--warm-gray);font-weight:500;white-space:normal}
+.data-table .muted{color:var(--ink-soft);font-size:.72rem}
+.data-table tr.dt-divider th{background:var(--stone);text-align:left;font-family:var(--font-display);font-size:.86rem;font-weight:600;color:var(--ink);
+  padding:.45rem .55rem;border-bottom:1px solid var(--rule-strong);letter-spacing:0;text-transform:none;cursor:default}
+.data-table tbody tr.dt-divider:hover{background:transparent}
+.home-watch-changes .dash-empty{text-align:left}

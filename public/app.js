@@ -460,7 +460,7 @@ const LIST_PAGE = 50;            // cards built per county group, then "Show nex
 const GROUP_SHOWN = new Map();   // group key -> cards listed (survives re-render)
 const GROUP_PAGES = new Map();   // group key -> { rows, renderCard } of the current render
 const TABLE_PAGE = 200;          // desktop data-table rows, then "Show next"
-const TABLE_STATE = { rows: [], listed: 0 };
+const TABLE_STATE = { rows: [], listed: 0, lastKey: null };
 // True once fetchProperties() has returned for this page's state. A registered
 // state with no rows at all is told so plainly ("No properties currently
 // available for this state") - never "unsupported", never hidden.
@@ -5087,7 +5087,9 @@ function previewFacts(p) {
       value: null, valueLabel: null,
       parcelLabel: "Account", parcel: p.case_no || null, caseNo: null,
       source: harvesterSourceLabel(p), flood: null, more,
-      link: auctionLinkInfo(p)
+      link: auctionLinkInfo(p),
+      // Redesign PR3: the same provenance line and Watchlist action the card carries.
+      provenance: provenanceLineText(p), watchHtml: bidListBtnHtml(p, false)
     };
   }
   const hasMarket = hasNum(p.market), hasAssessed = hasNum(p.assessed);
@@ -5125,7 +5127,10 @@ function previewFacts(p) {
   return {
     kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls,
     bidLabel: p.source === "laft" ? availableAmountLabel(p) : auctionBidLabel(p),
-    bid: p.source === "laft" ? (amountInfo(p).value !== null && amountInfo(p).value !== undefined ? fmtMoney(amountInfo(p).value) : (amountInfo(p).display === "Not published" ? null : amountInfo(p).display)) : (hasPublishedBid(p) ? fmtMoney(p.bid) : null),
+    // An auction's figure is formatted the way its card formats it (whole
+    // dollars, exact amount in the title) - one wording on both surfaces.
+    bid: p.source === "laft" ? (amountInfo(p).value !== null && amountInfo(p).value !== undefined ? fmtMoney(amountInfo(p).value) : (amountInfo(p).display === "Not published" ? null : amountInfo(p).display)) : (hasPublishedBid(p) ? bidDisplayCard(p) : null),
+    bidExact: p.source !== "laft" && hasPublishedBid(p) ? `Exact amount ${fmtMoney(p.bid)}. Rounded to whole dollars here.` : "",
     bidNote: p.source === "laft" ? amountInfo(p).note : "",
     value: hasMarket ? fmtShort(p.market) : hasAssessed ? fmtShort(p.assessed) : null,
     valueLabel: hasMarket ? valueLabel(p) : hasAssessed ? assessedSourceLabel(p) + " - no just value on file" : null,
@@ -5136,7 +5141,8 @@ function previewFacts(p) {
     more,
     // Phase 72: the Map preview shows the same auction link, with the same
     // kind-driven wording, as the card and the full page.
-    link: auctionLinkInfo(p)
+    link: auctionLinkInfo(p),
+    provenance: provenanceLineText(p), watchHtml: bidListBtnHtml(p, false)
   };
 }
 
@@ -6099,7 +6105,7 @@ function unitFreshnessText(u) {
 // source_health_cases.json pins both. A complete read in which the source
 // listed nothing (checkedZero) is a different fact from a source that could
 // not be read (SOURCE_UNAVAILABLE) - the two are never shown alike.
-const MANUAL_ONLY_SOURCE_IDS = ["tx_lgbs", "tx_realauction"];   // unit_freshness.MANUAL_ONLY_SOURCES
+var MANUAL_ONLY_SOURCE_IDS = ["tx_lgbs", "tx_realauction"];   // unit_freshness.MANUAL_ONLY_SOURCES
 const SOURCE_HEALTH_LABELS = {
   CURRENT: { label: "Current", cls: "ok", text: "Read completely within the last 36 hours." },
   RECENT: { label: "Recent", cls: "ok", text: "Read completely within the last 7 days." },
@@ -12870,7 +12876,7 @@ if (termsModal) termsModal.addEventListener("click", e => {
 //   STALE       scheduled source whose last success is older than 2x its
 //               cadence (a manual source is never STALE by the clock)
 //   HEALTHY     synced, every unit complete, within cadence
-const HEALTH_STALE_MULTIPLIER = 2;
+var HEALTH_STALE_MULTIPLIER = 2;
 function healthOf(rec, now) {
   const t = now || Date.now();
   if (!rec || !rec.last_attempt_at) return "NOT_RUN";
@@ -12934,8 +12940,8 @@ function sourceHealthRowsHtml(rows, pageState) {
 // AVAILABLE / LIENS_CERTIFICATES) is read from that column first; the map
 // is the fallback for rows written before it. Unknown = unclassified,
 // shown under its own heading rather than guessed into a ledger.
-const LEDGER_KEY_BY_NAME = { AUCTIONS: "auction", AVAILABLE: "laft", LIENS_CERTIFICATES: "certificate" };
-const SOURCE_ID_LEDGERS = {
+var LEDGER_KEY_BY_NAME = { AUCTIONS: "auction", AVAILABLE: "laft", LIENS_CERTIFICATES: "certificate" };
+var SOURCE_ID_LEDGERS = {
   fl_realauction: ["auction"], fl_bid4assets_okaloosa: ["auction"], fl_lienhub_certificates: ["certificate"],
   fl_laft_pdfs: ["laft"], fl_laft_html: ["laft"], fl_laft_pioneer: ["laft"], fl_laft_realtdm: ["laft"], fl_laft_orange: ["laft"],
   fl_laft_stlucie: ["laft"], fl_laft_osceola: ["laft"], fl_laft_hillsborough: ["laft"], fl_laft_leon: ["laft"],
@@ -12952,44 +12958,6 @@ function unitLedgerKeys(u) {
     if (keys.length) return keys;
   }
   return SOURCE_ID_LEDGERS[u && u.source_id] || [];
-}
-// "3 of 4 counties current" for one ledger, from the per-county rows that
-// feed it; "" when the table is not live or the ledger has no recorded read.
-function ledgerFreshnessSummary(rows, pageState, ledgerKey) {
-  if (!Array.isArray(rows)) return "";
-  const mine = rows.filter(r => r.state === pageState && r.last_attempt_at && unitLedgerKeys(r).includes(ledgerKey));
-  if (!mine.length) return "";
-  const current = mine.filter(r => r.last_attempt_status === "COMPLETE" || r.last_attempt_status === "EMPTY").length;
-  const unavailable = mine.filter(r => r.last_attempt_status === "SOURCE_UNAVAILABLE").length;
-  return `${current} of ${mine.length} count${mine.length === 1 ? "y" : "ies"} current` + (unavailable ? ` · ${unavailable} source unavailable` : "");
-}
-function unitFreshnessRowHtml(u) {
-  const ok = u.last_attempt_status === "COMPLETE" || u.last_attempt_status === "EMPTY";
-  // Customer wording only: whether the county is current and when it was
-  // last updated, or that the source was unavailable at the last check. The
-  // operator detail (attempt status, row counts, consecutive failures,
-  // back-off) is in admin.html (remediation, 2026-10-10).
-  const unavailable = u.last_attempt_status === "SOURCE_UNAVAILABLE" || /^(TRANSPORT_|PROXY_|ACCESS_)/.test(String(u.last_error_category || ""));
-  const sub = unavailable ? "Source unavailable at the last check - existing listings are kept" : (ok ? `Last updated ${relativeTime(u.last_success_at || u.last_attempt_at)}` : "Not updated recently");
-  return `<div class="health-row unit-row" data-county="${esc(u.county)}" data-source="${esc(u.source_id || "")}" data-fresh="${ok ? "current" : "stale"}" data-unavailable="${unavailable ? "1" : "0"}">
-    <span class="health-label">${esc(u.county)}</span>
-    <span class="health-badge ${ok ? "healthy" : "stale"}">${ok ? "Current" : "Not current"}</span>
-    <span class="health-sub">${esc(sub)}</span>
-  </div>`;
-}
-function unitFreshnessRowsHtml(rows, pageState) {
-  if (rows === null) return `<div class="dash-empty">County read history is not reported yet, so county freshness cannot be shown.</div>`;
-  const mine = rows.filter(r => r.state === pageState && r.last_attempt_at);
-  if (!mine.length) return `<div class="dash-empty">No county has a recorded read yet.</div>`;
-  mine.sort((a, b) => String(a.county).localeCompare(String(b.county)) || String(a.source_id || "").localeCompare(String(b.source_id || "")));
-  // Grouped per ledger (2026-09-30): a county appears under every ledger its
-  // source feeds, and a read that failed in one ledger says nothing about
-  // the same county's other ledgers.
-  const groups = LEDGER_ORDER.map(key => ({ key, title: ledgerCopy(key).title, rows: mine.filter(u => unitLedgerKeys(u).includes(key)) }));
-  const unclassified = mine.filter(u => !unitLedgerKeys(u).length);
-  if (unclassified.length) groups.push({ key: "unclassified", title: "Source not assigned to a ledger", rows: unclassified });
-  return groups.map(g => `<div class="unit-head" data-ledger-head="${esc(g.key)}">${esc(g.title)} - by county, last read and last complete read</div>` +
-    (g.rows.length ? g.rows.map(unitFreshnessRowHtml).join("") : `<div class="dash-empty unit-empty">No county has a recorded read yet in this ledger.</div>`)).join("");
 }
 function renderSourceHealthTerms() {
   const el = document.getElementById("sourceHealthTerms");
@@ -13794,6 +13762,41 @@ function syncMapListFiltersToggle() {
   let n = 0; try { n = filterChipList().length; } catch { n = 0; }
   const c = el.querySelector(".mlf-count");
   if (c) c.textContent = mapFilter.listFilters && n ? ` (${n})` : "";
+  // Phone toolbar (redesign PR3): "Watchlist only" and "Same filters as the
+  // List" sit behind one Filters button whose count is how many of the two
+  // are narrowing the map right now (List filters count only while the List
+  // has a filter set). At wider widths the button is hidden and both pills
+  // show in the toolbar as before (identity.css).
+  ensureMapFiltersToggle();
+  const badge = document.getElementById("mapFiltersBadge");
+  if (badge) {
+    const k = (mapFilter.watchlistOnly ? 1 : 0) + (mapFilter.listFilters && n ? 1 : 0);
+    badge.textContent = k ? String(k) : "";
+    badge.hidden = !k;
+  }
+}
+function ensureMapFiltersToggle() {
+  let btn = document.getElementById("mapFiltersToggle");
+  if (btn) return btn;
+  const tb = document.getElementById("mapToolbar");
+  const watch = document.getElementById("mapWatchlistOnly");
+  const county = tb && tb.querySelector(".map-toolbar-county");
+  if (!tb || !watch || !county) return null;
+  const wrap = document.createElement("div");
+  wrap.className = "map-more-filters";
+  wrap.id = "mapMoreFilters";
+  watch.parentNode.insertBefore(wrap, watch);
+  wrap.appendChild(watch);
+  const list = document.getElementById("mapListFilters");
+  if (list) wrap.appendChild(list);
+  county.insertAdjacentHTML("afterend", `<button type="button" class="map-filters-toggle" id="mapFiltersToggle" aria-expanded="false" aria-controls="mapMoreFilters">Filters <b class="map-filters-badge" id="mapFiltersBadge" hidden></b></button>`);
+  btn = document.getElementById("mapFiltersToggle");
+  btn.addEventListener("click", () => {
+    const open = !wrap.classList.contains("open");
+    wrap.classList.toggle("open", open);
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  return btn;
 }
 function renderMapContext() {
   syncMapListFiltersToggle();
@@ -13927,158 +13930,17 @@ function upcomingAuctionRows(active) {
   return Array.from(byKey.values()).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0).slice(0, 6);
 }
 
-// Unified navigation (2026-09-30): the Dashboard is an operating view -
-// what is active per ledger, what needs attention, what changed, where the
-// inventory is, how many Available rows carry a verified purchase path and
-// how fresh each source is. Every figure is a count over ALL[] (this
-// state's rows, the same exclusions as the ledger counts) or over data the
-// app already loaded (freshness, watchlist changes). No score, no trend, no
-// estimate: a figure the data cannot support says so in words.
-function dashboardOps(active) {
-  const soonDays = 7;
-  const soon = active.filter(p => p.source === "auction" && p.sale_date && daysUntil(p) !== null && daysUntil(p) >= 0 && daysUntil(p) <= soonDays);
-  const soonDates = new Set(soon.map(p => p.sale_date));
-  const watchedGone = Array.from(BIDLIST).map(id => ALL.find(p => p.id === id)).filter(p => p && isGone(p));
-  const laft = active.filter(p => p.source === "laft" && isPublishable(p));
-  const laftStale = laft.filter(p => { const d = daysSince(p.last_seen_at); return d === null || d > 14; });
-  const laftNeverRead = laft.filter(p => !p.last_seen_at);
-  const units = Array.isArray(UNIT_FRESHNESS) ? UNIT_FRESHNESS.filter(u => u.state === PAGE_STATE && u.last_attempt_at) : [];
-  const unavailable = units.filter(u => u.last_attempt_status === "SOURCE_UNAVAILABLE" || /^(TRANSPORT_|PROXY_|ACCESS_)/.test(String(u.last_error_category || "")));
-  const backoff = units.filter(u => Number(u.consecutive_failures) >= 3);
-  const newByLedger = {}, seenByLedger = {}, firstSeenTracked = {}, lastSeenTracked = {};
-  LEDGER_ORDER.forEach(k => { newByLedger[k] = 0; seenByLedger[k] = 0; firstSeenTracked[k] = false; lastSeenTracked[k] = false; });
-  active.forEach(p => {
-    if (!(p.source in newByLedger)) return;
-    if (p.first_seen_at) { firstSeenTracked[p.source] = true; const d = daysSince(p.first_seen_at); if (d !== null && d <= 7) newByLedger[p.source]++; }
-    if (p.last_seen_at) { lastSeenTracked[p.source] = true; const d = daysSince(p.last_seen_at); if (d !== null && d <= 7) seenByLedger[p.source]++; }
-  });
-  const typed = laft.filter(hasVerifiedPath);
-  const byType = new Map();
-  typed.forEach(p => { const t = typedPurchasePath(p).type; byType.set(t, (byType.get(t) || 0) + 1); });
-  return { soon, soonDates, watchedGone, laft, laftStale, laftNeverRead, unavailable, backoff, newByLedger, seenByLedger, firstSeenTracked, lastSeenTracked, typed, byType };
-}
-
-function dashRow(icon, name, vals, attrs) {
-  return `<div class="dash-row"${attrs || ""}><div class="dash-row-name">${svgIcon(icon)}${name}</div><div class="dash-row-vals">${vals}</div></div>`;
-}
-
-// The "Collected inventory by source" operator panel that used to be built
-// into the Dashboard for admins (2026-10-02) lives in the administrator area
-// now - admin.html, "Collected inventory by source" (remediation,
-// 2026-10-10). The customer page carries no operator diagnostics.
-
+// Home (redesign PR3, 2026-10-25): the operating view that used to follow
+// the Home ledger lines - "Needs attention", "Verified purchase paths",
+// "Data sources", the per-county freshness rows and the change-detection
+// runs - restated the same reads in five panels and printed operator
+// diagnostics (county names, retry state, source ids) to customers. The
+// operator detail lives in the administrator area (admin.html: "Source
+// freshness and health", "Collected inventory by source", "Change-detection
+// runs"); Home keeps one customer-worded "Data read" block (homeDataReadHtml)
+// and the watchlist changes inside the Watchlist fold (renderHomeDesk).
 function renderDashboard() {
   renderHome();
-  const attEl0 = document.getElementById("dashAttentionRows");
-  if (!attEl0) return; // dashboard markup not present (older fixture, etc.)
-  const countyEl = document.getElementById("dashCountyRows");
-  const ledgerEl = document.getElementById("dashLedgerRows");
-  const upcomingEl = document.getElementById("dashUpcomingRows");
-
-  const { rows, active, totalValue, byLedger, byCounty } = dashboardStats();
-  const ops = dashboardOps(active);
-
-  // The per-ledger totals (active count, counties, withheld) are shown once,
-  // on the Home ledger cards above (homeLedgerCardHtml) - the operating
-  // view's own ledger tiles and its counts sentence repeated them and are
-  // gone (remediation, 2026-10-10). What follows is only what those cards do
-  // not say: attention, verified paths, source freshness, watchlist changes.
-
-  // Needs attention: only what the data can actually say.
-  const attEl = document.getElementById("dashAttentionRows");
-  if (attEl) {
-    const items = [];
-    items.push(dashRow("gavel", `Auctions in the next 7 days`, ops.soon.length
-      ? `<span><b>${ops.soon.length}</b> propert${ops.soon.length === 1 ? "y" : "ies"} · ${ops.soonDates.size} sale date${ops.soonDates.size === 1 ? "" : "s"}</span>`
-      : `<span>None scheduled</span>`, ' data-att="soon"'));
-    items.push(dashRow("bell", `Watchlist properties no longer listed`, ops.watchedGone.length
-      ? `<span><b>${ops.watchedGone.length}</b> - left the source; why is not recorded</span>`
-      : `<span>None</span>`, ' data-att="watched-gone"'));
-    items.push(dashRow("layers", `Available rows not read from the source in 14+ days`, ops.laft.length
-      ? `<span><b>${ops.laftStale.length}</b> of ${ops.laft.length}${ops.laftNeverRead.length ? ` · ${ops.laftNeverRead.length} never read by a lifecycle run` : ""}</span>`
-      : `<span>No Available rows</span>`, ' data-att="stale"'));
-    items.push(dashRow("refresh", `Sources unavailable or awaiting retry`, UNIT_FRESHNESS === null
-      ? `<span>Not recorded on this deployment</span>`
-      : `<span><b>${ops.unavailable.length}</b> unavailable at the last read · <b>${ops.backoff.length}</b> update unsuccessful; retry pending</span>`, ' data-att="sources"'));
-    attEl.innerHTML = items.join("");
-  }
-
-  // Recent: new rows where a first-seen date exists, rows read from the
-  // source where a per-row read date exists - and "Not tracked" where the
-  // pipeline records neither for a ledger.
-  const recentEl = document.getElementById("dashRecentRows");
-  if (recentEl) {
-    recentEl.innerHTML = LEDGER_ORDER.map(key => {
-      const cfg = ledgerCopy(key);
-      const n = active.filter(p => p.source === key).length;
-      if (!n) return dashRow(key === "auction" ? "gavel" : key === "laft" ? "layers" : "doc", esc(cfg.title), `<span>No active rows</span>`, ` data-recent="${esc(key)}"`);
-      const first = ops.firstSeenTracked[key] ? `<span><b>${ops.newByLedger[key]}</b> first recorded in the last 7 days</span>` : `<span>First-recorded date not tracked</span>`;
-      const seen = ops.lastSeenTracked[key] ? `<span><b>${ops.seenByLedger[key]}</b> read from the source in the last 7 days</span>` : `<span>Per-row read date not tracked</span>`;
-      return dashRow(key === "auction" ? "gavel" : key === "laft" ? "layers" : "doc", esc(cfg.title), first + seen, ` data-recent="${esc(key)}"`);
-    }).join("");
-  }
-
-  // Verified purchase paths (Available): typed from evidence vs not yet verified.
-  const pathEl = document.getElementById("dashPathRows");
-  if (pathEl) {
-    if (!ops.laft.length) pathEl.innerHTML = `<div class="dash-empty">No Available rows to evaluate.</div>`;
-    else {
-      const notYet = ops.laft.length - ops.typed.length;
-      const typeRows = Array.from(ops.byType.entries()).sort((a, b) => b[1] - a[1])
-        .map(([t, n]) => dashRow("check", esc(PURCHASE_PATH_TYPE_LABELS[t] || t), `<span><b>${n}</b></span>`, ` data-path-type="${esc(t)}"`)).join("");
-      pathEl.innerHTML =
-        dashRow("check", `Verified purchase path from the source's own page`, `<span><b>${ops.typed.length}</b> of ${ops.laft.length}</span>`, ' data-path="verified"') +
-        typeRows +
-        dashRow("eye", `Not yet verified - no purchase path established from evidence`, `<span><b>${notYet}</b></span>`, ' data-path="unverified"') +
-        `<p class="dash-note">A path is recorded only from a county page or document that was read and reviewed; no online purchase link is ever inferred.</p>`;
-    }
-  }
-
-  if (countyEl) {
-    const countyRows = Array.from(byCounty.entries()).sort((a, b) => b[1].count - a[1].count).slice(0, 8);
-    countyEl.innerHTML = countyRows.length
-      ? countyRows.map(([county, v]) => {
-        const per = LEDGER_ORDER.map(k => { const n = active.filter(p => p.source === k && (p.county || "Unknown") === county).length; return n ? `${n} ${ledgerCopy(k).title}` : ""; }).filter(Boolean).join(" · ");
-        return dashRow("pin", `${esc(county)} ${UNIT_WORD}`, `<span><b>${v.count}</b> active</span><span class="dash-row-sub">${esc(per)}</span>`);
-      }).join("")
-      : `<div class="dash-empty">No active properties yet.</div>`;
-  }
-
-  if (ledgerEl) {
-    ledgerEl.innerHTML = Object.keys(LEDGERS).map(key => {
-      const cfg = ledgerCopy(key);
-      const count = byLedger[key] || 0;
-      // Each ledger's freshness is its own (three status files, three
-      // lifecycles - harvesters/ledgers/domains.py): a failed read in one
-      // ledger is reported under that ledger only, never as an empty other.
-      const fresh = ledgerFreshnessSummary(UNIT_FRESHNESS, PAGE_STATE, key);
-      const withheld = (WITHHELD[key] ? `<span class="dash-row-fresh dash-row-withheld">${WITHHELD[key]} withheld (source not approved for publication)</span>` : "") + (publicationWithheldText(key) ? `<span class="dash-row-fresh dash-row-withheld" data-pub-withheld="${publicationWithheld(key).total}">${esc(publicationWithheldText(key))}</span>` : "");
-      return `<div class="dash-row" data-ledger-row="${esc(key)}"><div class="dash-row-name">${LEDGERS[key].icon}${esc(cfg.title)}</div><div class="dash-row-vals"><b>${count}</b>${fresh ? `<span class="dash-row-fresh">${esc(fresh)}</span>` : ""}${withheld}</div></div>`;
-    }).join("");
-  }
-
-  if (upcomingEl) {
-    const upcoming = upcomingAuctionRows(active);
-    upcomingEl.innerHTML = upcoming.length
-      ? upcoming.map(u => `
-        <div class="dash-row"><div class="dash-row-name">${svgIcon("gavel")}${esc(fmtDate(u.date))}, ${esc(u.county)} ${UNIT_WORD}</div><div class="dash-row-vals"><span><b>${u.count}</b> propert${u.count === 1 ? "y" : "ies"}</span></div></div>`).join("")
-      : `<div class="dash-empty">No upcoming sale dates on file yet.</div>`;
-  }
-
-  const sourceEl = document.getElementById("dashSourceRows");
-  if (sourceEl) sourceEl.innerHTML = sourceHealthRowsHtml(SOURCE_HEALTH, PAGE_STATE);
-  const unitEl = document.getElementById("dashUnitRows");
-  if (unitEl) unitEl.innerHTML = unitFreshnessRowsHtml(UNIT_FRESHNESS, PAGE_STATE);
-  renderRunRows();
-  const watchEl = document.getElementById("dashWatchChanges");
-  if (watchEl) watchEl.innerHTML = watchChangesHtml(WATCH_CHANGES);
-
-  const navTotal = document.getElementById("navStatTotal");
-  const navActive = document.getElementById("navStatActive");
-  const navValue = document.getElementById("navStatValue");
-  if (navTotal) navTotal.textContent = rows.length;
-  if (navActive) navActive.textContent = active.length;
-  if (navValue) navValue.textContent = fmtShort(totalValue);
 }
 
 // ---- desktop data table ----
@@ -14090,6 +13952,21 @@ function renderDashboard() {
 // CSS descendant selectors in the APP SHELL section of styles.css (scoped
 // to desktop widths only) can hide #main/.explore-map-panel and show
 // .data-table-wrap without either file needing to know about the other.
+// Table mode (redesign PR3, graft B): figure columns - sale / phase, county,
+// address, parcel, case, the published figure named as its source names it,
+// the value on file, status - and divider rows where the rows change sale
+// date (date order) or county (the List's own county order). No ratio
+// column: a value-to-bid column read as a ranking. The card list stays the
+// default; this view is opt-in (#tableToggleBtn, desktop only).
+function tableColumns() { return ["Sale", "County", "Address", "Parcel", "Case", "Published figure", "Value on file", "Status", ""]; }
+function tableHeadHtml() {
+  return `<tr>${tableColumns().map((c, i) => `<th${i === 5 || i === 6 ? ' class="dt-num"' : ""}${i === 5 ? ' title="Auctions: the opening (or minimum) bid. Available: the listed figure, named in each row - never assumed to be the price. Certificates: the face amount as published."' : i === 6 ? ' title="The county value on file under its own label (just value, assessed value) - not a market estimate"' : ""}>${esc(c)}</th>`).join("")}</tr>`;
+}
+function tableDividerKey(p) {
+  if (state.sortBy === "dateAsc" || state.sortBy === "dateDesc") return { key: "d:" + (p.sale_date || ""), label: p.sale_date ? `Sale ${fmtDateLong(p.sale_date)}` : "No sale date on file" };
+  if ((state.sortBy || "county") === "county" && !state.sortSecondary) return { key: "c:" + (p.county || ""), label: `${p.county || "Unknown"} ${UNIT_WORD}` };
+  return null;
+}
 function tableRow(p) {
   const tr = document.createElement("tr");
   tr.dataset.pid = p.id;
@@ -14097,14 +13974,25 @@ function tableRow(p) {
   const fav = FAVS.has(p.id);
   const isCert = p.source === "certificate";
   const street = isCert ? "" : realAddress(p);
-  const titleLine = isCert ? `Certificate #${esc(p.certificate_no || "Unknown")}` : (street ? esc(street) : lotTitle(p));
-  const parcelLine = isCert ? esc(p.case_no || "") : (hasParcel(p) ? "Parcel # " + esc(parcelOf(p)) : "");
-  const marketVal = marketOf(p);
+  const titleLine = isCert ? `Certificate #${esc(p.certificate_no || "not published")}` : (street ? esc(street) : lotTitle(p));
+  const parcel = isCert ? (p.parcel ? esc(p.parcel) : `<span class="muted">Not published</span>`) : (hasParcel(p) ? esc(parcelOf(p)) : `<span class="muted">Not published</span>`);
+  const caseText = isCert ? (p.case_no ? esc(p.case_no) : "") : esc(caseIdentText(p).replace(/^Case /, ""));
+  let fig;
+  if (p.source === "laft") { const a = amountShort(p); fig = `${esc(a.text)}<small class="dt-sub">${esc(a.label)}</small>`; }
+  else if (isCert) fig = `${hasPublishedBid(p) ? esc(fmtMoney(p.bid)) : `<span class="muted">Not published</span>`}<small class="dt-sub">Amount</small>`;
+  else fig = `${hasPublishedBid(p) ? esc(bidDisplay(p)) : `<span class="muted">Not published</span>`}<small class="dt-sub">${esc(auctionBidLabel(p))}</small>`;
+  const value = hasNum(p.market) ? `${esc(fmtShort(p.market))}<small class="dt-sub">${esc(valueLabel(p))}</small>`
+    : hasNum(p.assessed) ? `${esc(fmtShort(p.assessed))}<small class="dt-sub">${esc(assessedSourceLabel(p))}</small>`
+    : `<span class="muted">No ${esc(UNIT_WORD.toLowerCase())} value on file</span>`;
+  const k = kickerParts(p);
   tr.innerHTML = `
-    <td><div class="dt-address">${titleLine}</div>${parcelLine ? `<div class="dt-parcel">${parcelLine}</div>` : ""}</td>
+    <td class="dt-when"><span class="${esc(k.cls || "")}">${esc(k.phase)}</span></td>
     <td>${esc(p.county)}</td>
-    <td class="dt-num">${p.source === "laft" ? (() => { const a = amountShort(p); return `${esc(a.text)}<small class="dt-sub">${esc(a.label)}</small>`; })() : bidDisplay(p)}</td>
-    <td class="dt-num">${marketVal ? fmtShort(marketVal) : "—"}</td>
+    <td><div class="dt-address">${titleLine}</div></td>
+    <td class="dt-mono">${parcel}</td>
+    <td class="dt-mono">${caseText || '<span class="muted">—</span>'}</td>
+    <td class="dt-num">${fig}</td>
+    <td class="dt-num">${value}</td>
     <td>${statusPillHtml(p)}</td>
     <td><div class="dt-actions">
       <button class="${fav ? "on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite">${fav ? "♥" : "♡"}</button>
@@ -14117,13 +14005,24 @@ function appendTableRows(tbody, from, to) {
   const old = tbody.querySelector("tr.table-more-row");
   if (old) old.remove();
   const frag = document.createDocumentFragment();
-  for (let i = from; i < to; i++) frag.appendChild(tableRow(TABLE_STATE.rows[i]));
+  for (let i = from; i < to; i++) {
+    const p = TABLE_STATE.rows[i];
+    const div = tableDividerKey(p);
+    if (div && div.key !== TABLE_STATE.lastKey) {
+      const d = document.createElement("tr");
+      d.className = "dt-divider";
+      d.innerHTML = `<th colspan="${tableColumns().length}" scope="rowgroup">${esc(div.label)}</th>`;
+      frag.appendChild(d);
+    }
+    TABLE_STATE.lastKey = div ? div.key : null;
+    frag.appendChild(tableRow(p));
+  }
   tbody.appendChild(frag);
   const total = TABLE_STATE.rows.length;
   if (to < total) {
     const tr = document.createElement("tr");
     tr.className = "table-more-row";
-    tr.innerHTML = `<td colspan="6"><button type="button" class="group-more" id="tableMoreBtn">Show next ${Math.min(TABLE_PAGE, total - to).toLocaleString("en-US")} · showing ${to.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}</button></td>`;
+    tr.innerHTML = `<td colspan="${tableColumns().length}"><button type="button" class="group-more" id="tableMoreBtn">Show next ${Math.min(TABLE_PAGE, total - to).toLocaleString("en-US")} · showing ${to.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}</button></td>`;
     tr.querySelector("button").addEventListener("click", () => {
       const next = Math.min(total, TABLE_STATE.listed + TABLE_PAGE);
       appendTableRows(tbody, TABLE_STATE.listed, next);
@@ -14230,6 +14129,9 @@ function renderShellExtras(shown, activeLedger) {
     // Scale (2026-10-02): TABLE_PAGE rows, then a "Show next" row with the
     // true total - the table never builds tens of thousands of rows at once.
     TABLE_STATE.rows = shown;
+    TABLE_STATE.lastKey = null;
+    const head = tbody.parentNode && tbody.parentNode.querySelector("thead");
+    if (head && !head.dataset.pr3) { head.innerHTML = tableHeadHtml(); head.dataset.pr3 = "1"; }
     TABLE_STATE.listed = Math.min(shown.length, Math.max(TABLE_PAGE, TABLE_STATE.listed || 0));
     appendTableRows(tbody, 0, TABLE_STATE.listed);
   }
@@ -14736,28 +14638,7 @@ function renderMonitorChrome() {
   if (ssCount) { ssCount.textContent = newTotal ? `${newTotal} new` : ""; ssCount.hidden = !newTotal; }
 }
 
-// Per-source observation counts from the change-detection runs
-// (source_observation_runs, migration 024): the latest run per source and
-// ledger - rows observed, newly listed, changed, no longer listed, listed
-// again. Not recorded yet = said so, never zeros.
-function observationRunsHtml(runs) {
-  if (runs === null) return `<div class="dash-empty" id="dashRunsUnavailable">Per-source change counts are not reported yet.</div>`;
-  const latest = new Map();
-  runs.forEach(r => { const k = `${r.source_id}|${r.ledger || ""}`; if (!latest.has(k)) latest.set(k, r); });
-  if (!latest.size) return `<div class="dash-empty">No change-detection run has been recorded for ${esc(STATE_INFO.name || PAGE_STATE)} yet.</div>`;
-  return Array.from(latest.values()).map(r => `<div class="dash-row run-row" data-source="${esc(r.source_id)}">
-    <div class="dash-row-name">${esc(ledgerCopy(r.ledger || "").title || r.ledger || "")} · ${esc(r.source_id)}<span class="dash-row-sub">last run ${esc(relativeTime(r.run_at))}</span></div>
-    <div class="dash-row-vals"><span><b>${r.rows_observed}</b> observed</span><span><b>${r.rows_added}</b> new</span><span><b>${r.rows_changed}</b> changed</span><span><b>${r.rows_closed}</b> no longer listed</span>${r.rows_reactivated ? `<span><b>${r.rows_reactivated}</b> listed again</span>` : ""}</div>
-  </div>`).join("") + `<p class="watch-changes-note">"No longer listed" means the row left the source list. It is never a sale or a result.</p>`;
-}
-function renderRunRows() {
-  const unitEl = document.getElementById("dashUnitRows");
-  if (!unitEl) return;
-  let el = document.getElementById("dashRunRows");
-  if (!el) { unitEl.insertAdjacentHTML("afterend", `<div id="dashRunRows" class="dash-run-rows"></div>`); el = document.getElementById("dashRunRows"); }
-  // Nothing until the probe has answered (null before it means "not asked yet").
-  el.innerHTML = MONITOR.runsProbed ? observationRunsHtml(MONITOR.runs) : "";
-}
+// (The change-detection run counts moved to admin.html, redesign PR3.)
 
 function installMonitoringUi() {
   const qc = document.getElementById("quickControls");
@@ -14928,10 +14809,6 @@ async function loadMonitoring() {
     MONITOR.tables.property_change_events = !(ev && ev.error);
     MONITOR.events = MONITOR.tables.property_change_events ? (ev.data || []) : [];
   }
-  const runs = await sb.from("source_observation_runs").select("*").eq("state", PAGE_STATE).order("run_at", { ascending: false }).limit(200);
-  MONITOR.runs = runs && !runs.error ? (runs.data || []) : null;
-  MONITOR.runsProbed = true;
-  renderRunRows();
   MONITOR.loaded = true;
   const queued = MONITOR.queue.splice(0);
   renderMonitorChrome();
@@ -15332,11 +15209,11 @@ function homeLedgerCardHtml(k) {
   const fin = PROPERTIES_LOADED && ledgerSettled(k);
   const unit = k === "certificate" && PAGE_STATE !== "FL" ? "records" : ({ laft: "properties", auction: "upcoming sales", certificate: "certificates" })[k];
   return `<button type="button" class="home-ledger-card${k === "laft" ? " primary" : ""}" data-ledger="${esc(k)}" data-home-ledger="${esc(k)}">
-    <span class="home-ledger-kicker">${esc(ledgerNavName(k).toUpperCase())}</span>
+    <span class="home-ledger-kicker">${esc(ledgerNavName(k))}</span>
     <span class="home-ledger-count" id="homeCount_${esc(k)}">${PROPERTIES_LOADED ? ledgerCountText(k, n, true) : "—"}</span>
     <span class="home-ledger-unit">${esc(unit)}${PROPERTIES_LOADED && n ? ` across ${counties} ${esc(unitWordFor(counties))}` : ""}${WITHHELD[k] ? ` · <span class="home-ledger-withheld" data-withheld="${esc(k)}">${WITHHELD[k]} withheld</span>` : ""}${k === "laft" && GATE_WITHHELD.total ? ` · <span class="home-ledger-withheld" data-gate-withheld="laft">${GATE_WITHHELD.total} pending verification</span>` : ""}${publicationWithheld(k) && publicationWithheld(k).total ? ` · <span class="home-ledger-withheld" data-pub-withheld="${esc(k)}">${publicationWithheld(k).total.toLocaleString("en-US")} withheld pending verification</span>` : ""}</span>
-    <span class="home-ledger-blurb">${esc(fin && !n ? `None listed for ${STATE_INFO.name} right now.` : !fin && PROPERTIES_LOADED ? "Loading…" : (cfg.sub || ""))}</span>
-    <span class="home-ledger-go">${k === "laft" ? "Explore" : "Open"} &rarr;</span>
+    ${fin && !n ? `<span class="home-ledger-blurb">${esc(`None listed for ${STATE_INFO.name} right now.`)}</span>` : !fin && PROPERTIES_LOADED ? `<span class="home-ledger-blurb">Loading…</span>` : ""}
+    <span class="home-ledger-go" aria-hidden="true">&rarr;</span>
   </button>`;
 }
 function homeRecentRows() {
@@ -15372,48 +15249,105 @@ function topCountyName() {
 // (no sample figures, no scores). Hidden per browser with "Hide this guide";
 // "How this works" brings it back.
 var GUIDE_KEY = "tdw_home_guide_hidden_v1";
-// The Home workstation (identity redesign, 2026-10-05): four ruled lists -
-// Available now, upcoming sales, county intelligence and saved work. Every
-// line is a loaded row or a count over loaded rows; nothing is ranked or
-// scored. Available now lists rows in the List's own default order.
-function homeDeskRowHtml(p) {
-  const street = realAddress(p);
-  const amt = amountShort(p);
-  const a = p.source === "laft" ? acquisitionOf(p) : null;
-  const seen = p.last_seen_at ? `last read ${dateOnly(p.last_seen_at)}` : "read date not recorded";
-  return `<button type="button" class="desk-row" data-ledger="${esc(p.source)}" data-home-pid="${esc(String(p.id))}">
-    <span class="desk-kicker">${esc(STATE_INFO.name)} · ${esc(p.county || "")} ${esc(UNIT_WORD)}</span>
-    <span class="desk-title">${street ? esc(street) : lotTitle(p)}</span>
-    <span class="desk-sub">${hasParcel(p) ? `Parcel ${esc(parcelOf(p))}` : "Parcel # not published"}</span>
-    <span class="desk-money"><b class="${amt.state === "not_published" || amt.state === "official_expired" ? "unpublished" : ""}">${esc(amt.text)}</b><span>${esc(amt.label)}</span></span>
-    <span class="desk-meta">${a ? `<span>Acquisition <b>${esc(a.verified ? a.short || a.label : "Not yet verified")}</b></span>` : ""}<span>Source <b>${esc(sourceNameFor(p) || "not recorded")}</b></span><span>${esc(seen)}</span></span>
-  </button>`;
+// Home (redesign PR3, 2026-10-25): after the three ledger lines, three
+// blocks - the next three county sale events with the published bid named
+// as the source names it, the customer's own work folded with its counts
+// (watchlist n/10 with the watchlist changes, saved searches, research), and
+// one "Data read" block in customer wording. No county counts, no source
+// ids, no operator detail (admin.html carries that). Nothing is ranked.
+function homeNextSalesHtml(live) {
+  const auctions = live.filter(p => p.source === "auction");
+  const events = upcomingAuctionRows(auctions).slice(0, 3);
+  const settled = ledgerSettled("auction");
+  const rows = events.map(e => {
+    const props = auctions.filter(p => p.sale_date === e.date && (p.county || "Unknown") === e.county && !offCurrentSaleList(p));
+    const d = new Date(e.date + "T12:00:00");
+    let what;
+    if (props.length === 1) {
+      const p = props[0];
+      const street = realAddress(p);
+      what = `${street ? esc(street) : lotTitle(p)} · ${esc(auctionBidLabel(p))} ${hasPublishedBid(p) ? esc(bidDisplayCard(p)) : "not published"}`;
+    } else {
+      const bids = props.filter(hasPublishedBid).length;
+      const label = props.length ? auctionBidLabel(props[0]).toLowerCase() : "opening bid";
+      what = `${bids} of ${e.count} with a published ${esc(label)}`;
+    }
+    return `<button type="button" class="desk-event home-sale" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction" data-sale-date="${esc(e.date)}">
+      <span class="desk-date"><b>${isNaN(d) ? "" : d.getDate()}</b><span>${isNaN(d) ? "" : esc(d.toLocaleString("en-US", { month: "short" }).toUpperCase())}</span></span>
+      <span class="desk-event-where">${esc(e.county)} ${esc(UNIT_WORD)}</span>
+      <span class="desk-event-what">${what}</span>
+      <span class="desk-event-n">${e.count} propert${e.count === 1 ? "y" : "ies"}</span>
+    </button>`;
+  }).join("");
+  return `<section class="home-desk-block" id="homeUpcomingSales" data-ledger="auction"><div class="home-desk-head"><h2>Next sales</h2><button type="button" class="link-btn" data-home-ledger="auction">All auctions &rarr;</button></div>
+    ${rows || `<p class="home-desk-empty">${esc(settled ? `No upcoming sale dates are listed for ${STATE_INFO.name}.` : "Loading auctions…")}</p>`}</section>`;
+}
+function homeFoldHtml(key, title, count, body) {
+  return `<details class="home-fold" data-home-fold="${esc(key)}"><summary><span class="home-fold-title">${esc(title)}</span><span class="home-fold-count">${count}</span></summary><div class="home-fold-body">${body}</div></details>`;
+}
+function homePersonalHtml() {
+  const searches = (MONITOR.savedSearches || []).filter(x => !x.state || x.state === PAGE_STATE).length;
+  const research = RESEARCH && RESEARCH.items ? RESEARCH.items.length : 0;
+  const changes = WATCH_CHANGES && WATCH_CHANGES.items ? WATCH_CHANGES.items.length : 0;
+  const watchBody = `<p class="home-fold-note">${BIDLIST.size ? `${BIDLIST.size} saved propert${BIDLIST.size === 1 ? "y" : "ies"}.` : "Nothing saved yet. Flag a property from its card or page."}</p>
+    <div class="home-watch-changes" id="dashWatchChanges">${watchChangesHtml(WATCH_CHANGES)}</div>
+    <button type="button" class="link-btn" id="homeSavedProps" data-guide="watchlist">Open watchlist &rarr;</button>`;
+  const searchBody = `<p class="home-fold-note">${searches ? `${searches} saved search${searches === 1 ? "" : "es"} for ${esc(STATE_INFO.name)}.` : "Save the List's current filters to come back to them."}</p>
+    <button type="button" class="link-btn" id="homeSavedSearches" data-guide="searches">Saved searches &rarr;</button>`;
+  const local = RESEARCH && RESEARCH.mode === "local";
+  const researchBody = `<p class="home-fold-note">${research ? `${research} propert${research === 1 ? "y" : "ies"} in your research lists.` : "No property in your research lists yet."}${local ? " Kept in this browser only." : ""}</p>
+    <button type="button" class="link-btn" id="homeResearch" data-action="researchhome">My research &rarr;</button>`;
+  return `<section class="home-desk-block" id="homeSaved"><div class="home-desk-head"><h2>Your work</h2></div>
+    ${homeFoldHtml("watch", "Watchlist", `${BIDLIST.size} / ${BID_LIST_MAX}${changes ? ` · ${changes} changed` : ""}`, watchBody)}
+    ${homeFoldHtml("searches", "Saved searches", String(searches), searchBody)}
+    ${homeFoldHtml("research", "My research", String(research), researchBody)}</section>`;
+}
+// Which ledger(s) a source_health dataset feeds (the datasets
+// scripts/source_health.py writes from harvest-and-sync.yml). A dataset not
+// listed here is not assigned to a ledger and is not shown per ledger.
+var SOURCE_HEALTH_LEDGERS = { fl_deeds: ["auction"], fl_certificates: ["certificate"], fl_laft: ["laft"], tx_sales: ["auction", "laft"] };
+var HEALTH_SEVERITY = ["HEALTHY", "MANUAL", "NOT_RUN", "STALE", "INCOMPLETE", "FAILED"];
+// One plain status (CUSTOMER_HEALTH_TEXT's vocabulary) and the date of the
+// last successful update for one ledger of the open state. The dataset
+// health rows decide when the state has them; otherwise the ledger's county
+// source reads do: every read complete -> Current (Not recently updated
+// after 7 days), some complete -> Partly updated, none -> Update
+// unsuccessful, on-request sources -> Updated on request. No count, no
+// county name, no source id is returned.
+function ledgerReadStatus(k) {
+  const worst = list => list.reduce((w, h) => HEALTH_SEVERITY.indexOf(h) > HEALTH_SEVERITY.indexOf(w) ? h : w, "HEALTHY");
+  const newest = list => list.filter(Boolean).sort().slice(-1)[0] || null;
+  const ds = Array.isArray(SOURCE_HEALTH) ? SOURCE_HEALTH.filter(r => r.state === PAGE_STATE && (SOURCE_HEALTH_LEDGERS[r.source] || []).includes(k)) : [];
+  if (ds.length) return { health: worst(ds.map(r => healthOf(r))), at: newest(ds.map(r => r.last_success_at)) };
+  const units = Array.isArray(UNIT_FRESHNESS) ? UNIT_FRESHNESS.filter(u => u.state === PAGE_STATE && u.last_attempt_at && unitLedgerKeys(u).includes(k)) : [];
+  if (!units.length) return { health: null, at: null };
+  const at = newest(units.map(u => u.last_success_at));
+  if (units.every(u => MANUAL_ONLY_SOURCE_IDS.includes(u.source_id))) return { health: "MANUAL", at };
+  const ok = units.filter(u => u.last_attempt_status === "COMPLETE" || u.last_attempt_status === "EMPTY");
+  let health = !ok.length ? "FAILED" : ok.length < units.length ? "INCOMPLETE" : "HEALTHY";
+  if (health === "HEALTHY") {
+    const oldest = units.map(u => Date.parse(u.last_success_at)).filter(t => !isNaN(t)).sort((x, y) => x - y)[0];
+    if (oldest !== undefined && (Date.now() - oldest) / 86400000 > 7) health = "STALE";
+  }
+  return { health, at };
+}
+function homeDataReadHtml() {
+  const lines = LEDGER_ORDER.map(k => {
+    const r = ledgerReadStatus(k);
+    const text = r.health ? CUSTOMER_HEALTH_TEXT[r.health] : "Status not recorded";
+    return `<div class="read-row" data-ledger="${esc(k)}" data-health="${esc(r.health || "NOT_RECORDED")}"><span class="read-ledger">${esc(ledgerNavName(k))}</span><span class="health-badge ${esc(String(r.health || "not_run").toLowerCase())}">${esc(text)}</span><span class="read-when">${r.at ? `Last updated ${esc(dateOnly(r.at))}` : "No successful update recorded"}</span></div>`;
+  }).join("");
+  return `<section class="home-desk-block" id="homeDataRead"><div class="home-desk-head"><h2>Data read</h2><a class="link-btn" href="#/rules">State rules &amp; coverage &rarr;</a></div>
+    ${lines}<p class="home-fold-note">${esc(STATE_INFO.name)} · one status per ledger. Listings already on file are kept when an update does not succeed.</p></section>`;
 }
 function renderHomeDesk() {
   const host = document.getElementById("homeDesk");
   if (!host) return;
   if (!PROPERTIES_LOADED) { host.innerHTML = ""; return; }
+  const open = new Set(Array.from(host.querySelectorAll("details.home-fold[open]")).map(d => d.dataset.homeFold));
   const live = ALL.filter(p => !HIDDEN.has(p.id) && !goneExpired(p) && !isGone(p) && !isPastDue(p));
-  const avail = sortRows(live.filter(p => p.source === "laft")).slice(0, 6);
-  const availLoading = !ledgerSettled("laft");
-  const sales = upcomingAuctionRows(live.filter(p => p.source === "auction"));
-  const counties = new Map();
-  live.forEach(p => { if (p.county) counties.set(p.county, (counties.get(p.county) || 0) + 1); });
-  const topCounties = Array.from(counties.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 6);
-  const intelOf = c => COUNTY_INTEL ? countyIntelFor(COUNTY_INTEL, PAGE_STATE, c).intel : null;
-  const head = (title, sub, more) => `<div class="home-desk-head"><h2>${esc(title)}</h2>${sub ? `<span class="home-desk-sub">${sub}</span>` : ""}${more || ""}</div>`;
-  const availHtml = `<section class="home-desk-block" id="homeAvailableNow" data-ledger="laft">${head("Available now", esc(`${STATE_INFO.name} · ${ledgerCountText("laft", live.filter(p => p.source === "laft").length, true)} listed`), `<button type="button" class="link-btn" data-home-ledger="laft">All Available &rarr;</button>`)}
-    ${avail.length ? avail.map(homeDeskRowHtml).join("") : `<p class="home-desk-empty">${esc(availLoading ? "Loading Available…" : `No Available properties are listed for ${STATE_INFO.name} right now.`)}</p>`}</section>`;
-  const word = (ledgerCopy("auction").nav || "Auction").replace(/s$/, "");
-  const salesHtml = `<section class="home-desk-block" id="homeUpcomingSales" data-ledger="auction">${head("Upcoming auctions", "", `<button type="button" class="link-btn" data-home-ledger="auction">All auctions &rarr;</button>`)}
-    ${sales.length ? sales.map(e => { const d = new Date(e.date + "T12:00:00"); return `<button type="button" class="desk-event" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction"><span class="desk-date"><b>${isNaN(d) ? "" : d.getDate()}</b><span>${isNaN(d) ? "" : esc(d.toLocaleString("en-US", { month: "short" }).toUpperCase())}</span></span><span class="desk-event-where">${esc(e.county)} ${esc(UNIT_WORD)} · ${esc(PAGE_STATE)}</span><span class="desk-event-what">${esc(word)} sale</span><span class="desk-event-n">${e.count} propert${e.count === 1 ? "y" : "ies"}</span></button>`; }).join("")
-      : `<p class="home-desk-empty">${esc(ledgerSettled("auction") ? `No upcoming sale dates are listed for ${STATE_INFO.name}.` : "Loading auctions…")}</p>`}</section>`;
-  const countyHtml = `<section class="home-desk-block" id="homeCountyIntel">${head("County intelligence", "", `<button type="button" class="link-btn" id="homeAllCounties">All counties &rarr;</button>`)}
-    <div class="desk-counties">${topCounties.length ? topCounties.map(([c, n]) => { const k = intelOf(c); return `<button type="button" class="desk-county" data-action="countyintel" data-county="${esc(c)}"><b>${esc(c)}</b>${k ? countyIntelChipHtml(k) : ""}<span class="n">${n.toLocaleString("en-US")} on file</span></button>`; }).join("") : `<p class="home-desk-empty">No county has records on file yet.</p>`}</div></section>`;
-  const savedHtml = `<section class="home-desk-block" id="homeSaved">${head("Saved", "")}
-    <div class="desk-saved"><button type="button" id="homeSavedProps" data-guide="watchlist"><b>${BIDLIST.size}</b><span>Saved propert${BIDLIST.size === 1 ? "y" : "ies"} (watchlist)</span></button><button type="button" id="homeSavedSearches" data-guide="searches"><b>${(MONITOR.savedSearches || []).filter(x => !x.state || x.state === PAGE_STATE).length}</b><span>Saved searches</span></button><button type="button" id="homeResearch" data-action="researchhome"><b>${RESEARCH && RESEARCH.items ? RESEARCH.items.length : 0}</b><span>In my research</span></button></div></section>`;
-  host.innerHTML = `<div class="home-desk-col">${availHtml}${salesHtml}</div><div class="home-desk-col">${countyHtml}${savedHtml}</div>`;
-  if (!COUNTY_INTEL) loadCountyIntel().then(d => { if (d) renderHomeDesk(); });
+  host.innerHTML = homeNextSalesHtml(live) + homePersonalHtml() + homeDataReadHtml();
+  host.querySelectorAll("details.home-fold").forEach(d => { if (open.has(d.dataset.homeFold)) d.open = true; });
 }
 function renderHome() {
   const ledgersEl = document.getElementById("homeLedgers");
@@ -15421,11 +15355,10 @@ function renderHome() {
   const order = ["laft", "auction", "certificate"];
   ledgersEl.innerHTML = order.map(homeLedgerCardHtml).join("") + `
     <button type="button" class="home-ledger-card home-states-card" id="homeStatesCard" aria-haspopup="dialog" aria-controls="statePicker">
-      <span class="home-ledger-kicker">BROWSE BY STATE</span>
+      <span class="home-ledger-kicker">Browse by state</span>
       <span class="home-ledger-count">${STATE_CODES.length}</span>
       <span class="home-ledger-unit">states covered</span>
-      <span class="home-ledger-blurb">Find properties in your target area.</span>
-      <span class="home-ledger-go">View States &rarr;</span>
+      <span class="home-ledger-go" aria-hidden="true">&rarr;</span>
     </button>`;
   const scope = document.getElementById("homeScope");
   if (scope) scope.innerHTML = `Searching <b>${esc(STATE_INFO.name)}</b> · <button type="button" class="link-btn" id="homeChangeState">Change state</button>`;
@@ -15441,6 +15374,8 @@ function renderHome() {
       recentEl.innerHTML = Array.from({ length: 3 }, () => `<div class="home-recent-card skel-card" aria-hidden="true"><div class="skel skel-photo"></div><div class="skel skel-line"></div><div class="skel skel-line short"></div></div>`).join("");
     } else {
       const rows = homeRecentRows();
+      const rc = document.querySelector("#homeRecentSection .home-fold-count");
+      if (rc) rc.textContent = String(rows.length);
       recentEl.innerHTML = rows.length ? rows.map(homeRecentCardHtml).join("")
         : `<div class="dash-empty" id="homeRecentEmpty">No first-observed date is recorded for ${esc(STATE_INFO.name)} properties yet, so nothing is listed as recently added.</div>`;
       hydrateVisuals(recentEl);
