@@ -262,7 +262,7 @@
   },
   {
    "check": "rules_valid",
-   "detail": "31 rule(s) recorded",
+   "detail": "28 rule(s) recorded",
    "state": "FL",
    "status": "PASS"
   },
@@ -433,7 +433,7 @@
   },
   {
    "check": "acquisition_path",
-   "detail": "22/52 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "detail": "19/52 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
    "state": "FL",
    "status": "NOT_VERIFIED"
   },

@@ -377,18 +377,6 @@
      "steps": "Request the payoff amount from the Tax Deeds Division at (863) 402-6565 or clkbustd@hcclerk.org (the amount changes on the first business day of each month) | Purchase the property from the Clerk for the quoted amount"
     },
     {
-     "county": "Indian River",
-     "evidence": "Clerk's Land Available for Taxes page states the amounts listed are no longer the opening bid and the buyer must contact the Tax Collector for the purchase price",
-     "evidence_url": "https://indianriverclerk.com/land-available-for-taxes/",
-     "instructions": "AMOUNTS LISTED ARE NO LONGER THE OPENING BID, YOU MUST CONTACT THE TAX COLLECTOR FOR PURCHASE PRICE 772-226-1338",
-     "observed_on": "2026-10-25",
-     "office": "Indian River County Tax Collector",
-     "path_type": "quoted_amount",
-     "source_id": "fl_laft_html",
-     "source_title": "Land Available for Taxes - Indian River Clerk of the Circuit Court & Comptroller",
-     "steps": "Contact the Tax Collector at 772-226-1338 for the purchase price (the amounts listed are no longer the opening bid)"
-    },
-    {
      "county": "Leon",
      "evidence": "Clerk's Lands Available page says information on purchasing property off the List of Lands Available is requested by e-mail to the Tax Deed administration address, with the parcel number and property address",
      "evidence_url": "https://lforms.leonclerk.com/tax_deeds/lands-available.html",
@@ -430,11 +418,11 @@
      "evidence_url": "https://www.marioncountyclerk.org/departments/records-recording/tax-deeds-and-lands-available-for-taxes/",
      "instructions": "The list of Lands Available for Taxes is properties that were offered, but not purchased, at a Tax Deed Sale. After 90 days, any person or governmental unit may purchase the land for the opening bid, plus omitted years' taxes, as cited in Florida Administrative Code 12D-13.064(3). The current month's purchase amounts of the properties available for purchase can be found in the \"Lands Available for Taxes Information\" portion of this site. The purchase amount is payable by certified check, cashier's check, or money order. Recording fees of $10.00 for the first page and $8.50 for each additional page, and documentary stamps at 70 cents per hundred dollars are also collected. Upon receipt of the funds to purchase a property from the list of Lands Available for Taxes, a tax deed is issued as requested.",
      "observed_on": "2026-09-30",
-     "office": "Marion County Clerk of Court and Comptroller - Tax Deeds",
+     "office": "Marion County Clerk of Court and Comptroller",
      "path_type": "amount_plus_costs",
      "source_id": "fl_laft_pdfs",
      "source_title": "Tax Deeds | Marion County Clerk of Court and Comptroller",
-     "steps": "Find the property's current month purchase amount on the Clerk's \"Lands Available for Taxes Information\" page | Pay the purchase amount - the opening bid plus omitted years' taxes (F.A.C. 12D-13.064(3)) - by certified check, cashier's check or money order | Pay the recording fees ($10.00 for the first page, $8.50 for each additional page) and documentary stamps (70 cents per hundred dollars) by certified check, cashier's check or money order | On receipt of the funds, the Clerk issues a tax deed as requested | Contact the Clerk's Tax Deeds office at (352) 671-5648 (Contact Information - Tax Deeds) with questions"
+     "steps": "Find the property's current month purchase amount on the Clerk's \"Lands Available for Taxes Information\" page | Pay the purchase amount - the opening bid plus omitted years' taxes (F.A.C. 12D-13.064(3)) - by certified check, cashier's check or money order | Pay the recording fees ($10.00 for the first page, $8.50 for each additional page) and documentary stamps (70 cents per hundred dollars) by certified check, cashier's check or money order | On receipt of the funds, the Clerk issues a tax deed as requested"
     },
     {
      "county": "Orange",
@@ -459,30 +447,6 @@
      "source_id": "fl_laft_pdfs",
      "source_title": "Purchasing Property Off the Lists of Lands | Pasco County Clerk, FL",
      "steps": "Submit a written request for the current purchase price to the Clerk & Comptroller, 14236 Sixth Street, Suite 201, Dade City, FL 33523-3414, with the parcel number, the tax-deed number and your name, address and telephone number | Wait for the notification of the current purchase price (by mail or e-mail; prices are good through the period stated) | Contact the Tax Deed Division at (352) 521-4408 or (800) 368-2411 ext. 4408 to coordinate the transaction | Complete the purchase in person at the East Pasco Government Center, 14236 Sixth Street, Suite 201, Dade City, paying by certified cashier's check drawn on a Florida bank or cash"
-    },
-    {
-     "county": "Sarasota",
-     "evidence": "Clerk and Comptroller's List of Lands Available page: properties are sold first come, first served; e-mail the Tax Deed Department for the current cost of purchasing; pay by cash, cashier's check or wire transfer; on full payment and deed information the Clerk issues and records the Tax Deed",
-     "evidence_url": "https://www.sarasotaclerk.com/Home-and-Property/Tax-Deeds/List-of-Lands-Available",
-     "instructions": "Properties remain on the list for up to three years and are sold on a first-come, first-served basis. Email the Clerk and Comptroller's Tax Deed Department to inquire about the current cost of purchasing property on the List of Lands Available. Cashier's Check: Make payable to Sarasota Clerk and Comptroller. Wire Transfer: Allow 48 hours for funds availability. Upon receipt of full payment and deed information, the Clerk's Office will issue a Tax Deed and record it in the Official Records.",
-     "observed_on": "2026-10-25",
-     "office": "Sarasota County Clerk of the Circuit Court and County Comptroller - Tax Deed Department",
-     "path_type": "quoted_amount",
-     "source_id": "fl_laft_realtdm",
-     "source_title": "List of Lands Available | Sarasota Clerk of the Circuit Court and County Comptroller",
-     "steps": "E-mail the Clerk and Comptroller's Tax Deed Department (TaxDeedClerk@sarasotaclerkandcomptroller.com) for the current cost of purchasing the property | Pay the full amount by cash (hand-delivered to the Clerk and Comptroller's Office), cashier's check payable to Sarasota Clerk and Comptroller, or wire transfer (allow 48 hours) and provide the deed information | The Clerk issues the Tax Deed, records it in the Official Records, notifies the Property Appraiser and Tax Collector, and mails the original deed"
-    },
-    {
-     "county": "St. Lucie",
-     "evidence": "Clerk's Online Auctions FAQ: Lands Available properties cannot be purchased online; for purchasing Lands Available properties call the Clerk's office",
-     "evidence_url": "https://stlucieclerk.gov/faqs2/online-auctions-faqs",
-     "instructions": "Can I purchase a Lands Available property online? No, Lands Available properties cannot be purchased online. For more information regarding purchasing Lands Available properties or call the Clerk's office at 772-462-1476.",
-     "observed_on": "2026-10-25",
-     "office": "St. Lucie County Clerk of the Circuit Court and Comptroller",
-     "path_type": "phone_mail",
-     "source_id": "fl_laft_stlucie",
-     "source_title": "Online Auctions FAQs - St. Lucie County Clerk",
-     "steps": "Lands Available properties cannot be purchased online | Call the Clerk's office at 772-462-1476 to purchase a Lands Available property"
     },
     {
      "county": "Sumter",
@@ -919,69 +883,6 @@
      "test_ref": "tests/python/test_gap_closure.py",
      "topic": "acquisition_procedure_available",
      "verified_on": "2026-09-30",
-     "version": "1"
-    },
-    {
-     "changed_on": "2026-10-25",
-     "county": "Indian River",
-     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
-     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_html/Indian River (quoted_amount; review_state verified)",
-     "implementation_status": "IMPLEMENTED",
-     "kind": "PROCEDURE",
-     "ledger": "AVAILABLE",
-     "office": "Indian River County Tax Collector",
-     "related_sources": "fl_laft_html",
-     "scope": "county",
-     "source_title": "Land Available for Taxes - Indian River Clerk of the Circuit Court & Comptroller",
-     "source_url": "https://indianriverclerk.com/land-available-for-taxes/",
-     "state": "FL",
-     "statement": "Clerk's Land Available for Taxes page states the amounts listed are no longer the opening bid and the buyer must contact the Tax Collector for the purchase price",
-     "status": "VERIFIED",
-     "test_ref": "tests/python/test_gap_closure.py",
-     "topic": "acquisition_procedure_available",
-     "verified_on": "2026-10-25",
-     "version": "1"
-    },
-    {
-     "changed_on": "2026-10-25",
-     "county": "Sarasota",
-     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
-     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_realtdm/Sarasota (quoted_amount; review_state verified)",
-     "implementation_status": "IMPLEMENTED",
-     "kind": "PROCEDURE",
-     "ledger": "AVAILABLE",
-     "office": "Sarasota County Clerk of the Circuit Court and County Comptroller - Tax Deed Department",
-     "related_sources": "fl_laft_realtdm",
-     "scope": "county",
-     "source_title": "List of Lands Available | Sarasota Clerk of the Circuit Court and County Comptroller",
-     "source_url": "https://www.sarasotaclerk.com/Home-and-Property/Tax-Deeds/List-of-Lands-Available",
-     "state": "FL",
-     "statement": "Clerk and Comptroller's List of Lands Available page: properties are sold first come, first served; e-mail the Tax Deed Department for the current cost of purchasing; pay by cash, cashier's check or wire transfer; on full payment and deed information the Clerk issues and records the Tax Deed",
-     "status": "VERIFIED",
-     "test_ref": "tests/python/test_gap_closure.py",
-     "topic": "acquisition_procedure_available",
-     "verified_on": "2026-10-25",
-     "version": "1"
-    },
-    {
-     "changed_on": "2026-10-25",
-     "county": "St. Lucie",
-     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
-     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_stlucie/St. Lucie (phone_mail; review_state verified)",
-     "implementation_status": "IMPLEMENTED",
-     "kind": "PROCEDURE",
-     "ledger": "AVAILABLE",
-     "office": "St. Lucie County Clerk of the Circuit Court and Comptroller",
-     "related_sources": "fl_laft_stlucie",
-     "scope": "county",
-     "source_title": "Online Auctions FAQs - St. Lucie County Clerk",
-     "source_url": "https://stlucieclerk.gov/faqs2/online-auctions-faqs",
-     "state": "FL",
-     "statement": "Clerk's Online Auctions FAQ: Lands Available properties cannot be purchased online; for purchasing Lands Available properties call the Clerk's office",
-     "status": "VERIFIED",
-     "test_ref": "tests/python/test_gap_closure.py",
-     "topic": "acquisition_procedure_available",
-     "verified_on": "2026-10-25",
      "version": "1"
     }
    ],
@@ -1733,9 +1634,6 @@
       },
       {
        "county": "Indian River",
-       "procedures": [
-        "acquisition_procedure_available"
-       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -1944,9 +1842,6 @@
       },
       {
        "county": "Sarasota",
-       "procedures": [
-        "acquisition_procedure_available"
-       ],
        "sources": [
         {
          "authority": "GOVERNMENT_PLATFORM",
@@ -1977,9 +1872,6 @@
       },
       {
        "county": "St. Lucie",
-       "procedures": [
-        "acquisition_procedure_available"
-       ],
        "sources": [
         {
          "authority": "GOVERNMENT_PLATFORM",
@@ -4620,7 +4512,7 @@
    "findings": [
     {
      "check": "rules_valid",
-     "detail": "31 rule(s) recorded",
+     "detail": "28 rule(s) recorded",
      "state": "FL",
      "status": "PASS"
     },
@@ -4791,7 +4683,7 @@
     },
     {
      "check": "acquisition_path",
-     "detail": "22/52 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+     "detail": "19/52 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
      "state": "FL",
      "status": "NOT_VERIFIED"
     },

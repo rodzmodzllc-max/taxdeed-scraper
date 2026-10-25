@@ -184,7 +184,7 @@ Counties (FOCUS first, then fewest failed rules and most visible records):
 * **Counties:** 25 counties (8 FOCUS at county level); leading: Hernando, Highlands, Levy, Alachua, Orange
 * **Ledger:** AVAILABLE
 * **Usable inventory:** 158 customer-visible of 158 active
-* **Published path:** 28% (acquisition evidence); 22 counties with a verified acquisition record
+* **Published path:** 28% (acquisition evidence); 19 counties with a verified acquisition record
 * **Property data:** legal 90%, value 90%, taxable 80%, acreage 89%, land use 90%
 * **Coordinates:** 90% (2% authoritative)
 * **Imagery:** 90% imagery-capable, 90% stored

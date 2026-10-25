@@ -84,9 +84,7 @@ def test_e02_evidence_table_holds_only_verified_captured_rows_and_outcome_rules_
         assert r.url == "" or (r.path_type == "county_instructions" and (
             (r.url.startswith("https://www.brla.gov/") and r.evidence_url.startswith("https://www.brla.gov/"))
             or (r.url.startswith("https://sheriff.galvestoncountytx.gov/") and r.url == r.evidence_url))), r.county
-        # traceable to the capture run(s), or to the dated live read of the official page (2026-10-25, owner-requested pass)
-        assert re.search(r"\brun[s]? 3669828546|\bruns 36717720575|\brun 36835470121|\brun 36858070184", r.notes) or \
-            (r.observed_on == "2026-10-25" and r.notes.startswith("Read live on 2026-10-25 from the official page")), r.county
+        assert re.search(r"\brun[s]? 3669828546|\bruns 36717720575|\brun 36835470121|\brun 36858070184", r.notes), r.county  # traceable to the capture run(s)
     assert len({(r.state, r.source_id, r.county) for r in rows}) == len(rows)   # one row per source/county
     assert OI.load_rules() == []
     with open(PE.EVIDENCE_PATH, newline="", encoding="utf-8") as fh:
@@ -251,7 +249,7 @@ def test_e10_committed_registry_alone_establishes_no_path_and_only_captured_evid
         assert path.url in ("", None) or ev.path_type in PE.URL_TYPES
         prov = path.provenance()
         assert prov["purchase_evidence_url"] == ev.evidence_url and prov["purchase_instructions"] == ev.instructions
-        assert prov["purchase_path_observed_on"] == ev.observed_on and ev.observed_on in ("2026-09-30", "2026-10-01", "2026-10-25")
+        assert prov["purchase_path_observed_on"] == ev.observed_on and ev.observed_on in ("2026-09-30", "2026-10-01")
     fl_evidence = [k for k, e in evidence.items() if e.state == "FL"]
     assert typed == len(fl_evidence), (typed, len(fl_evidence))                  # every committed FL row is reachable
     # Every path type the table uses is a real, labelled type - the frontend names it.

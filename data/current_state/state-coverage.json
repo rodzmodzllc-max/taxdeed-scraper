@@ -2287,17 +2287,16 @@
     "AVAILABLE": {
      "acquisition": {
       "by_status": {
-       "NEEDS_REVIEW": 1,
+       "NEEDS_REVIEW": 3,
        "NOT_FOUND": 24,
-       "UNAVAILABLE": 5,
-       "VERIFIED": 22
+       "UNAVAILABLE": 6,
+       "VERIFIED": 19
       },
       "units": 52,
       "verified_units": [
        "Calhoun (fl_laft_html)",
        "Dixie (fl_laft_html)",
        "Franklin (fl_laft_html)",
-       "Indian River (fl_laft_html)",
        "Madison (fl_laft_html)",
        "Sumter (fl_laft_html)",
        "Taylor (fl_laft_html)",
@@ -2313,9 +2312,7 @@
        "Hernando (fl_laft_pioneer)",
        "Levy (fl_laft_pioneer)",
        "Alachua (fl_laft_realtdm)",
-       "Highlands (fl_laft_realtdm)",
-       "Sarasota (fl_laft_realtdm)",
-       "St. Lucie (fl_laft_stlucie)"
+       "Highlands (fl_laft_realtdm)"
       ]
      },
      "classification": "CURRENT",
@@ -3020,9 +3017,9 @@
      "rules": {
       "by_status": {
        "NOT_VERIFIED": 1,
-       "VERIFIED": 24
+       "VERIFIED": 21
       },
-      "count": 25,
+      "count": 22,
       "county_rules": [
        "Alachua",
        "Brevard",
@@ -3034,15 +3031,12 @@
        "Franklin",
        "Hernando",
        "Highlands",
-       "Indian River",
        "Leon",
        "Levy",
        "Madison",
        "Marion",
        "Orange",
        "Pasco",
-       "Sarasota",
-       "St. Lucie",
        "Sumter",
        "Taylor",
        "Volusia"

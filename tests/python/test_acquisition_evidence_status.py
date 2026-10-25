@@ -102,9 +102,7 @@ def test_generated_status_is_county_wide_and_complete():
                 ("LA", "la_ebr_adjudicated", "East Baton Rouge"), ("TX", "tx_lgbs", "Liberty"), ("FL", "fl_laft_html", "Putnam")]:
         assert key in by, key
     assert by[("MO", "mo_stl_lra_inventory", "St. Louis City")]["status"] == "NEEDS_REVIEW"
-    assert by[("FL", "fl_laft_realtdm", "Lee")]["status"] == "UNAVAILABLE"
-    # Sarasota's List of Lands Available page was read 2026-10-25 (evidence table).
-    assert by[("FL", "fl_laft_realtdm", "Sarasota")]["status"] == "VERIFIED"
+    assert by[("FL", "fl_laft_realtdm", "Sarasota")]["status"] == "UNAVAILABLE"
     assert by[("LA", "la_ebr_adjudicated", "East Baton Rouge")]["status"] == "VERIFIED"
     # County-wide evidence is one record per unit, never per property.
     assert len(by) == len(STATUS)

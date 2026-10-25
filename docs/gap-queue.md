@@ -2,9 +2,9 @@
 
 Generated from public/acquisition-evidence.json, data/current_state/state-coverage.json, data/acquisition_candidate_pages.csv and the registry. Counts only.
 
-- Acquisition-path units: 72 total, 43 unresolved (NEEDS_REVIEW 6, NOT_FOUND 32, UNAVAILABLE 5, VERIFIED 29).
+- Acquisition-path units: 72 total, 46 unresolved (NEEDS_REVIEW 8, NOT_FOUND 32, UNAVAILABLE 6, VERIFIED 26).
 - State x ledger units: 39 total (APPROVAL_UNRESOLVED 7, CURRENT 6, OFFERED_SOURCE_NOT_IMPLEMENTED 1, OFFERED_VERIFIED_EMPTY 1, RULES_NOT_VERIFIED 19, SOURCE_FAILED_OR_STALE 4, SOURCE_IMPLEMENTED_NEVER_READ 1).
-- Queue: 76 entries - by category A 2, B 2, C 29, D 6, E 10, F 27; completable now from the repository: 2.
+- Queue: 79 entries - by category A 2, B 4, C 29, D 7, E 10, F 27; completable now from the repository: 2.
 
 ## A. implementable now from repository data or an accessible official source (2)
 
@@ -13,10 +13,12 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | LA * | AVAILABLE | SOURCE_FAILED_OR_STALE | yes | yes | no | yes | Deploy the keyset-read fix (PR #132 stack: sync_state_inventory.stored_provenance) - the state's sync has failed on HTTP 500 every run since; no code left to write |
 | WI * | AUCTIONS | OFFERED_VERIFIED_EMPTY | yes | yes | no | no | Nothing to do: the source was read and lists nothing |
 
-## B. needs a parser / extractor / adapter / enrichment implementation (2)
+## B. needs a parser / extractor / adapter / enrichment implementation (4)
 
 | Unit | Ledger | Status | Source reachable | Approved | Rule verified | Process verified | Next action |
 |---|---|---|---|---|---|---|---|
+| FL Indian River (fl_laft_html) | AVAILABLE | NEEDS_REVIEW | yes | yes | n/a | no | Implement a browser-rendered capture for the county's script-rendered process page, then record the evidence row |
+| FL St. Lucie (fl_laft_stlucie) | AVAILABLE | NEEDS_REVIEW | yes | yes | n/a | no | Implement a browser-rendered capture for the county's script-rendered process page, then record the evidence row |
 | TN Shelby (tn_shelby_landbank) | AVAILABLE | NEEDS_REVIEW | yes | no | n/a | no | Implement OCR extraction of the scanned process packet, then record the evidence row |
 | WY * | LIENS_CERTIFICATES | OFFERED_SOURCE_NOT_IMPLEMENTED | yes | no | no | no | Implement the adapter for the known source (registry candidate), gated and fixture-validated first |
 
@@ -54,7 +56,7 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | WI * | LIENS_CERTIFICATES | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |
 | WY * | AVAILABLE | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |
 
-## D. blocked by source access or a technical restriction (6)
+## D. blocked by source access or a technical restriction (7)
 
 | Unit | Ledger | Status | Source reachable | Approved | Rule verified | Process verified | Next action |
 |---|---|---|---|---|---|---|---|
@@ -63,6 +65,7 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | FL Lee (fl_laft_realtdm) | AVAILABLE | UNAVAILABLE | no | yes | n/a | no | The county's official pages answer HTTP 403 to the GitHub runner; a records request or an allow-listed capture host is the only way forward |
 | FL Osceola (fl_laft_osceola) | AVAILABLE | UNAVAILABLE | no | yes | n/a | no | The county's official pages answer HTTP 403 to the GitHub runner; a records request or an allow-listed capture host is the only way forward |
 | FL Palm Beach (fl_laft_pioneer) | AVAILABLE | UNAVAILABLE | no | yes | n/a | no | The county's official pages answer HTTP 403 to the GitHub runner; a records request or an allow-listed capture host is the only way forward |
+| FL Sarasota (fl_laft_realtdm) | AVAILABLE | UNAVAILABLE | no | yes | n/a | no | The county's official pages answer HTTP 403 to the GitHub runner; a records request or an allow-listed capture host is the only way forward |
 | FL * | LIENS_CERTIFICATES | SOURCE_FAILED_OR_STALE | no | yes | yes | no | LienHub answers HTTP 403 to the GitHub runner since 2026-10-01; nothing to change in code until the source is reachable |
 
 ## E. blocked by source-use permission or an owner decision (10)
