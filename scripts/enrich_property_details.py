@@ -451,8 +451,15 @@ class FdorParserRejection(Exception):
 # provenance as matched_field="ALT_KEY" with the PARCEL_ID the layer
 # returned, so an alternate-key match is never confused with a parcel match.
 # ---------------------------------------------------------------------------
+#   Marion (CO_NO 52) and Monroe (CO_NO 54) - verified live 2026-10-25: the
+#   layer's ALT_KEY is the county's own account number, and the identifiers
+#   the RealAuction (Marion) and LienHub (Monroe) rows carry are exactly those
+#   digits (Marion 6 of 6 sampled unmatched rows, 5- to 7-digit; Monroe 3 of
+#   4, 7-digit), each matching one feature and only on ALT_KEY.
 ALT_KEY_RULES = {
     "Escambia": re.compile(r"^(\d{2})-?(\d{4})-?(\d{3})$"),
+    "Marion": re.compile(r"^(\d{5,7})$"),
+    "Monroe": re.compile(r"^(\d{7})$"),
 }
 ALT_KEY_PREFIX = "ALT_KEY:"
 
@@ -467,6 +474,58 @@ def alt_key_candidate(county, parcel):
     if not m:
         return None
     return "".join(m.groups())
+
+
+# ---------------------------------------------------------------------------
+# County spellings of the SAME parcel number (2026-10-25). The tax-collector
+# and auction sites write some counties' parcel numbers with different
+# separators than the FDOR layer's PARCEL_ID. Each rule below only moves or
+# swaps separators - the digits and letters, in order, are unchanged - and it
+# runs for that one county only, after every generic spelling has missed. The
+# match is still exact equality on PARCEL_ID, county-scoped, one feature only.
+# Verified live against the layer on 2026-10-25 with sampled unmatched rows:
+#
+#   Hernando  "R28-421-18-0000-0010-0040" -> "R28 421 18 0000 0010 0040"
+#             (dash -> space; 6 of 6)
+#   Lake      "05-23-26-005000000500"     -> "05-23-26-0050-000-00500"
+#             (2-2-2-4-3-5 blocks; 5 of 6)
+#   Flagler   "3111304600000100000"       -> "31-11-30-4600-00010-0000"
+#             (19 characters, 2-2-2-4-5-4 blocks; 6 of 6)
+#   Martin    "03-38-41-025-002-00230.70000" -> "03-38-41-025-002-00230-7"
+#             (the trailing ".D0000" is the layer's "-D"; 3 of 3)
+#
+# Not rules, on purpose: Santa Rosa / Pasco numbers ending in "M" are
+# mobile-home accounts and Walton "MINR" numbers are mineral rights - none is
+# a land parcel, and stripping the suffix matched nothing (0 of 6).
+# ---------------------------------------------------------------------------
+def _blocks(compact, lens):
+    if len(compact) != sum(lens):
+        return None
+    out, i = [], 0
+    for n in lens:
+        out.append(compact[i:i + n])
+        i += n
+    return "-".join(out)
+
+
+def county_format_candidates(county, parcel):
+    """The county's own re-spelling of `parcel`, or [] (see the rule table above)."""
+    if parcel is None:
+        return []
+    p = str(parcel).strip()
+    c = COUNTY_ALIASES.get(county, county)
+    out = []
+    if c == "Hernando" and re.fullmatch(r"[A-Z]\d{2}(-[0-9A-Z]+){5}", p):
+        out.append(p.replace("-", " "))
+    elif c == "Lake" and re.fullmatch(r"\d{2}-\d{2}-\d{2}-[0-9A-Z]{12}", p):
+        out.append(_blocks(p.replace("-", ""), [2, 2, 2, 4, 3, 5]))
+    elif c == "Flagler" and re.fullmatch(r"[0-9A-Z]{19}", p):
+        out.append(_blocks(p, [2, 2, 2, 4, 5, 4]))
+    elif c == "Martin":
+        m = re.fullmatch(r"(\d{2}-\d{2}-\d{2}-\d{3}-\d{3}-\d{5})\.(\d)0000", p)
+        if m:
+            out.append(f"{m.group(1)}-{m.group(2)}")
+    return [v for v in out if v and v != p]
 
 
 def identifier_shape(value):
@@ -799,7 +858,7 @@ def lookup_fdor(county, parcel):
     co_no = COUNTY_CODES.get(COUNTY_ALIASES.get(county, county))
     if co_no is None:
         return None, None, None  # unmapped county name - skip rather than guess
-    for candidate in normalize_candidates(parcel):
+    for candidate in normalize_candidates(parcel) + county_format_candidates(county, parcel):
         features = _query_layer(f"PARCEL_ID='{_sql_str(candidate)}' AND CO_NO={co_no}")
         if len(features) > 1:
             return None, None, AMBIGUOUS_MATCH
