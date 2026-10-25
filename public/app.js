@@ -10580,7 +10580,7 @@ function render() {
   // Phase 54 comment on SHELL_PAGES - but this stays a real event rather
   // than being deleted outright, on the same "don't make ordering matter"
   // reasoning as tdw:maprendered below).
-  const rendered = { rows: shown, ledger: activeLedger, openDetail };
+  const rendered = { rows: shown, ledger: activeLedger, openDetail, api: experienceApi() };
   window.__tdwLastRender = rendered;
   window.dispatchEvent(new CustomEvent("tdw:rendered", { detail: rendered }));
 
@@ -15510,3 +15510,119 @@ function cardAcqBadgeHtml(p) {
   const label = a.mode === "online" ? ACQUISITION_MODE_LABELS.online : a.mode === "bid" ? "Bid form" : a.mode === "application" ? "Application required" : (ACQUISITION_MODE_LABELS[a.mode] || a.short);
   return `<div class="card-acq"><span class="acq-badge" data-acq="${esc(a.mode)}">${esc(label)}</span>${a.mode !== "online" && purchasePathOf(p).kind !== "none" ? `<span class="acq-note">No online purchase link on file</span>` : ""}</div>`;   // the Purchase path line below already says it when no path is on file
 }
+
+
+// ==================== Look switch: Classic / Tactile / Terrain (2026-10-25) ====================
+// A trial switch so the owner can compare two candidate List experiences on
+// live data before choosing one. Classic is the existing card list and stays
+// the default. Tactile (experience-tactile.js/.css) and Terrain
+// (experience-terrain.js/.css) are separate modules loaded only when picked;
+// they draw the same filtered rows render() just computed (the tdw:rendered
+// payload, now carrying `api`: the card's own label and display helpers, so
+// no module invents a label) into #xpStage, which sits above #main on the
+// List page. The ledger tabs, filters and search keep driving the rows.
+// Choice: ?look=<name> in the URL, else per browser in localStorage.
+// Declared with var / function declarations: render() runs during module
+// init and reaches experienceApi() (TDZ).
+var EXPERIENCES = { classic: "Classic", tactile: "Tactile", terrain: "Terrain" };
+var EXPERIENCE_KEY = "tdw_experience_v1";
+var EXPERIENCE_LOADED = {};
+var XP_API = null;
+function experienceApi() {
+  if (XP_API) return XP_API;
+  XP_API = {
+    openDetail, previewFacts, propertyVisual, hydrateVisuals, amountShort, amountInfo,
+    auctionBidLabel, valueLabel, dataGaps, sourceNameFor, realAddress, lotTitle, parcelOf,
+    caseIdentText, fmtDateLong, fmtMoney, bidDisplayCard, cardKickerHtml, offCurrentSaleList,
+    availableProgram, acquisitionOf, officialStatusText, esc,
+    isWatched: id => BIDLIST.has(id),
+    isFavorite: id => FAVS.has(id),
+    stateCode: () => PAGE_STATE,
+    unitWord: () => UNIT_WORD,
+    ledgerTitle: k => (ledgerCopy(k) || {}).title || k
+  };
+  return XP_API;
+}
+function currentExperience() {
+  try {
+    const q = new URLSearchParams(location.search).get("look");
+    if (q && EXPERIENCES[q]) { try { localStorage.setItem(EXPERIENCE_KEY, q); } catch {} return q; }
+  } catch {}
+  try { const v = localStorage.getItem(EXPERIENCE_KEY); if (v && EXPERIENCES[v]) return v; } catch {}
+  return "classic";
+}
+function ensureExperienceStage() {
+  let stage = document.getElementById("xpStage");
+  if (!stage) {
+    const main = document.getElementById("main");
+    if (!main) return null;
+    stage = document.createElement("section");
+    stage.id = "xpStage";
+    stage.className = "xp-stage";
+    stage.setAttribute("aria-label", "Properties");
+    main.before(stage);
+  }
+  return stage;
+}
+function loadExperience(name) {
+  if (name === "classic" || EXPERIENCE_LOADED[name]) return Promise.resolve();
+  EXPERIENCE_LOADED[name] = true;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = `experience-${name}.css`;
+  document.head.appendChild(link);
+  return import(`./experience-${name}.js`).catch(err => {
+    EXPERIENCE_LOADED[name] = false;
+    (window.__tdwBootErrors = window.__tdwBootErrors || []).push(`experience-${name}: ${err && err.message}`);
+    showErrorToast("Couldn't load the " + EXPERIENCES[name] + " look; showing Classic.");
+    applyExperience("classic", false);
+  });
+}
+function applyExperience(name, persist) {
+  if (!EXPERIENCES[name]) name = "classic";
+  if (persist) { try { localStorage.setItem(EXPERIENCE_KEY, name); } catch {} }
+  const root = document.documentElement;
+  root.dataset.experience = name;
+  if (name === "classic") delete root.dataset.experienceReady;
+  const stage = ensureExperienceStage();
+  if (stage) stage.hidden = name === "classic";
+  window.__tdwExperience = { name, api: experienceApi() };
+  syncLookButton();
+  loadExperience(name).then(() => {
+    window.dispatchEvent(new CustomEvent("tdw:experience", { detail: window.__tdwExperience }));
+    if (window.__tdwLastRender) window.dispatchEvent(new CustomEvent("tdw:rendered", { detail: window.__tdwLastRender }));
+  });
+}
+function syncLookButton() {
+  const name = document.documentElement.dataset.experience || "classic";
+  const btn = document.getElementById("lookBtn");
+  if (btn) btn.querySelector(".look-name").textContent = EXPERIENCES[name];
+  document.querySelectorAll("#lookMenu [data-look]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.look === name)));
+}
+function installLookSwitch() {
+  if (document.getElementById("lookBtn")) return;
+  const host = document.querySelector(".header-btns");
+  if (!host) return;
+  const wrap = document.createElement("div");
+  wrap.className = "look-switch";
+  wrap.innerHTML = `<button id="lookBtn" class="look-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="lookMenu" title="Look">` +
+    `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"></path><path d="M3 13l9 5 9-5"></path></svg>` +
+    `<span class="look-label">Look</span><span class="look-name">Classic</span></button>` +
+    `<div id="lookMenu" class="look-menu" role="menu" hidden>` +
+    Object.keys(EXPERIENCES).map(k => `<button type="button" role="menuitemradio" aria-checked="false" data-look="${k}">${EXPERIENCES[k]}<span class="look-sub">${k === "classic" ? "The current card list" : k === "tactile" ? "Cards you handle: placards, folders, slips" : "A living map: time, place and layers"}</span></button>`).join("") +
+    `</div>`;
+  host.insertBefore(wrap, host.firstChild);
+  const btn = wrap.querySelector("#lookBtn"), menu = wrap.querySelector("#lookMenu");
+  const close = () => { menu.hidden = true; btn.setAttribute("aria-expanded", "false"); };
+  btn.addEventListener("click", e => { e.stopPropagation(); const open = menu.hidden; menu.hidden = !open; btn.setAttribute("aria-expanded", String(open)); });
+  menu.addEventListener("click", e => {
+    const b = e.target.closest("[data-look]");
+    if (!b) return;
+    close();
+    applyExperience(b.dataset.look, true);
+  });
+  document.addEventListener("click", e => { if (!wrap.contains(e.target)) close(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !menu.hidden) { close(); btn.focus(); } });
+}
+installLookSwitch();
+applyExperience(currentExperience(), false);

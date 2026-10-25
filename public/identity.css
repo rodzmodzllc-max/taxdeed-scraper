@@ -1245,3 +1245,25 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 }
 /* Map bubble hit area (2026-10-24): invisible, catches the tap. */
 .cluster-bubble .bubble-hit{fill:transparent;stroke:none;pointer-events:all}
+
+/* ==================== Look switch (2026-10-25) ====================
+   The header "Look" button and its menu (app.js installLookSwitch), and the
+   stage the Tactile / Terrain modules draw into. Classic needs nothing here:
+   with data-experience="classic" the stage is hidden and #main is untouched.
+   A module sets data-experience-ready once it has drawn, so a module that
+   fails to load never leaves the List empty. */
+.look-switch{position:relative;display:inline-flex}
+.look-btn{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border:1px solid var(--rule);border-radius:22px;background:var(--paper-white);color:var(--charcoal);font:inherit;font-size:.82rem;cursor:pointer}
+.look-btn:hover{border-color:var(--copper)}
+.look-btn:focus-visible{outline:2px solid var(--copper);outline-offset:2px}
+.look-btn .look-label{color:var(--warm-gray)}
+.look-btn .look-name{font-weight:600;color:var(--copper-deep)}
+.look-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:260px;padding:6px;background:var(--paper-white);border:1px solid var(--rule);border-radius:14px;box-shadow:0 18px 40px -24px rgba(36,34,31,.45);display:flex;flex-direction:column;gap:2px}
+.look-menu[hidden]{display:none}
+.look-menu button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:44px;padding:8px 12px;border:0;border-radius:10px;background:none;color:var(--charcoal);font:inherit;font-size:.9rem;font-weight:600;text-align:left;cursor:pointer}
+.look-menu button:hover,.look-menu button:focus-visible{background:var(--copper-soft);outline:none}
+.look-menu button[aria-checked="true"]{background:var(--copper-soft);color:var(--copper-deep)}
+.look-menu .look-sub{font-size:.75rem;font-weight:400;color:var(--warm-gray)}
+@media (max-width:640px){.look-btn .look-label{display:none}.look-btn{padding:0 10px}}
+.xp-stage[hidden]{display:none}
+html[data-experience-ready="tactile"] #main,html[data-experience-ready="terrain"] #main{display:none}
