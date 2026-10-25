@@ -136,6 +136,7 @@ on:
     - cron: '0 10 * * *'  # ~6:00 AM ET (10:00 UTC) - deeds + okaloosa
     - cron: '0 22 * * *'  # ~6:00 PM ET (22:00 UTC) - deeds + okaloosa
     - cron: '0 12 * * *'  # ~8:00 AM ET (12:00 UTC) - certificates + laft
+    - cron: '0 17 * * *'  # ~1:00 PM ET (17:00 UTC) - freshness verification (read-only)
   workflow_dispatch:  # manual trigger from the Actions tab, runs all jobs
     inputs:
       force_harvest:
@@ -159,7 +160,7 @@ on:
         required: false
         type: choice
         default: all
-        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available, geocode, publication]
+        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available, geocode, freshness, publication]
       enrich_states:
         description: >-
           (job=enrich only) Comma-separated postal codes for the enrichment
@@ -1419,6 +1420,36 @@ jobs:
             out/private/
           retention-days: 90
           if-no-files-found: error
+
+  freshness:
+    # Daily freshness verification (scripts/daily_freshness_check.py) - READ
+    # ONLY. Runs at 17:00 UTC, after the 10:00 deeds and 12:00 certificates /
+    # laft / expansion harvests have had time to finish, and on a manual
+    # dispatch with job=freshness (never part of "all"). For every production
+    # source it counts active rows and how many were read in the last 36 h; a
+    # source that read none (STALE) fails the job so it shows red in the
+    # Actions tab; PARTIAL is a warning. The website reads Supabase live, so
+    # this is also the check that the site is current. Manual-only Texas
+    # sources are reported, never failed. Counts and timestamps only.
+    name: Verify data freshness (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: (github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'freshness') || github.event.schedule == '0 17 * * *'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check every production source was read in the last 36 h
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        # The report is the job summary (and the log); no artifact is uploaded.
+        run: python3 scripts/daily_freshness_check.py
 
   evidence:
     # Purchase-evidence capture - MANUAL ONLY (job=evidence), never on a
