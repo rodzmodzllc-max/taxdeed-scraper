@@ -3468,3 +3468,19 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   error`, `?boundaryids=<id>,<id>` (outline ids the cards see).
 - `sw.js` -> `tdw-shell-v136` (outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
 
+
+## Data-enrichment sprint: county parcel layers for held records (2026-10-25, PR open, no migration)
+
+Full description: `docs/data-enrichment-2026-10-25.md` (also the research agents' source findings for the next batches).
+Stable facts:
+- **Owner's direction:** collect public records to fill gaps and demonstrate coverage; nothing sold until legal review.
+  Never log in, bypass a CAPTCHA / block / click-through, or use the hard-blocked vendors.
+- **Five county-scoped parcel layers** in `harvesters/enrichment/sources.py`, fields read live and a sample of held
+  parcel numbers matched on 2026-10-25: `mo_stl_parcels_coordinates` (St. Louis Assessor layer 11, ParcelId),
+  `mi_detroit_assessor_parcels` (Detroit parcel_file_current, parcel_id with its trailing dot),
+  `ok_oklahoma_county_parcels` (pin), `pa_fayette_pasda_parcels` (TAXIDNUM), `sc_horry_county_parcels` (numeric PIN).
+  Exempt parcels carry $0 values; zeros are never stored (`_coerce`), so assessed / taxable are not mapped on
+  land-bank / county-owned layers. Batch 25 for OK / PA (larger geometry batches fail).
+- **Permissions:** fetch + enrich only, `OWNER_PERMISSION_REQUIRED` on `INTERNAL_RISK_ACCEPTANCE`, condition
+  `excluded_from_paid_tier`, expiring 2027-04-12 - never documented permission.
+- They run through `job=available` (`available_mode=apply`) and, for coordinates, `job=geocode`.

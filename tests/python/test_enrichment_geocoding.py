@@ -95,7 +95,8 @@ def test_plan_classes():
     assert G.plan_row(unrec, allow_upgrade=True)[0] == "UPGRADE"
     assert G.plan_row(row(parcel=""))[0] == "NO_IDENTIFIER"
     assert G.plan_row(row(state="WY", county="Albany"))[0] == "NO_SOURCE"
-    assert G.plan_row(row(state="MO", county="St. Louis City"))[0] == "SOURCE_NOT_APPROVED"
+    # St. Louis's Assessor parcel layer was verified and cleared on 2026-10-25.
+    assert G.plan_row(row(state="MO", county="St. Louis City"))[0] == "MISSING"
     assert G.plan_row(row(state="TX", county="Jim Wells", case_no="12345"))[0] == "SOURCE_NOT_APPROVED"
 
 

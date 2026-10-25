@@ -17,6 +17,10 @@ PARCEL_SOURCES: dict[str, ParcelSourceConfig] = {}
 _ALL: list[ParcelSourceConfig] = []
 
 
+OWNER_2026_10_25 = ("Owner's decision 2026-10-25: a public-record parcel layer collected to fill gaps on records the "
+                    "product already holds; nothing is sold until legal review.")
+
+
 def register(cfg: ParcelSourceConfig) -> ParcelSourceConfig:
     if any(c.source_id == cfg.source_id for c in _ALL):
         raise ValueError(f"{cfg.source_id} is already registered")
@@ -242,38 +246,112 @@ TX_JIM_WELLS_CAD = register(ParcelSourceConfig(
 
 
 # ---------------------------------------------------------------------------
-# Missouri - City of St. Louis parcel layer, for COORDINATES ONLY
-# (authoritative-coordinates sprint, 2026-10-06).
-#
-# The LRA inventory list (mo_stl_lra_inventory) publishes a street address
-# but no coordinates. The city's own parcel layer GIS.ASR.PARCELS (PDA_ZONING
-# MapServer layer 0) is keyed on HANDLE, which the city names as the parcel
-# key in its parcel datasets.
-#
-# SEARCH INDEX ONLY - nothing here has been read live: every stlouis-mo.gov
-# host is blocked from the development sandbox. This config is therefore
-# inert (columns_verified=False, publication UNREVIEWED; enrichment_allowed()
-# refuses it). It writes no column except the centroid of the one matched
-# parcel polygon (latitude / longitude, provenance statewide_parcel ->
-# coordinates.PARCEL_GIS / PARCEL_CENTROID).
-#
-# Before it may run:
-#   1. available_mode=metadata reads the layer's own field list
-#      (scripts/discover_sources.py DEEP_TARGETS);
-#   2. available_mode=probe measures exact HANDLE matches against the LRA
-#      ParcelId (believed to be the same 11-digit handle - NOT verified);
-#   3. the terms of reuse are reviewed.
+# Owner's decision of 2026-10-25 (data-enrichment sprint): the five county
+# parcel layers below are public records, collected to fill gaps on records
+# the product already holds and to demonstrate coverage; nothing is sold
+# until legal review. None publishes a licence, so each runs on an
+# INTERNAL_RISK_ACCEPTANCE in data/source_permissions.csv (never permission),
+# the same footing as co_oit_public_parcels. Every layer's fields were read
+# live from the development sandbox on 2026-10-25, and a sample of the
+# held records' own parcel numbers was matched exactly (counts in `notes`).
+# Matching is the factory's deterministic rule: one feature for the row's own
+# identifier, or nothing; a zero / blank value is never stored.
 # ---------------------------------------------------------------------------
+
+# Missouri - City of St. Louis Assessor "Assessor_Public_Parcels" layer 11
+# ("Parcels", 134,336 features). ParcelId is the same 11-digit number the LRA
+# inventory CSV publishes (20 of 20 sampled LRA parcels matched exactly).
+# Supersedes the earlier, never-verified GIS.ASR.PARCELS configuration.
 MO_STL_PARCELS = register(ParcelSourceConfig(
     source_id="mo_stl_parcels_coordinates", state="MO",
-    agency="City of St. Louis (Assessor parcel GIS)",
-    dataset="GIS.ASR.PARCELS (public/PDA_ZONING MapServer layer 0)",
-    landing_url="https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=82",
-    layer_url="https://stlgis.stlouis-mo.gov/arcgis/rest/services/public/PDA_ZONING/MapServer/0",
-    id_field="HANDLE", id_rule="digits", field_map={},
-    licence="City of St. Louis open data - terms not yet reviewed for this product",
-    publication_status="UNREVIEWED", centroid=True, columns_verified=False,
+    agency="City of St. Louis Assessor (parcel GIS)",
+    dataset="Assessor_Public_Parcels MapServer layer 11 (Parcels)",
+    landing_url="https://www.stlouis-mo.gov/data/parcels.cfm",
+    layer_url="https://maps8.stlouis-mo.gov/arcgis/rest/services/ASSESSOR/Assessor_Public_Parcels/MapServer/11",
+    id_field="ParcelId", id_rule="exact",
+    field_map={"assessed": "AsdTotal", "land_value": "AprLand", "year_built": "FirstYearBuilt"},
+    licence="No licence or terms published on the layer (copyright and description blank). " + OWNER_2026_10_25,
+    publication_status="APPROVED", centroid=True, columns_verified=True, batch_size=100,
     counties=("St. Louis City",),
-    notes="Coordinates only: the area-weighted centroid of the one parcel whose HANDLE equals the row's parcel id. "
-          "Search-index evidence only; inert until the layer's fields and the HANDLE / ParcelId match are measured live.",
+    notes="Fields read live 2026-10-25 (maxRecordCount 2,000). Sample of 20 LRA parcels: 20 matched exactly on ParcelId; "
+          "AsdTotal / AprLand filled on 16, FirstYearBuilt on 6. Coordinates are the area-weighted centroid of the matched "
+          "parcel polygon (outSR 4326). The land-use code (AsrLandUse1) is not mapped: its decode table is not read yet.",
+))
+
+# Michigan - City of Detroit Office of the Assessor "Parcels (Current)"
+# (parcel_file_current, 377,940 features, updated daily). parcel_id is the
+# same string the Detroit Land Bank layers publish, trailing dot included
+# (20 of 20 sampled DLBA parcels matched exactly). Land-bank parcels are
+# tax-exempt, so their assessed and taxable values are 0 and are never stored.
+MI_DETROIT_PARCELS = register(ParcelSourceConfig(
+    source_id="mi_detroit_assessor_parcels", state="MI",
+    agency="City of Detroit, Office of the Assessor",
+    dataset="Parcels (Current) - parcel_file_current FeatureServer layer 0",
+    landing_url="https://data.detroitmi.gov/",
+    layer_url="https://services2.arcgis.com/qvkbeam7Wirps6zC/ArcGIS/rest/services/parcel_file_current/FeatureServer/0",
+    id_field="parcel_id", id_rule="exact",
+    field_map={"land_value": "amt_land_value", "prop_type": "property_class_description", "land_use": "use_code_description",
+               "acreage": "total_acreage", "year_built": "year_built", "living_area": "total_floor_area",
+               "legal_desc": "legal_description"},
+    licence="Item licenseInfo blank; copyright 'Office of the Assessor, City of Detroit'. " + OWNER_2026_10_25,
+    publication_status="APPROVED", centroid=False, columns_verified=True, batch_size=100,
+    counties=("Wayne",),
+    notes="Fields read live 2026-10-25 (maxRecordCount 1,000). Sample of 20 DLBA parcels: 20 matched exactly; land value, "
+          "class, acreage and legal description filled on 20, use code on 18, year built / floor area on 1 (vacant lots). "
+          "Assessed / taxable are 0 on land-bank parcels (exempt) and are not mapped.",
+))
+
+# Oklahoma - Oklahoma County GIS Hub "Tax Parcels Public" (TaxParcelsPublics_view).
+# `pin` is written dddd-dd-ddd-dddd, the same form as the county-owned list's
+# parcel (20 of 20 sampled matched; one pin returned two features, which the
+# factory treats as AMBIGUOUS). County-owned parcels carry no value (exempt).
+OK_OKLAHOMA_COUNTY_PARCELS = register(ParcelSourceConfig(
+    source_id="ok_oklahoma_county_parcels", state="OK",
+    agency="Oklahoma County (GIS Hub, Assessor tax parcels)",
+    dataset="Tax Parcels Public - TaxParcelsPublics_view FeatureServer layer 0",
+    landing_url="https://services8.arcgis.com/euhkr1dAJeQBIjV0/arcgis/rest/services/TaxParcelsPublics_view/FeatureServer",
+    layer_url="https://services8.arcgis.com/euhkr1dAJeQBIjV0/arcgis/rest/services/TaxParcelsPublics_view/FeatureServer/0",
+    id_field="pin", id_rule="exact",
+    field_map={"acreage": "acres", "legal_desc": "legal"},
+    licence="Hub catalog licence field blank; no terms found. " + OWNER_2026_10_25,
+    publication_status="APPROVED", centroid=True, columns_verified=True, batch_size=25,
+    counties=("Oklahoma",),
+    notes="Fields read live 2026-10-25. Sample of 20 county-owned parcels: 20 matched on pin (21 features: one pin twice); "
+          "acres filled on 20, legal on 21; market / assessed / taxable are 0 on county-owned parcels and are not mapped.",
+))
+
+# Pennsylvania - Fayette County parcels on PASDA (Penn State), "Fayette County
+# Parcels region 202602". TAXIDNUM (NN-NN-NNNN) matched 12 of 20 sampled
+# repository parcels exactly; the others carry a unit suffix (-77, -98, ...)
+# the layer does not publish and stay unmatched - never trimmed to fit.
+PA_FAYETTE_PARCELS = register(ParcelSourceConfig(
+    source_id="pa_fayette_pasda_parcels", state="PA",
+    agency="Fayette County, PA (published on PASDA, Penn State)",
+    dataset="Fayette County Parcels region 202602 (PASDA FayetteCounty MapServer layer 2)",
+    landing_url="https://www.pasda.psu.edu/download/fayettecounty",
+    layer_url="https://mapservices.pasda.psu.edu/server/rest/services/pasda/FayetteCounty/MapServer/2",
+    id_field="TAXIDNUM", id_rule="exact", field_map={},
+    licence="PASDA metadata: access constraints 'None', use constraints 'None'; originator Fayette County, PA. " + OWNER_2026_10_25,
+    publication_status="APPROVED", centroid=True, columns_verified=True, batch_size=25,
+    counties=("Fayette",),
+    notes="Fields read live 2026-10-25 (TAXIDNUM, TAXSHORT, geometry only). Sample of 20 repository parcels: 12 matched exactly. "
+          "Coordinates only.",
+))
+
+# South Carolina - Horry County open-data "Parcels" (gisportal.horrycounty.org
+# OpenData). PIN is numeric on the layer and the FLC list's 11-digit PIN
+# (12 of 20 sampled matched; the unmatched ones are 998... mobile-home
+# accounts with no parcel polygon).
+SC_HORRY_PARCELS = register(ParcelSourceConfig(
+    source_id="sc_horry_county_parcels", state="SC",
+    agency="Horry County, SC (GIS open data)",
+    dataset="OpenData Parcels FeatureServer layer 0",
+    landing_url="https://gisportal.horrycounty.org/server/rest/services/OpenData/Parcels/FeatureServer",
+    layer_url="https://gisportal.horrycounty.org/server/rest/services/OpenData/Parcels/FeatureServer/0",
+    id_field="PIN", id_rule="numeric", id_query="number", field_map={},
+    licence="Licence field and copyright blank; no terms found. " + OWNER_2026_10_25,
+    publication_status="APPROVED", centroid=True, columns_verified=True, batch_size=100,
+    counties=("Horry",),
+    notes="Fields read live 2026-10-25 (PIN, TMS, geometry). Sample of 20 FLC parcels: 12 matched; the rest are 998... "
+          "mobile-home accounts with no polygon. Coordinates only.",
 ))

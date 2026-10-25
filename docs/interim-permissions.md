@@ -9,8 +9,8 @@ current practice continue until `expires_on`, and `permissions.authorize()` deni
 after (`EXPIRED`), with no fallback to a broader record. A window longer than
 210 days is a configuration error that denies every request.
 
-- Records: 133 across 36 sources
-- By expiry: 2027-04-12 (133)
+- Records: 143 across 41 sources
+- By expiry: 2027-04-12 (143)
 - Findings: REVIEWER_IS_NOT_A_DECISION (77)
 - Configuration: valid
 
@@ -95,6 +95,8 @@ found in the code for that source.
 | fl_realauction | FL | sale_calendar | store | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-15 | 2027-04-12 | - | scripts/auction_events_writer.py<br>scripts/auction_outcomes.py<br>scripts/harvest_all_counties.ps1<br>scripts/source_permission_check.py<br>scripts/stamp_seen.py<br>scripts/sync-harvest-to-supabase.ps1<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | REVIEWER_IS_NOT_A_DECISION |
 | fl_santa_rosa_parcels | FL | * | enrich | UNKNOWN | GRANDFATHERED_PRACTICE | 2026-09-30 | 2027-04-12 | - | scripts/enrich_property_details.py<br>harvesters/enrichment/geocode.py (CoordinateSource.usable) | REVIEWER_IS_NOT_A_DECISION |
 | fl_santa_rosa_parcels | FL | * | fetch | UNKNOWN | GRANDFATHERED_PRACTICE | 2026-09-30 | 2027-04-12 | - | scripts/enrich_property_details.py<br>harvesters/enrichment/geocode.py (CoordinateSource.usable) | REVIEWER_IS_NOT_A_DECISION |
+| mi_detroit_assessor_parcels | MI | * | enrich | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
+| mi_detroit_assessor_parcels | MI | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
 | mi_detroit_landbank_lots | MI | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mi_detroit_landbank_lots | MI | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mi_detroit_landbank_lots | MI | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
@@ -118,15 +120,23 @@ found in the code for that source.
 | mo_stl_lra_inventory | MO | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mo_stl_lra_inventory | MO | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mo_stl_lra_inventory | MO | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| mo_stl_parcels_coordinates | MO | * | enrich | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
+| mo_stl_parcels_coordinates | MO | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
 | ok_oklahoma_county_owned | OK | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | ok_oklahoma_county_owned | OK | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | ok_oklahoma_county_owned | OK | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| ok_oklahoma_county_parcels | OK | * | enrich | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
+| ok_oklahoma_county_parcels | OK | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
+| pa_fayette_pasda_parcels | PA | * | enrich | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
+| pa_fayette_pasda_parcels | PA | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
 | pa_fayette_repository | PA | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | pa_fayette_repository | PA | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | pa_fayette_repository | PA | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | sc_georgetown_forfeited_land | SC | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | sc_georgetown_forfeited_land | SC | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | sc_georgetown_forfeited_land | SC | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| sc_horry_county_parcels | SC | * | enrich | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
+| sc_horry_county_parcels | SC | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
 | sc_horry_forfeited_land | SC | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | sc_horry_forfeited_land | SC | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | sc_horry_forfeited_land | SC | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |

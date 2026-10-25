@@ -5081,6 +5081,31 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "columns verified live; Fields read live 2026-10-25 (maxRecordCount 1,000). Sample of 20 DLBA parcels: 20 matched exactly; land value, class, acreage and legal description filled on 20, use code on 18, year built / floor area on 1 (vacant lots). Assessed / taxable are 0 on land-bank parcels (exempt) and are not mapped.",
+   "county": "Wayne",
+   "evidence": "Fields read live 2026-10-25 (maxRecordCount 1,000). Sample of 20 DLBA parcels: 20 matched exactly; land value, class, acreage and legal description filled on 20, use code on 18, year built / floor area on 1 (vacant lots). Assessed / taxable are 0 on land-bank parcels (exempt) and are not mapped.",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "APPROVED",
+   "name": "Parcels (Current) - parcel_file_current FeatureServer layer 0",
+   "next_action": "",
+   "origin": "parcel_config",
+   "publisher": "City of Detroit, Office of the Assessor",
+   "roles": [
+    "acreage",
+    "assessment",
+    "identity",
+    "land_use",
+    "legal"
+   ],
+   "source_id": "mi_detroit_assessor_parcels",
+   "source_type": "GIS",
+   "state": "MI",
+   "url": "https://data.detroitmi.gov/"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state MI; last completeness UNKNOWN",
    "county": "Wayne",
    "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37038385659): Wayne County - mi_detroit_landbank_lots; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-inventory.md",
@@ -5264,26 +5289,27 @@
    "url": "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=30"
   },
   {
-   "access": "NOT_CHECKED",
-   "access_note": "columns not verified",
+   "access": "ACCESSIBLE",
+   "access_note": "columns verified live; Fields read live 2026-10-25 (maxRecordCount 2,000). Sample of 20 LRA parcels: 20 matched exactly on ParcelId; AsdTotal / AprLand filled on 16, FirstYearBuilt on 6. Coordinates are the area-weighted centroid of the matched parcel polygon (outSR 4326). The land-use code (AsrLandUse1) is not mapped: its decode table is not read yet.",
    "county": "St. Louis City",
-   "evidence": "Coordinates only: the area-weighted centroid of the one parcel whose HANDLE equals the row's parcel id. Search-index evidence only; inert until the layer's fields and the HANDLE / ParcelId match are measured live.",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "no publication / reuse review recorded yet; licence: City of St. Louis open data - terms not yet reviewed for this product",
+   "evidence": "Fields read live 2026-10-25 (maxRecordCount 2,000). Sample of 20 LRA parcels: 20 matched exactly on ParcelId; AsdTotal / AprLand filled on 16, FirstYearBuilt on 6. Coordinates are the area-weighted centroid of the matched parcel polygon (outSR 4326). The land-use code (AsrLandUse1) is not mapped: its decode table is not read yet.",
+   "governance": "APPROVED",
+   "governance_reason": "",
    "last_checked": "",
-   "legacy_status": "UNREVIEWED",
-   "name": "GIS.ASR.PARCELS (public/PDA_ZONING MapServer layer 0)",
-   "next_action": "enrichment refused: layer columns not verified against the live source",
+   "legacy_status": "APPROVED",
+   "name": "Assessor_Public_Parcels MapServer layer 11 (Parcels)",
+   "next_action": "",
    "origin": "parcel_config",
-   "publisher": "City of St. Louis (Assessor parcel GIS)",
+   "publisher": "City of St. Louis Assessor (parcel GIS)",
    "roles": [
+    "assessment",
     "coordinates",
     "identity"
    ],
    "source_id": "mo_stl_parcels_coordinates",
    "source_type": "GIS",
    "state": "MO",
-   "url": "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=82"
+   "url": "https://www.stlouis-mo.gov/data/parcels.cfm"
   },
   {
    "access": "NOT_CHECKED",
@@ -5415,6 +5441,30 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "columns verified live; Fields read live 2026-10-25. Sample of 20 county-owned parcels: 20 matched on pin (21 features: one pin twice); acres filled on 20, legal on 21; market / assessed / taxable are 0 on county-owned parcels and are not mapped.",
+   "county": "Oklahoma",
+   "evidence": "Fields read live 2026-10-25. Sample of 20 county-owned parcels: 20 matched on pin (21 features: one pin twice); acres filled on 20, legal on 21; market / assessed / taxable are 0 on county-owned parcels and are not mapped.",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "APPROVED",
+   "name": "Tax Parcels Public - TaxParcelsPublics_view FeatureServer layer 0",
+   "next_action": "",
+   "origin": "parcel_config",
+   "publisher": "Oklahoma County (GIS Hub, Assessor tax parcels)",
+   "roles": [
+    "acreage",
+    "coordinates",
+    "identity",
+    "legal"
+   ],
+   "source_id": "ok_oklahoma_county_parcels",
+   "source_type": "GIS",
+   "state": "OK",
+   "url": "https://services8.arcgis.com/euhkr1dAJeQBIjV0/arcgis/rest/services/TaxParcelsPublics_view/FeatureServer"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state OK; last completeness UNKNOWN",
    "county": "Oklahoma",
    "evidence": "LIVE CAPTURE 2026-10-04 (GitHub Actions runs 37203515518, 37203652975, 37203694092, 37203843581, 37204541253): Oklahoma County - ok_oklahoma_county_owned; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-expansion-2026-10.md",
@@ -5461,6 +5511,28 @@
    "source_type": "DOCUMENT",
    "state": "PA",
    "url": "https://www.fayettecountypa.org/DocumentCenter/View/9761/Repository-Update-10-7-2025"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "columns verified live; Fields read live 2026-10-25 (TAXIDNUM, TAXSHORT, geometry only). Sample of 20 repository parcels: 12 matched exactly. Coordinates only.",
+   "county": "Fayette",
+   "evidence": "Fields read live 2026-10-25 (TAXIDNUM, TAXSHORT, geometry only). Sample of 20 repository parcels: 12 matched exactly. Coordinates only.",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "APPROVED",
+   "name": "Fayette County Parcels region 202602 (PASDA FayetteCounty MapServer layer 2)",
+   "next_action": "",
+   "origin": "parcel_config",
+   "publisher": "Fayette County, PA (published on PASDA, Penn State)",
+   "roles": [
+    "coordinates",
+    "identity"
+   ],
+   "source_id": "pa_fayette_pasda_parcels",
+   "source_type": "GIS",
+   "state": "PA",
+   "url": "https://www.pasda.psu.edu/download/fayettecounty"
   },
   {
    "access": "NOT_CHECKED",
@@ -5619,6 +5691,28 @@
    "source_type": "DOCUMENT",
    "state": "SC",
    "url": "https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "columns verified live; Fields read live 2026-10-25 (PIN, TMS, geometry). Sample of 20 FLC parcels: 12 matched; the rest are 998... mobile-home accounts with no polygon. Coordinates only.",
+   "county": "Horry",
+   "evidence": "Fields read live 2026-10-25 (PIN, TMS, geometry). Sample of 20 FLC parcels: 12 matched; the rest are 998... mobile-home accounts with no polygon. Coordinates only.",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "APPROVED",
+   "name": "OpenData Parcels FeatureServer layer 0",
+   "next_action": "",
+   "origin": "parcel_config",
+   "publisher": "Horry County, SC (GIS open data)",
+   "roles": [
+    "coordinates",
+    "identity"
+   ],
+   "source_id": "sc_horry_county_parcels",
+   "source_type": "GIS",
+   "state": "SC",
+   "url": "https://gisportal.horrycounty.org/server/rest/services/OpenData/Parcels/FeatureServer"
   },
   {
    "access": "ACCESSIBLE",
@@ -8270,15 +8364,15 @@
    "sources": 11
   },
   "MI": {
-   "APPROVED": 7,
+   "APPROVED": 8,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 5,
    "by_type": {
     "DOCUMENT": 1,
-    "GIS": 1,
+    "GIS": 2,
     "GOVERNMENT": 10
    },
-   "sources": 12
+   "sources": 13
   },
   "MN": {
    "APPROVED": 2,
@@ -8290,9 +8384,9 @@
    "sources": 3
   },
   "MO": {
-   "APPROVED": 2,
+   "APPROVED": 3,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 2,
+   "REVIEW_REQUIRED": 1,
    "by_type": {
     "DOCUMENT": 1,
     "GIS": 1,
@@ -8311,33 +8405,36 @@
    "sources": 4
   },
   "OK": {
-   "APPROVED": 0,
+   "APPROVED": 1,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 1,
    "by_type": {
+    "GIS": 1,
     "GOVERNMENT": 1
    },
-   "sources": 1
+   "sources": 2
   },
   "PA": {
-   "APPROVED": 3,
+   "APPROVED": 4,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 1,
    "by_type": {
     "DOCUMENT": 1,
+    "GIS": 1,
     "GOVERNMENT": 3
    },
-   "sources": 4
+   "sources": 5
   },
   "SC": {
-   "APPROVED": 2,
+   "APPROVED": 3,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 11,
    "by_type": {
     "DOCUMENT": 3,
+    "GIS": 1,
     "GOVERNMENT": 10
    },
-   "sources": 13
+   "sources": 14
   },
   "TN": {
    "APPROVED": 1,
