@@ -1697,7 +1697,7 @@ function photoOrPlaceholder(p, cls) {
   if (hasPhoto(p)) {
     // The caption names what the image IS, read from photo_source, so an
     // aerial is never presented as a street-level or listing photo.
-    return `<div class="${cls} has-photo" data-photo-source="${esc(p.photo_source || "unknown")}"><img src="${esc(p.photo_url)}" alt="${esc(photoAlt(p))}" loading="lazy" width="640" height="400"><span class="photo-caption" title="Imagery may be years old and does not show current condition.">${esc(photoCaption(p))}</span></div>`;
+    return `<div class="${cls} has-photo" data-photo-source="${esc(p.photo_source || "unknown")}"><img src="${esc(p.photo_url)}" alt="${esc(photoAlt(p))}" loading="lazy" width="600" height="450"><span class="photo-caption" title="Imagery may be years old and does not show current condition.">${esc(photoCaption(p))}</span></div>`;
   }
   // Compact bar, not a full-size empty photo box - see the CSS comment on
   // .prop-card-photo.no-photo. Most rows don't have a cached photo yet
@@ -1853,13 +1853,17 @@ function imageryMatchMethod(p) {
   const src = fp.latitude && fp.latitude.source;
   return IMAGERY_PROVENANCE_METHOD[src] || "recorded_coordinates";
 }
-function naipBbox(lat, lng) {
-  const h = NAIP_BOX_DEGREES / 2;
-  return [lng - h, lat - h, lng + h, lat + h].map(v => v.toFixed(6)).join(",");
+// The frame is NAIP_BOX_DEGREES of latitude tall and as wide as the image's
+// aspect ratio in metres, so a 4:3 export is not stretched. A square box in
+// degrees is ~1.5x too wide at Florida latitudes (2026-10-25 audit).
+function naipBbox(lat, lng, aspect) {
+  const hLat = NAIP_BOX_DEGREES / 2;
+  const hLng = hLat * (aspect || 4 / 3) / Math.cos(lat * Math.PI / 180);
+  return [lng - hLng, lat - hLat, lng + hLng, lat + hLat].map(v => v.toFixed(6)).join(",");
 }
 function naipExportUrl(lat, lng, size) {
   const sz = size || NAIP_THUMB_SIZE;
-  return `${NAIP_EXPORT_ENDPOINT}?bbox=${naipBbox(Number(lat), Number(lng))}&bboxSR=4326&size=${sz[0]},${sz[1]}&format=jpg&f=image`;
+  return `${NAIP_EXPORT_ENDPOINT}?bbox=${naipBbox(Number(lat), Number(lng), sz[0] / sz[1])}&bboxSR=4326&size=${sz[0]},${sz[1]}&format=jpg&f=image`;
 }
 // Coordinates whose live NAIP request failed this session: not asked again on
 // every re-render (function-held so it is safe during module init - TDZ).

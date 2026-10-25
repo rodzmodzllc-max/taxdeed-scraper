@@ -548,6 +548,19 @@ jobs:
       # still does not. Aerial rather than street-level, which also covers
       # the vacant and unimproved parcels Street View has no imagery for at
       # all. No-ops cleanly until migration 011 is applied.
+      - name: Release stored media for inactive properties (photos + outlines)
+        # Policy (2026-10-25): stored photos and parcel outlines are kept only
+        # while a property is active. Closed, dropped, not-found or delisted
+        # rows lose their picture and outline here; the storage object goes
+        # only when no active row still uses it. Dry run unless
+        # --confirm-apply, so this step writes nothing until the flag is set.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/purge_inactive_property_media.py --confirm-apply
+
       - name: Backfill property imagery (USDA NAIP aerial)
         # Imagery is enrichment: a storage failure (budget reached, upload
         # error, Pillow missing) must never fail the structured harvest/sync
@@ -931,6 +944,16 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/laft_lifecycle.py
+
+      - name: Release stored media for inactive properties (photos + outlines)
+        # Same policy as the deeds job: runs right after the close-out so a
+        # listing that dropped off this run is released this run.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/purge_inactive_property_media.py --confirm-apply
 
       - name: Inventory status - normalized lifecycle state (migration 021)
         # Inventory status (migration 021): each row's normalized lifecycle state and
