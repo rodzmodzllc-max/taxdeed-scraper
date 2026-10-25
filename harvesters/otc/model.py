@@ -167,6 +167,13 @@ class OtcRecord:
     # Five-state sprint: a CERTIFICATE's own sale / purchase date, as the
     # source publishes it (properties.issued_date).
     issued_date: date | None = None
+    # Acquisition-path sprint (2026-10-25): a link the SOURCE publishes on
+    # this record to THIS property (York SC's layer `URL` attribute: the
+    # county's parcel report for the row's own tax map id). Never composed;
+    # the adapter keeps it only after checking host and identifier. Stored
+    # as url_auction with kind 'property' (migration 013's vocabulary); the
+    # list page stays in list_url.
+    record_url: str | None = None
 
     def validate(self) -> list[str]:
         problems: list[str] = []
@@ -226,7 +233,9 @@ class OtcRecord:
             problems.append("purchase_url and purchase_url_kind go together")
         if self.purchase_url and self.purchase_url == self.list_url:
             problems.append("the list page is not a purchase URL")
-        for name in ("list_url", "document_url", "purchase_url"):
+        if self.record_url and self.record_url == self.list_url:
+            problems.append("the list page is not a per-record link")
+        for name in ("list_url", "document_url", "purchase_url", "record_url"):
             value = getattr(self, name)
             if value and not value.startswith("https://"):
                 problems.append(f"{name} must be https")
@@ -270,8 +279,10 @@ class OtcRecord:
             "document_url": self.document_url,
             "purchase_url": self.purchase_url,
             "purchase_url_kind": self.purchase_url_kind.value if self.purchase_url_kind else None,
-            "url_auction": self.list_url,
-            "url_auction_kind": "county" if self.list_url else None,
+            # The most specific link the source published: its own link to
+            # this record ('property'), else the list page ('county').
+            "url_auction": self.record_url or self.list_url,
+            "url_auction_kind": "property" if self.record_url else ("county" if self.list_url else None),
             "list_as_of": self.list_as_of.isoformat() if self.list_as_of else None,
             "source_published_at": self.source_published_at.isoformat() if self.source_published_at else None,
             "tx_sale_status": self.source_status_text if self.state == "TX" else None,
@@ -344,7 +355,7 @@ class OtcRecord:
             "assessed": to_cents(self.assessed), "market": to_cents(self.market), "tax_year": self.tax_year,
             "latitude": self.latitude, "longitude": self.longitude,
             "bid": "" if self.amount is None else to_cents(self.amount), "bid_kind": self.amount_kind.value,
-            "url_auction": self.list_url, "purchase_url": self.purchase_url,
+            "url_auction": self.list_url, "record_url": self.record_url, "purchase_url": self.purchase_url,
             "purchase_url_kind": self.purchase_url_kind.value if self.purchase_url_kind else None,
             "inventory_type": self.inventory_type.value if self.inventory_type else None,
             "source_id": self.source_id, "source_authority": self.source_authority.value,

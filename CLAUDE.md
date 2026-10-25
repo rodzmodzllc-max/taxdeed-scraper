@@ -3468,3 +3468,19 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   error`, `?boundaryids=<id>,<id>` (outline ids the cards see).
 - `sw.js` -> `tdw-shell-v137` (2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
 
+
+## Acquisition links for auctions and liens (2026-10-25, branch claude/acq-paths-auctions, no migration)
+
+- **A per-record link is only ever one the source publishes on the row.** `ArcGisFieldMap.record_url` names the attribute,
+  `ArcGisLayerConfig.record_url_host` the publisher's host; `arcgis.record_link_problem()` keeps it only when it is https,
+  on that host and carries the row's own identifier as a query value or path segment (else `otc_provenance.record_url_rejected`
+  and the row falls back to the list page). `OtcRecord.record_url` -> `url_auction` kind `property`; `list_url` keeps the list.
+  `publication_state` accepts `property` as a record-scoped AUCTIONS path (`info` still is not).
+- **York SC**: the layer's `URL` (853/853 filled, read live 2026-10-25, counts only) is York County's One Map link
+  `maps.yorkcountygov.com/omlink/index.html?search=parcel&id=<TAXMAPID>`; its script resolves the id in the county's Parcels
+  layer and opens that parcel's Parcel Report. Takes effect at the next expansion run.
+- **RealAuction FL / TX**: rows already carry the sale-day PREVIEW page for their own AuctionDate, kind `sale` (production
+  2026-10-25: 1,045 of 1,049 FL, 103 of 103 TX). The item payload carries only an internal `aid`; no per-item page is
+  published, and the hosts answer 403 to the sandbox - nothing more specific was recorded.
+- **Blocked**: Albany WY (layer publishes no link field; its 2026 sale is over and the county's page now names the 2027 sale);
+  LienHub (403; per-certificate link unknown - rows keep the county's county-held list page).

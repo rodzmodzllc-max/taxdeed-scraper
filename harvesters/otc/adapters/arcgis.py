@@ -84,6 +84,11 @@ class ArcGisFieldMap:
     # date (LIENS & CERTIFICATES layers).
     certificate_no: str | None = None
     issued_date: str | None = None
+    # Acquisition-path sprint (2026-10-25): the attribute in which the layer
+    # itself publishes a link to THIS property (York SC's `URL`: the county's
+    # One Map parcel report for the row's own tax map id). Read verbatim and
+    # kept only when it passes record_link_problem(); never composed.
+    record_url: str | None = None
 
     def named(self) -> dict[str, str]:
         return {k: v for k, v in vars(self).items() if v}
@@ -133,6 +138,10 @@ class ArcGisLayerConfig:
     # after the server-side `where`): a feature without them means the
     # server ignored the filter, so the read is untrusted (FAILED).
     require: tuple[tuple[str, str], ...] = ()
+    # The host a published per-record link (fields.record_url) must be on -
+    # the publisher's own site, read live when the link was verified. A link
+    # on any other host is rejected, never followed.
+    record_url_host: str | None = None
 
     def __post_init__(self) -> None:
         if not LAYER_URL_RE.match(self.layer_url):
@@ -150,6 +159,30 @@ class ArcGisLayerConfig:
             raise ValueError("where must not be blank (use 1=1 for the whole layer)")
         if (self.purchase_url is None) != (self.purchase_url_kind is None):
             raise ValueError("purchase_url and purchase_url_kind go together")
+        if bool(self.fields.record_url) != bool(self.record_url_host):
+            raise ValueError("fields.record_url and record_url_host go together")
+
+
+def record_link_problem(url: str | None, host: str | None, identifiers: tuple[str | None, ...]) -> str | None:
+    """None when `url` is a link to THIS record: https, on the publisher's own
+    `host`, and carrying one of the record's own identifiers verbatim as a
+    query value or a path segment. Otherwise the reason it is not kept."""
+    # Parsed by hand: this module never imports a network library (test g01).
+    u = (url or "").strip()
+    if not u:
+        return "empty"
+    if not u.startswith("https://") or any(c.isspace() for c in u):
+        return "not_https"
+    rest = u[len("https://"):].split("#", 1)[0]
+    authority, _, tail = rest.partition("/")
+    path, _, query = tail.partition("?")
+    if "@" in authority or authority.split(":", 1)[0].lower() != (host or "").lower():
+        return "other_host"
+    ids = {i.strip() for i in identifiers if i and i.strip()}
+    values = {pair.partition("=")[2].strip() for pair in query.split("&") if "=" in pair} | {seg for seg in path.split("/") if seg}
+    if not ids & values:
+        return "identifier_absent"
+    return None
 
 
 @dataclass
@@ -380,6 +413,15 @@ def parse_page(cfg: ArcGisLayerConfig, payload: Any, *, retrieved_at: datetime, 
             prov["sale_date"] = f"the county's published sale date for {cfg.cycle_field} {attrs.get(cfg.cycle_field)}"
         if cfg.superseded:
             prov["list_superseded"] = cfg.superseded
+        record_url = None
+        if fm.record_url:
+            raw_link = _text(attrs.get(fm.record_url))
+            why = record_link_problem(raw_link, cfg.record_url_host, (case_no, _text(attrs.get(fm.parcel)) if fm.parcel else None))
+            if why is None:
+                record_url = raw_link
+                prov["record_url"] = f"attribute {fm.record_url!r}: the layer's own link to this record (host {cfg.record_url_host})"
+            else:
+                prov["record_url_rejected"] = why
         issued = _date_value(attrs.get(fm.issued_date)) if fm.issued_date else None
         coords = _coords(attrs, fm)
         if not coords and cfg.centroid:
@@ -396,6 +438,7 @@ def parse_page(cfg: ArcGisLayerConfig, payload: Any, *, retrieved_at: datetime, 
             amount=amount, amount_kind=kind,
             list_url=cfg.list_url, document_url=None,
             purchase_url=cfg.purchase_url, purchase_url_kind=cfg.purchase_url_kind,
+            record_url=record_url,
             provenance=prov,
             record_source=cfg.record_source,
             owner_name=_text(attrs.get(fm.owner_name)) if fm.owner_name else None,
