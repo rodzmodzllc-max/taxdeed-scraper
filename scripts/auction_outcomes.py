@@ -559,10 +559,17 @@ def main(argv: list[str] | None = None) -> int:
     days = sorted({(e["county"], str(e["scheduled_sale_date"])) for e in events if not args.county or e["county"] in args.county})
     reads: list[DayRead] = []
     skipped_no_host = 0
+    skipped_not_permitted = 0
     for county, iso in days:
         host = hosts.get(county)
         if not host:
             skipped_no_host += 1
+            continue
+        # A county-level record (e.g. Indian River, link only - owner's
+        # decision 2026-10-24) denies that county: 0 requests, nothing written.
+        if not all(PERM.authorize("fl_realauction", op, state="FL", county=county, dataset="closed_results").allowed
+                   for op in ("fetch", "store")):
+            skipped_not_permitted += 1
             continue
         mdy = datetime.strptime(iso, "%Y-%m-%d").strftime("%m/%d/%Y")
         fetch = RR.fetch_area(requests.Session(), host, mdy)
@@ -579,6 +586,7 @@ def main(argv: list[str] | None = None) -> int:
     past_events = len(events)
     report = {"generated_at": observed_at, "dry_run": args.dry_run, "window": {"from": since.isoformat(), "to_before": today.isoformat()},
               "events_in_window": past_events, "sale_days": len(days), "sale_days_without_host": skipped_no_host,
+              "sale_days_not_permitted": skipped_not_permitted,
               "sale_days_possibly_truncated": sum(1 for r in reads if r.ok and not r.complete),
               "wordings_enabled": len(wordings), **plan.stats, "by_county": plan.by_county,
               "observations_written": 0 if args.dry_run else len(plan.observations),

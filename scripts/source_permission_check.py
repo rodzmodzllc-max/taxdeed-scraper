@@ -7,6 +7,12 @@ exits 0.
     python3 scripts/source_permission_check.py --source fl_realauction --operation fetch --operation parse --state FL --dataset sale_calendar
     python3 scripts/source_permission_check.py --source fl_laft_pdfs --source fl_laft_html --operation store --state FL
     python3 scripts/source_permission_check.py --due 30          # records whose allowance ends within 30 days
+    python3 scripts/source_permission_check.py --source fl_realauction --operation fetch --operation parse --state FL --dataset sale_calendar --list-denied-counties data/realauction_counties.csv
+
+--list-denied-counties CSV prints, one per line, every county in the CSV's
+`County` column for which any requested check is denied (e.g. a county-level
+RESTRICTED or link-only record); it prints nothing else. The statewide check
+still decides the exit code, so a harvester skips only those counties.
 
 Exit codes: 0 every requested check allowed; 3 any check denied or the
 permission file is invalid / unreadable (fail closed); 2 usage error.
@@ -35,6 +41,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--dataset", default=None)
     ap.add_argument("--permissions", default=None, help="alternate permission file (tests)")
     ap.add_argument("--due", type=int, default=None, help="list allowances ending within N days and exit 0")
+    ap.add_argument("--list-denied-counties", default=None, metavar="CSV",
+                    help="print the counties (CSV 'County' column) for which any requested check is denied")
     args = ap.parse_args(argv)
     try:
         from harvesters.governance import permissions as P
@@ -52,6 +60,22 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if not args.source or not args.operation or not args.state:
         ap.error("--source, --operation and --state are required")
+    if args.list_denied_counties:
+        import csv  # noqa: PLC0415
+        try:
+            with open(args.list_denied_counties, newline="", encoding="utf-8") as f:
+                counties = [(r.get("County") or "").strip() for r in csv.DictReader(f)]
+        except OSError as exc:
+            print(json.dumps({"allowed": False, "reason_code": "COUNTY_LIST_UNREADABLE", "reason": str(exc)}), file=sys.stderr)
+            return DENIED
+        if perms.error:
+            print(json.dumps({"allowed": False, "reason_code": "CONFIG_INVALID", "reason": perms.error}), file=sys.stderr)
+            return DENIED
+        for county in [c for c in counties if c]:
+            if any(not perms.authorize(sid, op, state=args.state, county=county, dataset=args.dataset).allowed
+                   for sid in args.source for op in args.operation):
+                print(county)
+        return 0
     worst = 0
     for sid in args.source:
         for op in args.operation:

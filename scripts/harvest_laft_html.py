@@ -597,6 +597,14 @@ def main() -> int:
         print(f"[{i}/{len(sources)}] {county}", flush=True)
         entry = cache.get(url)
         status_kw = dict(source_url=(src.get("SourcePage") or "").strip() or url, document_url=url)
+        # A county-specific record (e.g. Indian River: the Clerk grants no
+        # commercial use, link only - owner's decision 2026-10-24) decides for
+        # that county; denied -> recorded FAILED / PERMISSION_DENIED, 0 requests.
+        _cp = _LS.permission("fl_laft_html", "fetch", county=county)
+        if not _cp.allowed:
+            recorder.failed(county, "PERMISSION_DENIED", f"{_cp.reason_code}: {_cp.reason}", **status_kw)
+            print(f"    {county}: fetch not permitted [{_cp.reason_code}] - skipped, 0 requests", flush=True)
+            continue
         attempt, why = backoff_decision(freshness_lookup(freshness, "FL", "fl_laft_html", county))
         if not attempt:
             # Held: no request is made, the county is recorded FAILED with the

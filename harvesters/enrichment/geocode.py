@@ -73,20 +73,22 @@ class CoordinateSource:
         return True, ""
 
 
-# FDOR: NO LICENCE IS ON FILE (registry.py _FL_DOR: "no restriction found; no
-# permission found"; Chapter 119 access is not a reuse licence). Until
-# 2026-10-12 this read publication_status="APPROVED", which implied a licence
-# nobody has. It is APPROVED_GRANDFATHERED now - the production practice the
-# scheduled deeds job already performs - and usable() additionally requires the
-# recorded, expiring interim permission in data/source_permissions.csv
-# (fl_fdor_cadastral / parcel_centroid). Any other operation (polygon storage,
-# display, redistribution) has no record and is denied.
+# FDOR: WRITTEN PERMISSION ON FILE (2026-10-24). Until 2026-10-12 this read
+# publication_status="APPROVED" with no licence behind it; from 2026-10-12 to
+# 2026-10-24 it was APPROVED_GRANDFATHERED on an expiring interim record. DOR
+# Property Tax Oversight's written response of 2026-10-12 ("There are no
+# restrictions placed on the data", naming the statewide parcel data at
+# geodata.floridagio.gov) is now on file (docs/agreements/fl-dor-pto-parcel-
+# data-2026-10-12.md), and the owner applied it to this dataset on 2026-10-24.
+# usable() still requires the recorded permission in data/source_permissions.csv
+# (fl_fdor_cadastral / parcel_centroid). Polygon storage and redistribution have
+# no record and are denied.
 FDOR_SOURCE = CoordinateSource(
     source_id="fl_fdor_cadastral", state="FL", method="TAX_ROLL", geometry="PARCEL_CENTROID",
     provenance_source="fdor_nal", agency="Florida Department of Revenue",
     dataset="Florida Statewide Cadastral (FDOR NAL parcel layer)", layer_url=FDOR_LAYER_URL,
     landing_url="https://floridarevenue.com/property/Pages/DataPortal.aspx",
-    publication_status="APPROVED_GRANDFATHERED", verified=True, lookup_kind="fdor",
+    publication_status="APPROVED", verified=True, lookup_kind="fdor",
 )
 
 # Santa Rosa's own parcel layer: FDOR never matches this county's numbering,

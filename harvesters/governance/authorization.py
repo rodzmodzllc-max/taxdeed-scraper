@@ -852,7 +852,7 @@ _REALAUCTION_ALACHUA = ProviderAuthorization(
     request_date=None,
     contact_name=None,
     contact_email=None,
-    request_status=AuthorizationStatus.REQUEST_NOT_STARTED,
+    request_status=AuthorizationStatus.DECLINED,
     authorization_status=AuthorizationStatus.LEGAL_REVIEW_REQUIRED,
     document=AuthorizationDocument(
         document_name="RealAuction End User License Agreement - Alachua County",
@@ -936,6 +936,21 @@ _REALAUCTION_ALACHUA = ProviderAuthorization(
             ),
             document_reference=None,
         ),
+        AuditLogEntry(
+            event="declined",
+            who="RealAuction customer service (ticket 914220); recorded by the product owner",
+            when="2026-10-21",
+            old_status=AuthorizationStatus.LEGAL_REVIEW_REQUIRED.value,
+            new_status=AuthorizationStatus.LEGAL_REVIEW_REQUIRED.value,
+            reason=(
+                "TAXACQ asked RealAuction for written permission (2026-10-12, follow-up 2026-10-20). RealAuction "
+                "replied that it 'will not be providing any form of written permission to use automated means for "
+                "scanning or crawling our auction sites'. No permission exists. The owner's decision of 2026-10-24 "
+                "keeps the sale calendar as minimal facts plus a deep link on an internal risk acceptance "
+                "(data/source_permissions.csv, harvesters/governance/minimal_facts.py) - not permission."
+            ),
+            document_reference=None,
+        ),
     ),
 )
 
@@ -951,7 +966,7 @@ _REALAUCTION_VOLUSIA = ProviderAuthorization(
     request_date=None,
     contact_name=None,
     contact_email=None,
-    request_status=AuthorizationStatus.REQUEST_NOT_STARTED,
+    request_status=AuthorizationStatus.DECLINED,
     authorization_status=AuthorizationStatus.LEGAL_REVIEW_REQUIRED,
     document=AuthorizationDocument(
         document_name="RealAuction End User License Agreement - Volusia County",
@@ -1028,19 +1043,87 @@ _REALAUCTION_VOLUSIA = ProviderAuthorization(
             ),
             document_reference=None,
         ),
+        AuditLogEntry(
+            event="declined",
+            who="RealAuction customer service (ticket 914220); recorded by the product owner",
+            when="2026-10-21",
+            old_status=AuthorizationStatus.LEGAL_REVIEW_REQUIRED.value,
+            new_status=AuthorizationStatus.LEGAL_REVIEW_REQUIRED.value,
+            reason=(
+                "TAXACQ asked RealAuction for written permission (2026-10-12, follow-up 2026-10-20). RealAuction "
+                "replied that it 'will not be providing any form of written permission to use automated means for "
+                "scanning or crawling our auction sites'. No permission exists. The owner's decision of 2026-10-24 "
+                "keeps the sale calendar as minimal facts plus a deep link on an internal risk acceptance "
+                "(data/source_permissions.csv, harvesters/governance/minimal_facts.py) - not permission."
+            ),
+            document_reference=None,
+        ),
     ),
 )
 
 
-# Florida DOR Property Tax Oversight - parcel geometry (2026-10-20). The first
-# GRANTED record: a written response from DOR, relayed by the product owner.
-# The original email is NOT on file in this repository, so the document stays
-# pending (is_pending=True, no location) and `written_permission` stays False
-# - this record never claims a document it cannot point to. The grant covers
-# parcel GEOMETRY in the eligible DOR-published county GIS files only; export /
-# API redistribution was not stated and is not authorized here. Every use is
-# still gated by data/source_permissions.csv, whose records also require the
-# technical Readme to be reviewed first (technical_readme_reviewed).
+# Florida DOR Property Tax Oversight - parcel data (written response dated
+# 2026-10-12). First relayed by the product owner on 2026-10-20 (summary only,
+# document pending); the original email was supplied on 2026-10-24, and its
+# transcript, with the SHA-256 of the original .eml, is on file at
+# docs/agreements/fl-dor-pto-parcel-data-2026-10-12.md. DOR states "There are
+# no restrictions placed on the data", allows display over aerial imagery in a
+# commercial research application, and requires no county permissions. The
+# response names two places: the Data Portal county GIS files (this record) and
+# the current-year statewide parcel data at geodata.floridagio.gov
+# (_DOR_FGIO_STATEWIDE_CADASTRAL below, by the owner's decision of 2026-10-24).
+# Export / API redistribution was not asked about and is not authorized here.
+# Every use is still gated by data/source_permissions.csv.
+_DOR_DOCUMENT = AuthorizationDocument(
+    document_name="Written response from Florida DOR Property Tax Oversight (email of 2026-10-12, Tom Canter)",
+    document_location="docs/agreements/fl-dor-pto-parcel-data-2026-10-12.md",
+    document_hash="sha256:64edaaab3860f1d5834f2eb7aff11ed21e5d598299ee55678e8ff9b14fe66722",
+    effective_date="2026-10-12",
+    expiration_date=None,
+    reviewer="Product owner",
+    review_date="2026-10-24",
+    scope_summary=(
+        "DOR's answers: 'There are no restrictions placed on the data' (retaining simplified parcel-boundary "
+        "geometry); display over aerial imagery in a commercial research application: 'Yes'; attribution, "
+        "disclaimers and refresh expectations are at TAXACQ's discretion; both locations (the PTO Data Portal "
+        "GIS parcel shapefiles and the current-year statewide parcel data at geodata.floridagio.gov) are "
+        "refreshed annually mid-August to early September; no county-level permissions are required; the Data "
+        "Portal readme covers condominium treatment."
+    ),
+    is_pending=False,
+)
+
+_DOR_SCOPE = AuthorizationScope(
+    automated_access=UsePermission(requested=True, authorized=True),
+    commercial_use=UsePermission(requested=True, authorized=True),
+    storage=UsePermission(requested=True, authorized=True),
+    normalization=UsePermission(requested=True, authorized=True),
+    derived_data=UsePermission(requested=True, authorized=True),
+    customer_display=UsePermission(requested=True, authorized=True),
+    image_display=UsePermission(requested=True, authorized=True),
+)
+
+_DOR_AUDIT = (
+    AuditLogEntry(
+        event="approved",
+        who="Product owner",
+        when="2026-10-20",
+        old_status=None,
+        new_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS.value,
+        reason="Written response from Florida DOR Property Tax Oversight, relayed by the product owner (summary).",
+        document_reference=None,
+    ),
+    AuditLogEntry(
+        event="document_received",
+        who="Product owner",
+        when="2026-10-24",
+        old_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS.value,
+        new_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS.value,
+        reason="Original email (dated 2026-10-12) supplied; transcript and hash recorded.",
+        document_reference="docs/agreements/fl-dor-pto-parcel-data-2026-10-12.md",
+    ),
+)
+
 _DOR_PTO_PARCEL_GIS = ProviderAuthorization(
     authorization_id="fl_dor_pto_parcel_gis__provider__dor_pto",
     source_id="fl_dor_pto_parcel_gis",
@@ -1052,71 +1135,92 @@ _DOR_PTO_PARCEL_GIS = ProviderAuthorization(
     requested_by="Product owner",
     request_date=None,
     contact_name="Tom Canter, Systems Project Consultant",
-    contact_email=None,  # not supplied; never invented
+    contact_email=None,  # kept out of the public repository
     request_status=AuthorizationStatus.RECEIVED,
     authorization_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS,
-    document=AuthorizationDocument(
-        document_name="Written response from Florida DOR Property Tax Oversight (email)",
-        document_location=None,
-        document_hash=None,
-        effective_date="2026-10-20",
-        expiration_date=None,
-        reviewer="Product owner",
-        review_date="2026-10-20",
-        scope_summary=(
-            "Relayed by the product owner on 2026-10-20; the original email is not in this repository and its "
-            "received date was not supplied. As relayed: TAXACQ may retain simplified parcel-boundary geometry "
-            "derived from eligible DOR-published county GIS files, display those boundaries over aerial imagery "
-            "in a commercial research application, and use the data without separate county-level permissions; "
-            "DOR places no restrictions on the data; both linked dataset sources are refreshed annually from "
-            "mid-August to early September; attribution, disclaimers and other display restrictions are at "
-            "TAXACQ's discretion."
-        ),
-        is_pending=True,
-    ),
+    document=_DOR_DOCUMENT,
     agreement_url="https://floridarevenue.com/property/Pages/DataPortal_RequestAssessmentRollGISData.aspx",
     agreement_version=None,
-    agreement_date=None,
-    effective_date="2026-10-20",
+    agreement_date="2026-10-12",
+    effective_date="2026-10-12",
     expiration_date=None,
-    review_due_date="2027-10-20",
-    scope=AuthorizationScope(
-        automated_access=UsePermission(requested=True, authorized=True),
-        commercial_use=UsePermission(requested=True, authorized=True),
-        storage=UsePermission(requested=True, authorized=True),
-        normalization=UsePermission(requested=True, authorized=True),
-        derived_data=UsePermission(requested=True, authorized=True),
-        customer_display=UsePermission(requested=True, authorized=True),
-        image_display=UsePermission(requested=True, authorized=True),
-    ),
+    review_due_date="2027-10-24",
+    scope=_DOR_SCOPE,
     attribution_required=False,
     rate_limit=None,
-    retention_requirement="None stated; retention of simplified boundary geometry is expressly permitted.",
-    privacy_restrictions="Not covered: owner names and other tax-roll personal fields are outside this geometry approval.",
+    retention_requirement="None stated; DOR places no restrictions on the data.",
+    privacy_restrictions="None stated by DOR. TAXACQ's own rule stands: no owner name or parcel number in public logs.",
     technical_restrictions=(
         "Parcel Shapefiles Readme (PIN/PAR variants, PARCELNO to PARCEL_ID joins, condominium units, stacked and "
         "multi-parcel polygons, unmatched geometries) must be reviewed before ingestion - a technical caveat, not "
         "a permission restriction."
     ),
-    written_permission=False,
+    written_permission=True,
     reviewed_by="Product owner",
-    reviewed_at="2026-10-20",
+    reviewed_at="2026-10-24",
     notes=(
-        "Scope: parcel-boundary geometry in DOR Property Tax Oversight county GIS files and the current-year "
-        "statewide parcels linked from Florida GeoData. Not: other DOR datasets, tax-sale or auction data, "
-        "third-party data, or the existing fl_fdor_cadastral / fl_dor_statewide records (unchanged). See "
-        "data/source_approvals.csv and docs/parcel-source-approvals.md."
+        "Scope: parcel-boundary geometry in DOR Property Tax Oversight county GIS files. The statewide parcel "
+        "data at geodata.floridagio.gov is recorded separately (fl_fdor_cadastral__provider__dor_pto). Not: "
+        "redistribution outside the app, other DOR datasets (e.g. fl_dor_statewide NAL files), tax-sale or "
+        "auction data, third-party data. See data/source_approvals.csv and docs/parcel-source-approvals.md."
     ),
-    last_terms_check="2026-10-20",
+    last_terms_check="2026-10-24",
+    audit_log=_DOR_AUDIT,
+)
+
+
+# The same DOR response, applied by the owner's decision of 2026-10-24 to the
+# "current year statewide parcel data" DOR names at geodata.floridagio.gov:
+# the Florida_Statewide_Cadastral FeatureServer (Florida GeoData item
+# efa909d6...), source id fl_fdor_cadastral. It covers the parcel attributes and
+# the parcel centroid scripts/enrich_property_details.py and
+# harvesters/enrichment/geocode.py already read. Redistribution (export / API)
+# is not covered.
+_DOR_FGIO_STATEWIDE_CADASTRAL = ProviderAuthorization(
+    authorization_id="fl_fdor_cadastral__provider__dor_pto",
+    source_id="fl_fdor_cadastral",
+    provider="Florida Department of Revenue, Property Tax Oversight",
+    government_entity="Florida Department of Revenue (statewide parcel data published through Florida GeoData)",
+    state="FL",
+    county=None,
+    deployment_scope="provider",
+    requested_by="Product owner",
+    request_date=None,
+    contact_name="Tom Canter, Systems Project Consultant",
+    contact_email=None,
+    request_status=AuthorizationStatus.RECEIVED,
+    authorization_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS,
+    document=_DOR_DOCUMENT,
+    agreement_url="https://geodata.floridagio.gov/",
+    agreement_version=None,
+    agreement_date="2026-10-12",
+    effective_date="2026-10-12",
+    expiration_date=None,
+    review_due_date="2027-10-24",
+    scope=_DOR_SCOPE,
+    attribution_required=False,
+    rate_limit=None,
+    retention_requirement="None stated; DOR places no restrictions on the data.",
+    privacy_restrictions="None stated by DOR. TAXACQ's own rule stands: no owner name or parcel number in public logs.",
+    technical_restrictions="Exact parcel-identifier match only; ambiguous matches are skipped (enrich_property_details.py).",
+    written_permission=True,
+    reviewed_by="Product owner",
+    reviewed_at="2026-10-24",
+    notes=(
+        "Owner's decision 2026-10-24: DOR's response ('There are no restrictions placed on the data'; 'the data "
+        "at both locations') covers the statewide parcel data at geodata.floridagio.gov. Not: redistribution "
+        "outside the app."
+    ),
+    last_terms_check="2026-10-24",
     audit_log=(
         AuditLogEntry(
             event="approved",
             who="Product owner",
-            when="2026-10-20",
+            when="2026-10-24",
             old_status=None,
             new_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS.value,
-            reason="Written response from Florida DOR Property Tax Oversight, relayed by the product owner.",
-            document_reference=None,
+            reason="Owner's decision: the DOR response of 2026-10-12 covers the statewide parcel data it names.",
+            document_reference="docs/agreements/fl-dor-pto-parcel-data-2026-10-12.md",
         ),
     ),
 )
@@ -1129,5 +1233,6 @@ PROVIDER_AUTHORIZATIONS: dict[str, ProviderAuthorization] = {
         _REALAUCTION_ALACHUA,
         _REALAUCTION_VOLUSIA,
         _DOR_PTO_PARCEL_GIS,
+        _DOR_FGIO_STATEWIDE_CADASTRAL,
     )
 }

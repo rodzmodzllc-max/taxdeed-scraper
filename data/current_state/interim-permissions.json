@@ -301,94 +301,6 @@
   },
   {
    "call_sites": [
-    "scripts/backfill_fdor_phase52_fields.py",
-    "scripts/enrich_property_details.py",
-    "harvesters/enrichment/geocode.py (CoordinateSource.usable)"
-   ],
-   "conditions": [],
-   "dataset": "parcel_attributes",
-   "effective_on": "2026-09-15",
-   "evidence_date": "2026-09-15",
-   "evidence_ref": "scripts/enrich_property_details.py (deeds job); harvesters/governance/registry.py _FL_DOR ('NO RESTRICTION FOUND; NO PERMISSION FOUND'); data/phase36_terms_review.csv FDOR",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
-   "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
-   "jurisdiction": "FL",
-   "operation": "enrich",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
-   "source_id": "fl_fdor_cadastral",
-   "status": "LEGAL_REVIEW_REQUIRED"
-  },
-  {
-   "call_sites": [
-    "scripts/backfill_fdor_phase52_fields.py",
-    "scripts/enrich_property_details.py",
-    "harvesters/enrichment/geocode.py (CoordinateSource.usable)"
-   ],
-   "conditions": [],
-   "dataset": "parcel_attributes",
-   "effective_on": "2026-09-15",
-   "evidence_date": "2026-09-15",
-   "evidence_ref": "scripts/enrich_property_details.py (deeds job); harvesters/governance/registry.py _FL_DOR ('NO RESTRICTION FOUND; NO PERMISSION FOUND'); data/phase36_terms_review.csv FDOR",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
-   "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
-   "jurisdiction": "FL",
-   "operation": "fetch",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
-   "source_id": "fl_fdor_cadastral",
-   "status": "LEGAL_REVIEW_REQUIRED"
-  },
-  {
-   "call_sites": [
-    "scripts/backfill_fdor_phase52_fields.py",
-    "scripts/enrich_property_details.py",
-    "harvesters/enrichment/geocode.py (CoordinateSource.usable)"
-   ],
-   "conditions": [],
-   "dataset": "parcel_centroid",
-   "effective_on": "2026-09-15",
-   "evidence_date": "2026-09-15",
-   "evidence_ref": "scripts/enrich_property_details.py (writes the polygon centroid as a point); harvesters/enrichment/geocode.py FDOR_SOURCE",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
-   "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
-   "jurisdiction": "FL",
-   "operation": "enrich",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
-   "source_id": "fl_fdor_cadastral",
-   "status": "LEGAL_REVIEW_REQUIRED"
-  },
-  {
-   "call_sites": [
-    "scripts/backfill_fdor_phase52_fields.py",
-    "scripts/enrich_property_details.py",
-    "harvesters/enrichment/geocode.py (CoordinateSource.usable)"
-   ],
-   "conditions": [],
-   "dataset": "parcel_centroid",
-   "effective_on": "2026-09-15",
-   "evidence_date": "2026-09-15",
-   "evidence_ref": "scripts/enrich_property_details.py (writes the polygon centroid as a point); harvesters/enrichment/geocode.py FDOR_SOURCE",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
-   "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
-   "jurisdiction": "FL",
-   "operation": "fetch",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
-   "source_id": "fl_fdor_cadastral",
-   "status": "LEGAL_REVIEW_REQUIRED"
-  },
-  {
-   "call_sites": [
     "scripts/harvest_laft_hillsborough.py",
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
@@ -610,6 +522,75 @@
   },
   {
    "call_sites": [
+    "scripts/harvest_laft_html.py",
+    "scripts/source_permission_check.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-22",
+   "evidence_ref": "Indian River County Clerk of Circuit Court & Comptroller, Brandon Young (Support Services / Tax Deeds Supervisor), email of 2026-10-22: 'we do not grant permission for any commercial activities. You can access the data the same as any member of the public, or you may sign a data vendor agreement.' (earlier reply 2026-10-21 pointed to taxdeeds.indian-river.org/TaxDeeds and indian-river.realtaxdeed.com 'at your own risk')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL:Indian River",
+   "operation": "fetch",
+   "reviewer": "Product owner (decision 2026-10-24)",
+   "source_id": "fl_laft_html",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_html.py",
+    "scripts/source_permission_check.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-22",
+   "evidence_ref": "Indian River County Clerk of Circuit Court & Comptroller, Brandon Young (Support Services / Tax Deeds Supervisor), email of 2026-10-22: 'we do not grant permission for any commercial activities. You can access the data the same as any member of the public, or you may sign a data vendor agreement.' (earlier reply 2026-10-21 pointed to taxdeeds.indian-river.org/TaxDeeds and indian-river.realtaxdeed.com 'at your own risk')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL:Indian River",
+   "operation": "parse",
+   "reviewer": "Product owner (decision 2026-10-24)",
+   "source_id": "fl_laft_html",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_html.py",
+    "scripts/source_permission_check.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-22",
+   "evidence_ref": "Indian River County Clerk of Circuit Court & Comptroller, Brandon Young (Support Services / Tax Deeds Supervisor), email of 2026-10-22: 'we do not grant permission for any commercial activities. You can access the data the same as any member of the public, or you may sign a data vendor agreement.' (earlier reply 2026-10-21 pointed to taxdeeds.indian-river.org/TaxDeeds and indian-river.realtaxdeed.com 'at your own risk')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL:Indian River",
+   "operation": "store",
+   "reviewer": "Product owner (decision 2026-10-24)",
+   "source_id": "fl_laft_html",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
     "scripts/harvest_laft_leon.py",
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
@@ -1007,42 +988,15 @@
    ],
    "conditions": [],
    "dataset": "lands_available",
-   "effective_on": "2026-09-29",
-   "evidence_date": "2026-09-29",
-   "evidence_ref": "docs/legal/pre-sale-blockers.md item 4 (Volusia disclaimer bypass)",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-21",
+   "evidence_ref": "Volusia County Clerk of the Circuit Court, Michelle Parrish, email of 2026-10-21: the website 'is intended for the personal use of the public for general informational purposes only'; 'The user is expressly prohibited from reproducing, publishing online, selling, reselling, or otherwise disseminating data or information' (website disclaimer); docs/legal/pre-sale-blockers.md item 4",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
-   "jurisdiction": "FL:Volusia",
-   "operation": "display",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
-   "source_id": "fl_laft_pdfs",
-   "status": "LEGAL_REVIEW_REQUIRED"
-  },
-  {
-   "call_sites": [
-    "scripts/harvest_laft_pdfs.py",
-    "scripts/source_permission_check.py",
-    "scripts/sync-laft-to-supabase.ps1",
-    "scripts/source_publication.py (collectable / publishable)",
-    "harvesters/governance/publication_state.py (display)",
-    "scripts/laft_lifecycle.py (apply_store_permission)"
-   ],
-   "conditions": [],
-   "dataset": "lands_available",
-   "effective_on": "2026-09-29",
-   "evidence_date": "2026-09-29",
-   "evidence_ref": "docs/legal/pre-sale-blockers.md item 4 (Volusia disclaimer bypass)",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
-   "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
+   "findings": [],
    "jurisdiction": "FL:Volusia",
    "operation": "fetch",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "reviewer": "Product owner (decision 2026-10-24)",
    "source_id": "fl_laft_pdfs",
    "status": "LEGAL_REVIEW_REQUIRED"
   },
@@ -1057,17 +1011,15 @@
    ],
    "conditions": [],
    "dataset": "lands_available",
-   "effective_on": "2026-09-29",
-   "evidence_date": "2026-09-29",
-   "evidence_ref": "docs/legal/pre-sale-blockers.md item 4 (Volusia disclaimer bypass)",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-21",
+   "evidence_ref": "Volusia County Clerk of the Circuit Court, Michelle Parrish, email of 2026-10-21: the website 'is intended for the personal use of the public for general informational purposes only'; 'The user is expressly prohibited from reproducing, publishing online, selling, reselling, or otherwise disseminating data or information' (website disclaimer); docs/legal/pre-sale-blockers.md item 4",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
+   "findings": [],
    "jurisdiction": "FL:Volusia",
    "operation": "parse",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "reviewer": "Product owner (decision 2026-10-24)",
    "source_id": "fl_laft_pdfs",
    "status": "LEGAL_REVIEW_REQUIRED"
   },
@@ -1082,17 +1034,15 @@
    ],
    "conditions": [],
    "dataset": "lands_available",
-   "effective_on": "2026-09-29",
-   "evidence_date": "2026-09-29",
-   "evidence_ref": "docs/legal/pre-sale-blockers.md item 4 (Volusia disclaimer bypass)",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-21",
+   "evidence_ref": "Volusia County Clerk of the Circuit Court, Michelle Parrish, email of 2026-10-21: the website 'is intended for the personal use of the public for general informational purposes only'; 'The user is expressly prohibited from reproducing, publishing online, selling, reselling, or otherwise disseminating data or information' (website disclaimer); docs/legal/pre-sale-blockers.md item 4",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
+   "findings": [],
    "jurisdiction": "FL:Volusia",
    "operation": "store",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "reviewer": "Product owner (decision 2026-10-24)",
    "source_id": "fl_laft_pdfs",
    "status": "LEGAL_REVIEW_REQUIRED"
   },
@@ -1641,17 +1591,15 @@
    ],
    "conditions": [],
    "dataset": "sale_calendar",
-   "effective_on": "2026-09-15",
-   "evidence_date": "2026-09-15",
-   "evidence_ref": "harvesters/governance/registry.py _FL_REALAUCTION; harvesters/governance/authorization.py fl_realauction__county__alachua/__volusia (LEGAL_REVIEW_REQUIRED); data/phase36_terms_review.csv",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-24",
+   "evidence_ref": "RealAuction customer service reply, ticket 914220, 2026-10-21: 'we will not be providing any form of written permission to use automated means for scanning or crawling our auction sites'; no API; upcoming sales are on each county's own auction site; harvesters/governance/registry.py _FL_REALAUCTION; harvesters/governance/authorization.py fl_realauction__county__alachua/__volusia (LEGAL_REVIEW_REQUIRED); data/phase36_terms_review.csv",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
+   "findings": [],
    "jurisdiction": "FL",
    "operation": "display",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "reviewer": "Product owner (decision 2026-10-24)",
    "source_id": "fl_realauction",
    "status": "LEGAL_REVIEW_REQUIRED"
   },
@@ -1668,17 +1616,15 @@
    ],
    "conditions": [],
    "dataset": "sale_calendar",
-   "effective_on": "2026-09-15",
-   "evidence_date": "2026-09-15",
-   "evidence_ref": "harvesters/governance/registry.py _FL_REALAUCTION; harvesters/governance/authorization.py fl_realauction__county__alachua/__volusia (LEGAL_REVIEW_REQUIRED); data/phase36_terms_review.csv",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-24",
+   "evidence_ref": "RealAuction customer service reply, ticket 914220, 2026-10-21: 'we will not be providing any form of written permission to use automated means for scanning or crawling our auction sites'; no API; upcoming sales are on each county's own auction site; harvesters/governance/registry.py _FL_REALAUCTION; harvesters/governance/authorization.py fl_realauction__county__alachua/__volusia (LEGAL_REVIEW_REQUIRED); data/phase36_terms_review.csv",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
+   "findings": [],
    "jurisdiction": "FL",
    "operation": "fetch",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "reviewer": "Product owner (decision 2026-10-24)",
    "source_id": "fl_realauction",
    "status": "LEGAL_REVIEW_REQUIRED"
   },
@@ -1695,17 +1641,15 @@
    ],
    "conditions": [],
    "dataset": "sale_calendar",
-   "effective_on": "2026-09-15",
-   "evidence_date": "2026-09-15",
-   "evidence_ref": "harvesters/governance/registry.py _FL_REALAUCTION; harvesters/governance/authorization.py fl_realauction__county__alachua/__volusia (LEGAL_REVIEW_REQUIRED); data/phase36_terms_review.csv",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-24",
+   "evidence_ref": "RealAuction customer service reply, ticket 914220, 2026-10-21: 'we will not be providing any form of written permission to use automated means for scanning or crawling our auction sites'; no API; upcoming sales are on each county's own auction site; harvesters/governance/registry.py _FL_REALAUCTION; harvesters/governance/authorization.py fl_realauction__county__alachua/__volusia (LEGAL_REVIEW_REQUIRED); data/phase36_terms_review.csv",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
+   "findings": [],
    "jurisdiction": "FL",
    "operation": "parse",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "reviewer": "Product owner (decision 2026-10-24)",
    "source_id": "fl_realauction",
    "status": "LEGAL_REVIEW_REQUIRED"
   },
@@ -1722,17 +1666,165 @@
    ],
    "conditions": [],
    "dataset": "sale_calendar",
-   "effective_on": "2026-09-15",
-   "evidence_date": "2026-09-15",
-   "evidence_ref": "harvesters/governance/registry.py _FL_REALAUCTION; harvesters/governance/authorization.py fl_realauction__county__alachua/__volusia (LEGAL_REVIEW_REQUIRED); data/phase36_terms_review.csv",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-24",
+   "evidence_ref": "RealAuction customer service reply, ticket 914220, 2026-10-21: 'we will not be providing any form of written permission to use automated means for scanning or crawling our auction sites'; no API; upcoming sales are on each county's own auction site; harvesters/governance/registry.py _FL_REALAUCTION; harvesters/governance/authorization.py fl_realauction__county__alachua/__volusia (LEGAL_REVIEW_REQUIRED); data/phase36_terms_review.csv",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
+   "findings": [],
    "jurisdiction": "FL",
    "operation": "store",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "reviewer": "Product owner (decision 2026-10-24)",
+   "source_id": "fl_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/auction_outcomes.py",
+    "scripts/harvest_all_counties.ps1",
+    "scripts/source_permission_check.py",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "closed_results",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-22",
+   "evidence_ref": "Indian River County Clerk of Circuit Court & Comptroller, Brandon Young (Support Services / Tax Deeds Supervisor), email of 2026-10-22: 'we do not grant permission for any commercial activities. You can access the data the same as any member of the public, or you may sign a data vendor agreement.' (earlier reply 2026-10-21 pointed to taxdeeds.indian-river.org/TaxDeeds and indian-river.realtaxdeed.com 'at your own risk')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL:Indian River",
+   "operation": "fetch",
+   "reviewer": "Product owner (decision 2026-10-24)",
+   "source_id": "fl_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/auction_outcomes.py",
+    "scripts/harvest_all_counties.ps1",
+    "scripts/source_permission_check.py",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "closed_results",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-22",
+   "evidence_ref": "Indian River County Clerk of Circuit Court & Comptroller, Brandon Young (Support Services / Tax Deeds Supervisor), email of 2026-10-22: 'we do not grant permission for any commercial activities. You can access the data the same as any member of the public, or you may sign a data vendor agreement.' (earlier reply 2026-10-21 pointed to taxdeeds.indian-river.org/TaxDeeds and indian-river.realtaxdeed.com 'at your own risk')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL:Indian River",
+   "operation": "parse",
+   "reviewer": "Product owner (decision 2026-10-24)",
+   "source_id": "fl_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/auction_outcomes.py",
+    "scripts/harvest_all_counties.ps1",
+    "scripts/source_permission_check.py",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "closed_results",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-22",
+   "evidence_ref": "Indian River County Clerk of Circuit Court & Comptroller, Brandon Young (Support Services / Tax Deeds Supervisor), email of 2026-10-22: 'we do not grant permission for any commercial activities. You can access the data the same as any member of the public, or you may sign a data vendor agreement.' (earlier reply 2026-10-21 pointed to taxdeeds.indian-river.org/TaxDeeds and indian-river.realtaxdeed.com 'at your own risk')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL:Indian River",
+   "operation": "store",
+   "reviewer": "Product owner (decision 2026-10-24)",
+   "source_id": "fl_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/auction_outcomes.py",
+    "scripts/harvest_all_counties.ps1",
+    "scripts/source_permission_check.py",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "sale_calendar",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-22",
+   "evidence_ref": "Indian River County Clerk of Circuit Court & Comptroller, Brandon Young (Support Services / Tax Deeds Supervisor), email of 2026-10-22: 'we do not grant permission for any commercial activities. You can access the data the same as any member of the public, or you may sign a data vendor agreement.' (earlier reply 2026-10-21 pointed to taxdeeds.indian-river.org/TaxDeeds and indian-river.realtaxdeed.com 'at your own risk')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL:Indian River",
+   "operation": "fetch",
+   "reviewer": "Product owner (decision 2026-10-24)",
+   "source_id": "fl_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/auction_outcomes.py",
+    "scripts/harvest_all_counties.ps1",
+    "scripts/source_permission_check.py",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "sale_calendar",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-22",
+   "evidence_ref": "Indian River County Clerk of Circuit Court & Comptroller, Brandon Young (Support Services / Tax Deeds Supervisor), email of 2026-10-22: 'we do not grant permission for any commercial activities. You can access the data the same as any member of the public, or you may sign a data vendor agreement.' (earlier reply 2026-10-21 pointed to taxdeeds.indian-river.org/TaxDeeds and indian-river.realtaxdeed.com 'at your own risk')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL:Indian River",
+   "operation": "parse",
+   "reviewer": "Product owner (decision 2026-10-24)",
+   "source_id": "fl_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/auction_outcomes.py",
+    "scripts/harvest_all_counties.ps1",
+    "scripts/source_permission_check.py",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "sale_calendar",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-22",
+   "evidence_ref": "Indian River County Clerk of Circuit Court & Comptroller, Brandon Young (Support Services / Tax Deeds Supervisor), email of 2026-10-22: 'we do not grant permission for any commercial activities. You can access the data the same as any member of the public, or you may sign a data vendor agreement.' (earlier reply 2026-10-21 pointed to taxdeeds.indian-river.org/TaxDeeds and indian-river.realtaxdeed.com 'at your own risk')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL:Indian River",
+   "operation": "store",
+   "reviewer": "Product owner (decision 2026-10-24)",
    "source_id": "fl_realauction",
    "status": "LEGAL_REVIEW_REQUIRED"
   },
@@ -2672,17 +2764,15 @@
    ],
    "conditions": [],
    "dataset": "*",
-   "effective_on": "2026-09-14",
-   "evidence_date": "2026-09-14",
-   "evidence_ref": "docs/realauction-rights-audit.md; harvesters/governance/registry.py _TX_REALAUCTION",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-24",
+   "evidence_ref": "RealAuction customer service reply, ticket 914220, 2026-10-21: 'we will not be providing any form of written permission to use automated means for scanning or crawling our auction sites'; no API; upcoming sales are on each county's own auction site; docs/realauction-rights-audit.md; harvesters/governance/registry.py _TX_REALAUCTION",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
+   "findings": [],
    "jurisdiction": "TX",
    "operation": "display",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "reviewer": "Product owner (decision 2026-10-24)",
    "source_id": "tx_realauction",
    "status": "LEGAL_REVIEW_REQUIRED"
   },
@@ -2694,17 +2784,15 @@
    ],
    "conditions": [],
    "dataset": "*",
-   "effective_on": "2026-09-14",
-   "evidence_date": "2026-09-14",
-   "evidence_ref": "docs/realauction-rights-audit.md; harvesters/governance/registry.py _TX_REALAUCTION",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-24",
+   "evidence_ref": "RealAuction customer service reply, ticket 914220, 2026-10-21: 'we will not be providing any form of written permission to use automated means for scanning or crawling our auction sites'; no API; upcoming sales are on each county's own auction site; docs/realauction-rights-audit.md; harvesters/governance/registry.py _TX_REALAUCTION",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
+   "findings": [],
    "jurisdiction": "TX",
    "operation": "fetch",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "reviewer": "Product owner (decision 2026-10-24)",
    "source_id": "tx_realauction",
    "status": "LEGAL_REVIEW_REQUIRED"
   },
@@ -2716,17 +2804,15 @@
    ],
    "conditions": [],
    "dataset": "*",
-   "effective_on": "2026-09-14",
-   "evidence_date": "2026-09-14",
-   "evidence_ref": "docs/realauction-rights-audit.md; harvesters/governance/registry.py _TX_REALAUCTION",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-24",
+   "evidence_ref": "RealAuction customer service reply, ticket 914220, 2026-10-21: 'we will not be providing any form of written permission to use automated means for scanning or crawling our auction sites'; no API; upcoming sales are on each county's own auction site; docs/realauction-rights-audit.md; harvesters/governance/registry.py _TX_REALAUCTION",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
+   "findings": [],
    "jurisdiction": "TX",
    "operation": "parse",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "reviewer": "Product owner (decision 2026-10-24)",
    "source_id": "tx_realauction",
    "status": "LEGAL_REVIEW_REQUIRED"
   },
@@ -2738,17 +2824,15 @@
    ],
    "conditions": [],
    "dataset": "*",
-   "effective_on": "2026-09-14",
-   "evidence_date": "2026-09-14",
-   "evidence_ref": "docs/realauction-rights-audit.md; harvesters/governance/registry.py _TX_REALAUCTION",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "effective_on": "2026-10-24",
+   "evidence_date": "2026-10-24",
+   "evidence_ref": "RealAuction customer service reply, ticket 914220, 2026-10-21: 'we will not be providing any form of written permission to use automated means for scanning or crawling our auction sites'; no API; upcoming sales are on each county's own auction site; docs/realauction-rights-audit.md; harvesters/governance/registry.py _TX_REALAUCTION",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
+   "findings": [],
    "jurisdiction": "TX",
    "operation": "store",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "reviewer": "Product owner (decision 2026-10-24)",
    "source_id": "tx_realauction",
    "status": "LEGAL_REVIEW_REQUIRED"
   },
@@ -2908,12 +2992,12 @@
  "interim_max_days": 210,
  "summary": {
   "by_expiry": {
-   "2027-04-12": 133
+   "2027-04-12": 137
   },
   "by_finding": {
-   "REVIEWER_IS_NOT_A_DECISION": 77
+   "REVIEWER_IS_NOT_A_DECISION": 61
   },
-  "records": 133,
-  "sources": 36
+  "records": 137,
+  "sources": 35
  }
 }

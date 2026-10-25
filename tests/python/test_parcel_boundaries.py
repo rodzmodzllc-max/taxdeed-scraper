@@ -59,9 +59,11 @@ def test_each_source_maps_its_own_dataset_and_names_what_is_unresolved():
     fl, ut = reg[FL], reg[UT]
     assert fl.covered_datasets[0].startswith("fl_dor_pto_parcel_gis <- ") and "MAPPED" in fl.covered_datasets[0]
     assert "Request Assessment Roll GIS Data" in fl.covered_datasets[0] and "county_parcel_geometry" in fl.covered_datasets[0]
-    assert "Florida GeoData" in fl.covered_datasets[1] and "NOT mapped" in fl.covered_datasets[1]
-    # The statewide cadastral FeatureServer is NOT the covered dataset.
-    assert "fl_statewide_cadastral_fgio" in fl.unresolved_mapping and "NOT approved for geometry" in fl.unresolved_mapping
+    # Owner's decision 2026-10-24: the statewide data DOR names maps to fl_fdor_cadastral,
+    # for attributes and the centroid - never as a stored polygon.
+    assert "Florida GeoData" in fl.covered_datasets[1] and "MAPPED" in fl.covered_datasets[1]
+    assert "fl_fdor_cadastral" in fl.covered_datasets[1]
+    assert "NOT configured as a parcel-boundary source" in fl.unresolved_mapping
     assert ut.covered_datasets[0].startswith("ut_ugrc_lir_saltlake <- Parcels_SaltLake_LIR") and "MAPPED" in ut.covered_datasets[0]
     assert "NOT mapped" in ut.covered_datasets[1]
     assert "Utah COUNTY" in ut.unresolved_mapping            # Parcels_Utah_LIR is not statewide
@@ -87,9 +89,10 @@ def test_expected_cadence_is_separate_from_the_actual_refresh():
 
 
 def test_evidence_records_only_what_was_supplied():
-    for a in A.load().values():
-        assert a.evidence_received_on == ""             # never supplied, never invented
-        assert "Implement Confirmed Florida DOR and Utah UGRC Parcel Approvals" in a.evidence_ref
+    reg = A.load()
+    # The dates are the emails' own (originals supplied 2026-10-24).
+    assert reg[FL].evidence_received_on == "2026-10-12" and reg[UT].evidence_received_on == "2026-10-13"
+    for a in reg.values():
         assert "@" not in a.evidence_ref + a.evidence_sender   # no address recorded
     assert A.load()[FL].readme_reviewed and A.load()[FL].technical_readme_reviewed_on == "2026-10-20"
     assert A.load()[FL].technical_caveats.startswith("Reviewed from the Parcel Shapefiles Readme")
@@ -437,14 +440,14 @@ def test_unrelated_assessment_attributes_are_never_requested_with_geometry():
         assert col not in seen[0]
 
 
-def test_the_owners_summaries_of_both_replies_are_recorded_as_summaries():
+def test_both_replies_are_recorded_from_the_original_emails():
     reg = A.load()
     fl, ut = reg[FL].evidence_ref, reg[UT].evidence_ref
-    assert "no separate county-level permissions required" in fl and "mid-August and early September" in fl
-    assert "all statewide and county parcels fall under this licence" in ut and "no strict limits on caching" in ut
+    assert "no county-level permissions required" in fl and "mid-August to early September" in fl
+    assert "fall under the same licence" in ut and "no strict limits on caching" in ut
     for a in reg.values():
-        assert "owner's summary of the reply" in a.evidence_ref
-        assert "not in this repository" in a.evidence_limitation.lower()     # still not the original
+        assert "docs/agreements/" in a.evidence_ref
+        assert "kept out of this public repository" in a.evidence_limitation
 
 
 def test_florida_pin_file_location_is_recorded_for_broward_only_and_nothing_reads_it():

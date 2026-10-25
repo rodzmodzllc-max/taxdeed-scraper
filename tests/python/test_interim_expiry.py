@@ -177,7 +177,10 @@ def test_known_interim_sources_point_at_their_gates():
     for e in IP.inventory():
         by_src.setdefault(e["source_id"], set()).update(s.split(" ")[0] for s in e["call_sites"])
     assert "scripts/geocode_properties.py" in by_src["census_geocoder"]
-    assert "harvesters/enrichment/geocode.py" in by_src["fl_fdor_cadastral"]
+    # fl_fdor_cadastral left the interim inventory on 2026-10-24 (DOR's written
+    # permission is on file); Santa Rosa's centroid source is still interim.
+    assert "fl_fdor_cadastral" not in by_src
+    assert "harvesters/enrichment/geocode.py" in by_src["fl_santa_rosa_parcels"]
     assert "harvesters/enrichment/parcels.py" in by_src["co_oit_public_parcels"]
 
 

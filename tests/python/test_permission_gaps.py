@@ -280,7 +280,8 @@ def test_inventory_builtin_sources_cite_permission_records_not_assertions():
         assert s.evidence.startswith("data/source_permissions.csv"), sid
         assert "public-domain" not in s.evidence and "docstring" not in s.evidence, sid
     fdor = builtins["fl_statewide_cadastral"].evidence
-    assert "interim" in fdor and "not documented permission" in fdor and "documented (" not in fdor
+    # DOR's written response (2026-10-12) is on file: the basis says documented, never interim.
+    assert "documented (WRITTEN_PERMISSION)" in fdor and "interim" not in fdor
 
 
 def test_inventory_basis_for_a_source_without_records_says_denied():
