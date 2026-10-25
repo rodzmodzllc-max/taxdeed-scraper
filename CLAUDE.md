@@ -3468,3 +3468,16 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   error`, `?boundaryids=<id>,<id>` (outline ids the cards see).
 - `sw.js` -> `tdw-shell-v137` (2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
 
+
+## Daily freshness verification (2026-10-25, PR open, no migration)
+
+- `scripts/daily_freshness_check.py` is the `freshness` job of `harvest-and-sync.yml`. It runs on a new cron
+  `'0 17 * * *'` (after the 10:00 / 12:00 harvests) or on manual dispatch with `job=freshness`; it is never part
+  of "all". It is read-only (HEAD / GET with `count=exact`).
+- **Checks:** for every PRODUCTION_VERIFIED registry (state, source_id), it counts active rows and the rows whose
+  `last_seen_at` is within 36 h.
+- **Statuses:** FRESH / PARTIAL / STALE / MANUAL (`unit_freshness.MANUAL_ONLY_SOURCES`, never failed) / NO_ROWS.
+  STALE fails the job and PARTIAL warns.
+- **Output:** a counts-only report in the job summary. No artifact is uploaded.
+- The site reads Supabase live, so this check is also the "is the website current" check.
+- **Workflow pins:** tests pin the cron list and the job options. Adding a cron means updating those pins.
