@@ -61,6 +61,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(HERE))
 
 import field_provenance as FP  # noqa: E402
+from harvesters import tls_chain as TLS  # noqa: E402
 
 SOURCE_ID = "tx_lgbs"
 USER_AGENT = "taxdeed-scraper lgbs-available-refresh (+https://github.com/rodzmodzllc-max/taxdeed-scraper)"
@@ -173,7 +174,9 @@ def plan_row(row: dict, idx: dict, *, now: str, walk_complete: bool) -> tuple[st
 
 def http_json(url: str, *, headers: dict | None = None, method: str = "GET", body: bytes | None = None, timeout: int = 60):
     req = urllib.request.Request(url, data=body, method=method, headers={"User-Agent": USER_AGENT, **(headers or {})})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    # tls_chain: default verification plus the intermediate taxsales.lgbs.com
+    # stopped sending on 2026-10-07 (harvesters/tls_chain.py).
+    with TLS.urlopen(req, timeout=timeout) as resp:
         raw = resp.read()
     return json.loads(raw) if raw else None
 
@@ -217,7 +220,11 @@ def walk_feed() -> tuple[list[dict], dict]:
             try:
                 payload = http_json(url, timeout=PAGE_TIMEOUT)
                 break
-            except Exception:  # noqa: BLE001 - counted, retried, then reported as an incomplete walk
+            except Exception as exc:  # noqa: BLE001 - counted, retried, then reported as an incomplete walk
+                # The class and reason only (never a response body): a walk that
+                # reads nothing must say why (2026-10-25: a TLS chain failure was
+                # silently reported as "raw records 0").
+                stats["last_error"] = f"{type(exc).__name__}: {str(getattr(exc, 'reason', exc))[:160]}"
                 time.sleep(min(30.0, TH.LGBS_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))))
         if payload is None:
             stats["truncated_at_page"] = stats["pages"]
@@ -252,7 +259,8 @@ def main(argv=None) -> int:
     rows = fetch_rows(base, key)
     records, stats = walk_feed()
     print(f"LGBS gate: allowed={stats['gate_allowed']} ({stats['gate_reason']}); pages {stats['pages']}, raw records {stats['raw']}, "
-          f"Texas records {len(records)}, walk {'COMPLETE' if stats['complete'] else 'INCOMPLETE'}")
+          f"Texas records {len(records)}, walk {'COMPLETE' if stats['complete'] else 'INCOMPLETE'}"
+          + (f"; last error {stats['last_error']}" if stats.get("last_error") else ""))
     idx = index_feed(records)
     now = FP.now_iso()
     outcomes: Counter = Counter()

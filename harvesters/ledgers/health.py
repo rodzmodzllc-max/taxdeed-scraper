@@ -22,14 +22,34 @@ single-source file) is the county fallback for that file ONLY - never a
 stand-in for another source's or another ledger's read of the same county.
 `closeable()` is each ledger's close-out rule.
 
+Row observation (2026-10-25). A source read decides what may CLOSE; a
+row's own `last_seen_at` decides whether it may be PRESENTED AS CURRENT.
+`row_observation()` is the one reader-side rule:
+
+  NEVER_READ  last_seen_at is NULL - no successful source read ever stamped
+              the row (updated_at is NOT an observation: every enrichment
+              PATCH bumps it through touch_updated_at)
+  STALE       last_seen_at is older than the ledger's freshness window
+              (FRESHNESS_DAYS: AUCTIONS 7, AVAILABLE 14, LIENS 7)
+  FRESH       observed by a successful read within the window
+
+NEVER_READ and STALE are "not current": the publication gate withholds the
+row (OBSERVATION_STALE) and the inventory-status writer stops calling it
+listed / available (inventory_status.apply_staleness). Neither closes,
+deletes or re-statuses a row in the lifecycle: absence is never a sale,
+and closing still needs a COMPLETE / EMPTY read of the row's own source.
+
 Pure: reads dicts, never a file or the network.
 """
 from __future__ import annotations
 
-from . import Ledger, ledgers_for_source_id
+from datetime import datetime, timedelta, timezone
+
+from . import Ledger, ledger_for_row, ledgers_for_source_id
 
 __all__ = ["READER_STATES", "CLOSEABLE", "UNAVAILABLE_PREFIXES", "reader_status", "ledger_units", "unit_status",
-           "closeable"]
+           "closeable", "FRESHNESS_DAYS", "OBSERVATION_STATES", "NOT_CURRENT", "parse_ts", "observed_at",
+           "row_observation", "is_current"]
 
 READER_STATES = ("COMPLETE", "EMPTY", "INCOMPLETE", "FAILED", "SOURCE_UNAVAILABLE", "NOT_RUN")
 UNAVAILABLE_PREFIXES = ("TRANSPORT_", "PROXY_", "ACCESS_")
@@ -108,3 +128,51 @@ def unit_status(units: dict, source_id, county) -> str | None:
 
 def closeable(ledger: Ledger, status: str | None) -> bool:
     return status in CLOSEABLE[ledger]
+
+
+# ------------------------------------------------------------ row observation
+
+# Days a row may go unobserved and still be presented as current, per ledger
+# (publication_state.FRESHNESS_DAYS is this table).
+FRESHNESS_DAYS = {Ledger.AUCTIONS: 7, Ledger.AVAILABLE: 14, Ledger.LIENS_CERTIFICATES: 7}
+OBSERVATION_STATES = ("NEVER_READ", "STALE", "FRESH")
+NOT_CURRENT = frozenset({"NEVER_READ", "STALE"})
+
+
+def parse_ts(value) -> datetime | None:
+    """An ISO timestamp / date as an aware UTC datetime; None when absent or
+    unreadable (an unreadable stamp is never treated as an observation)."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        d = value
+    else:
+        text = str(value).strip().replace("Z", "+00:00")
+        try:
+            d = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+    return d.replace(tzinfo=timezone.utc) if d.tzinfo is None else d.astimezone(timezone.utc)
+
+
+def observed_at(row: dict) -> datetime | None:
+    """The row's own last successful observation: `last_seen_at` only."""
+    return parse_ts(row.get("last_seen_at"))
+
+
+def row_observation(row: dict, now: datetime, ledger: Ledger | None = None) -> str:
+    """NEVER_READ / STALE / FRESH for one properties row (module docstring).
+    `ledger` defaults to the row's own (properties.source); a row whose
+    ledger cannot be told uses the shortest window."""
+    seen = observed_at(row)
+    if seen is None:
+        return "NEVER_READ"
+    if ledger is None:
+        ledger = ledger_for_row(row)
+    days = FRESHNESS_DAYS.get(ledger, min(FRESHNESS_DAYS.values())) if ledger else min(FRESHNESS_DAYS.values())
+    now = now if now.tzinfo else now.replace(tzinfo=timezone.utc)
+    return "STALE" if now - seen > timedelta(days=days) else "FRESH"
+
+
+def is_current(row: dict, now: datetime, ledger: Ledger | None = None) -> bool:
+    return row_observation(row, now, ledger) == "FRESH"

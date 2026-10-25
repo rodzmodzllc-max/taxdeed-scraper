@@ -586,6 +586,15 @@ def _lgbs_compose_address(raw: dict) -> str | None:
     return ", ".join(pieces) if pieces else None
 
 
+def _tls_chain():
+    """harvesters/tls_chain.py, imported either way this module is loaded."""
+    try:
+        from harvesters import tls_chain  # noqa: PLC0415
+    except ImportError:  # pragma: no cover - loaded with harvesters/ on sys.path only
+        import tls_chain  # noqa: PLC0415
+    return tls_chain
+
+
 def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[TexasSaleRow]:
     """Harvest Linebarger Goggan Blair & Sampson's public tax-sale API.
 
@@ -625,6 +634,10 @@ def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[Te
     import urllib.parse
     import urllib.request
 
+    # taxsales.lgbs.com serves its certificate without the intermediate
+    # (2026-10-07 on); tls_chain supplies it - verification is unchanged.
+    tls = _tls_chain()
+
     url = f"{LGBS_API_URL}?{urllib.parse.urlencode({'area': 'TX', 'limit': str(LGBS_PAGE_SIZE)})}"
 
     rows: list[TexasSaleRow] = []
@@ -659,7 +672,7 @@ def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[Te
         payload = None
         for attempt in range(1, LGBS_PAGE_ATTEMPTS + 1):
             try:
-                with urllib.request.urlopen(url, timeout=30) as resp:
+                with tls.urlopen(url, timeout=30) as resp:
                     payload = json.loads(resp.read())
                 break
             except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError) as exc:

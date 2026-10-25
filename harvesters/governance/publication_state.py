@@ -27,7 +27,10 @@ when every gate passes, in this order:
                 - a unique URL per record is not required - but a homepage or
                 a search engine never is.
   5. freshness  the row was observed recently (AVAILABLE 14 days, AUCTIONS and
-                LIENS 7 days, on last_seen_at else updated_at), an auction's
+                LIENS 7 days, on the row's OWN last_seen_at - NULL is never
+                read and fails; updated_at is not an observation, every
+                enrichment PATCH bumps it; harvesters/ledgers/health.py
+                row_observation), an auction's
                 sale date has not passed, and county-level path evidence is
                 not older than 180 days
 
@@ -70,6 +73,8 @@ from . import state_rules as SR
 from . import publication as pub
 from . import county_source_registry as csr
 from ..ledgers import records as ledger_records
+from ..ledgers import health as ledger_health
+from ..ledgers import Ledger
 
 REPO = Path(__file__).resolve().parents[2]
 ACQUISITION_EVIDENCE = REPO / "public" / "acquisition-evidence.json"
@@ -97,7 +102,8 @@ PATH_TYPE_LABELS = {"auction_bidding": "Auction / bidding", "direct_purchase": "
                     "other_verified_process": "Other verified process"}
 SCOPES = ("record", "county", "source")
 # Days a row may go unobserved and still be customer-published, per ledger.
-FRESHNESS_DAYS = {"AUCTIONS": 7, "AVAILABLE": 14, "LIENS_CERTIFICATES": 7}
+# One table, harvesters/ledgers/health.py FRESHNESS_DAYS (the row-observation rule).
+FRESHNESS_DAYS = {k.value: v for k, v in ledger_health.FRESHNESS_DAYS.items()}
 PATH_MAX_AGE_DAYS = 180
 # Every reason a decision can carry, with the remediation an admin needs.
 REASONS = {
@@ -270,7 +276,8 @@ def _https_process_url(url) -> str | None:
 
 
 def _observed_at(row: dict) -> datetime | None:
-    return _dt(row.get("last_seen_at")) or _dt(row.get("updated_at"))
+    """The row's own last successful observation (last_seen_at only)."""
+    return _dt(row.get("last_seen_at"))
 
 
 def _path_for(row: dict, ledger: str, sid: str, ctx: Context) -> tuple[PathEvidence, str | None]:
@@ -396,9 +403,7 @@ def decide(row: dict, ctx: Context) -> Decision:
         return Decision("ADMIN_ONLY_NO_PATH", "RULES_VERIFIED", reasons, gates, path, REMEDIATION[path_reason])
     gates["path"] = "PASS"
     # 5. freshness
-    observed = _observed_at(row)
-    window = timedelta(days=FRESHNESS_DAYS[ledger])
-    if observed is None or ctx.now - observed > window:
+    if ledger_health.row_observation(row, ctx.now, Ledger(ledger)) in ledger_health.NOT_CURRENT:
         reasons.append("OBSERVATION_STALE")
     sale = _dt(row.get("sale_date")) if ledger == "AUCTIONS" else None
     if sale and sale.date() < ctx.now.date():

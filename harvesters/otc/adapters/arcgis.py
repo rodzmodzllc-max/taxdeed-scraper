@@ -33,7 +33,7 @@ decision of allowed=True for the source. Neither exists for any source.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, Callable
 
@@ -169,6 +169,7 @@ class ArcGisResult:
     error_category: str | None = None
     error_detail: str | None = None
     skipped_cycle: int = 0                     # rows of a sale cycle the county has published no date for
+    duplicates_collapsed: int = 0              # identical repeat listings of one identifier, collapsed to one record
 
     @property
     def ok(self) -> bool:
@@ -422,7 +423,7 @@ def fetch_all(cfg: ArcGisLayerConfig, fetch_json: Callable[[str], Any], *, retri
     """Read every page of the layer through `fetch_json(url)`. Any failure
     on any page makes the whole result FAILED with no records: a partial
     inventory would let the lifecycle close rows the layer still lists."""
-    records: list[OtcRecord] = []
+    records: list[tuple[int, OtcRecord]] = []      # (page number, record)
     offset = 0
     pages = 0
     skipped_cycle = 0
@@ -440,18 +441,46 @@ def fetch_all(cfg: ArcGisLayerConfig, fetch_json: Callable[[str], Any], *, retri
         except ArcGisError as exc:
             return ArcGisResult("FAILED", pages=pages, error_category=exc.category, error_detail=exc.detail)
         pages += 1
-        records.extend(page.records)
+        records.extend((pages, r) for r in page.records)
         skipped_cycle += page.skipped_cycle
         if not page.exceeded_transfer_limit or page.feature_count == 0:
             break
         offset += page.feature_count
-    seen: set[tuple[str, str]] = set()
-    for r in records:
+    # One identifier, one record. A repeat is collapsed ONLY when both
+    # features came back in the SAME response (one query, so offset paging
+    # cannot have shifted between them) and are identical in every field this
+    # adapter maps (only the layer's internal object id may differ): the
+    # layer itself publishes the listing twice (DLBA_For_Sale, 2026-10-25:
+    # two parcels listed 4x / 2x on a single page, differing only in the
+    # unmapped listing_date). A repeat ACROSS pages is the signature of
+    # unstable offset paging - another feature may have been skipped - and a
+    # repeat with any mapped difference is not one record: both are FAILED.
+    kept: dict[tuple[str, str], tuple[int, OtcRecord]] = {}
+    unique: list[OtcRecord] = []
+    collapsed = 0
+    for page_no, r in records:
         key = (r.county, r.case_no)
-        if key in seen:
-            return ArcGisResult("FAILED", pages=pages, error_category="PARSE_FORMAT_CHANGE",
-                                error_detail=f"identifier {r.case_no!r} in {r.county} appeared twice across pages - paging is not stable")
-        seen.add(key)
-    result = ArcGisResult("COMPLETE" if records else "EMPTY", records=records, pages=pages)
+        if key in kept:
+            first_page, first = kept[key]
+            if first_page != page_no:
+                return ArcGisResult("FAILED", pages=pages, error_category="PARSE_FORMAT_CHANGE",
+                                    error_detail=f"identifier {r.case_no!r} in {r.county} appeared twice across pages - paging is not stable")
+            if _content(first) != _content(r):
+                return ArcGisResult("FAILED", pages=pages, error_category="PARSE_FORMAT_CHANGE",
+                                    error_detail=f"identifier {r.case_no!r} in {r.county} appeared twice within one page with "
+                                                 f"different mapped values - not one record")
+            collapsed += 1
+            continue
+        kept[key] = (page_no, r)
+        unique.append(r)
+    result = ArcGisResult("COMPLETE" if unique else "EMPTY", records=unique, pages=pages)
     result.skipped_cycle = skipped_cycle
+    result.duplicates_collapsed = collapsed
     return result
+
+
+def _content(r: OtcRecord) -> OtcRecord:
+    """The record with the per-feature object id removed - what must match for
+    two features to be the same listing."""
+    prov = {k: v for k, v in (r.provenance or {}).items() if k != "object_id"}
+    return replace(r, provenance=prov)
