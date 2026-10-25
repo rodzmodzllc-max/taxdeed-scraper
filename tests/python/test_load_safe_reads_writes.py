@@ -111,3 +111,20 @@ def test_a_plain_500_without_the_timeout_code_is_final():
     with pytest.raises(SystemExit):
         SYNC._upsert("https://x", "k", [{"i": 1}] * 200, post=lambda c: (_ for _ in ()).throw(_err(500, "XX000")),
                      sleep=lambda s: None)
+
+
+# --- per-row enrichment PATCH --------------------------------------------------------
+def test_patch_retries_a_transient_failure_and_not_a_rejection():
+    calls, pauses = [], []
+    answers = [_err(500, "57014"), urllib.error.URLError("reset"), None]
+
+    def http(url, **kw):
+        calls.append((url, kw["method"]))
+        a = answers.pop(0)
+        if a is not None:
+            raise a
+    ESP.patch("https://x", "k", "r1", {"acreage": 1.0}, http=http, sleep=pauses.append)
+    assert len(calls) == 3 and all(m == "PATCH" and u.endswith("id=eq.r1") for u, m in calls) and pauses == [2.0, 4.0]
+    with pytest.raises(urllib.error.HTTPError):
+        ESP.patch("https://x", "k", "r1", {}, http=lambda u, **kw: (_ for _ in ()).throw(_err(400, "PGRST204")),
+                  sleep=lambda s: None)
