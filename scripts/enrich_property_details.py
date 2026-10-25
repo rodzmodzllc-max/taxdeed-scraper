@@ -458,6 +458,10 @@ class FdorParserRejection(Exception):
 #   4, 7-digit), each matching one feature and only on ALT_KEY.
 ALT_KEY_RULES = {
     "Escambia": re.compile(r"^(\d{2})-?(\d{4})-?(\d{3})$"),
+    # LienHub writes Hillsborough's 10-digit folio with an "A" prefix; the
+    # layer's ALT_KEY is the bare folio (2 of 2 sampled answers matched
+    # exactly, 2026-10-25).
+    "Hillsborough": re.compile(r"^A(\d{10})$"),
     "Marion": re.compile(r"^(\d{5,7})$"),
     "Monroe": re.compile(r"^(\d{7})$"),
 }

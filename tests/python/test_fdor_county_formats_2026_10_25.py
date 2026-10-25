@@ -64,6 +64,10 @@ def test_alt_key_rules_for_marion_and_monroe(enrich):
     assert enrich.alt_key_candidate("Marion", "12345-678-90") is None
     assert enrich.alt_key_candidate("Monroe", "1452874") == "1452874"
     assert enrich.alt_key_candidate("Monroe", "145287") is None
+    # Hillsborough: LienHub's "A" + 10-digit folio -> the bare folio
+    assert enrich.alt_key_candidate("Hillsborough", "A0012345678") == "0012345678"
+    assert enrich.alt_key_candidate("Hillsborough", "0012345678") is None
+    assert enrich.alt_key_candidate("Hillsborough", "A001234567") is None
 
 
 def test_lookup_tries_county_spelling_after_generic_ones(enrich, monkeypatch):
