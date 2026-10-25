@@ -548,6 +548,18 @@
    "reason": "Registered, not collected."
   },
   {
+   "source_id": "tx_bexar_struckoff",
+   "state": "TX",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "tx_hctax",
    "state": "TX",
    "publication_status": "RESTRICTED",

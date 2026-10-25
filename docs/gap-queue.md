@@ -2,9 +2,9 @@
 
 Generated from public/acquisition-evidence.json, data/current_state/state-coverage.json, data/acquisition_candidate_pages.csv and the registry. Counts only.
 
-- Acquisition-path units: 72 total, 46 unresolved (NEEDS_REVIEW 8, NOT_FOUND 32, UNAVAILABLE 6, VERIFIED 26).
+- Acquisition-path units: 73 total, 47 unresolved (NEEDS_REVIEW 8, NOT_FOUND 33, UNAVAILABLE 6, VERIFIED 26).
 - State x ledger units: 39 total (APPROVAL_UNRESOLVED 7, CURRENT 6, OFFERED_SOURCE_NOT_IMPLEMENTED 1, OFFERED_VERIFIED_EMPTY 1, RULES_NOT_VERIFIED 19, SOURCE_FAILED_OR_STALE 4, SOURCE_IMPLEMENTED_NEVER_READ 1).
-- Queue: 79 entries - by category A 2, B 4, C 29, D 7, E 10, F 27; completable now from the repository: 2.
+- Queue: 80 entries - by category A 2, B 4, C 29, D 7, E 10, F 28; completable now from the repository: 2.
 
 ## A. implementable now from repository data or an accessible official source (2)
 
@@ -83,7 +83,7 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | TX * | AUCTIONS | SOURCE_FAILED_OR_STALE | yes | yes | no | yes | Manual-only source by owner decision (job=texas); a read happens only when the owner dispatches it |
 | TX * | AVAILABLE | SOURCE_FAILED_OR_STALE | yes | yes | no | yes | Manual-only source by owner decision (job=texas); a read happens only when the owner dispatches it |
 
-## F. the jurisdiction's process or product cannot yet be established authoritatively (27)
+## F. the jurisdiction's process or product cannot yet be established authoritatively (28)
 
 | Unit | Ledger | Status | Source reachable | Approved | Rule verified | Process verified | Next action |
 |---|---|---|---|---|---|---|---|
@@ -107,6 +107,7 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | FL Union (fl_laft_html) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL Walton (fl_laft_pioneer) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL Washington (fl_laft_realtdm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| TX Bexar (tx_bexar_struckoff) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Goliad (tx_lgbs) | AVAILABLE | NOT_FOUND | yes | yes | n/a | no | No official resale-process page exists to read (Tax office page only - no resale process); the path cannot be established from a delinquent-tax counsel's vendor listing; the county publishes no resale process page |
 | TX Hardin (tx_lgbs) | AVAILABLE | NOT_FOUND | yes | yes | n/a | no | No official resale-process page exists to read (A commissioners-court resale resolution only - no buyer instructions); the path cannot be established from a delinquent-tax counsel's vendor listing; the county publishes no resale process page |
 | TX Jim Wells (tx_lgbs) | AVAILABLE | NOT_FOUND | yes | yes | n/a | no | No official resale-process page exists to read (County pages carry foreclosure notices only; the city page points to the delinquent-tax counsel); the path cannot be established from a delinquent-tax counsel's vendor listing; the county publishes no resale process page |

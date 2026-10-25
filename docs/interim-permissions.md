@@ -9,8 +9,8 @@ current practice continue until `expires_on`, and `permissions.authorize()` deni
 after (`EXPIRED`), with no fallback to a broader record. A window longer than
 210 days is a configuration error that denies every request.
 
-- Records: 133 across 36 sources
-- By expiry: 2027-04-12 (133)
+- Records: 136 across 37 sources
+- By expiry: 2027-04-12 (136)
 - Findings: REVIEWER_IS_NOT_A_DECISION (77)
 - Configuration: valid
 
@@ -137,6 +137,9 @@ found in the code for that source.
 | tn_shelby_landbank | TN | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | tn_shelby_landbank | TN | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | tn_shelby_landbank | TN | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_bexar_struckoff | TX | struck_off_properties | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_bexar_struckoff | TX | struck_off_properties | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_bexar_struckoff | TX | struck_off_properties | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | tx_lgbs | TX | * | display | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-14 | 2027-04-12 | - | scripts/auction_events_writer.py<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | REVIEWER_IS_NOT_A_DECISION |
 | tx_lgbs | TX | * | fetch | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-14 | 2027-04-12 | - | scripts/auction_events_writer.py<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | REVIEWER_IS_NOT_A_DECISION |
 | tx_lgbs | TX | * | parse | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-14 | 2027-04-12 | - | scripts/auction_events_writer.py<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | REVIEWER_IS_NOT_A_DECISION |

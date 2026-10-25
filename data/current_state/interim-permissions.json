@@ -2578,6 +2578,69 @@
   },
   {
    "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "struck_off_properties",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "docs/sources-batch-2026-10-25-texas.md; scripts/harvest_tx_bexar_struckoff.py (bexar.org/1670/About-Us 'Current Struck-Off Property List' read 2026-10-25)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "fetch",
+   "reviewer": "product owner (internal decision 2026-10-25: collect public records to demonstrate coverage)",
+   "source_id": "tx_bexar_struckoff",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "struck_off_properties",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "docs/sources-batch-2026-10-25-texas.md; scripts/harvest_tx_bexar_struckoff.py (bexar.org/1670/About-Us 'Current Struck-Off Property List' read 2026-10-25)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "parse",
+   "reviewer": "product owner (internal decision 2026-10-25: collect public records to demonstrate coverage)",
+   "source_id": "tx_bexar_struckoff",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "struck_off_properties",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "docs/sources-batch-2026-10-25-texas.md; scripts/harvest_tx_bexar_struckoff.py (bexar.org/1670/About-Us 'Current Struck-Off Property List' read 2026-10-25)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "store",
+   "reviewer": "product owner (internal decision 2026-10-25: collect public records to demonstrate coverage)",
+   "source_id": "tx_bexar_struckoff",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
     "scripts/auction_events_writer.py",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
@@ -2908,12 +2971,12 @@
  "interim_max_days": 210,
  "summary": {
   "by_expiry": {
-   "2027-04-12": 133
+   "2027-04-12": 136
   },
   "by_finding": {
    "REVIEWER_IS_NOT_A_DECISION": 77
   },
-  "records": 133,
-  "sources": 36
+  "records": 136,
+  "sources": 37
  }
 }

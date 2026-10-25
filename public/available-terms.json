@@ -154,6 +154,18 @@
   },
   {
    "state": "TX",
+   "source_id": "tx_bexar_struckoff",
+   "basis": "BASE_PRICE_PLUS_ADDITIONS",
+   "figure_label": "Struck-off amount (County list)",
+   "figure_note": "The County's struck-off amount, before interim taxes and fees - not the total to buy. The County adds interim taxes (tax years not in the judgment), any code-compliance liens not in the tax suit, and the deed recording fee, and says the listed amounts are not guaranteed. Every sale needs Commissioners Court approval.",
+   "additions": "recording_fees",
+   "included_in_figure": "The list's figure is the 'Struck off amt w/o interim tax / fees'; per the County, a struck-off property is sold at the lesser of the court judgment and the adjudged value. Interim taxes and code-compliance liens are added by the County and are not in the figure.",
+   "quote": "\"Properties are sold at a minimum amount of the court judgment against the property or for the adjudged value of the property, whichever is less. In addition to paying the struck off amount, the property will incur the following additional costs; Code Compliance Liens ... Interim Taxes ... Deed Recording fee\" (Bexar County Public Works, Tax Foreclosure Struck Off Properties); list footer: \"THE DOLLAR AMOUNTS LISTED ARE NOT GUARANTEED TO BE ACCURATE\"",
+   "evidence": "bexar.org DocumentCenter 41851 (general information) and the 'Current Struck-Off Property List' (DocumentCenter 41852), both read 2026-10-25; scripts/harvest_tx_bexar_struckoff.py; docs/sources-batch-2026-10-25-texas.md",
+   "observed_on": "2026-10-25"
+  },
+  {
+   "state": "TX",
    "source_id": "tx_lgbs",
    "basis": "MINIMUM_BID",
    "figure_label": "Minimum bid (vendor listing)",

@@ -3468,3 +3468,21 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   error`, `?boundaryids=<id>,<id>` (outline ids the cards see).
 - `sw.js` -> `tdw-shell-v137` (2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
 
+## Texas sources batch: Bexar / Dallas struck-off lists (2026-10-25, gated, no migration)
+
+Full description: `docs/sources-batch-2026-10-25-texas.md`. Stable facts:
+- **Bexar** (`tx_bexar_struckoff`, `scripts/harvest_tx_bexar_struckoff.py`): Bexar County Public Works' own "Current
+  Struck-Off Property List" PDF, found by its link text on `bexar.org/1670/About-Us`. It is a scanned PDF with an OCR text
+  layer; the reader does no OCR itself.
+  - Mapping: account → `case_no`, suit (cause) → `parcel`, the struck-off amount → `purchase_amount` with
+    `PUBLISHED_AMOUNT_KIND_UNSPECIFIED`, inventory type `STRUCK_OFF_HELD_IN_TRUST`.
+  - OCR-garbled lines are refused, never repaired. The "MULTIPLE ACCOUNTS" section is counted and left unread.
+  - There is no EMPTY outcome. The reader writes its own status file, `out/harvest_tx_struckoff_status.json`
+    (state TX).
+  - Live read: 41 rows kept, 3 refused, 7 multi-account accounts unread, list as of 2026-10-06 → INCOMPLETE.
+  - Governance: fetch / parse / store on interim risk acceptance (`excluded_from_paid_tier`, expires 2027-04-12), with no
+    display. The registry row is `MANUAL_REVIEW_REQUIRED` / `UNREVIEWED`. No workflow or sync uses it.
+- **Dallas:** the County's page links its list only to the LGBS vendor map, and the County's own `StruckListWorking`
+  PDFs answer 404. The registry row is `HISTORICAL_ONLY`, plus the candidate `tx_dallas_struckoff`. There is no reader,
+  and no vendor URL is recorded.
+

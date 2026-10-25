@@ -1713,6 +1713,15 @@
   },
   {
    "state": "TX",
+   "source_id": "tx_bexar_struckoff",
+   "county": "Bexar",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
    "source_id": "tx_hctax",
    "county": "Harris",
    "status": "NOT_FOUND",
