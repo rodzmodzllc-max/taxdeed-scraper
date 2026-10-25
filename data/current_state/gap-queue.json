@@ -12,9 +12,9 @@
    "NEEDS_REVIEW": 8,
    "NOT_FOUND": 32,
    "UNAVAILABLE": 6,
-   "VERIFIED": 26
+   "VERIFIED": 27
   },
-  "acquisition_units": 72,
+  "acquisition_units": 73,
   "acquisition_unresolved": 46,
   "state_ledger_by_classification": {
    "APPROVAL_UNRESOLVED": 7,
@@ -941,11 +941,11 @@
    "kind": "state_ledger",
    "ledger": "AVAILABLE",
    "next_action": "Owner publication review of the source (admin publication panel): approve, restrict or block",
-   "process_verified": false,
-   "reason": "1 production source(s), none APPROVED for customers: UNREVIEWED",
+   "process_verified": true,
+   "reason": "2 production source(s), none APPROVED for customers: UNREVIEWED",
    "requires": "blocked by source-use permission or an owner decision",
    "rule_verified": false,
-   "source": "1 production source(s) of 1 known",
+   "source": "2 production source(s) of 2 known",
    "source_accessible": "yes",
    "state": "PA",
    "status": "APPROVAL_UNRESOLVED"

@@ -18,6 +18,31 @@
  "sources": [
   {
    "access": "NOT_CHECKED",
+   "access_note": "verification MANUAL_REVIEW_REQUIRED",
+   "county": "STATEWIDE",
+   "evidence": "LIVE READ 2026-10-25 (assistant sandbox, value-free): the land-sales page's 68 county transcript links, the agency's 'How to Read the Transcript' PDF and ONE transcript (file 01); docs/sources-batch-2026-10-25-phl-al.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-25",
+   "legacy_status": "UNREVIEWED",
+   "name": "Transcripts of Delinquent Property: 'tax delinquent properties currently in State inventory' (weekly per-county PDF); C/S# certificate of sale number; price quote by electronic application",
+   "next_action": "Publication / rights review (registry restrictions: none recorded)",
+   "origin": "registry",
+   "publisher": "Alabama Department of Revenue, Property Tax Division",
+   "roles": [
+    "acquisition",
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "AL:STATEWIDE:al_ador_transcripts",
+   "source_type": "DOCUMENT",
+   "state": "AL",
+   "url": "https://www.revenue.alabama.gov/property-tax/tax-delinquent-property-and-land-sales/"
+  },
+  {
+   "access": "NOT_CHECKED",
    "access_note": "verification SEARCH_EVIDENCE_ONLY",
    "county": "STATEWIDE",
    "evidence": "WEB SEARCH 2026-09-30 (revenue.alabama.gov page titles, URLs, query strings, snippets - harvesters/otc/adapters/alabama.py ADOR_EVIDENCE); MASTER LAFT/OTC/STRUCK-OFF AUDIT 2026-09-29",
@@ -5530,6 +5555,31 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_expansion.py --state PA; last completeness UNKNOWN",
+   "county": "Philadelphia",
+   "evidence": "LIVE READ 2026-10-25 (live read 2026-10-25 (assistant sandbox, value-free counts; docs/sources-batch-2026-10-25-phl-al.md)): Philadelphia County - pa_philadelphia_lama_available; NO PUBLICATION DECISION YET (UNREVIEWED); docs/sources-batch-2026-10-25-phl-al.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-25",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "origin": "registry",
+   "publisher": "Philadelphia County",
+   "roles": [
+    "acquisition",
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "PA:Philadelphia:pa_philadelphia_lama_available",
+   "source_type": "GOVERNMENT",
+   "state": "PA",
+   "url": "https://phillylandbank.org/view-properties-map/"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "read by the value-free capture, run 37010171899; finding in data/available_discovery_evidence.csv",
    "county": "Aiken",
    "evidence": "data/available_discovery_pages.csv (web search 2026-10-02): Forfeited Land Commission service page",
@@ -8208,11 +8258,12 @@
   "AL": {
    "APPROVED": 0,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 1,
+   "REVIEW_REQUIRED": 2,
    "by_type": {
+    "DOCUMENT": 1,
     "GOVERNMENT": 1
    },
-   "sources": 1
+   "sources": 2
   },
   "AR": {
    "APPROVED": 0,
@@ -8322,12 +8373,12 @@
   "PA": {
    "APPROVED": 3,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 1,
+   "REVIEW_REQUIRED": 2,
    "by_type": {
     "DOCUMENT": 1,
-    "GOVERNMENT": 3
+    "GOVERNMENT": 4
    },
-   "sources": 4
+   "sources": 5
   },
   "SC": {
    "APPROVED": 2,

@@ -132,11 +132,21 @@ def runnable_sources(state: str, reg: dict) -> tuple[list, list[tuple[str, str]]
     that is not publishable, makes zero requests (auction and certificate logic
     unchanged). Since 2026-10-12 a source must also hold a recorded `fetch`
     permission (data/source_permissions.csv); without one it is reported as
-    PERMISSION_<reason> and makes zero requests."""
+    PERMISSION_<reason> and makes zero requests. Since 2026-10-25 a source in
+    expansion.COLLECTION_HOLD (shipped gated) is never requested either: it is
+    reported as '<decision> (collection hold)'."""
     import source_publication as SP  # noqa: PLC0415
     run, gated = [], []
+    hold = getattr(EX, "COLLECTION_HOLD", frozenset())
     for src in EX.SOURCES.get(state, ()):
         row = reg.get(src.config.source_id)
+        if src.config.source_id in hold:
+            # A source shipped gated (expansion.COLLECTION_HOLD): never
+            # requested, whatever its review state or permissions say.
+            entry = (src.config.source_id, f"{SP.decision(row, src.config.record_source)} (collection hold)")
+            if entry not in gated:
+                gated.append(entry)
+            continue
         if SP.collectable(row, src.config.record_source):
             run.append(src)
         elif (src.config.source_id, SP.decision(row, src.config.record_source)) not in gated:

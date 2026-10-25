@@ -61,6 +61,8 @@ AVAILABLE_FIVE_HOSTS = {   # AVAILABLE expansion 2026-10-04 (docs/available-expa
     "pa_fayette_repository": "https://www.fayettecountypa.org/DocumentCenter/View/9761/",
     "mn_ramsey_tax_forfeit": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/",
     "tn_shelby_landbank": "https://public-sctn.epropertyplus.com",     # Tennessee 2026-10-08 (docs/tennessee-survey.md)
+    # Sources batch 2026-10-25 (docs/sources-batch-2026-10-25-phl-al.md)
+    "pa_philadelphia_lama_available": "https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/LAMAAssets/",
 }
 FIVE_STATE_HOSTS = {
     "co_douglas_county_held_liens": "https://services.arcgis.com/seTexOicoRXDvRsJ/",
@@ -135,7 +137,7 @@ def test_r02_every_config_is_column_verified_and_pinned_to_its_host():
     certs = {"co_morgan_county_held_certificates", "co_douglas_county_held_liens"}
     assert {kinds[k] for k in certs} == {"certificate"}
     # AVAILABLE only where the source itself offers government-held property (the AVAILABLE sprint's sources).
-    available = EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS
+    available = EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS | EX.BATCH_2026_10_25_SOURCE_IDS
     assert {kinds[k] for k in available} == {"laft"}
     assert {v for k, v in kinds.items() if k not in certs | available} == {"auction"}
 

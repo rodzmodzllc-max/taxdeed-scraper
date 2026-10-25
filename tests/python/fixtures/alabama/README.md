@@ -21,3 +21,16 @@ every CS number, parcel number and name) is INVENTED for the test and
 must not be read as the source's real layout or data. A fixture captured
 from the live page replaces these when the source is verified; until
 then the `parser_fixture_validated` activation requirement stays unmet.
+
+## `transcript_04_SYNTHETIC.txt` (2026-10-25)
+
+Text lines in the layout of the ADOR weekly county transcript PDFs
+(`WWW_TRANS_<NN>.PDF`), as ONE live transcript (file 01) was read
+value-free on 2026-10-25: the four-line page header, a record's first
+line (name, CO., YR., C/S#, CLASS, CODE, PARCEL ID, description), the
+amount line, description continuation lines, a page break between a
+record and its amount line, a name printed against the county code with
+no space. Every name, C/S#, parcel ID, description and amount here is
+INVENTED; nothing from the real transcript is in this repository. It
+exercises `harvesters/otc/adapters/alabama_transcripts.py`; it is not a
+capture of the live source, so `parser_fixture_validated` stays False.

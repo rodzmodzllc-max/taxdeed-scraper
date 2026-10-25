@@ -3468,3 +3468,22 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   error`, `?boundaryids=<id>,<id>` (outline ids the cards see).
 - `sw.js` -> `tdw-shell-v137` (2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
 
+## Sources batch: Philadelphia + Alabama ADOR transcripts (2026-10-25, PR branch, no migration)
+
+Full description: `docs/sources-batch-2026-10-25-phl-al.md`. Stable facts:
+- **`expansion.COLLECTION_HOLD`**: a source named there is never requested; `harvest_expansion.runnable_sources()`
+  reports it `GATED ... (collection hold) - 0 requests`. It exists because an UNREVIEWED AVAILABLE source is otherwise
+  COLLECTED (`source_publication.collectable`). Removing a source from the set is the enabling change.
+- **`pa_philadelphia_lama_available`** (held, UNREVIEWED): City LAMAAssets layer filtered with the Philadelphia Land
+  Bank map's own definition expression (four 'Owned - Available...' statuses; 1,769 rows read live). Identifier
+  `mapreg_1`, parcel `opabrt`, polygon centroid. Never mapped: `agency` and the other non-property columns. Basis
+  `OFFER_NEGOTIATED`. Its expansion.py block is appended separately so it merges with other branches.
+- **`al_ador_transcripts`** (`harvesters/otc/adapters/alabama_transcripts.py`): weekly per-county PDFs
+  `WWW_TRANS_<NN>.PDF`, 68 files. The county-to-file map is the land-sales page's own and is NOT alphabetical (01
+  Jefferson-Birmingham, 68 Jefferson-Bessemer). It is a line parser (no PDF tables). C/S# is the identifier; NAME and
+  the tax-sale amount are never read; `QUOTED_ON_APPLICATION`. One file was read live; the fixtures are synthetic.
+  Nothing is COMPLETE or EMPTY until fixture-validated. AL is not activated, so `harvest()` refuses before any
+  request. Registry row non-production.
+- Permissions: fetch / parse / store `INTERNAL_RISK_ACCEPTANCE`, `excluded_from_paid_tier`, expiring 2027-04-12;
+  no display.
+

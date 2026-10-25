@@ -1669,6 +1669,18 @@
    ]
   },
   {
+   "state": "PA",
+   "source_id": "pa_philadelphia_lama_available",
+   "county": "Philadelphia",
+   "status": "VERIFIED",
+   "basis": "registry",
+   "reason": "The source's own purchase document, recorded with the source",
+   "attempted_on": "2026-10-25",
+   "authority_type": "county_land_bank",
+   "authority": "Philadelphia Land Bank",
+   "scope": "source"
+  },
+  {
    "state": "SC",
    "source_id": "sc_georgetown_forfeited_land",
    "county": "Georgetown",

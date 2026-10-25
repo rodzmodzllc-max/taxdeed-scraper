@@ -416,7 +416,7 @@ def test_x01_fl_and_tx_behaviour_is_unchanged():
     assert 'title: "OTC Catalog — Struck-Off Inventory"' in app and 'title: "Redeemable Tax Deeds"' in app
     # Alabama / Arkansas: one AVAILABLE-ledger candidate each, registered, never runnable, not activated.
     for code, sid in (("AL", "al_ador_state_land"), ("AR", "ar_cosl_post_auction")):
-        rows = [r for r in ROWS if r.state == code]
+        rows = [r for r in ROWS if r.state == code and r.source_id != "al_ador_transcripts"]   # + AL transcripts 2026-10-25
         assert len(rows) == 1 and rows[0].source_id == sid and rows[0].ledger_set == {"AVAILABLE"}, code
         assert not rows[0].is_production and not rows[0].runnable and not states.is_activated(code) and states.is_supported(code)
     # Louisiana (activated 2026-09-30): its one AVAILABLE source is production and runnable.

@@ -22,6 +22,18 @@
    "reason": "Registered, not collected."
   },
   {
+   "source_id": "al_ador_transcripts",
+   "state": "AL",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "ar_cosl_post_auction",
    "state": "AR",
    "publication_status": "UNREVIEWED",
@@ -471,6 +483,18 @@
     "acquisition": "gap"
    },
    "reason": "UNREVIEWED: tester preview only."
+  },
+  {
+   "source_id": "pa_philadelphia_lama_available",
+   "state": "PA",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
   },
   {
    "source_id": "sc_georgetown_forfeited_land",

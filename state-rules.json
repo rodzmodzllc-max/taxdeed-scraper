@@ -3149,6 +3149,16 @@
          "source_id": "pa_fayette_repository"
         }
        ]
+      },
+      {
+       "county": "Philadelphia",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "UNREVIEWED",
+         "source_id": "pa_philadelphia_lama_available"
+        }
+       ]
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
@@ -5476,7 +5486,7 @@
     "FAIL": 0,
     "NOT_APPLICABLE": 2,
     "NOT_VERIFIED": 5,
-    "PASS": 14
+    "PASS": 15
    },
    "findings": [
     {
@@ -5521,21 +5531,21 @@
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 1 source(s) (pa_fayette_repository) read 2026-10-04",
+     "detail": "COUNTY_DEPENDENT: 2 source(s) (pa_fayette_repository, pa_philadelphia_lama_available) read 2026-10-04",
      "state": "PA",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "county_coverage",
-     "detail": "1 county: Fayette",
+     "detail": "2 counties: Fayette, Philadelphia",
      "state": "PA",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: pa_fayette_repository",
+     "detail": "TRACKED: pa_fayette_repository, pa_philadelphia_lama_available",
      "state": "PA",
      "status": "PASS",
      "subject": "AVAILABLE"
@@ -5589,14 +5599,21 @@
      "subject": "pa_fayette_repository"
     },
     {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "PA",
+     "status": "PASS",
+     "subject": "pa_philadelphia_lama_available"
+    },
+    {
      "check": "available_terms",
-     "detail": "every AVAILABLE source has a terms row (1)",
+     "detail": "every AVAILABLE source has a terms row (2)",
      "state": "PA",
      "status": "PASS"
     },
     {
      "check": "acquisition_path",
-     "detail": "0/1 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+     "detail": "1/2 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
      "state": "PA",
      "status": "NOT_VERIFIED"
     },

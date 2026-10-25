@@ -7116,14 +7116,17 @@
     "AVAILABLE": {
      "acquisition": {
       "by_status": {
-       "NEEDS_REVIEW": 1
+       "NEEDS_REVIEW": 1,
+       "VERIFIED": 1
       },
-      "units": 1,
-      "verified_units": []
+      "units": 2,
+      "verified_units": [
+       "Philadelphia (pa_philadelphia_lama_available)"
+      ]
      },
      "classification": "APPROVAL_UNRESOLVED",
      "classification_reasons": [
-      "1 production source(s), none APPROVED for customers: UNREVIEWED"
+      "2 production source(s), none APPROVED for customers: UNREVIEWED"
      ],
      "counties": [
       {
@@ -7261,11 +7264,12 @@
      "sources": {
       "approved_for_customers": 0,
       "counties": [
-       "Fayette"
+       "Fayette",
+       "Philadelphia"
       ],
-      "implemented": 1,
-      "known": 1,
-      "restricted": 1,
+      "implemented": 2,
+      "known": 2,
+      "restricted": 2,
       "rows": [
        {
         "amount_kind": "OPENING_BID",
@@ -7283,9 +7287,26 @@
         "source_id": "pa_fayette_repository",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
+       },
+       {
+        "amount_kind": "NOT_PUBLISHED",
+        "approved_for_customers": false,
+        "canonical_url": "https://phillylandbank.org/view-properties-map/",
+        "county": "Philadelphia",
+        "governance_status": "APPROVED",
+        "harvester": "harvest_expansion.py --state PA",
+        "has_evidence": true,
+        "implemented": true,
+        "last_checked": "2026-10-25",
+        "publication_status": "UNREVIEWED",
+        "publishing_unit_name": "Philadelphia County",
+        "restrictions": "AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.",
+        "source_id": "pa_philadelphia_lama_available",
+        "update_frequency": "not published by the source (read on each run)",
+        "verification_status": "PRODUCTION_VERIFIED"
        }
       ],
-      "with_evidence": 1
+      "with_evidence": 2
      },
      "tracked": "TRACKED",
      "withheld": {

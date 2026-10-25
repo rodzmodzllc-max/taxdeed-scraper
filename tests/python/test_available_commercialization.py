@@ -67,7 +67,7 @@ def test_g01_committed_registry_publishes_only_the_grandfathered_production_sour
                 # An auction / lien source awaiting review writes nothing; an AVAILABLE
                 # one is collected for development and labelled, never customer-published
                 # (collection vs customer publication, 2026-10-02).
-                expected = ("not customer-published" if r.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS
+                expected = ("not customer-published" if r.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS | EX.BATCH_2026_10_25_SOURCE_IDS
                             else "no row is written")
                 assert eff == "UNREVIEWED" and expected in r.restrictions, (r.state, r.source_id)
         elif r.is_production:
@@ -393,7 +393,7 @@ def test_x01_fl_tx_al_ar_la_az_regressions():
     # AL / AR / AZ: one row each, UNREVIEWED, never runnable; AZ is the certificate ledger.
     for code, sid, ledger in (("AL", "al_ador_state_land", "AVAILABLE"), ("AR", "ar_cosl_post_auction", "AVAILABLE"),
                               ("AZ", "az_maricopa_state_cp", "LIENS_CERTIFICATES")):
-        rows = [r for r in ROWS if r.state == code]
+        rows = [r for r in ROWS if r.state == code and r.source_id != "al_ador_transcripts"]   # + AL transcripts 2026-10-25
         assert len(rows) == 1 and rows[0].source_id == sid and rows[0].ledger_set == {ledger} and not rows[0].runnable
         assert rows[0].publication_status == "UNREVIEWED" and rows[0].purchase_path_mode in ("", "online_instructions", "application")
     # LA (activated 2026-09-30): one production row, reviewed APPROVED, runnable, no purchase path.

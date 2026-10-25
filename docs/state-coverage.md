@@ -114,12 +114,12 @@ OK - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
 | AUCTIONS | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
-| AVAILABLE | COUNTY_DEPENDENT | APPROVAL_UNRESOLVED | 1 / 1 / 0 | 376 | 0 | 0 | 0 of 1 | An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only. |
+| AVAILABLE | COUNTY_DEPENDENT | APPROVAL_UNRESOLVED | 2 / 2 / 0 | 376 | 0 | 0 | 1 of 2 | An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only. |
 | LIENS_CERTIFICATES | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
 PA - AUCTIONS: eligibility NOT_VERIFIED; no production source
 
 PA - AVAILABLE field population (active rows, snapshot): amount 375/376; bid_amount_mismatch 0/376; coords 0/376; dup_parcel 0/376; flood_checked 0/376; laft_bid_without_amount 0/376; link_not_https 0/376; list_as_of 376/376; list_as_of_future 0/376; never_seen 0/376; parcel 376/376; parcel_no_digit 0/376; past_sale 0/376; path_typed 0/376; provenance 376/376; seen_gt36h 0/376; seen_order_bad 0/376; source_link 376/376
-PA - AVAILABLE: 1 production source(s), none APPROVED for customers: UNREVIEWED
+PA - AVAILABLE: 2 production source(s), none APPROVED for customers: UNREVIEWED
 PA - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 
 ## SC
