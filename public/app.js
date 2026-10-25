@@ -15524,7 +15524,7 @@ function cardAcqBadgeHtml(p) {
 // Choice: ?look=<name> in the URL, else per browser in localStorage.
 // Declared with var / function declarations: render() runs during module
 // init and reaches experienceApi() (TDZ).
-var EXPERIENCES = { classic: "Classic", tactile: "Tactile", terrain: "Terrain" };
+var EXPERIENCES = { classic: "Classic", merged: "Merged", tactile: "Tactile", terrain: "Terrain" };
 var EXPERIENCE_KEY = "tdw_experience_v1";
 var EXPERIENCE_LOADED = {};
 var XP_API = null;
@@ -15609,7 +15609,7 @@ function installLookSwitch() {
     `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"></path><path d="M3 13l9 5 9-5"></path></svg>` +
     `<span class="look-label">Look</span><span class="look-name">Classic</span></button>` +
     `<div id="lookMenu" class="look-menu" role="menu" hidden>` +
-    Object.keys(EXPERIENCES).map(k => `<button type="button" role="menuitemradio" aria-checked="false" data-look="${k}">${EXPERIENCES[k]}<span class="look-sub">${k === "classic" ? "The current card list" : k === "tactile" ? "Cards you handle: placards, folders, slips" : "A living map: time, place and layers"}</span></button>`).join("") +
+    Object.keys(EXPERIENCES).map(k => `<button type="button" role="menuitemradio" aria-checked="false" data-look="${k}">${EXPERIENCES[k]}<span class="look-sub">${k === "classic" ? "The current card list" : k === "merged" ? "Tactile objects and stamps, with the sale-day calendar" : k === "tactile" ? "Cards you handle: placards, folders, slips" : "A living map: time, place and layers"}</span></button>`).join("") +
     `</div>`;
   host.insertBefore(wrap, host.firstChild);
   const btn = wrap.querySelector("#lookBtn"), menu = wrap.querySelector("#lookMenu");

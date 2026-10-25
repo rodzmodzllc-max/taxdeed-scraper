@@ -62,6 +62,8 @@ DEPLOYED_BUNDLE_FILES = (
     "experience-tactile.js",
     "experience-terrain.css",
     "experience-terrain.js",
+    "experience-merged.css",
+    "experience-merged.js",
     # 2026-10-03 boot resilience: startup watchdog + supabase-js loader and
     # its same-origin fallback copy.
     "boot.js",

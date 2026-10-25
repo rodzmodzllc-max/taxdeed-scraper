@@ -3466,7 +3466,7 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   notice, disclaimer and metadata (on a card: short credit on the picture, the full line in the photo bubble); geometry
   never rides on a property row or in an export. Stub knobs `?boundary=ok|fl|multi|none|unauth|invalid|nolicencelink|
   error`, `?boundaryids=<id>,<id>` (outline ids the cards see).
-- `sw.js` -> `tdw-shell-v141` (2026-10-25: the header Look switch and the trial Tactile / Terrain List experiences - see "Look switch" below; v138-v140 are held by the redesign PRs. v137 was 2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
+- `sw.js` -> `tdw-shell-v142` (2026-10-25: header and filter cleanup, path-first customer view, essentials-first cards and the Merged look; v141 was the header Look switch and the trial Tactile / Terrain List experiences - see "Look switch" below; v138-v140 are held by the redesign PRs. v137 was 2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
 
 
 ## Look switch: Classic / Tactile / Terrain (2026-10-25, PR open, frontend only)
