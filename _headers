@@ -136,3 +136,59 @@
   X-Frame-Options: DENY
   Permissions-Policy: geolocation=(), microphone=(), camera=()
   Content-Security-Policy: default-src 'self'; script-src 'self' https://esm.sh 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com *.google.com blob: https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com *.google.com https://api.maptiler.com https://*.supabase.co https://imagery.nationalmap.gov; connect-src 'self' https://*.supabase.co https://esm.sh https://*.googleapis.com *.google.com https://*.gstatic.com https://api.maptiler.com; frame-src https://www.openstreetmap.org; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+
+# Shell files (2026-10-24). Cloudflare Pages' default for static assets is a
+# four-hour max-age, so after a deploy a returning browser kept serving the old
+# app.js and identity.css from its own cache until that expired - the site
+# "looked the same" after a merge. These files always revalidate (a 304 when
+# unchanged). They are the service worker's precache list plus config.js.
+/app.js
+  Cache-Control: no-cache
+/identity.css
+  Cache-Control: no-cache
+/styles.css
+  Cache-Control: no-cache
+/explore.css
+  Cache-Control: no-cache
+/explore.js
+  Cache-Control: no-cache
+/boot.js
+  Cache-Control: no-cache
+/supabase-loader.js
+  Cache-Control: no-cache
+/supabase-js.umd.js
+  Cache-Control: no-cache
+/satellite-map.js
+  Cache-Control: no-cache
+/parcel-boundary.js
+  Cache-Control: no-cache
+/admin.js
+  Cache-Control: no-cache
+/config.js
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/tx.html
+  Cache-Control: no-cache
+/la.html
+  Cache-Control: no-cache
+/mi.html
+  Cache-Control: no-cache
+/wy.html
+  Cache-Control: no-cache
+/sc.html
+  Cache-Control: no-cache
+/co.html
+  Cache-Control: no-cache
+/wi.html
+  Cache-Control: no-cache
+/mo.html
+  Cache-Control: no-cache
+/ok.html
+  Cache-Control: no-cache
+/pa.html
+  Cache-Control: no-cache
+/mn.html
+  Cache-Control: no-cache
+/tn.html
+  Cache-Control: no-cache

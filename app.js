@@ -5748,15 +5748,31 @@ function availableCoverageHtml(c) {
   }
   return `<span class="empty-hint available-coverage" data-coverage="${esc(c.status)}"><b>Why this list is empty:</b> ${esc(AVAILABLE_COVERAGE_LABELS[c.status])}${sub ? ` ${esc(sub)}` : ""}</span>`;
 }
+// Not rendered since 2026-10-24: every cell (what, where, when, bid, value,
+// missing) is shown once in the title, the Decision block or Financial, and the
+// block repeated the bid and county values on desktop. Kept for reference.
+// What kind of record this is, in the state's own terms (2026-10-24: moved out
+// of the At-a-glance block, which is no longer rendered, into the status band).
+// A Texas "laft" row is LGBS struck-off / future-sale inventory, never
+// Florida's statutory over-the-counter list - see kickerParts(); a Michigan
+// auction is a Michigan tax sale auction, never a Florida tax deed auction.
+function recordKindText(p) {
+  const region = regionOf(p);
+  if (p.source === "certificate") return null;
+  if (p.source === "laft") {
+    if (isDatedList(p)) return "Adjudicated property (Parish open-data list)";
+    if (region === "TX") return "Texas struck-off / future-sale inventory (vendor listing)";
+    if (region === "FL") return "Lands Available for Taxes (over the counter from the clerk)";
+    return availableProgram(p);
+  }
+  return region === "FL" ? "Florida tax deed auction" : `${(STATE_META[region] && STATE_META[region].name) || region} tax sale auction`;
+}
 function opportunitySummaryHtml(p) {
   const region = regionOf(p);
   const isLaft = p.source === "laft";
   // A Texas "laft" row is LGBS struck-off / future-sale inventory, never
   // Florida's statutory over-the-counter list - see kickerParts().
-  const what = isLaft
-    ? (isDatedList(p) ? "Adjudicated property (Parish open-data list)" : region === "TX" ? "Texas struck-off / future-sale inventory (vendor listing)"
-      : region === "FL" ? "Lands Available for Taxes (over the counter from the clerk)" : availableProgram(p))
-    : (region === "FL" ? "Florida tax deed auction" : `${(STATE_META[region] && STATE_META[region].name) || region} tax sale auction`);
+  const what = recordKindText(p);
   const src = harvesterSourceLabel(p);
   const street = realAddress(p);
   const where = `${street ? esc(street) : `<span class="muted">No street address in listing</span>`}<span class="opp-sub">${esc(p.county)} ${UNIT_WORD}, ${esc(region)}${hasParcel(p) ? ` · Parcel ${esc(parcelOf(p))}` : ""}${caseIdentText(p) ? ` · ${esc(caseIdentText(p))}` : ""}</span>`;
@@ -9385,8 +9401,13 @@ function detailStatusHtml(p) {
   // The record says which of the three ledgers it is, whatever this state calls
   // the list (ledgerRecordView: AUCTIONS / AVAILABLE / LIENS_CERTIFICATES).
   const rec = ledgerRecordView(p);
-  const ledgerSub = rec && rec.ledger_name !== items[0][1] ? `<span class="dossier-sub">${esc(rec.ledger_name)} ledger</span>` : "";
-  return `<dl class="dossier-status" aria-label="Current status"${rec ? ` data-ledger-record="${esc(rec.ledger)}"` : ""}>${items.map(([t, v, c], i) => `<div><dt>${esc(t)}</dt><dd class="${esc(c)}">${esc(v)}${i === 0 ? ledgerSub : ""}</dd></div>`).join("")}${researchStatusCellHtml(p)}</dl>` + (p.source === "auction" ? `<p class="result-jump"><button type="button" class="link-btn" data-action="jump" data-target="decision">Sale result and bidding process ↓</button></p>` : "");
+  const kind = recordKindText(p);
+  const ledgerSub = (rec && rec.ledger_name !== items[0][1] ? `<span class="dossier-sub">${esc(rec.ledger_name)} ledger</span>` : "")
+    + (kind && kind !== items[0][1] ? `<span class="dossier-sub record-kind">${esc(kind)}</span>` : "");
+  // The source's own sale-status wording, verbatim (Texas tx_sale_status). It
+  // used to appear only in the At-a-glance block; since 2026-10-24 it sits here.
+  const statusSub = p.tx_sale_status ? `<span class="dossier-sub source-status-raw" title="The source's own status wording, verbatim">Source status: ${esc(String(p.tx_sale_status))}</span>` : "";
+  return `<dl class="dossier-status" aria-label="Current status"${rec ? ` data-ledger-record="${esc(rec.ledger)}"` : ""}>${items.map(([t, v, c], i) => `<div><dt>${esc(t)}</dt><dd class="${esc(c)}">${esc(v)}${i === 0 ? ledgerSub : i === 1 ? statusSub : ""}</dd></div>`).join("")}${researchStatusCellHtml(p)}</dl>` + (p.source === "auction" ? `<p class="result-jump"><button type="button" class="link-btn" data-action="jump" data-target="decision">Sale result and bidding process ↓</button></p>` : "");
 }
 // The customer's own research state in the property page's status band
 // (2026-10-06): visible at the top so it is never buried, styled and labelled
@@ -9579,7 +9600,6 @@ function detailHtml(p) {
     ${sourceReviewBannerHtml(p)}
     ${acquireBlockHtml(p)}
     ${financialPositionHtml(p)}
-    ${opportunitySummaryHtml(p)}
     ${availableDecisionHtml(p)}
     ${auctionDecisionHtml(p)}
     ${inventoryCardHtml(p)}
