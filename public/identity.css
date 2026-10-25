@@ -1175,7 +1175,6 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
    DOM is unchanged; desktop keeps both. */
 @media (max-width:768px){
   .detail-nav{display:none}
-  .detail-section[data-section="summary"]{display:none}
 }
 
 /* Touch targets, second pass (2026-10-23). Lives here, not in explore.css,

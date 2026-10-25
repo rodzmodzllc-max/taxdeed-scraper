@@ -1007,19 +1007,11 @@ await glancePage.waitForTimeout(800);
 // p1: FL auction, real address, parcel + case, published bid, just value
 // AND assessed on file, no photo (NULL), no coordinates, flood never
 // checked -> exactly those three gaps listed, nothing invented.
-results.oppCellLabels = await glancePage.locator('#detailPanel .opp-cell .opp-label').allTextContents();
-// innerText, not textContent: the .opp-sub line is display:block, so the
-// rendered text has a break between the value and its sub-line.
-const oppText = n => glancePage.locator('#detailPanel .opp-cell').nth(n).locator('.opp-val').evaluate(el => el.innerText.replace(/\s+/g, ' ').trim());
-results.oppWhatText = await oppText(0);
-results.oppWhereText = await oppText(1);
-results.oppWhenClass = await glancePage.locator('#detailPanel .opp-cell').nth(2).locator('.opp-val').evaluate(el => el.className);
-results.oppBidText = await oppText(3);
-results.oppValueText = await oppText(4);
-results.oppGaps = await glancePage.locator('#detailPanel .opp-gaps li').allTextContents();
-// Contradiction fixed 2026-10-23: an unverified auction process is named as a gap, so
-// "What is not known?" never reads clear while "How do I register and bid?" says not verified.
-results.oppGapNamesRegistration = results.oppGaps.includes('Registration, deposit and payment rules not verified');
+// 2026-10-24: the At-a-glance block is no longer rendered - Decision, Financial and
+// the title carry every cell of it once. The block's absence is the check, and the
+// registration-gap contradiction fix is read from Decision's own gap list.
+results.glanceBlockRemoved = await glancePage.locator('#detailPanel .opp-summary').count();
+results.decGapNamesRegistration = (await glancePage.locator('#detailPanel .decision-card .dec-gaps li').allTextContents()).includes('Registration, deposit and payment rules not verified');
 results.detailNavLabels = await glancePage.locator('#detailPanel .detail-nav button').allTextContents();
 // Jumping to Risk & Legal scrolls the modal's own scroll box, and marks the pill.
 const scrollBefore = await glancePage.locator('#detailPanel').evaluate(el => el.scrollTop);
@@ -1755,9 +1747,9 @@ const txAuctionLinkOf = async scope => ({
 const splitLinkText = key => { results[key + 'Text'] = results[key].text; results[key] = { kind: results[key].kind, anchors: results[key].anchors }; };
 // The ptx1 modal is still open from the checks above.
 results.txLgbsDetailLink = await txAuctionLinkOf(page.locator('#detailModalInner'));
-results.txLgbsDetailGapsNameTheLink = ((await page.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Auction link not published');
+results.txLgbsDetailGapsNameTheLink = ((await page.locator('#detailModalInner .decision-card .dec-gaps').textContent()) || '').includes('Auction link not published');
 // The full page's "When" cell carries the vendor's raw status verbatim.
-results.txLgbsDetailWhen = ((await page.locator('#detailModalInner .opp-cell').nth(2).locator('.opp-val').textContent()) || '').replace(/\s+/g, ' ').trim();
+results.txLgbsDetailWhen = ((await page.locator('#detailModalInner .dossier-status .source-status-raw').first().textContent()) || '').replace(/\s+/g, ' ').trim();
 await page.keyboard.press('Escape');
 await page.waitForTimeout(300);
 results.txLgbsCardLink = await txAuctionLinkOf(txCard);
@@ -2551,7 +2543,7 @@ const txClPage = await newPage({ viewport: { width: 1200, height: 900 } });
 await txClPage.goto(TX_BASE_URL + '#/lands/ptx3', { waitUntil: 'networkidle' });
 await txClPage.waitForTimeout(500);
 results.txStruckOffDetailTag = ((await txClPage.locator('#detailModalInner .prop-county-tag').textContent()) || '').trim();
-results.txStruckOffWhat = ((await txClPage.locator('#detailModalInner .opp-cell').first().textContent()) || '').replace(/\s+/g, ' ').trim();
+results.txStruckOffWhat = ((await txClPage.locator('#detailModalInner .dossier-status .record-kind').textContent()) || '').replace(/\s+/g, ' ').trim();
 results.txStruckOffNeverLandsAvailable = !((await txClPage.locator('#detailModalInner').textContent()) || '').includes('Lands Available for Taxes');
 // Residual from the final review of PR #35: the county-group header on the
 // Texas struck-off ledger used the Florida "Lands Available - fixed price,
@@ -2588,8 +2580,8 @@ results.txInventoryParcel = await invVal(txClPage, 'Parcel #');
 results.txInventoryCause = await invVal(txClPage, 'Tax suit cause #');
 results.txInventoryAnchors = await txClPage.locator('#detailModalInner .inventory-card a').count();
 // Acquisition sprint: the gap is the UNVERIFIED process, never a missing hyperlink.
-results.txInventoryGapNamesAcquisition = !((await txClPage.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Acquisition path not yet verified');   // verified county process (fixture)
-results.txInventoryGapNeverNamesLink = !((await txClPage.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Purchase link not on file');
+results.txInventoryGapNamesAcquisition = !((await txClPage.locator('#detailModalInner .decision-card .dec-gaps').textContent()) || '').includes('Acquisition path not yet verified');   // verified county process (fixture)
+results.txInventoryGapNeverNamesLink = !((await txClPage.locator('#detailModalInner .decision-card .dec-gaps').textContent()) || '').includes('Purchase link not on file');
 await txClPage.close();
 // --- Enrichment phase: the same card on a Florida Lands Available row
 // (p3: every 017/019 column the lifecycle + laft_source_fields write, no
@@ -2719,13 +2711,15 @@ results.decP3How = await decA(decPage, 'how');
 results.decP3HowLinkCount = await decPage.locator('#detailModalInner .decision-card .dec-row[data-q="how"] a').count();
 results.decP3Available = await decA(decPage, 'available');
 results.decP3Where = await decA(decPage, 'where');
-results.decP3Fresh = await decA(decPage, 'fresh');
+// The fixture's last complete read is "now - 3 days", so the absolute date in
+// parentheses changes every day; the relative part is what the check pins.
+results.decP3Fresh = (await decA(decPage, 'fresh')).replace(/\((\w{3} \d{1,2}, \d{4})\)/, '(<date>)');
 results.decP3History = await decA(decPage, 'history');
 results.decP3Related = await decA(decPage, 'related');
 results.decP3Contact = await decA(decPage, 'contact');
 results.decP3Why = await decA(decPage, 'why');
-results.decP3Glance = ((await decPage.locator('#detailModalInner .opp-summary .opp-cell').filter({ hasText: 'How to acquire' }).locator('.opp-val').innerText()) || '').replace(/\s+/g, ' ').trim();
-results.decP3GapNamesAcquisition = !(await decPage.locator('#detailModalInner .opp-gaps').innerText()).includes('Acquisition path not yet verified');   // p3 now carries a verified county process
+results.decP3Glance = ((await decPage.locator('#detailModalInner .decision-card .dec-row[data-q="how"] .dec-a').innerText()) || '').replace(/\s+/g, ' ').trim();
+results.decP3GapNamesAcquisition = !(await decPage.locator('#detailModalInner .decision-card .dec-gaps').innerText()).includes('Acquisition path not yet verified');   // p3 now carries a verified county process
 results.decP3PathEvidenceLine = await decPage.locator('#detailModalInner .prov-available .prov-line').filter({ hasText: 'Path evidence' }).locator('.prov-v').innerText();
 // No score / badge / recommendation vocabulary anywhere on the block.
 results.decNoScoreWords = !/\b(score|badge|recommend|opportunity rating|confidence|AI)\b/i.test(await decPage.locator('#detailModalInner .decision-card').innerText());
@@ -2747,7 +2741,7 @@ results.decP15Contact = await decA(dec2, 'contact');
 results.decP15ContactLinks = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="contact"] a').evaluateAll(els => els.map(e => e.getAttribute('href')));
 results.decP15Why = await decA(dec2, 'why');
 results.decP15SourceDocHrefs = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="source"] a').evaluateAll(els => els.map(e => e.getAttribute('href')));
-results.decP15Glance = ((await dec2.locator('#detailModalInner .opp-summary .opp-cell').filter({ hasText: 'How to acquire' }).locator('.opp-val').innerText()) || '').replace(/\s+/g, ' ').trim();
+results.decP15Glance = ((await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="how"] .dec-a').innerText()) || '').replace(/\s+/g, ' ').trim();
 results.decP15InvAcquire = await invVal(dec2, 'How to acquire');
 // Acquisition sprint 2: scope labels, the first step, and the last-verified
 // line - including a verified county process whose county source could not
@@ -2781,7 +2775,7 @@ results.decP15Fresh = await decA(dec2, 'fresh');
 results.decP15History = await dec2.locator('#detailModalInner .decision-card .dec-history li').evaluateAll(els => els.map(e => e.dataset.kind + '|' + e.querySelector('.dec-when').textContent.trim() + '|' + e.querySelector('.dec-what').firstChild.textContent.trim()));
 results.decP15HistoryNote = ((await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="history"] .dec-history-note').innerText()) || '').trim();
 results.decP15PathEvidenceLine = await dec2.locator('#detailModalInner .prov-available .prov-line').filter({ hasText: 'Path evidence' }).locator('.prov-v').innerText();
-results.decP15GapsNamePathKind = !/Purchase link not on file|Acquisition path not yet verified/.test(await dec2.locator('#detailModalInner .opp-gaps').innerText());
+results.decP15GapsNamePathKind = !/Purchase link not on file|Acquisition path not yet verified/.test(await dec2.locator('#detailModalInner .decision-card .dec-gaps').innerText());
 await dec2.close();
 // The history table missing (migration 021 not applied on a deployment).
 const dec3 = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -5493,7 +5487,8 @@ await navMap.close();
       band[k] = await pg.evaluate(() => {
         const st = document.querySelector('#detailModal:not([hidden]) .dossier-status');
         const dd = st.querySelector('dd');
-        const sub = dd.querySelector('.dossier-sub');
+        // The ledger-name sub only; the record-kind sub ("Florida tax deed auction") is a separate line since 2026-10-24.
+        const sub = dd.querySelector('.dossier-sub:not(.record-kind)');
         return { ledger: st.dataset.ledgerRecord || null, sub: sub ? sub.textContent.trim() : null };
       });
       await pg.close();
@@ -7309,7 +7304,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v136"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v137"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -7534,15 +7529,9 @@ const EXPECTED = {
   bayPreviewHasPurchasePath: true,
   bayPreviewHasAmountKind: true,   // p3's purchase_amount_kind is OPENING_BID (the list's own label)
   // Phase 66: "At a glance" summary + section nav + photo states + show-on-map
-  oppCellLabels: ['What', 'Where', 'When', 'Opening bid', 'Value on file', 'Missing'],   // FL auction: the statutory opening bid (2026-10-05)
-  oppWhatText: 'Florida tax deed auction Source: Fl Realauction Alachua',
-  oppWhereText: '1 Main St Alachua County, FL · Parcel 111 · Case A-1',
-  oppWhenClass: 'opp-val warn', // p1 sells in 3 days - inside SOON_DAYS
-  oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
-  oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
-  oppGaps: ['Registration, deposit and payment rules not verified', 'Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
-  oppGapNamesRegistration: true,
-  detailNavLabels: ["Overview", "Decision", "Tax & Value", "Property", "History", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
+  glanceBlockRemoved: 0,
+  decGapNamesRegistration: true,
+  detailNavLabels: ["Decision", "Tax & Value", "Property", "History", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
   showOnMapBtnText: 'Show county on the Map page',
@@ -7687,7 +7676,7 @@ const EXPECTED = {
   rdNavAuction: {"hash": "#/auctions", "title": "Auction Properties"},
   rdGlobal: {"rows": ["p15:Available"], "all": "See all 1 result in the list →", "expanded": "true"},
   rdGlobalOpen: {"modal": false, "crumbs": ["Home/Available/15 Manatee Ln"]},
-  rdDetail: {"tabs": ["How to acquire", "Financial position", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago (Sep 20, 2026).", "Its source is approved for customer publication."], "acquire": 1},
+  rdDetail: {"tabs": ["How to acquire", "Financial position", "Decision", "Inventory", "Tax & Value", "Property", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago (Sep 20, 2026).", "Its source is approved for customer publication."], "acquire": 1},
   rdCrumbHome: {"modalHidden": true, "dashVisible": true},
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
@@ -8077,7 +8066,7 @@ const EXPECTED = {
   // url_auction_kind (migration 013), never inferred in the browser.
   txLgbsDetailLink: { text: 'Auction link not published', kind: 'none', anchors: 0 },
   txLgbsDetailGapsNameTheLink: true,
-  txLgbsDetailWhen: /^[A-Z][a-z]{2} \d{1,2}, \d{4} · in \d+d · Scheduled for Online Auction$/,
+  txLgbsDetailWhen: 'Source status: Scheduled for Online Auction',   // the source's own wording, verbatim, in the status block (2026-10-24)
   txLgbsCardLink: { text: 'Auction link not published', kind: 'none', anchors: 0 },
   txLgbsCardKicker: / · online$/,
   txRaCardLink: { kind: 'sale', anchors: 1 },
@@ -8181,7 +8170,7 @@ const EXPECTED = {
   notesVisibilityText: 'Shared with every approved member, with your email name - not private',
   tableHeaderValue: 'County value',
   txStruckOffDetailTag: 'Galveston County, TX · Struck-off inventory',
-  txStruckOffWhat: 'WhatTexas struck-off / future-sale inventory (vendor listing)Source: LGBS (taxsales.lgbs.com)',
+  txStruckOffWhat: 'Texas struck-off / future-sale inventory (vendor listing)',
   txStruckOffNeverLandsAvailable: true,
   txStruckOffGroupMetaCount: 2,
   txStruckOffGroupMetaText: "Struck-off / future-sale inventory - no auction date; see each card's status",
@@ -8265,14 +8254,13 @@ const EXPECTED = {
   decP3How: "Phone the county First step: Call or e-mail the Tax Deed Department for the current purchase amount Call or e-mail the Tax Deed Department for the current purchase amount Pay the quoted amount at the Clerk's office County process: the county publishes this acquisition process for the properties on its list. It is not an approval for this parcel, and being listed does not prove the county will still sell it today. Acquisition process last verified Sep 30, 2026 \u00b7 County source not fully read at the last attempt; retry pending - this is the last verified process.",
   decP3Contact: "Office Clerk of Court - Tax Deed Department (fixture) Phone (850) 555-0100 E-mail taxdeeds@bayclerk.example.gov",
   decP3Why: "Lands Available - over the counter from the clerk, no bidding (F.S. 197.502(7)) Property-specific: this parcel appears on the official county list. Basis: harvester constant (F.S. 197.502(7) Lands Available list) County list page → · List document (PDF / file) → · list dated Aug 10, 2026 Matched to the list by case no C-1 (parcel 333) · read Aug 11, 2026",
-  decP3Glance: "Phone the county Clerk of Court - Tax Deed Department (fixture)",
+  decP3Glance: "Phone the county First step: Call or e-mail the Tax Deed Department for the current purchase amount Call or e-mail the Tax Deed Department for the current purchase amount Pay the quoted amount at the Clerk's office County process: the county publishes this acquisition process for the properties on its list. It is not an approval for this parcel, and being listed does not prove the county will still sell it today. Acquisition process last verified Sep 30, 2026 · County source not fully read at the last attempt; retry pending - this is the last verified process.",
   decP3GapNamesAcquisition: true,
   purchasePathNoneAcquire: 'Not yet verified - no published acquisition process established from evidence',
   decP3HowLinkCount: 0,   // nothing verified = no link, ever
   decP3Available: 'Available over the counter basis: list presence · observed Aug 11, 2026 last verified: read from the source Aug 11, 2026 · county source unavailable at the last attempt - inventory kept, nothing closed',
   decP3Where: '3 Oak Ave Bay County, FL Not yet geocoded - no point is shown for this parcel',
-  // The stub's Bay read is 74 hours old (hoursAgo(74)), so its calendar date moves every day: computed, never pinned.
-  decP3Fresh: `Source date: list dated Aug 10, 2026 · Observation date: Aug 11, 2026 · Last verified: read from the source Aug 11, 2026 County source: source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours (last complete read 3d ago (${new Date(Date.now() - 74 * 3600 * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })})) · update unsuccessful; retry pending · 3 rows at the last complete read`,
+  decP3Fresh: "Source date: list dated Aug 10, 2026 · Observation date: Aug 11, 2026 · Last verified: read from the source Aug 11, 2026 County source: source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours (last complete read 3d ago (<date>)) · update unsuccessful; retry pending · 3 rows at the last complete read",
   decP3History: 'Aug 11, 2026 Last read from the source (continued on the list) Append-only record. Absence from a list is recorded as a removal, never as a sale; a result appears only when the source published one.',
   decP3Related: 'No record for parcel 333 in the other ledgers in the current dataset',
   decP3PathEvidenceLine: "Phone or mail process (published by the source; no online path) \u00b7 source-level \u00b7 Clerk's Lands Available page: call or e-mail the Tax Deed department for the current amount (fixture) \u00b7 observed Sep 30, 2026",
@@ -8287,7 +8275,7 @@ const EXPECTED = {
   decP15ContactLinks: ['tel:0000000000', 'mailto:taxdeeds@example.gov'],
   decP15Why: "Lands Available - over the counter from the clerk, no bidding (F.S. 197.502(7)) Property-specific: this parcel appears on the official county list. Basis: harvester constant (F.S. 197.502(7) Lands Available list) County list page → · list dated Sep 19, 2026 Matched to the list by case no CI-7 (parcel 1515) · read Sep 20, 2026",
   decP15SourceDocHrefs: ['https://x/citrus-list', 'https://www.citrusclerk.example.gov/lands-available/how-to-purchase', 'https://www.citrusclerk.example.gov/lands-available/application.pdf'],
-  decP15Glance: 'Multi-step county process Fixture County Clerk - Tax Deed Division (fixture)',
+  decP15Glance: 'Multi-step county process First step: Download and complete the application (fixture) Download and complete the application (fixture) E-mail taxdeeds@example.gov with the case number (fixture) Pay in certified funds at 1 Example Ave (fixture) Application / instructions document → · County purchase-instructions page (published by the source) → County process: the county publishes this acquisition process for the properties on its list. It is not an approval for this parcel, and being listed does not prove the county will still sell it today. Acquisition process last verified Sep 18, 2026',
   decP15InvAcquire: 'Multi-step county process Fixture County Clerk - Tax Deed Division (fixture) - full process in "How do I acquire it?" above',
   availCsvP15Acquisition: true,
   decP15Scope: 'source',

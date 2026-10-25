@@ -3466,7 +3466,7 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   notice, disclaimer and metadata (on a card: short credit on the picture, the full line in the photo bubble); geometry
   never rides on a property row or in an export. Stub knobs `?boundary=ok|fl|multi|none|unauth|invalid|nolicencelink|
   error`, `?boundaryids=<id>,<id>` (outline ids the cards see).
-- `sw.js` -> `tdw-shell-v136` (outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
+- `sw.js` -> `tdw-shell-v137` (2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
 
 
 ## Permission decisions: DOR statewide, RealAuction minimal facts, link-only counties (2026-10-24, PR open, no migration)
