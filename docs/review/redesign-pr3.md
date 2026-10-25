@@ -167,3 +167,53 @@ the phone preview sheet covered more than half the map stage
 (`mobilePreviewCoversLessThanHalfStage`) once the provenance line and actions
 were added - the actions now sit on one line and the collapsed sheet's spacing
 is tighter (228px → 210px of a 437px stage at 360×780).
+
+## Review fixes
+
+Verification after the fixes (served build, port 8943): Browser `PASS: all 1272 checks matched, 8 console error(s) all allowlisted.` (1269 + 3 added); Python `3018 passed, 129 skipped, 1639 warnings`. Root mirror identical; `build_state_page.py --check` passes.
+
+Two reviews of the branch head returned 17 findings plus a verification note. Each was checked against the code first.
+
+**Fixed**
+
+- **CH1 (major): untracked ledgers on Data read.** A ledger that `data/state_ledgers.csv` marks NOT_TRACKED (or NOT_OFFERED / NOT_VERIFIED) and that has no read record now reads "Not tracked for <State>", with no date line. This covers TX Redeemable Deeds, LA Auctions and Liens, and MI Liens. "Status not recorded" now appears only for a tracked ledger with no record. The function is `ledgerUntrackedPrefix()`, a function declaration (TDZ-safe).
+- **CH2 (major): status and date now describe the same read.** `ledgerReadStatus()` returns the date the status describes, with its own label:
+  - Current: "Last updated" with the newest date.
+  - Not recently updated: "Oldest complete read", counting scheduled sources only (manual-only units are never aged by the clock).
+  - Partly updated (county reads): "Last fully updated" with the oldest success, or "No full update recorded".
+  - Update unsuccessful, or a dataset Partly updated: "Last successful update" with the date of the dataset(s) behind the status.
+- **CH3: certificate amount label.** Certificate rows in table mode read "Certificate amount · not a property price". The column title says "the certificate amount as published - not a property price".
+- **CH4:** a missing certificate number reads "Unknown", as on the card and the detail page.
+- **CH5: column names follow the ledger.** The first column is "Sale", "List status" or "Expiry", and the certificate case column is "Account". The head is rebuilt when the ledger changes.
+- **CH6:** under a county divider, the County cell is screen-reader-only text, so the divider is not repeated on screen.
+- **CH7:** a Next sales event uses a bid label only when every property in it shares that label. Otherwise it says "bid".
+- **CH8:** the date chip shows the year when it is not the current year. The full date is always the chip's title and accessible text.
+- **CH9:** the Saved searches fold says "Kept in this browser only" when the server table is absent (`MONITOR.tables.saved_searches === false`).
+- **CH10:** the Auctions ledger line's unit is "auction listings", not "upcoming sales". It counts every live auction row, including rows with no sale date, so it no longer contradicts Next sales.
+- **CH11 (admin.js):** a failed runs read says "could not be read". It names migration 024 only on 42P01 / PGRST205.
+- **F1: phone provenance line.** On the collapsed phone sheet the provenance line wraps (up to 3 lines, in the body font at 12px) instead of being cut to one line, so "may be stale · last read not recorded" stays visible. The collapsed sheet's gap and padding are tighter, keeping it under half the stage: 215px of a 437px stage at 360×780.
+- **F2:** `.pv-prov`, `.read-when` and `.home-ledger-blurb` are at least 12px on phones. So are the basemap toggle labels and the map Filters badge.
+- **F3:** the ledger-colour rule uses the same compound selector as the older divider rule, so every Home ledger line keeps its colour at every width (see `home-tx-1280.png`).
+- **F5:** the table's Parcel column uses `parcelOf()` / `hasParcel()` for certificates too.
+- **F6:** on phones the map's ledger pills have their own full-width row, wrapping and never clipped. The basemap toggle sits on the row below.
+- **F4: retargeted checks.** `dashHealthMissingTableNoBadges` now reads the Data read block (`{notRecorded: 2, current: 0}`). The new `dashHealthAndUnitsMissing` (`?health=none&registry=none`) pins the unit fallback's missing-data branch.
+
+**Not changed**
+
+- V1 is a verification note, not a defect.
+
+**Re-pinned / added checks (old → new, from the dump)**
+
+| Check | Old | New | Why |
+|---|---|---|---|
+| `pr3Home.read` | `["Auctions:Current:true", "Available:Update unsuccessful; retry pending:true", "Liens & Certificates:Partly updated:true"]` (a boolean for "Last updated <date>") | `["Auctions:Current:Last updated <date>", "Available:Update unsuccessful; retry pending:Last successful update <date>", "Liens & Certificates:Partly updated:Last successful update <date>"]` | CH2: the label names what the date is. The check now pins the label text, not just a boolean. |
+| `pr3MapToolbar.row2` | pills and basemap on one row | pills row above the basemap row; adds `pillsInView: true` | F6 |
+| `gsFlorida.dashCountiesSub` / `gsTexas.dashCountiesSub` | `upcoming sales across 6 / 3 counties` | `auction listings across 6 / 3 counties` | CH10 |
+| `dashHealthMissingTableNoBadges` | `0` (counted a removed element) | `{notRecorded: 2, current: 0}` | F4 |
+| `dashHealthAndUnitsMissing` | new | all three `NOT_RECORDED:Status not recorded` | F4 |
+| `dataReadUntracked` | new | TX certificate and LA auction / certificate `NOT_TRACKED:Not tracked for <State>`, no date line | CH1 |
+| `pr3TableLabels` | new | county cell hidden under county dividers; certificate head `Expiry … Account`; certificate figure `Certificate amount · not a property price`; Available head `List status` | CH3-CH6 |
+
+The first run after the fixes also caught `mobilePreviewCoversLessThanHalfStage` (244px of 437px once the provenance line wrapped in mono). It was fixed in CSS, as in F1, not re-pinned.
+
+Screenshots refreshed: `map-390.png`, `map-filters-390.png`, `map-sel-390.png` (pills row, wrapped provenance line), `home-1280.png`, plus the new `home-tx-1280.png` (Texas "Not tracked for Texas" line and the ledger colours).

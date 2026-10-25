@@ -346,7 +346,12 @@ async function refreshRuns() {
   const el = document.getElementById("adminRunsList");
   if (!el) return;
   const { data, error } = await sb.from("source_observation_runs").select("*").order("run_at", { ascending: false }).limit(500);
-  if (error) { el.innerHTML = `<p class="admin-note" id="adminRunsUnavailable">Per-source change counts are not reported on this deployment (migration 024 not live).</p>`; return; }
+  if (error) {
+    // The cause is named only when the error says the table is missing.
+    const missing = error.code === "42P01" || error.code === "PGRST205";
+    el.innerHTML = `<p class="admin-note" id="adminRunsUnavailable">Per-source change counts could not be read on this deployment${missing ? " (table not found - migration 024 not applied)" : ""}.</p>`;
+    return;
+  }
   const latest = new Map();
   (data || []).forEach(r => { const k = `${r.state || ""}|${r.source_id}|${r.ledger || ""}`; if (!latest.has(k)) latest.set(k, r); });
   if (!latest.size) { el.innerHTML = `<p class="admin-note">No change-detection run has been recorded yet.</p>`; return; }

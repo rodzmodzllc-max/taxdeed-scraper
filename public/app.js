@@ -13958,28 +13958,35 @@ function renderDashboard() {
 // date (date order) or county (the List's own county order). No ratio
 // column: a value-to-bid column read as a ranking. The card list stays the
 // default; this view is opt-in (#tableToggleBtn, desktop only).
-function tableColumns() { return ["Sale", "County", "Address", "Parcel", "Case", "Published figure", "Value on file", "Status", ""]; }
-function tableHeadHtml() {
-  return `<tr>${tableColumns().map((c, i) => `<th${i === 5 || i === 6 ? ' class="dt-num"' : ""}${i === 5 ? ' title="Auctions: the opening (or minimum) bid. Available: the listed figure, named in each row - never assumed to be the price. Certificates: the face amount as published."' : i === 6 ? ' title="The county value on file under its own label (just value, assessed value) - not a market estimate"' : ""}>${esc(c)}</th>`).join("")}</tr>`;
+// Column names are the record's own (review fix CH5): the first column holds
+// a sale date on Auctions, the list status on Available and the expiry on
+// Certificates; a certificate's case_no is its account.
+function tableColumns(ledger) {
+  const k = ledger || state.ledger;
+  const when = k === "laft" ? "List status" : k === "certificate" ? "Expiry" : "Sale";
+  return [when, "County", "Address", "Parcel", k === "certificate" ? "Account" : "Case", "Published figure", "Value on file", "Status", ""];
+}
+function tableHeadHtml(ledger) {
+  return `<tr>${tableColumns(ledger).map((c, i) => `<th${i === 5 || i === 6 ? ' class="dt-num"' : ""}${i === 5 ? ' title="Auctions: the opening (or minimum) bid. Available: the listed figure, named in each row - never assumed to be the price. Certificates: the certificate amount as published - not a property price."' : i === 6 ? ' title="The county value on file under its own label (just value, assessed value) - not a market estimate"' : ""}>${esc(c)}</th>`).join("")}</tr>`;
 }
 function tableDividerKey(p) {
   if (state.sortBy === "dateAsc" || state.sortBy === "dateDesc") return { key: "d:" + (p.sale_date || ""), label: p.sale_date ? `Sale ${fmtDateLong(p.sale_date)}` : "No sale date on file" };
   if ((state.sortBy || "county") === "county" && !state.sortSecondary) return { key: "c:" + (p.county || ""), label: `${p.county || "Unknown"} ${UNIT_WORD}` };
   return null;
 }
-function tableRow(p) {
+function tableRow(p, countyGrouped) {
   const tr = document.createElement("tr");
   tr.dataset.pid = p.id;
   if (selectedPid != null && String(selectedPid) === String(p.id)) tr.classList.add("selected");
   const fav = FAVS.has(p.id);
   const isCert = p.source === "certificate";
   const street = isCert ? "" : realAddress(p);
-  const titleLine = isCert ? `Certificate #${esc(p.certificate_no || "not published")}` : (street ? esc(street) : lotTitle(p));
-  const parcel = isCert ? (p.parcel ? esc(p.parcel) : `<span class="muted">Not published</span>`) : (hasParcel(p) ? esc(parcelOf(p)) : `<span class="muted">Not published</span>`);
+  const titleLine = isCert ? `Certificate #${esc(p.certificate_no || "Unknown")}` : (street ? esc(street) : lotTitle(p));
+  const parcel = hasParcel(p) ? esc(parcelOf(p)) : `<span class="muted">Not published</span>`;
   const caseText = isCert ? (p.case_no ? esc(p.case_no) : "") : esc(caseIdentText(p).replace(/^Case /, ""));
   let fig;
   if (p.source === "laft") { const a = amountShort(p); fig = `${esc(a.text)}<small class="dt-sub">${esc(a.label)}</small>`; }
-  else if (isCert) fig = `${hasPublishedBid(p) ? esc(fmtMoney(p.bid)) : `<span class="muted">Not published</span>`}<small class="dt-sub">Amount</small>`;
+  else if (isCert) fig = `${hasPublishedBid(p) ? esc(fmtMoney(p.bid)) : `<span class="muted">Not published</span>`}<small class="dt-sub">Certificate amount · not a property price</small>`;
   else fig = `${hasPublishedBid(p) ? esc(bidDisplay(p)) : `<span class="muted">Not published</span>`}<small class="dt-sub">${esc(auctionBidLabel(p))}</small>`;
   const value = hasNum(p.market) ? `${esc(fmtShort(p.market))}<small class="dt-sub">${esc(valueLabel(p))}</small>`
     : hasNum(p.assessed) ? `${esc(fmtShort(p.assessed))}<small class="dt-sub">${esc(assessedSourceLabel(p))}</small>`
@@ -13987,7 +13994,7 @@ function tableRow(p) {
   const k = kickerParts(p);
   tr.innerHTML = `
     <td class="dt-when"><span class="${esc(k.cls || "")}">${esc(k.phase)}</span></td>
-    <td>${esc(p.county)}</td>
+    <td>${countyGrouped ? `<span class="sr-only">${esc(p.county)}</span>` : esc(p.county)}</td>
     <td><div class="dt-address">${titleLine}</div></td>
     <td class="dt-mono">${parcel}</td>
     <td class="dt-mono">${caseText || '<span class="muted">—</span>'}</td>
@@ -14015,7 +14022,9 @@ function appendTableRows(tbody, from, to) {
       frag.appendChild(d);
     }
     TABLE_STATE.lastKey = div ? div.key : null;
-    frag.appendChild(tableRow(p));
+    // Under a county divider the County cell would only repeat it (review
+    // fix CH6): the name stays for screen readers, not on screen.
+    frag.appendChild(tableRow(p, !!div && div.key.startsWith("c:")));
   }
   tbody.appendChild(frag);
   const total = TABLE_STATE.rows.length;
@@ -14131,7 +14140,8 @@ function renderShellExtras(shown, activeLedger) {
     TABLE_STATE.rows = shown;
     TABLE_STATE.lastKey = null;
     const head = tbody.parentNode && tbody.parentNode.querySelector("thead");
-    if (head && !head.dataset.pr3) { head.innerHTML = tableHeadHtml(); head.dataset.pr3 = "1"; }
+    const headKey = "pr3:" + (activeLedger || state.ledger || "");
+    if (head && head.dataset.pr3 !== headKey) { head.innerHTML = tableHeadHtml(activeLedger); head.dataset.pr3 = headKey; }
     TABLE_STATE.listed = Math.min(shown.length, Math.max(TABLE_PAGE, TABLE_STATE.listed || 0));
     appendTableRows(tbody, 0, TABLE_STATE.listed);
   }
@@ -15207,7 +15217,7 @@ function homeLedgerCardHtml(k) {
   const counties = new Set(rows.map(p => p.county)).size;
   const n = rows.length;
   const fin = PROPERTIES_LOADED && ledgerSettled(k);
-  const unit = k === "certificate" && PAGE_STATE !== "FL" ? "records" : ({ laft: "properties", auction: "upcoming sales", certificate: "certificates" })[k];
+  const unit = k === "certificate" && PAGE_STATE !== "FL" ? "records" : ({ laft: "properties", auction: "auction listings", certificate: "certificates" })[k];
   return `<button type="button" class="home-ledger-card${k === "laft" ? " primary" : ""}" data-ledger="${esc(k)}" data-home-ledger="${esc(k)}">
     <span class="home-ledger-kicker">${esc(ledgerNavName(k))}</span>
     <span class="home-ledger-count" id="homeCount_${esc(k)}">${PROPERTIES_LOADED ? ledgerCountText(k, n, true) : "—"}</span>
@@ -15269,11 +15279,17 @@ function homeNextSalesHtml(live) {
       what = `${street ? esc(street) : lotTitle(p)} · ${esc(auctionBidLabel(p))} ${hasPublishedBid(p) ? esc(bidDisplayCard(p)) : "not published"}`;
     } else {
       const bids = props.filter(hasPublishedBid).length;
-      const label = props.length ? auctionBidLabel(props[0]).toLowerCase() : "opening bid";
+      // One label only when every property in the event shares it (review
+      // fix CH7); a mixed or empty group says "bid".
+      const labels = new Set(props.map(p => auctionBidLabel(p).toLowerCase()));
+      const label = labels.size === 1 ? [...labels][0] : "bid";
       what = `${bids} of ${e.count} with a published ${esc(label)}`;
     }
+    // The chip carries the year when it is not this year (review fix CH8);
+    // the full date is its accessible text either way.
+    const otherYear = !isNaN(d) && d.getFullYear() !== new Date().getFullYear();
     return `<button type="button" class="desk-event home-sale" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction" data-sale-date="${esc(e.date)}">
-      <span class="desk-date"><b>${isNaN(d) ? "" : d.getDate()}</b><span>${isNaN(d) ? "" : esc(d.toLocaleString("en-US", { month: "short" }).toUpperCase())}</span></span>
+      <span class="desk-date"${isNaN(d) ? "" : ` title="${esc(fmtDateLong(e.date))}"`}><span class="sr-only">${isNaN(d) ? "" : esc(fmtDateLong(e.date))}</span><b aria-hidden="true">${isNaN(d) ? "" : d.getDate()}</b><span aria-hidden="true">${isNaN(d) ? "" : esc(d.toLocaleString("en-US", { month: "short" }).toUpperCase()) + (otherYear ? " " + d.getFullYear() : "")}</span></span>
       <span class="desk-event-where">${esc(e.county)} ${esc(UNIT_WORD)}</span>
       <span class="desk-event-what">${what}</span>
       <span class="desk-event-n">${e.count} propert${e.count === 1 ? "y" : "ies"}</span>
@@ -15292,7 +15308,7 @@ function homePersonalHtml() {
   const watchBody = `<p class="home-fold-note">${BIDLIST.size ? `${BIDLIST.size} saved propert${BIDLIST.size === 1 ? "y" : "ies"}.` : "Nothing saved yet. Flag a property from its card or page."}</p>
     <div class="home-watch-changes" id="dashWatchChanges">${watchChangesHtml(WATCH_CHANGES)}</div>
     <button type="button" class="link-btn" id="homeSavedProps" data-guide="watchlist">Open watchlist &rarr;</button>`;
-  const searchBody = `<p class="home-fold-note">${searches ? `${searches} saved search${searches === 1 ? "" : "es"} for ${esc(STATE_INFO.name)}.` : "Save the List's current filters to come back to them."}</p>
+  const searchBody = `<p class="home-fold-note">${searches ? `${searches} saved search${searches === 1 ? "" : "es"} for ${esc(STATE_INFO.name)}.` : "Save the List's current filters to come back to them."}${MONITOR.tables && MONITOR.tables.saved_searches === false ? " Kept in this browser only." : ""}</p>
     <button type="button" class="link-btn" id="homeSavedSearches" data-guide="searches">Saved searches &rarr;</button>`;
   const local = RESEARCH && RESEARCH.mode === "local";
   const researchBody = `<p class="home-fold-note">${research ? `${research} propert${research === 1 ? "y" : "ies"} in your research lists.` : "No property in your research lists yet."}${local ? " Kept in this browser only." : ""}</p>
@@ -15307,35 +15323,58 @@ function homePersonalHtml() {
 // listed here is not assigned to a ledger and is not shown per ledger.
 var SOURCE_HEALTH_LEDGERS = { fl_deeds: ["auction"], fl_certificates: ["certificate"], fl_laft: ["laft"], tx_sales: ["auction", "laft"] };
 var HEALTH_SEVERITY = ["HEALTHY", "MANUAL", "NOT_RUN", "STALE", "INCOMPLETE", "FAILED"];
-// One plain status (CUSTOMER_HEALTH_TEXT's vocabulary) and the date of the
-// last successful update for one ledger of the open state. The dataset
-// health rows decide when the state has them; otherwise the ledger's county
-// source reads do: every read complete -> Current (Not recently updated
-// after 7 days), some complete -> Partly updated, none -> Update
-// unsuccessful, on-request sources -> Updated on request. No count, no
+// One plain status (CUSTOMER_HEALTH_TEXT's vocabulary) for one ledger of the
+// open state, and the date THAT status describes, labelled (review fix CH2):
+// Current -> the newest update; Not recently updated -> the oldest complete
+// read (the one that makes it stale); Partly updated -> the date every read
+// was last complete; Update unsuccessful -> the last successful update. The
+// dataset health rows decide when the state has them; otherwise the ledger's
+// county source reads do: every read complete -> Current (Not recently
+// updated after 7 days, scheduled sources only - an on-request source is
+// never stale by the clock), some complete -> Partly updated, none -> Update
+// unsuccessful, on-request sources only -> Updated on request. No count, no
 // county name, no source id is returned.
 function ledgerReadStatus(k) {
   const worst = list => list.reduce((w, h) => HEALTH_SEVERITY.indexOf(h) > HEALTH_SEVERITY.indexOf(w) ? h : w, "HEALTHY");
   const newest = list => list.filter(Boolean).sort().slice(-1)[0] || null;
+  const oldest = list => list.filter(Boolean).sort()[0] || null;
   const ds = Array.isArray(SOURCE_HEALTH) ? SOURCE_HEALTH.filter(r => r.state === PAGE_STATE && (SOURCE_HEALTH_LEDGERS[r.source] || []).includes(k)) : [];
-  if (ds.length) return { health: worst(ds.map(r => healthOf(r))), at: newest(ds.map(r => r.last_success_at)) };
-  const units = Array.isArray(UNIT_FRESHNESS) ? UNIT_FRESHNESS.filter(u => u.state === PAGE_STATE && u.last_attempt_at && unitLedgerKeys(u).includes(k)) : [];
-  if (!units.length) return { health: null, at: null };
-  const at = newest(units.map(u => u.last_success_at));
-  if (units.every(u => MANUAL_ONLY_SOURCE_IDS.includes(u.source_id))) return { health: "MANUAL", at };
-  const ok = units.filter(u => u.last_attempt_status === "COMPLETE" || u.last_attempt_status === "EMPTY");
-  let health = !ok.length ? "FAILED" : ok.length < units.length ? "INCOMPLETE" : "HEALTHY";
-  if (health === "HEALTHY") {
-    const oldest = units.map(u => Date.parse(u.last_success_at)).filter(t => !isNaN(t)).sort((x, y) => x - y)[0];
-    if (oldest !== undefined && (Date.now() - oldest) / 86400000 > 7) health = "STALE";
+  if (ds.length) {
+    const health = worst(ds.map(r => healthOf(r)));
+    if (health === "HEALTHY" || health === "MANUAL") return { health, at: newest(ds.map(r => r.last_success_at)), label: "Last updated" };
+    // The date of the dataset(s) behind the status, not another dataset's.
+    const behind = ds.filter(r => healthOf(r) === health);
+    return { health, at: newest(behind.map(r => r.last_success_at)), label: health === "STALE" ? "Last updated" : "Last successful update" };
   }
-  return { health, at };
+  const units = Array.isArray(UNIT_FRESHNESS) ? UNIT_FRESHNESS.filter(u => u.state === PAGE_STATE && u.last_attempt_at && unitLedgerKeys(u).includes(k)) : [];
+  if (!units.length) return { health: null, at: null, label: null };
+  const all = units.map(u => u.last_success_at);
+  if (units.every(u => MANUAL_ONLY_SOURCE_IDS.includes(u.source_id))) return { health: "MANUAL", at: newest(all), label: "Last updated" };
+  const ok = units.filter(u => u.last_attempt_status === "COMPLETE" || u.last_attempt_status === "EMPTY");
+  if (!ok.length) return { health: "FAILED", at: newest(all), label: "Last successful update" };
+  if (ok.length < units.length) {
+    // Every read was last complete on the oldest success; a read that never
+    // succeeded means no full update is recorded.
+    const full = all.every(Boolean) ? oldest(all) : null;
+    return { health: "INCOMPLETE", at: full, label: "Last fully updated", missing: "No full update recorded" };
+  }
+  const scheduled = units.filter(u => !MANUAL_ONLY_SOURCE_IDS.includes(u.source_id)).map(u => u.last_success_at);
+  const old = oldest(scheduled);
+  const t = old ? Date.parse(old) : NaN;
+  if (!isNaN(t) && (Date.now() - t) / 86400000 > 7) return { health: "STALE", at: old, label: "Oldest complete read" };
+  return { health: "HEALTHY", at: newest(all), label: "Last updated" };
 }
+// A ledger the state-rules record says is not tracked (or not offered, or not
+// verified) is never a tracked source with a missing record (review fix CH1).
+function ledgerUntrackedPrefix(status) { return ({ NOT_TRACKED: "Not tracked for ", NOT_OFFERED: "Not offered in ", NOT_VERIFIED: "Not verified for " })[status] || null; }
 function homeDataReadHtml() {
   const lines = LEDGER_ORDER.map(k => {
     const r = ledgerReadStatus(k);
-    const text = r.health ? CUSTOMER_HEALTH_TEXT[r.health] : "Status not recorded";
-    return `<div class="read-row" data-ledger="${esc(k)}" data-health="${esc(r.health || "NOT_RECORDED")}"><span class="read-ledger">${esc(ledgerNavName(k))}</span><span class="health-badge ${esc(String(r.health || "not_run").toLowerCase())}">${esc(text)}</span><span class="read-when">${r.at ? `Last updated ${esc(dateOnly(r.at))}` : "No successful update recorded"}</span></div>`;
+    const led = ledgerEligibility(k);
+    const untracked = !r.health && led && led.status && led.status !== "TRACKED" && ledgerUntrackedPrefix(led.status) ? led.status : null;
+    const text = r.health ? CUSTOMER_HEALTH_TEXT[r.health] : untracked ? ledgerUntrackedPrefix(untracked) + STATE_INFO.name : "Status not recorded";
+    const when = untracked ? "" : `<span class="read-when">${r.at ? `${esc(r.label)} ${esc(dateOnly(r.at))}` : esc(r.missing || "No successful update recorded")}</span>`;
+    return `<div class="read-row" data-ledger="${esc(k)}" data-health="${esc(r.health || untracked || "NOT_RECORDED")}"><span class="read-ledger">${esc(ledgerNavName(k))}</span><span class="health-badge ${esc(String(r.health || "not_run").toLowerCase())}">${esc(text)}</span>${when}</div>`;
   }).join("");
   return `<section class="home-desk-block" id="homeDataRead"><div class="home-desk-head"><h2>Data read</h2><a class="link-btn" href="#/rules">State rules &amp; coverage &rarr;</a></div>
     ${lines}<p class="home-fold-note">${esc(STATE_INFO.name)} · one status per ledger. Listings already on file are kept when an update does not succeed.</p></section>`;

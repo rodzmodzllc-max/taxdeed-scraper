@@ -2242,7 +2242,10 @@ await noHealthPage.waitForTimeout(200);
 // county reads: the fixture's registry rows feed Available only (one county
 // unavailable -> Partly updated); the other two ledgers say "Status not recorded".
 results.dashHealthMissingTable = await noHealthPage.locator('#homeDataRead .read-row').evaluateAll(els => els.map(e => e.dataset.ledger + ':' + e.querySelector('.health-badge').textContent.trim()));
-results.dashHealthMissingTableNoBadges = await noHealthPage.locator('#dashSourceRows .health-badge').count();
+// Review fix F4: the old #dashSourceRows count left with the panel; the
+// fallback is pinned on the new block - two ledgers not recorded, none Current.
+results.dashHealthMissingTableNoBadges = await noHealthPage.evaluate(() => ({ notRecorded: document.querySelectorAll('#homeDataRead .read-row[data-health="NOT_RECORDED"]').length,
+  current: [...document.querySelectorAll('#homeDataRead .health-badge')].filter(b => b.textContent.trim() === 'Current').length }));
 await noHealthPage.close();
 const noRegPage = await newPage({ viewport: { width: 1200, height: 900 } });
 await noRegPage.goto(BASE_URL + '?registry=none' + '#/auctions', { waitUntil: 'networkidle' });
@@ -2251,6 +2254,22 @@ await noRegPage.click('.nav-item[data-page="dashboard"]');
 await noRegPage.waitForTimeout(200);
 results.dashUnitMissingColumns = await noRegPage.locator('#homeDataRead .read-row').evaluateAll(els => els.map(e => e.dataset.ledger + ':' + e.dataset.health));
 await noRegPage.close();
+// Review fix F4: neither dataset health nor the registry columns - the unit
+// fallback's missing-data branch: every ledger "Status not recorded".
+const noBothPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await noBothPage.goto(BASE_URL + '?health=none&registry=none' + '#/dashboard', { waitUntil: 'networkidle' });
+await noBothPage.waitForTimeout(500);
+results.dashHealthAndUnitsMissing = await noBothPage.locator('#homeDataRead .read-row').evaluateAll(els => els.map(e => e.dataset.ledger + ':' + e.dataset.health + ':' + e.querySelector('.health-badge').textContent.trim()));
+await noBothPage.close();
+// Review fix CH1: a ledger the state rules mark NOT_TRACKED reads "Not
+// tracked for <State>", never a missing record.
+results.dataReadUntracked = {};
+for (const [st, url] of [['TX', TX_BASE_URL], ['LA', BASE_URL.replace(/index\.html.*$/, 'la.html')]]) {
+  const up = await newPage({ viewport: { width: 1200, height: 900 } });
+  await up.goto(url + '#/dashboard', { waitUntil: 'networkidle' }); await up.waitForTimeout(600);
+  results.dataReadUntracked[st] = await up.locator('#homeDataRead .read-row').evaluateAll(els => els.map(e => e.dataset.ledger + ':' + e.dataset.health + ':' + e.querySelector('.health-badge').textContent.trim() + ':' + (e.querySelector('.read-when') ? 'when' : 'nowhen')));
+  await up.close();
+}
 
 // --- Watchlist change signals: seed the snapshot a previous visit would
 // have written (p1 with a lower bid, and a row that no longer exists) and
@@ -7314,7 +7333,7 @@ await big.press('#globalSearchInput', 'Enter');
     lines: [...document.querySelectorAll('#homeLedgers .home-ledger-card')].map(e => (e.dataset.homeLedger || e.id) + ':' + e.querySelector('.home-ledger-count').textContent.trim()),
     sales: document.querySelectorAll('#homeUpcomingSales .home-sale').length,
     folds: [...document.querySelectorAll('#homeSaved details.home-fold')].map(d => d.dataset.homeFold + ':' + d.querySelector('.home-fold-count').textContent.trim() + ':' + (d.open ? 'open' : 'closed')),
-    read: [...document.querySelectorAll('#homeDataRead .read-row')].map(e => e.querySelector('.read-ledger').textContent.trim() + ':' + e.querySelector('.health-badge').textContent.trim() + ':' + /^Last updated [A-Z][a-z]{2} \d{1,2}, \d{4}$/.test(e.querySelector('.read-when').textContent.trim())),
+    read: [...document.querySelectorAll('#homeDataRead .read-row')].map(e => e.querySelector('.read-ledger').textContent.trim() + ':' + e.querySelector('.health-badge').textContent.trim() + ':' + ((e.querySelector('.read-when') || {}).textContent || '').trim().replace(/[A-Z][a-z]{2} \d{1,2}, \d{4}/g, '<date>')),   // review fix CH2: the date is labelled for what the status describes
     operatorPanels: document.querySelectorAll('#pageDashboard .dash-panel, #pageDashboard .dash-grid').length,
     recentFoldClosed: !document.getElementById('homeRecentSection').open,
     pageUnder2600: document.getElementById('pageDashboard').getBoundingClientRect().height < 2600,
@@ -7337,7 +7356,8 @@ await big.press('#globalSearchInput', 'Enter');
   const badge = await mp.evaluate(() => document.getElementById('mapFiltersBadge').textContent);
   await mp.click('#mapWatchlistOnly'); await mp.waitForTimeout(250);
   for (const id of ['mapStyleGoogle', 'mapStyleMaptiler', 'mapStyleGoogle']) { await mp.click('#' + id); await mp.waitForTimeout(150); }
-  results.pr3MapToolbar = { row1: before.county !== null && Math.abs(before.county - before.filters) < 8, row2: Math.abs(before.pills - before.style) < 8 && before.pills > before.county,
+  results.pr3MapToolbar = { row1: before.county !== null && Math.abs(before.county - before.filters) < 8, row2: before.pills > before.county && before.style > before.pills,   // review fix F6: the ledger pills have their own row, the basemap toggle the next
+    pillsInView: await mp.evaluate(() => { const r = document.getElementById('mapLedgerPills').getBoundingClientRect(); return [...document.querySelectorAll('#mapLedgerPills button')].every(b => { const x = b.getBoundingClientRect(); return x.width > 0 && x.left >= r.left - 1 && x.right <= r.right + 1 && x.right <= window.innerWidth; }); }),
     hiddenFirst: before.watch === null && before.list === null, shownAfter: after.watch !== null && after.list !== null && after.watch > before.style,
     expanded: await mp.evaluate(() => document.getElementById('mapFiltersToggle').getAttribute('aria-expanded')), badgeWithWatch: badge,
     googleOn: await mp.evaluate(() => document.getElementById('mapStyleGoogle').classList.contains('on')),
@@ -7383,6 +7403,21 @@ await big.press('#globalSearchInput', 'Enter');
   // Sale dates are relative to today in the fixture; the shape is pinned, not the day.
   const undate = s => s.replace(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), [A-Z][a-z]+ \d{1,2}, \d{4}/, '<long date>').replace(/[A-Z][a-z]{2} \d{1,2}, \d{4}/, '<date>');
   results.pr3Table = { head: t1.head, countyDividers: t1.dividers, rows: t1.rows, first: t1.first && t1.first.map(undate), noRatio: t1.noRatio, dateDividers: t2.dividers.map(undate), defaultIsCards: true };
+  // Review fixes CH3-CH6: under a county divider the County cell is for
+  // screen readers only; the column names follow the ledger; certificates
+  // read "Certificate amount" and their case column is the account.
+  const tbExtra = () => tb.evaluate(() => { const r = document.querySelector('#dataTableBody tr[data-pid]');
+    return { head: [...document.querySelectorAll('#dataTable thead th')].map(e => e.textContent.trim()).slice(0, 6),
+      countyHidden: !!r && !!r.children[1].querySelector('.sr-only'),
+      first: r ? [...r.children].slice(0, 6).map(td => td.textContent.replace(/\s+/g, ' ').trim()) : null }; });
+  await tb.evaluate(() => { const s = document.getElementById('sortBy'); s.value = 'county'; s.dispatchEvent(new Event('change', { bubbles: true })); });
+  await tb.waitForTimeout(300);
+  const tAuc = await tbExtra();
+  await tb.goto(BASE_URL + '#/certificates', { waitUntil: 'networkidle' }); await tb.waitForTimeout(500);
+  const tCert = await tbExtra();
+  await tb.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' }); await tb.waitForTimeout(500);
+  const tLand = await tbExtra();
+  results.pr3TableLabels = { auctionCountyHidden: tAuc.countyHidden, certHead: tCert.head, certFirst: tCert.first && tCert.first.map(undate), landHead: tLand.head };
   await tb.close();
   const dflt = await newPage({ viewport: { width: 1280, height: 900 } });
   await dflt.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' }); await dflt.waitForTimeout(400);
@@ -7394,8 +7429,8 @@ await browser.close();
 
 const EXPECTED = {
   // Redesign PR3 (2026-10-25): Home, map toolbar / preview, table mode - pinned from DUMP_RESULTS.
-  pr3Home: {"lines": ["laft:2", "auction:9", "certificate:1", "homeStatesCard:13"], "sales": 3, "folds": ["watch:0 / 10:closed", "searches:0:closed", "research:0:closed"], "read": ["Auctions:Current:true", "Available:Update unsuccessful; retry pending:true", "Liens & Certificates:Partly updated:true"], "operatorPanels": 0, "recentFoldClosed": true, "pageUnder2600": true, "noOperatorWords": true},
-  pr3MapToolbar: {"row1": true, "row2": true, "hiddenFirst": true, "shownAfter": true, "expanded": "true", "badgeWithWatch": "1", "googleOn": true, "overflow": 0},
+  pr3Home: {"lines": ["laft:2", "auction:9", "certificate:1", "homeStatesCard:13"], "sales": 3, "folds": ["watch:0 / 10:closed", "searches:0:closed", "research:0:closed"], "read": ["Auctions:Current:Last updated <date>", "Available:Update unsuccessful; retry pending:Last successful update <date>", "Liens & Certificates:Partly updated:Last successful update <date>"], "operatorPanels": 0, "recentFoldClosed": true, "pageUnder2600": true, "noOperatorWords": true},
+  pr3MapToolbar: {"row1": true, "row2": true, "pillsInView": true, "hiddenFirst": true, "shownAfter": true, "expanded": "true", "badgeWithWatch": "1", "googleOn": true, "overflow": 0},
   pr3Preview: {"prov": "Source not recorded · last synced Aug 10, 2026 (N days ago) · may be stale · last read not recorded", "watch": "⚐ Add to Watchlist", "open": "Open record →", "bidTitle": "Exact amount $8,000.00. Rounded to whole dollars here.", "stripMarker": "Open in the preview · tap to close", "provMatchesCard": true, "watchAfterAdd": "⚑ On Watchlist"},
   pr3Table: {"head": ["Sale", "County", "Address", "Parcel", "Case", "Published figure", "Value on file", "Status", ""], "countyDividers": ["Alachua County", "Brevard County", "Charlotte County"], "rows": 9, "first": ["Sale <date>", "Alachua", "1 Main St", "111", "A-1", "$5,000.00Opening bid", "$90,0002025 County Just Value", "Listed"], "noRatio": true, "dateDividers": ["Sale <long date>", "Sale <long date>", "Sale <long date>"], "defaultIsCards": true},
   // Redesign PR1 (2026-10-24): first fold at 390x844 and the desktop contents list - pinned from DUMP_RESULTS.
@@ -8061,8 +8096,8 @@ const EXPECTED = {
   gsOptions: ["FL:Florida", "TX:Texas", "LA:Louisiana", "MI:Michigan", "WY:Wyoming", "SC:South Carolina", "CO:Colorado", "WI:Wisconsin", "MO:Missouri", "OK:Oklahoma", "PA:Pennsylvania", "MN:Minnesota", "TN:Tennessee"],
   gsStateSelectCount: 1,
   gsAccountMenuOpens: true,
-  gsFlorida: {"dash": {"file": "index.html", "hash": "#/dashboard", "state": "FL"}, "dashAuctionTile": "9", "dashCountiesSub": "upcoming sales across 6 counties", "list": {"file": "index.html", "hash": "#/lands", "state": "FL"}, "listOnlyFlorida": true, "map": {"file": "index.html", "hash": "#/map", "state": "FL"}, "mapPaths": 67, "watch": {"file": "index.html", "hash": "#/watchlist", "state": "FL"}, "watchPids": ["p1"], "watchElsewhere": "1 saved item is not in Florida's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items."},
-  gsTexas: {"list": {"file": "tx.html", "hash": "#/lands", "state": "TX"}, "listLedgerOn": "laft", "listOnlyTexas": true, "listAuctionOnlyTexas": true, "dash": {"file": "tx.html", "hash": "#/dashboard", "state": "TX"}, "dashAuctionTile": "3", "dashCountiesSub": "upcoming sales across 3 counties", "map": {"file": "tx.html", "hash": "#/map", "state": "TX"}, "mapPaths": 254, "watch": {"file": "tx.html", "hash": "#/watchlist", "state": "TX"}, "watchPids": ["ptx1"], "watchElsewhere": "1 saved item is not in Texas's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items.", "watchCount": "2/10", "watchDeletes": 0},
+  gsFlorida: {"dash": {"file": "index.html", "hash": "#/dashboard", "state": "FL"}, "dashAuctionTile": "9", "dashCountiesSub": "auction listings across 6 counties", "list": {"file": "index.html", "hash": "#/lands", "state": "FL"}, "listOnlyFlorida": true, "map": {"file": "index.html", "hash": "#/map", "state": "FL"}, "mapPaths": 67, "watch": {"file": "index.html", "hash": "#/watchlist", "state": "FL"}, "watchPids": ["p1"], "watchElsewhere": "1 saved item is not in Florida's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items."},
+  gsTexas: {"list": {"file": "tx.html", "hash": "#/lands", "state": "TX"}, "listLedgerOn": "laft", "listOnlyTexas": true, "listAuctionOnlyTexas": true, "dash": {"file": "tx.html", "hash": "#/dashboard", "state": "TX"}, "dashAuctionTile": "3", "dashCountiesSub": "auction listings across 3 counties", "map": {"file": "tx.html", "hash": "#/map", "state": "TX"}, "mapPaths": 254, "watch": {"file": "tx.html", "hash": "#/watchlist", "state": "TX"}, "watchPids": ["ptx1"], "watchElsewhere": "1 saved item is not in Texas's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items.", "watchCount": "2/10", "watchDeletes": 0},
   gsTexasMapCounty: "Harris",
   gsReloadKeepsTexas: true,
   gsReloadMapVisible: true,
@@ -8395,7 +8430,10 @@ const EXPECTED = {
   dashWatchFirstVisit: true,
   dashWatchNoNotificationsClaim: true,
   dashHealthMissingTable: ["auction:Status not recorded", "laft:Partly updated", "certificate:Status not recorded"],   // without dataset health: Available from its county reads (Bay unavailable), the others not recorded
-  dashHealthMissingTableNoBadges: 0,
+  dashHealthMissingTableNoBadges: { notRecorded: 2, current: 0 },   // review fix F4: retargeted from the removed #dashSourceRows to the Data read block
+  dashHealthAndUnitsMissing: ["auction:NOT_RECORDED:Status not recorded", "laft:NOT_RECORDED:Status not recorded", "certificate:NOT_RECORDED:Status not recorded"],   // review fixes (PR3)
+  dataReadUntracked: {"TX": ["auction:INCOMPLETE:Partly updated:when", "laft:INCOMPLETE:Partly updated:when", "certificate:NOT_TRACKED:Not tracked for Texas:nowhen"], "LA": ["auction:NOT_TRACKED:Not tracked for Louisiana:nowhen", "laft:NOT_RECORDED:Status not recorded:when", "certificate:NOT_TRACKED:Not tracked for Louisiana:nowhen"]},   // review fixes (PR3)
+  pr3TableLabels: {"auctionCountyHidden": true, "certHead": ["Expiry", "County", "Address", "Parcel", "Account", "Published figure"], "certFirst": ["Expires <date>", "Alachua", "Certificate #CERT-42", "111", "ACC-999", "$1,234.56Certificate amount \u00b7 not a property price"], "landHead": ["List status", "County", "Address", "Parcel", "Case", "Published figure"]},   // review fixes (PR3)
   watchChangeItems: ['p1', 'gone1'],
   watchChangeBidLine: 'Opening bid: $4,000.00 → $5,000.00',
   watchChangeGoneLine: 'No longer in the current dataset - the listing left the source feed or list. Why is not recorded.',
