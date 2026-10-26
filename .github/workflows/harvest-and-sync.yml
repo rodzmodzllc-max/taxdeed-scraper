@@ -285,10 +285,13 @@ on:
           RealAuction sale-day page reaches its second Waiting page (the
           deed harvester's own permission, value-free: counts, page text,
           masked pager code; scripts/realauction_paging_check.py).
+          "tx_realauction" = Texas RealAuction sale days, per area (waiting /
+          running / closed): item counts and which field labels the
+          harvester reads, value-free (scripts/tx_realauction_check.py).
         required: false
         type: choice
         default: available
-        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging]
+        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging, tx_realauction]
 
 concurrency:
   # Evidence captures (job=evidence) are read-only and never write to the
@@ -1681,6 +1684,17 @@ jobs:
             IFS=',' read -ra cs <<< "$COUNTIES"
             for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
             eval python3 scripts/realauction_paging_check.py $cargs
+            exit 0
+          fi
+          if [ "$SCOPE" = "tx_realauction" ]; then
+            # Texas RealAuction "sale date found but 0 properties parsed"
+            # (2026-10-26): per sale day and area, item counts and which
+            # labels the harvester's parser reads. tx_realauction fetch+parse
+            # permission; value-free; nothing is written.
+            cargs=""
+            IFS=',' read -ra cs <<< "$COUNTIES"
+            for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
+            eval python3 scripts/tx_realauction_check.py $cargs
             exit 0
           fi
           if [ "$SCOPE" = "available_validate" ]; then
