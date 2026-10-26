@@ -276,6 +276,12 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
             counts["refused_ledger_contract"] = counts.get("refused_ledger_contract", 0) + 1
             continue
         row["last_seen_at"] = observed_at
+        if str(row.get("status") or "active").lower() == "active":
+            # Listed by this read, so not delisted: a re-listed row sheds the
+            # delisted_at an earlier close-out wrote (2026-10-26: one active
+            # Detroit row still carried one). A row the source itself marks
+            # closed (a sold flag, a past-sales table) is not given one here.
+            row["delisted_at"] = None
         first = stored_first_seen.get(identity(row)) if identity(row) in stored_first_seen else observed_at
         row["first_seen_at"] = first if first is None or FP_ts(first) <= FP_ts(observed_at) else observed_at
         row["field_provenance"] = list_provenance(row, stored_provenance.get(identity(row)), observed_at)
