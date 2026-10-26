@@ -94,8 +94,8 @@
   {
    "source_id": "co_morgan_treasurer_deed_auctions",
    "state": "CO",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "UNREVIEWED",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": false,
    "paid_beta": false,
    "tester_preview": false,
@@ -322,8 +322,8 @@
   {
    "source_id": "mi_detroit_landbank_lots",
    "state": "MI",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -334,13 +334,13 @@
     "financial": "ok",
     "acquisition": "gap"
    },
-   "reason": "UNREVIEWED: tester preview only (Detroit customer subset applies)."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta (Detroit customer subset applies)."
   },
   {
    "source_id": "mi_detroit_landbank_programs",
    "state": "MI",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -351,7 +351,7 @@
     "financial": "ok",
     "acquisition": "gap"
    },
-   "reason": "UNREVIEWED: tester preview only (Detroit customer subset applies)."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta (Detroit customer subset applies)."
   },
   {
    "source_id": "mi_eaton_treasurer_sale",
@@ -390,8 +390,8 @@
   {
    "source_id": "mi_oceana_landbank",
    "state": "MI",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -402,13 +402,13 @@
     "financial": "ok",
     "acquisition": "ok"
    },
-   "reason": "UNREVIEWED: tester preview only."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
   },
   {
    "source_id": "mn_ramsey_tax_forfeit",
    "state": "MN",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -419,13 +419,13 @@
     "financial": "ok",
     "acquisition": "gap"
    },
-   "reason": "UNREVIEWED: tester preview only."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
   },
   {
    "source_id": "mo_stl_lra_inventory",
    "state": "MO",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -436,13 +436,13 @@
     "financial": "ok",
     "acquisition": "gap"
    },
-   "reason": "UNREVIEWED: tester preview only."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
   },
   {
    "source_id": "ok_oklahoma_county_owned",
    "state": "OK",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -453,13 +453,13 @@
     "financial": "ok",
     "acquisition": "ok"
    },
-   "reason": "UNREVIEWED: tester preview only."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
   },
   {
    "source_id": "pa_fayette_repository",
    "state": "PA",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -470,13 +470,13 @@
     "financial": "ok",
     "acquisition": "gap"
    },
-   "reason": "UNREVIEWED: tester preview only."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
   },
   {
    "source_id": "sc_georgetown_forfeited_land",
    "state": "SC",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -487,13 +487,13 @@
     "financial": "ok",
     "acquisition": "ok"
    },
-   "reason": "UNREVIEWED: tester preview only."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
   },
   {
    "source_id": "sc_horry_forfeited_land",
    "state": "SC",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -504,13 +504,13 @@
     "financial": "ok",
     "acquisition": "ok"
    },
-   "reason": "UNREVIEWED: tester preview only."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
   },
   {
    "source_id": "sc_oconee_tax_sale_list",
    "state": "SC",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "UNREVIEWED",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": false,
    "paid_beta": false,
    "tester_preview": false,
@@ -538,8 +538,8 @@
   {
    "source_id": "tn_shelby_landbank",
    "state": "TN",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "UNREVIEWED",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": false,
    "paid_beta": false,
    "tester_preview": false,
@@ -620,8 +620,8 @@
   {
    "source_id": "wi_dane_tax_deed_auction",
    "state": "WI",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "UNREVIEWED",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": false,
    "paid_beta": false,
    "tester_preview": false,

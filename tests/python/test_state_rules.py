@@ -160,6 +160,9 @@ def test_source_classification_matches_the_ledger_map():
 def test_unreviewed_sources_never_enter_the_paid_beta():
     ctx = _ctx()
     ctx["paid_beta"] = set(ctx["paid_beta"]) | {"tn_shelby_landbank"}
+    # Shelby is APPROVED since the owner's 2026-10-26 decision; the rule is pinned on
+    # Shelby as it stood before (UNREVIEWED).
+    ctx["sources"]["TN"]["tn_shelby_landbank"] = dict(ctx["sources"]["TN"]["tn_shelby_landbank"], publication={"UNREVIEWED"})
     assert _status(SV.verify_state("TN", **ctx), "publication_gate") == ["FAIL"]
 
 
