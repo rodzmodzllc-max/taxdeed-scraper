@@ -87,6 +87,38 @@ function Protect-StoredValues([string]$Source, $Rows) {
     }
 }
 # --- end stored-value guard ----------------------------------------------------
+# --- Write only what changed (2026-10-26) --------------------------------------
+# Every run used to upsert every harvested row again, changed or not: each
+# UPDATE bumps updated_at (properties_touch) and leaves a dead tuple, and one
+# run rewrote ~15,770 rows in ten minutes on 2026-10-26 (production overload).
+# scripts/write_diff_filter.py applies scripts/write_diff.py's one rule - a row
+# whose stored copy already holds the same values is not sent - never a second
+# copy of it here. Fail OPEN: if the filter cannot run or the stored rows cannot
+# be read, every row is sent, exactly as before. Only the upsert uses the result;
+# close-out decides on what was harvested, never on what was written.
+function Select-ChangedRows([string]$Source, $Rows) {
+    $all = @($Rows)
+    if ($all.Count -eq 0) { return }
+    $in = [System.IO.Path]::GetTempFileName()
+    $out = [System.IO.Path]::GetTempFileName()
+    try {
+        $json = $all | ConvertTo-Json -Depth 6
+        if ($all.Count -eq 1) { $json = "[$json]" }
+        [System.IO.File]::WriteAllText($in, $json, [System.Text.UTF8Encoding]::new($false))
+        & (Get-LedgerPython) (Join-Path $PSScriptRoot "write_diff_filter.py") --state FL --source $Source --in $in --out $out
+        if (0 -ne $LASTEXITCODE) {
+            Write-Warning "write_diff_filter.py exited $LASTEXITCODE - sending all $($all.Count) $Source row(s) (fail open)."
+            return $all
+        }
+        return @((Get-Content $out -Raw -Encoding utf8) | ConvertFrom-Json)
+    } catch {
+        Write-Warning "Unchanged-row filter failed ($($_.Exception.Message)) - sending all $($all.Count) $Source row(s) (fail open)."
+        return $all
+    } finally {
+        Remove-Item $in, $out -ErrorAction SilentlyContinue
+    }
+}
+# --- end write only what changed -----------------------------------------------
 
 
 # Pushes harvest_certificates.json (produced by
@@ -275,6 +307,9 @@ Write-Output "No harvest_certificates.json - harvester found nothing to upsert t
 # ---- Upsert whatever was harvested (unconditional, always safe - this step
 # only ever adds or refreshes rows, never removes data) ----
 if ($rows.Count -gt 0) {
+# Only new / changed rows are upserted; $rows (everything harvested) still
+# drives the reconciliation below.
+$writeRows = @(Select-ChangedRows "certificate" $rows)
 # Preferred conflict target once 004_widen_unique_constraint_for_state.sql
 # has been run (adds `state` to the unique key so FL/TX same-named counties
 # can't collide on one upserted row - see that migration's header comment).
@@ -286,8 +321,8 @@ $fallbackEndpoint = "$supabaseUrl/rest/v1/properties?on_conflict=source,county,c
 $useFallback = $false
 
 $sent = 0
-for ($i = 0; $i -lt $rows.Count; $i += $batchSize) {
-$batch = $rows[$i..([math]::Min($i + $batchSize - 1, $rows.Count - 1))]
+for ($i = 0; $i -lt $writeRows.Count; $i += $batchSize) {
+$batch = @($writeRows[$i..([math]::Min($i + $batchSize - 1, $writeRows.Count - 1))])
 $json = $batch | ConvertTo-Json -Depth 5
 if ($batch.Count -eq 1) { $json = "[$json]" }
 $body = [System.Text.Encoding]::UTF8.GetBytes($json)
@@ -309,7 +344,7 @@ throw
 }
 }
 $sent += $batch.Count
-Write-Output " synced $sent / $($rows.Count)"
+Write-Output " synced $sent / $($writeRows.Count)"
 } catch {
 Write-Output "SYNC FAILED on batch starting at row $i - most likely schema-v4-certificates.sql hasn't been run against this Supabase project yet."
 Write-Output "Error: $($_.Exception.Message)"
@@ -317,7 +352,7 @@ throw
 }
 }
 
-Write-Output "Done. $sent certificates upserted to Supabase."
+Write-Output "Done. $sent of $($rows.Count) certificates upserted to Supabase ($($rows.Count - $writeRows.Count) unchanged, not rewritten)."
 Write-Output "Counties covered: $((($rows | ForEach-Object { $_.county }) | Select-Object -Unique).Count)"
 } else {
 Write-Output "Nothing to upsert this run."

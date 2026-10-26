@@ -420,8 +420,8 @@ def test_wf01_job_selector_gates_every_job_and_never_schedules_texas():
     assert wf["jobs"]["evidence"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'evidence'"
     # Auction-outcome evidence: the stand-alone outcome read is manual-only too.
     assert wf["jobs"]["outcomes"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'outcomes'"
-    assert on["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 22 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 17 * * *"}]
-    for name, crons in (("deeds", ("13 10 * * *", "13 22 * * *")), ("certificates", ("37 11 * * *",)), ("laft", ("37 11 * * *",)), ("backup", ("37 11 * * *",)),
+    assert on["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 4 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 3 * * *"}]
+    for name, crons in (("deeds", ("13 10 * * *", "13 4 * * *")), ("certificates", ("37 11 * * *",)), ("laft", ("37 11 * * *",)), ("backup", ("37 11 * * *",)),
                         ("expansion", ("37 11 * * *",))):   # six-state expansion (2026-09-30): the existing 12:00 slot
         cond = wf["jobs"][name]["if"]
         assert f"github.event.inputs.job == '{name}'" in cond and "github.event.inputs.job == 'all'" in cond and "github.event.inputs.job == ''" in cond
