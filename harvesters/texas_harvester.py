@@ -333,9 +333,16 @@ class TexasSaleRow:
     # says "Auction link not published" rather than showing a guess.
     #   harvest_realauction(): the county's sale-date PREVIEW page it already
     #     fetched (the same page Florida stores as url_auction), kind 'sale'.
-    #   harvest_lgbs(): None - no per-property or per-sale LGBS URL is known.
+    #   harvest_lgbs(): the record's own `property_loc` (the online sale site
+    #     LGBS publishes for that record), kind 'county' - only when https,
+    #     not a bare homepage and not a blocked vendor's host
+    #     (_lgbs_published_links()). None otherwise; never composed.
     auction_url: str | None = None
     auction_url_kind: str | None = None
+    # The county sale-list document the source publishes for the record
+    # (LGBS `county_sale_list`), verbatim - maps to DB `document_url`. A
+    # document, never a purchase link. None when not published (2026-10-25).
+    sale_list_url: str | None = None
     # The vendor's own raw sale status, verbatim (LGBS: "Scheduled for
     # Auction" / "Scheduled for Online Auction" / "Available for Future Sale" /
     # "Struck off to Jurisdiction"). `source` above collapses those into a
@@ -376,9 +383,12 @@ FIELD_LINEAGE_MAP: dict[str, dict[str, str | None]] = {
         "latitude": "geometry.coordinates[1] (parsed via _lgbs_to_float())",
         "longitude": "geometry.coordinates[0] (parsed via _lgbs_to_float())",
         "source": "status (mapped via LGBS_STATUS_TO_LEDGER)",
-        "auction_url": None,  # no per-property or per-sale LGBS URL is known - never composed (Phase 72)
-        "auction_url_kind": None,
+        "auction_url": "property_loc (verbatim; https, not a bare homepage, not a blocked vendor host - "
+                       "_lgbs_published_links(), 2026-10-25); never composed",
+        "auction_url_kind": "constant 'county' when property_loc is kept - the record's online sale site, not a "
+                            "per-property page",
         "sale_status": "status (verbatim, unmapped - Phase 72)",
+        "sale_list_url": "county_sale_list (verbatim, https only - the county sale-list document; 2026-10-25)",
     },
     "tx_realauction": {
         "account_number": "'Account Number' field (via _realauction_get_field())",
@@ -395,6 +405,7 @@ FIELD_LINEAGE_MAP: dict[str, dict[str, str | None]] = {
         "auction_url": "the sale-date PREVIEW page fetched for this row's county host + AuctionDate (Phase 72)",
         "auction_url_kind": "constant 'sale' - a sale-event page, not a per-property page (Phase 72)",
         "sale_status": None,  # 'Sale Type' is read but observed blank and is not a status vocabulary (Phase 72)
+        "sale_list_url": None,  # no sale-list document is published by this vendor
     },
 }
 
@@ -572,6 +583,47 @@ def _lgbs_to_float(value) -> float | None:
         return None
 
 
+# Hosts a record's `property_loc` may never be stored from: the blocked
+# Texas vendors (CLAUDE.md: never PBFCM / MVBA / CTSA / GovEase). Kept equal
+# to the vendor part of scripts/laft_purchase_paths.UNTRUSTED_HOST_SUFFIXES
+# (a test pins the subset).
+LGBS_LINK_BLOCKED_HOSTS = ("govease.com", "pbfcm.com", "mvbalaw.com", "ctsa.com")
+
+
+def _https_url(value) -> str | None:
+    from urllib.parse import urlsplit
+    if not isinstance(value, str):
+        return None
+    url = value.strip()
+    if not url.startswith("https://") or any(c.isspace() for c in url):
+        return None
+    return url if urlsplit(url).hostname else None
+
+
+def _lgbs_published_links(raw: dict) -> tuple[str | None, str | None, str | None]:
+    """(auction_url, auction_url_kind, sale_list_url) from the links one LGBS
+    record itself publishes (read 2026-10-25, value-free field probe through
+    the ingestion gate: 4,203 Texas records; `county_sale_list` on 464,
+    every one with a sale date; `property_loc` on 260). Each URL is kept
+    verbatim or not at all - nothing is composed, rewritten or upgraded.
+
+      property_loc     -> auction_url, kind 'county' (the county's online sale
+                          site for this record). Refused when not https, a
+                          bare homepage (no path, no query) or on a blocked
+                          vendor's host.
+      county_sale_list -> sale_list_url (the county sale-list document),
+                          https only.
+    """
+    from urllib.parse import urlsplit
+    auction_url = _https_url(raw.get("property_loc"))
+    if auction_url:
+        parts = urlsplit(auction_url)
+        host = (parts.hostname or "").lower()
+        if (parts.path in ("", "/") and not parts.query) or any(host == b or host.endswith("." + b) for b in LGBS_LINK_BLOCKED_HOSTS):
+            auction_url = None
+    return auction_url, ("county" if auction_url else None), _https_url(raw.get("county_sale_list"))
+
+
 def _lgbs_compose_address(raw: dict) -> str | None:
     street = (raw.get("prop_address_one") or raw.get("street_name") or "").strip()
     city = (raw.get("prop_city") or "").strip().title()
@@ -704,6 +756,7 @@ def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[Te
 
             coords = ((raw.get("geometry") or {}).get("coordinates")) or [None, None]
             lon, lat = (list(coords) + [None, None])[:2]
+            auction_url, auction_url_kind, sale_list_url = _lgbs_published_links(raw)
 
             rows.append(
                 TexasSaleRow(
@@ -720,9 +773,12 @@ def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[Te
                     source=ledger,
                     harvester_source="tx_lgbs",
                     # Phase 72: keep the vendor's own status verbatim alongside
-                    # the ledger it was mapped to. No auction_url: LGBS publishes
-                    # no per-property/per-sale page this harvester can read.
+                    # the ledger it was mapped to. 2026-10-25: the links the
+                    # record itself publishes, verbatim or not at all.
                     sale_status=status,
+                    auction_url=auction_url,
+                    auction_url_kind=auction_url_kind,
+                    sale_list_url=sale_list_url,
                 )
             )
             counties_seen.add(county)

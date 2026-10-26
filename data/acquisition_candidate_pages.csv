@@ -53,3 +53,5 @@ MN,Ramsey,https://www.ramseycountymn.gov/residents/property-home/taxes-values/pr
 MI,Wayne,https://buildingdetroit.org/purchase_property,web search 2026-10-06,Detroit Land Bank Authority: Purchase Property,,PROCEDURE
 MI,Wayne,https://buildingdetroit.org/land-reuse-programs,web search 2026-10-06,Detroit Land Bank Authority: Land Reuse Programs (side lots and neighborhood lots),mi_detroit_landbank_lots,INSTRUCTIONS
 TN,Shelby,https://landbank.shelbycountytn.gov,capture runs 37856189946 37856396525,Shelby County Land Bank site; sends buyers to its ePropertyPlus portal and links the offer packet,tn_shelby_landbank,SOURCE_PAGE
+TX,Leon,https://www.co.leon.tx.us/page/leon.County.Assessor.Collector,read 2026-10-25,Tax Assessor-Collector page: refers buyers to the delinquent-tax counsels' sites for current tax-sale listings; no county list or procedure,tx_lgbs,CONTACT
+TX,Liberty,https://www.co.liberty.tx.us/page/liberty.County.Assessor.Collector,read 2026-10-25,Tax Assessor-Collector page: its Tax Sale Property Listing document (2017) says to contact the counsel or obtain a list from the Tax Office,tx_lgbs,CONTACT

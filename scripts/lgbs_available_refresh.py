@@ -132,10 +132,14 @@ def index_feed(records: list[dict]) -> dict:
 
 
 def plan_row(row: dict, idx: dict, *, now: str, walk_complete: bool) -> tuple[str, dict]:
-    """(outcome, PATCH body). Outcomes: NOT_IN_FEED | AMBIGUOUS | OTHER_STATUS | OBSERVED."""
+    """(outcome, PATCH body). Outcomes: NOT_IN_FEED | NOT_READ | AMBIGUOUS | OTHER_STATUS | OBSERVED.
+
+    NOT_IN_FEED only after a COMPLETE walk. A row unseen in a truncated walk
+    is NOT_READ: the feed was not read to the end (2026-10-25: page 1 never
+    answered, 0 raw records), so its absence says nothing about the listing."""
     hits = idx.get((row.get("county"), norm_account(row.get("case_no"))), [])
     if not hits:
-        return "NOT_IN_FEED", {}
+        return ("NOT_IN_FEED" if walk_complete else "NOT_READ"), {}
     if len(hits) > 1:
         return "AMBIGUOUS", {}
     rec = hits[0]

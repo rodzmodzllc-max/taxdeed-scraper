@@ -7353,7 +7353,7 @@ const EXPECTED = {
   monDashRuns: ['fl_realauction:812 observed / 14 new / 40 changed / 9 no longer listed', 'fl_laft_html:120 observed / 3 new / 5 changed / 2 no longer listed / 1 listed again'],
   acqWithheldLineCount: 0,
   acqP16State: 'none',
-  acqP16Rows: ['Acquisition path | Not yet verified', 'Evidence status | No official acquisition process foundCounty pages carry foreclosure notices only - no resale process (checked Oct 1, 2026)', 'Acquisition authority | County tax assessor-collector / taxing units', 'How to acquire | See the official source for current instructions.', 'Official availability source | Open official source →', 'Online purchase | No online purchase link on file'],
+  acqP16Rows: ['Acquisition path | Not yet verified', 'Evidence status | No official acquisition process foundThe Tax Assessor-Collector page links a \'Tax Sale Property Listing\' document (Last-Modified 2017) that only says to contact a delinquent-tax counsel or obtain a list from the Tax Office; commissioners-court agendas approve resale bids requested through the counsel. No county list or buyer procedure (checked Oct 25, 2026)', 'Acquisition authority | County tax assessor-collector / taxing units', 'How to acquire | See the official source for current instructions.', 'Official availability source | Open official source →', 'Online purchase | No online purchase link on file'],
   acqP16SourceHref: 'https://taxsales.lgbs.com/',
   acqP16NoCta: 0,
   acqP16PendingNotError: true,
