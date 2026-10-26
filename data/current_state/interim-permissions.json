@@ -254,6 +254,120 @@
   },
   {
    "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv co_saguache_tax_sale; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "CO",
+   "operation": "discover",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "co_saguache_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv co_saguache_tax_sale restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "CO",
+   "operation": "display",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "co_saguache_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv co_saguache_tax_sale; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "CO",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "co_saguache_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv co_saguache_tax_sale restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "CO",
+   "operation": "link",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "co_saguache_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv co_saguache_tax_sale; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "CO",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "co_saguache_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv co_saguache_tax_sale; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "CO",
+   "operation": "store",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "co_saguache_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
     "scripts/enrich_flood_zone.py",
     "scripts/permission_gate.py"
    ],
@@ -2458,6 +2572,120 @@
    "dataset": "*",
    "effective_on": "2026-10-26",
    "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_calhoun_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "discover",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_calhoun_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mi_calhoun_landbank restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "display",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mi_calhoun_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_calhoun_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_calhoun_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mi_calhoun_landbank restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "link",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mi_calhoun_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_calhoun_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_calhoun_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_calhoun_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "store",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_calhoun_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
    "evidence_ref": "docs/publish-all-sources.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mi_detroit_landbank_lots restrictions",
    "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
@@ -2895,6 +3123,576 @@
    "dataset": "*",
    "effective_on": "2026-10-26",
    "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_saginaw_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "discover",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_saginaw_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mi_saginaw_landbank restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "display",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mi_saginaw_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_saginaw_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_saginaw_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mi_saginaw_landbank restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "link",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mi_saginaw_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_saginaw_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_saginaw_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_saginaw_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "store",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_saginaw_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_tax_sale_info_auction; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "discover",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_tax_sale_info_auction",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mi_tax_sale_info_auction restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "display",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mi_tax_sale_info_auction",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_tax_sale_info_auction; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_tax_sale_info_auction",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mi_tax_sale_info_auction restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "link",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mi_tax_sale_info_auction",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_tax_sale_info_auction; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_tax_sale_info_auction",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_tax_sale_info_auction; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "store",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_tax_sale_info_auction",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_tax_sale_info_surplus; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "discover",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_tax_sale_info_surplus",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mi_tax_sale_info_surplus restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "display",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mi_tax_sale_info_surplus",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_tax_sale_info_surplus; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_tax_sale_info_surplus",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mi_tax_sale_info_surplus restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "link",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mi_tax_sale_info_surplus",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_tax_sale_info_surplus; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_tax_sale_info_surplus",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_tax_sale_info_surplus; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "store",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_tax_sale_info_surplus",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_wayne_county_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "discover",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_wayne_county_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mi_wayne_county_landbank restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "display",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mi_wayne_county_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_wayne_county_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_wayne_county_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mi_wayne_county_landbank restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "link",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mi_wayne_county_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_wayne_county_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_wayne_county_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mi_wayne_county_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "store",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mi_wayne_county_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mn_hubbard_tfl_otc; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "discover",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mn_hubbard_tfl_otc",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mn_hubbard_tfl_otc restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "display",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mn_hubbard_tfl_otc",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mn_hubbard_tfl_otc; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mn_hubbard_tfl_otc",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mn_hubbard_tfl_otc restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "link",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mn_hubbard_tfl_otc",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mn_hubbard_tfl_otc; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mn_hubbard_tfl_otc",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mn_hubbard_tfl_otc; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "store",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mn_hubbard_tfl_otc",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
    "evidence_ref": "docs/publish-all-sources.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mn_ramsey_tax_forfeit restrictions",
    "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
@@ -2979,6 +3777,234 @@
    "operation": "store",
    "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
    "source_id": "mn_ramsey_tax_forfeit",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mn_stpaul_hra_properties; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "discover",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mn_stpaul_hra_properties",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mn_stpaul_hra_properties restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "display",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mn_stpaul_hra_properties",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mn_stpaul_hra_properties; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mn_stpaul_hra_properties",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mn_stpaul_hra_properties restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "link",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mn_stpaul_hra_properties",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mn_stpaul_hra_properties; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mn_stpaul_hra_properties",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mn_stpaul_hra_properties; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "store",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mn_stpaul_hra_properties",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mo_kc_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MO",
+   "operation": "discover",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mo_kc_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mo_kc_landbank restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MO",
+   "operation": "display",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mo_kc_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mo_kc_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MO",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mo_kc_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mo_kc_landbank restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MO",
+   "operation": "link",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mo_kc_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mo_kc_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MO",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mo_kc_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mo_kc_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MO",
+   "operation": "store",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mo_kc_landbank",
    "status": "OWNER_PERMISSION_REQUIRED"
   },
   {
@@ -3275,6 +4301,120 @@
    "dataset": "*",
    "effective_on": "2026-10-26",
    "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv pa_pittsburgh_city_property; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "PA",
+   "operation": "discover",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "pa_pittsburgh_city_property",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv pa_pittsburgh_city_property restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "PA",
+   "operation": "display",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "pa_pittsburgh_city_property",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv pa_pittsburgh_city_property; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "PA",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "pa_pittsburgh_city_property",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv pa_pittsburgh_city_property restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "PA",
+   "operation": "link",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "pa_pittsburgh_city_property",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv pa_pittsburgh_city_property; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "PA",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "pa_pittsburgh_city_property",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv pa_pittsburgh_city_property; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "PA",
+   "operation": "store",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "pa_pittsburgh_city_property",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
    "evidence_ref": "docs/publish-all-sources.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv sc_georgetown_forfeited_land restrictions",
    "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
@@ -3454,6 +4594,120 @@
    "operation": "store",
    "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
    "source_id": "sc_horry_forfeited_land",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv sc_horry_tax_sale; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "discover",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "sc_horry_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv sc_horry_tax_sale restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "display",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "sc_horry_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv sc_horry_tax_sale; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "sc_horry_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv sc_horry_tax_sale restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "link",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "sc_horry_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv sc_horry_tax_sale; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "sc_horry_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv sc_horry_tax_sale; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "store",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "sc_horry_tax_sale",
    "status": "OWNER_PERMISSION_REQUIRED"
   },
   {
@@ -5527,12 +6781,12 @@
  "interim_max_days": 210,
  "summary": {
   "by_expiry": {
-   "2027-04-12": 268
+   "2027-04-12": 334
   },
   "by_finding": {
    "REVIEWER_IS_NOT_A_DECISION": 77
   },
-  "records": 268,
-  "sources": 71
+  "records": 334,
+  "sources": 82
  }
 }

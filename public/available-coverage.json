@@ -212,13 +212,22 @@
     }
    ],
    "last_reads": {
-    "UNKNOWN": 3
+    "UNKNOWN": 14
    },
    "production_counties": [
+    "Arenac",
+    "Bay",
+    "Calhoun",
+    "Jackson",
+    "Monroe",
+    "Montcalm",
     "Oceana",
+    "Otsego",
+    "Presque Isle",
+    "Saginaw",
     "Wayne"
    ],
-   "production_sources": 3,
+   "production_sources": 14,
    "rejected": [],
    "research": {
     "checked_on": "2026-10-02",
@@ -234,12 +243,13 @@
   {
    "candidates": [],
    "last_reads": {
-    "UNKNOWN": 1
+    "UNKNOWN": 3
    },
    "production_counties": [
+    "Hubbard",
     "Ramsey"
    ],
-   "production_sources": 1,
+   "production_sources": 3,
    "rejected": [],
    "research": {},
    "state": "MN",
@@ -248,12 +258,13 @@
   {
    "candidates": [],
    "last_reads": {
-    "UNKNOWN": 1
+    "UNKNOWN": 2
    },
    "production_counties": [
+    "Jackson",
     "St. Louis City"
    ],
-   "production_sources": 1,
+   "production_sources": 2,
    "rejected": [],
    "research": {},
    "state": "MO",
@@ -276,12 +287,13 @@
   {
    "candidates": [],
    "last_reads": {
-    "UNKNOWN": 1
+    "UNKNOWN": 2
    },
    "production_counties": [
+    "Allegheny",
     "Fayette"
    ],
-   "production_sources": 1,
+   "production_sources": 2,
    "rejected": [],
    "research": {},
    "state": "PA",

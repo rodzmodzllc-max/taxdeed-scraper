@@ -87,7 +87,7 @@ def run(doc: bytes, calls=None):
 
 
 def test_config_reads_the_page_and_never_maps_the_owner():
-    (src,) = EX.SOURCES["PA"]
+    (src,) = [s for s in EX.SOURCES["PA"] if s.config.source_id == "pa_fayette_repository"]
     cfg = src.config
     assert src.kind == "latest_dated_document" and src.url == PAGE == cfg.list_url
     assert cfg.document_sheet == "Active" and cfg.status_exclude == ("Bid Received",)

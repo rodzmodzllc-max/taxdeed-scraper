@@ -86,7 +86,7 @@ def _epp_row(pid, status="FOR SALE", available="Y"):
 def test_shelby_offered_rows_carry_the_portal_property_page():
     recs, counts = EPP.parse_rows(EX.TN_SHELBY_LANDBANK, [_epp_row("FIXTURE0000001"), _epp_row("FIXTURE0000002", "SOLD"),
                                                           _epp_row("BAD")], retrieved_at=AT)
-    assert counts == {"excluded_status": 1, "rejected_ids": 1, "duplicates": 0}
+    assert counts == {"excluded_status": 1, "rejected_ids": 1, "duplicates": 0, "excluded_county": 0}
     (r,) = recs
     assert r.purchase_url == "https://public-sctn.epropertyplus.com/property/FIXTURE0000001"
     assert r.purchase_url_kind is PurchaseUrlKind.ONLINE_PURCHASE

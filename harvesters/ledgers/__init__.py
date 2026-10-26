@@ -161,6 +161,20 @@ SOURCE_LEDGERS: dict[str, frozenset[Ledger]] = {
     "mn_ramsey_tax_forfeit": frozenset({Ledger.AVAILABLE}),
     # Tennessee (2026-10-08): Shelby County Land Bank (UNREVIEWED) - docs/tennessee-survey.md.
     "tn_shelby_landbank": frozenset({Ledger.AVAILABLE}),
+    # New-sources sprint (2026-10-26, owner decision; INTERIM permission, UNREVIEWED) -
+    # docs/new-sources-2026-10-26.md.
+    "mo_kc_landbank": frozenset({Ledger.AVAILABLE}),
+    "pa_pittsburgh_city_property": frozenset({Ledger.AVAILABLE}),
+    "mi_wayne_county_landbank": frozenset({Ledger.AVAILABLE}),
+    "mi_saginaw_landbank": frozenset({Ledger.AVAILABLE}),
+    "mi_calhoun_landbank": frozenset({Ledger.AVAILABLE}),
+    "mi_tax_sale_info_auction": frozenset({Ledger.AUCTIONS}),
+    "mi_tax_sale_info_surplus": frozenset({Ledger.AVAILABLE}),
+    "sc_horry_tax_sale": frozenset({Ledger.AUCTIONS}),
+    "co_saguache_tax_sale": frozenset({Ledger.AUCTIONS}),
+    "mn_hubbard_tfl_otc": frozenset({Ledger.AVAILABLE}),
+    "mn_stpaul_hra_properties": frozenset({Ledger.AVAILABLE}),
+    # (new-sources sprint 2026-10-26 entries end here)
 }
 # tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner's decision of 2026-10-26
 # ("Do not block vendors ..."; terms risk accepted, legal review pending). tx_ctsa stays blocked (paywall).

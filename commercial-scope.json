@@ -104,6 +104,18 @@
    "reason": "Registered, not collected."
   },
   {
+   "source_id": "co_saguache_tax_sale",
+   "state": "CO",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "fl_bid4assets_okaloosa",
    "state": "FL",
    "publication_status": "APPROVED_GRANDFATHERED",
@@ -344,6 +356,18 @@
    "reason": "Public Domain open-data list approved by the owner as a dated list (never called available now); financial terms OFFER_NEGOTIATED (no price published); acquisition process verified from the Parish Attorney's own memorandum and form."
   },
   {
+   "source_id": "mi_calhoun_landbank",
+   "state": "MI",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "mi_detroit_landbank_lots",
    "state": "MI",
    "publication_status": "APPROVED",
@@ -429,6 +453,66 @@
    "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
   },
   {
+   "source_id": "mi_saginaw_landbank",
+   "state": "MI",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "mi_tax_sale_info_auction",
+   "state": "MI",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "mi_tax_sale_info_surplus",
+   "state": "MI",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "mi_wayne_county_landbank",
+   "state": "MI",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "mn_hubbard_tfl_otc",
+   "state": "MN",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "mn_ramsey_tax_forfeit",
    "state": "MN",
    "publication_status": "APPROVED",
@@ -444,6 +528,30 @@
     "acquisition": "gap"
    },
    "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
+  },
+  {
+   "source_id": "mn_stpaul_hra_properties",
+   "state": "MN",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "mo_kc_landbank",
+   "state": "MO",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
   },
   {
    "source_id": "mo_stl_lra_inventory",
@@ -497,6 +605,18 @@
    "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
   },
   {
+   "source_id": "pa_pittsburgh_city_property",
+   "state": "PA",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "sc_georgetown_forfeited_land",
    "state": "SC",
    "publication_status": "APPROVED",
@@ -529,6 +649,18 @@
     "acquisition": "ok"
    },
    "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
+  },
+  {
+   "source_id": "sc_horry_tax_sale",
+   "state": "SC",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
   },
   {
    "source_id": "sc_oconee_tax_sale_list",

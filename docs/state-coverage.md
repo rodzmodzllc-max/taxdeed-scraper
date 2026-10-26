@@ -16,7 +16,7 @@ Built by `scripts/build_state_coverage.py` from the registry, the rules, the led
 
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
-| AUCTIONS | COUNTY_DEPENDENT | SOURCE_IMPLEMENTED_NEVER_READ | 2 / 2 / 2 | - | - | - | 0 of 0 | Dispatch the source's job once (owner decision) and read its status file; a failure is a source problem, not an empty list. |
+| AUCTIONS | COUNTY_DEPENDENT | SOURCE_IMPLEMENTED_NEVER_READ | 3 / 3 / 3 | - | - | - | 0 of 0 | Dispatch the source's job once (owner decision) and read its status file; a failure is a source problem, not an empty list. |
 | AVAILABLE | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
 | LIENS_CERTIFICATES | COUNTY_DEPENDENT | CURRENT | 2 / 2 / 2 | 141 | 0 | 0 | 0 of 0 | Keep reading; raise field population where a verified official layer exists (see fields). |
 CO - AUCTIONS: no row and no read recorded in the snapshot
@@ -59,8 +59,8 @@ LA - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
-| AUCTIONS | COUNTY_DEPENDENT | CURRENT | 2 / 2 / 2 | 38 | 0 | 0 | 0 of 0 | Keep reading; raise field population where a verified official layer exists (see fields). |
-| AVAILABLE | COUNTY_DEPENDENT | CURRENT | 3 / 3 / 3 | 30775 | 0 | 30770 | 2 of 3 | Keep reading; raise field population where a verified official layer exists (see fields). |
+| AUCTIONS | COUNTY_DEPENDENT | CURRENT | 77 / 77 / 77 | 38 | 0 | 0 | 0 of 0 | Keep reading; raise field population where a verified official layer exists (see fields). |
+| AVAILABLE | COUNTY_DEPENDENT | CURRENT | 14 / 14 / 14 | 30775 | 0 | 30770 | 2 of 14 | Keep reading; raise field population where a verified official layer exists (see fields). |
 | LIENS_CERTIFICATES | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
 
 MI - AUCTIONS field population (active rows, snapshot): amount 38/38; bid_amount_mismatch 0/38; coords 38/38; dup_parcel 0/38; flood_checked 38/38; laft_bid_without_amount 0/38; link_not_https 0/38; list_as_of 0/38; list_as_of_future 0/38; never_seen 0/38; parcel 38/38; parcel_no_digit 0/38; past_sale 35/38; path_typed 38/38; provenance 38/38; seen_gt36h 0/38; seen_order_bad 0/38; source_link 38/38
@@ -75,7 +75,7 @@ MI - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
 | AUCTIONS | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
-| AVAILABLE | COUNTY_DEPENDENT | CURRENT | 1 / 1 / 1 | 2 | 0 | 0 | 1 of 1 | Keep reading; raise field population where a verified official layer exists (see fields). |
+| AVAILABLE | COUNTY_DEPENDENT | CURRENT | 3 / 3 / 3 | 2 | 0 | 0 | 1 of 3 | Keep reading; raise field population where a verified official layer exists (see fields). |
 | LIENS_CERTIFICATES | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
 MN - AUCTIONS: eligibility NOT_VERIFIED; no production source
 
@@ -88,7 +88,7 @@ MN - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
 | AUCTIONS | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
-| AVAILABLE | COUNTY_DEPENDENT | CURRENT | 1 / 1 / 1 | 9759 | 0 | 0 | 1 of 1 | Keep reading; raise field population where a verified official layer exists (see fields). |
+| AVAILABLE | COUNTY_DEPENDENT | CURRENT | 2 / 2 / 2 | 9759 | 0 | 0 | 1 of 2 | Keep reading; raise field population where a verified official layer exists (see fields). |
 | LIENS_CERTIFICATES | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
 MO - AUCTIONS: eligibility NOT_VERIFIED; no production source
 
@@ -114,7 +114,7 @@ OK - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
 | AUCTIONS | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
-| AVAILABLE | COUNTY_DEPENDENT | CURRENT | 1 / 1 / 1 | 376 | 0 | 0 | 1 of 1 | Keep reading; raise field population where a verified official layer exists (see fields). |
+| AVAILABLE | COUNTY_DEPENDENT | CURRENT | 2 / 2 / 2 | 376 | 0 | 0 | 1 of 2 | Keep reading; raise field population where a verified official layer exists (see fields). |
 | LIENS_CERTIFICATES | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
 PA - AUCTIONS: eligibility NOT_VERIFIED; no production source
 
@@ -126,7 +126,7 @@ PA - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
-| AUCTIONS | COUNTY_DEPENDENT | CURRENT | 2 / 2 / 2 | 853 | 0 | 0 | 0 of 0 | Keep reading; raise field population where a verified official layer exists (see fields). |
+| AUCTIONS | COUNTY_DEPENDENT | CURRENT | 3 / 3 / 3 | 853 | 0 | 0 | 0 of 0 | Keep reading; raise field population where a verified official layer exists (see fields). |
 | AVAILABLE | COUNTY_DEPENDENT | CURRENT | 2 / 2 / 2 | 52 | 0 | 0 | 2 of 2 | Keep reading; raise field population where a verified official layer exists (see fields). |
 | LIENS_CERTIFICATES | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
 

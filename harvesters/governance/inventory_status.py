@@ -207,6 +207,9 @@ AVAILABLE_OFFERED_WORDINGS: dict[str, tuple[str, ...]] = {
     "mo_stl_lra_inventory": ("Available",),
     "mn_ramsey_tax_forfeit": ("Available for purchase",),
     "tn_shelby_landbank": ("FOR SALE",),
+    "pa_pittsburgh_city_property": ("Available for Sale",),
+    "mn_hubbard_tfl_otc": ("OTC",),
+    "mn_stpaul_hra_properties": ("5 - Available on the open market, subject to disposition policy",),
 }
 
 

@@ -107,6 +107,7 @@ EMPTY_SIGNALS = (
     "no_offered_status",        # status-filtered list: no row carries an offered status
     "empty_layer",              # the layer / table answered with zero features
     "superseded_list",          # the county's own pages say this list's sale is over (config `superseded`; Albany WY 2026)
+    "no_catalog_listed",        # Tax-Sale.info: the index lists no upcoming / surplus catalog for this county (2026-10-26)
 )
 
 ERROR_CATEGORIES = (

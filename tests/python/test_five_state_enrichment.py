@@ -272,7 +272,12 @@ def test_g01_publication_decisions_per_source():
     for sid in owner:
         assert pub.effective_publication(reg[sid]) == "APPROVED" and SP.publishable(reg[sid]), sid
         assert pub.publication_problems(reg[sid]) == [] and "legal review pending" in reg[sid].restrictions, sid
-    assert set(EX.PUBLICATION) == approved | owner
+    # New-sources sprint (2026-10-26): the same owner decision ("Do not block vendors. Post their shit").
+    new = set(EX.NEW_SOURCE_IDS)
+    for sid in new:
+        assert pub.effective_publication(reg[sid]) == "APPROVED" and SP.publishable(reg[sid]), sid
+        assert pub.publication_problems(reg[sid]) == [] and "legal review pending" in reg[sid].restrictions, sid
+    assert set(EX.PUBLICATION) == approved | owner | new
 
 
 def test_g02_unreviewed_sources_make_no_request_and_write_no_row():

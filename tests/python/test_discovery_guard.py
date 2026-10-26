@@ -182,12 +182,13 @@ def test_only_owner_recorded_sources_hold_a_discover_permission():
     # vendors, the FL / TX county-source sprint, and the one-read record for TaxSys' county-held
     # reports (whose hosts are in no index table). Every other mapped URL is refused.
     allowing = [r for r in PERM.Permissions.from_file().records if r.operation == "discover" and r.status != "BLOCKED"]
-    assert OWNER_VENDORS | {"fl_taxsys_county_held"} <= {r.source_id for r in allowing}
+    from harvesters.otc.adapters import expansion as EX  # noqa: PLC0415 - + the new-sources sprint (2026-10-26)
+    assert OWNER_VENDORS | {"fl_taxsys_county_held"} | set(EX.NEW_SOURCE_IDS) <= {r.source_id for r in allowing}
     # (The vendors' records carry status LEGAL_REVIEW_REQUIRED, the county sources' OWNER_PERMISSION_REQUIRED; both
     # are INTERIM allowances.)
     assert all(r.status in ("OWNER_PERMISSION_REQUIRED", "LEGAL_REVIEW_REQUIRED") and r.evidence_type == "INTERNAL_RISK_ACCEPTANCE"
                and r.effective_on == "2026-10-26" and r.expires_on == "2027-04-12"
-               and r.state in ("FL", "TX") for r in allowing)
+               and (r.state in ("FL", "TX") or r.source_id in EX.NEW_SOURCE_IDS) for r in allowing)
     permitted = {r.source_id for r in allowing}
     g = DG.Guard("t")
     hosts = sorted({t.host for t in g.index if t.source_id not in permitted})

@@ -3612,3 +3612,20 @@ Full description: `docs/county-sources-2026-10-26.md`. Stable facts:
   Synced by `sync_state_inventory.py --keep-other-sources` (never takes over an LGBS / RealAuction row); closed
   per source by `texas_closeout.py --harvest/--status` (county files) after a COMPLETE / EMPTY read only.
   `registry.py` `_TX_HCTAX` stays LEGAL_REVIEW_REQUIRED (the legal record; the vendor sync path only).
+
+## New sources sprint: every property, every source (2026-10-26, PR open, no migration)
+
+Full description: `docs/new-sources-2026-10-26.md`. Stable facts:
+- **Owner decision 2026-10-26**: collect every source; terms risk accepted. Each new source holds INTERIM
+  `discover`/`fetch`/`parse`/`store` records (`scripts/add_owner_interim_permissions.py`, `INTERNAL_RISK_ACCEPTANCE`,
+  expiring 2027-04-12) plus INTERIM `display` / `link`, and is APPROVED ("Owner approved customer publication
+  2026-10-26; legal review pending", the owner's "Do not block vendors" decision). `expansion.NEW_SOURCE_IDS` +
+  `source_publication.owner_collection()` let these sources be collected for AUCTIONS too (not only AVAILABLE).
+- **Sources**: ePropertyPlus tenants KC MO (`public-kclb`), Pittsburgh PA (`public-pgh`), Wayne / Saginaw / Calhoun MI;
+  Tax-Sale.info MI upcoming auction catalogs (one
+  registry row per county, `tax_sale_info.py`) + surplus catalogs; Horry SC delinquent tax sale list (newest dated XLSX,
+  `document_sheet="*"`); Saguache CO 2026 tax sale layer; Hubbard MN OTC land; Saint Paul HRA land.
+- Registry rows are keyed `(source_id, county)` in `build_county_source_registry.expansion_rows()`.
+- Held, configured but not scheduled: Wright MN (app.js's MN auctions copy says none is tracked; state-rules
+  `ledger_copy`) and Genesee MI land bank (`paged_table.py`; the site's random HTTP 500s move its session cursor).
+- Read-only validation: `job=evidence`, `evidence_scope=new_sources_validate` (MI MO PA SC CO MN, no DB credential).

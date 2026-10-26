@@ -642,34 +642,40 @@ def expansion_rows() -> list[dict]:
     for state, sources in EX.SOURCES.items():
         for src in sources:
             cfg = src.config
-            if cfg.source_id in seen:
+            if (cfg.source_id, cfg.county) in seen:
                 continue                      # WI: one source, two tables on one page
-            seen.add(cfg.source_id)
+            seen.add((cfg.source_id, cfg.county))
             ev = EXPANSION_EVIDENCE[state]
             ledger = {"auction": AUCTIONS, "certificate": LIENS, "laft": AVAILABLE}[cfg.record_source]
             arcgis = src.kind == "arcgis"
             publication, restrictions = EX.PUBLICATION[cfg.source_id]
             five = cfg.source_id in EX.AVAILABLE_FIVE_SOURCE_IDS   # AVAILABLE expansion 2026-10-04
             tn = cfg.source_id in EX.TN_SOURCE_IDS                  # Tennessee 2026-10-08
-            available = cfg.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS or five or tn
+            nsrc = cfg.source_id in EX.NEW_SOURCE_IDS               # new-sources sprint 2026-10-26 (owner decision)
+            available = cfg.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS or five or tn or (nsrc and cfg.record_source == "laft")
             # The six PR #57 sources were read in the expansion passes; the
             # five-state sprint's sources in its own three passes; the AVAILABLE
             # sprint's in the available_sources / sc_available captures.
             new = cfg.source_id not in EX.SIX_STATE_SOURCE_IDS
-            runs = (EX.TN_EVIDENCE_RUNS if tn else EX.AVAILABLE_FIVE_EVIDENCE_RUNS if five else EX.AVAILABLE_SPRINT_EVIDENCE_RUNS if available
+            runs = (EX.NEW_SOURCES_EVIDENCE_RUNS if nsrc else EX.TN_EVIDENCE_RUNS if tn else EX.AVAILABLE_FIVE_EVIDENCE_RUNS if five else EX.AVAILABLE_SPRINT_EVIDENCE_RUNS if available
                     else EX.FIVE_STATE_EVIDENCE_RUNS if new else EX.EVIDENCE_RUNS)
-            decision = ("OWNER PUBLICATION DECISION 2026-10-26 (legal review pending)"
+            decision = ("OWNER DECISION 2026-10-26 (collect and publish every source; legal review pending; INTERIM permission)" if nsrc
+                        else "OWNER PUBLICATION DECISION 2026-10-26 (legal review pending)"
                         if cfg.source_id in EX.OWNER_APPROVED_2026_10_26_SOURCE_IDS else
                         ("LICENCE STATED BY THE SOURCE (quoted in restrictions)" if publication == "APPROVED"
                          else "NO PUBLICATION DECISION YET (UNREVIEWED)") if new else "OWNER PUBLICATION DECISION 2026-09-30")
             latest = cfg is EX.PA_FAYETTE_REPOSITORY    # Fayette PA: newest dated file, read live 2026-10-26
-            day = "2026-10-08" if tn else "2026-10-04" if five else "2026-10-02" if available else "2026-10-01" if new else "2026-09-30"
+            day = "2026-10-26" if nsrc else "2026-10-08" if tn else "2026-10-04" if five else "2026-10-02" if available else "2026-10-01" if new else "2026-09-30"
             doc = {"arcgis": getattr(cfg, "layer_url", ""), "sc_flc_pdf": getattr(cfg, "document_url", ""),
                    "csv": getattr(cfg, "document_url", ""), "pdf_table": getattr(cfg, "document_url", ""),
                    # The page's newest dated file as of the last live read (the harvester follows the newest on every run).
-                   "latest_dated_document": EX.PA_FAYETTE_LATEST_READ[1] if cfg is EX.PA_FAYETTE_REPOSITORY else getattr(cfg, "document_url", ""),
-                   "epropertyplus": getattr(cfg, "portal", "") + "/landmgmtpub/remote/public/property/getPublishedProperties"}.get(src.kind, "")
-            access, fmt = {"arcgis": ("JSON_ENDPOINT", "JSON"), "epropertyplus": ("JSON_ENDPOINT", "JSON"), "sc_flc_pdf": ("HTTP_GET_PDF", "PDF"),
+                   "latest_dated_document": (EX.PA_FAYETTE_LATEST_READ[1] if cfg is EX.PA_FAYETTE_REPOSITORY
+                                             else EX.SC_HORRY_LATEST_READ[1] if cfg is EX.SC_HORRY_TAX_SALE
+                                             else getattr(cfg, "document_url", "")),
+                   "epropertyplus": getattr(cfg, "portal", "") + "/landmgmtpub/remote/public/property/getPublishedProperties",
+                   "tax_sale_info": "https://www.tax-sale.info/catalog/getCsv/id/"}.get(src.kind, "")
+            access, fmt = {"arcgis": ("JSON_ENDPOINT", "JSON"), "epropertyplus": ("JSON_ENDPOINT", "JSON"),
+                           "tax_sale_info": ("HTTP_GET_HTML", "CSV"), "paged_table": ("HTTP_GET_HTML", "HTML_TABLE"), "sc_flc_pdf": ("HTTP_GET_PDF", "PDF"),
                            "pdf_table": ("HTTP_GET_PDF", "PDF"), "csv": ("HTTP_GET_HTML", "CSV"),
                            "latest_dated_document": ("HTTP_GET_HTML", "XLSX"),
                            "xlsx_flc_lists": ("HTTP_GET_HTML", "XLSX")}.get(src.kind, ("HTTP_GET_HTML", "HTML_TABLE"))
@@ -685,12 +691,12 @@ def expansion_rows() -> list[dict]:
                 access_method=access, machine_format=fmt,
                 verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
                 last_checked=EX.PA_FAYETTE_LATEST_READ[0] if latest else day, completeness_status="UNKNOWN",
-                evidence_ref=(f"LIVE CAPTURE {day} (GitHub Actions runs {', '.join(runs)}): "
+                evidence_ref=((f"LIVE CAPTURE {day} ({'; '.join(runs)}): " if nsrc else f"LIVE CAPTURE {day} (GitHub Actions runs {', '.join(runs)}): ")
                               + (f"{unit_name} - {cfg.source_id}; " if new else f"{ev['source_of_record_identified']}; ")
                               + (f"LIVE READ {EX.PA_FAYETTE_LATEST_READ[0]} of the Repository Sale page: newest dated file "
                                  f"{EX.PA_FAYETTE_LATEST_READ[1].rsplit('/', 1)[-1]} (XLSX, sheets Active + Completed; only Active read); "
                                  if latest else "")
-                              + f"{decision}; docs/{'tennessee-survey' if tn else 'available-expansion-2026-10' if five else 'available-inventory' if available else 'five-state-enrichment' if new else 'six-state-expansion'}.md"),
+                              + f"{decision}; docs/{'new-sources-2026-10-26' if nsrc else 'tennessee-survey' if tn else 'available-expansion-2026-10' if five else 'available-inventory' if available else 'five-state-enrichment' if new else 'six-state-expansion'}.md"),
                 notes=cfg.notes, publishing_unit="COUNTY", publishing_unit_name=unit_name,
                 amount_kind=cfg.amount_kind.value, update_frequency="not published by the source (read on each run)",
                 source_terminology=ev["inventory_semantics_established"] if not new else {
