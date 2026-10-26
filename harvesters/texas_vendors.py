@@ -444,11 +444,18 @@ def harvest_mvba_online(fetcher: PoliteFetcher, book: UnitBook) -> tuple[list[di
     /api/auctions lists the open auctions, /api/getitems with auction_id
     pages one auction's items (24 a page, `filters[page]`)."""
     info: dict = {"auctions": 0, "items": 0, "skipped": {}}
+    body = b""
     try:
-        listing = json.loads(fetcher.request(f"{MVBA_AUCTION_SITE}/api/auctions",
-                                             {"filters[page]": "1", "past_sales": "false"}, accept="application/json"))
+        body = fetcher.request(f"{MVBA_AUCTION_SITE}/api/auctions",
+                               {"filters[page]": "1", "past_sales": "false"}, accept="application/json")
+        listing = json.loads(body)
     except (FetchError, ValueError) as exc:
         info["error"] = getattr(exc, "category", "BAD_JSON")
+        if body:
+            # What came back instead of JSON, value-free: its size and page title.
+            title = re.search(rb"<title[^>]*>(.*?)</title>", body[:20000], re.I | re.S)
+            info["non_json"] = {"bytes": len(body), "html": body.lstrip()[:1] == b"<",
+                                "title": _clean_text(title.group(1).decode("utf-8", "replace"), 80) if title else None}
         return [], info
     rows = []
     for auction in listing.get("data") or []:
