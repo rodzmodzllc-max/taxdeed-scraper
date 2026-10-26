@@ -49,6 +49,7 @@ import field_provenance as FP  # noqa: E402
 import laft_status as LS  # noqa: E402
 import rest_pages as RP  # noqa: E402
 import sync_value_guard as G  # noqa: E402
+import write_diff_filter as WDF  # noqa: E402
 
 SOURCE_ID = "fl_sarasota_tc_certificates"
 DATASET = "county_held_certificates"
@@ -161,8 +162,12 @@ def main(argv=None) -> int:
     kept = attach_provenance(G.guard_rows("certificate", rows, stored_rows, sync_source=PROVENANCE_SOURCE), rows, stored, now)
     endpoint = f"{base.rstrip('/')}/rest/v1/properties?on_conflict=state,source,county,case_no"
     up = {**headers, "Prefer": "resolution=merge-duplicates,return=minimal"}
-    for i in range(0, len(kept), BATCH):
-        _send(endpoint, "POST", kept[i:i + BATCH], up)
+    # Write only what changed (scripts/write_diff.py): an unchanged row is not
+    # upserted again, except once a day to re-stamp last_seen_at. Fails open.
+    # The close-out below still decides on everything read (`kept`).
+    to_write, _ = WDF.filter_rows(kept, state="FL", base=base, key=key, label=SOURCE_ID)
+    for i in range(0, len(to_write), BATCH):
+        _send(endpoint, "POST", to_write[i:i + BATCH], up)
     closed = 0
     if status == "COMPLETE":
         ids = close_plan(stored_rows, {r["case_no"] for r in kept})
@@ -173,7 +178,7 @@ def main(argv=None) -> int:
                   "PATCH", {"status": "notfound"}, patch)
             closed += len(chunk)
     new = sum(1 for r in kept if r["case_no"] not in stored)
-    print(f"{SOURCE_ID}: read {status}; {len(kept)} certificate row(s) upserted ({new} new), {len(refused)} refused by the "
+    print(f"{SOURCE_ID}: read {status}; {len(to_write)} of {len(kept)} certificate row(s) upserted ({new} new), {len(refused)} refused by the "
           f"ledger contract, {closed} closed to notfound")
     return 0
 

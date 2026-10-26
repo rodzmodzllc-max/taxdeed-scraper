@@ -382,7 +382,7 @@ def test_m02_workflow_runs_the_gate_after_the_laft_sync_non_blocking_and_touches
     assert gate["continue-on-error"] is True and gate["run"] == "python3 scripts/publication_gate.py --state FL"
     assert names.index(gate["name"]) > names.index(next(n for n in names if n.startswith("Per-unit freshness")))
     on = wf.get("on") or wf.get(True)
-    assert on["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 22 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 17 * * *"}]   # deeds (10, 22) + laft/certificates (12) unchanged
+    assert on["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 4 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 3 * * *"}]   # deeds (10, 22) + laft/certificates (12) unchanged
 
 
 # ==================== 7. regression ====================
