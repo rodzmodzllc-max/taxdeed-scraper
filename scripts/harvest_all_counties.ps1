@@ -102,8 +102,20 @@ function Get-LabelTexts($block) {
         ((($_.Groups[1].Value -replace '\d','#') -replace '\s+',' ').Trim().TrimEnd(':')).Trim()
     } | Where-Object { $_ }
 }
+# The markup around one item's certificate cell with every digit masked and
+# every text node's letters masked (tag and class names kept): the SHAPE of
+# the cell, so a county whose label reads correctly but whose value does not
+# can be diagnosed without printing a value.
+function Get-CertSkeleton($block) {
+    $i = $block.IndexOf('Certificate')
+    if ($i -lt 0) { return $null }
+    $frag = $block.Substring([Math]::Max(0, $i - 40), [Math]::Min(320, $block.Length - [Math]::Max(0, $i - 40)))
+    $frag = [regex]::Replace($frag, '>([^<@]+)', { param($m) '>' + ($m.Groups[1].Value -creplace '[A-Za-z]', 'a') })
+    return ($frag -replace '\d', '#')
+}
 $LabelReport = ($env:HARVEST_LABEL_REPORT -eq "1")
 $LabelCounts = @{}
+$LabelSkeletons = @{}
 
 function ToNum($s) {
     if (-not $s) { return $null }
@@ -257,6 +269,10 @@ $ci = 0
                     if (-not $LabelCounts.ContainsKey($c.County)) { $LabelCounts[$c.County] = @{} }
                     foreach ($lt in @(Get-LabelTexts $b)) { $LabelCounts[$c.County][$lt] = 1 + [int]$LabelCounts[$c.County][$lt] }
                     $LabelCounts[$c.County]['(items)'] = 1 + [int]$LabelCounts[$c.County]['(items)']
+                    if (-not (Get-CertificateNumber $b)) {
+                        if (-not $LabelSkeletons.ContainsKey($c.County)) { $LabelSkeletons[$c.County] = @() }
+                        if ($LabelSkeletons[$c.County].Count -lt 2) { $LabelSkeletons[$c.County] += (Get-CertSkeleton $b) }
+                    }
                 }
                 $case = Get-Field $b 'Case #'
                 if (-not $case) { continue }
@@ -359,6 +375,9 @@ if ($LabelReport) {
     Write-Host "Label vocabulary per county (digits masked, never a value):"
     foreach ($cn in @($LabelCounts.Keys | Sort-Object)) {
         foreach ($lt in @($LabelCounts[$cn].Keys | Sort-Object)) { Write-Host ("  LABEL {0} | {1} | {2}" -f $cn, $lt, $LabelCounts[$cn][$lt]) }
+    }
+    foreach ($cn in @($LabelSkeletons.Keys | Sort-Object)) {
+        foreach ($sk in $LabelSkeletons[$cn]) { Write-Host ("  CERT-CELL-SHAPE {0} | {1}" -f $cn, $sk) }
     }
 }
 Write-Host "==================================================" -ForegroundColor Cyan

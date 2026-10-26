@@ -237,6 +237,7 @@ def main(argv=None) -> int:
     ap.add_argument("--fixture", help="read this PDF instead of the network")
     a = ap.parse_args(argv)
     for op in ("fetch", "parse", "store"):
+        # Source "fl_sarasota_tc_certificates" (named here for the interim-permission call-site inventory).
         d = LS.permission(SOURCE_ID, op, state="FL", county=COUNTY, dataset=DATASET)
         if not d.allowed:
             print(f"::error title={SOURCE_ID}::{op} denied [{d.reason_code}] - 0 requests made, nothing written", flush=True)
