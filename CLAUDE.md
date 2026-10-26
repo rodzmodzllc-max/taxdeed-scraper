@@ -3514,3 +3514,20 @@ Full description: `docs/review/header-tiers.md`. Stable facts:
   (`<!--RESEARCH-->` markers in `detailHtml()`); a nav jump opens it. Tests open it through the harness
   (`window.__suiteKeepResearchClosed` reads the default).
 - Shell CSS must never override `[hidden]` (filter rows and fields each needed a guard).
+
+## Texas close-out (2026-10-26, PR open, no migration)
+
+- **`out/harvest_texas_status.json` now carries `counties`**: one entry per (source_id, county) read, read through
+  `harvesters/ledgers/health.py`. LGBS is one statewide feed (`lgbs_county_entries`): COMPLETE / EMPTY only when the
+  walk ended, read exactly the API's own `count` (the same on every page; distinct `id`s when present) and attributed
+  every Texas record; a failed page is FAILED (TRANSPORT_, closes nothing); anything else INCOMPLETE. Every other county
+  of `data/tx_county_coverage_matrix.csv` gets EMPTY from a verified walk.
+- **TX RealAuction pager fixed**: page 0 is `PageDir=0&doR=1`, the next page `PageDir=1&doR=0` (doR=1 re-reads page 0 -
+  every sale date stopped at ten properties before). A county is COMPLETE only when every request succeeded, every item
+  had an Account Number and each date's paging ended on a short page; EMPTY from a real calendar with no sale day or a
+  JSON listing response with no items; a full page repeated, a login / non-JSON body or a failed request closes nothing.
+  The Florida `harvest_all_counties.ps1` still asks `PageDir=$page&doR=1` - same cap, not changed here.
+- **`scripts/texas_closeout.py`** (texas job, after the stamp, `continue-on-error`): closes ('closed' + delisted_at, never
+  a result) stored active tx_lgbs / tx_realauction rows absent from a COMPLETE / EMPTY read of their own (source,
+  county), through `sync_state_inventory.plan_close()`; reopens 'closed' rows the harvest lists again (never 'sold');
+  refuses a source that would lose >50% of its active, not-yet-past-sale rows in one run (`--allow-large-close`).
