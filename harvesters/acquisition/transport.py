@@ -268,7 +268,13 @@ class UrllibTransport:
             self._pace()
             request = urllib.request.Request(url, headers={"User-Agent": self.user_agent})
             try:
-                with urllib.request.urlopen(request, timeout=effective_timeout) as resp:
+                # tls_chain: default verification plus intermediates a source
+                # omits (taxsales.lgbs.com, 2026-10-07 on).
+                try:
+                    from harvesters import tls_chain  # noqa: PLC0415
+                except ImportError:  # pragma: no cover - loaded with harvesters/ on sys.path only
+                    import tls_chain  # noqa: PLC0415
+                with tls_chain.urlopen(request, timeout=effective_timeout) as resp:
                     body = resp.read()
                     self._last_request_at = time.monotonic()
                     self.breaker.record_success()

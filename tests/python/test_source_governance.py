@@ -414,6 +414,9 @@ def test_14_lgbs_and_realauction_unchanged_and_approved():
         "auction_url",
         "auction_url_kind",
         "sale_status",
+        # 2026-10-25 (LGBS record links): the county sale-list document the
+        # record itself publishes (LGBS county_sale_list), verbatim.
+        "sale_list_url",
     }
 
     # Both production sources are registered APPROVED (reflecting existing

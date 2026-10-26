@@ -142,17 +142,77 @@ _MUNIDOC_LINK_RE = re.compile(r"https?://mcclibraryfunctions\.azurewebsites\.us/
 _MUNIDOC_RELATIVE_RE = re.compile(r"/api/munidocDownload/\d+/[0-9a-f]+/pdf", re.I)
 
 
-def discover_successor_pdf(source_page_html: str, current_url: str) -> str | None:
-    """First munidocDownload PDF link on the clerk's Municode node page that
-    is NOT the (dead) URL we already tried, or None."""
+# A county page that links its own Lands Available PDF directly (Pasco: the
+# Clerk's "Lists of Lands" reports page re-dates the file name every
+# publication - "...20260706.pdf" went 404 when "...20261014.pdf" replaced it,
+# 2026-10-25). On a 404 the harvester follows the page's own PDF link whose
+# file name or link text says Lands Available - never a guessed URL, never a
+# link on another host than the page or the registered document.
+_ANCHOR_RE = re.compile(r"<a\b[^>]*?href\s*=\s*[\"']([^\"']+)[\"'][^>]*>(.*?)</a>", re.I | re.S)
+_LANDS_AVAILABLE_RE = re.compile(r"lands?[\s_%20-]*available", re.I)
+
+
+def discover_successor_pdf(source_page_html: str, current_url: str, page_url: str | None = None) -> str | None:
+    """The current list's link on the clerk's source page that is NOT the
+    (dead) URL we already tried, or None: a Municode munidocDownload link
+    first, else (when `page_url` is given) a .pdf link on the page whose file
+    name or link text says Lands Available, resolved against the page and
+    kept only on the page's or the registered document's own host."""
     if not source_page_html:
         return None
+    from urllib.parse import unquote, urljoin, urlparse  # noqa: PLC0415
     candidates = list(_MUNIDOC_LINK_RE.findall(source_page_html))
     candidates += [f"https://{MUNICODE_HOST}{m}" for m in _MUNIDOC_RELATIVE_RE.findall(source_page_html)]
+    if page_url:
+        hosts = {urlparse(page_url).hostname, urlparse(current_url).hostname}
+        for href, text in _ANCHOR_RE.findall(source_page_html):
+            href = href.replace("&amp;", "&").strip()
+            label = unquote(href) + " " + re.sub(r"<[^>]+>", " ", text)
+            if ".pdf" not in href.lower() or not _LANDS_AVAILABLE_RE.search(label):
+                continue
+            absolute = urljoin(page_url, href)
+            if absolute.startswith("http://"):
+                absolute = "https://" + absolute[len("http://"):]
+            if urlparse(absolute).hostname in hosts:
+                candidates.append(absolute)
     for cand in candidates:
         if cand.rstrip("/") != current_url.rstrip("/"):
             return cand
     return None
+
+
+_INDEX_TEXT_RE = re.compile(r"lists?\s+of\s+lands|lands?\s+available", re.I)
+
+
+def _site(host: str | None) -> str:
+    parts = (host or "").lower().split(".")
+    return ".".join(parts[-2:])
+
+
+def discover_list_index_pages(source_page_html: str, page_url: str, current_url: str) -> list[str]:
+    """Non-PDF links on the source page whose link TEXT names the lists of
+    lands (e.g. "Lists of Lands"), on the same site (registrable domain) as
+    the source page or the registered document: the county's own index of
+    its published lists. Upgraded to https; never another site."""
+    if not source_page_html or not page_url:
+        return []
+    from urllib.parse import urljoin, urlparse  # noqa: PLC0415
+    sites = {_site(urlparse(page_url).hostname), _site(urlparse(current_url).hostname)}
+    out: list[str] = []
+    for href, text in _ANCHOR_RE.findall(source_page_html):
+        href = href.replace("&amp;", "&").strip()
+        label = re.sub(r"<[^>]+>", " ", text)
+        if ".pdf" in href.lower() or not _INDEX_TEXT_RE.search(label):
+            continue
+        absolute = urljoin(page_url, href)
+        if absolute.startswith("http://"):
+            absolute = "https://" + absolute[len("http://"):]
+        if not absolute.startswith("https://") or _site(urlparse(absolute).hostname) not in sites:
+            continue
+        if absolute.split("#")[0].rstrip("/") == page_url.split("#")[0].rstrip("/") or absolute in out:
+            continue
+        out.append(absolute)
+    return out
 
 
 def source_class_for_url(url: str) -> str:
@@ -473,7 +533,20 @@ def _fetch_with_successor(url: str, source_page: str | None, entry: dict | None)
         print("      registered PDF link returned 404 - looking for the current link on the clerk's source page", flush=True)
         page = requests.get(source_page, headers={"User-Agent": UA}, timeout=30)
         page.raise_for_status()
-        successor = discover_successor_pdf(page.text, url)
+        page_url = getattr(page, "url", None) or source_page
+        successor = discover_successor_pdf(page.text, url, page_url=page_url)
+        if not successor:
+            # One hop, no further: the county's own index page that the source
+            # page links as its "Lists of Lands" (Pasco: pascoclerk.com/202 ->
+            # app.pascoclerk.com's reports page, which links the dated PDF).
+            for index_url in discover_list_index_pages(page.text, page_url, url)[:2]:
+                print(f"      following the source page's own list index: {index_url}", flush=True)
+                index = requests.get(index_url, headers={"User-Agent": UA}, timeout=30)
+                if index.status_code != 200:
+                    continue
+                successor = discover_successor_pdf(index.text, url, page_url=getattr(index, "url", None) or index_url)
+                if successor:
+                    break
         if not successor:
             raise
         print(f"      trying discovered successor: {successor}", flush=True)

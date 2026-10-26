@@ -334,6 +334,34 @@ def status_for_row(row: dict, *, today: date, sold_column_present: bool = False)
     return None
 
 
+# Statuses that assert the row is on its source's list / feed NOW. Only these
+# depend on the row having actually been read recently (apply_staleness).
+CURRENT_PRESENCE_STATUSES = frozenset({"upcoming", "active", "available_otc", "certificate_listed",
+                                       "state_held", "resale_inventory"})
+
+
+def apply_staleness(obs: StatusObservation | None, row: dict, *, now) -> StatusObservation | None:
+    """A presence status for a row no successful read has observed within its
+    ledger's window (harvesters/ledgers/health.py row_observation: NEVER_READ
+    or STALE) becomes `unknown`, so the row is no longer presented as listed,
+    available or upcoming. Reader-side only: nothing is closed, a result is
+    never inferred (closed / sold / redeemed pass through unchanged), and the
+    next successful read restores the presence status. A row dict that does
+    not carry the `last_seen_at` key (the column was not read) is left alone:
+    it cannot be judged."""
+    if obs is None or obs.status not in CURRENT_PRESENCE_STATUSES or "last_seen_at" not in row:
+        return obs
+    from ..ledgers import health as LH  # noqa: PLC0415 - avoids an import cycle at module load
+    state = LH.row_observation(row, now)
+    if state not in LH.NOT_CURRENT:
+        return obs
+    seen = LH.observed_at(row)
+    why = ("never observed by a successful source read" if state == "NEVER_READ"
+           else f"not observed by a successful source read since {seen.date().isoformat()}")
+    return StatusObservation("unknown", "LIST_PRESENCE", raw=obs.raw,
+                             note=f"{state}: {why}; the last presence status ({obs.status}) is not current; not closed")
+
+
 def _date_of(value) -> date | None:
     if value is None:
         return None

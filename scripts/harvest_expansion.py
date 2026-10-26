@@ -156,6 +156,8 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
         res = AG.fetch_all(cfg, fj, retrieved_at=retrieved_at)
         if res.outcome == "FAILED":
             return "FAILED", [], CATEGORY_MAP.get(res.error_category, res.error_category), res.error_detail, None
+        if res.duplicates_collapsed:
+            print(f"  {cfg.source_id}: {res.duplicates_collapsed} identical repeat listing(s) on one page collapsed (count only)")
         if res.outcome == "EMPTY" and res.skipped_cycle:
             # Every row belongs to a sale cycle the county has published no date
             # for (e.g. last year's list): no current inventory - its own signal.
