@@ -76,6 +76,11 @@ const THIRD_PARTY_EMBED = /:\/\/(www\.)?openstreetmap\.org\//;
 // :visible so the hidden one never matches. Selectors without the modal
 // container are passed through untouched.
 const DETAIL_MODAL_SEL = '#detailModalInner';
+// Redesign PR1 (2026-10-24): on phones the property page's secondary groups
+// (Property & history, Risk & legal, Map & location, Same parcel & timeline,
+// Source, Mine) and the decision fold start closed. A check that reads inside
+// one opens the folds first, the way a reader taps "Show".
+const openDetailFolds = pg => pg.evaluate(() => document.querySelectorAll('details.detail-more').forEach(d => { d.open = true; }));
 function detailSurfaceSelector(sel) {
   if (typeof sel !== 'string' || !sel.includes(DETAIL_MODAL_SEL)) return sel;
   return sel.split(',').map(part => part.trim()).flatMap(part => part.includes(DETAIL_MODAL_SEL)
@@ -986,6 +991,7 @@ const firstDetailBtn = page.locator('.detail-btn[data-action="viewdetails"]').fi
 await firstDetailBtn.click();
 await page.waitForTimeout(150);
 results.detailModalVisibleAfterOpen = await page.locator('#detailModal').isVisible();
+await openDetailFolds(page);
 results.detailModalHasAddress = await page.locator('#detailModalInner .detail-address').count();
 results.detailModalHasLinks = await page.locator('#detailModalInner .detail-links a').count();
 // --- Phase 35: provenance block (data source + last-synced line). p1 has
@@ -1701,6 +1707,7 @@ const txCard = page.locator('.prop-card[data-pid="ptx1"]');
 // surface as the provenance line's data-source text.
 await txCard.locator('.detail-btn').click();
 await page.waitForTimeout(300);
+await openDetailFolds(page);
 results.txDetailLinksText = (await page.locator('#detailModalInner .detail-links').textContent()) || '';
 results.txDetailProvenanceText = ((await page.locator('#detailModalInner .detail-provenance').textContent()) || '').trim();
 // Launch-readiness honesty pass: the Texas page must not carry Florida fee or
@@ -1762,6 +1769,7 @@ results.txRaCardLabelNotPropertySpecific = !/property|bid on/i.test(results.txRa
 splitLinkText('txRaCardLink');
 await txRaCard.locator('.detail-btn').click();
 await page.waitForTimeout(300);
+await openDetailFolds(page);
 results.txRaDetailLink = await txAuctionLinkOf(page.locator('#detailModalInner'));
 splitLinkText('txRaDetailLink');
 results.txRaDetailHref = await page.locator('#detailModalInner a.detail-cta').getAttribute('href');
@@ -2085,7 +2093,7 @@ results.eventItemsP1 = await evPage.locator('#detailModalInner .event-item').cou
 results.eventLifecycleP1 = ((await evPage.locator('#detailModalInner .event-item .ev-life').first().textContent()) || '').trim();
 results.eventOutcomeP1 = ((await evPage.locator('#detailModalInner .event-item .ev-outcome').first().textContent()) || '').replace(/\s+/g, ' ').trim();
 results.eventBidChangeP1 = ((await evPage.locator('#detailModalInner .event-item .ev-meta').nth(1).textContent()) || '').trim();
-results.eventNavPill = await evPage.locator('#detailModalInner .detail-nav button[data-target="events"]').count();
+results.eventNavPill = await evPage.locator('#detailModalInner .detail-nav button[data-group="related"]').count();   // redesign PR1: Sale events sit in the Same parcel & timeline group
 await evPage.close();
 const evPage2 = await newPage({ viewport: { width: 1200, height: 900 } });
 await evPage2.goto(BASE_URL + '#/auctions/p13', { waitUntil: 'networkidle' });
@@ -2675,7 +2683,7 @@ results.purchasePathNoneHasNoAnchorInPurchaseGroup = purchaseUi.none.anchors.len
 results.purchasePathListPageIsOnlySourceListLink = purchaseUi.none.allAnchors === 1;
 results.inventoryCardGroups = purchaseUi.none.groups;
 results.purchasePathNoneAcquire = purchaseUi.none.acquire;
-results.flInventoryNavHasInventory = (await flInvPage.locator('#detailModalInner .detail-nav button').allTextContents()).includes('Inventory');
+results.flInventoryNavHasInventory = (await flInvPage.locator('#detailModalInner .detail-nav button[data-group="money"]').count()) === 1 && (await flInvPage.locator('#detailModalInner [data-section="inventory"]').count()) === 1;   // redesign PR1: Inventory & Purchase sits in the Money group
 results.flInventoryNoAiBadge = !/score|confidence|AI /i.test((await flInvPage.locator('#detailModalInner .inventory-card').textContent()) || '');
 await flInvPage.close();
 const flLandsPage = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -2706,7 +2714,7 @@ const decPage = await newPage({ viewport: { width: 1200, height: 900 } });
 await decPage.goto(BASE_URL + '#/lands/p3', { waitUntil: 'networkidle' });
 await decPage.waitForTimeout(700);
 results.decQuestions = await decPage.locator('#detailModalInner .decision-card .dec-q').allTextContents();
-results.decNavHasDecision = await decPage.locator('#detailModalInner .detail-nav button[data-target="decision"]').count();
+results.decNavHasDecision = await decPage.locator('#detailModalInner .detail-nav button[data-group="acquire"]').count();   // redesign PR1: the decision fold sits under the Acquire group
 results.decP3How = await decA(decPage, 'how');
 results.decP3HowLinkCount = await decPage.locator('#detailModalInner .decision-card .dec-row[data-q="how"] a').count();
 results.decP3Available = await decA(decPage, 'available');
@@ -4404,7 +4412,7 @@ await navMap.close();
     await d.waitForTimeout(500);
     results.offListDetail = await d.evaluate(() => {
       const st = document.querySelector('.dossier-status');
-      return st ? /Not on the county list read /.test(st.textContent) && !!st.querySelector('dd.warn') : null;
+      return st ? /Not on the county list read /.test(st.textContent) && !!st.querySelector('dd.warn, dd .warn') : null;
     });
     await d.close();
     const n = await newPage({ viewport: { width: 1440, height: 900 } });
@@ -4530,7 +4538,8 @@ await navMap.close();
           total: money ? money.querySelector('.fp-total').dataset.fpTotal : null,
           totalText: money ? money.querySelector('.fp-total .fp-acq-val').textContent.trim() : null,
           docs: docs ? [...docs.querySelectorAll('[data-doc-class]')].map(e => e.dataset.docClass) : null,
-          order: order.indexOf('acquire') >= 0 && order.indexOf('money') === order.indexOf('acquire') + 1 && order.indexOf('documents') === order.indexOf('truth') + 1,
+          // Redesign PR1: the decision fold (data-section="decision") sits between Acquire and Money.
+          order: order.indexOf('acquire') >= 0 && order.indexOf('money') === order.indexOf('acquire') + (order[order.indexOf('acquire') + 1] === 'decision' ? 2 : 1) && order.indexOf('documents') === order.indexOf('truth') + 1,
           noScore: !/\b(score|ROI|undervalued|great investment|hot property)\b/i.test(money ? money.textContent : '') };
       });
       await d.close();
@@ -4916,7 +4925,7 @@ await navMap.close();
       items: [...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.parcel-timeline li')].map(li => `${li.dataset.ledger}:${li.dataset.kind}${li.dataset.self ? ':self' : ''}`),
       note: /appears in 2 ledgers/.test(document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-section="timeline"]').textContent),
       neverSold: /never a sale, a redemption or a forfeiture/.test(document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-section="timeline"]').textContent),
-      navPill: [...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-nav button')].some(b => b.textContent === 'Timeline'),
+      navPill: [...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-nav button')].some(b => b.dataset.group === 'related'),   // redesign PR1: the timeline sits in the Same parcel & timeline group
       countyLink: !!document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.related-county [data-action="countypage"]')
     }));
     // Certificate -> the same parcel's auction record, from the timeline.
@@ -4983,6 +4992,8 @@ await navMap.close();
     ip.on('pageerror', e => errors.push('county-only imagery pageerror: ' + e.message));
     await ip.goto(BASE_URL.replace('index.html', 'index.html?v=countyonly') + '#/lands/p3', { waitUntil: 'networkidle' });
     await ip.waitForFunction(() => !!document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-hero-photo'), null, { timeout: 10000 });
+    // Redesign PR1: the hero sits in the Map & location group, closed on a phone; the reader opens it as a tap would.
+    await ip.evaluate(() => { const d = document.querySelector('details.detail-group[data-group="map"]'); if (d) d.open = true; const h = document.querySelector('.detail-hero-photo'); if (h) h.scrollIntoView(); });   // the mini-map hydrates from an IntersectionObserver, so the hero must be in view
     await ip.waitForFunction(() => !!document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-hero-photo svg'), null, { timeout: 8000 }).catch(() => {});
     results.countyOnlyImagery = await ip.evaluate(() => { const h = document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-hero-photo');
       return { countyOnly: h.classList.contains('minimap-county'), drawn: !!h.querySelector('svg .mm-county'), noPoint: !h.querySelector('.mm-dot, .mm-halo'), caption: [...h.querySelectorAll('.photo-caption > span')].map(x => x.textContent) }; });
@@ -5431,6 +5442,13 @@ await navMap.close();
     results.naipRequestedOnlyUsgs = requested.length > 0 && requested.every(u => u.startsWith('https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?'));
     await pg.close();
     ({ pg } = await naipPage(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands/pla1'));
+    // Redesign PR1: the hero image sits in the Map & location group, below the
+    // first fold, and hydrates when scrolled into view - as a reader would.
+    for (let i = 0; i < 20; i++) {
+      await pg.evaluate(() => { const h = document.querySelector('#detailPanel .detail-hero-photo, #detailModalInner .detail-hero-photo'); if (h) h.scrollIntoView({ block: 'center' }); });
+      await pg.waitForTimeout(250);
+      if (await pg.evaluate(() => { const i = document.querySelector('.detail-hero-photo.naip-live img'); return !!(i && i.src); })) break;
+    }
     results.naipDetail = await pg.evaluate(() => {
       const m = (document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner'));
       const hero = m && m.querySelector('.detail-hero-photo.naip-live');
@@ -5487,8 +5505,7 @@ await navMap.close();
       band[k] = await pg.evaluate(() => {
         const st = document.querySelector('#detailModal:not([hidden]) .dossier-status');
         const dd = st.querySelector('dd');
-        // The ledger-name sub only; the record-kind sub ("Florida tax deed auction") is a separate line since 2026-10-24.
-        const sub = dd.querySelector('.dossier-sub:not(.record-kind)');
+        const sub = dd.querySelector('.dossier-sub.ledger-name');
         return { ledger: st.dataset.ledgerRecord || null, sub: sub ? sub.textContent.trim() : null };
       });
       await pg.close();
@@ -5582,7 +5599,8 @@ await navMap.close();
       const st = m.querySelector('.dossier-status');
       const order = [...m.querySelectorAll('.dossier-status, [data-section="acquire"], [data-section="truth"], .lien-banner, [data-section="risk"], [data-section="sources"]')].map(e => e.dataset.section || e.className.split(' ')[0]);
       const truth = m.querySelector('[data-section="truth"]');
-      return { status: [...st.querySelectorAll('dt')].map(e => e.textContent.trim()), lastRead: st.querySelectorAll('dd')[2].textContent.trim(), order,
+      // Redesign PR1: the fourth cell is the provenance line ("Read from … · last synced … · last read …"); the last-read segment is pinned (the synced age changes daily).
+      return { status: [...st.querySelectorAll('dt')].map(e => e.textContent.trim()), lastRead: st.querySelectorAll('dd')[3].textContent.trim().split(' · ').pop().replace(/^last read /, ''), order,
         lede: !!truth.querySelector('.truth-lede'), noScoreWords: !/\b(score|confidence|AI verified|AI confidence|great investment|ROI|undervalued)\b/i.test(truth.textContent) };
     });
     await pg.close();
@@ -6192,7 +6210,7 @@ results.monDetailHistory = await monDetail.locator('#detailModalInner .change-hi
 results.monDetailNeverSold = await monDetail.locator('#detailModalInner [data-section="monitor"]').evaluate(el => /never as a sale/.test(el.textContent) && !/\bsold\b/i.test(el.textContent.replace(/never as a sale|not a sale/g, '')));
 // The section nav is hidden on phones by design (identity.css), and newPage()
 // rewrites locator selectors to :visible, so count the pill in the DOM directly.
-results.monDetailNavPill = await monDetail.evaluate(() => document.querySelectorAll('#detailModalInner .detail-nav [data-target="monitor"]').length);
+results.monDetailNavPill = await monDetail.evaluate(() => document.querySelectorAll('#detailModalInner .detail-nav [data-group="mine"]').length);   // redesign PR1: Watch sits in the Mine group
 // 7. Alerts inbox: two alerts, one unread; mark read clears the badge.
 await monDetail.evaluate(() => { document.getElementById('detailModal').hidden = true; });
 await monDetail.locator('#alertsMenuItem').evaluate(el => el.click());
@@ -7129,8 +7147,6 @@ await big.press('#globalSearchInput', 'Enter');
 }
 
 
-await browser.close();
-
 // ============================================================
 // Assertions - EXPECTED is a locked-in snapshot of known-good behavior.
 // A `RegExp` value means "must match this pattern" (used for the handful of
@@ -7139,7 +7155,114 @@ await browser.close();
 // ============================================================
 
 
+// ============================================================
+// Redesign PR1 (2026-10-24): property page first fold
+// ============================================================
+// At 390px the opening bid, the sale date and the Acquire CTA sit inside the
+// first 844px of #detailModalInner; the gaps line comes straight from
+// dataGaps(); the secondary groups start closed; the bottom action bar is on
+// screen; no fact string repeats inside the first fold.
+{
+  const foldOf = async (pg) => pg.evaluate(() => {
+    const m = document.getElementById('detailModalInner');
+    const top = m.getBoundingClientRect().top;
+    const bottomOf = sel => { const e = m.querySelector(sel); return e ? Math.round(e.getBoundingClientRect().bottom - top) : null; };
+    const within = sel => { const b = bottomOf(sel); return b !== null && b <= 844; };
+    const st = m.querySelector('.dossier-status.facts');
+    const dd = [...st.querySelectorAll('dd')];
+    const firstText = e => (e.firstChild && e.firstChild.nodeType === 3 ? e.firstChild.textContent : e.textContent).trim();
+    // Text rendered inside the first 844px (closed folds are not rendered).
+    const walker = document.createTreeWalker(m, NodeFilter.SHOW_TEXT);
+    let foldText = '';
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const el = n.parentElement; if (!el || !el.offsetParent && getComputedStyle(el).position !== 'fixed' && getComputedStyle(el).position !== 'sticky') continue;
+      const r = el.getBoundingClientRect(); if (r.top - top < 844 && r.height) foldText += n.textContent + ' ';
+    }
+    const count = s => s ? foldText.split(s).length - 1 : null;
+    const cta = m.querySelector('[data-section="acquire"] .detail-cta, [data-section="acquire"] .detail-cta-none, [data-section="acquire"] .acq-cta');
+    const sale = firstText(dd[0]).replace(/ · .*$/, '');
+    return {
+      dts: [...st.querySelectorAll('dt')].map(e => e.textContent.trim()),
+      sale, figure: firstText(dd[1]), value: firstText(dd[2]), provPrefix: (dd[3].textContent.trim().match(/^(Read from |Source not recorded)/) || [null])[0],
+      saleWithin: within('.dossier-status.facts > div:nth-child(1)'), figureWithin: within('.dossier-status.facts > div:nth-child(2)'),
+      unknown: (m.querySelector('.record-gaps') || { textContent: '' }).textContent.replace(/\s+/g, ' ').trim(),
+      unknownWithin: within('.record-gaps'),
+      cta: cta ? cta.textContent.trim() : null, ctaWithin: within('[data-section="acquire"] .detail-cta, [data-section="acquire"] .detail-cta-none, [data-section="acquire"] .acq-cta'),
+      acquireFirstSection: (m.querySelector('.detail-section') || {}).dataset ? m.querySelector('.detail-section').dataset.section : null,
+      figureOnce: count(firstText(dd[1])) === 1, saleOnce: count(sale), valueOnce: count(firstText(dd[2])) === 1,
+      groupsClosed: [...m.querySelectorAll('details.detail-group')].every(d => !d.open), decisionClosed: !m.querySelector('.decision-fold').open,
+      navHidden: getComputedStyle(m.querySelector('.detail-nav')).display === 'none',
+      actbar: [...m.querySelectorAll('.detail-actbar button')].map(b => b.getAttribute('aria-label') || b.textContent.replace(/\s+/g, ' ').trim()),
+      actbarOnScreen: (() => { const r = m.querySelector('.detail-actbar').getBoundingClientRect(); return r.bottom <= window.innerHeight + 1 && r.top >= 0; })(),
+      actbarTargets: [...m.querySelectorAll('.detail-actbar button')].every(b => b.getBoundingClientRect().height >= 44),
+      verifiedLine: (m.querySelector('[data-section="acquire"] .acq-verified-state') || { textContent: null }).textContent,
+      sectionIds: [...m.querySelectorAll('[data-section]')].map(e => e.dataset.section)
+    };
+  });
+  const ff = await newPage({ viewport: { width: 390, height: 844 } });
+  ff.on('pageerror', e => errors.push('firstfold pageerror: ' + e.message));
+  await ff.goto(BASE_URL + '#/auctions/p5', { waitUntil: 'networkidle' });
+  await ff.waitForSelector('#detailModal:not([hidden]) .dossier-status.facts', { timeout: 8000 });
+  await ff.waitForTimeout(400);
+  const f5 = await foldOf(ff);
+  results.firstFoldAuction = { ...f5, sale: undefined, saleOnce: undefined, saleIsDate: /^[A-Z][a-z]{2} \d{1,2}, \d{4}$/.test(f5.sale), saleOnceInFold: f5.saleOnce, cta: f5.cta, unknown: f5.unknown };
+  // The result jump opens the decision fold (closed on phones) and scrolls to it.
+  await ff.click('#detailModalInner .result-jump button');
+  await ff.waitForTimeout(600);
+  results.firstFoldJumpOpensDecision = await ff.evaluate(() => ({ open: document.querySelector('#detailModalInner .decision-fold').open, scrolled: document.getElementById('detailModalInner').scrollTop > 0 }));
+  // The bottom bar's Favorite is the same action as the top row's.
+  await ff.evaluate(() => document.querySelector('#detailModalInner .detail-actbar .actbar-fav').click());
+  await ff.waitForTimeout(400);
+  results.firstFoldActbarFav = await ff.evaluate(() => ({ bar: document.querySelector('#detailModalInner .actbar-fav').classList.contains('on'), top: document.querySelector('#detailModalInner .prop-top-actions .heart-btn').textContent.trim() }));
+  await ff.evaluate(() => document.querySelector('#detailModalInner .detail-actbar .actbar-fav').click());
+  await ff.waitForTimeout(300);
+  await ff.close();
+  const fa = await newPage({ viewport: { width: 390, height: 844 } });
+  await fa.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
+  await fa.waitForSelector('#detailModal:not([hidden]) .dossier-status.facts', { timeout: 8000 });
+  await fa.waitForTimeout(400);
+  const f15 = await foldOf(fa);
+  results.firstFoldAvailable = { dts: f15.dts, figure: f15.figure, value: f15.value, figureWithin: f15.figureWithin, cta: f15.cta, ctaWithin: f15.ctaWithin, unknown: f15.unknown, unknownWithin: f15.unknownWithin, acquireFirstSection: f15.acquireFirstSection, verifiedLine: f15.verifiedLine, groupsClosed: f15.groupsClosed, actbar: f15.actbar, valueOnce: f15.valueOnce };
+  await fa.close();
+  // An unverified Available row says so on the sheet, above the checklist.
+  const fu = await newPage({ viewport: { width: 390, height: 844 } });
+  await fu.goto(BASE_URL.replace(/index\.html$/, 'tx.html') + '#/lands/ptx6', { waitUntil: 'networkidle' });
+  await fu.waitForTimeout(500);
+  results.firstFoldUnverifiedAvailable = await fu.evaluate(() => { const m = document.getElementById('detailModalInner'); const a = m.querySelector('[data-section="acquire"]');
+    return { verifiedLine: (a.querySelector('.acq-verified-state') || { textContent: null }).textContent, cta: a.querySelectorAll('.acq-cta').length, order: [...a.children].map(e => e.className.split(' ')[0]) }; });
+  await fu.close();
+  // Desktop: the contents list follows the facts row, one numbered entry per
+  // group with the group's honest state, sticky in the modal, and a jump opens
+  // the group it points at.
+  const fd = await newPage({ viewport: { width: 1280, height: 900 } });
+  await fd.goto(BASE_URL + '#/auctions/p1', { waitUntil: 'networkidle' });
+  await fd.waitForTimeout(800);
+  results.detailContents = await fd.evaluate(() => {
+    const m = document.getElementById('detailPanel');
+    const nav = m.querySelector('.detail-nav');
+    return { afterFacts: nav.compareDocumentPosition(m.querySelector('.dossier-status.facts')) & Node.DOCUMENT_POSITION_PRECEDING ? true : false,
+      entries: [...nav.querySelectorAll('button')].map(b => [b.querySelector('.toc-n').textContent, b.querySelector('.toc-t').textContent, b.dataset.target, b.querySelector('.toc-s').textContent]),
+      groupsOpen: [...m.querySelectorAll('details.detail-group')].every(d => d.open), actbarHidden: getComputedStyle(m.querySelector('.detail-actbar')).display === 'none',
+      noScoreWords: !/\b(score|confidence|recommend|rating)\b/i.test(nav.textContent) };
+  });
+  await fd.evaluate(() => { document.querySelectorAll('#detailPanel details.detail-group').forEach(d => { d.open = false; }); });
+  await fd.click('#detailPanel .detail-nav button[data-target="truth"]');
+  await fd.waitForTimeout(500);
+  results.detailContentsJumpOpensGroup = await fd.evaluate(() => ({ open: document.querySelector('#detailPanel details.detail-group[data-group="source"]').open, on: document.querySelector('#detailPanel .detail-nav button[data-target="truth"]').classList.contains('on') }));
+  await fd.close();
+}
+
+await browser.close();
+
 const EXPECTED = {
+  // Redesign PR1 (2026-10-24): first fold at 390x844 and the desktop contents list - pinned from DUMP_RESULTS.
+  firstFoldAuction: {"dts": ["Sale", "Opening bid", "Value on file", "Source · last read"], "figure": "$8,000.00", "value": "$95,000", "provPrefix": "Source not recorded", "saleWithin": true, "figureWithin": true, "unknown": "Not known from the record: Registration, deposit and payment rules not verified · Image not checked yet · Flood zone not checked. Nothing here is estimated.", "unknownWithin": true, "cta": "View sale listing", "ctaWithin": true, "acquireFirstSection": "acquire", "figureOnce": true, "valueOnce": true, "groupsClosed": true, "decisionClosed": true, "navHidden": true, "actbar": ["Favorite", "Watchlist", "Acquire →"], "actbarOnScreen": true, "actbarTargets": true, "verifiedLine": "Verified: Not yet · the county's registration, deposit and payment rules for this sale have not been captured from its own page. Check the county's sale page before bidding; nothing here is assumed.", "sectionIds": ["acquire", "decision", "financial", "risk", "map", "related", "timeline", "events", "truth", "documents", "provenance", "sources", "research", "diligence", "monitor"], "saleIsDate": true, "saleOnceInFold": 1},
+  firstFoldJumpOpensDecision: {"open": true, "scrolled": true},
+  firstFoldActbarFav: {"bar": true, "top": "♥ Favorited"},
+  firstFoldAvailable: {"dts": ["Availability", "Price", "Value on file", "Source · last read"], "figure": "Not published", "value": "$26,000", "figureWithin": true, "cta": "Download application", "ctaWithin": true, "unknown": "Not known from the record: Price not published · Image not checked yet · Flood zone not checked. Nothing here is estimated.", "unknownWithin": true, "acquireFirstSection": "acquire", "verifiedLine": null, "groupsClosed": true, "actbar": ["Favorite", "Watchlist", "Acquire →"], "valueOnce": true},
+  firstFoldUnverifiedAvailable: {"verifiedLine": "Verified: Not yet · no county page or document establishing how to acquire from this list has been verified; the listing is the source's own statement of availability.", "cta": 0, "order": ["detail-section-head", "acq-verified-state", "acq-checklist-wrap", "acq-block"]},
+  detailContents: {"afterFacts": true, "entries": [["01", "Acquire", "acquire", "Registration not yet verified"], ["02", "Money", "financial", "$90,000 value on file · County Assessed Value $80,000"], ["03", "Property & history", "property", "House · built 1958 · 16,456 sq ft lot · last sale $41,500 in 2011"], ["04", "Risk & legal", "risk", "Flood zone: Not checked · Manual lien notes: No flags noted"], ["05", "Map & location", "map", "Not yet geocoded"], ["06", "Same parcel & timeline", "timeline", "1 record in other ledgers · sale scheduled, no result yet"], ["07", "Source", "truth", "Fl Realauction Alachua · last read not recorded"], ["08", "Mine", "research", "On your account · Not saved · 7 of 15 verified"]], "groupsOpen": true, "actbarHidden": true, "noScoreWords": true},
+  detailContentsJumpOpensGroup: {"open": true, "on": true},
   // Parcel boundaries (2026-10-20, migration 034): fixture geometry only.
   boundaryOk: {"host": true, "pid": "p5", "outline": true, "rings": 1, "attrib": "FIXTURE Utah Geospatial Resource Center (UGRC)", "state": null, "bboxCenter": [-82.045, 26.934], "fitted": true, "label": "Aerial image with the parcel outline of this property (FIXTURE Utah Geospatial Resource Center (UGRC))", "credit": {"text": "Parcel outline: FIXTURE Utah Geospatial Resource Center (UGRC) · Licence: CC BY 4.0 · Changes: FIXTURE: boundaries reprojected and simplified · Source last refreshed by TAXACQ Oct 2, 2026 · Source publishes: Generally monthly · Source disclaimer · Dataset metadata · Outline is for orientation; it is not a survey and does not show ownership or title.", "links": [["CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/", "noopener noreferrer"], ["Source disclaimer", "https://gis.utah.gov/documentation/policy/license/", "noopener noreferrer"], ["Dataset metadata", "https://example.org/fixture-metadata", "noopener noreferrer"]]}},
   boundaryFreshnessOk: "Source last refreshed by TAXACQ Oct 2, 2026",
@@ -7286,7 +7409,7 @@ const EXPECTED = {
   detroitSubsetVectors: {"cases": 50, "mismatches": []},
   availDefaultLanding: {"FL": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "LA": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "WY": {"hash": "#/auctions", "activeTab": "auction", "cards": true, "ledgers": ["auction"]}},   // 2026-10-04: WY fixture row pwy1 (landing-ledger test)
   // Acquisition-path semantics (2026-10-03): Horry's county-wide bid-form PDF.
-  acqPathHorryDetail: {"modes": ["bid"], "saysOnline": false, "saysPropertyLink": false, "saysBid": true, "pdfLinks": ["Bid form →", "Download bid form", "Bid form →", "County process page →", "Application form to download (published by the source) →", "Application / purchase instructions →", "Download the form - complete and submit it offline →"], "pathEvidence": true},
+  acqPathHorryDetail: {"modes": ["bid"], "saysOnline": false, "saysPropertyLink": false, "saysBid": true, "pdfLinks": ["Download bid form", "Bid form →", "Bid form →", "County process page →", "Application form to download (published by the source) →", "Application / purchase instructions →", "Download the form - complete and submit it offline →"], "pathEvidence": true},   // redesign PR1: the acquisition CTA ("Download bid form") leads the Acquire sheet, above the checklist
   // Collection vs customer publication (2026-10-02).
   devVisAdminMiLands: {"cards": 6, "reviewChips": ["Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published"], "programs": ["Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Own It Now", "Side Lot For Sale"], "pending": "6 records from sources awaiting customer-publication review are shown to you as an admin, each labelled \"Source review\". Customers in published mode do not see them.", "withheld": null},
   devVisAdminDetail: {"banner": "Source review: Unreviewed. This record comes from a source awaiting customer-publication review - shown to you as an admin. It is not customer-published. Its availability below is the source's own statement and is a separate fact.", "reviewRow": "Source publication review: Unreviewed Customer-visible: No (shown to you as an admin) Customer-publication gate: Not enforced on this deployment (migration 031 not applied) Source program / status: Side Lot For Sale Detroit customer subset: Not included in current Detroit customer subset - no structure in the source's own status (vacant lot or program record) · structure evidence: none in the source's status", "identifier": true, "program": true, "lastRead": true, "neverApproved": true},
@@ -7304,7 +7427,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v137"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v138"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -7531,7 +7654,7 @@ const EXPECTED = {
   // Phase 66: "At a glance" summary + section nav + photo states + show-on-map
   glanceBlockRemoved: 0,
   decGapNamesRegistration: true,
-  detailNavLabels: ["Decision", "Tax & Value", "Property", "History", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
+  detailNavLabels: ["01 Acquire Registration not yet verified", "02 Money $90,000 value on file · County Assessed Value $80,000", "03 Property & history House · built 1958 · 16,456 sq ft lot · last sale $41,500 in 2011", "04 Risk & legal Flood zone: Not checked · Manual lien notes: No flags noted", "05 Map & location Not yet geocoded", "06 Same parcel & timeline 1 record in other ledgers · sale scheduled, no result yet", "07 Source Fl Realauction Alachua · last read not recorded", "08 Mine On your account · Not saved · 7 of 15 verified"],   // redesign PR1: the numbered contents list (group · honest status) replaces the section pills
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
   showOnMapBtnText: 'Show county on the Map page',
@@ -7676,7 +7799,7 @@ const EXPECTED = {
   rdNavAuction: {"hash": "#/auctions", "title": "Auction Properties"},
   rdGlobal: {"rows": ["p15:Available"], "all": "See all 1 result in the list →", "expanded": "true"},
   rdGlobalOpen: {"modal": false, "crumbs": ["Home/Available/15 Manatee Ln"]},
-  rdDetail: {"tabs": ["How to acquire", "Financial position", "Decision", "Inventory", "Tax & Value", "Property", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago (Sep 20, 2026).", "Its source is approved for customer publication."], "acquire": 1},
+  rdDetail: {"tabs": ["01 Acquire Multi-step county process", "02 Money $26,000 value on file · County Assessed Value $25,000", "03 Property & history Vacant Lot", "04 Risk & legal Flood zone: Not checked · Manual lien notes: Not reviewed", "05 Map & location Coordinates on file", "06 Same parcel & timeline No other ledger record", "07 Source FL LAFT Html · last read Sep 20, 2026", "08 Mine On your account · Not saved · 7 of 17 verified"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago (Sep 20, 2026).", "Its source is approved for customer publication."], "acquire": 1},
   rdCrumbHome: {"modalHidden": true, "dashVisible": true},
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
@@ -8075,7 +8198,7 @@ const EXPECTED = {
   txRaCardScopeNote: true,
   txRaCardLabelNotPropertySpecific: true,
   txRaDetailLink: { kind: 'sale', anchors: 1 },
-  txRaDetailLinkText: /^View sale listing for [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
+  txRaDetailLinkText: /^View sale listing$/,   // redesign PR1 (review H7): the Sale cell carries the date; the sheet CTA does not repeat it. The card keeps "View sale listing for <date>".
   txRaDetailHrefMatchesCard: true,
   txRaDetailProvenanceText: /Data source: RealAuction county sheriff-sale site/,
   txRaNoHostCardLink: { text: 'Auction link not published', kind: 'none', anchors: 0 },
@@ -8534,10 +8657,10 @@ const EXPECTED = {
   diligenceKeyFirst: {"states": ["VERIFIED", "NOT_VERIFIED", "NOT_PUBLISHED", "NOT_APPLICABLE", "SOURCE_UNAVAILABLE"], "beforeItems": true},
   diligenceCellCount: {"verified": 7, "applicable": 17, "matchesChecklist": true},
   diligenceAmountDateWording: "NOT_PUBLISHED:No dated amount published by the source",
-  researchCellBefore: {"state": "none", "own": true, "besideOfficial": 4},
+  researchCellBefore: {"state": "none", "own": true, "besideOfficial": 1},   // redesign PR1: the research cell is its own band in Mine, no longer beside the official cells
   researchSectionOrder: {"afterProperty": true, "afterAcquire": true},
   researchCellJump: true,
-  researchCellAfter: {"state": "DISCOVERED", "own": true, "besideOfficial": 4},
+  researchCellAfter: {"state": "DISCOVERED", "own": true, "besideOfficial": 1},
   researchEmptyStart: {"steps": 4, "browse": true, "counties": true},
   researchEmptyToCounties: "#/counties",
   researchPipeline: ["DISCOVERED=1", "RESEARCHING=0", "DUE_DILIGENCE=1", "ACQUISITION_READY=0", "PASSED=0", "ACQUIRED=0"],
@@ -8574,7 +8697,7 @@ const EXPECTED = {
   gateEnforcedAdmin: {"cards": 4, "chipped": ["p14", "p15", "p3"], "chip": {"cls": "metadata_gap", "text": "Withheld from customers: Missing record metadata"}, "freshChip": false},
   gateTruthRow: {"cls": "metadata_gap", "verdict": "Missing record metadata", "subs": ["The record was not read from its source in the last 14 days · No acquisition-evidence status exists for this source and county", "Gate not enforced on this deployment: shown for information."]},
   refineLedgerQuestions: {"laft": "What can I acquire now?", "auction": "What is coming up for sale?", "certificate": "What tax lien or certificate am I buying?"},
-  refineDossier: {"status": ["Ledger", "Status", "Last read", "Your research (your label, not an official status)"], "lastRead": "Sep 20, 2026", "order": ["dossier-status", "acquire", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},
+  refineDossier: {"status": ["Availability", "Price", "Value on file", "Source · last read"], "lastRead": "Sep 20, 2026", "order": ["dossier-status", "acquire", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},   // redesign PR1: the four-fact row (Availability / Price / Value on file / Source · last read)
   refineViewports: [],
   // Available price honesty (2026-10-05).
   priceWording: {"openingBid": {"label": "Opening bid", "partial": true, "note": "Not the full price: the source publishes this as a starting amount. Ask the county for the current total.", "total": null, "expired": null, "gap": "Current purchase total not on file - the listed figure is the opening bid only"}, "fixed": {"label": "Purchase price", "partial": false, "note": "As the source publishes it - confirm the amount due before paying.", "total": null, "expired": null, "gap": null}, "expiredStatement": {"label": "Total due", "partial": true, "note": "Last clerk statement $27,689.42, valid through Aug 31, 2026 - that date has passed. Request an updated statement from the clerk.", "total": 27689.42, "expired": true, "gap": "County purchase statement has expired - request an updated total"}, "currentStatement": {"label": "Total due from purchaser", "partial": true, "note": "Clerk statement, valid if received by Dec 31, 2099.", "total": 27689.42, "expired": false, "gap": null}}

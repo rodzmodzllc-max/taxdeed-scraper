@@ -1245,3 +1245,83 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 }
 /* Map bubble hit area (2026-10-24): invisible, catches the tap. */
 .cluster-bubble .bubble-hit{fill:transparent;stroke:none;pointer-events:all}
+
+/* ---- Redesign PR1 (2026-10-24): property page first fold -------------------
+   The four-fact row, the "Not known from the record" line, the Acquire sheet,
+   the numbered contents list with its honest-status column, the folded groups
+   and the phone bottom action bar. Rules live here (last stylesheet) so the
+   phone rules win; no navy, no pill stacks. */
+.dossier-status.facts{grid-template-columns:repeat(4,minmax(0,1fr));margin:.6rem 0 .4rem;border-top:2px solid var(--rule-strong)}
+.dossier-status.facts > div{padding:.5rem .7rem .5rem 0}
+.dossier-status.facts dd.prov{font-weight:500;font-size:.78rem;color:var(--ink-soft);line-height:1.4}
+.dossier-status.facts dd.prov .prov-line{font-family:var(--font-sans)}
+.dossier-status.facts dd.bad{color:var(--bad)}
+.dossier-status.facts dd .dossier-sub.warn{color:var(--warn)}
+.dossier-status.facts > div:nth-child(2) dd{font-family:var(--font-mono);font-size:1.05rem;font-weight:600}
+.dossier-status.facts > div:nth-child(2) dd.muted{font-family:var(--font-sans);font-size:.86rem}
+.dossier-status.facts > div:nth-child(2) dd .dossier-sub{font-family:var(--font-sans)}
+.dossier-status.facts > div:nth-child(3) dd:not(.muted){font-family:var(--font-mono);font-size:1rem;font-weight:600}
+.dossier-status.facts > div:nth-child(3) dd .dossier-sub{font-family:var(--font-sans)}
+.record-gaps{margin:.4rem 0 .6rem;padding:.5rem .75rem;border-left:3px solid var(--warn);background:var(--warn-bg);font-size:.82rem;line-height:1.45;color:var(--ink)}
+.record-gaps b{font-weight:700;color:var(--warn)}
+.result-jump{margin:.1rem 0 .4rem}
+/* Contents: numbered rows, serif title, the group's honest state beneath. */
+.detail-nav.detail-toc{display:block;overflow:visible;padding:1.1rem 0 .4rem;margin:.2rem 0 .4rem;max-height:46vh;overflow-y:auto}
+.detail-nav.detail-toc ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:0 1rem}
+.detail-nav.detail-toc li{min-width:0}
+.detail-nav.detail-toc button{display:grid!important;grid-template-columns:1.6rem minmax(0,1fr);gap:0 .4rem;align-items:baseline;width:100%;min-height:36px;padding:.3rem 0!important;margin:0;border:0!important;border-bottom:1px solid var(--rule)!important;border-radius:0!important;background:transparent!important;text-align:left;text-transform:none!important;letter-spacing:0!important;font-size:.86rem!important;color:var(--ink)!important;cursor:pointer}
+.detail-nav.detail-toc button:hover,.detail-nav.detail-toc button.on{background:transparent!important;color:var(--ink)!important;border-bottom-color:var(--copper)!important}
+.detail-nav.detail-toc .toc-n{font-family:var(--font-mono);font-size:.75rem;color:var(--copper);grid-row:1 / span 2;align-self:start;padding-top:.15rem}
+.detail-nav.detail-toc .toc-t{font-family:var(--font-display);font-weight:600;font-size:.98rem;line-height:1.2}
+.detail-nav.detail-toc .toc-s{grid-column:2;font-size:.75rem;font-weight:500;color:var(--ink-soft);line-height:1.3;overflow-wrap:anywhere}
+.detail-nav.detail-toc button.on .toc-t{color:var(--copper-deep)}
+@container (max-width:520px){ .detail-nav.detail-toc{position:static} .dossier-status.facts{grid-template-columns:repeat(2,minmax(0,1fr))} }
+/* Groups: a serif summary, the "Show / Hide" affordance from .detail-more. */
+.detail-group{margin:1.1rem 0 0;border-top:2px solid var(--rule-strong)}
+.detail-group > .detail-more-summary{font-family:var(--font-display);font-size:1.08rem;font-weight:700;letter-spacing:0;min-height:48px}
+/* The number comes from the contents list (data-n), so page and list agree. */
+.detail-group > .detail-more-summary .dgroup-n::before{content:attr(data-n);font-family:var(--font-mono);font-weight:500;font-size:.75rem;color:var(--ink-soft);min-width:1.7em;margin-right:.45rem;display:inline-block}
+#detailModalInner,#detailPanel{counter-reset:dsec}
+.detail-group > .detail-section:first-of-type,.decision-fold > .detail-section{margin-top:.4rem!important;border-top-width:1px!important}
+.decision-fold{margin:.6rem 0 0;border-top:1px solid var(--rule)}
+.decision-fold > .detail-more-summary{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft)}
+.detail-group .detail-hero-photo{margin-top:.5rem}
+/* The Acquire sheet: CTA and verification state lead it. */
+.acq-verified-state{margin:0 0 .6rem;padding:.45rem .7rem;border-left:3px solid var(--warn);background:var(--warn-bg);font-size:.82rem;line-height:1.45}
+.acq-verified-state b{color:var(--warn)}
+.acquire-card > .acq-cta-row{margin:0 0 .8rem}
+.acq-auction .acq-cta-row{margin:0 0 .4rem}
+.acq-auction .detail-cta{margin:0!important}
+.acq-auction .acq-muted{margin:.3rem 0 0;font-size:.78rem;color:var(--ink-soft);line-height:1.4}
+.acq-auction .acq-q{padding:.6rem 0}
+/* The customer's research cell, in Mine - dashed copper, its own label. */
+.dossier-research-band{margin:.4rem 0 .6rem;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.dossier-research-band > .dossier-research{background:var(--copper-soft);border-left:2px dashed var(--copper);padding:.45rem .8rem}
+.dossier-research-band dt{font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin:0}
+.dossier-research-band dd{margin:.1rem 0 0;font-size:.86rem;font-weight:600;color:var(--ink)}
+/* The close button keeps its sticky corner but no longer takes a row of its
+   own (#detailModalInner is a flex column, so float never applied): the crumbs
+   flow up beside it and the facts row starts ~50px higher on a phone. */
+#detailModalInner > .detail-close{align-self:flex-end;margin-bottom:-2.75rem}
+#detailModalInner > .detail-crumbs{margin-right:3.2rem}
+/* Bottom action bar (graft C): sticky inside the modal's own scroll box.
+   flex-shrink:0 - #detailModalInner is a flex column with a max height. */
+.detail-actbar{position:sticky;bottom:0;z-index:4;flex-shrink:0;display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:.5rem;margin:1rem -1.1rem -1.6rem;padding:.5rem 1.1rem calc(.6rem + env(safe-area-inset-bottom,0px));background:var(--paper-white);border-top:1px solid var(--rule-strong)}
+.actbar-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;min-height:44px;min-width:44px;padding:0 .8rem;border:1px solid var(--rule);border-radius:var(--radius);background:var(--card);color:var(--ink);font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
+.actbar-btn span{font-size:.78rem}
+.actbar-btn.on{border-color:var(--copper);color:var(--copper-deep)}
+.actbar-btn.actbar-acquire{background:var(--copper);border-color:var(--copper);color:#fff;font-weight:700}
+.actbar-btn.actbar-acquire:hover{background:var(--copper-deep)}
+#detailPanel .detail-actbar{display:none}
+@media (min-width:1024px){ .detail-actbar{display:none} }
+@media (max-width:768px){
+  .detail-nav.detail-toc{display:none}
+  .dossier-status.facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dossier-status.facts > div{border-bottom:1px solid var(--rule)}
+  .dossier-status.facts > div + div{border-left:0;padding-left:0}
+  .dossier-status.facts > div:nth-child(even){padding-left:.8rem;border-left:1px solid var(--rule)}
+  .dossier-status.facts > div:nth-child(3){grid-column:auto;border-top:0}
+  .dossier-status.facts > div:nth-child(n+3){border-bottom:0}
+  .actbar-btn span{display:none}
+  .actbar-btn.actbar-acquire{padding:0 1rem}
+}
