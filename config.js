@@ -58,6 +58,9 @@ window.TDW_CONFIG = {
   // read-only dry run (docs/review/acquisition-gate-dryrun-2026-10-10.md)
   // shows what enforcing would withhold; switching it on is the owner's
   // decision. Nothing else changes: no row is deleted or closed.
+  // 2026-10-25: kept "off" by the owner during testing - testers see every
+  // record; hiding by acquisition path and by tier comes once everything is
+  // verified and customers are onboarded.
   availableGate: "off",
 
   // Paid beta (2026-10-05). Switched OFF until the owner completes the

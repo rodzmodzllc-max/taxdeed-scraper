@@ -3473,5 +3473,32 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   notice, disclaimer and metadata (on a card: short credit on the picture, the full line in the photo bubble); geometry
   never rides on a property row or in an export. Stub knobs `?boundary=ok|fl|multi|none|unauth|invalid|nolicencelink|
   error`, `?boundaryids=<id>,<id>` (outline ids the cards see).
-- `sw.js` -> `tdw-shell-v137` (2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
+- `sw.js` -> `tdw-shell-v142` (2026-10-25: header and filter cleanup, path-first customer view, essentials-first cards and the Merged look; v141 was the header Look switch and the trial Tactile / Terrain List experiences - see "Look switch" below; v138-v140 are held by the redesign PRs. v137 was 2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
 
+
+## Look switch: Classic / Tactile / Terrain (2026-10-25, PR open, frontend only)
+
+A trial so the owner can compare two List experiences on live data before choosing one.
+- **Header "Look" button** (`installLookSwitch()` in app.js, injected into `.header-btns`; no HTML change): Classic (the
+  existing card list, default) / Tactile / Terrain. Choice: `?look=<name>` else `localStorage` `tdw_experience_v1`;
+  `<html data-experience>`. A failed module load falls back to Classic with a toast.
+- **Modules** `experience-tactile.js/.css`, `experience-terrain.js/.css` load on demand (dynamic `import()`), draw the
+  rows of the `tdw:rendered` payload into `#xpStage` (created above `#main`), and set
+  `<html data-experience-ready="<name>">`, which hides `#main`. The payload carries `api` (`experienceApi()`): the card's
+  own label/display helpers (`amountInfo`, `auctionBidLabel`, `valueLabel`, `previewFacts`, `propertyVisual`,
+  `openDetail`, ...), so a module never invents a label. Watchlist buttons are `data-action="bidlist" data-pid`, handled
+  by the existing document-level action handler. Ledger tabs, filters and search keep driving the rows.
+- All four files are in the mirror `FILES`, `DEPLOYED_BUNDLE_FILES` and the sw `SHELL`.
+
+## Header, filters and free tier (2026-10-25, PR open, frontend only)
+
+Full description: `docs/review/header-tiers.md`. Stable facts:
+- `installShellV3()` / `installListToolbarV3()` (end of app.js) MOVE the existing elements into one header
+  (`#hdrNav`: ledgers + Map; brand = Home; Watchlist / Saved searches / My Research / County Intelligence / About
+  live in the account menu) and one List toolbar (County, Filters, Sort; Table + Export inside Filters).
+- Default `statusView` is `"live"` (`isCurrentListing()`); admins pick another view in `#statusViewSelect`.
+- Cards are essentials first: one stamp from `cardStamp()`, one figure, the way in, Watchlist; the rest in
+  "Record details". The property page groups research sections in ONE closed `details.detail-research`
+  (`<!--RESEARCH-->` markers in `detailHtml()`); a nav jump opens it. Tests open it through the harness
+  (`window.__suiteKeepResearchClosed` reads the default).
+- Shell CSS must never override `[hidden]` (filter rows and fields each needed a guard).

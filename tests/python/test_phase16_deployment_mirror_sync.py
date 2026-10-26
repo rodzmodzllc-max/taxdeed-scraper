@@ -56,6 +56,14 @@ DEPLOYED_BUNDLE_FILES = (
     "app.js",
     # 2026-10-20 parcel boundaries from the approved parcel-geometry sources.
     "parcel-boundary.js",
+    # 2026-10-25 look switch: the two trial List experiences (app.js loads
+    # them only when picked).
+    "experience-tactile.css",
+    "experience-tactile.js",
+    "experience-terrain.css",
+    "experience-terrain.js",
+    "experience-merged.css",
+    "experience-merged.js",
     # 2026-10-03 boot resilience: startup watchdog + supabase-js loader and
     # its same-origin fallback copy.
     "boot.js",
