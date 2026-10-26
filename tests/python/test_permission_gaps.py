@@ -122,7 +122,7 @@ def test_stamp_seen_parity_and_denial(monkeypatch, tmp_path):
 def test_stamp_seen_refuses_an_unmapped_ledger(monkeypatch, tmp_path):
     import stamp_seen as SS
     no_network(monkeypatch)
-    assert not SS.store_permitted("FL", "laft") and not SS.store_permitted("TX", "auction")
+    assert not SS.store_permitted("FL", "laft") and not SS.store_permitted("LA", "auction")  # TX is mapped since 2026-10-26
     assert SS.main(["--state", "FL", "--source", "laft", "--harvest", str(tmp_path / "none.json")]) == SS.PERMISSION_DENIED_EXIT
 
 

@@ -1320,6 +1320,21 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/source_health.py --source tx_sales --label "Texas tax sales (LGBS + county sheriff-sale sites) - manual runs" --state TX --mode manual --status out/harvest_texas_status.json --rows out/harvest_texas.json --outcome ${{ steps.sync.outcome }}
 
+      - name: Stamp last_seen_at on the Texas rows read this run
+        # The Texas sync never set last_seen_at, so every Texas row read as
+        # never-read and the inventory-status step marked it "unknown"
+        # (2026-10-26). A row is stamped only when its (county, account) is
+        # in this run's harvest file under its own ledger; nothing is
+        # un-stamped or closed. Runs before the inventory-status step.
+        if: steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 scripts/stamp_seen.py --state TX --source laft --harvest out/harvest_texas.json --case-key account_number --row-source
+          python3 scripts/stamp_seen.py --state TX --source auction --harvest out/harvest_texas.json --case-key account_number --row-source
+
       # Phase B (auction-event history): same writer as the deeds job, fed by
       # out/harvest_texas.json. Texas has no per-county completeness file, so
       # the writer applies no absence-based transitions here (see its header).
