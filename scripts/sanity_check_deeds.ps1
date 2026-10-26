@@ -90,7 +90,10 @@ $lastId = $null
 while ($true) {
     $freshUrl = "$supabaseUrl/rest/v1/properties?state=eq.FL&source=eq.auction&status=eq.active&last_seen_at=gte.$sinceIso&select=id,county&order=id.asc&limit=1000"
     if ($lastId) { $freshUrl += "&id=gt.$lastId" }
-    $page = @(Invoke-RestMethod -Uri $freshUrl -Method Get -Headers $headers -UserAgent $SupabaseUserAgent)
+    # PowerShell 7 emits a JSON array from Invoke-RestMethod as ONE object, so
+    # @(...) wraps it as a single element (run 386 counted 1 fresh county for 39).
+    # The pipeline enumerates it into rows.
+    $page = @(Invoke-RestMethod -Uri $freshUrl -Method Get -Headers $headers -UserAgent $SupabaseUserAgent | ForEach-Object { $_ })
     foreach ($r in $page) { if ($r.county) { $freshCountySet.Add([string]$r.county) | Out-Null } }
     if ($page.Count -lt 1000) { break }
     $lastId = $page[-1].id
