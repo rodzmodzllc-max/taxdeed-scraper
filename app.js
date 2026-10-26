@@ -10914,47 +10914,83 @@ function auctionCommandRows(rows) {
   });
   return Array.from(byKey.values()).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.county.localeCompare(b.county));
 }
-function upcomingSalesHtml(rows) {
-  const all = auctionCommandRows(rows);
-  if (!all.length) return "";
-  // The first eight events show at once; any others sit in a disclosure
-  // labelled with their count, so the total is never implied and never hidden
-  // (the old copy said "sort by sale date to see every one", which the list
-  // does not do).
-  // Four events at every width; the rest sit in the disclosure. (The phone CSS
-  // used to hide events 5-8 with nothing to reveal them.)
-  const FIRST = 4;
-  const ev = all.slice(0, FIRST);
-  const rest = all.slice(FIRST);
+// Sale-day strip (2026-10-26, the owner's request): the auction calendar is the
+// first thing on Auctions in every look - a row of sale days you scroll
+// sideways, never a section you open. Tapping a day shows that day's county
+// sales underneath (the same command-center rows: published-bid counts, sale
+// process, sale listing, county process) and "Go to these properties" scrolls
+// the list to that date. Days, counts and links come only from
+// auctionCommandRows(): scheduled, not off the county's current list, within
+// COMMAND_CENTER_DAYS. `var`: render() can run during module init (TDZ).
+var SALE_DAY = null;
+function saleDays(rows) {
+  const byDate = new Map();
+  auctionCommandRows(rows).forEach(e => {
+    let d = byDate.get(e.date);
+    if (!d) { d = { date: e.date, days: e.days, count: 0, watched: 0, events: [] }; byDate.set(e.date, d); }
+    d.count += e.count; d.watched += e.watched; d.events.push(e);
+  });
+  return Array.from(byDate.values());
+}
+function saleDayEventsHtml(day) {
+  if (!day) return "";
   const word = (ledgerCopy("auction").nav || "Auction").replace(/s$/, "");
-  const props = all.reduce((n, e) => n + e.count, 0);
-  const watched = all.reduce((n, e) => n + e.watched, 0);
-  const bidsTotal = all.reduce((n, e) => n + e.bids, 0);
-  const eventLi = e => {
-    const d = new Date(e.date + "T12:00:00");
-    const mon = isNaN(d) ? "" : d.toLocaleString("en-US", { month: "short" }).toUpperCase();
-    const day = isNaN(d) ? "" : String(d.getDate());
-    const when = e.days === 0 ? "Today" : e.days === 1 ? "Tomorrow" : `In ${e.days} days`;
+  const li = e => {
     const facts = [`${e.bids} of ${e.count} with a published bid`, e.process ? "Sale process verified" : "Sale process not yet verified"];
     if (e.watched) facts.unshift(`${e.watched} watched`);
     return `<li class="cc-event${e.days <= 3 ? " cc-soon" : ""}"><button type="button" class="desk-event sales-event" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction">
-      <span class="desk-date"><b>${esc(day)}</b><span>${esc(mon)}</span></span>
       <span class="desk-event-where">${esc(e.county)} ${esc(UNIT_WORD)} · ${esc(PAGE_STATE)}</span>
-      <span class="desk-event-what">${esc(word)} sale · ${esc(when)}</span>
+      <span class="desk-event-what">${esc(word)} sale</span>
       <span class="desk-event-n">${e.count} propert${e.count === 1 ? "y" : "ies"}</span>
       <span class="cc-facts">${facts.map(t => `<span>${esc(t)}</span>`).join("")}</span>
     </button><span class="cc-actions">${e.link ? `<a class="cc-link" href="${esc(e.link.href)}" target="_blank" rel="noopener"${e.link.note ? ` title="${esc(e.link.note)}"` : ""}>${esc(e.link.kind === "sale" ? "Sale listing →" : "County auction site →")}</a>` : ""}
 <button type="button" class="cc-dossier" data-action="countyintel" data-county="${esc(e.county)}">County process</button></span></li>`;
   };
-  const restBlock = rest.length
-    ? `<details class="cc-rest"><summary>Show the other ${rest.length} sale event${rest.length === 1 ? "" : "s"}</summary><ol class="sales-timeline" start="${FIRST + 1}">${rest.map(eventLi).join("")}</ol></details>`
-    : "";
-  return `<div class="upcoming-sales command-center" id="upcomingSales" data-events="${all.length}">
-    <div class="cc-head"><span class="eyebrow">Auction command center · next ${COMMAND_CENTER_DAYS} days</span>
-      <span class="cc-sum">${all.length} sale event${all.length === 1 ? "" : "s"} (county sale dates) · ${props.toLocaleString("en-US")} propert${props === 1 ? "y" : "ies"} listed for them · ${bidsTotal.toLocaleString("en-US")} with a published opening bid${watched ? ` · ${watched} on your watchlist` : ""}</span></div>
-    <ol class="sales-timeline">${ev.map(eventLi).join("")}</ol>${restBlock}${all.length > FIRST ? `<p class="cc-more muted">Showing ${ev.length} of ${all.length} sale events in the next ${COMMAND_CENTER_DAYS} days.</p>` : ""}</div>
-`;
+  const when = day.days === 0 ? "Today" : day.days === 1 ? "Tomorrow" : `In ${day.days} days`;
+  return `<div class="ss-panel-head"><b>${esc(fmtDateLong(day.date))}</b><span>${esc(when)} · ${day.events.length} count${day.events.length === 1 ? "y" : "ies"} · ${day.count} propert${day.count === 1 ? "y" : "ies"}</span></div>
+    <ol class="sales-timeline">${day.events.map(li).join("")}</ol>
+    <button type="button" class="ss-go" data-action="saleday-go" data-date="${esc(day.date)}">Go to these properties ↓</button>`;
 }
+function saleDayStripHtml(rows, questionHtml) {
+  const days = saleDays(rows);
+  if (!days.length) return questionHtml ? `<div class="ss-q-only">${questionHtml}</div>` : "";
+  if (!SALE_DAY || !days.some(d => d.date === SALE_DAY)) SALE_DAY = days[0].date;
+  const sel = days.find(d => d.date === SALE_DAY);
+  const props = days.reduce((n, d) => n + d.count, 0);
+  const chip = d => {
+    const dt = new Date(d.date + "T12:00:00");
+    const wd = isNaN(dt) ? "" : dt.toLocaleString("en-US", { weekday: "short" }).toUpperCase();
+    const mon = isNaN(dt) ? "" : dt.toLocaleString("en-US", { month: "short" }).toUpperCase();
+    const on = d.date === SALE_DAY;
+    return `<button type="button" class="ss-day${on ? " on" : ""}${d.days <= 3 ? " soon" : ""}" role="tab" aria-selected="${on}" aria-controls="upcomingSales" data-action="saleday" data-date="${esc(d.date)}" aria-label="${esc(fmtDateLong(d.date))}: ${d.count} propert${d.count === 1 ? "y" : "ies"} in ${d.events.length} count${d.events.length === 1 ? "y" : "ies"}">
+      <span class="ss-wd">${esc(wd)}</span><b class="ss-dd">${esc(String(dt.getDate()))}</b><span class="ss-mon">${esc(mon)}</span>
+      <span class="ss-n">${d.count} lot${d.count === 1 ? "" : "s"}</span>${d.watched ? `<span class="ss-watch" aria-hidden="true"></span>` : ""}</button>`;
+  };
+  return `<div class="sale-strip" id="saleStrip" data-days="${days.length}">
+    <div class="ss-head"><span class="eyebrow">Sale days · next ${COMMAND_CENTER_DAYS} days</span><span class="ss-sum">${days.length} sale day${days.length === 1 ? "" : "s"} · ${props.toLocaleString("en-US")} propert${props === 1 ? "y" : "ies"}</span>${questionHtml || ""}</div>
+    <div class="ss-scroll" role="tablist" aria-label="Sale days">${days.map(chip).join("")}</div>
+    <div class="ss-panel upcoming-sales command-center" id="upcomingSales" role="tabpanel" data-events="${sel ? sel.events.length : 0}" data-date="${esc(SALE_DAY)}">${saleDayEventsHtml(sel)}</div>
+  </div>`;
+}
+document.addEventListener("click", e => {
+  const b = e.target && e.target.closest && e.target.closest('[data-action="saleday"], [data-action="saleday-go"]');
+  if (!b) return;
+  const date = b.dataset.date;
+  if (b.dataset.action === "saleday") {
+    SALE_DAY = date;
+    const strip = b.closest(".sale-strip");
+    if (!strip) return;
+    strip.querySelectorAll(".ss-day").forEach(x => { const on = x.dataset.date === date; x.classList.toggle("on", on); x.setAttribute("aria-selected", String(on)); });
+    const day = saleDays(ALL.filter(p => p.source === "auction" && passes(p))).find(d => d.date === date);
+    const panel = strip.querySelector(".ss-panel");
+    if (panel) { panel.innerHTML = saleDayEventsHtml(day); panel.dataset.date = date; panel.dataset.events = String(day ? day.events.length : 0); panel.classList.remove("ss-swap"); void panel.offsetWidth; panel.classList.add("ss-swap"); }
+    try { b.scrollIntoView({ block: "nearest", inline: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); } catch {}
+    return;
+  }
+  const target = document.querySelector(`#main .date-divider[data-date="${CSS.escape(date)}"]`);
+  if (target) target.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+});
+
 // Info bubble (2026-10-13). A question or a note is shown as a small label; its
 // answer opens on hover, keyboard focus or tap, so the page reads as the
 // content first and the explanation on demand. `answerHtml` is trusted markup
@@ -10964,6 +11000,25 @@ function infoBubbleHtml(label, answerHtml, opts = {}) {
   const id = "tdwInfo" + globalThis.__tdwInfoSeq;
   return `<span class="ib${opts.corner ? " ib-corner" : ""}"><button type="button" class="ib-btn" aria-expanded="false" aria-controls="${id}"${opts.dataAttr ? ` ${opts.dataAttr}` : ""}>${esc(label)}</button><span class="ib-pop" id="${id}" role="tooltip">${answerHtml}</span></span>`;
 }
+// Keep an open bubble inside the screen (2026-10-26): a bubble anchored to a
+// button near either edge was cut off on phones. It is shifted sideways by
+// exactly the overflow; nothing else about it moves.
+function clampInfoBubble(wrap) {
+  const pop = wrap && wrap.querySelector(":scope > .ib-pop");
+  if (!pop) return;
+  pop.style.transform = "";
+  const r = pop.getBoundingClientRect();
+  if (!r.width) return;
+  const vw = document.documentElement.clientWidth, pad = 12;
+  let dx = 0;
+  if (r.right > vw - pad) dx = (vw - pad) - r.right;
+  if (r.left + dx < pad) dx = pad - r.left;
+  if (dx) pop.style.transform = `translateX(${Math.round(dx)}px)`;
+}
+["mouseover", "focusin"].forEach(t => document.addEventListener(t, e => {
+  const w = e.target && e.target.closest && e.target.closest(".ib");
+  if (w) clampInfoBubble(w);
+}));
 function closeInfoBubbles(except) {
   document.querySelectorAll(".ib.open").forEach(el => {
     if (el === except) return;
@@ -10979,6 +11034,7 @@ document.addEventListener("click", (e) => {
   closeInfoBubbles(wrap);
   wrap.classList.toggle("open", open);
   btn.setAttribute("aria-expanded", open ? "true" : "false");
+  if (open) clampInfoBubble(wrap);
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeInfoBubbles(null); });
 
@@ -11016,15 +11072,19 @@ function section(container, title, sub, rows, kind) {
   // actually do on it, and one live fact - so arriving at Certificates from
   // Auctions reads as going somewhere else, rather than as the same page with
   // a different word at the top.
-  const calendarHtml = kind === "auction" ? upcomingSalesHtml(shown) : "";
+  const questionHtml = cfg.question ? infoBubbleHtml(cfg.question, `<p class="mega-sub">${sub}</p>${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}`, { corner: true, dataAttr: `data-ledger-question="${esc(kind)}"` }) : "";
+  // Auctions (2026-10-26): the sale-day strip is always open at the top and
+  // carries the ledger's question; the source status is its own fold, the
+  // same as on the other ledgers.
+  const stripHtml = kind === "auction" ? saleDayStripHtml(shown, questionHtml) : "";
   sec.innerHTML = `
     <div class="mega-head ledger-head">
-      ${cfg.question ? infoBubbleHtml(cfg.question, `<p class="mega-sub">${sub}</p>${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}`, { corner: true, dataAttr: `data-ledger-question="${esc(kind)}"` }) : ""}
+      ${kind === "auction" ? stripHtml : questionHtml}
       <div class="ledger-head-top">
         <span class="ledger-head-icon" aria-hidden="true">${cfg.icon || ""}</span>
         <h2>${title}</h2>
       </div>
-      ${shown.length ? `<details class="ledger-status-fold${calendarHtml ? " upcoming-fold" : ""}"><summary>${calendarHtml ? `Auction calendar · next ${COMMAND_CENTER_DAYS} days, and source status` : "Source status and coverage"}</summary>${calendarHtml}${ledgerStatusHtml(kind, shown)}</details>` : (calendarHtml ? `<details class="ledger-status-fold upcoming-fold"><summary>Auction calendar · next ${COMMAND_CENTER_DAYS} days</summary>${calendarHtml}</details>` : ledgerStatusHtml(kind, shown))}
+      ${shown.length ? `<details class="ledger-status-fold"><summary>Source status and coverage</summary>${ledgerStatusHtml(kind, shown)}</details>` : ledgerStatusHtml(kind, shown)}
       ${REVIEW_PENDING_SHOWN[kind] && !IS_ADMIN ? `<p class="ledger-review-pending" id="ledgerReviewPending">${REVIEW_PENDING_SHOWN[kind]} record${REVIEW_PENDING_SHOWN[kind] === 1 ? "" : "s"} from sources awaiting customer-publication review ${REVIEW_PENDING_SHOWN[kind] === 1 ? "is" : "are"} ${esc(reviewViewerReason())}, each labelled "Source review". Customers in published mode do not see ${REVIEW_PENDING_SHOWN[kind] === 1 ? "it" : "them"}.</p>` : ""}
       ${IS_ADMIN ? adminWithheldLineHtml(kind) : ""}
       ${kind === "laft" && DETROIT_SUMMARY.collected && (IS_ADMIN || viewerScope() === "preview") ? `<p class="ledger-detroit-subset" id="ledgerDetroitSubset">Detroit Land Bank: ${DETROIT_SUMMARY.collected.toLocaleString("en-US")} collected · ${DETROIT_SUMMARY.structure.toLocaleString("en-US")} with a verified structure in the source's own status · ${DETROIT_SUMMARY.subset.toLocaleString("en-US")} in the customer subset (deterministic ~50%). ${IS_ADMIN ? "You see every collected record; those outside the subset are labelled and stay collected." : "Only the customer subset is shown here."} The subset still passes the publication gate: source review is separate.</p>` : ""}
@@ -11122,6 +11182,7 @@ function section(container, title, sub, rows, kind) {
       lastDividerDate = date;
       const divider = document.createElement("div");
       divider.className = "date-divider";
+      if (date) divider.dataset.date = date;
       divider.textContent = date ? fmtDateLong(date) : "Date not yet scheduled";
       sec.appendChild(divider);
     }
@@ -15773,7 +15834,18 @@ function installLookSwitch() {
   host.insertBefore(wrap, host.firstChild);
   const btn = wrap.querySelector("#lookBtn"), menu = wrap.querySelector("#lookMenu");
   const close = () => { menu.hidden = true; btn.setAttribute("aria-expanded", "false"); };
-  btn.addEventListener("click", e => { e.stopPropagation(); const open = menu.hidden; menu.hidden = !open; btn.setAttribute("aria-expanded", String(open)); });
+  // On a phone the button sits mid-header, so a menu anchored to its right
+  // edge ran off the left of the screen (2026-10-26). The menu is placed
+  // under the button and kept 12px inside the screen at every width.
+  const place = () => {
+    if (menu.hidden) return;
+    const r = btn.getBoundingClientRect();
+    const w = Math.min(320, window.innerWidth - 24);
+    const left = Math.max(12, Math.min(r.right - w, window.innerWidth - 12 - w));
+    Object.assign(menu.style, { position: "fixed", top: `${Math.round(r.bottom + 6)}px`, left: `${Math.round(left)}px`, right: "auto", width: `${w}px`, minWidth: "0" });
+  };
+  window.addEventListener("resize", place);
+  btn.addEventListener("click", e => { e.stopPropagation(); const open = menu.hidden; menu.hidden = !open; btn.setAttribute("aria-expanded", String(open)); place(); });
   menu.addEventListener("click", e => {
     const b = e.target.closest("[data-look]");
     if (!b) return;
