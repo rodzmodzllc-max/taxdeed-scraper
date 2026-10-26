@@ -96,12 +96,16 @@ def test_c01_ar_is_not_enabled_and_la_is_enabled_only_as_verified():
     assert ar.application_url_kind is PurchaseUrlKind.PURCHASE_INSTRUCTIONS and ar.auction_platform_url == AR.COSL_AUCTION_URL
     assert ar.observed_county_values == ("DALLAS",) and not ar.tabular.columns_verified
     assert la.inventory_type is InventoryType.ADJUDICATED_PROPERTY and la.publishing_unit == "PARISH" and la.county == "East Baton Rouge"
-    assert la.list_url == LA.EBR_DATASET_URL and la.document_url == LA.EBR_CSV_URL and "PROPERTY NUMBER" in la.required_columns
+    # Production is the newer list since the owner's 2026-10-26 switch; the older one is kept disabled.
+    assert la.list_url == LA.EBR_PARCEL_DATASET_URL and la.document_url == LA.EBR_PARCEL_CSV_URL and "ASSESSMENT NO." in la.required_columns
+    legacy = LA.EBR_LEGACY_SOURCE
+    assert legacy.list_url == LA.EBR_DATASET_URL and legacy.document_url == LA.EBR_CSV_URL and "PROPERTY NUMBER" in legacy.required_columns
+    assert not legacy.enabled and not LA.can_run(legacy).allowed
     assert not (ar.enabled or ar.live_verified or ar.identifier_format_established or ar.parser_fixture_validated)
     d = AR.can_run(ar)
     assert not d.allowed and "not activated" in d.reason
     assert la.enabled and la.live_verified and la.identifier_format_established and la.parser_fixture_validated
-    assert la.metadata_url == LA.EBR_METADATA_URL and LA.APPROVED_LICENSE_ID == "PUBLIC_DOMAIN"
+    assert la.metadata_url == LA.EBR_PARCEL_METADATA_URL and LA.APPROVED_LICENSE_ID == "PUBLIC_DOMAIN"
     assert LA.can_run(la).allowed
     # A disabled copy is still refused even in an activated state.
     assert not LA.can_run(replace(la, enabled=False)).allowed
@@ -189,10 +193,15 @@ def test_a03_harvest_refuses_before_the_first_request_and_runs_only_for_an_activ
 
 
 # ==================== 3. Louisiana ====================
+# The older a4h4-zi7e list (production 2026-09-30 .. 2026-10-26, kept disabled):
+# its parser and harvest contract, on an enabled COPY. The production list
+# (shrr-fsqq) is tested in test_la_tx_acquisition_paths.py.
+from dataclasses import replace as _replace  # noqa: E402
+LEGACY = _replace(LA.EBR_LEGACY_SOURCE, enabled=True)
 
 
 def test_l01_parse_csv_reads_the_indexed_columns_and_never_invents_a_price_or_a_link():
-    recs, out = LA.parse_csv(LA.EBR_SOURCE, EBR, retrieved_at=T)
+    recs, out = LA.parse_csv(LEGACY, EBR, retrieved_at=T)
     assert out["header_table_found"] and out["data_rows"] == 4 and out["rejected_identifier"] == 1 and out["missing_columns"] == []
     assert out["unmapped_columns"] == [] and out["geolocation_parsed"] == 2
     assert [r.case_no for r in recs] == ["01234567", "07654321", "00999999"]
@@ -217,15 +226,15 @@ def test_l01_parse_csv_reads_the_indexed_columns_and_never_invents_a_price_or_a_
     assert LA.parse_geolocation("POINT (-91.1 30.4)") == (30.4, -91.1) and LA.parse_geolocation("(30.4, -91.1)") == (30.4, -91.1)
     assert LA.parse_geolocation("1500 NORTH ST") is None and LA.parse_geolocation("POINT (200 30)") is None and LA.parse_geolocation(None) is None
     # Header spelling is matched after normalization; missing required columns -> PARSE_FORMAT_CHANGE, nothing read.
-    recs2, out2 = LA.parse_csv(LA.EBR_SOURCE, EBR.replace("PROPERTY NUMBER", "Property  Number").replace("PHYSICAL ADDRESS", "physical_address"), retrieved_at=T)
+    recs2, out2 = LA.parse_csv(LEGACY, EBR.replace("PROPERTY NUMBER", "Property  Number").replace("PHYSICAL ADDRESS", "physical_address"), retrieved_at=T)
     assert [r.case_no for r in recs2] == [r.case_no for r in recs]
-    recs3, out3 = LA.parse_csv(LA.EBR_SOURCE, BAD, retrieved_at=T)
+    recs3, out3 = LA.parse_csv(LEGACY, BAD, retrieved_at=T)
     assert recs3 == [] and out3["missing_columns"] == ["PROPERTY NUMBER", "PHYSICAL ADDRESS", "LEGAL DESCRIPTION", "TAX YEAR"]
-    oc = LA.classify_outcome(LA.EBR_SOURCE, recs3, out3)
+    oc = LA.classify_outcome(LEGACY, recs3, out3)
     assert (oc.status, oc.category) == ("INCOMPLETE", "PARSE_FORMAT_CHANGE")
     from dataclasses import replace
-    assert LA.classify_outcome(replace(LA.EBR_SOURCE, parser_fixture_validated=False, enabled=False), recs, out).category == "UNKNOWN"
-    assert LA.classify_outcome(LA.EBR_SOURCE, recs, out).status == "COMPLETE"
+    assert LA.classify_outcome(replace(LEGACY, parser_fixture_validated=False, enabled=False), recs, out).category == "UNKNOWN"
+    assert LA.classify_outcome(LEGACY, recs, out).status == "COMPLETE"
     # Inventory status for a stored LA row: not mapped yet (no LA rule) -> nothing written.
     assert IS.status_for_row({"state": "LA", "source": "laft"}, today=T.date()) is None
 
@@ -238,7 +247,7 @@ def test_l02_harvest_reads_the_metadata_then_one_csv_and_refuses_a_changed_licen
     def fetch(url):
         calls.append(url)
         return meta if url == LA.EBR_METADATA_URL else live
-    res = LA.harvest(LA.EBR_SOURCE, fetch, retrieved_at=T)
+    res = LA.harvest(LEGACY, fetch, retrieved_at=T)
     assert calls == [LA.EBR_METADATA_URL, LA.EBR_CSV_URL] and res.requests == 2 and res.outcomes[0].status == "COMPLETE"
     # One row per property number: the 2021 row of 012-3456-7 is superseded by 2023; the blank identifier is rejected.
     assert sorted(r.case_no for r in res.records) == ["012-3456-7", "098-7654-3", "123-45678-9"]
@@ -251,19 +260,19 @@ def test_l02_harvest_reads_the_metadata_then_one_csv_and_refuses_a_changed_licen
     # A different licence reads nothing and syncs nothing.
     changed = meta.replace("PUBLIC_DOMAIN", "CC_BY_NC")
     calls.clear()
-    refused = LA.harvest(LA.EBR_SOURCE, lambda u: (calls.append(u), changed if u == LA.EBR_METADATA_URL else live)[1], retrieved_at=T)
+    refused = LA.harvest(LEGACY, lambda u: (calls.append(u), changed if u == LA.EBR_METADATA_URL else live)[1], retrieved_at=T)
     assert refused.records == [] and refused.outcomes[0].status == "FAILED" and "CC_BY_NC" in refused.outcomes[0].reason
     assert calls == [LA.EBR_METADATA_URL]
     # No rows-updated date: the list date cannot be stated -> nothing read.
-    undated = LA.harvest(LA.EBR_SOURCE, lambda u: meta.replace('"rowsUpdatedAt": 1709060068,', "") if u == LA.EBR_METADATA_URL else live, retrieved_at=T)
+    undated = LA.harvest(LEGACY, lambda u: meta.replace('"rowsUpdatedAt": 1709060068,', "") if u == LA.EBR_METADATA_URL else live, retrieved_at=T)
     assert undated.records == [] and (undated.outcomes[0].status, undated.outcomes[0].category) == ("FAILED", "PARSE_FORMAT_CHANGE")
-    failing = LA.harvest(LA.EBR_SOURCE, lambda u: (_ for _ in ()).throw(ConnectionError("x")), retrieved_at=T)
+    failing = LA.harvest(LEGACY, lambda u: (_ for _ in ()).throw(ConnectionError("x")), retrieved_at=T)
     assert (failing.outcomes[0].status, failing.outcomes[0].category) == ("FAILED", "TRANSPORT_CONNECTION") and failing.records == []
     # A disabled source is refused before any request.
     from dataclasses import replace
     calls.clear()
     with pytest.raises(RuntimeError, match="may not run"):
-        LA.harvest(replace(LA.EBR_SOURCE, enabled=False), fetch, retrieved_at=T)
+        LA.harvest(LA.EBR_LEGACY_SOURCE, fetch, retrieved_at=T)
     assert calls == []
 
 
@@ -290,14 +299,16 @@ def test_s01_script_fixture_mode_for_both_states_and_live_refusal(tmp_path):
     for secret in ("001-00123-000", "PT SE NW"):
         assert secret not in r.stdout + report.read_text(encoding="utf-8")
     out2, status2, report2, props2 = tmp_path / "la.json", tmp_path / "las.json", tmp_path / "lar.json", tmp_path / "lap.json"
-    r = _run(["--state", "LA", "--fixture", f"meta={FIX_LA / 'ebr_metadata_LIVE_SHAPE.json'}", "--fixture", str(FIX_LA / "ebr_adjudicated_LIVE_SHAPE.csv"),
+    # The production source since 2026-10-26: the newer shrr-fsqq list (its live-shape fixtures).
+    r = _run(["--state", "LA", "--fixture", f"meta={FIX_LA / 'ebr_parcel_metadata_LIVE_SHAPE.json'}",
+              "--fixture", str(FIX_LA / "ebr_adjudicated_parcel_LIVE_SHAPE.csv"),
               "--out", str(out2), "--status", str(status2), "--report", str(report2), "--properties-out", str(props2)])
     assert r.returncode == 0, r.stdout + r.stderr
-    assert len(json.loads(out2.read_text(encoding="utf-8"))) == 3
+    assert len(json.loads(out2.read_text(encoding="utf-8"))) == 2
     entries = json.loads(status2.read_text(encoding="utf-8"))
     assert [(e["county"], e["state"], e["status"]) for e in entries] == [("East Baton Rouge", "LA", "COMPLETE")]
     props = json.loads(props2.read_text(encoding="utf-8"))
-    assert len(props) == 3 and {p["list_as_of"] for p in props} == {"2024-02-27"} and {p["inventory_type"] for p in props} == {"ADJUDICATED_PROPERTY"}
+    assert len(props) == 2 and {p["list_as_of"] for p in props} == {"2026-05-06"} and {p["inventory_type"] for p in props} == {"ADJUDICATED_PROPERTY"}
     assert all(p["purchase_amount"] is None and p["purchase_amount_kind"] == "NOT_PUBLISHED" and p["purchase_url"] is None for p in props)
     assert "SAMPLE OWNER" not in r.stdout and "012-3456-7" not in r.stdout
     # Arkansas live mode still refuses before any request.
@@ -322,7 +333,7 @@ def test_g01_registry_rows_mirror_the_adapters_ar_refused_la_production():
     assert ar is not None and la is not None and csr.validate_registry(ROWS) == []
     assert ar.canonical_url == AR.COSL_POST_AUCTION_URL and ar.purchase_url == AR.COSL_BUYERS_URL and ar.purchase_url_kind == "purchase_instructions"
     assert ar.publishing_unit == "STATE" and ar.inventory_type == "POST_SALE" and ar.amount_kind == "OPENING_BID" and ar.machine_format == "UNKNOWN"
-    assert la.canonical_url == LA.EBR_DATASET_URL and la.document_url == LA.EBR_CSV_URL and la.purchase_url == ""
+    assert la.canonical_url == LA.EBR_PARCEL_DATASET_URL and la.document_url == LA.EBR_PARCEL_CSV_URL and la.purchase_url == ""
     assert la.publishing_unit == "PARISH" and la.inventory_type == "ADJUDICATED_PROPERTY" and la.amount_kind == "NOT_PUBLISHED" and la.machine_format == "CSV"
     row = ar
     assert row.verification_status == "SEARCH_EVIDENCE_ONLY" and row.governance_status == "TERMS_NOT_VERIFIED" and row.harvester == ""

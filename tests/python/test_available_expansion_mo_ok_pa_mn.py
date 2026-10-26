@@ -31,7 +31,7 @@ AT = datetime(2026, 10, 4, 12, tzinfo=timezone.utc)
 FX = ROOT / "tests/python/fixtures/available_five"
 FIXTURE = {"MO": ("mo_stl_lra_inventory", "mo_stl_lra_inventory.csv"),
            "OK": ("ok_oklahoma_county_owned", "ok_oklahoma_county_owned.html"),
-           "PA": ("pa_fayette_repository", "pa_fayette_repository.pdf"),
+           "PA": ("pa_fayette_repository", "pa_fayette_Repository-Update-10-7-2025.pdf"),
            "MN": ("mn_ramsey_tax_forfeit", "mn_ramsey_tax_forfeit.json")}
 NEW = set(FIXTURE)
 
@@ -103,7 +103,10 @@ def test_registry_rows_carry_the_source_urls_and_formats():
     assert reg["MO"].publishing_unit_name == "St. Louis City"
     assert reg["OK"].machine_format == "HTML_TABLE" and reg["OK"].purchase_url.endswith("BidForm.pdf")
     assert reg["OK"].purchase_url_kind == "bid_form"
-    assert reg["PA"].machine_format == "PDF" and reg["PA"].access_method == "HTTP_GET_PDF"
+    # 2026-10-26: the Repository Sale page is read and its newest dated file followed (XLSX since 2026).
+    assert reg["PA"].machine_format == "XLSX" and reg["PA"].access_method == "HTTP_GET_HTML"
+    assert reg["PA"].canonical_url == "https://www.fayettecountypa.org/930/Repository-Sale"
+    assert reg["PA"].document_url.endswith("/DocumentCenter/View/16576/Repository-Update-10-7-2026")
     assert reg["MN"].machine_format == "JSON" and reg["MN"].purchase_url == ""
     for st in ("MO", "PA", "MN"):
         assert reg[st].purchase_url == ""          # none verified: never invented
@@ -173,7 +176,7 @@ def test_ok_page_without_the_table_fails(tmp_path):
 # ==================== PA: Fayette repository PDF ====================
 
 def test_pa_pdf_rows_are_read_and_owner_is_never(tmp_path, capsys):
-    raw = pdf_table_rows((FX / "pa_fayette_repository.pdf").read_bytes())
+    raw = pdf_table_rows((FX / "pa_fayette_Repository-Update-10-7-2025.pdf").read_bytes())
     assert raw[0][2] == "OWNER" and any("SYNTHETIC OWNER" in c for r in raw for c in r)   # the fixture does carry owners
     rows, units = _run("PA", tmp_path)
     assert units == {"Fayette": "COMPLETE"}
@@ -193,7 +196,7 @@ def test_pa_pdf_rows_are_read_and_owner_is_never(tmp_path, capsys):
 
 def test_pa_bid_received_rows_are_pending_not_available():
     adapter = TabularListAdapter(EX.PA_FAYETTE_REPOSITORY)
-    recs = adapter.parse_rows(pdf_table_rows((FX / "pa_fayette_repository.pdf").read_bytes()), retrieved_at=AT,
+    recs = adapter.parse_rows(pdf_table_rows((FX / "pa_fayette_Repository-Update-10-7-2025.pdf").read_bytes()), retrieved_at=AT,
                               document_name="Repository-Update-10-7-2025")
     assert "01-02-0004-01" not in {r.case_no for r in recs} and adapter.excluded_status == 1
     assert adapter.rejected_ids == 0                     # a repeated page header is skipped, not counted as a bad id
@@ -209,7 +212,7 @@ def test_pa_non_pdf_is_a_format_change(tmp_path):
 def test_pa_transport_failure_is_failed_never_zero():
     def boom(url):
         raise ConnectionError("synthetic")
-    status, recs, cat, _, _ = HE.run_source(_src("PA"), None, None, retrieved_at=AT, fetch_bytes=boom)
+    status, recs, cat, _, _ = HE.run_source(_src("PA"), None, boom, retrieved_at=AT, fetch_bytes=boom)
     assert status == "FAILED" and recs == [] and cat == "TRANSPORT_CONNECTION"
 
 

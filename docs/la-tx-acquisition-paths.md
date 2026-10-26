@@ -48,13 +48,25 @@ row whatever its year, so numbers that left the adjudicated roll years ago are s
 - The parser is column-driven (`ColumnLabels`). It optionally reads only the source's own status values
   (`status_include`).
 - The outcome now counts `not_on_latest_tax_year` (counts only, nothing dropped).
-- `EBR_PARCEL_SOURCE` reads `shrr-fsqq` (STATUS `AJ` only, assessment number as identity, same `source_id`). It is
-  **live-verified and fixture-tested but NOT enabled.**
-  - Enabling it moves the list date from 2024-02-27 to 2026-05-06.
-  - The next COMPLETE read would then close the 6,643 numbers that are not on it.
-  - That is the owner's decision: the 2026-09-30 publication approval named `a4h4-zi7e`.
-  - To switch, point the harvest at `EBR_PARCEL_SOURCE`, update the registry row's `canonical_url` /
-    `document_url` / notes, and rebuild the generated files.
+- `EBR_PARCEL_SOURCE` reads `shrr-fsqq` (STATUS `AJ` only, assessment number as identity, same `source_id`).
+
+**Switched 2026-10-26 (owner decision, verbatim: "Yes close 6,643").**
+
+- `EBR_SOURCE` is now `EBR_PARCEL_SOURCE`; `scripts/harvest_state_inventory.py` and the registry builder use it.
+  The `a4h4-zi7e` config is kept, disabled, as `EBR_LEGACY_SOURCE`.
+- The list date moves from 2024-02-27 to 2026-05-06 (the dataset's own `rowsUpdatedAt`, read every run).
+- Identity is unchanged: the old PROPERTY NUMBER and the new ASSESSMENT NO. are the same assessor's number, both
+  stored as published in `case_no` and `parcel` (no normalization, shape 999-9999-9). A number on both lists keeps
+  its row (upsert key `(state, source, county, case_no)`); `test_switch_keeps_identity_so_only_numbers_absent_from_the_newer_list_close`
+  runs both fixtures through the harvester, the laft lifecycle and the sync's close planner.
+- The close happens in the `laft` job's **Louisiana - lifecycle** step (`laft_lifecycle.py --state LA`), which
+  closes active rows absent from a COMPLETE read. The LA sync step runs without `--close-absent`. A FAILED or
+  INCOMPLETE read closes nothing.
+- The newer list publishes no point (its geometry is a polygon) and no tax year. The sync aligns keys per source and
+  never sends a column no row of the source carries, so stored coordinates and tax years on the 3,691 overlapping
+  rows are not nulled (the stored tax year is then the older list's).
+- The registry row, the `source_dated_list` state rule (version 2, history row added) and the generated files were
+  updated.
 
 ## Texas: LGBS AVAILABLE (`tx_lgbs`, 421 active rows)
 
