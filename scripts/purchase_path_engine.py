@@ -435,7 +435,11 @@ def from_row_link(row: dict, *, canonical_url: str | None, list_url: str | None,
                   harvest_date: str) -> tuple[PurchasePath | None, str | None]:
     """A property-scope path from the harvester row's own purchase_url +
     kind (set by an enabled rule - purchase_url_basis names it)."""
-    url, kind, basis = row.get("purchase_url"), row.get("purchase_url_kind"), str(row.get("purchase_url_basis") or "")
+    prov = row.get("otc_provenance") if isinstance(row.get("otc_provenance"), dict) else {}
+    # The basis rides on the row (the FL harvesters) or in otc_provenance (an
+    # adapter's per-property page, harvesters/otc/adapters/property_page.py).
+    url, kind = row.get("purchase_url"), row.get("purchase_url_kind")
+    basis = str(row.get("purchase_url_basis") or prov.get("purchase_url_basis") or "")
     if not url or kind not in TYPE_FOR_KIND:
         return None, None
     reason = rejection_reason(str(url), canonical_url=canonical_url, list_url=list_url, document_url=document_url)

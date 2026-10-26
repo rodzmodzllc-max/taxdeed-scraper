@@ -119,7 +119,10 @@ def test_mo_reads_only_the_sources_own_available_status(tmp_path, capsys):
     assert r["parcel"] == r["case_no"] and r["state"] == "MO" and r["source"] == "laft"
     assert r["inventory_status_raw"] == "Available" and r["land_use"] == "Lot" and r["address"] == "100 TEST ST"
     assert r["purchase_amount"] is None and r["purchase_amount_kind"] == "NOT_PUBLISHED"
-    assert r["purchase_url"] is None and r["purchase_path_type"] is None   # no path invented
+    # 2026-10-26: the LRA's verified offer process (evidence table), source scope. A fixture run
+    # reads no For-Sale file, so no per-property page is linked (never guessed offline).
+    assert (r["purchase_path_type"], r["purchase_path_scope"]) == ("application_download", "source")
+    assert r["purchase_url"] == "https://www.lrastl.org/s/LRA-Offer-Submission-Form-5224.pdf"
     out = capsys.readouterr().out
     assert "1 non-identifier row(s), 2 row(s) whose own status is not an offer" in out
     assert "1 duplicate identifier(s) dropped" in out
@@ -180,7 +183,10 @@ def test_pa_pdf_rows_are_read_and_owner_is_never(tmp_path, capsys):
     r = rows[0]
     assert r["purchase_amount"] == 1250.0 and r["purchase_amount_kind"] == "OPENING_BID"
     assert r["list_as_of"] == "2025-10-07"                                          # the document's own date, never today
-    assert r["legal_desc"] == "LOT 1 TEST PLAN" and r["purchase_url"] is None
+    assert r["legal_desc"] == "LOT 1 TEST PLAN"
+    # 2026-10-26: the Tax Claim Bureau's Repository Sale Sealed Bid Form (evidence table), source scope.
+    assert (r["purchase_path_type"], r["purchase_path_scope"]) == ("application_download", "source")
+    assert r["purchase_url"] == "https://www.fayettecountypa.org/DocumentCenter/View/5599/Repository-Bid-Form"
     out = capsys.readouterr().out
     assert "SYNTHETIC" not in out and "01-02-0003" not in out
 
@@ -217,7 +223,10 @@ def test_mn_queries_only_available_for_purchase_with_point_coordinates(tmp_path)
     r = rows[0]
     assert r["case_no"] == r["parcel"] == "012345678901" and r["inventory_status_raw"] == "Available for purchase"
     assert (r["latitude"], r["longitude"]) == (44.95, -93.10)
-    assert r["purchase_amount"] == 12500.0 and r["purchase_amount_kind"] == "OPENING_BID" and r["purchase_url"] is None
+    assert r["purchase_amount"] == 12500.0 and r["purchase_amount_kind"] == "OPENING_BID"
+    # 2026-10-26: the county's Over-the-Counter Property List process (evidence table), source scope.
+    assert (r["purchase_path_type"], r["purchase_path_scope"]) == ("county_instructions", "source")
+    assert r["purchase_url"].endswith("/over-counter-property-list")
 
 
 def test_mn_a_feature_outside_the_filter_fails_the_read(tmp_path):

@@ -174,9 +174,14 @@ def test_the_dlba_vacant_land_policy_is_a_verified_official_document_row():
     assert e.applicable and e.county == "Wayne" and e.path_type == "county_instructions" and e.evidence_type == "county_document"
     assert e.evidence_url.startswith("https://dlba-production-bucket.s3.us-east-2.amazonaws.com/") and e.url == e.evidence_url
     assert PP.is_document_url(e.url)                                  # a PDF: an application-style document, never an online checkout
-    assert "ac01ff4fa32154ca28c6bf04800124d77f1d90e56dab9485f093337823b6ffba" in e.notes   # the read document's SHA-256
-    assert "still in force" in e.does_not_prove and "Marketed" in e.does_not_prove        # currency and Marketed Lots stay unverified
-    assert "owner-occupant" in e.evidence and e.third_party_permitted is False
+    # 2026-10-26: the October 2023 policy is no longer linked by the DLBA; the row now cites the
+    # Second Amended and Restated Vacant Land Policy (adopted 11/11/2025) the DLBA's Policies page links.
+    assert "SECOND-AMENDED-AND-RESTATED-VACANT-LAND-POLICY" in e.url
+    assert "66690c9200cf75e82672e75ff2ba55e8419116982f6b4bc805376494bc68e866" in e.notes   # the read document's SHA-256
+    assert "still offered" in e.does_not_prove and "Marketed" in e.does_not_prove         # currency and Marketed Lots stay unverified
+    assert "owner-occupant" in e.steps[0]
+    # The PDF sits on the DLBA's own S3 bucket, linked from buildingdetroit.org: permitted against the ArcGIS canonical URL.
+    assert e.third_party_permitted is True and "buildingdetroit.org" in e.notes
     assert PPE.evidence_problems(e) == []
     unit = next(u for u in ACQ["status"] if u["source_id"] == "mi_detroit_landbank_lots")
     assert unit["status"] == "VERIFIED" and unit["basis"] == "evidence_table"
@@ -189,7 +194,8 @@ def test_acquisition_unit_counts_after_the_sprint():
     by = {}
     for u in ACQ["status"]:
         by[u["status"]] = by.get(u["status"], 0) + 1
-    assert len(ACQ["status"]) == 72 and by == {"VERIFIED": 26, "NEEDS_REVIEW": 8, "UNAVAILABLE": 6, "NOT_FOUND": 32}
+    # 2026-10-26: LRA (MO), Ramsey (MN) and Fayette (PA) processes read -> VERIFIED with records.
+    assert len(ACQ["status"]) == 72 and by == {"VERIFIED": 29, "NEEDS_REVIEW": 5, "UNAVAILABLE": 6, "NOT_FOUND": 32}
 
 
 # ------------------------------------------------------------------ A2 county procedure rules
@@ -198,7 +204,9 @@ def test_every_applicable_evidence_row_has_its_procedure_rule_and_nothing_is_inv
     rules = SR.load_rules()
     assert PR.problems(rules) == []
     expected = PR.expected_rules(changed_on="2026-10-11")
-    assert len(expected) == len(PR.applicable_evidence()) == 30             # 29 before this sprint + the DLBA policy row; Morgan CO: one county, two ledgers
+    # 29 before this sprint + the DLBA policy row; Morgan CO: one county, two ledgers;
+    # + the LRA, Ramsey and Fayette process rows (2026-10-26)
+    assert len(expected) == len(PR.applicable_evidence()) == 33
     by_key = {(r.state, r.county, r.topic): r for r in rules}
     for r in expected:
         cur = by_key[(r.state, r.county, r.topic)]
@@ -246,10 +254,10 @@ def test_gap_queue_is_generated_from_the_records_and_pinned():
     assert out.returncode == 0, out.stdout
     doc = json.loads((ROOT / "data/current_state/gap-queue.json").read_text(encoding="utf-8"))
     assert doc == GQ.build()
-    assert doc["denominators"]["acquisition_units"] == 72 and doc["denominators"]["acquisition_unresolved"] == 46
+    assert doc["denominators"]["acquisition_units"] == 72 and doc["denominators"]["acquisition_unresolved"] == 43   # 46 before the 2026-10-26 LRA / Ramsey / Fayette reads
     assert doc["denominators"]["state_ledger_units"] == 39
     assert set(doc["summary"]["by_category"]) <= set(GQ.CATEGORIES)
-    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 46 + 33
+    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 43 + 33
     for u in doc["units"]:
         assert u["category"] in GQ.CATEGORIES and u["next_action"] and u["source_accessible"] and "reason" in u
         assert u["completable_now"] == (u["category"] == "A")

@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 
 from ..model import AmountKind, InventoryType, OtcRecord, PurchaseUrlKind, SourceAuthority
+from .property_page import PropertyPage
 
 
 @dataclass(frozen=True)
@@ -107,6 +108,51 @@ class TabularConfig:
     # (e.g. Fayette PA's "Bid Received": a bid is pending the taxing bodies'
     # consent). Counted in `excluded_status`, never kept.
     status_exclude: tuple[str, ...] = ()
+    # Acquisition-path sprint (2026-10-25). The source's own per-property page
+    # (harvesters/otc/adapters/property_page.py), attached by
+    # attach_property_pages(). `property_page_listed_url` names the source's own
+    # file of the identifiers its page actually shows (St. Louis LRA: the
+    # 'LRA Property For Sale' CSV - a parcel absent from it reads "No records
+    # found" on the page); `property_page_listed_column` is that file's
+    # identifier column. Without it every row with a valid identifier gets the
+    # link.
+    property_page: PropertyPage | None = None
+    property_page_listed_url: str | None = None
+    property_page_listed_column: str | None = None
+
+
+def listed_ids(text: str, column: str) -> set[str]:
+    """The identifiers in the source's own listed-on-page CSV. A file
+    without the column is a format change: ValueError, never an empty set."""
+    reader = csv.DictReader(io.StringIO(text.lstrip("\ufeff")))
+    if column not in (reader.fieldnames or []):
+        raise ValueError(f"listed-ids file has no {column!r} column")
+    return {(r.get(column) or "").strip() for r in reader if (r.get(column) or "").strip()}
+
+
+def attach_property_pages(records: list[OtcRecord], cfg: TabularConfig, listed: set[str] | None) -> int:
+    """Give each record the source's own per-property page as its purchase
+    URL (property scope). `listed` = the identifiers the source says its page
+    shows; None when the config names no such file. Rows without a page keep
+    whatever they had - nothing is dropped. -> the number of rows linked."""
+    page = cfg.property_page
+    if page is None:
+        return 0
+    if cfg.property_page_listed_url and listed is None:
+        return 0                     # the listed file could not be read: no link is guessed
+    n = 0
+    for r in records:
+        if listed is not None and r.case_no not in listed:
+            continue
+        url = page.url_for(r.case_no)
+        if not url:
+            continue
+        r.purchase_url, r.purchase_url_kind = url, page.kind
+        r.provenance["purchase_url_basis"] = page.basis()
+        if cfg.property_page_listed_url:
+            r.provenance["purchase_url_listed_in"] = cfg.property_page_listed_url
+        n += 1
+    return n
 
 
 # Cell tokens a source uses for "no value here" (never a published value).
