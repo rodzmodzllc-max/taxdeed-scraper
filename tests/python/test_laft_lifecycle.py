@@ -236,7 +236,8 @@ def test_e01_with_migration_017_observed_rows_get_last_seen_and_provenance_absen
     for path, body in store.patches:
         kinds.setdefault(tuple(sorted(body)), []).append((path, body))
     # Reactivation of the closed, re-listed row A.
-    react = [(p, b) for p, b in store.patches if b == {"status": "active"}]
+    # With 017 the re-listed row also sheds its delisted_at (2026-10-26).
+    react = [(p, b) for p, b in store.patches if b == {"status": "active", "delisted_at": None}]
     assert len(react) == 1 and 'case_no=in.("A")' in react[0][0] and "county=eq.Marion" in react[0][0]
     # Provenance/last_seen for the two observed Marion rows (two payloads: one priced, one not).
     prov = [(p, b) for p, b in store.patches if "last_seen_at" in b]
