@@ -52,6 +52,7 @@ Value-free runner check: `job=evidence`, `evidence_scope=tx_vendors` (`scripts/c
 
 ## Not done
 
+- MVBA's online auction API (`www.mvbataxsales.com/api/*`) answers the GitHub runner with HTTP 200 and an EMPTY body (evidence runs 40388248357 and 40389945564, 2026-10-26; also after opening the home page first for the visitor cookie), while the same requests return JSON from the development sandbox. That looks like the site filtering datacenter addresses; it is not worked around (no proxy, no other identity). From the runner the MVBA read is therefore incomplete: the PDF counties are read, the online-auction counties (Cherokee, Comal, Gregg on 2026-10-26) are not, and no MVBA county is closed against while it lasts. McLennan's MVBA online sale is read through GovEase.
 - `tx_ctsa`: paywalled; stays BLOCKED.
 - texascg.com city lists linked from PBFCM's resale page: another firm, not inspected.
 - The frontend's `parcelOf()` cause-in-parcel list (public/app.js) still names only `tx_lgbs` / `tx_realauction`; until it is extended, a vendor row's cause shows where the parcel is shown.
