@@ -37,7 +37,8 @@ from harvesters.otc.adapters.expansion import OWNER_APPROVED_2026_10_26_SOURCE_I
 
 
 def _day(source_id: str) -> date:
-    return OWNER_DAY if source_id in OWNER_IDS else DAY
+    # Sarasota Tax Collector county-held certificates: also the owner's 2026-10-26 decision.
+    return OWNER_DAY if source_id in OWNER_IDS or source_id == "fl_sarasota_tc_certificates" else DAY
 
 
 def perms(*rows, base=False, **kw):
@@ -253,7 +254,7 @@ def test_parity_every_currently_collected_registry_source_keeps_fetch_and_store(
             ds = None
         elif row.source_id == "fl_realauction":
             ds = "sale_calendar"
-        elif row.source_id == "fl_lienhub_certificates":
+        elif row.source_id in ("fl_lienhub_certificates", "fl_sarasota_tc_certificates"):
             ds = "county_held_certificates"
         elif row.source_id.startswith("fl_laft_"):
             ds = "lands_available"
@@ -273,6 +274,7 @@ def test_parity_every_currently_publishable_source_keeps_display():
             d = p.authorize(row.source_id, "display", state=row.state, county=row.county, today=_day(row.source_id))
             ds_d = p.authorize(row.source_id, "display", state=row.state, county=row.county,
                                dataset={"fl_realauction": "sale_calendar", "fl_lienhub_certificates": "county_held_certificates",
+                                        "fl_sarasota_tc_certificates": "county_held_certificates",
                                         "fl_bid4assets_okaloosa": "sale_calendar"}.get(row.source_id,
                                         "lands_available" if row.source_id.startswith("fl_laft_") else None), today=_day(row.source_id))
             assert d.allowed or ds_d.allowed, (row.source_id, row.county)

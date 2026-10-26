@@ -1883,6 +1883,181 @@
   },
   {
    "call_sites": [
+    "scripts/harvest_sarasota_certificates.py",
+    "scripts/sync_sarasota_certificates.py",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "county_held_certificates",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/review/fl-certificate-sources-2026-10-26.md; data/county_source_registry.csv fl_sarasota_tc_certificates",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL:Sarasota",
+   "operation": "display",
+   "reviewer": "product owner (decision 2026-10-26: publish; legal review after)",
+   "source_id": "fl_sarasota_tc_certificates",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_sarasota_certificates.py",
+    "scripts/sync_sarasota_certificates.py",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "county_held_certificates",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/review/fl-certificate-sources-2026-10-26.md; scripts/harvest_sarasota_certificates.py (sarasotataxcollector.gov tax-cert-sale page, County-Held Certificates for Purchase PDF read 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL:Sarasota",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: find every property and every source; legal review after)",
+   "source_id": "fl_sarasota_tc_certificates",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_sarasota_certificates.py",
+    "scripts/sync_sarasota_certificates.py",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "county_held_certificates",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/review/fl-certificate-sources-2026-10-26.md; data/county_source_registry.csv fl_sarasota_tc_certificates",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL:Sarasota",
+   "operation": "link",
+   "reviewer": "product owner (decision 2026-10-26: publish; legal review after)",
+   "source_id": "fl_sarasota_tc_certificates",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_sarasota_certificates.py",
+    "scripts/sync_sarasota_certificates.py",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "county_held_certificates",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/review/fl-certificate-sources-2026-10-26.md; scripts/harvest_sarasota_certificates.py (sarasotataxcollector.gov tax-cert-sale page, County-Held Certificates for Purchase PDF read 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL:Sarasota",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: find every property and every source; legal review after)",
+   "source_id": "fl_sarasota_tc_certificates",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_sarasota_certificates.py",
+    "scripts/sync_sarasota_certificates.py",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "county_held_certificates",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/review/fl-certificate-sources-2026-10-26.md; scripts/harvest_sarasota_certificates.py (sarasotataxcollector.gov tax-cert-sale page, County-Held Certificates for Purchase PDF read 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL:Sarasota",
+   "operation": "store",
+   "reviewer": "product owner (decision 2026-10-26: find every property and every source; legal review after)",
+   "source_id": "fl_sarasota_tc_certificates",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_taxsys_certificates.py"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "county_held_certificates",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/review/fl-certificate-sources-2026-10-26.md (St. Lucie names the TaxSys 'All County Held Certs' report)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL",
+   "operation": "discover",
+   "reviewer": "product owner (decision 2026-10-26: try one value-free read; a refusal ends it)",
+   "source_id": "fl_taxsys_county_held",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_taxsys_certificates.py"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "county_held_certificates",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/review/fl-certificate-sources-2026-10-26.md (St. Lucie names the TaxSys 'All County Held Certs' report)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: try one value-free read; a refusal ends it)",
+   "source_id": "fl_taxsys_county_held",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_taxsys_certificates.py"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "county_held_certificates",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/review/fl-certificate-sources-2026-10-26.md (St. Lucie names the TaxSys 'All County Held Certs' report)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: try one value-free read; a refusal ends it)",
+   "source_id": "fl_taxsys_county_held",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
@@ -3593,12 +3768,12 @@
  "interim_max_days": 210,
  "summary": {
   "by_expiry": {
-   "2027-04-12": 168
+   "2027-04-12": 176
   },
   "by_finding": {
    "REVIEWER_IS_NOT_A_DECISION": 77
   },
-  "records": 168,
-  "sources": 39
+  "records": 176,
+  "sources": 41
  }
 }

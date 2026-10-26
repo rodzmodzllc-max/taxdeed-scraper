@@ -19,7 +19,7 @@
    "FAIL": 0,
    "NOT_APPLICABLE": 0,
    "NOT_VERIFIED": 2,
-   "PASS": 28
+   "PASS": 29
   },
   "LA": {
    "BLOCKED": 0,
@@ -330,7 +330,7 @@
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: fl_lienhub_certificates",
+   "detail": "TRACKED: fl_lienhub_certificates, fl_sarasota_tc_certificates",
    "state": "FL",
    "status": "PASS",
    "subject": "LIENS_CERTIFICATES"
@@ -424,6 +424,13 @@
    "state": "FL",
    "status": "PASS",
    "subject": "fl_realauction"
+  },
+  {
+   "check": "source_classification",
+   "detail": "LIENS_CERTIFICATES",
+   "state": "FL",
+   "status": "PASS",
+   "subject": "fl_sarasota_tc_certificates"
   },
   {
    "check": "available_terms",
@@ -2070,6 +2077,6 @@
   "FAIL": 0,
   "NOT_APPLICABLE": 25,
   "NOT_VERIFIED": 49,
-  "PASS": 222
+  "PASS": 223
  }
 }

@@ -762,6 +762,48 @@ def fetch_county_batch(county, limit, outstanding=None):
     return rows[:limit]
 
 
+# Columns this script fills that a PowerShell sync also sends, and so could
+# erase with a blank listing cell before scripts/sync_value_guard.py existed
+# (2026-10-26): sync-harvest-to-supabase.ps1 sent `assessed` as null for every
+# RealAuction county that publishes no assessed value, and sync-certificates-
+# to-supabase.ps1 did the same with `owner_name`. Production, read-only
+# 2026-10-26: 146 active FL auction rows carried an `fdor_nal` provenance entry
+# for `assessed` with the value blank - and all 146 were already stamped
+# `fdor_enriched_at`, so the normal backlog query (fdor_enriched_at IS NULL)
+# would never have looked at them again.
+ERASABLE_COLUMNS = ("assessed", "owner_name")
+
+
+def fetch_erased_rows(limit):
+    """Rows this script enriched before whose FDOR-provenanced value a sync
+    has since blanked: `fdor_enriched_at` set, the column blank, and its
+    provenance entry still naming the tax roll. They are re-looked-up and
+    refilled through the same fill-blank + provenance rules as any other row.
+    Returns {county: [rows]}; counties come from the rows themselves."""
+    select = "id,source,parcel,address,county,prop_type,market,assessed,owner_name,latitude,longitude,field_provenance"
+    out = {}
+    seen = set()
+    for column in ERASABLE_COLUMNS:
+        params = {
+            "select": select,
+            "state": f"eq.{ENRICH_STATE}",
+            "fdor_enriched_at": "not.is.null",
+            column: "is.null",
+            f"field_provenance->{column}->>source": "in.(fdor_nal,county_gis)",
+            "and": "(parcel.not.is.null,parcel.neq.\"\")",
+            "order": "id.asc",
+            "limit": str(limit),
+        }
+        resp = requests.get(f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30)
+        resp.raise_for_status()
+        for r in resp.json():
+            if r.get("id") in seen or not r.get("county"):
+                continue
+            seen.add(r.get("id"))
+            out.setdefault(r["county"], []).append(r)
+    return out
+
+
 class SourceNotPermitted(RuntimeError):
     """A lookup was called for a source whose fetch + enrich permission is
     not recorded (data/source_permissions.csv). Raised BEFORE any request,
@@ -1415,6 +1457,20 @@ def main():
     flagler_ok = _permitted("fl_palm_coast_flagler_parcels")
     counties = fetch_needing_enrichment_counties()
     print(f"{len(counties)} counties have rows needing enrichment (parcel set, not yet FDOR-enriched).")
+    # Rows whose tax-roll value a sync erased (see fetch_erased_rows) lead their
+    # county's slice; a county with only such rows joins the list.
+    # Switched on by the workflow (ENRICH_REFILL_ERASED=1, harvest-and-sync.yml
+    # deeds job); off by default so a caller that only wants the backlog query
+    # (and the unit tests that fake exactly that query) sees no extra request.
+    try:
+        erased = fetch_erased_rows(BATCH_LIMIT) if os.environ.get("ENRICH_REFILL_ERASED") == "1" else {}
+    except requests.RequestException as e:
+        print(f"Erased-value refill skipped this run: {type(e).__name__}", file=sys.stderr)
+        erased = {}
+    if erased:
+        print(f"{sum(len(v) for v in erased.values())} enriched row(s) in {len(erased)} counties lost a tax-roll value to a sync - refilling first.")
+        listed = {c for c, _ in counties}
+        counties = counties + [(c, 0) for c in sorted(erased) if c not in listed]
     if not counties:
         print("Nothing to enrich.")
         return
@@ -1446,9 +1502,10 @@ def main():
     for county, outstanding in counties:
         if total_attempted >= BATCH_LIMIT:
             break
-        rows = fetch_county_batch(
-            county, min(PER_COUNTY_LIMIT, BATCH_LIMIT - total_attempted), outstanding
-        )
+        refill = erased.get(county, [])[:max(0, BATCH_LIMIT - total_attempted)]
+        rows = refill + (fetch_county_batch(
+            county, min(PER_COUNTY_LIMIT, BATCH_LIMIT - total_attempted - len(refill)), outstanding
+        ) if outstanding and BATCH_LIMIT - total_attempted - len(refill) > 0 else [])
         if not rows:
             continue
         county_matched = 0

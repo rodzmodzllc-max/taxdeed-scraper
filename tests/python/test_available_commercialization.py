@@ -56,6 +56,9 @@ def test_g01_committed_registry_publishes_only_the_grandfathered_production_sour
         eff = pub.effective_publication(r)
         if r.source_id == "la_ebr_adjudicated":
             assert eff == "APPROVED" and r.restrictions   # reviewed owner decision 2026-09-30 (dated list), not grandfathered
+        elif r.source_id == "fl_sarasota_tc_certificates":
+            # Owner decision 2026-10-26 ("stop asking for approval"): a reviewed approval, not grandfathered.
+            assert eff == "APPROVED" and r.is_production and "owner on 2026-10-26" in r.restrictions, (r.state, r.source_id)
         elif r.state in EXPANSION_STATES and r.source_id in EX.SIX_STATE_SOURCE_IDS:
             # Six-state expansion (2026-09-30): a reviewed owner decision, not grandfathered.
             assert eff == "APPROVED" and r.is_production and "owner on 2026-09-30" in r.restrictions, (r.state, r.source_id)
@@ -167,7 +170,9 @@ def test_g05_gate_script_reports_without_credentials_and_measures_a_rows_file(tm
     assert r.returncode == 0 and "registry-only" in r.stdout, r.stdout + r.stderr
     rep = json.loads(report.read_text(encoding="utf-8"))
     assert rep["mode"].startswith("registry-only") and "measurement" not in rep
-    assert all(v["publication"] == "APPROVED_GRANDFATHERED" for v in rep["sources"].values())
+    # Sarasota's county-held certificates: owner-approved 2026-10-26, not grandfathered.
+    assert all(v["publication"] == "APPROVED_GRANDFATHERED" for k, v in rep["sources"].items() if k != "fl_sarasota_tc_certificates")
+    assert rep["sources"]["fl_sarasota_tc_certificates"]["publication"] == "APPROVED"
     rows_file = tmp_path / "rows.json"
     rows_file.write_text(json.dumps([{"id": "a", "state": "FL", "source": "laft", "county": "Bay", "source_id": "fl_laft_pioneer"},
                                      {"id": "b", "state": "FL", "source": "laft", "county": "Broward", "harvester_source": "unknown_thing"}]), encoding="utf-8")

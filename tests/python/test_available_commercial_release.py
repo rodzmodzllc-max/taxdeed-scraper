@@ -487,6 +487,9 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
         if r.source_id == "la_ebr_adjudicated":
             # The one reviewed (not grandfathered) approval: owner decision 2026-09-30, dated list.
             assert eff == "APPROVED" and r.is_production and "as of" in r.restrictions
+        elif r.source_id == "fl_sarasota_tc_certificates":
+            # Owner decision 2026-10-26 ("stop asking for approval"): a reviewed approval, not grandfathered.
+            assert eff == "APPROVED" and r.is_production and "owner on 2026-10-26" in r.restrictions, (r.state, r.source_id)
         elif r.state in EXPANSION_STATES and r.source_id in EX.SIX_STATE_SOURCE_IDS:
             # Six-state expansion (2026-09-30): a reviewed owner decision, not grandfathered.
             assert eff == "APPROVED" and r.is_production and "owner on 2026-09-30" in r.restrictions, (r.state, r.source_id)

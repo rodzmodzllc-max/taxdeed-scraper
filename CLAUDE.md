@@ -2576,6 +2576,37 @@ Full description: `docs/three-ledgers.md` (last section). Stable facts:
   `customer_view()` (vectors `ledger_record_cases.json`); `publication_state` reason `LEDGER_CONTRACT`
   (customer-binding only once 031 is applied).
 
+## Florida PowerShell syncs never erase a stored value (2026-10-26, PR open, no migration)
+
+- **Why:** PostgREST bulk upsert needs one key set per batch (PGRST102), so a column the list did not publish is sent
+  as null, and merge-duplicates wrote that null over the stored value. Production 2026-10-26: 146 active FL auction
+  rows had lost their FDOR `assessed` this way.
+- **Guard:** `scripts/sync_value_guard.py` (helper block "Stored-value guard", identical in all three `sync-*.ps1`,
+  called once after `Select-LedgerRows` and before the upsert) reads the stored rows and sends the stored value back
+  in three cases:
+  - for a blank;
+  - for a sync placeholder ("Account <case>", "Parcel <p>", "Case <c>", the LAFT "Address not published" string, a
+    0 bid);
+  - for a value whose `field_provenance` names another source of equal or higher rank.
+
+  The sync's own source refreshing its own value is allowed (auction / certificate = `vendor_listing`, LAFT =
+  `county_list`). If the stored rows cannot be read, nothing is written.
+- **Refill:** `enrich_property_details.py` refills erased tax-roll values (`fetch_erased_rows`, enabled by
+  `ENRICH_REFILL_ERASED=1` in the deeds job).
+- **Orange certificate numbers:** Orange's RealAuction feed publishes the "Certificate #" cell EMPTY (label capture,
+  run 40383361568), so Orange auction rows have no certificate number to carry.
+- **Sarasota certificates (production, owner decision 2026-10-26):** the certificates job runs
+  `scripts/harvest_sarasota_certificates.py` (the Tax Collector's own county-held PDF) and then
+  `scripts/sync_sarasota_certificates.py`.
+  - Source `fl_sarasota_tc_certificates`, a registry row with APPROVED governance and publication, interim
+    permission records through display / link (expire 2027-04-12).
+  - One row per certificate: `case_no` = `<tax year>-<cert #>`, `parcel` = the account.
+  - Close-out covers only its own rows, after a COMPLETE read.
+  - The LienHub close-out reads only `source_id` `fl_lienhub_certificates` (or unset).
+- **TaxSys** (`<county>.county-taxes.com`, Grant Street) answered a runner with a Cloudflare 403 challenge (run
+  40384773704): stopped, never worked around.
+- Survey: `docs/review/fl-certificate-sources-2026-10-26.md`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

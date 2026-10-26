@@ -793,7 +793,7 @@
    "reason": "1611 of 1611 active rows never stamped, 0 read more than 36 h before the snapshot",
    "requires": "blocked by source access or a technical restriction",
    "rule_verified": true,
-   "source": "32 production source(s) of 32 known",
+   "source": "33 production source(s) of 33 known",
    "source_accessible": "no",
    "state": "FL",
    "status": "SOURCE_FAILED_OR_STALE"

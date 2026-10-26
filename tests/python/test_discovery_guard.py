@@ -172,10 +172,14 @@ def test_project_database_host_is_not_a_source(monkeypatch, transport):
 # --- the real repository today --------------------------------------------------
 
 def test_no_source_holds_a_discover_permission_today_so_every_mapped_url_is_refused():
-    # The only discover records are the four BLOCKED vendors. Evidence capture
-    # therefore needs an owner-recorded discover permission per source first.
+    # The only discover records are the four BLOCKED vendors, plus (owner decision
+    # 2026-10-26) the interim one-read record for TaxSys' county-held reports,
+    # whose hosts are in no index table - so every mapped URL is still refused.
+    # Evidence capture therefore needs an owner-recorded discover permission per
+    # source first.
     allowing = [r for r in PERM.Permissions.from_file().records if r.operation == "discover" and r.status != "BLOCKED"]
-    assert allowing == []
+    assert [(r.source_id, r.evidence_type, r.expires_on) for r in allowing] == [
+        ("fl_taxsys_county_held", "INTERNAL_RISK_ACCEPTANCE", "2027-04-12")]
     g = DG.Guard("t")
     hosts = sorted({t.host for t in g.index})
     assert hosts and not any(g.decide(f"https://{h}/").allowed for h in hosts)

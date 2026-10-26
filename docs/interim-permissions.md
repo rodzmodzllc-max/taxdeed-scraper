@@ -9,8 +9,8 @@ current practice continue until `expires_on`, and `permissions.authorize()` deni
 after (`EXPIRED`), with no fallback to a broader record. A window longer than
 210 days is a configuration error that denies every request.
 
-- Records: 168 across 39 sources
-- By expiry: 2027-04-12 (168)
+- Records: 176 across 41 sources
+- By expiry: 2027-04-12 (176)
 - Findings: REVIEWER_IS_NOT_A_DECISION (77)
 - Configuration: valid
 
@@ -100,6 +100,14 @@ found in the code for that source.
 | fl_realauction | FL | sale_calendar | store | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-15 | 2027-04-12 | - | scripts/auction_events_writer.py<br>scripts/auction_outcomes.py<br>scripts/harvest_all_counties.ps1<br>scripts/realauction_paging_check.py<br>scripts/source_permission_check.py<br>scripts/stamp_seen.py<br>scripts/sync-harvest-to-supabase.ps1<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | REVIEWER_IS_NOT_A_DECISION |
 | fl_santa_rosa_parcels | FL | * | enrich | UNKNOWN | GRANDFATHERED_PRACTICE | 2026-09-30 | 2027-04-12 | - | scripts/enrich_property_details.py<br>harvesters/enrichment/geocode.py (CoordinateSource.usable) | REVIEWER_IS_NOT_A_DECISION |
 | fl_santa_rosa_parcels | FL | * | fetch | UNKNOWN | GRANDFATHERED_PRACTICE | 2026-09-30 | 2027-04-12 | - | scripts/enrich_property_details.py<br>harvesters/enrichment/geocode.py (CoordinateSource.usable) | REVIEWER_IS_NOT_A_DECISION |
+| fl_sarasota_tc_certificates | FL:Sarasota | county_held_certificates | display | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | excluded_from_paid_tier | scripts/harvest_sarasota_certificates.py<br>scripts/sync_sarasota_certificates.py<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| fl_sarasota_tc_certificates | FL:Sarasota | county_held_certificates | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | excluded_from_paid_tier | scripts/harvest_sarasota_certificates.py<br>scripts/sync_sarasota_certificates.py<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| fl_sarasota_tc_certificates | FL:Sarasota | county_held_certificates | link | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | excluded_from_paid_tier | scripts/harvest_sarasota_certificates.py<br>scripts/sync_sarasota_certificates.py<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| fl_sarasota_tc_certificates | FL:Sarasota | county_held_certificates | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | excluded_from_paid_tier | scripts/harvest_sarasota_certificates.py<br>scripts/sync_sarasota_certificates.py<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| fl_sarasota_tc_certificates | FL:Sarasota | county_held_certificates | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | excluded_from_paid_tier | scripts/harvest_sarasota_certificates.py<br>scripts/sync_sarasota_certificates.py<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| fl_taxsys_county_held | FL | county_held_certificates | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | excluded_from_paid_tier | scripts/harvest_taxsys_certificates.py | - |
+| fl_taxsys_county_held | FL | county_held_certificates | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | excluded_from_paid_tier | scripts/harvest_taxsys_certificates.py | - |
+| fl_taxsys_county_held | FL | county_held_certificates | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | excluded_from_paid_tier | scripts/harvest_taxsys_certificates.py | - |
 | mi_detroit_landbank_lots | MI | * | display | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mi_detroit_landbank_lots | MI | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mi_detroit_landbank_lots | MI | * | link | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |

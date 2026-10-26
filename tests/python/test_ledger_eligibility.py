@@ -164,7 +164,7 @@ def test_texas_and_florida_are_told_apart_by_the_source_not_by_assumption():
     assert fl["fl_separation"]["status"] == "PASS"
     srcs = SV.production_sources()["FL"]
     cert = {sid for sid, s in srcs.items() if "LIENS_CERTIFICATES" in s["ledgers"]}
-    assert cert == {"fl_lienhub_certificates"} and not any({"AUCTIONS", "AVAILABLE"} & srcs[sid]["ledgers"] for sid in cert)
+    assert cert == {"fl_lienhub_certificates", "fl_sarasota_tc_certificates"} and not any({"AUCTIONS", "AVAILABLE"} & srcs[sid]["ledgers"] for sid in cert)
 
 
 # ------------------------------------------------------------------ rule history
