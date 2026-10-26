@@ -77,7 +77,12 @@ agree), and maps the wording only through the reviewed table. It writes:
 - a failed read: nothing.
 
 It never writes `properties`, never infers from absence, a passed date, a bid
-or a value, and never touches Available or certificate rows. It runs after
+or a value, and never touches Available or certificate rows. Since 2026-10-26
+it also reads UPCOMING sale days that hold an item this run's Waiting harvest
+no longer read (`--harvest`), and the next step,
+`scripts/auction_outcome_status.py`, carries a verified result on the event of
+the row's current sale day to `properties.status` ('sold' for a sale,
+'closed' for any other mapped wording; status only). It runs after
 the Phase B event writer in every `deeds` job (allowed to error) and on its
 own as the manual `job=outcomes`.
 

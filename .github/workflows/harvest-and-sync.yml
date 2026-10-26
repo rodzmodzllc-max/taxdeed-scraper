@@ -392,12 +392,15 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/backfill_source_ids.py --source auction
 
-      - name: Off-list close-out - future-dated rows absent from a COMPLETE county (OFF unless vars.AUCTION_OFFLIST_CLOSE == '1')
+      - name: Off-list close-out - future-dated rows absent from a COMPLETE county (ON; vars.AUCTION_OFFLIST_CLOSE == '0' stops it)
         # scripts/auction_offlist_closeout.py, after the stamp: a future-dated
-        # active row absent from this run's harvest of a COMPLETE county, whose
-        # own last_seen_at is missing or 36 h+ older than the county's newest
-        # read, is set to status 'closed' (no result). Plan-only (counts) unless
-        # the repository variable AUCTION_OFFLIST_CLOSE is '1' - an owner decision.
+        # active row absent from this run's harvest of a COMPLETE county, on a
+        # sale day the harvest read in full (fewer than 10 rows - RealAuction's
+        # page size; the pager cannot reach page two), whose own last_seen_at
+        # is missing or 36 h+ older than the county's newest read, is set to
+        # status 'closed' (no result); so is a past-dated active row of a county
+        # no deeds harvester reads. ON by default (owner, 2026-10-26); setting
+        # the repository variable AUCTION_OFFLIST_CLOSE to '0' makes it plan-only.
         if: steps.sync.outcome == 'success'
         continue-on-error: true
         env:
@@ -440,11 +443,13 @@ jobs:
         run: ./scripts/sanity_check_deeds.ps1
 
       - name: Set up Python
+        if: ${{ !cancelled() }}
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
       - name: Install Python dependencies (geocoding)
+        if: ${{ !cancelled() }}
         run: pip install requests pillow
 
       # Phase B (auction-event history): record what this run's harvest saw
@@ -453,8 +458,12 @@ jobs:
       # ids - it never writes the property snapshot. continue-on-error so a
       # writer problem can never fail the property pipeline this job exists
       # for; the step's own log line is the record of what it did.
+      # `!cancelled()`: a failed sanity check (it fails the job on purpose)
+      # must not also skip the event history and the outcome steps below -
+      # deeds run 40245969395 lost both that way.
       - name: Record auction events (Phase B)
         id: phase_b_events_fl
+        if: ${{ !cancelled() && steps.sync.outcome == 'success' }}
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -477,19 +486,35 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       # Verified auction outcomes (scripts/auction_outcomes.py): for sale days
-      # in the last 21 days, reads the SAME RealAuction host's "Auctions
-      # Closed or Canceled" listing and the page's own status refresh through
-      # the harvester's anonymous session, matches items to events by exact
-      # case number, and records a result only for a reviewed wording in
+      # in the last 21 days - and upcoming sale days holding an item this
+      # run's Waiting harvest no longer read (redeemed / cancelled before the
+      # sale) - reads the SAME RealAuction host's "Auctions Closed or
+      # Canceled" listing and the page's own status refresh through the
+      # harvester's anonymous session, matches items to events by exact case
+      # number, and records a result only for a reviewed wording in
       # data/auction_outcome_wordings.csv. Never infers from absence; a
       # failed read writes nothing. Allowed to error, so it can never fail
       # the property pipeline.
       - name: Verified auction outcomes (source-published results only)
+        if: ${{ !cancelled() }}
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/auction_outcomes.py
+        run: python3 scripts/auction_outcomes.py --harvest out/harvest_all.json
+
+      # scripts/auction_outcome_status.py: a verified result on the event of
+      # the row's CURRENT sale day moves the property out of active - 'sold'
+      # for "Auction Sold", 'closed' for any other mapped wording (redeemed,
+      # cancelled ...). Never a row this run's Waiting harvest still read,
+      # never a re-listed row's earlier sale; status only. Never fails the job.
+      - name: Outcome status - verified results move the property out of active
+        if: ${{ !cancelled() && steps.sync.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/auction_outcome_status.py --harvest out/harvest_all.json --apply
 
       - name: Inventory status - normalized lifecycle state (migration 021)
         # Inventory status (migration 021): each row's normalized lifecycle state and
