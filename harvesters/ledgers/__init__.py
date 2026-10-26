@@ -153,6 +153,11 @@ SOURCE_LEDGERS: dict[str, frozenset[Ledger]] = {
     "mi_calhoun_landbank": frozenset({Ledger.AVAILABLE}),
     "mi_tax_sale_info_auction": frozenset({Ledger.AUCTIONS}),
     "mi_tax_sale_info_surplus": frozenset({Ledger.AVAILABLE}),
+    "sc_horry_tax_sale": frozenset({Ledger.AUCTIONS}),
+    "co_saguache_tax_sale": frozenset({Ledger.AUCTIONS}),
+    "mn_wright_tax_forfeit": frozenset({Ledger.AUCTIONS}),
+    "mn_hubbard_tfl_otc": frozenset({Ledger.AVAILABLE}),
+    "mn_stpaul_hra_properties": frozenset({Ledger.AVAILABLE}),
     # NEW-SOURCES-ANCHOR
 }
 # The four blocked Texas vendors: discovery only, they feed no ledger.

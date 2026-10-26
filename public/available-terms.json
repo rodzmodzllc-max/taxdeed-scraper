@@ -355,6 +355,24 @@
    "quote": "Purchaser must pay full amount plus fees within 5 days of being deemed an eligible buyer ... There will be a $30 deed recording fee and a $20 processing fee for each purchase.",
    "evidence": "https://www.tax-sale.info/surplus (live read 2026-10-26)",
    "observed_on": "2026-10-26"
+  },
+  {
+   "state": "MN",
+   "source_id": "mn_hubbard_tfl_otc",
+   "basis": "MINIMUM_BID",
+   "figure_label": "Minimum bid (tax-forfeited land)",
+   "figure_note": "The layer's own Minimum_Bid when filled (over-the-counter tax-forfeited land); ask the county's land department for the amount due.",
+   "quote": "the layer's own Sales_Status = 'OTC'; attribute 'Minimum_Bid'",
+   "evidence": "new-sources live structure read 2026-10-26 (docs/new-sources-2026-10-26.md)",
+   "observed_on": "2026-10-26"
+  },
+  {
+   "state": "MN",
+   "source_id": "mn_stpaul_hra_properties",
+   "basis": "NOT_PUBLISHED",
+   "quote": "No price is published on the HRA layer; sales follow the HRA's disposition policy.",
+   "evidence": "new-sources live structure read 2026-10-26 (docs/new-sources-2026-10-26.md)",
+   "observed_on": "2026-10-26"
   }
  ]
 }

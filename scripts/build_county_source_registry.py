@@ -476,7 +476,9 @@ def expansion_rows() -> list[dict]:
             doc = {"arcgis": getattr(cfg, "layer_url", ""), "sc_flc_pdf": getattr(cfg, "document_url", ""),
                    "csv": getattr(cfg, "document_url", ""), "pdf_table": getattr(cfg, "document_url", ""),
                    # The page's newest dated file as of the last live read (the harvester follows the newest on every run).
-                   "latest_dated_document": EX.PA_FAYETTE_LATEST_READ[1] if cfg is EX.PA_FAYETTE_REPOSITORY else getattr(cfg, "document_url", ""),
+                   "latest_dated_document": (EX.PA_FAYETTE_LATEST_READ[1] if cfg is EX.PA_FAYETTE_REPOSITORY
+                                             else EX.SC_HORRY_LATEST_READ[1] if cfg is EX.SC_HORRY_TAX_SALE
+                                             else getattr(cfg, "document_url", "")),
                    "epropertyplus": getattr(cfg, "portal", "") + "/landmgmtpub/remote/public/property/getPublishedProperties",
                    "tax_sale_info": "https://www.tax-sale.info/catalog/getCsv/id/"}.get(src.kind, "")
             access, fmt = {"arcgis": ("JSON_ENDPOINT", "JSON"), "epropertyplus": ("JSON_ENDPOINT", "JSON"),
