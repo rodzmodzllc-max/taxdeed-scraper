@@ -295,7 +295,12 @@ jobs:
   deeds:
     name: Harvest deed auctions + sync
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # 2026-10-26: 60 -> 80, and every enrichment step below now carries its
+    # own timeout-minutes. Run 381's job hit the 60-minute limit inside the
+    # FEMA step (36 minutes of mostly-timing-out lookups), and GitHub
+    # cancelled the whole run. Harvest + sync + Phase B take ~15 minutes;
+    # the enrichment step timeouts add up to 55 at most.
+    timeout-minutes: 80
     # Skip this job on the certificates-only schedule (12:00 UTC), but always
     # run it on the other two schedules and on manual dispatch.
     if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'deeds' || github.event.inputs.job == '')) || github.event.schedule == '13 10 * * *' || github.event.schedule == '13 22 * * *'
@@ -548,6 +553,7 @@ jobs:
         # skip FDOR / FEMA / NAIP after it. Not on a cancelled run.
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 10
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -563,6 +569,7 @@ jobs:
         # skip FDOR / FEMA / NAIP after it. Not on a cancelled run.
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 15
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -580,9 +587,13 @@ jobs:
         # skip FDOR / FEMA / NAIP after it. Not on a cancelled run.
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 15
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # Stop the FEMA lookups cleanly at 12 minutes (the step's own
+          # timeout is 15), printing the summary and the failure causes.
+          FLOOD_TIME_BUDGET_SECONDS: '720'
         run: python3 scripts/enrich_flood_zone.py
 
       # NAIP aerial imagery: USDA/USGS, public domain, no API key, no
@@ -597,6 +608,7 @@ jobs:
         # this job already completed, nor skip the steps after it.
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 12
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
