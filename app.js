@@ -15703,7 +15703,7 @@ function currentExperience() {
     if (q && EXPERIENCES[q]) { try { localStorage.setItem(EXPERIENCE_KEY, q); } catch {} return q; }
   } catch {}
   try { const v = localStorage.getItem(EXPERIENCE_KEY); if (v && EXPERIENCES[v]) return v; } catch {}
-  return "classic";
+  return "merged"; // preview branch look/merged: opens in the Merged look
 }
 function ensureExperienceStage() {
   let stage = document.getElementById("xpStage");
