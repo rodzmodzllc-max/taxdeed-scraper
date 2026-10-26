@@ -276,6 +276,21 @@ def test_an_empty_certificate_cell_reads_as_nothing(ps):
     assert r.stdout.strip().splitlines()[-1] == "NULL"
 
 
+def test_cert_cell_shape_prints_no_value(ps):
+    m, ws = ps
+    script = ws / "scripts" / "skel.ps1"
+    script.write_text("$ErrorActionPreference = 'Stop'\n" + _harvester_functions() +
+                      "\n$b = Get-Content (Join-Path $PSScriptRoot 'item.txt') -Raw\nGet-CertSkeleton $b\n", encoding="utf-8")
+    item = _item("Certificate #:", value='<a href=\\"https://x.example/p?id=SMITHJ\\">SMITH J 2019-77</a>')
+    (ws / "scripts" / "item.txt").write_text(item, encoding="utf-8")
+    r = subprocess.run([m.PWSH, "-NoProfile", "-NonInteractive", "-File", str(script)], capture_output=True, text=True,
+                       timeout=120)
+    assert r.returncode == 0, r.stdout + r.stderr
+    out = r.stdout
+    assert "SMITH" not in out and "x.example" not in out and not any(ch.isdigit() for ch in out)
+    assert "CAD_DTA" in out
+
+
 def test_label_report_masks_digits(ps):
     m, ws = ps
     script = ws / "scripts" / "labels_under_test.ps1"

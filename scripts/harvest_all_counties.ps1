@@ -40,18 +40,25 @@ $here = $PSScriptRoot
 $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 $csv = Join-Path $here "../data/realauction_counties.csv"
 $outDir = Join-Path $here "../out"
+# Test hooks (tests/python/test_fl_auction_paging.py runs this script against
+# a local fake RealAuction server): an alternate county list and output
+# folder. A loopback Host (127.0.0.1 / localhost) is read over plain http;
+# every other host is https, as always.
+if ($env:RA_COUNTIES_CSV) { $csv = $env:RA_COUNTIES_CSV }
+if ($env:RA_OUT_DIR) { $outDir = $env:RA_OUT_DIR }
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 $outJson = Join-Path $outDir "harvest_all.json"
 $outCsv = Join-Path $outDir "harvest_all.csv"
 # Phase 30B: per-county completeness record, same shape and purpose as
 # harvest_lienhub_certificates.ps1's harvest_certificates_status.json -
 # consumed by sync-harvest-to-supabase.ps1's stale-row closeout to decide
-# which counties are safe to reconcile against. RealAuction's AJAX feed has
-# no server-reported total to positively confirm pagination reached (unlike
-# LienHub's recordsTotal), so COMPLETE here means "every transport-level
-# request this county's harvest made actually succeeded" - never merely
-# "the parsing loop didn't throw". See
-# claude/phase-30b-deed-completeness-and-closed-gone-since.md.
+# which counties are safe to reconcile against. COMPLETE here means "every
+# transport-level request this county's harvest made actually succeeded" AND
+# (since 2026-10-26) "every page the sale-day page itself publishes ('page 1
+# of N', from its status refresh) was read" - never merely "the parsing loop
+# didn't throw". Each entry carries saleDays: per sale day the items read,
+# pages read, the published page count and whether the day was read in full.
+# See claude/phase-30b-deed-completeness-and-closed-gone-since.md.
 $outStatus = Join-Path $outDir "harvest_all_status.json"
 $tmpDir = [System.IO.Path]::GetTempPath()
 
@@ -114,6 +121,7 @@ function Get-CertSkeleton($block) {
     $i = $block.IndexOf('Certificate')
     if ($i -lt 0) { return $null }
     $frag = $block.Substring([Math]::Max(0, $i - 40), [Math]::Min(320, $block.Length - [Math]::Max(0, $i - 40)))
+    $frag = $frag -replace '(href|src|onclick|id|value)=\\"[^\\]*', '$1=\"...'
     $frag = [regex]::Replace($frag, '>([^<@]+)', { param($m) '>' + ($m.Groups[1].Value -creplace '[A-Za-z]', 'a') })
     return ($frag -replace '\d', '#')
 }
@@ -161,6 +169,8 @@ $ci = 0
 :countyLoop foreach ($c in $counties) {
     $ci++
     $hostName = $c.Host
+    $baseUrl = if ($hostName -match '^(127\.0\.0\.1|localhost)(:\d+)?$') { "http://$hostName" } else { "https://$hostName" }
+    $saleDays = [System.Collections.Generic.List[object]]::new()
     Write-Host ("[{0}/{1}] {2}" -f $ci, $counties.Count, $c.County) -ForegroundColor Cyan
 
     $jar = Join-Path $tmpDir ("ra_" + $c.County + ".txt")
@@ -192,7 +202,7 @@ $ci = 0
     for ($mOffset = 0; $mOffset -lt 3; $mOffset++) {
         $monthStart = (Get-Date).AddMonths($mOffset)
         $tsLiteral = "{{ts '{0:yyyy-MM}-01 00:00:00'}}" -f $monthStart
-        $calUrl = "https://$hostName/index.cfm?zaction=user&zmethod=calendar&selCalDate=" + [uri]::EscapeDataString($tsLiteral)
+        $calUrl = "$baseUrl/index.cfm?zaction=user&zmethod=calendar&selCalDate=" + [uri]::EscapeDataString($tsLiteral)
         # --fail: makes curl report a non-2xx response as a real failure
         # (exit 22) instead of silently returning the error page's body as
         # if it were calendar HTML - purely an observational change (no
@@ -240,32 +250,97 @@ $ci = 0
 
     :dateLoop foreach ($date in $dates) {
         & curl -s --fail -b $jar -c $jar -A $ua --max-time 20 `
-            -H "Referer: https://$hostName/index.cfm?zaction=USER&zmethod=CALENDAR" `
-            "https://$hostName/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date" -o /dev/null 2>$null
+            -H "Referer: $baseUrl/index.cfm?zaction=USER&zmethod=CALENDAR" `
+            "$baseUrl/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date" -o /dev/null 2>$null
         if ($LASTEXITCODE -ne 0) {
             $countyOk = $false
             $countyFailReason = "preview/referer warm-up fetch failed for $date (curl exit $LASTEXITCODE)"
             break dateLoop
         }
 
+        # Paging (fixed 2026-10-26). The Waiting list is served ten items per
+        # page and the server keeps the current page in the session. The
+        # first page is PageDir=0&doR=1&bypassPage=1 (what the page itself
+        # sends on load); every NEXT page is PageDir=1&doR=0&bypassPage=0
+        # (auction.js changePage -> loadArea(area, 1, 0, 0)). The harvester
+        # used to send PageDir=N&doR=1&bypassPage=1 for every page, which the
+        # server answers with page one again - so only the first ten items of
+        # each sale day were ever read (deeds run 40200487211: 62 sale days at
+        # "10 of 20 seen"). Measured: paging check run 40380815661.
+        #
+        # The page publishes its own page count ("page 1 of 5") in the status
+        # refresh it calls with the ids of the items on screen
+        # (FNC=UPDATE&ref=<rlist>, fields PW / WM). A sale day is read in full
+        # only when every published page was read, each brought only items
+        # not seen on an earlier page, and the item count reaches the
+        # published page count's minimum. Anything else marks the county
+        # INCOMPLETE (never silently partial) and is recorded per sale day in
+        # the status file (saleDays), which the off-list close-out reads.
+        $pageSize = 10
+        $maxPages = 60
         $kept = 0; $seen = 0
-        for ($page = 0; $page -lt 12; $page++) {
+        $dayItemIds = [System.Collections.Generic.HashSet[string]]::new()
+        $publishedPages = $null
+        $pagesRead = 0
+        $dayShort = $null
+        for ($page = 0; $page -lt $maxPages; $page++) {
+            $pageQuery = if ($page -eq 0) { "PageDir=0&doR=1&bypassPage=1" } else { "PageDir=1&doR=0&bypassPage=0" }
             $json = & curl -s --fail -b $jar -c $jar -A $ua --max-time 25 `
                 -H "Accept: application/json, text/javascript, */*; q=0.01" `
                 -H "X-Requested-With: XMLHttpRequest" `
-                -H "Referer: https://$hostName/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date" `
-                "https://$hostName/index.cfm?zaction=AUCTION&Zmethod=UPDATE&FNC=LOAD&AREA=W&PageDir=$page&doR=1&bypassPage=1&test=1" 2>$null
+                -H "Referer: $baseUrl/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date" `
+                "$baseUrl/index.cfm?zaction=AUCTION&Zmethod=UPDATE&FNC=LOAD&AREA=W&$pageQuery&test=1" 2>$null
             if ($LASTEXITCODE -ne 0) {
                 $countyOk = $false
                 $countyFailReason = "paginated fetch failed for $date page $page (curl exit $LASTEXITCODE)"
                 break dateLoop
             }
             $txt = $json -join ""
-            if (-not $txt -or $txt -notmatch 'AITEM_') { break }
+            if (-not $txt -or $txt -notmatch 'AITEM_') {
+                if ($page -eq 0) { $publishedPages = 0 }
+                break
+            }
 
             $blocks = [regex]::Split($txt, 'AITEM_') | Select-Object -Skip 1
-            if ($blocks.Count -eq 0) { break }
-            $newOnPage = 0
+            if ($blocks.Count -eq 0) {
+                if ($page -eq 0) { $publishedPages = 0 }
+                break
+            }
+            # Item identity for paging only: the block's own AITEM_<id>.
+            $newItems = 0
+            foreach ($b in $blocks) {
+                $idM = [regex]::Match($b, '^(\d+)')
+                $itemKey = if ($idM.Success) { $idM.Groups[1].Value } else { "block:" + $b.GetHashCode() }
+                if ($dayItemIds.Add($itemKey)) { $newItems++ }
+            }
+            if ($newItems -eq 0) {
+                # The server handed back a page already read: the pager did
+                # not move. Past the last published page this is expected
+                # (it repeats the last page); before it, the day is short.
+                break
+            }
+            $pagesRead++
+
+            if ($page -eq 0) {
+                # The page's own status refresh, for the ids it lists.
+                $refM = [regex]::Match($txt, '"rlist"\s*:\s*"([0-9,]*)"')
+                $ref = if ($refM.Success) { $refM.Groups[1].Value.Trim(',') } else { "" }
+                if ($ref) {
+                    $upd = & curl -s --fail -b $jar -c $jar -A $ua --max-time 25 `
+                        -H "Accept: application/json, text/javascript, */*; q=0.01" `
+                        -H "X-Requested-With: XMLHttpRequest" `
+                        -H "Referer: $baseUrl/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date" `
+                        "$baseUrl/index.cfm?zaction=AUCTION&ZMETHOD=UPDATE&FNC=UPDATE&ref=$ref" 2>$null
+                    if ($LASTEXITCODE -ne 0) {
+                        $countyOk = $false
+                        $countyFailReason = "page-count refresh failed for $date (curl exit $LASTEXITCODE)"
+                        break dateLoop
+                    }
+                    $updTxt = $upd -join ""
+                    $pwM = [regex]::Match($updTxt, '"PW"\s*:\s*"\s*page\s+(\d+)\s+of\s+(\d+)\s*"', 'IgnoreCase')
+                    if ($pwM.Success) { $publishedPages = [int]$pwM.Groups[2].Value }
+                }
+            }
 
             foreach ($b in $blocks) {
                 $seen++
@@ -286,7 +361,6 @@ $ci = 0
                 # so this is both the membership test and the insert in one
                 # O(1) call - same first-wins semantics as the old scan.
                 if (-not $seenKeys.Add($key)) { continue }
-                $newOnPage++
 
                 $bid = ToNum (Get-Field $b 'Opening Bid')
 
@@ -321,9 +395,38 @@ $ci = 0
                 })
                 $kept++
             }
-            if ($newOnPage -eq 0) { break }
+            if ($null -ne $publishedPages -and $pagesRead -ge $publishedPages) { break }
         }
-        if ($kept -gt 0) { Write-Host ("  {0} {1} properties (of {2} seen)" -f $date, $kept, $seen) -ForegroundColor Green }
+
+        # Per-sale-day verdict. Read in full = the published page count is
+        # known, every published page was read, and the items read reach that
+        # page count's minimum ((pages - 1) * 10 + 1). A day with no items
+        # (publishedPages 0) is read in full. Never silently partial.
+        $itemsRead = $dayItemIds.Count
+        if ($null -eq $publishedPages) {
+            $dayShort = "page count not published"
+        } elseif ($pagesRead -lt $publishedPages) {
+            $dayShort = "read $pagesRead of $publishedPages pages"
+        } elseif ($publishedPages -gt 0 -and $itemsRead -lt (($publishedPages - 1) * $pageSize + 1)) {
+            $dayShort = "read $itemsRead items, fewer than $publishedPages pages hold"
+        }
+        $saleDays.Add([pscustomobject]@{
+            sale_date       = $date
+            read            = $itemsRead
+            pages_read      = $pagesRead
+            published_pages = $publishedPages
+            complete        = ($null -eq $dayShort)
+        })
+        if ($null -ne $dayShort) {
+            # Keep reading the county's other sale days (their rows are still
+            # synced), but the county is not a complete read.
+            $countyOk = $false
+            if (-not $countyFailReason) { $countyFailReason = "sale day $date read short: $dayShort" }
+            Write-Host ("  {0} READ SHORT: {1}" -f $date, $dayShort) -ForegroundColor Red
+        }
+        if ($kept -gt 0 -or $itemsRead -gt 0) {
+            Write-Host ("  {0} {1} properties ({2} items on {3} of {4} page(s))" -f $date, $kept, $itemsRead, $pagesRead, $publishedPages) -ForegroundColor Green
+        }
     }
 
     if ($countyOk) {
@@ -331,7 +434,8 @@ $ci = 0
             county   = $c.County
             status   = "COMPLETE"
             rowCount = ($all.Count - $countyRowsBefore)
-            reason   = "calendar + pagination retrieval succeeded for every auction date found, no transport-level failure"
+            reason   = "calendar + pagination retrieval succeeded for every auction date found, every published page of every sale day read, no transport-level failure"
+            saleDays = @($saleDays)
         }
     } else {
         Write-Host ("  INCOMPLETE: {0}" -f $countyFailReason) -ForegroundColor Red
@@ -340,6 +444,7 @@ $ci = 0
             status   = "INCOMPLETE"
             rowCount = ($all.Count - $countyRowsBefore)
             reason   = $countyFailReason
+            saleDays = @($saleDays)
         }
     }
 }
@@ -349,7 +454,7 @@ $ci = 0
 # any, are safe to reconcile against; its own absence must mean "reconcile
 # nothing", never "assume everything succeeded" (same discipline as
 # harvest_lienhub_certificates.ps1's harvest_certificates_status.json).
-$countyStatus | ConvertTo-Json -Depth 3 | Set-Content $outStatus -Encoding utf8
+$countyStatus | ConvertTo-Json -Depth 5 | Set-Content $outStatus -Encoding utf8
 $completeCount = @($countyStatus | Where-Object { $_.status -eq "COMPLETE" }).Count
 $incompleteCount = @($countyStatus | Where-Object { $_.status -eq "INCOMPLETE" }).Count
 Write-Host ("Completeness: {0} COMPLETE, {1} INCOMPLETE (of {2} counties attempted)" -f $completeCount, $incompleteCount, $countyStatus.Count)

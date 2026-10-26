@@ -2576,6 +2576,29 @@ Full description: `docs/three-ledgers.md` (last section). Stable facts:
   `customer_view()` (vectors `ledger_record_cases.json`); `publication_state` reason `LEDGER_CONTRACT`
   (customer-binding only once 031 is applied).
 
+## Florida PowerShell syncs never erase a stored value (2026-10-26, PR open, no migration)
+
+- **Why:** PostgREST bulk upsert needs one key set per batch (PGRST102), so a column the list did not publish is sent
+  as null, and merge-duplicates wrote that null over the stored value. Production 2026-10-26: 146 active FL auction
+  rows had lost their FDOR `assessed` this way.
+- **Guard:** `scripts/sync_value_guard.py` (helper block "Stored-value guard", identical in all three `sync-*.ps1`,
+  called once after `Select-LedgerRows` and before the upsert) reads the stored rows and sends the stored value back
+  in three cases:
+  - for a blank;
+  - for a sync placeholder ("Account <case>", "Parcel <p>", "Case <c>", the LAFT "Address not published" string, a
+    0 bid);
+  - for a value whose `field_provenance` names another source of equal or higher rank.
+
+  The sync's own source refreshing its own value is allowed (auction / certificate = `vendor_listing`, LAFT =
+  `county_list`). If the stored rows cannot be read, nothing is written.
+- **Refill:** `enrich_property_details.py` refills erased tax-roll values (`fetch_erased_rows`, enabled by
+  `ENRICH_REFILL_ERASED=1` in the deeds job).
+- **Orange certificate numbers:** Orange's RealAuction feed publishes the "Certificate #" cell EMPTY (label capture,
+  run 40383361568), so Orange auction rows have no certificate number to carry.
+- **Sarasota certificates:** `scripts/harvest_sarasota_certificates.py` reads the Sarasota Tax Collector's own
+  county-held certificate PDF. It holds interim permission (owner decision 2026-10-26) and is NOT wired into the
+  certificate sync. Survey: `docs/review/fl-certificate-sources-2026-10-26.md`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
@@ -3514,3 +3537,20 @@ Full description: `docs/review/header-tiers.md`. Stable facts:
   (`<!--RESEARCH-->` markers in `detailHtml()`); a nav jump opens it. Tests open it through the harness
   (`window.__suiteKeepResearchClosed` reads the default).
 - Shell CSS must never override `[hidden]` (filter rows and fields each needed a guard).
+
+## Texas close-out (2026-10-26, PR open, no migration)
+
+- **`out/harvest_texas_status.json` now carries `counties`**: one entry per (source_id, county) read, read through
+  `harvesters/ledgers/health.py`. LGBS is one statewide feed (`lgbs_county_entries`): COMPLETE / EMPTY only when the
+  walk ended, read exactly the API's own `count` (the same on every page; distinct `id`s when present) and attributed
+  every Texas record; a failed page is FAILED (TRANSPORT_, closes nothing); anything else INCOMPLETE. Every other county
+  of `data/tx_county_coverage_matrix.csv` gets EMPTY from a verified walk.
+- **TX RealAuction pager fixed**: page 0 is `PageDir=0&doR=1`, the next page `PageDir=1&doR=0` (doR=1 re-reads page 0 -
+  every sale date stopped at ten properties before). A county is COMPLETE only when every request succeeded, every item
+  had an Account Number and each date's paging ended on a short page; EMPTY from a real calendar with no sale day or a
+  JSON listing response with no items; a full page repeated, a login / non-JSON body or a failed request closes nothing.
+  The Florida `harvest_all_counties.ps1` still asks `PageDir=$page&doR=1` - same cap, not changed here.
+- **`scripts/texas_closeout.py`** (texas job, after the stamp, `continue-on-error`): closes ('closed' + delisted_at, never
+  a result) stored active tx_lgbs / tx_realauction rows absent from a COMPLETE / EMPTY read of their own (source,
+  county), through `sync_state_inventory.plan_close()`; reopens 'closed' rows the harvest lists again (never 'sold');
+  refuses a source that would lose >50% of its active, not-yet-past-sale rows in one run (`--allow-large-close`).
