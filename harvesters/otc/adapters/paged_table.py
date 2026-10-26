@@ -72,6 +72,7 @@ class PagedResult:
     rows_read: int = 0
     excluded_status: int = 0
     rejected_ids: int = 0
+    unanswered_parts: int = 0
 
 
 def counter(html: str) -> tuple[int, int, int, int] | None:
@@ -81,9 +82,10 @@ def counter(html: str) -> tuple[int, int, int, int] | None:
 
 
 class _ReadError(Exception):
-    def __init__(self, category: str, detail: str):
+    def __init__(self, category: str, detail: str, first_page_server_error: bool = False):
         super().__init__(detail)
         self.category, self.detail = category, detail
+        self.first_page_server_error = first_page_server_error
 
 
 def _read_search(cfg: PagedTableConfig, post_text, extra: dict, *, retrieved_at, sleep):
@@ -92,15 +94,20 @@ def _read_search(cfg: PagedTableConfig, post_text, extra: dict, *, retrieved_at,
     try:
         html = post_text(cfg.first_url, {**dict(cfg.first_data), **extra})
     except Exception as exc:  # noqa: BLE001
-        raise _ReadError("TRANSPORT_CONNECTION", type(exc).__name__) from exc
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        raise _ReadError("TRANSPORT_CONNECTION", type(exc).__name__ + (f" HTTP {status}" if status else ""),
+                         first_page_server_error=bool(status and status >= 500)) from exc
     records, excluded, rejected, page_no, last, size = [], 0, 0, 0, 0, 0
     for _ in range(cfg.max_pages):
         c = counter(html)
         adapter = TabularListAdapter(cfg.table)
         got = adapter.parse_html_table(html, retrieved_at=retrieved_at)
         if c is None:
-            if not got and page_no == 0:
-                return [], 0, 0, 0, 0, 0              # the site's own empty result
+            if page_no == 0:
+                # No pager at all: the site prints its counter only for a result of
+                # more than one page (Genesee 2026-10-26). One page, or none.
+                n = len(got) + adapter.excluded_status + adapter.rejected_ids
+                return got, n, adapter.excluded_status, adapter.rejected_ids, (1 if n else 0), n
             raise _ReadError("PARSE_FORMAT_CHANGE", f"no page counter after page {page_no}")
         cur, total_pages, first, last = c
         if cur != page_no + 1:
@@ -143,7 +150,7 @@ def fetch_all(cfg: PagedTableConfig, post_text: Callable[[str, dict], str], *, r
         expect_pages, expect_size = c[1], c[3] - c[2] + 1
     records: list[OtcRecord] = []
     seen: set[str] = set()
-    listings = excluded = rejected = pages = 0
+    listings = excluded = rejected = pages = unanswered = 0
     for extra in parts:
         for attempt in range(cfg.attempts):
             try:
@@ -151,6 +158,14 @@ def fetch_all(cfg: PagedTableConfig, post_text: Callable[[str, dict], str], *, r
                 break
             except _ReadError as err:
                 if attempt == cfg.attempts - 1:
+                    if err.first_page_server_error and expect_pages is not None:
+                        # Genesee (2026-10-26): a few township filters answer HTTP 500 on
+                        # every try (the site's own fault, seen on parts with no listings).
+                        # The part counts as unanswered; the add-up check below proves no
+                        # listing was missed (else FAILED).
+                        got, n, ex, rj, pg = [], 0, 0, 0, 0
+                        unanswered += 1
+                        break
                     return PagedResult("FAILED", error_category=err.category,
                                        error_detail=f"{err.detail}" + (f" (part {extra})" if extra else ""))
                 sleep(3.0 * (attempt + 1))
@@ -165,7 +180,7 @@ def fetch_all(cfg: PagedTableConfig, post_text: Callable[[str, dict], str], *, r
     if expect_pages is not None and not ((expect_pages - 1) * expect_size < listings <= expect_pages * expect_size):
         return PagedResult("FAILED", error_category="PARSE_FORMAT_CHANGE",
                            error_detail=f"parts add up to {listings} listings; the full search has {expect_pages} pages of "
-                                        f"{expect_size}", pages=pages, total=listings)
+                                        f"{expect_size} ({unanswered} part(s) unanswered)", pages=pages, total=listings)
     read = len(records) + excluded + rejected
     return PagedResult("COMPLETE" if records else "EMPTY", records, pages=pages, total=listings, rows_read=read,
-                       excluded_status=excluded, rejected_ids=rejected)
+                       excluded_status=excluded, rejected_ids=rejected, unanswered_parts=unanswered)

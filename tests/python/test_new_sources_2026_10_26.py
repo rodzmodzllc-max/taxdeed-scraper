@@ -326,3 +326,19 @@ def test_genesee_parts_must_add_up_to_the_full_search():
     big = _gpage(1, 2, 1, 3, [("41-05-257-024", "Vacant Land")])           # full search says 2 pages of 3 (4-6 listings)
     res = PT.fetch_all(cfg, lambda u, d: parts[d["FindTWP"]] if "FindTWP" in d else big, retrieved_at=AT, sleep=lambda s: None)
     assert res.outcome == "FAILED" and "add up" in res.error_detail
+
+
+def test_a_part_the_site_never_answers_is_accepted_only_when_the_parts_still_add_up():
+    cfg = dataclasses.replace(EX.MI_GENESEE_LANDBANK, partition_values=("01", "02"))
+    two = _gpage(1, 1, 1, 2, [("02-05-257-001", "Vacant Land"), ("02-05-257-002", "Vacant Land")])
+
+    def post_for(full):
+        def post(url, data):
+            if data.get("FindTWP") == "01":
+                raise _Boom()                                   # every try: HTTP 500 on its first page
+            return two if "FindTWP" in data else full
+        return post
+    ok = PT.fetch_all(cfg, post_for(_gpage(1, 1, 1, 2, [])), retrieved_at=AT, sleep=lambda s: None)
+    assert ok.outcome == "COMPLETE" and ok.unanswered_parts == 1 and len(ok.records) == 2
+    missing = PT.fetch_all(cfg, post_for(_gpage(1, 2, 1, 2, [])), retrieved_at=AT, sleep=lambda s: None)   # full: 3-4 listings
+    assert missing.outcome == "FAILED" and "unanswered" in missing.error_detail

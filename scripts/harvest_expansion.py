@@ -293,7 +293,7 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
             return "FAILED", [], "UNKNOWN", "no POST transport", None
         res = PT.fetch_all(cfg, pt, retrieved_at=retrieved_at, sleep=(lambda s: None) if fixture else None)
         print(f"{cfg.source_id}: pages={res.pages} listings={res.total} read={res.rows_read} kept={len(res.records)} "
-              f"not-offered={res.excluded_status} bad-id={res.rejected_ids}")
+              f"not-offered={res.excluded_status} bad-id={res.rejected_ids} unanswered-parts={res.unanswered_parts}")
         if res.outcome == "FAILED":
             return "FAILED", [], res.error_category, res.error_detail, None
         return res.outcome, res.records, None, None, ("empty_list" if res.outcome == "EMPTY" else None)
