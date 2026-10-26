@@ -50,7 +50,12 @@ from dataclasses import dataclass
 
 OPTIMIZED_PREFIX = "naip/v2/"
 LEGACY_PREFIX = "naip/"
-WEBP_QUALITY = 82
+WEBP_QUALITY = 70
+# Stored aerials are 480 x 360 (2026-10-25). Measured on stored samples: about
+# 25 KB per image at quality 70, against about 56 KB at 600 x 450 / quality 82,
+# and the parcel, its frontage and structures stay legible. The cards are 4:3
+# and show the image at or below this size.
+TARGET_SIZE = (480, 360)
 WEBP_METHOD = 6
 # A legitimate aerial tile always has texture. A decode whose colour spread
 # collapsed (fewer than this many distinct colours in a 64 x 48 sample) is
@@ -146,19 +151,26 @@ def _unchanged(data: bytes, reason: str, fmt: str = "PNG", w: int = 0, h: int = 
     return Optimized(data, f"image/{ext}", ext, w, h, sha256(data), len(data), False, reason)
 
 
-def optimize_image(data: bytes) -> Optimized:
-    """Re-encode a source image as same-size WebP when that is strictly smaller
-    and decodes cleanly; otherwise return the source bytes unchanged."""
+def optimize_image(data: bytes, target: tuple | None = None) -> Optimized:
+    """Re-encode a source image as WebP and return it when that is strictly
+    smaller and decodes cleanly; otherwise return the source bytes unchanged.
+
+    Without `target` the dimensions are kept (same-size re-encode). With
+    `target` the image is resized to it (LANCZOS) - used by the existing-image
+    optimizer to bring 600 x 450 aerials down to TARGET_SIZE."""
     src = probe(data)
     if src is None:
         return _unchanged(data, "source not decodable (Pillow missing or corrupt bytes)")
     fmt, w, h, colours = src
-    if fmt == "WEBP":
+    dest = tuple(target) if target else (w, h)
+    if fmt == "WEBP" and (w, h) == dest:
         return _unchanged(data, "already WebP", fmt, w, h)
     Image = _image()
     try:
         with Image.open(io.BytesIO(data)) as im:
             rgb = im.convert("RGB")
+            if rgb.size != dest:
+                rgb = rgb.resize(dest, Image.LANCZOS)
             out = io.BytesIO()
             rgb.save(out, format="WEBP", quality=WEBP_QUALITY, method=WEBP_METHOD)
             webp = out.getvalue()
@@ -168,13 +180,13 @@ def optimize_image(data: bytes) -> Optimized:
     if check is None:
         return _unchanged(data, "optimized bytes did not decode", fmt, w, h)
     _, ow, oh, ocolours = check
-    if (ow, oh) != (w, h):
+    if (ow, oh) != dest:
         return _unchanged(data, "optimized dimensions differ", fmt, w, h)
     if len(webp) >= len(data):
         return _unchanged(data, "optimized file not smaller", fmt, w, h)
     if colours >= MIN_DISTINCT_COLOURS and ocolours < MIN_DISTINCT_COLOURS:
         return _unchanged(data, "optimized image lost its detail", fmt, w, h)
-    return Optimized(webp, "image/webp", "webp", w, h, sha256(data), len(data), True)
+    return Optimized(webp, "image/webp", "webp", ow, oh, sha256(data), len(data), True)
 
 
 def consolidation_groups(objects: list[dict]) -> list[list[dict]]:

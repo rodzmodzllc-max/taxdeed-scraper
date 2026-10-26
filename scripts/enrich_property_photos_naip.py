@@ -88,7 +88,7 @@ NAIP_ENDPOINT = (
 # at Florida/Texas latitudes this is close enough for a thumbnail and does
 # not warrant a projection round-trip.
 BOX_DEGREES = float(os.environ.get("NAIP_BOX_DEGREES", "0.0012"))
-IMAGE_SIZE = os.environ.get("NAIP_IMAGE_SIZE", "600,450")
+IMAGE_SIZE = os.environ.get("NAIP_IMAGE_SIZE", "480,360")
 
 STORAGE_BUCKET = os.environ.get("NAIP_STORAGE_BUCKET", "property-photos")
 # Storage budget (MB) for the bucket as a whole. The project is on a plan

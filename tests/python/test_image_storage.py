@@ -286,3 +286,18 @@ def test_s15_policy_projection_orders_available_first():
     assert p["A_unchanged"] == 10000 and p["B_compress"] == 2000 and p["C_compress_dedup"] == 1600
     assert p["D_plan"]["available"]["would_store"] == 5 and p["D_plan"]["auction_active"]["would_store"] == 2
     assert p["D_plan"]["auction_closed"]["would_store"] == 0 and p["D_plan"]["certificate"]["would_store"] == 0
+
+
+# 11 - the target size shrinks a 600 x 450 aerial, PNG or WebP, and the
+#      output is reported at its real dimensions (verify-then-restore relies on it)
+def test_s11_target_size_resizes_png_and_old_webp_and_reports_output_size(png):
+    to_small = IS.optimize_image(png, target=IS.TARGET_SIZE)
+    assert to_small.optimized is True
+    assert (to_small.width, to_small.height) == IS.TARGET_SIZE
+    assert IS.probe(to_small.data)[1:3] == IS.TARGET_SIZE
+    assert len(to_small.data) < len(png)
+    old_webp = IS.optimize_image(png).data
+    shrunk = IS.optimize_image(old_webp, target=IS.TARGET_SIZE)
+    assert shrunk.optimized is True and (shrunk.width, shrunk.height) == IS.TARGET_SIZE
+    again = IS.optimize_image(shrunk.data, target=IS.TARGET_SIZE)
+    assert again.optimized is False and again.reason == "already WebP"

@@ -1697,7 +1697,7 @@ function photoOrPlaceholder(p, cls) {
   if (hasPhoto(p)) {
     // The caption names what the image IS, read from photo_source, so an
     // aerial is never presented as a street-level or listing photo.
-    return `<div class="${cls} has-photo" data-photo-source="${esc(p.photo_source || "unknown")}"><img src="${esc(p.photo_url)}" alt="${esc(photoAlt(p))}" loading="lazy" width="600" height="450"><span class="photo-caption" title="Imagery may be years old and does not show current condition.">${esc(photoCaption(p))}</span></div>`;
+    return `<div class="${cls} has-photo" data-photo-source="${esc(p.photo_source || "unknown")}"><img src="${esc(p.photo_url)}" alt="${esc(photoAlt(p))}" loading="lazy" width="480" height="360"><span class="photo-caption" title="Imagery may be years old and does not show current condition.">${esc(photoCaption(p))}</span></div>`;
   }
   // Compact bar, not a full-size empty photo box - see the CSS comment on
   // .prop-card-photo.no-photo. Most rows don't have a cached photo yet

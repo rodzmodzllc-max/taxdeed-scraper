@@ -229,7 +229,7 @@ def sample_measure(objects: list[dict], n: int) -> dict:
         if p:
             fmts[p[0]] += 1
             dims[f"{p[1]}x{p[2]}"] += 1
-        opt = IS.optimize_image(data)
+        opt = IS.optimize_image(data, target=IS.TARGET_SIZE)
         if opt.optimized:
             ratios.append(len(opt.data) / len(data))
         else:
@@ -279,7 +279,7 @@ def compress_in_place(objects: list[dict], limit: int | None) -> dict:
         if original is None:
             stats["skipped_unreadable"] += 1
             continue
-        opt = IS.optimize_image(original)
+        opt = IS.optimize_image(original, target=IS.TARGET_SIZE)
         if not opt.optimized:
             stats[f"left_unchanged: {opt.reason}"] += 1
             continue
