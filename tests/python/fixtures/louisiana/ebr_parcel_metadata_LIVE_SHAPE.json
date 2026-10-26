@@ -1,0 +1,4 @@
+{"name": "Adjudicated Parcel", "licenseId": "PUBLIC_DOMAIN", "license": {"name": "Public Domain", "termsLink": null},
+ "attribution": "East Baton Rouge Parish Assessor", "provenance": "official",
+ "rowsUpdatedAt": 1778037958, "viewLastModified": 1788808064,
+ "metadata": {"custom_fields": {"Dataset Information": {"Data Dictionary": "https://city.brla.gov/gis/metadata/TAX_PARCEL.html", "Source Department": "EBR Assessor's Office", "Update Frequency": "Annually"}}}}

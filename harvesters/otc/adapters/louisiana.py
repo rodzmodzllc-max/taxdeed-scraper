@@ -53,8 +53,9 @@ from ..model import AmountKind, InventoryType, OtcRecord, SourceAuthority
 from . import common
 from .common import CountyOutcome, Evidence, GateDecision, HarvestResult
 
-__all__ = ["EBR_EVIDENCE", "EBR_SOURCE", "INDEXED_COLUMNS", "LouisianaSourceConfig", "can_run", "classify_outcome",
-           "harvest", "parse_csv", "parse_geolocation", "parse_metadata", "requirement_evidence"]
+__all__ = ["EBR_EVIDENCE", "EBR_PARCEL_COLUMNS", "EBR_PARCEL_EVIDENCE", "EBR_PARCEL_SOURCE", "EBR_SOURCE", "INDEXED_COLUMNS",
+           "ColumnLabels", "LouisianaSourceConfig", "can_run", "classify_outcome", "harvest", "parse_csv", "parse_geolocation",
+           "parse_metadata", "requirement_evidence"]
 
 STATE = "LA"
 STATUS_FILE_NAME = "harvest_louisiana_status.json"
@@ -73,6 +74,21 @@ PARISH = "East Baton Rouge"
 INDEXED_COLUMNS = ("TAX YEAR", "PROPERTY NUMBER", "TAXPAYER NAME", "TAXPAYER ADDRESS", "TAXPAYER CITY STATE ZIP", "PHYSICAL ADDRESS",
                    "SUBDIVISION NAME", "BLOCK/SQUARE NO", "LOT NO", "WARD", "LEGAL DESCRIPTION", "FAIR MARKET VALUE",
                    "TOTAL ASSESSED VALUE", "COUNCIL DISTRICT", "ZIP CODE", "GEOLOCATION")
+
+# The Parish's NEWER adjudicated list (read live 2026-10-25, docs/la-tx-acquisition-paths.md):
+# Open Data BR "Adjudicated Parcel" (shrr-fsqq) - attribution "East Baton Rouge
+# Parish Assessor", provenance official, licenseId PUBLIC_DOMAIN, Update Frequency
+# "Annually", rowsUpdatedAt 1778037958 (2026-05-06), 4,527 rows, every STATUS 'AJ'
+# ("Status of the parcel (adjudicated)"). The Parish Attorney's Adjudicated
+# Property page links its ArcGIS twin as "Adjudicated Property Listing (GIS)".
+EBR_PARCEL_DATASET_ID = "shrr-fsqq"
+EBR_PARCEL_DATASET_URL = "https://data.brla.gov/d/shrr-fsqq"
+EBR_PARCEL_CSV_URL = "https://data.brla.gov/api/views/shrr-fsqq/rows.csv?accessType=DOWNLOAD"
+EBR_PARCEL_METADATA_URL = "https://data.brla.gov/api/views/shrr-fsqq.json"
+EBR_PARCEL_HEADER = ("ASSESSMENT NO.", "OWNER NAME", "OWNER ADDRESS", "OWNER CITY STATE ZIP", "PHYSICAL ADDRESS", "SUBDIVISION",
+                     "WARD SECTION", "LOT", "BLOCK", "LEGAL DESCRIPTION", "FLOOD ZONE", "SALE YEAR", "STATUS",
+                     "HOMESTEAD EXEMPTION SUM", "LOT VALUE SUM", "LAND VALUE SUM", "IMPROVEMENT VALUE SUM", "FAIR MARKET VALUE",
+                     "ASSESSED VALUE", "GEOMETRY", "PRONO")
 
 EBR_EVIDENCE: tuple[Evidence, ...] = (
     Evidence("dataset", "SEARCH_INDEX", EVIDENCE_DATE, EBR_DATASET_URL,
@@ -95,6 +111,42 @@ EBR_EVIDENCE: tuple[Evidence, ...] = (
              "50-state audit group 4: 'LA=A (sec B): adjudicated property (parish/municipal); EBR Open Data BR dataset a4h4-zi7e + GIS; "
              "... CivicSource vendor (EBR >5yr, $0+costs); 9/64 identified'. The vendor purchase process is NOT verified and NOT implemented."),
 )
+
+
+EBR_PARCEL_EVIDENCE: tuple[Evidence, ...] = (
+    Evidence("parcel_metadata", "LIVE_READ", "2026-10-25", EBR_PARCEL_METADATA_URL,
+             "name 'Adjudicated Parcel'; licenseId PUBLIC_DOMAIN; provenance official; attribution 'East Baton Rouge Parish "
+             "Assessor'; Update Frequency 'Annually'; rowsUpdatedAt 1778037958 (2026-05-06); description 'Polygon geometry with "
+             "attributes displaying adjudicated tax parcels in East Baton Rouge Parish'; STATUS described as 'Status of the parcel "
+             "(adjudicated)'."),
+    Evidence("parcel_csv", "LIVE_READ", "2026-10-25", EBR_PARCEL_CSV_URL,
+             "Header = EBR_PARCEL_HEADER (21 columns); 4,527 rows, STATUS 'AJ' on every row; ASSESSMENT NO. shape 999-9999-9 "
+             "(4,524 / 4,527); 4,520 distinct assessment numbers; GEOMETRY is a MULTIPOLYGON (no point); Last-Modified 06 May 2026. "
+             "Of the 10,334 property numbers in a4h4-zi7e, 3,691 are on this list and 6,643 are not."),
+    Evidence("parcel_catalog", "LIVE_READ", "2026-10-25", "https://data.brla.gov/api/catalog/v1?q=adjudicated",
+             "Open Data BR catalog: a4h4-zi7e data updated 2024-02-27; shrr-fsqq 'Adjudicated Parcel' data updated 2026-05-06 - "
+             "the newer of the Parish's two adjudicated lists."),
+)
+
+
+@dataclass(frozen=True)
+class ColumnLabels:
+    """The published header label of each field one dataset carries
+    (matched after normalization). Blank = the dataset has no such column."""
+    identity: str = "PROPERTY NUMBER"
+    address: str = "PHYSICAL ADDRESS"
+    legal: str = "LEGAL DESCRIPTION"
+    owner: str = "TAXPAYER NAME"
+    assessed: str = "TOTAL ASSESSED VALUE"
+    market: str = "FAIR MARKET VALUE"
+    tax_year: str = "TAX YEAR"
+    geolocation: str = "GEOLOCATION"
+    status: str = ""                         # the source's own status column, when it publishes one
+    known: tuple[str, ...] = INDEXED_COLUMNS  # every header the dataset is known to carry (others are reported unmapped)
+
+
+EBR_PARCEL_COLUMNS = ColumnLabels(identity="ASSESSMENT NO.", owner="OWNER NAME", assessed="ASSESSED VALUE", tax_year="",
+                                  geolocation="", status="STATUS", known=EBR_PARCEL_HEADER)
 
 
 def requirement_evidence() -> dict[str, str]:
@@ -130,6 +182,8 @@ class LouisianaSourceConfig:
     parser_fixture_validated: bool = False
     enabled: bool = False
     evidence: str = ""
+    columns: ColumnLabels = ColumnLabels()
+    status_include: tuple[str, ...] = ()     # with columns.status: only rows whose status is one of these are read
 
     def __post_init__(self) -> None:
         if self.publishing_unit not in (PublishingUnit.PARISH.value, PublishingUnit.MUNICIPALITY.value):
@@ -139,8 +193,10 @@ class LouisianaSourceConfig:
                 raise ValueError(f"{name} must be https")
         if not self.county.strip() or not self.publishing_unit_name.strip():
             raise ValueError("county and publishing_unit_name are required")
-        if "PROPERTY NUMBER" not in self.required_columns:
+        if self.columns.identity not in self.required_columns:
             raise ValueError("the identity column must be required")
+        if self.columns.status and (not self.status_include or self.columns.status not in self.required_columns):
+            raise ValueError("a status column must be required and name the statuses it reads")
         if self.enabled and not (self.live_verified and self.identifier_format_established and self.parser_fixture_validated):
             raise ValueError("a source cannot be enabled before it is live-verified, its identifier format established "
                              "and its parser fixture validated")
@@ -225,15 +281,17 @@ def parse_csv(cfg: LouisianaSourceConfig, text: str, *, retrieved_at: datetime, 
     always None + NOT_PUBLISHED: no price column exists."""
     reader = csv.reader(io.StringIO(text))
     rows = [r for r in reader if any(c.strip() for c in r)]
+    cols = cfg.columns
     outcome = {"header_table_found": False, "data_rows": 0, "empty_marker": False, "rejected_identifier": 0, "missing_columns": [],
-               "unmapped_columns": [], "geolocation_parsed": 0, "superseded_tax_year_rows": 0}
+               "unmapped_columns": [], "geolocation_parsed": 0, "superseded_tax_year_rows": 0, "other_status_rows": 0,
+               "not_on_latest_tax_year": 0}
     if not rows:
         return [], outcome
     header = [_norm(c) for c in rows[0]]
     idx = {h: i for i, h in enumerate(header)}
     missing = [c for c in cfg.required_columns if _norm(c) not in idx]
     outcome["missing_columns"] = missing
-    outcome["unmapped_columns"] = sorted(rows[0][i] for i, h in enumerate(header) if h not in {_norm(c) for c in INDEXED_COLUMNS})
+    outcome["unmapped_columns"] = sorted(rows[0][i] for i, h in enumerate(header) if h not in {_norm(c) for c in cols.known})
     if missing:
         return [], outcome
     outcome["header_table_found"] = True
@@ -241,41 +299,52 @@ def parse_csv(cfg: LouisianaSourceConfig, text: str, *, retrieved_at: datetime, 
     outcome["data_rows"] = len(body)
 
     def cell(r, name):
+        if not name:
+            return None
         i = idx.get(_norm(name))
         return r[i] if i is not None and i < len(r) else None
 
+    include = {_norm(v) for v in cfg.status_include}
     out: list[OtcRecord] = []
     for r in body:
-        ident = _text(cell(r, "PROPERTY NUMBER"))
+        if cols.status and _norm(cell(r, cols.status) or "") not in include:
+            outcome["other_status_rows"] += 1
+            continue
+        ident = _text(cell(r, cols.identity))
         if not ident or not _HAS_DIGIT.search(ident) or len(ident) > 40:
             outcome["rejected_identifier"] += 1
             continue
-        geo = parse_geolocation(cell(r, "GEOLOCATION"))
+        geo = parse_geolocation(cell(r, cols.geolocation))
         if geo:
             outcome["geolocation_parsed"] += 1
-        assessed, market = _num(cell(r, "TOTAL ASSESSED VALUE")), _num(cell(r, "FAIR MARKET VALUE"))
+        assessed, market = _num(cell(r, cols.assessed)), _num(cell(r, cols.market))
         prov = {
             "adapter": "louisiana",
             "publishing_unit": cfg.publishing_unit,
             "publishing_unit_name": cfg.publishing_unit_name,
             "source_terminology": cfg.source_terminology or None,
-            "identifier": "PROPERTY NUMBER as published by the Parish's dataset; no normalization (format not established)",
-            "parcel": "PROPERTY NUMBER (the assessor's property number is the parcel identity in this dataset)",
-            "owner_name": "TAXPAYER NAME - the name on the tax roll for TAX YEAR, as published; not asserted to be the current owner",
-            "assessed": "TOTAL ASSESSED VALUE column (tax roll)" if assessed is not None else "not published on the row",
-            "market": "FAIR MARKET VALUE column (tax roll)" if market is not None else "not published on the row",
-            "coordinates": "GEOLOCATION column, parsed from its published shape" if geo else "GEOLOCATION absent or in an unparsed shape",
+            "identifier": f"{cols.identity} as published by the Parish's dataset; no normalization (format not established)",
+            "parcel": f"{cols.identity} (the assessor's property number is the parcel identity in this dataset)",
+            "owner_name": (f"{cols.owner} - the name on the tax roll for {cols.tax_year}" if cols.tax_year
+                           else f"{cols.owner} - the name on the dataset's row") + ", as published; not asserted to be the current owner",
+            "assessed": f"{cols.assessed} column (tax roll)" if assessed is not None else "not published on the row",
+            "market": f"{cols.market} column (tax roll)" if market is not None else "not published on the row",
+            "coordinates": (f"{cols.geolocation} column, parsed from its published shape" if geo
+                            else f"{cols.geolocation} absent or in an unparsed shape" if cols.geolocation
+                            else "no point column in this dataset (its geometry is a polygon)"),
             "inventory_type": f"configuration: {cfg.inventory_type.value} ('adjudicated to the Parish' per the dataset description)",
             "amount": "NOT_PUBLISHED: the dataset carries no price; assessed / market value are tax-roll figures, not prices",
             "purchase_url": "no online path published in the dataset; the Parish's purchase process is not verified",
             "list_as_of": ("dataset metadata rowsUpdatedAt - the Parish's own last-update date for every row; TAX YEAR is the roll year"
                            if list_as_of else "not stated; TAX YEAR is the roll year, not a list date"),
         }
+        if cols.status:
+            prov["status"] = f"{cols.status} column: {_text(cell(r, cols.status))} (the dataset's own adjudicated status)"
         out.append(OtcRecord(
             state=STATE, county=cfg.county, case_no=ident, source_id=cfg.source_id, source_authority=cfg.source_authority,
             inventory_type=cfg.inventory_type, retrieved_at=retrieved_at, parcel=ident,
-            address=_text(cell(r, "PHYSICAL ADDRESS")), legal_desc=_text(cell(r, "LEGAL DESCRIPTION")),
-            owner_name=_text(cell(r, "TAXPAYER NAME")), assessed=assessed, market=market, tax_year=_text(cell(r, "TAX YEAR")),
+            address=_text(cell(r, cols.address)), legal_desc=_text(cell(r, cols.legal)),
+            owner_name=_text(cell(r, cols.owner)), assessed=assessed, market=market, tax_year=_text(cell(r, cols.tax_year)),
             latitude=geo[0] if geo else None, longitude=geo[1] if geo else None,
             amount=None, amount_kind=AmountKind.NOT_PUBLISHED, list_url=cfg.list_url, document_url=cfg.document_url,
             purchase_url=None, purchase_url_kind=None, provenance=prov,
@@ -289,6 +358,12 @@ def parse_csv(cfg: LouisianaSourceConfig, text: str, *, retrieved_at: datetime, 
         if cur is None or _year(rec.tax_year) > _year(cur.tax_year):
             latest[rec.case_no] = rec
     outcome["superseded_tax_year_rows"] = len(out) - len(latest)
+    # Counts only, nothing dropped: property numbers whose newest row is older
+    # than the dataset's newest TAX YEAR (not among the latest roll's
+    # adjudicated rows). Reported so a dated list's staleness is measurable.
+    newest = max((_year(r.tax_year) for r in latest.values()), default=-1)
+    if newest > 0:
+        outcome["not_on_latest_tax_year"] = sum(1 for r in latest.values() if 0 < _year(r.tax_year) < newest)
     return list(latest.values()), outcome
 
 
@@ -346,4 +421,27 @@ EBR_SOURCE = LouisianaSourceConfig(
     metadata_url=EBR_METADATA_URL,
     live_verified=True, identifier_format_established=True, parser_fixture_validated=True, enabled=True,
     evidence="harvesters/otc/adapters/louisiana.py EBR_EVIDENCE (search index + LIVE READ, 2026-09-30); docs/state-expansion.md",
+)
+
+
+# The newer list, READY BUT NOT ENABLED: switching the production source from
+# a4h4-zi7e to shrr-fsqq changes the list date the owner's 2026-09-30
+# publication decision was taken on and would close the 6,643 property numbers
+# that are not on it (a COMPLETE read closes absent rows) - an owner decision,
+# recorded in docs/la-tx-acquisition-paths.md. Same source_id: the same Parish,
+# portal and licence, and the same identity (the assessor's number).
+EBR_PARCEL_SOURCE = LouisianaSourceConfig(
+    source_id="la_ebr_adjudicated",
+    publishing_unit=PublishingUnit.PARISH.value,
+    publishing_unit_name="East Baton Rouge Parish (City of Baton Rouge / Parish of East Baton Rouge open data)",
+    county=PARISH,
+    list_url=EBR_PARCEL_DATASET_URL,
+    document_url=EBR_PARCEL_CSV_URL,
+    required_columns=("ASSESSMENT NO.", "PHYSICAL ADDRESS", "LEGAL DESCRIPTION", "STATUS"),
+    source_terminology="adjudicated parcel; status AJ (adjudicated); assessment number",
+    metadata_url=EBR_PARCEL_METADATA_URL,
+    columns=EBR_PARCEL_COLUMNS,
+    status_include=("AJ",),
+    live_verified=True, identifier_format_established=True, parser_fixture_validated=True, enabled=False,
+    evidence="harvesters/otc/adapters/louisiana.py EBR_PARCEL_EVIDENCE (LIVE READ 2026-10-25); docs/la-tx-acquisition-paths.md",
 )
