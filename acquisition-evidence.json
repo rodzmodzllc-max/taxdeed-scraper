@@ -2223,6 +2223,531 @@
      "doc_kind": "SOURCE_PAGE"
     }
    ]
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Bandera",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Bastrop",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Bell",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Brown",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Cherokee",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Comal",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Gregg",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Panola",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Runnels",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Val Verde",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Archer",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Austin",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Brazoria",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Brewster",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Caldwell",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Cameron",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Chambers",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Childress",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Clay",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Dickens",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Dimmit",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Foard",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Fort Bend",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Galveston",
+   "status": "NEEDS_REVIEW",
+   "basis": "search_index",
+   "reason": "Official pages identified; no capture recorded yet",
+   "scope": "source",
+   "candidates": [
+    {
+     "url": "https://www.galvestoncountytx.gov/our-county/tax-assessor-collector/property-tax/sheriff-sale-information",
+     "doc_kind": "SOURCE_PAGE"
+    },
+    {
+     "url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/sheriff_sale_rules.pdf",
+     "doc_kind": "SOURCE_PAGE"
+    },
+    {
+     "url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
+     "doc_kind": "SOURCE_PAGE"
+    }
+   ]
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Hardeman",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Harris",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Hays",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Hill",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Houston",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Hunt",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Jack",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Jasper",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Johnson",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Knox",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Liberty",
+   "status": "NEEDS_REVIEW",
+   "basis": "search_index",
+   "reason": "Official pages identified; no capture recorded yet",
+   "scope": "source",
+   "candidates": [
+    {
+     "url": "https://www.co.liberty.tx.us/page/liberty.foreclosures",
+     "doc_kind": "SOURCE_PAGE"
+    },
+    {
+     "url": "https://notices.libertycountytx.com/auctions",
+     "doc_kind": "SOURCE_PAGE"
+    }
+   ]
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Matagorda",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Maverick",
+   "status": "NEEDS_REVIEW",
+   "basis": "search_index",
+   "reason": "Official pages identified; no capture recorded yet",
+   "scope": "source",
+   "candidates": [
+    {
+     "url": "https://www.maverickcad.org/",
+     "doc_kind": "SOURCE_PAGE"
+    }
+   ]
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Milam",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Montague",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Montgomery",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Nacogdoches",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Newton",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Palo Pinto",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Reeves",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "San Jacinto",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Tarrant",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Throckmorton",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Uvalde",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Walker",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Waller",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Washington",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Wichita",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Wilbarger",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Young",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Zavala",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
   }
  ]
 }

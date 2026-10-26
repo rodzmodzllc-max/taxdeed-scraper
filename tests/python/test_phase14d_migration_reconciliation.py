@@ -271,5 +271,5 @@ def test_governance_registry_unchanged_this_phase():
     assert SOURCE_REGISTRY["tx_lgbs"].legal_status == SourceStatus.APPROVED
     assert SOURCE_REGISTRY["tx_realauction"].legal_status == SourceStatus.APPROVED
     assert SOURCE_REGISTRY["tx_hctax"].legal_status == SourceStatus.LEGAL_REVIEW_REQUIRED
-    for blocked in ("tx_pbfcm", "tx_govease", "tx_mvba", "tx_ctsa"):
+    for blocked in ("tx_ctsa",):  # tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner on 2026-10-26; tx_ctsa stays BLOCKED
         assert SOURCE_REGISTRY[blocked].legal_status == SourceStatus.BLOCKED

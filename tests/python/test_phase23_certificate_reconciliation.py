@@ -174,7 +174,7 @@ def test_reconciliation_runs_after_the_upsert_section():
     """Implementation prompt requirement: 'perform scoped reconciliation
     after successful upsert'."""
     src = _sync_src()
-    upsert_idx = src.index("Done. $sent certificates upserted to Supabase.")
+    upsert_idx = src.index("certificates upserted to Supabase")
     reconcile_idx = src.index("# ---- Reconcile certificates absent from a COMPLETE county's harvest ----")
     assert upsert_idx < reconcile_idx
 

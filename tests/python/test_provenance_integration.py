@@ -319,8 +319,8 @@ def test_F_projected_row_remains_plain_json_serializable_with_no_provenance_obje
 # ---------------------------------------------------------------------------
 
 def test_G_blocked_source_row_cannot_reach_customer_output():
-    row = dict(_REAL_TX_ROW, harvester_source="tx_pbfcm")
-    assert project_row_for_customer_output(row, "tx_pbfcm") is None
+    row = dict(_REAL_TX_ROW, harvester_source="tx_ctsa")  # tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner on 2026-10-26; tx_ctsa stays BLOCKED
+    assert project_row_for_customer_output(row, "tx_ctsa") is None
 
 
 def test_G_legal_review_required_source_row_cannot_reach_customer_output():
@@ -364,7 +364,7 @@ def test_G_integration_sync_script_never_builds_provenance_for_ungated_rows(monk
         {"account_number": "2", "county": "Nacogdoches", "state": "TX", "auction_date": "2026-10-02",
          "min_bid": 500.0, "cad_market_value": None, "legal_description": None,
          "address": "2 Main St", "cause_number": None, "latitude": None, "longitude": None,
-         "source": "laft", "harvester_source": "tx_pbfcm"},
+         "source": "laft", "harvester_source": "tx_ctsa"},
         {"account_number": "3", "county": "Harris", "state": "TX", "auction_date": "2026-10-03",
          "min_bid": 500.0, "cad_market_value": 9000.0, "legal_description": "LOT 3",
          "address": "3 Main St", "cause_number": "C-3", "latitude": None, "longitude": None,

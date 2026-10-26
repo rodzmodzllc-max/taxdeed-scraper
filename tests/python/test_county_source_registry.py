@@ -78,19 +78,29 @@ def test_r04_candidates_are_never_runnable_and_blocked_vendors_carry_no_url():
 
 def test_r05_texas_rows_are_lgbs_production_search_candidates_or_blocked_only():
     tx = [r for r in ROWS if r.state == "TX"]
-    prod = [r for r in tx if r.is_production and "AVAILABLE" in r.ledger_set]
+    VENDORS = {"tx_pbfcm", "tx_mvba", "tx_govease"}  # unblocked by the owner's decision of 2026-10-26
+    prod = [r for r in tx if r.is_production and "AVAILABLE" in r.ledger_set and r.source_id not in VENDORS]
     assert {r.county for r in prod} == {"Galveston", "Liberty", "Leon", "Maverick", "Jim Wells", "Hardin", "Van Zandt", "Goliad"}
     assert all(r.source_id == "tx_lgbs" and r.source_authority == "VENDOR_COUNSEL" and r.inventory_type == "" for r in prod)
     # The AUCTIONS-only production rows (2026-09-30) are the 24 RealAuction counties, nothing else.
-    auctions_only = [r for r in tx if r.is_production and "AVAILABLE" not in r.ledger_set]
+    auctions_only = [r for r in tx if r.is_production and "AVAILABLE" not in r.ledger_set and r.source_id not in VENDORS]
     assert len(auctions_only) == 24 and all(r.source_id == "tx_realauction" and r.ledger_set == {"AUCTIONS"} for r in auctions_only)
+    # The vendor rows mirror data/tx_vendor_counties.csv (the live roster of 2026-10-26): production
+    # verified, APPROVED_GRANDFATHERED, the owner's decision in their restrictions.
+    import csv
+    with open(REPO / "data/tx_vendor_counties.csv", newline="", encoding="utf-8") as fh:
+        roster = {(r["source_id"], r["county"]) for r in csv.DictReader(fh)}
+    vend = [r for r in tx if r.source_id in VENDORS]
+    assert {(r.source_id, r.county) for r in vend} == roster and len(roster) == 61
+    assert all(r.is_production and r.publication_status == "APPROVED_GRANDFATHERED"
+               and "Owner decision 2026-10-26" in r.restrictions for r in vend)
     cands = [r for r in tx if r.verification_status == "SEARCH_EVIDENCE_ONLY"]
     assert len(cands) == 20 and all(r.inventory_type == "" and r.source_authority == "GOVERNMENT_DIRECT" for r in cands)
     harris = csr.lookup(ROWS, "TX", "Harris")
     assert harris.governance_status == "LEGAL_REVIEW_REQUIRED" and harris.source_id == "tx_hctax" and not harris.runnable
-    blocked = [r for r in tx if r.verification_status == "BLOCKED_VENDOR_ONLY"]
-    assert len(blocked) == 14 and {r.source_id for r in blocked} == {"tx_pbfcm", "tx_mvba"}
-    assert not any("pbfcm.com" in r.canonical_url or "mvbalaw" in r.canonical_url for r in ROWS)
+    # No blocked-vendor-only rows remain; tx_ctsa (still blocked) has none and no URL anywhere.
+    assert [r for r in tx if r.verification_status == "BLOCKED_VENDOR_ONLY"] == []
+    assert not any("countytaxsaleapp" in r.canonical_url for r in ROWS)
 
 
 def test_r06_validator_catches_the_dangerous_shapes():
@@ -103,7 +113,7 @@ def test_r06_validator_catches_the_dangerous_shapes():
     bad = [
         dict(verification_status="SEARCH_EVIDENCE_ONLY"),                      # candidate naming a harvester + completeness
         dict(governance_status="LEGAL_REVIEW_REQUIRED"),                        # production under legal review
-        dict(source_id="tx_pbfcm"),                                             # blocked vendor with URL / not BLOCKED
+        dict(source_id="tx_ctsa"),                                              # blocked vendor with URL / not BLOCKED
         dict(canonical_url="http://m"),                                         # non-https
         dict(purchase_url="https://m/form"),                                    # url without kind
         dict(county="Atlantis"),                                                # unknown county

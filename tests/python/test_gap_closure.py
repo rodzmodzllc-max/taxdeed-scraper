@@ -197,9 +197,9 @@ def test_acquisition_unit_counts_after_the_sprint():
     for u in ACQ["status"]:
         by[u["status"]] = by.get(u["status"], 0) + 1
     # 2026-10-26: LRA (MO), Ramsey (MN) and Fayette (PA) processes read -> VERIFIED with records.
-    # 2026-10-26 (new-sources sprint): +15 AVAILABLE units (5 ePropertyPlus land banks, 8 Tax-Sale.info
-    # surplus counties, Hubbard MN, Saint Paul HRA) - none has a verified acquisition record yet.
-    assert len(ACQ["status"]) == 87 and by == {"VERIFIED": 29, "NEEDS_REVIEW": 6, "UNAVAILABLE": 6, "NOT_FOUND": 46}
+    # 2026-10-26: + 55 PBFCM / MVBA AVAILABLE units (owner decision), none with acquisition evidence yet;
+    # + 15 new-sources sprint units (5 ePropertyPlus land banks, 8 Tax-Sale.info surplus counties, Hubbard, Saint Paul HRA).
+    assert len(ACQ["status"]) == 142 and by == {"VERIFIED": 29, "NEEDS_REVIEW": 9, "UNAVAILABLE": 6, "NOT_FOUND": 98}
 
 
 # ------------------------------------------------------------------ A2 county procedure rules
@@ -258,11 +258,12 @@ def test_gap_queue_is_generated_from_the_records_and_pinned():
     assert out.returncode == 0, out.stdout
     doc = json.loads((ROOT / "data/current_state/gap-queue.json").read_text(encoding="utf-8"))
     assert doc == GQ.build()
-    assert doc["denominators"]["acquisition_units"] == 87 and doc["denominators"]["acquisition_unresolved"] == 58   # 46 before the 2026-10-26 LRA / Ramsey / Fayette reads
+    # 46 before the 2026-10-26 LRA / Ramsey / Fayette reads; 98 with the PBFCM / MVBA units of the same day.
+    assert doc["denominators"]["acquisition_units"] == 142 and doc["denominators"]["acquisition_unresolved"] == 113   # + 15 new-sources units
     assert doc["denominators"]["state_ledger_units"] == 39
     assert set(doc["summary"]["by_category"]) <= set(GQ.CATEGORIES)
     # 33 state-ledger units before the owner's 2026-10-26 publication decision cleared six APPROVAL_UNRESOLVED ones
-    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 58 + 27   # 43 before the 2026-10-26 new-sources sprint
+    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 43 + 55 + 15 + 27   # + 55 PBFCM / MVBA and 15 new-sources AVAILABLE units (2026-10-26)
     for u in doc["units"]:
         assert u["category"] in GQ.CATEGORIES and u["next_action"] and u["source_accessible"] and "reason" in u
         assert u["completable_now"] == (u["category"] == "A")
@@ -274,7 +275,8 @@ def test_gap_queue_is_generated_from_the_records_and_pinned():
     assert by[("TN", "*", "", "AVAILABLE")]["category"] == "C"                            # published 2026-10-26; process not verified
     assert by[("LA", "*", "", "AVAILABLE")]["category"] == "A"                            # fix exists, awaiting deploy
     assert by[("FL", "*", "", "LIENS_CERTIFICATES")]["category"] == "D"                  # LienHub 403
-    assert by[("TX", "*", "", "AUCTIONS")]["category"] == "E"                             # manual-only by owner decision
+    # Since 2026-10-26 Texas reads daily and the owner unblocked GovEase / PBFCM / MVBA: no longer an owner decision (E).
+    assert by[("TX", "*", "", "AUCTIONS")]["category"] == "A"
     assert ("MI", "Wayne", "mi_detroit_landbank_lots", "AVAILABLE") not in by             # closed this sprint
 
 

@@ -1,8 +1,9 @@
 """New-sources sprint (owner decision 2026-10-26): every source added in this
 sprint parses fixtures shaped exactly like the live responses read on
 2026-10-26 (field names, header labels, page structure - every VALUE below is
-synthetic), is collected for admins and never customer-published, and holds
-only owner-accepted INTERIM permission records (never display)."""
+synthetic), is collected and customer-published on the owner's decision of
+2026-10-26 ("Do not block vendors. Post their shit"), and holds only
+owner-accepted INTERIM permission records (never redistribute)."""
 from __future__ import annotations
 
 import dataclasses
@@ -40,7 +41,7 @@ def _src(source_id, county=None):
 
 # ---------------------------------------------------------------- governance --
 
-def test_every_new_source_is_unreviewed_collected_and_never_displayed():
+def test_every_new_source_is_collected_and_owner_published_on_interim_records():
     assert EX.NEW_SOURCE_IDS
     perms = PERM.Permissions.from_file()
     for sid in EX.NEW_SOURCE_IDS:
@@ -48,14 +49,14 @@ def test_every_new_source_is_unreviewed_collected_and_never_displayed():
         st = src.config.state
         reg = SP.registry_with_reviews(st, reviews={})[0]
         row = reg[sid]
-        assert row.is_production and row.publication_status == "UNREVIEWED", sid
-        assert "Owner decision 2026-10-26" in row.restrictions
-        assert SP.collectable(row, src.config.record_source) and not SP.publishable(row), sid
+        assert row.is_production and row.publication_status == "APPROVED", sid
+        assert row.restrictions.startswith("Owner approved customer publication 2026-10-26; legal review pending")
+        assert SP.collectable(row, src.config.record_source) and SP.publishable(row), sid
         assert SP.owner_collection(row)
-        for op in ("discover", "fetch", "parse", "store"):
+        for op in ("discover", "fetch", "parse", "store", "display", "link"):
             d = perms.authorize(sid, op, state=st, today=DAY)
             assert d.allowed and d.basis == "INTERIM", (sid, op, d.reason_code)
-        assert perms.authorize(sid, "display", state=st, today=DAY).reason_code == "NO_RECORD"
+        assert perms.authorize(sid, "redistribute", state=st, today=DAY).reason_code == "NO_RECORD"
         assert not perms.authorize(sid, "fetch", state=st, today=date(2027, 4, 13)).allowed       # expires
         want = {"auction": Ledger.AUCTIONS, "laft": Ledger.AVAILABLE, "certificate": Ledger.LIENS_CERTIFICATES}
         assert SOURCE_LEDGERS[sid] == {want[src.config.record_source]}, sid

@@ -66,8 +66,8 @@ STORE_SOURCES = {
     ("FL", "certificate"): (("fl_lienhub_certificates",), "county_held_certificates"),
     # Texas (2026-10-26): the LGBS / RealAuction sync never set last_seen_at,
     # so every Texas row read as never-read ("unknown") after each harvest.
-    ("TX", "laft"): (("tx_lgbs",), "tax_sale_listing"),
-    ("TX", "auction"): (("tx_lgbs", "tx_realauction"), "tax_sale_listing"),
+    ("TX", "laft"): (("tx_lgbs", "tx_pbfcm", "tx_mvba"), "tax_sale_listing"),
+    ("TX", "auction"): (("tx_lgbs", "tx_realauction", "tx_pbfcm", "tx_mvba", "tx_govease"), "tax_sale_listing"),
 }
 PERMISSION_DENIED_EXIT = 3
 
@@ -131,13 +131,17 @@ def _quote(v: str) -> str:
     return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def patch_urls(base: str, state: str, source: str, by_county: dict[str, list[str]]) -> list[str]:
+def patch_urls(base: str, state: str, source: str, by_county: dict[str, list[str]], stale_before: str | None = None) -> list[str]:
+    """One PATCH URL per county chunk. With `stale_before`, only rows whose
+    last_seen_at is missing or older than that instant match (2026-10-26:
+    a row stamped earlier the same day is not rewritten - write_diff)."""
     urls = []
     for county, cases in by_county.items():
         for i in range(0, len(cases), CHUNK):
             chunk = cases[i:i + CHUNK]
             q = urllib.parse.urlencode({"state": f"eq.{state}", "source": f"eq.{source}", "county": f"eq.{county}",
-                                        "case_no": "in.(" + ",".join(_quote(c) for c in chunk) + ")"})
+                                        "case_no": "in.(" + ",".join(_quote(c) for c in chunk) + ")",
+                                        **({"or": f"(last_seen_at.is.null,last_seen_at.lt.{stale_before})"} if stale_before else {})})
             urls.append(f"{base.rstrip('/')}/rest/v1/properties?{q}")
     return urls
 
@@ -401,7 +405,8 @@ def main(argv=None) -> int:
     seen_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     body = json.dumps({"last_seen_at": seen_at}).encode()
     stamped = failed = 0
-    for url in patch_urls(base, a.state.upper(), a.source, by_county):
+    import write_diff  # noqa: PLC0415 - scripts/ is on sys.path when run as a script
+    for url in patch_urls(base, a.state.upper(), a.source, by_county, stale_before=write_diff.stale_before()):
         req = urllib.request.Request(url, data=body, method="PATCH", headers={
             "apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json",
             "Prefer": "return=representation,count=exact", "User-Agent": USER_AGENT})
@@ -413,7 +418,8 @@ def main(argv=None) -> int:
             print(f"::warning title=stamp_seen::a chunk was not stamped ({type(exc).__name__})")
     total = sum(len(v) for v in by_county.values())
     print(f"{a.state} {a.source}: {total} identities read this run across {len(by_county)} county unit(s); "
-          f"{stamped} stored row(s) stamped last_seen_at={seen_at}; {failed} chunk(s) failed")
+          f"{stamped} stored row(s) stamped last_seen_at={seen_at} (rows stamped in the last "
+          f"{write_diff.FRESH_HOURS} h are left as they are); {failed} chunk(s) failed")
     if a.provenance and a.source in PROVENANCE_COLUMNS:
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         read, patched, pfailed = stamp_provenance(base, key, state=a.state.upper(), source=a.source, rows=rows, by_county=by_county,

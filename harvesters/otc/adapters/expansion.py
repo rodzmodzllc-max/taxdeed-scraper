@@ -749,6 +749,8 @@ MI_TSI_SURPLUS = tuple(TSI.TaxSaleInfoConfig(
     notes="Tax-Sale.info surplus property catalogs: lots that failed to sell at the county's tax-foreclosure auction, "
           "re-offered first come first served through the site's surplus lot request form. The catalog's 'Minimum Bid' is "
           "kept as a published amount of unspecified kind.") for c in TSI.SURPLUS_COUNTIES)
+# Owner decision 2026-10-26: every new source of the new-sources sprint (collected and customer-published).
+NEW_SOURCE_IDS = frozenset(c.source_id for c in NEW_EPP_SOURCES + NEW_TABLE_SOURCES + MI_TSI_AUCTIONS + MI_TSI_SURPLUS)
 
 
 HELD_AVAILABLE = ("AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for "
@@ -776,8 +778,10 @@ PUBLICATION = {
     "wi_green_tax_deed_sales": ("APPROVED", OWNER_APPROVED_2026_09_30),
     "co_douglas_county_held_liens": ("APPROVED", DOUGLAS_CC_BY_SA),
     "co_douglas_tax_sale_list": ("APPROVED", DOUGLAS_CC_BY_SA),
-    **{c.source_id: ("UNREVIEWED", OWNER_INTERIM_2026_10_26) for c in NEW_EPP_SOURCES + NEW_TABLE_SOURCES + MI_TSI_AUCTIONS[:1] + MI_TSI_SURPLUS[:1]},
-} | {sid: ("APPROVED", OWNER_APPROVED_2026_10_26) for sid in sorted(OWNER_APPROVED_2026_10_26_SOURCE_IDS)}
+} | {sid: ("APPROVED", OWNER_APPROVED_2026_10_26) for sid in sorted(OWNER_APPROVED_2026_10_26_SOURCE_IDS)
+     # New-sources sprint (owner decision 2026-10-26, "Do not block vendors. Post their shit"): published to
+     # customers on the same internal risk acceptance - INTERIM display / link records, legal review pending.
+     } | {sid: ("APPROVED", OWNER_APPROVED_2026_10_26) for sid in sorted(NEW_SOURCE_IDS)}
 
 
 @dataclass(frozen=True)
@@ -829,5 +833,4 @@ AVAILABLE_SPRINT_SOURCE_IDS = frozenset({"mi_detroit_landbank_lots", "mi_detroit
 AVAILABLE_FIVE_SOURCE_IDS = frozenset({"mo_stl_lra_inventory", "ok_oklahoma_county_owned", "pa_fayette_repository",
                                        "mn_ramsey_tax_forfeit"})
 TN_SOURCE_IDS = frozenset({"tn_shelby_landbank"})
-# Owner decision 2026-10-26: every new source of the new-sources sprint.
-NEW_SOURCE_IDS = frozenset(c.source_id for c in NEW_EPP_SOURCES + NEW_TABLE_SOURCES + MI_TSI_AUCTIONS + MI_TSI_SURPLUS)
+

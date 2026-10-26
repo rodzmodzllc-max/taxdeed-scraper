@@ -39,7 +39,8 @@ from harvesters.otc.adapters.expansion import OWNER_APPROVED_2026_10_26_SOURCE_I
 
 def _day(source_id: str) -> date:
     # Sarasota Tax Collector county-held certificates: also the owner's 2026-10-26 decision.
-    return OWNER_DAY if source_id in OWNER_IDS or source_id == "fl_sarasota_tc_certificates" or source_id in EX.NEW_SOURCE_IDS else DAY
+    return OWNER_DAY if (source_id in OWNER_IDS or source_id == "fl_sarasota_tc_certificates"
+                         or source_id in ("tx_pbfcm", "tx_mvba", "tx_govease") or source_id in EX.NEW_SOURCE_IDS) else DAY
 
 
 def perms(*rows, base=False, **kw):
@@ -195,48 +196,73 @@ def test_allowances_expire_and_are_reported_before_they_do():
 
 # --- 2. hard blocks ---------------------------------------------------------------
 
+# OWNER_DAY (above) is also the day of the owner's decision to unblock tx_pbfcm / tx_mvba / tx_govease.
+TX_VENDORS = ("tx_pbfcm", "tx_mvba", "tx_govease")
+
+
 def test_hard_blocked_vendors_match_the_registry_constant():
-    assert PERM.HARD_BLOCKED_SOURCE_IDS >= set(BLOCKED_SOURCE_IDS) >= {"tx_govease", "tx_pbfcm", "tx_mvba", "tx_ctsa"}
+    # 2026-10-26: the owner lifted the block on PBFCM, MVBA and GovEase; CTSA (paywall) stays blocked.
+    assert PERM.HARD_BLOCKED_SOURCE_IDS >= set(BLOCKED_SOURCE_IDS) == {"tx_ctsa"}
+    assert not set(TX_VENDORS) & PERM.HARD_BLOCKED_SOURCE_IDS
 
 
 @pytest.mark.parametrize("op", PERM.OPERATIONS)
-def test_govease_is_denied_for_every_operation(op):
-    d = PERM.Permissions.from_file().authorize("tx_govease", op, state="TX", today=DAY)
+def test_ctsa_is_denied_for_every_operation(op):
+    d = PERM.Permissions.from_file().authorize("tx_ctsa", op, state="TX", today=OWNER_DAY)
     assert not d.allowed and d.reason_code == "HARD_BLOCKED"
 
 
-def test_govease_cannot_be_unblocked_by_editing_the_record():
+@pytest.mark.parametrize("sid", TX_VENDORS)
+def test_owner_unblocked_vendors_hold_an_interim_risk_acceptance_only(sid):
+    p = PERM.Permissions.from_file()
+    for op in ("discover", "fetch", "parse", "store", "display", "link"):
+        d = p.authorize(sid, op, state="TX", today=OWNER_DAY)
+        # Allowed, but never as documented permission: an interim internal risk acceptance that expires.
+        assert d.allowed and d.basis == "INTERIM" and not d.documented, (sid, op, d.reason_code)
+        assert not p.authorize(sid, op, state="TX", today=date(2027, 4, 13)).allowed
+        assert not p.authorize(sid, op, state="TX", today=date(2026, 10, 25)).allowed  # not before the decision
+    for op in ("enrich", "redistribute", "fetch_via_proxy"):
+        assert not p.authorize(sid, op, state="TX", today=OWNER_DAY).allowed, (sid, op)
+    recs = [r for r in csv.DictReader(PERM.PERMISSIONS_CSV.open(encoding="utf-8")) if r["source_id"] == sid
+            and r["status"] != "BLOCKED"]
+    assert recs and all(r["evidence_type"] == "INTERNAL_RISK_ACCEPTANCE" and "2026-10-26" in r["reason"]
+                        and "legal review pending" in r["reason"] for r in recs)
+
+
+def test_ctsa_cannot_be_unblocked_by_editing_the_record():
     for status, ev in (("APPROVED", "PUBLISHED_LICENSE"), ("OWNER_PERMISSION_REQUIRED", "INTERNAL_RISK_ACCEPTANCE"),
                        ("LINK_ONLY", "NO_EVIDENCE"), ("UNKNOWN", "GRANDFATHERED_PRACTICE")):
-        p = perms(record(source_id="tx_govease", jurisdiction="TX", operation="link", status=status, evidence_type=ev))
+        p = perms(record(source_id="tx_ctsa", jurisdiction="TX", operation="link", status=status, evidence_type=ev))
         assert p.error and "hard-blocked in code" in p.error
-        assert not p.authorize("tx_govease", "link", state="TX", today=DAY).allowed
+        assert not p.authorize("tx_ctsa", "link", state="TX", today=DAY).allowed
 
 
 def test_stale_or_missing_evidence_cannot_unblock_govease():
     rows = [r for r in csv.DictReader(PERM.PERMISSIONS_CSV.open(encoding="utf-8")) if r["source_id"] != "tx_govease"]
-    p = permissions_with(*rows, base=False)  # GovEase rows removed entirely
-    assert p.error is None and not p.authorize("tx_govease", "fetch", state="TX", today=DAY).allowed
+    p = permissions_with(*rows, base=False)  # GovEase rows removed entirely: no record, no access
+    assert p.error is None and not p.authorize("tx_govease", "fetch", state="TX", today=OWNER_DAY).allowed
 
 
-def test_govease_block_holds_on_every_other_layer():
+def test_ctsa_block_holds_and_govease_runs_through_every_other_layer():
     from harvesters.governance.gate import check_ingestion_gate
     from harvesters.governance.registry import SOURCE_REGISTRY, SourceStatus
     from harvesters.sources import acquisition_gate as AG
-    assert SOURCE_REGISTRY["tx_govease"].legal_status == SourceStatus.BLOCKED
-    assert not check_ingestion_gate("tx_govease").allowed
+    assert SOURCE_REGISTRY["tx_ctsa"].legal_status == SourceStatus.BLOCKED
+    assert not check_ingestion_gate("tx_ctsa").allowed
+    assert SOURCE_REGISTRY["tx_govease"].legal_status == SourceStatus.APPROVED
+    assert check_ingestion_gate("tx_govease").allowed
+    # A GovEase page is still not a trusted PURCHASE path (it is the auction listing, not an acquisition page).
     assert "govease.com" in AG.UNTRUSTED_HOSTS if hasattr(AG, "UNTRUSTED_HOSTS") else "govease.com" in Path(AG.__file__).read_text()
     import texas_harvester as TH
-    with pytest.raises(NotImplementedError):
-        TH.harvest_govease()
+    assert TH.SOURCES["tx_govease"] is TH.harvest_govease and "tx_ctsa" not in TH.SOURCES
 
 
 def test_a_publication_review_cannot_publish_a_blocked_vendor(monkeypatch):
     import source_publication as SP
-    bad = {("TX", "tx_govease"): {"id": 9, "state": "TX", "source_id": "tx_govease", "publication_status": "APPROVED",
-                                  "restrictions": "", "decided_at": "2026-10-12T00:00:00Z"}}
+    bad = {("TX", "tx_ctsa"): {"id": 9, "state": "TX", "source_id": "tx_ctsa", "publication_status": "APPROVED",
+                               "restrictions": "", "decided_at": "2026-10-12T00:00:00Z"}}
     reg, _ = SP.registry_with_reviews("TX", reviews=bad)
-    assert not SP.publishable(reg.get("tx_govease")) and not SP.collectable(reg.get("tx_govease"), "auction")
+    assert not SP.publishable(reg.get("tx_ctsa")) and not SP.collectable(reg.get("tx_ctsa"), "auction")
 
 
 # --- 3. parity and wired entry points ------------------------------------------------

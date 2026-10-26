@@ -486,7 +486,7 @@ def test_14b_no_other_source_was_activated_by_this_phase():
         assert check_acquisition_policy(
             source_id, purpose=AcquisitionPurpose.PRODUCTION_ACQUISITION, state="FL", county="Alachua"
         ).allowed is False
-    for blocked in ("tx_pbfcm", "tx_mvba", "tx_ctsa", "tx_govease"):
+    for blocked in ("tx_ctsa",):  # tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner on 2026-10-26; tx_ctsa stays BLOCKED
         for purpose in AcquisitionPurpose:
             assert check_acquisition_policy(blocked, purpose=purpose).allowed is False
 

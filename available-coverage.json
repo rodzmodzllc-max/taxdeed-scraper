@@ -304,54 +304,6 @@
    "candidates": [
     {
      "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Arenac",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MI:Arenac:mi_tax_sale_info_surplus",
-     "url": "https://www.tax-sale.info/surplus"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Bay",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MI:Bay:mi_tax_sale_info_surplus",
-     "url": "https://www.tax-sale.info/surplus"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Calhoun",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MI:Calhoun:mi_calhoun_landbank",
-     "url": "https://public-cclb.epropertyplus.com/landmgmtpub/app/base/landing"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Jackson",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MI:Jackson:mi_tax_sale_info_surplus",
-     "url": "https://www.tax-sale.info/surplus"
-    },
-    {
-     "access": "ACCESSIBLE",
      "availability": "CURRENT_INVENTORY",
      "county": "Lenawee",
      "governance": "REVIEW_REQUIRED",
@@ -361,100 +313,25 @@
      "read_at": "2026-10-02T13:00:41Z",
      "source_id": "mi_lenawee_landbank",
      "url": "https://www.lenawee.mi.us/850/Lenawee-County-Landbank-Authority"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Monroe",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MI:Monroe:mi_tax_sale_info_surplus",
-     "url": "https://www.tax-sale.info/surplus"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Montcalm",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MI:Montcalm:mi_tax_sale_info_surplus",
-     "url": "https://www.tax-sale.info/surplus"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Oceana",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MI:Oceana:mi_tax_sale_info_surplus",
-     "url": "https://www.tax-sale.info/surplus"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Otsego",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MI:Otsego:mi_tax_sale_info_surplus",
-     "url": "https://www.tax-sale.info/surplus"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Presque Isle",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MI:Presque Isle:mi_tax_sale_info_surplus",
-     "url": "https://www.tax-sale.info/surplus"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Saginaw",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MI:Saginaw:mi_saginaw_landbank",
-     "url": "https://public-sclb.epropertyplus.com/landmgmtpub/app/base/landing"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Wayne",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MI:Wayne:mi_wayne_county_landbank",
-     "url": "https://public-wclb.epropertyplus.com/landmgmtpub/app/base/landing"
     }
    ],
    "last_reads": {
-    "UNKNOWN": 3
+    "UNKNOWN": 14
    },
    "production_counties": [
+    "Arenac",
+    "Bay",
+    "Calhoun",
+    "Jackson",
+    "Monroe",
+    "Montcalm",
     "Oceana",
+    "Otsego",
+    "Presque Isle",
+    "Saginaw",
     "Wayne"
    ],
-   "production_sources": 3,
+   "production_sources": 14,
    "rejected": [],
    "research": {
     "checked_on": "2026-10-02",
@@ -468,66 +345,30 @@
    "status": "SOURCE_TRACKED"
   },
   {
-   "candidates": [
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Hubbard",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MN:Hubbard:mn_hubbard_tfl_otc",
-     "url": "https://services.arcgis.com/auNjCUvKlkSqV04X/arcgis/rest/services/TFL_Sales_view/FeatureServer/0"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Ramsey",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MN:Ramsey:mn_stpaul_hra_properties",
-     "url": "https://services1.arcgis.com/9meaaHE3uiba0zr8/arcgis/rest/services/HRA_Owned_Parcels_for_Sale/FeatureServer/0"
-    }
-   ],
+   "candidates": [],
    "last_reads": {
-    "UNKNOWN": 1
+    "UNKNOWN": 3
    },
    "production_counties": [
+    "Hubbard",
     "Ramsey"
    ],
-   "production_sources": 1,
+   "production_sources": 3,
    "rejected": [],
    "research": {},
    "state": "MN",
    "status": "SOURCE_TRACKED"
   },
   {
-   "candidates": [
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Jackson",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MO:Jackson:mo_kc_landbank",
-     "url": "https://public-kclb.epropertyplus.com/landmgmtpub/app/base/landing"
-    }
-   ],
+   "candidates": [],
    "last_reads": {
-    "UNKNOWN": 1
+    "UNKNOWN": 2
    },
    "production_counties": [
+    "Jackson",
     "St. Louis City"
    ],
-   "production_sources": 1,
+   "production_sources": 2,
    "rejected": [],
    "research": {},
    "state": "MO",
@@ -548,27 +389,15 @@
    "status": "SOURCE_TRACKED"
   },
   {
-   "candidates": [
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Allegheny",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "PA:Allegheny:pa_pittsburgh_city_property",
-     "url": "https://public-pgh.epropertyplus.com/landmgmtpub/app/base/landing"
-    }
-   ],
+   "candidates": [],
    "last_reads": {
-    "UNKNOWN": 1
+    "UNKNOWN": 2
    },
    "production_counties": [
+    "Allegheny",
     "Fayette"
    ],
-   "production_sources": 1,
+   "production_sources": 2,
    "rejected": [],
    "research": {},
    "state": "PA",
@@ -946,23 +775,78 @@
     }
    ],
    "last_reads": {
-    "FAILED": 8
+    "COMPLETE": 38,
+    "EMPTY": 8,
+    "FAILED": 8,
+    "INCOMPLETE": 9
    },
    "production_counties": [
+    "Archer",
+    "Austin",
+    "Bandera",
+    "Bastrop",
+    "Bell",
+    "Brazoria",
+    "Brewster",
+    "Brown",
+    "Caldwell",
+    "Cameron",
+    "Chambers",
+    "Cherokee",
+    "Childress",
+    "Clay",
+    "Comal",
+    "Dickens",
+    "Dimmit",
+    "Foard",
+    "Fort Bend",
     "Galveston",
     "Goliad",
+    "Gregg",
+    "Hardeman",
     "Hardin",
+    "Harris",
+    "Hays",
+    "Hill",
+    "Houston",
+    "Hunt",
+    "Jack",
+    "Jasper",
     "Jim Wells",
+    "Johnson",
+    "Knox",
     "Leon",
     "Liberty",
+    "Matagorda",
     "Maverick",
-    "Van Zandt"
+    "Milam",
+    "Montague",
+    "Montgomery",
+    "Nacogdoches",
+    "Newton",
+    "Palo Pinto",
+    "Panola",
+    "Reeves",
+    "Runnels",
+    "San Jacinto",
+    "Tarrant",
+    "Throckmorton",
+    "Uvalde",
+    "Val Verde",
+    "Van Zandt",
+    "Walker",
+    "Waller",
+    "Washington",
+    "Wichita",
+    "Wilbarger",
+    "Young",
+    "Zavala"
    ],
-   "production_sources": 8,
+   "production_sources": 63,
    "rejected": [],
    "research": {},
    "state": "TX",
-   "status": "SOURCE_UNAVAILABLE"
+   "status": "SOURCE_TRACKED"
   },
   {
    "candidates": [],

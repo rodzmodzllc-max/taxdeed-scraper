@@ -235,7 +235,8 @@ def test_permission_denied_exits_3(monkeypatch):
 
 
 def test_both_texas_sources_hold_the_store_permission_the_closeout_needs():
-    assert TC.store_permitted() == ALL
+    # + the vendors the owner unblocked on 2026-10-26 (their store records take effect that day).
+    assert TC.store_permitted() == ALL | {"tx_pbfcm", "tx_mvba", "tx_govease"}
 
 
 def test_closeout_reuses_the_shared_close_rule():

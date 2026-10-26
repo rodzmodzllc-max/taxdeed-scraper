@@ -185,6 +185,9 @@ def _store_permitted(source_id) -> bool:
     return _STORE_CACHE[source_id]
 from harvesters.texas_harvester import build_row_provenance  # noqa: E402  (Phase 12)
 
+sys.path.insert(0, str(HERE))
+import write_diff_filter as WRITE_DIFF_FILTER  # noqa: E402  (write only what changed, 2026-10-26)
+
 BATCH_SIZE = 40  # matches the FL sync scripts' batch size
 
 # RESTORED 2026-09-14: migrations 002_add_texas_support.sql,
@@ -451,6 +454,19 @@ def main() -> None:
         return
     print(f"Prepared {len(rows)} properties ({skipped} skipped for missing case_no/county/source).", file=sys.stderr)
 
+    # Write only what changed (2026-10-26, scripts/write_diff.py): a row whose
+    # stored copy already holds the same values is not upserted again (every
+    # rewrite bumps updated_at and leaves a dead tuple). Fails open: when the
+    # stored rows cannot be read, every row is written as before. Close-out
+    # (scripts/texas_closeout.py) reads the harvest status, never this payload.
+    harvested_rows = rows
+    rows, _diff_counts = WRITE_DIFF_FILTER.filter_rows(rows, state="TX", base=supabase_url, key=service_key,
+                                                      label="texas")
+    if not rows:
+        print(f"Nothing changed: all {len(harvested_rows)} harvested properties already stored as read.",
+              file=sys.stderr)
+        return
+
     endpoint = f"{supabase_url}/rest/v1/properties?on_conflict=state,source,county,case_no"
     headers = {
         "apikey": service_key,
@@ -514,8 +530,9 @@ def main() -> None:
             sent += len(batch)
             print(f"  synced {sent} / {len(rows)} ({label})", file=sys.stderr)
 
-    counties = len({r["county"] for r in rows})
-    print(f"Done. {sent} Texas properties upserted to Supabase (existing hand research untouched).", file=sys.stderr)
+    counties = len({r["county"] for r in harvested_rows})
+    print(f"Done. {sent} of {len(harvested_rows)} Texas properties upserted to Supabase "
+          f"({len(harvested_rows) - sent} unchanged, not rewritten; existing hand research untouched).", file=sys.stderr)
     print(f"Counties covered: {counties}", file=sys.stderr)
     print(
         f"Provenance (Phase 12, audit-only, not persisted): {provenance_by_source} "

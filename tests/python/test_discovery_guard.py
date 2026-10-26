@@ -29,7 +29,8 @@ from permission_fixtures import install as install_perms  # noqa: E402
 from permission_fixtures import record  # noqa: E402
 
 SCRIPTS = ("capture_available_sources", "capture_pioneer_statements", "capture_purchase_evidence", "capture_sc_available",
-           "capture_state_sources", "capture_tn_shelby", "discover_sources", "probe_fdor_starvation", "probe_field_fill")
+           "capture_state_sources", "capture_tn_shelby", "capture_tx_vendors", "discover_sources", "probe_fdor_starvation",
+           "probe_field_fill")
 
 IDX = [DG.Target("zz_ok", "ZZ", None, "ok.example.gov", "/list"),
        DG.Target("zz_other", "ZZ", None, "shared.example.gov", "/a"),
@@ -171,23 +172,25 @@ def test_project_database_host_is_not_a_source(monkeypatch, transport):
 
 # --- the real repository today --------------------------------------------------
 
-def test_only_owner_decision_sources_hold_a_discover_permission():
-    # The only discover records besides the four BLOCKED vendors are owner-accepted
-    # INTERIM records of 2026-10-26: TaxSys' one-read record (hosts in no index table)
-    # and the new-sources sprint's sources; every other mapped source is still refused.
+OWNER_VENDORS = {"tx_pbfcm", "tx_mvba", "tx_govease"}  # discover recorded with the owner's decision of 2026-10-26
+VENDOR_HOSTS = {"www.pbfcm.com", "mvbalaw.com", "www.mvbataxsales.com", "liveauctions.govease.com"}
+
+
+def test_only_owner_recorded_sources_hold_a_discover_permission():
+    # Evidence capture needs an owner-recorded discover permission per source. On file: the three
+    # Texas vendors the owner unblocked on 2026-10-26, and the interim one-read record for TaxSys'
+    # county-held reports (whose hosts are in no index table).
     allowing = [r for r in PERM.Permissions.from_file().records if r.operation == "discover" and r.status != "BLOCKED"]
-    assert allowing and all(r.evidence_type == "INTERNAL_RISK_ACCEPTANCE" and str(r.expires_on) == "2027-04-12"
-                            for r in allowing)
-    from harvesters.otc.adapters import expansion as EX  # noqa: PLC0415
-    owner = {r.source_id for r in allowing}
-    assert owner - {"fl_taxsys_county_held"} <= set(EX.NEW_SOURCE_IDS) and "fl_taxsys_county_held" in owner
+    from harvesters.otc.adapters import expansion as EX  # noqa: PLC0415 - + the new-sources sprint (2026-10-26)
+    assert {r.source_id for r in allowing} == OWNER_VENDORS | {"fl_taxsys_county_held"} | set(EX.NEW_SOURCE_IDS)
+    assert all(r.evidence_type == "INTERNAL_RISK_ACCEPTANCE" and r.expires_on == "2027-04-12" for r in allowing)
     g = DG.Guard("t")
-    hosts = sorted({t.host for t in g.index if t.source_id not in owner})
-    assert hosts and not any(g.decide(f"https://{h}/").allowed for h in hosts
-                             if not any(t.host == h and t.source_id in owner for t in g.index))
+    new_hosts = {t.host for t in g.index if t.source_id in EX.NEW_SOURCE_IDS}
+    hosts = sorted({t.host for t in g.index})
+    assert hosts and not any(g.decide(f"https://{h}/").allowed for h in hosts if h not in VENDOR_HOSTS | new_hosts)
 
 
-@pytest.mark.parametrize("url", ["https://liveauctions.govease.com/tx/denton", "https://www.govease.com/",
+@pytest.mark.parametrize("url", ["https://www.govease.com/", "https://countytaxsaleapp.org/",
                                  "https://taxsales.lgbs.com/api/property_sales/", "https://lienhub.com/doc/terms"])
 def test_blocked_and_restricted_vendors_are_refused(url):
     assert not DG.Guard("t").decide(url).allowed
