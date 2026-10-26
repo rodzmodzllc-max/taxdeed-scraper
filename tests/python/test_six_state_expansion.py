@@ -208,7 +208,8 @@ def test_a04_wisconsin_current_empty_statement_and_previous_published_sales(tmp_
 # ==================== 4. failures ====================
 
 def test_f01_error_payload_transport_failure_and_missing_table_are_failed_never_empty():
-    arc = next(s for s in EX.SOURCES["WY"])
+    # Albany WY's list is superseded (2026-10-26: never requested live), so a live ArcGIS source stands in.
+    arc = next(s for s in EX.SOURCES["SC"] if s.kind == "arcgis")
     status, recs, cat, _, _ = HX.run_source(arc, lambda url: {"error": {"code": 500, "message": "x"}}, None, retrieved_at=T)
     assert status == "FAILED" and recs == []
 

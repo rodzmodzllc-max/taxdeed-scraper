@@ -235,6 +235,13 @@ def link_property_pages(cfg, recs, fetch_text, *, offline: bool) -> int:
 def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None = None, fetch_bytes=None):
     """-> (status, records, category, detail, empty_signal)."""
     cfg = src.config
+    if getattr(cfg, "superseded", None) and not fixture:
+        # The county's own pages say this list's sale is over and name the
+        # next one (Albany WY: the 2026 sale; owner decision 2026-10-26 to
+        # close its rows). No request is made; the read is EMPTY with its own
+        # signal, so the sync's close-out closes the stored rows - closed, never
+        # sold (no result is published).
+        return "EMPTY", [], None, None, "superseded_list"
     if src.kind == "arcgis":
         if fixture:
             payload = json.loads(Path(fixture).read_text(encoding="utf-8"))
