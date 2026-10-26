@@ -1371,7 +1371,11 @@ const state = {
   // saveable ones). watchStatus is per-user, so it is a list filter only.
   taxableMin: null, imagery: "any", acqState: "any", acqMode: "any", watchStatus: "any", freshDays: null, saleFrom: "", saleTo: "", sourceId: "any",
   includeQT: false, maxBidPct: 40,
-  statusView: "all",
+  // Header revision (2026-10-25): the default view is current listings only -
+  // a row that left its list, or an auction the county's current sale list no
+  // longer carries, is not shown to customers. Administrators can pick another
+  // view inside Filters (#statusViewSelect).
+  statusView: "live",
   ledger: "auction",
   // Which state this is used to be a mutable filter here (`region`), toggled
   // by clicking a tab while the frontend fetched the whole table and hid the
@@ -1383,6 +1387,9 @@ const state = {
   // Counties the user has expanded via a county-group's <details> disclosure.
   // Re-applied on every render() since render() rebuilds #main from scratch.
   expandedCounties: new Set(),
+  // Every county group is open unless the reader closed it (2026-10-25: the
+  // "Expand / Collapse all" control is gone).
+  collapsedCounties: new Set(),
   counties: new Set(), types: new Set(TYPE_ORDER), liens: new Set(LIEN_ORDER)
 };
 
@@ -1427,7 +1434,13 @@ let SHELL_UI = { gsTimer: null, gsActive: -1, gsMatches: [], picker: null };
 // totals and the Map all use it, so one county reads the same figure in each
 // (2026-10-23). The Map and the List's own filters apply on top of it.
 function countsToward(p) {
-  return !HIDDEN.has(p.id) && !goneExpired(p) && !isPastDue(p);
+  return !HIDDEN.has(p.id) && !goneExpired(p) && !isPastDue(p) && isCurrentListing(p);
+}
+// A listing that is still on its source's current list: not marked gone, and
+// (auctions) not missing from the county's latest sale-list read. Counts,
+// tabs and the default List view use only these (2026-10-25).
+function isCurrentListing(p) {
+  return !isGone(p) && !offCurrentSaleList(p);
 }
 function goneExpired(p) {
   if (!isGone(p) || !p.gone_since) return false;
@@ -4636,7 +4649,7 @@ function applyCountySelection(v) {
   if (v !== "ALL") {
     const keys = new Set([v]);
     ALL.forEach(p => { if (p.county === v) keys.add(groupKeyOf(p.source, v, p.sale_date)); });
-    keys.forEach(k => state.expandedCounties.add(k));
+    keys.forEach(k => { state.expandedCounties.add(k); state.collapsedCounties.delete(k); });
   }
   buildAllChips();
   // A state whose universe is one county (its selection can never be
@@ -4754,8 +4767,8 @@ function passes(p) {
   if (archiving) { if (!isPastDue(p)) return false; }
   else if (isPastDue(p)) return false;
   if (!archiving) {
-    if (state.statusView === "gone" && !isGone(p)) return false;
-    if (state.statusView === "live" && isGone(p)) return false;
+    if (state.statusView === "gone" && isCurrentListing(p)) return false;
+    if (state.statusView === "live" && !isCurrentListing(p)) return false;
   }
   // Defensive state gate - loadAll() below only ever fetches rows for
   // PAGE_STATE via the get_properties(p_state, ...) RPC, so this should
@@ -4869,6 +4882,8 @@ function bidListBtnHtml(p, compact) {
     : pending ? "Watchlist is full - queued, will be added automatically once a slot frees up (tap to cancel)"
     : `Add to watchlist (max ${BID_LIST_MAX})`;
   const cls = on ? " on" : pending ? " pending" : "";
+  // Cards (2026-10-25): a short label beside the card's one action.
+  if (compact === "card") return `<button class="icon-btn bid-btn${cls}" data-action="bidlist" data-pid="${p.id}" type="button" title="${esc(label)}" aria-label="${esc(label)}">${on ? "⚑ Watching" : pending ? "⏳ Queued" : "⚐ Watchlist"}</button>`;
   if (compact) {
     return `<button class="icon-btn bid-btn${cls}" data-action="bidlist" data-pid="${p.id}" type="button" title="${esc(label)}">${icon}</button>`;
   }
@@ -5238,39 +5253,45 @@ function card(p, showCounty) {
   // so, and that no result is published - the kicker alone does not say that.
   const offList = !isClosed && p.source === "auction" ? offCurrentSaleList(p) : null;
   const offListNote = offList ? `<div class="prop-ledger-line" data-off-list="1">${infoBubbleHtml("Not on county list", esc(`Not on the county list read ${offList.countyRead ? fmtDate(String(offList.countyRead).slice(0, 10)) : ""} · no result published`))}</div>` : "";
-  // Lean card (remediation, 2026-10-11): the picture is the focus, then the
-  // facts a customer needs at a glance - what it is, where, the price, and the
-  // way in. Lien, homestead, value-ratio, acquisition and financing figures and
-  // the source / record badges move to the full property page, where each
-  // carries its own source and caveat.
+  // Essentials-first card (2026-10-25, the owner's tiers). The face carries
+  // only what a new investor acts on: the picture, ONE stamp (cardStamp - a
+  // fact the record or a verified source states), the address or lot title,
+  // the county, ONE figure under its own label, the way in (How to acquire /
+  // the sale page / the certificate page) and Watchlist. Everything else -
+  // the ledger line, identifiers, the facts row, favourite and hide - sits in
+  // the card's "Record details" disclosure; the full property page keeps all
+  // of it, with each source and caveat.
+  const ledger = p.source;
+  const primary = ledger === "laft"
+    ? `<button class="detail-btn detail-btn-primary" data-action="viewdetails" data-pid="${p.id}" type="button">How to acquire →</button>`
+    : auctionLinkHtml(p, "cta-btn");
+  const secondary = ledger === "laft" ? "" : `<button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">Details →</button>`;
+  const stamp = cardStamp(p);
   el.innerHTML = `
-    ${isClosed ? `<div class="closed-banner${Number(p.sold_price) > 0 ? " sold" : ""}" title="${esc(GONE_STATUS_CAVEAT)}">${esc(outcomeText(p))}${p.gone_since ? ` <span class="closed-when">since ${esc(fmtDate(String(p.gone_since).slice(0, 10)))}</span>` : ""}</div>` : ""}
     ${propertyVisual(p, "prop-card-photo")}
     <div class="prop-body">
-      ${tag}
-      <div class="prop-top">
-        <div class="prop-address">${titleLine}</div>
-        <div class="prop-top-actions">
-          <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite" aria-label="Favorite">${fav ? "♥" : "♡"}</button>
-          ${bidListBtnHtml(p, true)}
-          <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide" aria-label="Hide">✕</button>
-          ${cd}
-        </div>
-      </div>
-      <div class="prop-row">
-        <div class="prop-where">
-          <div class="prop-county-line">${esc(p.county || "")}${p.county ? ", " : ""}${esc(regionOf(p))}</div>
+      ${stamp ? `<div class="pc-stamp-inline">${cardStampHtml(stamp)}</div>` : ""}
+      <div class="prop-address">${titleLine}</div>
+      <div class="prop-county-line">${esc(p.county || "")}${p.county ? ` ${esc(UNIT_WORD)}, ` : ""}${esc(regionOf(p))}</div>
+      <div class="card-price">${ledger === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}"${bidPublished ? ` title="${esc(`Exact amount ${fmtMoney(p.bid)}. Cards round to whole dollars.`)}"` : ""}>${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
+      <div class="pc-actions">${primary}${bidListBtnHtml(p, "card")}${secondary}</div>
+      <details class="card-details"${cardDetailsOpenAttr(p)}>
+        <summary>Record details</summary>
+        <div class="card-details-body">
+          ${tag}
           <div class="prop-ids">
             ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(parcelOf(p))}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
             ${p.case_no ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
           </div>
+          ${cardStatsHtml(p)}
+          ${offListNote}
+          <div class="prop-top-actions">
+            <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite" aria-label="Favorite">${fav ? "♥" : "♡"}</button>
+            <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide" aria-label="Hide">✕</button>
+            ${cd}
+          </div>
         </div>
-        <div class="card-price">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}"${bidPublished ? ` title="${esc(`Exact amount ${fmtMoney(p.bid)}. Cards round to whole dollars.`)}"` : ""}>${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
-      </div>
-      ${cardStatsHtml(p)}
-      ${offListNote}
-      ${auctionLinkHtml(p, "cta-btn")}
-      <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View Full Property →</button>
+      </details>
     </div>`;
   // Photo overlays (the listing type, the county and the lot size) sit on the
   // picture itself. Each is shown only when its source value exists.
@@ -5281,7 +5302,10 @@ function card(p, showCounty) {
     // move into an info bubble on the picture, unchanged. The full property page
     // shows the same caption under its picture.
     const caption = photoEl.querySelectorAll(":scope > .photo-caption, :scope > .vis-main, :scope > .vis-sub");
-    photoEl.insertAdjacentHTML("beforeend", cardPhotoOverlayHtml(p));
+    // The one stamp sits on the picture (2026-10-25); without a picture it
+    // stays at the top of the card body.
+    const inlineStamp = el.querySelector(".pc-stamp-inline");
+    if (inlineStamp) { const st = inlineStamp.firstElementChild; if (st) photoEl.appendChild(st); inlineStamp.remove(); }
     if (caption.length) {
       const wrap = document.createElement("span");
       wrap.className = "pc-info";
@@ -5294,6 +5318,76 @@ function card(p, showCounty) {
   return el;
 }
 
+// ONE stamp per card (2026-10-25). Each states only what the record or a
+// verified source says - never "available" on a list of available property:
+//   Auctions  a source-published result (auctionOutcomeState().verified);
+//             "No longer listed" for a row that left the feed (never "sold");
+//             "Not on current list" when the county's latest read lacks it;
+//             otherwise the sale date as scheduled, or "Result not published".
+//   Available "Verified path" only when acquisitionOf(p).verified; "No longer
+//             listed"; "Dated list"; otherwise "Path not yet verified" (seen by
+//             administrators - customers see verified rows only when the gate
+//             is enforced).
+//   Liens     the certificate's own source status (redeemed / assigned /
+//             expired), "No longer listed"; nothing for a listed certificate.
+function cardStamp(p) {
+  if (!p) return null;
+  if (p.source === "auction") {
+    const st = auctionOutcomeState(p);
+    if (st && st.verified) {
+      const short = { sold: "Sold", struck_off: "Unsold", no_sale: "No sale", future_sale: "Future sale", redeemed: "Redeemed", withdrawn: "Withdrawn", cancelled: "Cancelled" }[st.key] || st.label;
+      return { key: "result-" + st.key, cls: st.key === "sold" ? "stamp-sold" : st.key === "redeemed" ? "stamp-redeemed" : "stamp-closed", label: short, title: `${st.label}: the source's own wording “${st.raw || ""}”` };
+    }
+    if (isGone(p)) return { key: "gone", cls: "stamp-closed", label: "No longer listed", title: GONE_STATUS_CAVEAT };
+    const off = offCurrentSaleList(p);
+    if (off) return { key: "offlist", cls: "stamp-closed", label: "Not on current list", title: `Not on the county list read ${dateOnly(off.countyRead)} - no result published` };
+    const d = daysUntil(p);
+    if (d !== null && d < 0) return { key: "noresult", cls: "stamp-muted", label: "Result not published", title: "The sale date has passed and the source published no result for this property" };
+    if (!p.sale_date) return { key: "unscheduled", cls: "stamp-muted", label: "Sale not scheduled", title: "The source lists no sale date" };
+    if (d === 0) return { key: "today", cls: "stamp-soon", label: "Sale today", title: "Sale date " + fmtDate(p.sale_date) };
+    if (d !== null && d <= SOON_DAYS) return { key: "soon", cls: "stamp-soon", label: `Sale in ${d} day${d === 1 ? "" : "s"}`, title: "Sale date " + fmtDate(p.sale_date) };
+    return { key: "scheduled", cls: "stamp-date", label: "Sale " + fmtDate(p.sale_date), title: "Sale date as the source lists it" };
+  }
+  if (p.source === "laft") {
+    if (isGone(p)) return { key: "gone", cls: "stamp-closed", label: "No longer listed", title: GONE_STATUS_CAVEAT };
+    const a = acquisitionOf(p);
+    if (a.verified && a.mode !== "none") return { key: "verified", cls: "stamp-verified", label: "Verified path", title: "How to acquire was read from the source's own page or document" };
+    if (isDatedList(p)) return { key: "dated", cls: "stamp-muted", label: "Dated list", title: datedListText(p) + " - not verified available now" };
+    return { key: "unverified", cls: "stamp-muted", label: "Path not yet verified", title: "No verified acquisition path on file for this record" };
+  }
+  if (p.source === "certificate") {
+    const s = String(p.inventory_status || "");
+    if (s === "certificate_redeemed") return { key: "redeemed", cls: "stamp-redeemed", label: "Redeemed", title: "Redeemed, per the source's own status" };
+    if (s === "certificate_assigned") return { key: "assigned", cls: "stamp-closed", label: "Assigned", title: "Assigned, per the source's own status" };
+    if (s === "certificate_expired") return { key: "expired", cls: "stamp-closed", label: "Expired", title: "Expired, per the source's own status" };
+    if (isGone(p)) return { key: "gone", cls: "stamp-closed", label: "No longer listed", title: "Left the county-held list - redeemed, assigned or expired is not published" };
+  }
+  return null;
+}
+// A card's "Record details" stays open across re-renders (a late data load,
+// a filter change) until the reader closes it. `var`: card() can run during
+// module init (TDZ).
+var OPEN_CARD_DETAILS = new Set();
+document.addEventListener("toggle", e => {
+  const d = e.target;
+  if (!d || !d.classList || !d.classList.contains("card-details")) return;
+  const c = d.closest("[data-pid]");
+  if (!c) return;
+  if (d.open) OPEN_CARD_DETAILS.add(String(c.dataset.pid)); else OPEN_CARD_DETAILS.delete(String(c.dataset.pid));
+}, true);
+// The toggle event fires after a task; a re-render in between would lose it,
+// so the summary click records the intent synchronously as well.
+document.addEventListener("click", e => {
+  const sum = e.target && e.target.closest && e.target.closest(".card-details > summary");
+  if (!sum) return;
+  const d = sum.parentElement, c = d.closest("[data-pid]");
+  if (!c) return;
+  if (d.open) OPEN_CARD_DETAILS.delete(String(c.dataset.pid)); else OPEN_CARD_DETAILS.add(String(c.dataset.pid));
+}, true);
+function cardDetailsOpenAttr(p) { return OPEN_CARD_DETAILS && OPEN_CARD_DETAILS.has(String(p.id)) ? " open" : ""; }
+function cardStampHtml(st) {
+  return `<span class="pc-stamp ${esc(st.cls)}" data-stamp="${esc(st.key)}" title="${esc(st.title || "")}">${esc(st.label)}</span>`;
+}
 // Listing type named as the source's own ledger, shown on the photo.
 function cardPhotoOverlayHtml(p) {
   // Kept inside the function: card() can run during module start-up (see the
@@ -5544,37 +5638,40 @@ function certCard(p, showCounty) {
     cd = `<span class="countdown ${cls}">${expDays === 0 ? "TODAY" : expDays + "d to expire"}</span>`;
   }
 
-  // Same lean-card treatment as card() above: header, the amount, the
-  // account #, and the one date that actually drives a decision (expiration
-  // - a redeemed-or-not clock, more decision-relevant on a cert than the
-  // issue date or tax year). Interest rate, issued date, tax year, and the
-  // account-# copy button moved to the full property page.
+  // Essentials first (2026-10-25), the same tiers as card(): the stamp (the
+  // certificate's own source status only), the certificate number, the county,
+  // the certificate amount, the certificate page and Watchlist on the face;
+  // the status lines and the remaining figures in "Record details".
+  const stamp = cardStamp(p);
   el.innerHTML = `
-    ${tag}
-    ${classificationBadgeHtml(p) ? `<div class="prop-classification-line">${classificationBadgeHtml(p)}</div>` : ""}
-    ${recordBadgesHtml(p)}
+    ${stamp ? `<div class="pc-stamp-inline">${cardStampHtml(stamp)}</div>` : ""}
     ${sourceLineHtml(p)}
-    <div class="prop-top">
-      <div class="prop-address">Certificate #${esc(p.certificate_no || "Unknown")}</div>
-      <div class="prop-top-actions">
-        <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite">${fav ? "♥" : "♡"}</button>
-        ${bidListBtnHtml(p, true)}
-        <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide">✕</button>
-        ${cd}
-        <span class="pill ${esc(p.status)}" title="Whether the certificate is on the county-held list - redemption status is not tracked">${isGone(p) ? esc(outcomeText(p)) : "Listed"}</span>
+    <div class="prop-address">Certificate #${esc(p.certificate_no || "Unknown")}</div>
+    <div class="prop-county-line">${esc(p.county || "")}${p.county ? ` ${esc(UNIT_WORD)}, ` : ""}${esc(regionOf(p))}</div>
+    <div class="card-price" title="The amount for the certificate (a lien on the property) - not a price for the property"><div class="card-stat-label">Certificate amount</div><div class="card-stat-val bid${hasPublishedBid(p) ? "" : " unpublished"}">${bidDisplay(p)}</div></div>
+    <div class="pc-actions">${auctionLinkHtml(p, "cta-btn")}${bidListBtnHtml(p, "card")}<button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">Details →</button></div>
+    <details class="card-details"${cardDetailsOpenAttr(p)}>
+      <summary>Record details</summary>
+      <div class="card-details-body">
+        ${tag}
+        ${classificationBadgeHtml(p) ? `<div class="prop-classification-line">${classificationBadgeHtml(p)}</div>` : ""}
+        ${recordBadgesHtml(p)}
+        ${certStatusLinesHtml(p)}
+        <div class="card-stat-grid cert-stat-grid">
+          <div class="card-stat"><div class="card-stat-label">Account #</div><div class="card-stat-val">${esc(p.case_no || "Unknown")}</div></div>
+          <div class="card-stat"><div class="card-stat-label">Expires</div><div class="card-stat-val">${p.expiration_date ? fmtDate(p.expiration_date) : "N/A"}</div></div>
+          <div class="card-stat"><div class="card-stat-label">Interest Rate</div><div class="card-stat-val">${hasNum(p.interest_rate) ? p.interest_rate + "%" : "N/A"}</div></div>
+          <div class="card-stat"><div class="card-stat-label">Est. Accrued Interest</div><div class="card-stat-val">${accruedInterestEst(p) !== null ? fmtShort(accruedInterestEst(p)) : "N/A"}</div></div>
+          <div class="card-stat"><div class="card-stat-label">TDA Eligibility</div><div class="card-stat-val">${tdaEligibleText(p)}</div></div>
+        </div>
+        <div class="prop-top-actions">
+          <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite">${fav ? "♥" : "♡"}</button>
+          <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide">✕</button>
+          ${cd}
+          <span class="pill ${esc(p.status)}" title="Whether the certificate is on the county-held list - redemption status is not tracked">${isGone(p) ? esc(outcomeText(p)) : "Listed"}</span>
+        </div>
       </div>
-    </div>
-    ${certStatusLinesHtml(p)}
-    <div class="card-stat-grid cert-stat-grid">
-      <div class="card-stat" title="The amount for the certificate (a lien on the property) - not a price for the property"><div class="card-stat-label">Certificate amount</div><div class="card-stat-val bid${hasPublishedBid(p) ? "" : " unpublished"}">${bidDisplay(p)}</div></div>
-      <div class="card-stat"><div class="card-stat-label">Account #</div><div class="card-stat-val">${esc(p.case_no || "Unknown")}</div></div>
-      <div class="card-stat"><div class="card-stat-label">Expires</div><div class="card-stat-val">${p.expiration_date ? fmtDate(p.expiration_date) : "N/A"}</div></div>
-      <div class="card-stat"><div class="card-stat-label">Interest Rate</div><div class="card-stat-val">${hasNum(p.interest_rate) ? p.interest_rate + "%" : "N/A"}</div></div>
-      <div class="card-stat"><div class="card-stat-label">Est. Accrued Interest</div><div class="card-stat-val">${accruedInterestEst(p) !== null ? fmtShort(accruedInterestEst(p)) : "N/A"}</div></div>
-      <div class="card-stat"><div class="card-stat-label">TDA Eligibility</div><div class="card-stat-val">${tdaEligibleText(p)}</div></div>
-    </div>
-    ${auctionLinkHtml(p, "cta-btn")}
-    <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View full property page →</button>`;
+    </details>`;
   return el;
 }
 
@@ -7198,6 +7295,8 @@ function syncResearchNav() {
   }
   const c = document.getElementById("navResearchCount");
   if (c) c.textContent = String(RESEARCH.items.length);
+  const g = document.getElementById("gotoResearchCount");
+  if (g) g.textContent = String(RESEARCH.items.length);
 }
 // Customer workflow state changes and note edits, from the panel or the page.
 document.addEventListener("change", async e => {
@@ -9590,6 +9689,7 @@ function detailHtml(p) {
     <div class="detail-grid">
       ${stats.map(detailStatTileHtml).join("")}
     </div>
+    <!--RESEARCH-->
     ${detailSectionHtml("My research", researchPanelHtml(p), "research-section", "research")}
     ${diligenceSectionHtml(p)}
     ${relatedRecordsHtml(p)}
@@ -9602,10 +9702,9 @@ function detailHtml(p) {
     ${financialPositionHtml(p)}
     ${availableDecisionHtml(p)}
     ${auctionDecisionHtml(p)}
+    <!--RESEARCH-->
     ${inventoryCardHtml(p)}
     ${statGroupHtml("Financial", stats.filter(s => s[2] === "financial"), "financial")}
-    <details class="detail-more" open>
-    <summary class="detail-more-summary">Property, history, risk, research and sources</summary>
     ${statGroupHtml("Property Details", stats.filter(s => s[2] === "property"), "property")}
     ${statGroupHtml("History", stats.filter(s => s[2] === "history"), "history")}
     ${!isCert && regionOf(p) === "FL" ? `<div class="lien-banner ${esc(p.lien_level)}">
@@ -9624,7 +9723,6 @@ function detailHtml(p) {
     ${monitorSectionHtml(p)}
     ${sourceTruthHtml(p)}
     ${acquisitionDocumentsHtml(p)}
-    </details>
     `}
     ${/* Phase 36 fix: the calculator's Net Profit Estimate subtracts fees(p),
         which is now null for non-FL rows (no verified TX fee formula exists) -
@@ -9643,15 +9741,25 @@ function detailHtml(p) {
       ${links.length ? links.map(([label, href]) => `<a href="${esc(href)}" target="_blank" rel="noopener">${linkIcon(label)}${esc(label)}${isEstimatedLink(label, p) ? esc(" (estimated search)") : ""} →</a>`).join("") : `<span style="font-size:.78rem;color:var(--ink-soft)">No reference links harvested for this property yet.</span>`}
     </div>
     <button class="detail-btn detail-report-btn" data-action="support" data-topic="source" data-pid="${p.id}" type="button">Report a source problem</button>`, "", "sources")}
-    ${auctionLinkHtml(p, "detail-cta")}
     ${isCert && !hasFieldProvenance(p) ? `<div class="detail-provenance">
       ${sourceNameFor(p) ? `<span>Data source: ${esc(sourceNameFor(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
     </div>` : provenanceCardHtml(p)}
+    <!--/RESEARCH-->
+    ${auctionLinkHtml(p, "detail-cta")}
     ${noteHtml(p)}`;
   // Phase 66: the section nav is built from the sections that actually
   // rendered above (see detailNavHtml), so it is spliced in afterwards.
-  return html.replace("<!--NAV-->", detailNavHtml(html));
+  // Free tier (2026-10-25, the owner's tiers): the first screen is what a
+  // new investor acts on - the picture, how to acquire it, the money and the
+  // decision. Everything a researcher digs into (flood, liens, owner, values,
+  // property facts, history, location, sources, provenance, due diligence)
+  // is grouped in ONE "Research" section, closed until opened. Nothing is
+  // removed or hidden from anyone: it is one tap away, and a section-nav
+  // jump into it opens it.
+  const grouped = html.replace("<!--RESEARCH-->", `<details class="detail-more detail-research" data-research-group="1"><summary class="detail-more-summary"><span class="detail-more-title">Research</span><span class="detail-more-sub">Flood, liens, owner, values, property facts, history, location and sources</span></summary>`)
+    .replace("<!--/RESEARCH-->", "</details>");
+  return grouped.replace("<!--NAV-->", detailNavHtml(grouped));
 }
 
 // The detail modal and the hidden-properties modal are fixed-position
@@ -10346,6 +10454,8 @@ document.addEventListener("click", async e => {
     // side panel) - both are their own scroll boxes.
     const host = btn.closest(".detail-modal-inner, .detail-panel");
     const target = host && host.querySelector(`[data-section="${btn.dataset.target}"]`);
+    const fold = target && target.closest("details.detail-more");
+    if (fold && !fold.open) fold.open = true;
     if (target) target.scrollIntoView({ block: "start", behavior: "smooth" });
     if (host) host.querySelectorAll(".detail-nav button").forEach(b => b.classList.toggle("on", b === btn));
   } else if (action === "openacq") {
@@ -10465,7 +10575,7 @@ function renderLedgerCounts(scrollActive) {
     // state-scoped get_properties() RPC below), so no region check is
     // needed here the way there used to be when ALL held every state's rows
     // at once.
-    if (isPastDue(p) || HIDDEN.has(p.id) || goneExpired(p)) return;
+    if (isPastDue(p) || HIDDEN.has(p.id) || goneExpired(p) || !isCurrentListing(p)) return;
     tabCounts[p.source]++;
   });
   // No cross-state counts here: the state is the page (the header's
@@ -10510,6 +10620,16 @@ function render() {
   // Unified navigation (2026-09-30): the rail's Watchlist entry carries the same n/10.
   const navWatchlistCountEl = document.getElementById("navWatchlistCount");
   if (navWatchlistCountEl) navWatchlistCountEl.textContent = `${BIDLIST.size}/${BID_LIST_MAX}`;
+  // Header revision (2026-10-25): the account menu's Watchlist entry is the
+  // one place the count is on screen.
+  const gotoWatchlistCountEl = document.getElementById("gotoWatchlistCount");
+  if (gotoWatchlistCountEl) gotoWatchlistCountEl.textContent = `${BIDLIST.size}/${BID_LIST_MAX}`;
+  // The listing-view control in Filters is for administrators only; every
+  // other account sees current listings.
+  const statusViewRow = document.getElementById("statusViewRow");
+  if (statusViewRow) statusViewRow.hidden = !IS_ADMIN;
+  const statusViewSelect = document.getElementById("statusViewSelect");
+  if (statusViewSelect) statusViewSelect.value = state.statusView === "archive" ? "live" : state.statusView;
 
   const main = document.getElementById("main"); if (!main) return; main.innerHTML = loadIssueHtml();
   if (!LEDGERS[state.ledger]) state.ledger = "auction";
@@ -10536,7 +10656,7 @@ function render() {
   const expandAllBtn = document.getElementById("expandAllBtn");
   if (expandAllBtn) {
     const keysInLedger = new Set(shown.map(p => groupKeyOf(activeLedger, p.county, p.sale_date)));
-    const allOpen = keysInLedger.size > 0 && Array.from(keysInLedger).every(k => state.expandedCounties.has(k));
+    const allOpen = keysInLedger.size > 0 && Array.from(keysInLedger).every(k => !state.collapsedCounties.has(k));
     expandAllBtn.textContent = allOpen ? "Collapse all" : "Expand all";
     expandAllBtn.dataset.mode = allOpen ? "collapse" : "expand";
   }
@@ -10697,7 +10817,7 @@ function groupSecondaryLine(ledgerKey, date) {
   // opportunitySummaryHtml(). Nothing here says it is purchasable today.
   if (ledgerKey === "laft") return PAGE_STATE === "TX" ? "Struck-off / future-sale inventory - no auction date; see each card's status"
     : PAGE_STATE === "LA" ? "Adjudicated property - the Parish's list as of its own last-update date, not verified available now"
-    : PAGE_STATE === "FL" ? "Lands Available - over the counter, available now"
+    : PAGE_STATE === "FL" ? "Lands Available list - over the counter"
     : "Government-held property the source offers - each card shows the source's own status";
   return "County-held certificates";
 }
@@ -10857,11 +10977,35 @@ document.addEventListener("click", (e) => {
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeInfoBubbles(null); });
 
+// Administrators only (2026-10-25): ONE short line naming what customers do
+// not see in this ledger, counted from the loaded rows the admin can read -
+// source not approved, not customer-published (migration 031), no verified
+// acquisition path (the enforced gate) - plus anything withheld from this
+// view itself. Customers get no line: an empty ledger still explains itself
+// through the ledger status strip's zero case.
+function adminWithheldLineHtml(kind) {
+  let review = 0, pub = 0, gate = 0;
+  (ALL || []).forEach(p => {
+    if (p.source !== kind || !countsToward(p)) return;
+    if (!isCustomerPublishable(p)) { review++; return; }
+    const ps = publicationStateOf(p);
+    if (ps && ps !== "CUSTOMER_PUBLISHED") { pub++; return; }
+    if (kind === "laft" && ACQ_GATE_MODE === "enforce") { const v = acquisitionVerification(p); if (v && !v.verified) gate++; }
+  });
+  review += (WITHHELD && WITHHELD[kind]) || 0;
+  if (kind === "laft") gate += (GATE_WITHHELD && GATE_WITHHELD.total) || 0;
+  const n = x => x.toLocaleString("en-US");
+  const parts = [];
+  if (review) parts.push(`${n(review)} withheld - source not approved for customer publication`);
+  if (pub) parts.push(`${n(pub)} not customer-published`);
+  if (gate) parts.push(`${n(gate)} no verified acquisition path`);
+  if (!parts.length) return "";
+  return `<p class="ledger-withheld ledger-withheld-admin" id="ledgerWithheldAdmin">Not shown to customers: ${parts.join(" · ")}. Shown to you, labelled on each property.</p>`;
+}
 function section(container, title, sub, rows, kind) {
   const sec = document.createElement("section"); sec.className = "mega-section";
   const shown = sortRows(rows.filter(passes));
   const cfg = ledgerCopy(kind);
-  const facts = ledgerFacts(kind, shown);
 
   // A page header, not a heading. Icon, name, what this ledger is, what you
   // actually do on it, and one live fact - so arriving at Certificates from
@@ -10875,17 +11019,9 @@ function section(container, title, sub, rows, kind) {
         <span class="ledger-head-icon" aria-hidden="true">${cfg.icon || ""}</span>
         <h2>${title}</h2>
       </div>
-      ${facts ? `<p class="ledger-facts">${esc(facts)}</p>` : ""}
       ${shown.length ? `<details class="ledger-status-fold${calendarHtml ? " upcoming-fold" : ""}"><summary>${calendarHtml ? `Auction calendar · next ${COMMAND_CENTER_DAYS} days, and source status` : "Source status and coverage"}</summary>${calendarHtml}${ledgerStatusHtml(kind, shown)}</details>` : (calendarHtml ? `<details class="ledger-status-fold upcoming-fold"><summary>Auction calendar · next ${COMMAND_CENTER_DAYS} days</summary>${calendarHtml}</details>` : ledgerStatusHtml(kind, shown))}
-      <p class="ledger-legend" aria-label="What the colour on each card's left edge means">
-        <span class="lgd lgd-active">Active</span>
-        <span class="lgd lgd-stale">Not synced recently</span>
-        <span class="lgd lgd-closed">No longer listed</span>
-      </p>
-      ${REVIEW_PENDING_SHOWN[kind] ? `<p class="ledger-review-pending" id="ledgerReviewPending">${REVIEW_PENDING_SHOWN[kind]} record${REVIEW_PENDING_SHOWN[kind] === 1 ? "" : "s"} from sources awaiting customer-publication review ${REVIEW_PENDING_SHOWN[kind] === 1 ? "is" : "are"} ${esc(reviewViewerReason())}, each labelled "Source review". Customers in published mode do not see ${REVIEW_PENDING_SHOWN[kind] === 1 ? "it" : "them"}.</p>` : ""}
-      ${WITHHELD[kind] ? `<p class="ledger-withheld" id="ledgerWithheld">${WITHHELD[kind]} record${WITHHELD[kind] === 1 ? "" : "s"} withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.</p>` : ""}
-      ${publicationWithheldText(kind) ? `<p class="ledger-withheld ledger-pub-withheld" id="ledgerPublicationWithheld">${esc(publicationWithheldText(kind))}. ${IS_ADMIN ? "Shown to you as an admin, each labelled \"Not customer-published\" with its reasons and the step that publishes it; customers do not see them." : "Counted, not shown: each becomes visible once its source, the state rules, the record, its acquisition path and its observation are verified."}</p>` : ""}
-      ${kind === "laft" && GATE_WITHHELD.total ? `<p class="ledger-withheld ledger-gate-withheld" id="ledgerGateWithheld">${GATE_WITHHELD.total} record${GATE_WITHHELD.total === 1 ? "" : "s"} withheld pending acquisition-path verification (${Object.entries(GATE_WITHHELD.by).map(([c, n]) => `${n} ${(ACQ_GATE_CLASS_LABELS[c] || c).toLowerCase()}`).join(" · ")}). Counted, not shown: a listing without a verified way to acquire it is not an actionable opportunity.</p>` : ""}
+      ${REVIEW_PENDING_SHOWN[kind] && !IS_ADMIN ? `<p class="ledger-review-pending" id="ledgerReviewPending">${REVIEW_PENDING_SHOWN[kind]} record${REVIEW_PENDING_SHOWN[kind] === 1 ? "" : "s"} from sources awaiting customer-publication review ${REVIEW_PENDING_SHOWN[kind] === 1 ? "is" : "are"} ${esc(reviewViewerReason())}, each labelled "Source review". Customers in published mode do not see ${REVIEW_PENDING_SHOWN[kind] === 1 ? "it" : "them"}.</p>` : ""}
+      ${IS_ADMIN ? adminWithheldLineHtml(kind) : ""}
       ${kind === "laft" && DETROIT_SUMMARY.collected && (IS_ADMIN || viewerScope() === "preview") ? `<p class="ledger-detroit-subset" id="ledgerDetroitSubset">Detroit Land Bank: ${DETROIT_SUMMARY.collected.toLocaleString("en-US")} collected · ${DETROIT_SUMMARY.structure.toLocaleString("en-US")} with a verified structure in the source's own status · ${DETROIT_SUMMARY.subset.toLocaleString("en-US")} in the customer subset (deterministic ~50%). ${IS_ADMIN ? "You see every collected record; those outside the subset are labelled and stay collected." : "Only the customer subset is shown here."} The subset still passes the publication gate: source review is separate.</p>` : ""}
       ${state.statusView === "archive" ? `<p class="ledger-mode-note" id="archiveModeNote">📁 Past auctions only — sale date already gone. <button class="ledger-mode-exit" id="exitArchiveBtn" type="button">Back to current listings</button></p>` : ""}
     </div>`;
@@ -10969,9 +11105,9 @@ function section(container, title, sub, rows, kind) {
   // separating one sale date from the next.
   let lastDividerDate;
   const showDateDividers = kind === "auction";
-  // A short list (three counties or fewer) opens every county, so the cards are
-  // the first thing on the page; longer lists stay collapsed by county.
-  const openEveryCounty = orderedKeys.length <= 3;
+  // Every county opens (2026-10-25): the cards are the first thing on the page.
+  // A county the reader closed stays closed (state.collapsedCounties).
+  const openEveryCounty = false;
   orderedKeys.forEach(key => {
     const { county, date, rows: countyRows } = groups.get(key);
     const total = totalsByGroup.get(key) ?? countyRows.length;
@@ -10987,7 +11123,7 @@ function section(container, title, sub, rows, kind) {
 
     // A search in progress auto-opens every group that has a match, so
     // results are visible immediately instead of hiding behind a collapse.
-    const isOpen = !!state.search || state.expandedCounties.has(key);
+    const isOpen = !!state.search || !state.collapsedCounties.has(key);
 
     const det = document.createElement("details");
     det.className = "county-group";
@@ -11013,7 +11149,6 @@ function section(container, title, sub, rows, kind) {
       </div>
       <div class="county-right">
         ${freshnessBadge}
-        <span class="county-count">${active}/${total} active</span>
         <span class="county-chevron"></span>
       </div>`;
     det.appendChild(summary);
@@ -11095,7 +11230,7 @@ function updateBadge() {
   if (state.sortBy !== "county") n++;
   if (state.sortSecondary) n++;
   if (state.favoritesOnly || state.topPicksOnly || state.soonOnly || state.hideOldListings || state.hideSlivers || state.hideBareLandOnly) n++;
-  if (state.statusView !== "all") n++;
+  if (state.statusView !== "live") n++;
   if (state.maxBidPct !== 40) n++;
   if (state.counties.size < ALL_COUNTIES.length) n++;
   if (state.types.size !== TYPE_ORDER.length) n++;
@@ -11386,8 +11521,8 @@ function setLedger(key, opts) {
   // on auctions and "Gone" on certificates are different questions, and
   // archive is auction-only outright. Reset on an actual change only, so a
   // page load restoring a ledger doesn't clobber a filter set a moment ago.
-  if (changed && state.statusView !== "all") {
-    state.statusView = "all";
+  if (changed && state.statusView !== "live") {
+    state.statusView = "live";
     const tog = document.getElementById("archiveToggle");
     if (tog) tog.checked = false;
     updateBadge();
@@ -11454,7 +11589,7 @@ window.addEventListener("hashchange", () => {
 document.addEventListener("click", e => {
   const btn = e.target && e.target.closest && e.target.closest("#exitArchiveBtn");
   if (!btn) return;
-  state.statusView = "all";
+  state.statusView = "live";
   const tog = document.getElementById("archiveToggle");
   if (tog) tog.checked = false;
   updateBadge();
@@ -11521,15 +11656,16 @@ if (mainEl) mainEl.addEventListener("toggle", e => {
   if (!det.classList || !det.classList.contains("county-group")) return;
   const key = det.dataset.groupKey || det.dataset.county;
   if (!key) return;
-  if (det.open) state.expandedCounties.add(key); else state.expandedCounties.delete(key);
+  if (det.open) { state.expandedCounties.add(key); state.collapsedCounties.delete(key); }
+  else { state.expandedCounties.delete(key); state.collapsedCounties.add(key); }
 }, true);
 
 const expandAllBtn = document.getElementById("expandAllBtn");
 if (expandAllBtn) expandAllBtn.addEventListener("click", () => {
   const inLedger = p => p.source === state.ledger;
   const keysInLedger = new Set(ALL.filter(inLedger).filter(passes).map(p => groupKeyOf(state.ledger, p.county, p.sale_date)));
-  if (expandAllBtn.dataset.mode === "collapse") keysInLedger.forEach(k => state.expandedCounties.delete(k));
-  else keysInLedger.forEach(k => state.expandedCounties.add(k));
+  if (expandAllBtn.dataset.mode === "collapse") keysInLedger.forEach(k => { state.expandedCounties.delete(k); state.collapsedCounties.add(k); });
+  else keysInLedger.forEach(k => { state.expandedCounties.add(k); state.collapsedCounties.delete(k); });
   render();
 });
 
@@ -11991,7 +12127,7 @@ bindCheckbox("hideBareLandOnly", "hideBareLandOnly");
 // only one that isn't surprising.
 const archiveToggleEl = document.getElementById("archiveToggle");
 if (archiveToggleEl) archiveToggleEl.addEventListener("change", () => {
-  state.statusView = archiveToggleEl.checked ? "archive" : "all";
+  state.statusView = archiveToggleEl.checked ? "archive" : "live";
   updateBadge();
   render();
 });
@@ -12003,9 +12139,9 @@ if (resetBtn) resetBtn.addEventListener("click", () => {
   state.sortBy = "county"; state.sortSecondary = ""; state.favoritesOnly = false; state.topPicksOnly = false;
   state.soonOnly = false; state.hideOldListings = false; state.includeQT = false; state.maxBidPct = 40;
   state.hideSlivers = false; state.hideBareLandOnly = false;
-  state.statusView = "all"; state.search = "";
+  state.statusView = "live"; state.search = "";
   state.counties = new Set(ALL_COUNTIES); state.types = new Set(TYPE_ORDER); state.liens = new Set(LIEN_ORDER);
-  state.expandedCounties.clear();
+  state.expandedCounties.clear(); state.collapsedCounties.clear();
 
   // Sliders + typed price fields reset through their one shared writer
   // (see bindBidRangeSliders). It renders once itself; the render() at the
@@ -14166,7 +14302,7 @@ function applySavedSearch(s) {
   state.imagery = c.imagery || "any";
   state.freshDays = c.fresh_days !== undefined ? Number(c.fresh_days) : null;
   state.sourceId = c.source_ids && c.source_ids.length === 1 ? c.source_ids[0] : "any";
-  state.statusView = c.available_only ? "live" : "all";
+  state.statusView = c.available_only || !IS_ADMIN ? "live" : "all";
   syncMonitorFilterInputs();
   const am = document.getElementById("assessedMin"); if (am) am.value = state.assessedMin ?? "";
   const ac = document.getElementById("acreageMin"); if (ac) ac.value = state.acreageMin ?? "";
@@ -15151,13 +15287,20 @@ function renderListHead(shown, k, tabCounts) {
   const t = document.getElementById("listTitle");
   const sub = document.getElementById("listSubtitle");
   if (!t) return;
+  // Header revision (2026-10-25): one title line per ledger - "Available in
+  // Florida" - with the count once. A second line appears only while loading
+  // or when filters narrow the ledger.
   const name = ledgerNavName(k);
-  t.textContent = k === "certificate" ? name : `${k === "auction" ? "Auction" : name} Properties`;
+  const total = (tabCounts && tabCounts[k]) || 0;
+  const n = shown.length;
+  const count = !PROPERTIES_LOADED ? "" : !ledgerSettled(k) ? `${n.toLocaleString("en-US")}…` : n.toLocaleString("en-US");
+  t.innerHTML = `${esc(name)} in ${esc(STATE_INFO.name)}${count ? ` <span class="list-count" id="listCount">${esc(count)}</span>` : ""}`;
   if (sub) {
-    const total = (tabCounts && tabCounts[k]) || 0;
     sub.textContent = !PROPERTIES_LOADED ? `Loading ${STATE_INFO.name}…`
-      : !ledgerSettled(k) ? `${shown.length.toLocaleString("en-US")} shown of ${total.toLocaleString("en-US")} loaded so far in ${STATE_INFO.name} · loading the rest…`
-      : `${shown.length.toLocaleString("en-US")} shown of ${total.toLocaleString("en-US")} in ${STATE_INFO.name}`;
+      : !ledgerSettled(k) ? "Loading the rest…"
+      : n < total ? `${n.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} match your filters`
+      : "";
+    sub.hidden = !sub.textContent;
   }
 }
 // One chip per active filter, read from the controls themselves; removing a
@@ -15198,7 +15341,7 @@ function filterChipList() {
   }
   if (state.types.size !== TYPE_ORDER.length) chips.push({ key: "types", label: `Property type: ${state.types.size} of ${TYPE_ORDER.length}` });
   if (state.liens.size !== LIEN_ORDER.length) chips.push({ key: "liens", label: `Lien notes: ${state.liens.size} of ${LIEN_ORDER.length}` });
-  if (state.statusView === "live" || state.statusView === "gone") chips.push({ key: "status", label: state.statusView === "live" ? "Active only" : "No longer listed only" });
+  if (state.statusView === "all" || state.statusView === "gone") chips.push({ key: "status", label: state.statusView === "all" ? "Including no longer listed" : "No longer listed only" });
   chipControlIds().forEach(id => {
     const el = document.getElementById(id);
     if (controlActive(el)) chips.push({ key: "ctl:" + id, label: controlLabel(el) });
@@ -15230,7 +15373,7 @@ function removeFilterChip(key) {
   }
   if (key === "bid") { if (bindBidRangeSliders.reset) bindBidRangeSliders.reset(); updateBadge(); render(); return; }
   if (key === "types" || key === "liens") { const b = document.querySelector(`.mini-btn[data-group="${key}"][data-mode="all"]`); if (b) b.click(); return; }
-  if (key === "status") { const c = document.querySelector('.summary-strip .chip[data-status="all"]'); if (c) c.click(); return; }
+  if (key === "status") { state.statusView = "live"; updateBadge(); render(); return; }
   if (key.startsWith("ctl:")) {
     const el = document.getElementById(key.slice(4));
     if (!el) return;
@@ -15427,11 +15570,19 @@ function openStatePicker(returnEl) {
   if (head && !document.getElementById("accountGoto")) {
     const g = document.createElement("div");
     g.className = "account-goto"; g.id = "accountGoto";
+    // Header revision (2026-10-25): the account menu is the one home of the
+    // workspace entries at every width - the separate utility row is gone.
+    // Each count appears once on screen: here.
     g.innerHTML = `<p class="account-goto-head">Go to</p>`
-      + `<button class="account-item" type="button" role="menuitem" data-goto="research">My Research</button>`
+      + `<button class="account-item" type="button" role="menuitem" data-goto="searches">Saved searches</button>`
+      + `<button class="account-item" type="button" role="menuitem" data-goto="research">My Research <b class="goto-count" id="gotoResearchCount">0</b></button>`
+      + `<button class="account-item" type="button" role="menuitem" data-goto="watchlist">Watchlist <b class="goto-count" id="gotoWatchlistCount">0/10</b></button>`
       + `<button class="account-item" type="button" role="menuitem" data-goto="counties">County Intelligence</button>`
-      + `<button class="account-item" type="button" role="menuitem" data-goto="searches">Saved searches</button>`;
+      + `<button class="account-item" type="button" role="menuitem" data-goto="about">About</button>`;
     head.after(g);
+    // "About" opens the same guide "How to read this data" did; one entry.
+    const helpItem = document.getElementById("helpBtnMenu");
+    if (helpItem) helpItem.hidden = true;
     g.addEventListener("click", e => {
       const b = e.target.closest("[data-goto]");
       if (!b) return;
@@ -15440,6 +15591,8 @@ function openStatePicker(returnEl) {
         if (go === "research") openResearchPage("all");
         else if (go === "counties") openCountyIndex();
         else if (go === "searches" && saved) saved.click();
+        else if (go === "watchlist") showPage("watchlist");
+        else if (go === "about" && about) about.click();
       });
     });
   }
@@ -15535,6 +15688,7 @@ function experienceApi() {
     auctionBidLabel, valueLabel, dataGaps, sourceNameFor, realAddress, lotTitle, parcelOf,
     caseIdentText, fmtDateLong, fmtMoney, bidDisplayCard, cardKickerHtml, offCurrentSaleList,
     availableProgram, acquisitionOf, officialStatusText, esc,
+    auctionOutcomeState, isGone, isDatedList, cardStamp,
     isWatched: id => BIDLIST.has(id),
     isFavorite: id => FAVS.has(id),
     stateCode: () => PAGE_STATE,
@@ -15626,3 +15780,113 @@ function installLookSwitch() {
 }
 installLookSwitch();
 applyExperience(currentExperience(), false);
+
+// ==================== Header and List toolbar, revised (2026-10-25) ====================
+// The owner's brief: one header, no repetition. Desktop: brand (Home), the
+// three ledgers (one count each) and Map, a compact search, the state, the
+// Look button and ONE account menu that carries Saved searches, My Research,
+// Watchlist, County Intelligence and About. The separate two-row masthead
+// (utility links over the product row) is gone. Phone: one compact row -
+// brand, a search button that expands the field, Look, state, account - with
+// the ledger tabs below on the List. Elements MOVE rather than being copied,
+// so every id, data attribute and listener the rest of this file binds is
+// unchanged. Nothing here reads or writes data.
+function installShellV3() {
+  const root = document.documentElement;
+  if (root.dataset.shell === "v3") return;
+  const topbar = document.querySelector(".topbar");
+  if (!topbar) return;
+  root.dataset.shell = "v3";
+  // Brand = Home.
+  const mark = topbar.querySelector(".brand-mark"), name = topbar.querySelector(".brand-name");
+  const home = document.createElement("button");
+  home.type = "button"; home.className = "hdr-brand"; home.id = "hdrHomeBtn";
+  home.setAttribute("aria-label", "TAXACQ - Home");
+  if (mark) topbar.insertBefore(home, mark); else topbar.insertBefore(home, topbar.firstChild);
+  if (mark) home.appendChild(mark);
+  if (name) home.appendChild(name);
+  home.insertAdjacentHTML("beforeend", `<span class="hdr-brand-sub">Tax Acquisition Intelligence</span>`);
+  home.addEventListener("click", () => showPage("dashboard"));
+  // The ledgers, Available first, then Map: the rail's own buttons, moved.
+  const nav = document.createElement("nav");
+  nav.className = "hdr-nav"; nav.id = "hdrNav"; nav.setAttribute("aria-label", "Ledgers");
+  ["laft", "auction", "certificate"].forEach(k => {
+    const b = document.querySelector(`#navRail .nav-item[data-nav-ledger="${k}"]`);
+    if (b) nav.appendChild(b);
+  });
+  const mapBtn = document.querySelector('#navRail .nav-item[data-page="map"]');
+  if (mapBtn) nav.appendChild(mapBtn);
+  home.after(nav);
+  // Phone: search behind a button so the field does not take a row.
+  const btns = topbar.querySelector(".header-btns");
+  const gs = document.getElementById("globalSearch");
+  if (btns && gs && !document.getElementById("hdrSearchBtn")) {
+    const sb = document.createElement("button");
+    sb.type = "button"; sb.id = "hdrSearchBtn"; sb.className = "hdr-search-btn";
+    sb.setAttribute("aria-label", "Search"); sb.setAttribute("aria-controls", "globalSearch"); sb.setAttribute("aria-expanded", "false");
+    sb.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>`;
+    btns.insertBefore(sb, btns.firstChild);
+    const input = document.getElementById("globalSearchInput");
+    const setOpen = open => { root.classList.toggle("hdr-search-open", open); sb.setAttribute("aria-expanded", String(open)); if (open && input) input.focus(); };
+    sb.addEventListener("click", () => setOpen(!root.classList.contains("hdr-search-open")));
+    if (input) {
+      input.addEventListener("keydown", e => { if (e.key === "Escape" && !input.value) setOpen(false); });
+      input.addEventListener("blur", () => setTimeout(() => { if (!input.value && !gs.contains(document.activeElement)) setOpen(false); }, 150));
+    }
+  }
+  // Phone ledger tabs: Available first, the same order as the header.
+  const tabs = document.getElementById("ledgerTabs");
+  const availTab = tabs && tabs.querySelector('.ledger-tab[data-ledger="laft"]');
+  if (availTab) tabs.insertBefore(availTab, tabs.firstChild);
+  installListToolbarV3();
+}
+// One toolbar over the List: county, Filters (with its active-filter count)
+// and Sort. Table view and Export move inside Filters; Collapse/Expand all
+// is gone (every county is open). The status chip row is gone: the default
+// view is current listings only, and an administrator picks another view
+// inside Filters.
+function installListToolbarV3() {
+  const qc = document.getElementById("quickControls");
+  const panel = document.getElementById("filtersPanel");
+  if (!qc || !panel || document.getElementById("filtersViewSection")) return;
+  const toggle = document.getElementById("filtersToggle");
+  if (toggle) {
+    const lab = toggle.querySelector("span");
+    if (lab) lab.textContent = "Filters";
+  }
+  const sortBy = document.getElementById("sortBy");
+  const sortField = sortBy && sortBy.closest(".field");
+  if (sortField) {
+    sortField.classList.add("qc-sort");
+    sortField.removeAttribute("style");
+    sortBy.setAttribute("aria-label", "Sort");
+    qc.appendChild(sortField);
+  }
+  const expand = document.getElementById("expandAllBtn");
+  if (expand) expand.hidden = true;
+  // Plain section names.
+  const rename = { "Bid / listed amount": "Price", "Sort & Display": "Then sort by", "Quick Toggles": "Show only", "Advanced Filters": "More filters" };
+  panel.querySelectorAll(".filters-section-title").forEach(t => { const n = rename[t.textContent.trim()]; if (n) t.textContent = n; });
+  const topLab = document.querySelector('#topOnly + span');
+  if (topLab) topLab.textContent = "County value at least 12× the opening bid, no lien notes";
+  const qtLab = document.querySelector('#qtToggle + span');
+  if (qtLab) qtLab.textContent = "Add the quiet-title cost estimate to the cost figures";
+  // View & export, and the administrator-only listing view.
+  const sec = document.createElement("div");
+  sec.className = "filters-section"; sec.id = "filtersViewSection";
+  sec.innerHTML = `<div class="filters-section-head"><span class="filters-section-title">View &amp; export</span></div><div class="filters-row filters-view-row"></div>`
+    + `<div class="filters-row" id="statusViewRow" hidden><div class="field"><span class="field-label">Listings shown (administrators)</span>`
+    + `<select id="statusViewSelect" aria-label="Listings shown"><option value="live">Current listings (what customers see)</option><option value="gone">No longer listed only</option><option value="all">Current and no longer listed</option></select></div></div>`;
+  const row = sec.querySelector(".filters-view-row");
+  ["tableToggleBtn", "exportCsvBtn"].forEach(id => { const b = document.getElementById(id); if (b) row.appendChild(b); });
+  const firstSection = panel.querySelector(".filters-section");
+  if (firstSection) panel.insertBefore(sec, firstSection); else panel.appendChild(sec);
+  const sv = document.getElementById("statusViewSelect");
+  if (sv) sv.addEventListener("change", () => {
+    state.statusView = sv.value;
+    const tog = document.getElementById("archiveToggle");
+    if (tog) tog.checked = false;
+    updateBadge(); render();
+  });
+}
+installShellV3();

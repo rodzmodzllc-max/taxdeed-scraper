@@ -3482,3 +3482,16 @@ A trial so the owner can compare two List experiences on live data before choosi
   `openDetail`, ...), so a module never invents a label. Watchlist buttons are `data-action="bidlist" data-pid`, handled
   by the existing document-level action handler. Ledger tabs, filters and search keep driving the rows.
 - All four files are in the mirror `FILES`, `DEPLOYED_BUNDLE_FILES` and the sw `SHELL`.
+
+## Header, filters and free tier (2026-10-25, PR open, frontend only)
+
+Full description: `docs/review/header-tiers.md`. Stable facts:
+- `installShellV3()` / `installListToolbarV3()` (end of app.js) MOVE the existing elements into one header
+  (`#hdrNav`: ledgers + Map; brand = Home; Watchlist / Saved searches / My Research / County Intelligence / About
+  live in the account menu) and one List toolbar (County, Filters, Sort; Table + Export inside Filters).
+- Default `statusView` is `"live"` (`isCurrentListing()`); admins pick another view in `#statusViewSelect`.
+- Cards are essentials first: one stamp from `cardStamp()`, one figure, the way in, Watchlist; the rest in
+  "Record details". The property page groups research sections in ONE closed `details.detail-research`
+  (`<!--RESEARCH-->` markers in `detailHtml()`); a nav jump opens it. Tests open it through the harness
+  (`window.__suiteKeepResearchClosed` reads the default).
+- Shell CSS must never override `[hidden]` (filter rows and fields each needed a guard).
