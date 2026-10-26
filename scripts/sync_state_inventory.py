@@ -45,6 +45,7 @@ sys.path.insert(1, str(Path(__file__).resolve().parent))
 from source_publication import collectable  # noqa: E402
 sys.path.insert(0, str(HERE))
 import field_provenance as FP  # noqa: E402
+import laft_lifecycle as LL  # noqa: E402
 import rest_pages as RP  # noqa: E402
 import write_diff as WD  # noqa: E402
 
@@ -129,7 +130,13 @@ def merge_acquisition(row: dict, stored: dict | None) -> tuple[dict, dict, str]:
     stored = stored or {}
     sprov = stored.get("otc_provenance") if isinstance(stored.get("otc_provenance"), dict) else {}
     merged = dict(sprov)
-    merged.update({k: v for k, v in new.items() if not FP.is_blank(v)})
+    # Keys the laft lifecycle owns (LL.LIFECYCLE_OTC_KEYS) are left to it once
+    # it has stamped the row (its "harvester" key is stored): the lifecycle
+    # runs right after this sync and writes its own value for them, so taking
+    # the adapter's here made the two writers rewrite every row twice a run
+    # (Louisiana, 2026-10-26). A row the lifecycle never stamped takes them.
+    owned = frozenset(LL.LIFECYCLE_OTC_KEYS) if "harvester" in sprov else frozenset()
+    merged.update({k: v for k, v in new.items() if not FP.is_blank(v) and k not in owned})
     stored_type = stored.get("purchase_path_type")
     states_path = "purchase_path_type" in row
     row_type = row.get("purchase_path_type") if states_path else stored_type

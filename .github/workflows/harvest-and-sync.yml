@@ -1134,10 +1134,13 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        # --no-fresh-guard: the Louisiana sync above stamps last_seen_at itself,
-        # so the lifecycle's 20 h freshness guard (write only what is due) would
-        # suppress every Louisiana provenance write.
-        run: python3 scripts/laft_lifecycle.py --state LA --status out/harvest_louisiana_status.json --harvest out/harvest_louisiana.json --report out/public/laft-lifecycle-la.json --no-fresh-guard
+        # No --no-fresh-guard (2026-10-26): the lifecycle compares each row's
+        # payload with what is stored and writes only a new / changed row or a
+        # last_seen_at due a re-stamp, so a row the sync above just stamped
+        # still gets its lifecycle provenance, and an unchanged list read
+        # again writes nothing (the sync and the lifecycle no longer rewrite
+        # each other's otc_provenance every run).
+        run: python3 scripts/laft_lifecycle.py --state LA --status out/harvest_louisiana_status.json --harvest out/harvest_louisiana.json --report out/public/laft-lifecycle-la.json
       # Louisiana's 10,334 adjudicated rows had no inventory_status at all
       # (2026-10-11): the writer only ran for FL and the expansion matrix, and
       # its rule had no AVAILABLE mapping outside Florida. Same gated writer,
