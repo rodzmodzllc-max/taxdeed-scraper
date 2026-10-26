@@ -5,9 +5,10 @@ the legal shit." Terms-of-service and licensing risk is accepted by the owner fo
 
 - holds owner-accepted INTERIM permission records in `data/source_permissions.csv` (`discover`, `fetch`, `parse`,
   `store`; `OWNER_PERMISSION_REQUIRED` + `INTERNAL_RISK_ACCEPTANCE`, effective 2026-10-26, expiring 2027-04-12),
-  written by `scripts/add_owner_interim_permissions.py`. There is no `display` record, so nothing is customer-published;
-- is `UNREVIEWED` in the registry (`expansion.PUBLICATION`, restriction text `OWNER_INTERIM_2026_10_26`): admins see the
-  rows labelled, customers do not until an admin review approves the source;
+  written by `scripts/add_owner_interim_permissions.py`, plus INTERIM `display` and `link` records (no `redistribute`);
+- is **APPROVED for customer publication** on the owner's second decision of 2026-10-26 ("Do not block vendors. Post
+  their shit"), exactly like main's publish-all-sources sources: registry restrictions "Owner approved customer
+  publication 2026-10-26; legal review pending" (`expansion.PUBLICATION`, `OWNER_APPROVED_2026_10_26`);
 - is collected for **every** ledger, auctions included: `source_publication.owner_collection()` lets the sprint's
   sources (`expansion.NEW_SOURCE_IDS`) through the collection rule; the permission record is still required.
 

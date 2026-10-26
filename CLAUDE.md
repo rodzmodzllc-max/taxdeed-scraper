@@ -3598,7 +3598,8 @@ Full description: `docs/publish-all-sources.md`. Stable facts:
 Full description: `docs/new-sources-2026-10-26.md`. Stable facts:
 - **Owner decision 2026-10-26**: collect every source; terms risk accepted. Each new source holds INTERIM
   `discover`/`fetch`/`parse`/`store` records (`scripts/add_owner_interim_permissions.py`, `INTERNAL_RISK_ACCEPTANCE`,
-  expiring 2027-04-12), never `display`, and is `UNREVIEWED`. `expansion.NEW_SOURCE_IDS` +
+  expiring 2027-04-12) plus INTERIM `display` / `link`, and is APPROVED ("Owner approved customer publication
+  2026-10-26; legal review pending", the owner's "Do not block vendors" decision). `expansion.NEW_SOURCE_IDS` +
   `source_publication.owner_collection()` let these sources be collected for AUCTIONS too (not only AVAILABLE).
 - **Sources**: ePropertyPlus tenants KC MO (`public-kclb`), Pittsburgh PA (`public-pgh`), Wayne / Saginaw / Calhoun MI;
   Tax-Sale.info MI upcoming auction catalogs (one
