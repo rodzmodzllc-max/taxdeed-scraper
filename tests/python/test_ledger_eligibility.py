@@ -141,7 +141,7 @@ def test_county_coverage_comes_from_the_registry_and_verified_procedures_never_f
     wy = SV.county_coverage("WY", "LIENS_CERTIFICATES", rules=_rules("WY"))
     assert wy == [{"county": "Albany", "sources": [], "procedures": ["tax_sale_model"]}]
     assert SV.county_coverage("TN", "AUCTIONS", rules=_rules("TN")) == []
-    assert SV.county_coverage("TN", "AVAILABLE", rules=_rules("TN"))[0]["sources"][0]["publication"] == "UNREVIEWED"
+    assert SV.county_coverage("TN", "AVAILABLE", rules=_rules("TN"))[0]["sources"][0]["publication"] == "APPROVED"   # owner decision 2026-10-26
 
 
 def test_engine_has_no_failure_and_blocked_never_activates():
@@ -165,7 +165,7 @@ def test_texas_and_florida_are_told_apart_by_the_source_not_by_assumption():
     assert fl["fl_separation"]["status"] == "PASS"
     srcs = SV.production_sources()["FL"]
     cert = {sid for sid, s in srcs.items() if "LIENS_CERTIFICATES" in s["ledgers"]}
-    assert cert == {"fl_lienhub_certificates"} and not any({"AUCTIONS", "AVAILABLE"} & srcs[sid]["ledgers"] for sid in cert)
+    assert cert == {"fl_lienhub_certificates", "fl_sarasota_tc_certificates"} and not any({"AUCTIONS", "AVAILABLE"} & srcs[sid]["ledgers"] for sid in cert)
 
 
 # ------------------------------------------------------------------ rule history

@@ -56,7 +56,7 @@
       "verified_law": []
      },
      "sources": {
-      "approved_for_customers": 1,
+      "approved_for_customers": 2,
       "counties": [
        "Douglas",
        "Morgan"
@@ -84,7 +84,7 @@
        },
        {
         "amount_kind": "NOT_PUBLISHED",
-        "approved_for_customers": false,
+        "approved_for_customers": true,
         "canonical_url": "https://morgancounty.colorado.gov/treasurers-deed-option-auctions",
         "county": "Morgan",
         "governance_status": "APPROVED",
@@ -92,9 +92,9 @@
         "has_evidence": true,
         "implemented": true,
         "last_checked": "2026-10-01",
-        "publication_status": "UNREVIEWED",
+        "publication_status": "APPROVED",
         "publishing_unit_name": "Morgan County",
-        "restrictions": "Implemented and read live, but the source publishes no reuse licence and no owner decision exists: not requested on a schedule and no row is written until an admin review approves it.",
+        "restrictions": "Owner approved customer publication 2026-10-26; legal review pending. The source publishes no explicit reuse licence; this is the owner's internal risk acceptance, not the source's permission. Show only what the source publishes; no inferred results.",
         "source_id": "co_morgan_treasurer_deed_auctions",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
@@ -4927,7 +4927,7 @@
       ]
      },
      "sources": {
-      "approved_for_customers": 32,
+      "approved_for_customers": 33,
       "counties": [
        "Alachua",
        "Bay",
@@ -4962,9 +4962,9 @@
        "Volusia",
        "Walton"
       ],
-      "implemented": 32,
-      "known": 32,
-      "restricted": 32,
+      "implemented": 33,
+      "known": 33,
+      "restricted": 33,
       "rows": [
        {
         "amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
@@ -5428,6 +5428,23 @@
        {
         "amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
         "approved_for_customers": true,
+        "canonical_url": "https://www.sarasotataxcollector.gov/services/tax-services/property-tax/tax-cert-sale",
+        "county": "Sarasota",
+        "governance_status": "APPROVED",
+        "harvester": "harvest_sarasota_certificates.py",
+        "has_evidence": true,
+        "implemented": true,
+        "last_checked": "2026-10-26",
+        "publication_status": "APPROVED",
+        "publishing_unit_name": "Sarasota County Tax Collector",
+        "restrictions": "Approved for publication by the owner on 2026-10-26 (\"stop asking for approval\"); the permission records are an interim internal risk acceptance expiring 2027-04-12, not the Tax Collector's permission; excluded from the paid tier",
+        "source_id": "fl_sarasota_tc_certificates",
+        "update_frequency": "not published by the source; read daily by the certificates job (12:00 UTC)",
+        "verification_status": "PRODUCTION_VERIFIED"
+       },
+       {
+        "amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+        "approved_for_customers": true,
         "canonical_url": "https://lienhub.com/county/seminole/countyheld/certificates",
         "county": "Seminole",
         "governance_status": "APPROVED_GRANDFATHERED",
@@ -5511,7 +5528,7 @@
         "verification_status": "PRODUCTION_VERIFIED"
        }
       ],
-      "with_evidence": 32
+      "with_evidence": 33
      },
      "tracked": "TRACKED",
      "withheld": {
@@ -6014,9 +6031,9 @@
        "Oceana (mi_oceana_landbank)"
       ]
      },
-     "classification": "APPROVAL_UNRESOLVED",
+     "classification": "CURRENT",
      "classification_reasons": [
-      "3 production source(s), none APPROVED for customers: UNREVIEWED"
+      "30775 active rows; 0 never stamped, 30770 older than 36 h at the snapshot"
      ],
      "counties": [
       {
@@ -6169,7 +6186,7 @@
        "n": 30775
       }
      },
-     "next_action": "An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only.",
+     "next_action": "Keep reading; raise field population where a verified official layer exists (see fields).",
      "records": {
       "act_assessed": 0,
       "act_coords": 30771,
@@ -6197,7 +6214,7 @@
       "verified_law": []
      },
      "sources": {
-      "approved_for_customers": 0,
+      "approved_for_customers": 3,
       "counties": [
        "Oceana",
        "Wayne"
@@ -6208,7 +6225,7 @@
       "rows": [
        {
         "amount_kind": "NOT_PUBLISHED",
-        "approved_for_customers": false,
+        "approved_for_customers": true,
         "canonical_url": "https://oceana.mi.us/departments/treasurer/land-bank-authority/",
         "county": "Oceana",
         "governance_status": "APPROVED",
@@ -6216,16 +6233,16 @@
         "has_evidence": true,
         "implemented": true,
         "last_checked": "2026-10-02",
-        "publication_status": "UNREVIEWED",
+        "publication_status": "APPROVED",
         "publishing_unit_name": "Oceana County",
-        "restrictions": "AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.",
+        "restrictions": "Owner approved customer publication 2026-10-26; legal review pending. The source publishes no explicit reuse licence; this is the owner's internal risk acceptance, not the source's permission. Show only what the source publishes; no inferred results.",
         "source_id": "mi_oceana_landbank",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
        },
        {
         "amount_kind": "NOT_PUBLISHED",
-        "approved_for_customers": false,
+        "approved_for_customers": true,
         "canonical_url": "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0",
         "county": "Wayne",
         "governance_status": "APPROVED",
@@ -6233,16 +6250,16 @@
         "has_evidence": true,
         "implemented": true,
         "last_checked": "2026-10-02",
-        "publication_status": "UNREVIEWED",
+        "publication_status": "APPROVED",
         "publishing_unit_name": "Wayne County",
-        "restrictions": "AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.",
+        "restrictions": "Owner approved customer publication 2026-10-26; legal review pending. The source publishes no explicit reuse licence; this is the owner's internal risk acceptance, not the source's permission. Show only what the source publishes; no inferred results.",
         "source_id": "mi_detroit_landbank_lots",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
        },
        {
         "amount_kind": "NOT_PUBLISHED",
-        "approved_for_customers": false,
+        "approved_for_customers": true,
         "canonical_url": "https://www.arcgis.com/home/item.html?id=e0c4f46a09b9405cb18837e66e85c622",
         "county": "Wayne",
         "governance_status": "APPROVED",
@@ -6250,9 +6267,9 @@
         "has_evidence": true,
         "implemented": true,
         "last_checked": "2026-10-02",
-        "publication_status": "UNREVIEWED",
+        "publication_status": "APPROVED",
         "publishing_unit_name": "Wayne County",
-        "restrictions": "AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.",
+        "restrictions": "Owner approved customer publication 2026-10-26; legal review pending. The source publishes no explicit reuse licence; this is the owner's internal risk acceptance, not the source's permission. Show only what the source publishes; no inferred results.",
         "source_id": "mi_detroit_landbank_programs",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
@@ -6262,8 +6279,8 @@
      },
      "tracked": "TRACKED",
      "withheld": {
-      "basis": "no production source of the ledger is customer-approved",
-      "source_not_approved": 30775
+      "basis": "every production source of the ledger is customer-approved",
+      "source_not_approved": 0
      }
     },
     "LIENS_CERTIFICATES": {
@@ -6352,9 +6369,9 @@
        "Ramsey (mn_ramsey_tax_forfeit)"
       ]
      },
-     "classification": "APPROVAL_UNRESOLVED",
+     "classification": "CURRENT",
      "classification_reasons": [
-      "1 production source(s), none APPROVED for customers: UNREVIEWED"
+      "2 active rows; 0 never stamped, 0 older than 36 h at the snapshot"
      ],
      "counties": [
       {
@@ -6459,7 +6476,7 @@
        "n": 2
       }
      },
-     "next_action": "An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only.",
+     "next_action": "Keep reading; raise field population where a verified official layer exists (see fields).",
      "records": {
       "act_assessed": 0,
       "act_coords": 2,
@@ -6490,7 +6507,7 @@
       "verified_law": []
      },
      "sources": {
-      "approved_for_customers": 0,
+      "approved_for_customers": 1,
       "counties": [
        "Ramsey"
       ],
@@ -6500,7 +6517,7 @@
       "rows": [
        {
         "amount_kind": "OPENING_BID",
-        "approved_for_customers": false,
+        "approved_for_customers": true,
         "canonical_url": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/MapServer/0",
         "county": "Ramsey",
         "governance_status": "APPROVED",
@@ -6508,9 +6525,9 @@
         "has_evidence": true,
         "implemented": true,
         "last_checked": "2026-10-04",
-        "publication_status": "UNREVIEWED",
+        "publication_status": "APPROVED",
         "publishing_unit_name": "Ramsey County",
-        "restrictions": "AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.",
+        "restrictions": "Owner approved customer publication 2026-10-26; legal review pending. The source publishes no explicit reuse licence; this is the owner's internal risk acceptance, not the source's permission. Show only what the source publishes; no inferred results.",
         "source_id": "mn_ramsey_tax_forfeit",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
@@ -6520,8 +6537,8 @@
      },
      "tracked": "TRACKED",
      "withheld": {
-      "basis": "no production source of the ledger is customer-approved",
-      "source_not_approved": 2
+      "basis": "every production source of the ledger is customer-approved",
+      "source_not_approved": 0
      }
     },
     "LIENS_CERTIFICATES": {
@@ -6610,9 +6627,9 @@
        "St. Louis City (mo_stl_lra_inventory)"
       ]
      },
-     "classification": "APPROVAL_UNRESOLVED",
+     "classification": "CURRENT",
      "classification_reasons": [
-      "1 production source(s), none APPROVED for customers: UNREVIEWED"
+      "9759 active rows; 0 never stamped, 0 older than 36 h at the snapshot"
      ],
      "counties": [
       {
@@ -6717,7 +6734,7 @@
        "n": 9759
       }
      },
-     "next_action": "An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only.",
+     "next_action": "Keep reading; raise field population where a verified official layer exists (see fields).",
      "records": {
       "act_assessed": 0,
       "act_coords": 0,
@@ -6749,7 +6766,7 @@
       "verified_law": []
      },
      "sources": {
-      "approved_for_customers": 0,
+      "approved_for_customers": 1,
       "counties": [
        "St. Louis City"
       ],
@@ -6759,7 +6776,7 @@
       "rows": [
        {
         "amount_kind": "NOT_PUBLISHED",
-        "approved_for_customers": false,
+        "approved_for_customers": true,
         "canonical_url": "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=30",
         "county": "St. Louis City",
         "governance_status": "APPROVED",
@@ -6767,9 +6784,9 @@
         "has_evidence": true,
         "implemented": true,
         "last_checked": "2026-10-04",
-        "publication_status": "UNREVIEWED",
+        "publication_status": "APPROVED",
         "publishing_unit_name": "St. Louis City",
-        "restrictions": "AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.",
+        "restrictions": "Owner approved customer publication 2026-10-26; legal review pending. The source publishes no explicit reuse licence; this is the owner's internal risk acceptance, not the source's permission. Show only what the source publishes; no inferred results.",
         "source_id": "mo_stl_lra_inventory",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
@@ -6779,8 +6796,8 @@
      },
      "tracked": "TRACKED",
      "withheld": {
-      "basis": "no production source of the ledger is customer-approved",
-      "source_not_approved": 9759
+      "basis": "every production source of the ledger is customer-approved",
+      "source_not_approved": 0
      }
     },
     "LIENS_CERTIFICATES": {
@@ -6873,9 +6890,9 @@
        "Oklahoma (ok_oklahoma_county_owned)"
       ]
      },
-     "classification": "APPROVAL_UNRESOLVED",
+     "classification": "CURRENT",
      "classification_reasons": [
-      "1 production source(s), none APPROVED for customers: UNREVIEWED"
+      "195 active rows; 0 never stamped, 0 older than 36 h at the snapshot"
      ],
      "counties": [
       {
@@ -6980,7 +6997,7 @@
        "n": 195
       }
      },
-     "next_action": "An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only.",
+     "next_action": "Keep reading; raise field population where a verified official layer exists (see fields).",
      "records": {
       "act_assessed": 0,
       "act_coords": 0,
@@ -7008,7 +7025,7 @@
       "verified_law": []
      },
      "sources": {
-      "approved_for_customers": 0,
+      "approved_for_customers": 1,
       "counties": [
        "Oklahoma"
       ],
@@ -7018,7 +7035,7 @@
       "rows": [
        {
         "amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
-        "approved_for_customers": false,
+        "approved_for_customers": true,
         "canonical_url": "https://docs.oklahomacounty.org/treasurer/CountyOwnedList.asp",
         "county": "Oklahoma",
         "governance_status": "APPROVED",
@@ -7026,9 +7043,9 @@
         "has_evidence": true,
         "implemented": true,
         "last_checked": "2026-10-04",
-        "publication_status": "UNREVIEWED",
+        "publication_status": "APPROVED",
         "publishing_unit_name": "Oklahoma County",
-        "restrictions": "AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.",
+        "restrictions": "Owner approved customer publication 2026-10-26; legal review pending. The source publishes no explicit reuse licence; this is the owner's internal risk acceptance, not the source's permission. Show only what the source publishes; no inferred results.",
         "source_id": "ok_oklahoma_county_owned",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
@@ -7038,8 +7055,8 @@
      },
      "tracked": "TRACKED",
      "withheld": {
-      "basis": "no production source of the ledger is customer-approved",
-      "source_not_approved": 195
+      "basis": "every production source of the ledger is customer-approved",
+      "source_not_approved": 0
      }
     },
     "LIENS_CERTIFICATES": {
@@ -7128,9 +7145,9 @@
        "Fayette (pa_fayette_repository)"
       ]
      },
-     "classification": "APPROVAL_UNRESOLVED",
+     "classification": "CURRENT",
      "classification_reasons": [
-      "1 production source(s), none APPROVED for customers: UNREVIEWED"
+      "376 active rows; 0 never stamped, 0 older than 36 h at the snapshot"
      ],
      "counties": [
       {
@@ -7235,7 +7252,7 @@
        "n": 376
       }
      },
-     "next_action": "An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only.",
+     "next_action": "Keep reading; raise field population where a verified official layer exists (see fields).",
      "records": {
       "act_assessed": 0,
       "act_coords": 0,
@@ -7266,7 +7283,7 @@
       "verified_law": []
      },
      "sources": {
-      "approved_for_customers": 0,
+      "approved_for_customers": 1,
       "counties": [
        "Fayette"
       ],
@@ -7276,7 +7293,7 @@
       "rows": [
        {
         "amount_kind": "OPENING_BID",
-        "approved_for_customers": false,
+        "approved_for_customers": true,
         "canonical_url": "https://www.fayettecountypa.org/930/Repository-Sale",
         "county": "Fayette",
         "governance_status": "APPROVED",
@@ -7284,9 +7301,9 @@
         "has_evidence": true,
         "implemented": true,
         "last_checked": "2026-10-26",
-        "publication_status": "UNREVIEWED",
+        "publication_status": "APPROVED",
         "publishing_unit_name": "Fayette County",
-        "restrictions": "AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.",
+        "restrictions": "Owner approved customer publication 2026-10-26; legal review pending. The source publishes no explicit reuse licence; this is the owner's internal risk acceptance, not the source's permission. Show only what the source publishes; no inferred results.",
         "source_id": "pa_fayette_repository",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
@@ -7296,8 +7313,8 @@
      },
      "tracked": "TRACKED",
      "withheld": {
-      "basis": "no production source of the ledger is customer-approved",
-      "source_not_approved": 376
+      "basis": "every production source of the ledger is customer-approved",
+      "source_not_approved": 0
      }
     },
     "LIENS_CERTIFICATES": {
@@ -7484,7 +7501,7 @@
       "verified_law": []
      },
      "sources": {
-      "approved_for_customers": 1,
+      "approved_for_customers": 2,
       "counties": [
        "Oconee",
        "York"
@@ -7495,7 +7512,7 @@
       "rows": [
        {
         "amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
-        "approved_for_customers": false,
+        "approved_for_customers": true,
         "canonical_url": "https://oconeesc.com/delinquent-tax/sale-list",
         "county": "Oconee",
         "governance_status": "APPROVED",
@@ -7503,9 +7520,9 @@
         "has_evidence": true,
         "implemented": true,
         "last_checked": "2026-10-01",
-        "publication_status": "UNREVIEWED",
+        "publication_status": "APPROVED",
         "publishing_unit_name": "Oconee County",
-        "restrictions": "Implemented and read live, but the source publishes no reuse licence and no owner decision exists: not requested on a schedule and no row is written until an admin review approves it.",
+        "restrictions": "Owner approved customer publication 2026-10-26; legal review pending. The source publishes no explicit reuse licence; this is the owner's internal risk acceptance, not the source's permission. Show only what the source publishes; no inferred results.",
         "source_id": "sc_oconee_tax_sale_list",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
@@ -7532,8 +7549,8 @@
      },
      "tracked": "TRACKED",
      "withheld": {
-      "basis": "the ledger mixes approved and unreviewed sources; the snapshot does not split rows by source",
-      "source_not_approved": null
+      "basis": "every production source of the ledger is customer-approved",
+      "source_not_approved": 0
      }
     },
     "AVAILABLE": {
@@ -7547,9 +7564,9 @@
        "Horry (sc_horry_forfeited_land)"
       ]
      },
-     "classification": "APPROVAL_UNRESOLVED",
+     "classification": "CURRENT",
      "classification_reasons": [
-      "2 production source(s), none APPROVED for customers: UNREVIEWED"
+      "52 active rows; 0 never stamped, 0 older than 36 h at the snapshot"
      ],
      "counties": [
       {
@@ -7678,7 +7695,7 @@
        "n": 52
       }
      },
-     "next_action": "An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only.",
+     "next_action": "Keep reading; raise field population where a verified official layer exists (see fields).",
      "records": {
       "act_assessed": 0,
       "act_coords": 0,
@@ -7706,7 +7723,7 @@
       "verified_law": []
      },
      "sources": {
-      "approved_for_customers": 0,
+      "approved_for_customers": 2,
       "counties": [
        "Georgetown",
        "Horry"
@@ -7717,7 +7734,7 @@
       "rows": [
        {
         "amount_kind": "OPENING_BID",
-        "approved_for_customers": false,
+        "approved_for_customers": true,
         "canonical_url": "https://www.gtcountysc.gov/415/Forfeited-Land-Commission",
         "county": "Georgetown",
         "governance_status": "APPROVED",
@@ -7725,16 +7742,16 @@
         "has_evidence": true,
         "implemented": true,
         "last_checked": "2026-10-02",
-        "publication_status": "UNREVIEWED",
+        "publication_status": "APPROVED",
         "publishing_unit_name": "Georgetown County",
-        "restrictions": "AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.",
+        "restrictions": "Owner approved customer publication 2026-10-26; legal review pending. The source publishes no explicit reuse licence; this is the owner's internal risk acceptance, not the source's permission. Show only what the source publishes; no inferred results.",
         "source_id": "sc_georgetown_forfeited_land",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
        },
        {
         "amount_kind": "OPENING_BID",
-        "approved_for_customers": false,
+        "approved_for_customers": true,
         "canonical_url": "https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/",
         "county": "Horry",
         "governance_status": "APPROVED",
@@ -7742,9 +7759,9 @@
         "has_evidence": true,
         "implemented": true,
         "last_checked": "2026-10-02",
-        "publication_status": "UNREVIEWED",
+        "publication_status": "APPROVED",
         "publishing_unit_name": "Horry County",
-        "restrictions": "AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.",
+        "restrictions": "Owner approved customer publication 2026-10-26; legal review pending. The source publishes no explicit reuse licence; this is the owner's internal risk acceptance, not the source's permission. Show only what the source publishes; no inferred results.",
         "source_id": "sc_horry_forfeited_land",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
@@ -7754,8 +7771,8 @@
      },
      "tracked": "TRACKED",
      "withheld": {
-      "basis": "no production source of the ledger is customer-approved",
-      "source_not_approved": 52
+      "basis": "every production source of the ledger is customer-approved",
+      "source_not_approved": 0
      }
     },
     "LIENS_CERTIFICATES": {
@@ -7846,9 +7863,9 @@
       "units": 1,
       "verified_units": []
      },
-     "classification": "APPROVAL_UNRESOLVED",
+     "classification": "RECORDS_WITHHELD_NO_PATH",
      "classification_reasons": [
-      "1 production source(s), none APPROVED for customers: UNREVIEWED"
+      "1 acquisition unit(s), none VERIFIED: NEEDS_REVIEW 1"
      ],
      "counties": [
       {
@@ -7953,7 +7970,7 @@
        "n": 2038
       }
      },
-     "next_action": "An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only.",
+     "next_action": "Capture the county's official acquisition process (job=evidence, acquisition_candidates) and record a verified evidence row; rows stay admin-only.",
      "records": {
       "act_assessed": 2033,
       "act_coords": 2037,
@@ -7984,7 +8001,7 @@
       "verified_law": []
      },
      "sources": {
-      "approved_for_customers": 0,
+      "approved_for_customers": 1,
       "counties": [
        "Shelby"
       ],
@@ -7994,7 +8011,7 @@
       "rows": [
        {
         "amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
-        "approved_for_customers": false,
+        "approved_for_customers": true,
         "canonical_url": "https://public-sctn.epropertyplus.com/landmgmtpub/app/base/landing",
         "county": "Shelby",
         "governance_status": "APPROVED",
@@ -8002,9 +8019,9 @@
         "has_evidence": true,
         "implemented": true,
         "last_checked": "2026-10-08",
-        "publication_status": "UNREVIEWED",
+        "publication_status": "APPROVED",
         "publishing_unit_name": "Shelby County",
-        "restrictions": "AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.",
+        "restrictions": "Owner approved customer publication 2026-10-26; legal review pending. The source publishes no explicit reuse licence; this is the owner's internal risk acceptance, not the source's permission. Show only what the source publishes; no inferred results.",
         "source_id": "tn_shelby_landbank",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
@@ -8014,8 +8031,8 @@
      },
      "tracked": "TRACKED",
      "withheld": {
-      "basis": "no production source of the ledger is customer-approved",
-      "source_not_approved": 2038
+      "basis": "every production source of the ledger is customer-approved",
+      "source_not_approved": 0
      }
     },
     "LIENS_CERTIFICATES": {
@@ -12070,7 +12087,7 @@
       "verified_law": []
      },
      "sources": {
-      "approved_for_customers": 1,
+      "approved_for_customers": 2,
       "counties": [
        "Dane",
        "Green"
@@ -12081,7 +12098,7 @@
       "rows": [
        {
         "amount_kind": "OPENING_BID",
-        "approved_for_customers": false,
+        "approved_for_customers": true,
         "canonical_url": "https://treasurer.danecounty.gov/taxdeedauction",
         "county": "Dane",
         "governance_status": "APPROVED",
@@ -12089,9 +12106,9 @@
         "has_evidence": true,
         "implemented": true,
         "last_checked": "2026-10-01",
-        "publication_status": "UNREVIEWED",
+        "publication_status": "APPROVED",
         "publishing_unit_name": "Dane County",
-        "restrictions": "Implemented and read live, but the source publishes no reuse licence and no owner decision exists: not requested on a schedule and no row is written until an admin review approves it.",
+        "restrictions": "Owner approved customer publication 2026-10-26; legal review pending. The source publishes no explicit reuse licence; this is the owner's internal risk acceptance, not the source's permission. Show only what the source publishes; no inferred results.",
         "source_id": "wi_dane_tax_deed_auction",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
@@ -12118,8 +12135,8 @@
      },
      "tracked": "TRACKED",
      "withheld": {
-      "basis": "the ledger mixes approved and unreviewed sources; the snapshot does not split rows by source",
-      "source_not_approved": null
+      "basis": "every production source of the ledger is customer-approved",
+      "source_not_approved": 0
      }
     },
     "AVAILABLE": {
@@ -12456,10 +12473,10 @@
   }
  },
  "summary": {
-  "APPROVAL_UNRESOLVED": 7,
-  "CURRENT": 6,
+  "CURRENT": 12,
   "OFFERED_SOURCE_NOT_IMPLEMENTED": 1,
   "OFFERED_VERIFIED_EMPTY": 1,
+  "RECORDS_WITHHELD_NO_PATH": 1,
   "RULES_NOT_VERIFIED": 19,
   "SOURCE_FAILED_OR_STALE": 4,
   "SOURCE_IMPLEMENTED_NEVER_READ": 1

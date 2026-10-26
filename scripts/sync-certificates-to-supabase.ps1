@@ -59,6 +59,34 @@ function Get-LedgerCloseableCounties([string]$Ledger, [string]$StatusPath) {
     return @((($out -join "`n") | ConvertFrom-Json))
 }
 # --- end three-ledger contract -------------------------------------------------
+# --- Stored-value guard (2026-10-26) -------------------------------------------
+# PostgREST's bulk upsert needs one key set per batch, so a column the list did
+# not publish is sent as null - and merge-duplicates used to write that null
+# over the stored value (146 FL auction rows lost their FDOR tax-roll
+# `assessed`). scripts/sync_value_guard.py reads the stored rows and puts the
+# stored value back wherever a blank or placeholder would replace it, or where
+# field_provenance names another source of equal or higher rank
+# (scripts/field_provenance.py). Fail closed: if the stored rows cannot be
+# read, nothing is written.
+function Protect-StoredValues([string]$Source, $Rows) {
+    $all = @($Rows)
+    if ($all.Count -eq 0) { return }
+    $in = [System.IO.Path]::GetTempFileName()
+    $out = [System.IO.Path]::GetTempFileName()
+    try {
+        $json = $all | ConvertTo-Json -Depth 6
+        if ($all.Count -eq 1) { $json = "[$json]" }
+        [System.IO.File]::WriteAllText($in, $json, [System.Text.UTF8Encoding]::new($false))
+        & (Get-LedgerPython) (Join-Path $PSScriptRoot "sync_value_guard.py") --source $Source --state FL --in $in --out $out
+        if (0 -ne $LASTEXITCODE) { throw "sync_value_guard.py could not guard the $Source rows (exit $LASTEXITCODE) - nothing is written." }
+        $guarded = @((Get-Content $out -Raw -Encoding utf8) | ConvertFrom-Json)
+        if ($guarded.Count -ne $all.Count) { throw "sync_value_guard.py returned $($guarded.Count) of $($all.Count) rows - nothing is written." }
+        $guarded
+    } finally {
+        Remove-Item $in, $out -ErrorAction SilentlyContinue
+    }
+}
+# --- end stored-value guard ----------------------------------------------------
 
 
 # Pushes harvest_certificates.json (produced by
@@ -235,6 +263,8 @@ Write-Output "De-duplicated $dupeCount row(s) sharing a (county, case_no) key wi
 $rows = @(Select-LedgerRows "LIENS_CERTIFICATES" $rows)
 if ($rows.Count -eq 0) { throw "Every harvested row was missing case_no - nothing to sync." }
 Write-Output "Prepared $($rows.Count) certificates ($skipped skipped for missing case_no)."
+# A blank cell or the "Account <case>" / 0 placeholder never erases a stored value.
+$rows = @(Protect-StoredValues "certificate" $rows)
 } else {
 Write-Output "harvest_certificates.json is empty - nothing to upsert this run."
 }
@@ -328,7 +358,11 @@ $harvestedKeysByCounty[$r.county].Add([string]$r.case_no) | Out-Null
 }
 
 $encodedCounties = ($completeCounties | ForEach-Object { [uri]::EscapeDataString($_) }) -join ","
-$activeUrl = "$supabaseUrl/rest/v1/properties?state=eq.FL&source=eq.certificate&status=eq.active&county=in.($encodedCounties)&select=id,county,case_no&limit=5000"
+# Only LienHub's own rows (source_id fl_lienhub_certificates, or unset on a row
+# written before migration 017's backfill): a COMPLETE LienHub county read says
+# nothing about a certificate another source lists (2026-10-26: the Sarasota Tax
+# Collector's own county-held list, scripts/sync_sarasota_certificates.py).
+$activeUrl = "$supabaseUrl/rest/v1/properties?state=eq.FL&source=eq.certificate&status=eq.active&county=in.($encodedCounties)&or=(source_id.is.null,source_id.eq.fl_lienhub_certificates)&select=id,county,case_no&limit=5000"
 $activeRows = Invoke-RestMethod -Uri $activeUrl -Method Get -Headers $headers -UserAgent $SupabaseUserAgent
 
 $staleIds = @()

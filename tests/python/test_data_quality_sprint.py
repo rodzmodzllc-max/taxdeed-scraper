@@ -212,12 +212,12 @@ def test_tn_failed_incomplete_or_unread_closes_nothing(status):
     assert SY.plan_close("TN", rows, [gone], units, {TN_SID}) == []
 
 
-def test_tn_complete_read_syncs_every_offered_row_unreviewed():
+def test_tn_complete_read_syncs_every_offered_row_with_its_publication_decision():
     res = EPP.fetch_all(EX.TN_SHELBY_LANDBANK, _fetch(_pages()), retrieved_at=AT)
     rows = [r.to_properties_row() for r in res.records]
     sent, counts = SY.plan("TN", rows, _tn_reg(), {(TN_SID, "Shelby"): "COMPLETE"}, observed_at=OBS)
     assert counts["upsert"] == len(res.records) and counts["skipped_unit_not_read"] == 0
-    assert {r["publication_status"] for r in sent} == {"UNREVIEWED"}
+    assert {r["publication_status"] for r in sent} == {"APPROVED"}     # owner decision 2026-10-26
     assert all(r["list_url"] and r["last_seen_at"] == OBS and r["first_seen_at"] == OBS for r in sent)
     assert all(r["field_provenance"]["parcel"]["source"] == "county_list" for r in sent)
 

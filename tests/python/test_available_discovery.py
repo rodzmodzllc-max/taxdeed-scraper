@@ -32,8 +32,12 @@ def test_discovery_pages_and_catalog_agree_and_are_review_required():
     ev = AC.evidence()
     for p in pages:
         c = catalog[p["source_id"]]
-        # Read by the value-free capture, never approved by it.
-        assert c["governance"] == "REVIEW_REQUIRED"
+        # Read by the value-free capture, never approved by it. Georgetown graduated to a
+        # registry source the owner approved for publication on 2026-10-26; its review says so.
+        if p["source_id"] == "sc_georgetown_forfeited_land":
+            assert c["governance"] == "APPROVED" and AC.reviews()[p["source_id"]]["classification"] == "APPROVED"
+        else:
+            assert c["governance"] == "REVIEW_REQUIRED"
         e = ev.get(p["source_id"])
         if e is None:
             assert c["access"] == "NOT_CHECKED"
@@ -74,7 +78,9 @@ def test_only_current_inventory_counts_and_rejected_pages_are_never_candidates()
     current = {(c["state"], x["county"]) for c in cov.values() for x in c["candidates"]
                if x["availability"] == "CURRENT_INVENTORY"}
     # Spartanburg's list (run 37033274319) is a redemption-period bid assignment, not inventory.
-    assert current == {("SC", "Georgetown"), ("MI", "Lenawee")}
+    # Georgetown graduated to a production source (owner decision 2026-10-26), so it is no candidate.
+    assert current == {("MI", "Lenawee")}
+    assert "sc_georgetown_forfeited_land" in {r.source_id for r in AC.production_available_sources("SC")}
     # Empty / unavailable / seasonal pages are not inventory.
     for sid in ("sc_jasper_forfeited_land", "sc_lexington_forfeited_land", "wi_burnett_tax_deed_land"):
         assert ev[sid]["availability"] == "EMPTY"
@@ -83,9 +89,11 @@ def test_only_current_inventory_counts_and_rejected_pages_are_never_candidates()
     # A confirmed identifier is a column the list itself publishes.
     assert {sid for sid, e in ev.items() if e["identifier_confirmed"] == "yes"} == {
         "sc_georgetown_forfeited_land", "sc_spartanburg_forfeited_land"}
-    # Still REVIEW_REQUIRED: a read is not a publication review.
-    for st in ("SC", "MI", "WI"):
-        assert cov[st]["status"] == "REVIEW_REQUIRED" and cov[st]["production_sources"] == 0
+    # Still REVIEW_REQUIRED: a read is not a publication review. MI / SC carry production
+    # AVAILABLE sources the owner approved on 2026-10-26.
+    assert cov["WI"]["status"] == "REVIEW_REQUIRED" and cov["WI"]["production_sources"] == 0
+    for st in ("SC", "MI"):
+        assert cov[st]["status"] == "SOURCE_TRACKED" and cov[st]["production_sources"] > 0
 
 
 def test_evidence_problems_catch_bad_rows(tmp_path, monkeypatch):
@@ -127,17 +135,19 @@ def test_no_discovered_candidate_becomes_a_registry_source_of_rows():
     for p in _rows(AC.DISCOVERY_PATH):
         graduated = [r for r in reg if r.source_id == p["source_id"]]
         if graduated:
-            # A candidate that became an adapter (AVAILABLE sprint: Georgetown) is a
-            # held AVAILABLE registry source - UNREVIEWED, so no row is ever written.
-            assert all(r.publication_status == "UNREVIEWED" and r.ledger_set == {"AVAILABLE"} for r in graduated)
+            # A candidate that became an adapter (AVAILABLE sprint: Georgetown) is an
+            # AVAILABLE registry source - approved by the owner on 2026-10-26, legal review pending.
+            assert all(r.publication_status == "APPROVED" and r.ledger_set == {"AVAILABLE"}
+                       and "Owner approved customer publication 2026-10-26" in r.restrictions for r in graduated)
             continue
         assert p["url"] not in reg_urls
 
 
 def test_zero_states_are_named_and_correct():
     cov = {c["state"]: c for c in AC.coverage()}
-    for st in ("MI", "SC", "WI"):
-        assert cov[st]["status"] == "REVIEW_REQUIRED" and cov[st]["production_sources"] == 0 and cov[st]["candidates"]
+    assert cov["WI"]["status"] == "REVIEW_REQUIRED" and cov["WI"]["production_sources"] == 0 and cov["WI"]["candidates"]
+    for st in ("MI", "SC"):     # owner decision 2026-10-26: their AVAILABLE sources are published
+        assert cov[st]["status"] == "SOURCE_TRACKED" and cov[st]["production_sources"] > 0 and cov[st]["candidates"]
     for st in ("CO", "WY"):
         assert cov[st]["status"] == "NO_QUALIFYING_PROGRAM" and cov[st]["research"]["mechanism"] == "COUNTY_HELD_LIEN"
     assert cov["FL"]["status"] == "SOURCE_TRACKED" and cov["LA"]["status"] == "SOURCE_TRACKED"
@@ -153,11 +163,13 @@ def test_auction_and_lien_sources_never_count_as_available_sources():
     auction_only = [r for r in load_registry() if r.ledger_set and "AVAILABLE" not in r.ledger_set
                     and r.verification_status == "PRODUCTION_VERIFIED"]
     assert auction_only, "fixture sanity: production auction / lien sources exist"
-    # Michigan, Wyoming and South Carolina have production AUCTION sources and
-    # still have no AVAILABLE source.
+    # Michigan, Wyoming and South Carolina have production AUCTION sources; none of
+    # them is counted as an AVAILABLE source (MI / SC's AVAILABLE sources are their
+    # land-bank / FLC lists, approved by the owner on 2026-10-26).
     for st in ("MI", "WY", "SC"):
         assert any(r.state == st for r in auction_only)
-        assert AC.production_available_sources(st) == []
+        assert all("AVAILABLE" in r.ledger_set for r in AC.production_available_sources(st))
+    assert AC.production_available_sources("WY") == []
 
 
 def test_status_precedence(monkeypatch):

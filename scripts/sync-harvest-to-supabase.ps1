@@ -59,6 +59,34 @@ function Get-LedgerCloseableCounties([string]$Ledger, [string]$StatusPath) {
     return @((($out -join "`n") | ConvertFrom-Json))
 }
 # --- end three-ledger contract -------------------------------------------------
+# --- Stored-value guard (2026-10-26) -------------------------------------------
+# PostgREST's bulk upsert needs one key set per batch, so a column the list did
+# not publish is sent as null - and merge-duplicates used to write that null
+# over the stored value (146 FL auction rows lost their FDOR tax-roll
+# `assessed`). scripts/sync_value_guard.py reads the stored rows and puts the
+# stored value back wherever a blank or placeholder would replace it, or where
+# field_provenance names another source of equal or higher rank
+# (scripts/field_provenance.py). Fail closed: if the stored rows cannot be
+# read, nothing is written.
+function Protect-StoredValues([string]$Source, $Rows) {
+    $all = @($Rows)
+    if ($all.Count -eq 0) { return }
+    $in = [System.IO.Path]::GetTempFileName()
+    $out = [System.IO.Path]::GetTempFileName()
+    try {
+        $json = $all | ConvertTo-Json -Depth 6
+        if ($all.Count -eq 1) { $json = "[$json]" }
+        [System.IO.File]::WriteAllText($in, $json, [System.Text.UTF8Encoding]::new($false))
+        & (Get-LedgerPython) (Join-Path $PSScriptRoot "sync_value_guard.py") --source $Source --state FL --in $in --out $out
+        if (0 -ne $LASTEXITCODE) { throw "sync_value_guard.py could not guard the $Source rows (exit $LASTEXITCODE) - nothing is written." }
+        $guarded = @((Get-Content $out -Raw -Encoding utf8) | ConvertFrom-Json)
+        if ($guarded.Count -ne $all.Count) { throw "sync_value_guard.py returned $($guarded.Count) of $($all.Count) rows - nothing is written." }
+        $guarded
+    } finally {
+        Remove-Item $in, $out -ErrorAction SilentlyContinue
+    }
+}
+# --- end stored-value guard ----------------------------------------------------
 
 
 # Pushes the statewide harvest (harvest_all.json, produced by
@@ -188,6 +216,9 @@ foreach ($p in $harvest) {
 $rows = @(Select-LedgerRows "AUCTIONS" $rows)
 if ($rows.Count -eq 0) { throw "Every harvested row was missing case # or address - nothing to sync." }
 Write-Output "Prepared $($rows.Count) properties ($skipped skipped for missing case/address)."
+# A listing that publishes no assessed value (most RealAuction counties) never
+# erases the state tax roll's, nor any stored value of a higher-ranked source.
+$rows = @(Protect-StoredValues "auction" $rows)
 
 $headers = @{
     "apikey"        = $serviceRoleKey

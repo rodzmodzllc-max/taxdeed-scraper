@@ -143,8 +143,8 @@ def test_known_production_examples():
     ebr = by[("LA", "East Baton Rouge")]
     assert ebr["ledgers"]["AVAILABLE"]["coverage"] == "COVERED"
     assert ebr["acquisition"]["verified"]
-    # Detroit Land Bank: collected, awaiting review - never COVERED.
-    assert by[("MI", "Wayne")]["ledgers"]["AVAILABLE"]["coverage"] == "PARTIALLY_COVERED"
+    # Detroit Land Bank: published by the owner's 2026-10-26 decision (legal review pending).
+    assert by[("MI", "Wayne")]["ledgers"]["AVAILABLE"]["coverage"] == "COVERED"
 
 
 # ---- customer source health ------------------------------------------------

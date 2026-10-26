@@ -20,12 +20,12 @@ fl_realauction,FL,no,1297,partial,gap,ok,partial,No publication decision on the 
 fl_lienhub_certificates,FL,no,1611,partial,gap,ok,gap,"No publication decision on the rows (NULL); registry grandfathered only; LienHub has refused reads since 2026-10-01, so freshness is not established. Requires a publication decision.",2026-10-05
 tx_lgbs,TX,no,440,partial,gap,ok,partial,Vendor listing (LGBS); its own rights audit is REVIEW_REQUIRED and it runs manual-only. Requires a publication decision.,2026-10-05
 tx_realauction,TX,no,103,partial,gap,ok,partial,No publication decision on the rows (NULL); rights audit REVIEW_REQUIRED; manual-only. Requires a publication decision.,2026-10-05
-mi_detroit_landbank_lots,MI,no,30766,ok,ok,ok,gap,UNREVIEWED: tester preview only (Detroit customer subset applies).,2026-10-05
-mi_detroit_landbank_programs,MI,no,12,ok,ok,ok,gap,UNREVIEWED: tester preview only (Detroit customer subset applies).,2026-10-05
-mi_oceana_landbank,MI,no,5,ok,ok,ok,ok,UNREVIEWED: tester preview only.,2026-10-05
-mo_stl_lra_inventory,MO,no,9758,ok,ok,ok,gap,UNREVIEWED: tester preview only.,2026-10-05
-ok_oklahoma_county_owned,OK,no,195,ok,ok,ok,ok,UNREVIEWED: tester preview only.,2026-10-05
-pa_fayette_repository,PA,no,376,ok,ok,ok,gap,UNREVIEWED: tester preview only.,2026-10-05
-mn_ramsey_tax_forfeit,MN,no,2,ok,ok,ok,gap,UNREVIEWED: tester preview only.,2026-10-05
-sc_horry_forfeited_land,SC,no,51,ok,ok,ok,ok,UNREVIEWED: tester preview only.,2026-10-05
-sc_georgetown_forfeited_land,SC,no,1,ok,ok,ok,ok,UNREVIEWED: tester preview only.,2026-10-05
+mi_detroit_landbank_lots,MI,no,30766,ok,ok,ok,gap,Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta (Detroit customer subset applies).,2026-10-05
+mi_detroit_landbank_programs,MI,no,12,ok,ok,ok,gap,Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta (Detroit customer subset applies).,2026-10-05
+mi_oceana_landbank,MI,no,5,ok,ok,ok,ok,Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta.,2026-10-05
+mo_stl_lra_inventory,MO,no,9758,ok,ok,ok,gap,Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta.,2026-10-05
+ok_oklahoma_county_owned,OK,no,195,ok,ok,ok,ok,Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta.,2026-10-05
+pa_fayette_repository,PA,no,376,ok,ok,ok,gap,Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta.,2026-10-05
+mn_ramsey_tax_forfeit,MN,no,2,ok,ok,ok,gap,Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta.,2026-10-05
+sc_horry_forfeited_land,SC,no,51,ok,ok,ok,ok,Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta.,2026-10-05
+sc_georgetown_forfeited_land,SC,no,1,ok,ok,ok,ok,Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta.,2026-10-05

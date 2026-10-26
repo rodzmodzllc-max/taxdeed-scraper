@@ -30,7 +30,7 @@ def test_r02_every_florida_county_has_exactly_one_row_and_52_are_production():
     # row; the AUCTIONS and LIENS & CERTIFICATES rows sit beside them.
     fl = [r for r in ROWS if r.state == "FL"]
     avail = [r for r in fl if "AVAILABLE" in r.ledger_set or not r.ledger_set]
-    assert len(fl) == 146 and len(avail) == 67 and len({r.county for r in avail}) == 67 and len({r.county for r in fl}) == 67
+    assert len(fl) == 147 and len(avail) == 67 and len({r.county for r in avail}) == 67 and len({r.county for r in fl}) == 67
     prod = [r for r in csr.production_rows(ROWS, "FL") if "AVAILABLE" in r.ledger_set]
     assert len(prod) == 52
     assert csr.expected_harvest_units(ROWS) == sorted((r.source_id, r.county) for r in prod)

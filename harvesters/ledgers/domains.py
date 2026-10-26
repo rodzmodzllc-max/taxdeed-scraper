@@ -83,17 +83,19 @@ AVAILABLE_HARVESTER = HarvesterDomain(
 
 LIEN_CERTIFICATE_HARVESTER = HarvesterDomain(
     ledger=Ledger.LIENS_CERTIFICATES, name="LienCertificateHarvester",
-    harvesters=("scripts/harvest_lienhub_certificates.ps1", "scripts/harvest_state_inventory.py"),
-    status_files=("harvest_certificates_status.json", "harvest_arizona_status.json"),
-    harvest_files=("harvest_certificates.json", "harvest_arizona.json"),
-    sync_scripts=("scripts/sync-certificates-to-supabase.ps1",),
+    harvesters=("scripts/harvest_lienhub_certificates.ps1", "scripts/harvest_state_inventory.py",
+                "scripts/harvest_sarasota_certificates.py"),
+    status_files=("harvest_certificates_status.json", "harvest_arizona_status.json",
+                  "harvest_sarasota_certificates_status.json"),
+    harvest_files=("harvest_certificates.json", "harvest_arizona.json", "harvest_certificates_sarasota.json"),
+    sync_scripts=("scripts/sync-certificates-to-supabase.ps1", "scripts/sync_sarasota_certificates.py"),
     lifecycle="sync-certificates-to-supabase.ps1 reconciles a certificate absent from a COMPLETE county's LienHub listing to "
               "'notfound'; scripts/inventory_status_writer.py sets certificate_listed / closed; redemption and assignment are "
               "never inferred from absence (LienHub's county-held list does not say why a certificate left it)",
     closeout_gate="sync-certificates-to-supabase.ps1: only a county harvest_certificates_status.json marks COMPLETE this run",
     history="inventory_status_observations (021); a certificate row is its own record (source='certificate'), distinct from any "
             "auction event or available record on the same parcel",
-    source_ids=("fl_lienhub_certificates", "az_maricopa_state_cp"),
+    source_ids=("fl_lienhub_certificates", "az_maricopa_state_cp", "fl_sarasota_tc_certificates"),
     states=("FL", "AZ"),
 )
 

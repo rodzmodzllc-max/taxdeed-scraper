@@ -2590,6 +2590,37 @@ Full description: `docs/texas-vendor-sources.md`. Stable facts:
 - Front-end follow-up (public/ not touched): app.js `parcelOf()` cause-in-parcel list and source labels name only LGBS /
   RealAuction.
 
+## Florida PowerShell syncs never erase a stored value (2026-10-26, PR open, no migration)
+
+- **Why:** PostgREST bulk upsert needs one key set per batch (PGRST102), so a column the list did not publish is sent
+  as null, and merge-duplicates wrote that null over the stored value. Production 2026-10-26: 146 active FL auction
+  rows had lost their FDOR `assessed` this way.
+- **Guard:** `scripts/sync_value_guard.py` (helper block "Stored-value guard", identical in all three `sync-*.ps1`,
+  called once after `Select-LedgerRows` and before the upsert) reads the stored rows and sends the stored value back
+  in three cases:
+  - for a blank;
+  - for a sync placeholder ("Account <case>", "Parcel <p>", "Case <c>", the LAFT "Address not published" string, a
+    0 bid);
+  - for a value whose `field_provenance` names another source of equal or higher rank.
+
+  The sync's own source refreshing its own value is allowed (auction / certificate = `vendor_listing`, LAFT =
+  `county_list`). If the stored rows cannot be read, nothing is written.
+- **Refill:** `enrich_property_details.py` refills erased tax-roll values (`fetch_erased_rows`, enabled by
+  `ENRICH_REFILL_ERASED=1` in the deeds job).
+- **Orange certificate numbers:** Orange's RealAuction feed publishes the "Certificate #" cell EMPTY (label capture,
+  run 40383361568), so Orange auction rows have no certificate number to carry.
+- **Sarasota certificates (production, owner decision 2026-10-26):** the certificates job runs
+  `scripts/harvest_sarasota_certificates.py` (the Tax Collector's own county-held PDF) and then
+  `scripts/sync_sarasota_certificates.py`.
+  - Source `fl_sarasota_tc_certificates`, a registry row with APPROVED governance and publication, interim
+    permission records through display / link (expire 2027-04-12).
+  - One row per certificate: `case_no` = `<tax year>-<cert #>`, `parcel` = the account.
+  - Close-out covers only its own rows, after a COMPLETE read.
+  - The LienHub close-out reads only `source_id` `fl_lienhub_certificates` (or unset).
+- **TaxSys** (`<county>.county-taxes.com`, Grant Street) answered a runner with a Cloudflare 403 challenge (run
+  40384773704): stopped, never worked around.
+- Survey: `docs/review/fl-certificate-sources-2026-10-26.md`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
@@ -2825,7 +2856,7 @@ Full description: `docs/identity-redesign.md`. Stable facts:
   is the owner's decision.
 - **Pages:**
   - Home has `#homeDesk` (`renderHomeDesk()`).
-  - The auction ledger head has `upcomingSalesHtml()`.
+  - The auction ledger head has `saleDayStripHtml()`.
   - On the property page, Source truth comes after the map.
 - `sw.js` → `tdw-shell-v90`.
 
@@ -3499,7 +3530,7 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   notice, disclaimer and metadata (on a card: short credit on the picture, the full line in the photo bubble); geometry
   never rides on a property row or in an export. Stub knobs `?boundary=ok|fl|multi|none|unauth|invalid|nolicencelink|
   error`, `?boundaryids=<id>,<id>` (outline ids the cards see).
-- `sw.js` -> `tdw-shell-v142` (2026-10-25: header and filter cleanup, path-first customer view, essentials-first cards and the Merged look; v141 was the header Look switch and the trial Tactile / Terrain List experiences - see "Look switch" below; v138-v140 are held by the redesign PRs. v137 was 2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
+- `sw.js` -> `tdw-shell-v143` (2026-10-26: sale-day strip at the top of Auctions, popups kept inside the screen; v142 was 2026-10-25: header and filter cleanup, path-first customer view, essentials-first cards and the Merged look; v141 was the header Look switch and the trial Tactile / Terrain List experiences - see "Look switch" below; v138-v140 are held by the redesign PRs. v137 was 2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
 
 
 ## Look switch: Classic / Tactile / Terrain (2026-10-25, PR open, frontend only)
@@ -3528,6 +3559,22 @@ Full description: `docs/review/header-tiers.md`. Stable facts:
   (`<!--RESEARCH-->` markers in `detailHtml()`); a nav jump opens it. Tests open it through the harness
   (`window.__suiteKeepResearchClosed` reads the default).
 - Shell CSS must never override `[hidden]` (filter rows and fields each needed a guard).
+
+## Every collected source published (owner decision 2026-10-26, PR open, no migration)
+
+Full description: `docs/publish-all-sources.md`. Stable facts:
+- **The 13 implemented sources that were UNREVIEWED are now APPROVED** (`expansion.OWNER_APPROVED_2026_10_26_SOURCE_IDS`):
+  - the ten Available sources: Detroit lots + programs, Oceana, St. Louis LRA, Oklahoma County, Fayette, Ramsey, Horry,
+    Georgetown, Shelby;
+  - three auction lists, which are now collected: Morgan CO deed auctions, Dane WI, Oconee SC.
+
+  Registry `restrictions` begins "Owner approved customer publication 2026-10-26; legal review pending".
+- **The decision is an internal risk acceptance, never the source's permission.**
+  - `display` / `link` records in `data/source_permissions.csv` are INTERIM (`OWNER_PERMISSION_REQUIRED` +
+    `INTERNAL_RISK_ACCEPTANCE`, expiring 2027-04-12); `redistribute` is not granted.
+  - `available_coverage.problems()` accepts an APPROVED review without a grant only when the review cites the owner
+    decision and that INTERIM display record exists.
+- **Unchanged:** the Detroit customer subset, `availableGate: "off"`, the paid-beta set (5 sources), `tx_ctsa`'s block.
 
 ## Texas close-out (2026-10-26, PR open, no migration)
 

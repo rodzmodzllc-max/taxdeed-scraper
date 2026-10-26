@@ -176,11 +176,13 @@ OWNER_VENDORS = {"tx_pbfcm", "tx_mvba", "tx_govease"}  # discover recorded with 
 VENDOR_HOSTS = {"www.pbfcm.com", "mvbalaw.com", "www.mvbataxsales.com", "liveauctions.govease.com"}
 
 
-def test_only_the_owner_unblocked_vendors_hold_a_discover_permission():
-    # Evidence capture needs an owner-recorded discover permission per source. The only
-    # ones on file are the three Texas vendors the owner unblocked on 2026-10-26.
+def test_only_owner_recorded_sources_hold_a_discover_permission():
+    # Evidence capture needs an owner-recorded discover permission per source. On file: the three
+    # Texas vendors the owner unblocked on 2026-10-26, and the interim one-read record for TaxSys'
+    # county-held reports (whose hosts are in no index table).
     allowing = [r for r in PERM.Permissions.from_file().records if r.operation == "discover" and r.status != "BLOCKED"]
-    assert {r.source_id for r in allowing} == OWNER_VENDORS
+    assert {r.source_id for r in allowing} == OWNER_VENDORS | {"fl_taxsys_county_held"}
+    assert all(r.evidence_type == "INTERNAL_RISK_ACCEPTANCE" and r.expires_on == "2027-04-12" for r in allowing)
     g = DG.Guard("t")
     hosts = sorted({t.host for t in g.index})
     assert hosts and not any(g.decide(f"https://{h}/").allowed for h in hosts if h not in VENDOR_HOSTS)

@@ -185,9 +185,11 @@ def test_the_dlba_vacant_land_policy_is_a_verified_official_document_row():
     assert PPE.evidence_problems(e) == []
     unit = next(u for u in ACQ["status"] if u["source_id"] == "mi_detroit_landbank_lots")
     assert unit["status"] == "VERIFIED" and unit["basis"] == "evidence_table"
-    # the source's publication review is untouched: verified evidence never approves a source
+    # verified evidence never approves a source: the source's publication comes from
+    # the owner's 2026-10-26 decision alone (registry restrictions say so)
     reg = {r["source_id"]: r for r in csv.DictReader((ROOT / "data/county_source_registry.csv").open(encoding="utf-8", newline=""))}
-    assert reg["mi_detroit_landbank_lots"]["publication_status"] == "UNREVIEWED"
+    assert reg["mi_detroit_landbank_lots"]["publication_status"] == "APPROVED"
+    assert "Owner approved customer publication 2026-10-26" in reg["mi_detroit_landbank_lots"]["restrictions"]
 
 
 def test_acquisition_unit_counts_after_the_sprint():
@@ -259,7 +261,8 @@ def test_gap_queue_is_generated_from_the_records_and_pinned():
     assert doc["denominators"]["acquisition_units"] == 127 and doc["denominators"]["acquisition_unresolved"] == 98
     assert doc["denominators"]["state_ledger_units"] == 39
     assert set(doc["summary"]["by_category"]) <= set(GQ.CATEGORIES)
-    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 98 + 33
+    # 33 state-ledger units before the owner's 2026-10-26 publication decision cleared six APPROVAL_UNRESOLVED ones
+    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 43 + 55 + 27   # + 55 PBFCM / MVBA AVAILABLE units (2026-10-26)
     for u in doc["units"]:
         assert u["category"] in GQ.CATEGORIES and u["next_action"] and u["source_accessible"] and "reason" in u
         assert u["completable_now"] == (u["category"] == "A")
@@ -268,7 +271,7 @@ def test_gap_queue_is_generated_from_the_records_and_pinned():
     assert by[("TX", "Harris", "tx_hctax", "AVAILABLE")]["category"] == "E"               # legal review
     assert by[("TX", "Liberty", "tx_lgbs", "AVAILABLE")]["category"] == "F"               # no official resale process
     assert by[("FL", "Indian River", "fl_laft_html", "AVAILABLE")]["category"] == "B"     # script-rendered page
-    assert by[("TN", "*", "", "AVAILABLE")]["category"] == "E"                            # owner publication review
+    assert by[("TN", "*", "", "AVAILABLE")]["category"] == "C"                            # published 2026-10-26; process not verified
     assert by[("LA", "*", "", "AVAILABLE")]["category"] == "A"                            # fix exists, awaiting deploy
     assert by[("FL", "*", "", "LIENS_CERTIFICATES")]["category"] == "D"                  # LienHub 403
     # Since 2026-10-26 Texas reads daily and the owner unblocked GovEase / PBFCM / MVBA: no longer an owner decision (E).

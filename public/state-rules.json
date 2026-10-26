@@ -170,7 +170,7 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "co_morgan_treasurer_deed_auctions"
         }
        ]
@@ -2228,6 +2228,11 @@
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "fl_lienhub_certificates"
+        },
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "fl_sarasota_tc_certificates"
         }
        ]
       },
@@ -2774,7 +2779,7 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "mi_oceana_landbank"
         }
        ]
@@ -2787,12 +2792,12 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "mi_detroit_landbank_lots"
         },
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "mi_detroit_landbank_programs"
         }
        ]
@@ -2938,7 +2943,7 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "mn_ramsey_tax_forfeit"
         }
        ]
@@ -3060,7 +3065,7 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "mo_stl_lra_inventory"
         }
        ]
@@ -3150,7 +3155,7 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "ok_oklahoma_county_owned"
         }
        ]
@@ -3274,7 +3279,7 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "pa_fayette_repository"
         }
        ]
@@ -3408,7 +3413,7 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "sc_oconee_tax_sale_list"
         }
        ]
@@ -3447,7 +3452,7 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "sc_georgetown_forfeited_land"
         }
        ]
@@ -3457,7 +3462,7 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "sc_horry_forfeited_land"
         }
        ]
@@ -3567,7 +3572,7 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "tn_shelby_landbank"
         }
        ]
@@ -5374,7 +5379,7 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "wi_dane_tax_deed_auction"
         }
        ]
@@ -5731,7 +5736,7 @@
     "FAIL": 0,
     "NOT_APPLICABLE": 0,
     "NOT_VERIFIED": 2,
-    "PASS": 28
+    "PASS": 29
    },
    "findings": [
     {
@@ -5804,7 +5809,7 @@
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: fl_lienhub_certificates",
+     "detail": "TRACKED: fl_lienhub_certificates, fl_sarasota_tc_certificates",
      "state": "FL",
      "status": "PASS",
      "subject": "LIENS_CERTIFICATES"
@@ -5898,6 +5903,13 @@
      "state": "FL",
      "status": "PASS",
      "subject": "fl_realauction"
+    },
+    {
+     "check": "source_classification",
+     "detail": "LIENS_CERTIFICATES",
+     "state": "FL",
+     "status": "PASS",
+     "subject": "fl_sarasota_tc_certificates"
     },
     {
      "check": "available_terms",
