@@ -9,8 +9,8 @@ current practice continue until `expires_on`, and `permissions.authorize()` deni
 after (`EXPIRED`), with no fallback to a broader record. A window longer than
 210 days is a configuration error that denies every request.
 
-- Records: 133 across 36 sources
-- By expiry: 2027-04-12 (133)
+- Records: 151 across 39 sources
+- By expiry: 2027-04-12 (151)
 - Findings: REVIEWER_IS_NOT_A_DECISION (77)
 - Configuration: valid
 
@@ -137,10 +137,28 @@ found in the code for that source.
 | tn_shelby_landbank | TN | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | tn_shelby_landbank | TN | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | tn_shelby_landbank | TN | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_govease | TX | * | discover | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_govease | TX | * | display | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_govease | TX | * | fetch | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_govease | TX | * | link | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_govease | TX | * | parse | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_govease | TX | * | store | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | tx_lgbs | TX | * | display | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-14 | 2027-04-12 | - | scripts/auction_events_writer.py<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | REVIEWER_IS_NOT_A_DECISION |
 | tx_lgbs | TX | * | fetch | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-14 | 2027-04-12 | - | scripts/auction_events_writer.py<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | REVIEWER_IS_NOT_A_DECISION |
 | tx_lgbs | TX | * | parse | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-14 | 2027-04-12 | - | scripts/auction_events_writer.py<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | REVIEWER_IS_NOT_A_DECISION |
 | tx_lgbs | TX | * | store | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-14 | 2027-04-12 | - | scripts/auction_events_writer.py<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | REVIEWER_IS_NOT_A_DECISION |
+| tx_mvba | TX | * | discover | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_mvba | TX | * | display | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_mvba | TX | * | fetch | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_mvba | TX | * | link | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_mvba | TX | * | parse | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_mvba | TX | * | store | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_pbfcm | TX | * | discover | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_pbfcm | TX | * | display | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_pbfcm | TX | * | fetch | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_pbfcm | TX | * | link | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_pbfcm | TX | * | parse | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| tx_pbfcm | TX | * | store | LEGAL_REVIEW_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | tx_realauction | TX | * | display | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-14 | 2027-04-12 | - | scripts/auction_events_writer.py<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | REVIEWER_IS_NOT_A_DECISION |
 | tx_realauction | TX | * | fetch | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-14 | 2027-04-12 | - | scripts/auction_events_writer.py<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | REVIEWER_IS_NOT_A_DECISION |
 | tx_realauction | TX | * | parse | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-14 | 2027-04-12 | - | scripts/auction_events_writer.py<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | REVIEWER_IS_NOT_A_DECISION |

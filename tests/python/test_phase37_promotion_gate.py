@@ -51,7 +51,7 @@ def test_02_legal_review_required_source_denies():
 
 
 def test_03_blocked_source_denies():
-    for source_id in ("tx_pbfcm", "tx_mvba", "tx_ctsa", "tx_govease"):
+    for source_id in ("tx_ctsa",):  # tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner on 2026-10-26; tx_ctsa stays BLOCKED
         assert SOURCE_REGISTRY[source_id].legal_status == SourceStatus.BLOCKED
         d = can_promote_source_for_use(source_id, "CUSTOMER_DISPLAY")
         assert d.allowed is False

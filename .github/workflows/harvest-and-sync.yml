@@ -261,6 +261,9 @@ on:
           sprint's candidate inventory pages and statewide parcel services
           (EXPANSION_TARGETS), value-free. "field_fill" = per-field fill
           rates of every configured ArcGIS layer (scripts/probe_field_fill.py).
+          "tx_vendors" = run the PBFCM / MVBA / GovEase harvesters from the
+          runner and print per-county read status and field fill counts only
+          (scripts/capture_tx_vendors.py; no value, nothing written).
           "acquisition_candidates" = the official process pages listed in
           data/acquisition_candidate_pages.csv, plus one hop of tax-deed /
           struck-off links on them, value-free. "available_discovery" =
@@ -285,7 +288,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby]
+        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, tx_vendors]
 
 concurrency:
   group: harvest-and-sync
@@ -1320,7 +1323,8 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install requests
+        # pdfplumber: the PBFCM / MVBA sale and resale lists are PDFs (2026-10-26).
+        run: pip install requests pdfplumber
 
       - name: Harvest Texas tax sales (LGBS / PBFCM / GovEase)
         run: python3 harvesters/texas_harvester.py
@@ -1529,6 +1533,13 @@ jobs:
           RA_DATES: ${{ github.event.inputs.evidence_realauction_dates }}
           SCOPE: ${{ github.event.inputs.evidence_scope }}
         run: |
+          if [ "$SCOPE" = "tx_vendors" ]; then
+            # 2026-10-26 (owner decision): the Texas vendors PBFCM / MVBA / GovEase,
+            # read by the real harvesters under the discovery guard. Status and
+            # counts only; nothing is written to any database.
+            python3 scripts/capture_tx_vendors.py
+            exit 0
+          fi
           if [ "$SCOPE" = "pioneer_statements" ]; then
             # 2026-10-05: where Pioneer TaxSmartWeb clerks publish the per-case
             # Lands Available purchase statement ("Total Due from Purchaser").

@@ -347,20 +347,21 @@ def test_powershell_guard_allows_with_the_real_records(name):
     assert res.returncode == 0, res.stdout + res.stderr
 
 
-# --- GovEase: stays blocked with stale evidence, missing terms or a fallback ---
+# --- GovEase: owner-unblocked 2026-10-26, but never without a record --------
+# --- CTSA: still blocked in code whatever the registry says ------------------
 
-def test_govease_stays_blocked_if_the_registry_entry_loses_its_terms_and_block(monkeypatch):
+def test_ctsa_stays_blocked_if_the_registry_entry_loses_its_terms_and_block(monkeypatch):
     # Even if the registry entry were edited to drop its terms finding and its
     # BLOCKED status (stale or missing evidence), the permission engine still
     # refuses: the block is in code, not in the registry text.
     import dataclasses
 
     from harvesters.governance import registry as REG
-    entry = REG.SOURCE_REGISTRY["tx_govease"]
+    entry = REG.SOURCE_REGISTRY["tx_ctsa"]
     softened = dataclasses.replace(entry, terms_status="", robots_status="", legal_status=REG.SourceStatus.APPROVED)
-    monkeypatch.setitem(REG.SOURCE_REGISTRY, "tx_govease", softened)
+    monkeypatch.setitem(REG.SOURCE_REGISTRY, "tx_ctsa", softened)
     for op in PERM.OPERATIONS:
-        d = PERM.Permissions.from_file().authorize("tx_govease", op, state="TX")
+        d = PERM.Permissions.from_file().authorize("tx_ctsa", op, state="TX")
         assert not d.allowed and d.reason_code == "HARD_BLOCKED", op
 
 
@@ -376,11 +377,15 @@ def test_govease_has_no_default_fallback(perms_factory, kw):
     assert not d.allowed
 
 
-def test_govease_denied_by_every_entry_point_helper():
+def test_ctsa_denied_and_govease_allowed_by_every_entry_point_helper():
     import permission_gate as PG
     import source_publication as SP
-    assert not PG.allowed("tx_govease", ("fetch",), state="TX", label="t")
-    for op in ("fetch", "store", "display", "link"):
-        assert not SP.permitted("tx_govease", op, "TX").allowed
     import laft_status
-    assert not laft_status.permission("tx_govease", "fetch", state="TX").allowed
+    assert not PG.allowed("tx_ctsa", ("fetch",), state="TX", label="t")
+    for op in ("fetch", "store", "display", "link"):
+        assert not SP.permitted("tx_ctsa", op, "TX").allowed
+    assert not laft_status.permission("tx_ctsa", "fetch", state="TX").allowed
+    # 2026-10-26: GovEase holds the owner's interim risk acceptance (in date from that day).
+    assert PG.allowed("tx_govease", ("fetch",), state="TX", label="t")
+    for op in ("fetch", "store", "display", "link"):
+        assert SP.permitted("tx_govease", op, "TX").allowed

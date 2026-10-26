@@ -44,8 +44,9 @@ def test_texas_mixed_ledger_harvest_stamps_each_ledger_only_from_its_own_rows():
 
 def test_texas_ledgers_have_a_store_permission_mapping():
     import stamp_seen as S
-    assert S.STORE_SOURCES[("TX", "laft")][0] == ("tx_lgbs",)
-    assert set(S.STORE_SOURCES[("TX", "auction")][0]) == {"tx_lgbs", "tx_realauction"}
+    # 2026-10-26: the owner-unblocked vendors (PBFCM / MVBA resale + sale lists, GovEase auctions).
+    assert S.STORE_SOURCES[("TX", "laft")][0] == ("tx_lgbs", "tx_pbfcm", "tx_mvba")
+    assert set(S.STORE_SOURCES[("TX", "auction")][0]) == {"tx_lgbs", "tx_realauction", "tx_pbfcm", "tx_mvba", "tx_govease"}
     assert S.store_permitted("TX", "laft") and S.store_permitted("TX", "auction")
 
 

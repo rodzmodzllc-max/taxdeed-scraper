@@ -350,15 +350,18 @@ def test_I_source_statuses_unchanged_this_phase():
     assert SOURCE_REGISTRY["tx_lgbs"].legal_status == SourceStatus.APPROVED
     assert SOURCE_REGISTRY["tx_realauction"].legal_status == SourceStatus.APPROVED
     assert SOURCE_REGISTRY["tx_hctax"].legal_status == SourceStatus.LEGAL_REVIEW_REQUIRED
-    for blocked in ("tx_pbfcm", "tx_govease", "tx_mvba", "tx_ctsa"):
+    for blocked in ("tx_ctsa",):  # tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner on 2026-10-26; tx_ctsa stays BLOCKED
         assert SOURCE_REGISTRY[blocked].legal_status == SourceStatus.BLOCKED
+    for vendor in ("tx_pbfcm", "tx_govease", "tx_mvba"):
+        assert SOURCE_REGISTRY[vendor].legal_status == SourceStatus.APPROVED
 
 
 def test_I_gate_decisions_unchanged_for_every_registered_source():
     assert check_ingestion_gate("tx_lgbs").allowed is True
     assert check_ingestion_gate("tx_realauction").allowed is True
     assert check_ingestion_gate("tx_hctax").allowed is False
-    assert check_ingestion_gate("tx_pbfcm").allowed is False
+    assert check_ingestion_gate("tx_ctsa").allowed is False
+    assert check_ingestion_gate("tx_pbfcm").allowed is True  # tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner on 2026-10-26; tx_ctsa stays BLOCKED
     assert check_ingestion_gate("unknown_source_xyz").allowed is False
 
 

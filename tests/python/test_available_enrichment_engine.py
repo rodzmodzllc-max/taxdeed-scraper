@@ -134,7 +134,10 @@ def test_lgbs_is_in_scope_as_review_required_never_dropped():
 def test_blocked_vendors_are_hard_blocked_and_never_accessed():
     inv = INV.build_inventory()
     blocked = [s for s in inv if s.governance == "HARD_BLOCKED"]
-    assert {s.source_id.split(":")[-1] for s in blocked if s.origin == "registry"} >= {"tx_pbfcm", "tx_mvba"}
+    # 2026-10-26: the owner unblocked PBFCM / MVBA / GovEase; no registry row of theirs is hard-blocked any more
+    # (tx_ctsa, the one vendor still blocked, has no registry row at all).
+    reg_blocked = {s.source_id.split(":")[-1] for s in blocked if s.origin == "registry"}
+    assert not reg_blocked & {"tx_pbfcm", "tx_mvba", "tx_govease"}
     assert all(s.access == "NOT_ACCESSED_BLOCKED" and not s.may_access and not s.may_write for s in blocked)
     with pytest.raises(ValueError):
         UnifiedSource("x", "FL", "Lee", "x", "x", "THIRD_PARTY", "", governance="HARD_BLOCKED", governance_reason="r",

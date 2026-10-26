@@ -195,7 +195,8 @@ def test_acquisition_unit_counts_after_the_sprint():
     for u in ACQ["status"]:
         by[u["status"]] = by.get(u["status"], 0) + 1
     # 2026-10-26: LRA (MO), Ramsey (MN) and Fayette (PA) processes read -> VERIFIED with records.
-    assert len(ACQ["status"]) == 72 and by == {"VERIFIED": 29, "NEEDS_REVIEW": 5, "UNAVAILABLE": 6, "NOT_FOUND": 32}
+    # 2026-10-26: + 55 PBFCM / MVBA AVAILABLE units (owner decision), none with acquisition evidence yet.
+    assert len(ACQ["status"]) == 127 and by == {"VERIFIED": 29, "NEEDS_REVIEW": 8, "UNAVAILABLE": 6, "NOT_FOUND": 84}
 
 
 # ------------------------------------------------------------------ A2 county procedure rules
@@ -254,10 +255,11 @@ def test_gap_queue_is_generated_from_the_records_and_pinned():
     assert out.returncode == 0, out.stdout
     doc = json.loads((ROOT / "data/current_state/gap-queue.json").read_text(encoding="utf-8"))
     assert doc == GQ.build()
-    assert doc["denominators"]["acquisition_units"] == 72 and doc["denominators"]["acquisition_unresolved"] == 43   # 46 before the 2026-10-26 LRA / Ramsey / Fayette reads
+    # 46 before the 2026-10-26 LRA / Ramsey / Fayette reads; 98 with the PBFCM / MVBA units of the same day.
+    assert doc["denominators"]["acquisition_units"] == 127 and doc["denominators"]["acquisition_unresolved"] == 98
     assert doc["denominators"]["state_ledger_units"] == 39
     assert set(doc["summary"]["by_category"]) <= set(GQ.CATEGORIES)
-    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 43 + 33
+    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 98 + 33
     for u in doc["units"]:
         assert u["category"] in GQ.CATEGORIES and u["next_action"] and u["source_accessible"] and "reason" in u
         assert u["completable_now"] == (u["category"] == "A")
@@ -269,7 +271,8 @@ def test_gap_queue_is_generated_from_the_records_and_pinned():
     assert by[("TN", "*", "", "AVAILABLE")]["category"] == "E"                            # owner publication review
     assert by[("LA", "*", "", "AVAILABLE")]["category"] == "A"                            # fix exists, awaiting deploy
     assert by[("FL", "*", "", "LIENS_CERTIFICATES")]["category"] == "D"                  # LienHub 403
-    assert by[("TX", "*", "", "AUCTIONS")]["category"] == "E"                             # manual-only by owner decision
+    # Since 2026-10-26 Texas reads daily and the owner unblocked GovEase / PBFCM / MVBA: no longer an owner decision (E).
+    assert by[("TX", "*", "", "AUCTIONS")]["category"] == "A"
     assert ("MI", "Wayne", "mi_detroit_landbank_lots", "AVAILABLE") not in by             # closed this sprint
 
 

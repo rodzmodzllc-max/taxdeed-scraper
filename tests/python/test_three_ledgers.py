@@ -82,7 +82,10 @@ def test_l03_source_ids_feed_the_right_ledger_and_blocked_vendors_feed_none():
         assert ledgers_for_source_id(sid) == {Ledger.AVAILABLE}
     for sid in BLOCKED_SOURCE_IDS:
         assert ledgers_for_source_id(sid) == frozenset() and sid not in SOURCE_LEDGERS
-    assert ledgers_for_source_id("tx_govease") == frozenset() and ledgers_for_source_id("not_a_source") == frozenset()
+    assert BLOCKED_SOURCE_IDS == {"tx_ctsa"} and ledgers_for_source_id("not_a_source") == frozenset()
+    # Unblocked by the owner on 2026-10-26: the firms publish sale and resale lists, GovEase runs auctions.
+    assert ledgers_for_source_id("tx_pbfcm") == ledgers_for_source_id("tx_mvba") == {Ledger.AUCTIONS, Ledger.AVAILABLE}
+    assert ledgers_for_source_id("tx_govease") == {Ledger.AUCTIONS}
     # No Texas certificate source exists or is mapped.
     assert not any(Ledger.LIENS_CERTIFICATES in v and k.startswith("tx_") for k, v in SOURCE_LEDGERS.items())
 
@@ -109,7 +112,9 @@ def test_d01_domains_are_isolated_and_every_status_file_belongs_to_exactly_one()
     assert D.domain_for_status_file("harvest_arizona_status.json") is D.LIEN_CERTIFICATE_HARVESTER
     assert D.domain_for_status_file("nope.json") is None
     assert [d.name for d in D.domains_for_source_id("tx_lgbs")] == ["AuctionHarvester", "AvailableHarvester"]
-    assert D.domains_for_source_id("tx_pbfcm") == ()
+    assert [d.name for d in D.domains_for_source_id("tx_pbfcm")] == ["AuctionHarvester", "AvailableHarvester"]
+    assert [d.name for d in D.domains_for_source_id("tx_govease")] == ["AuctionHarvester"]
+    assert D.domains_for_source_id("tx_ctsa") == ()
     # Every script a domain names exists in the repository.
     for d in D.DOMAINS:
         for script in d.harvesters + d.sync_scripts:
@@ -198,7 +203,7 @@ def test_r02_auction_and_certificate_rows_mirror_the_harvesters_own_county_lists
         slug = re.sub(r"[^a-z]", "", county.lower())
         assert row.canonical_url == f"https://lienhub.com/county/{slug}/countyheld/certificates" and row.source_id == "fl_lienhub_certificates"
         assert row.harvester == "harvest_lienhub_certificates.ps1" and row.inventory_type == ""
-    tx_auction = {r.county: r for r in ROWS if r.state == "TX" and r.ledger_set == {"AUCTIONS"}}
+    tx_auction = {r.county: r for r in ROWS if r.state == "TX" and r.ledger_set == {"AUCTIONS"} and r.source_id != "tx_govease"}
     assert set(tx_auction) == _names("tx_realauction_counties.csv") and len(tx_auction) == 24
     assert all(r.source_id == "tx_realauction" and r.is_production for r in tx_auction.values())
     # A non-LienHub certificate platform county has NO certificate row: nothing is invented for it.
@@ -211,8 +216,9 @@ def test_r03_expected_units_are_scoped_per_ledger():
     assert len(csr.expected_harvest_units(ROWS, "FL", ledger="AUCTIONS")) == 47
     assert len(csr.expected_harvest_units(ROWS, "FL", ledger="LIENS_CERTIFICATES")) == 32
     assert len(csr.expected_harvest_units(ROWS, "FL", ledger=None)) == 52 + 47 + 32
-    assert len(csr.expected_harvest_units(ROWS, "TX", ledger="AVAILABLE")) == 8                # LGBS only
-    assert len(csr.expected_harvest_units(ROWS, "TX", ledger="AUCTIONS")) == 24 + 8            # RealAuction + LGBS
+    # 2026-10-26: PBFCM (45 counties) and MVBA (10) feed AUCTIONS and AVAILABLE, GovEase (6) AUCTIONS.
+    assert len(csr.expected_harvest_units(ROWS, "TX", ledger="AVAILABLE")) == 8 + 45 + 10      # LGBS + PBFCM + MVBA
+    assert len(csr.expected_harvest_units(ROWS, "TX", ledger="AUCTIONS")) == 24 + 8 + 45 + 10 + 6  # + RealAuction + GovEase
     assert csr.expected_harvest_units(ROWS, "TX", ledger="LIENS_CERTIFICATES") == []           # no TX certificate ledger
     # A county name shared by two ledgers is two units, never one.
     assert ("fl_laft_realtdm", "Alachua") in csr.expected_harvest_units(ROWS, "FL", ledger="AVAILABLE")
@@ -231,6 +237,7 @@ def test_r04_validator_rejects_cross_ledger_shapes_and_accepts_the_committed_one
     assert any("names no ledger" in p for p in csr.validate_row(row(source_id="fl_unknown_thing", ledgers="")))
     blocked = next(r for r in ROWS if r.source_id == "tx_pbfcm")
     bk = {c: getattr(blocked, c) for c in csr.EXTENDED_COLUMNS}
+    bk["source_id"] = "tx_ctsa"  # the one vendor still blocked (2026-10-26)
     assert any("blocked vendor row must feed no ledger" in p for p in csr.validate_row(csr.CountySourceRow(**{**bk, "ledgers": "AVAILABLE"})))
     # A row without the column classifies by its source id (registries written before the column).
     assert row(ledgers="").ledger_set == {"AUCTIONS"} and csr.validate_row(row(ledgers="")) == []
@@ -242,7 +249,8 @@ def test_r04_validator_rejects_cross_ledger_shapes_and_accepts_the_committed_one
 
 def test_r05_unit_freshness_reports_per_ledger():
     assert U.ledgers_of("fl_realauction") == "AUCTIONS" and U.ledgers_of("fl_lienhub_certificates") == "LIENS_CERTIFICATES"
-    assert U.ledgers_of("tx_lgbs") == "AUCTIONS|AVAILABLE" and U.ledgers_of("tx_pbfcm") == ""
+    assert U.ledgers_of("tx_lgbs") == "AUCTIONS|AVAILABLE" and U.ledgers_of("tx_ctsa") == ""
+    assert U.ledgers_of("tx_pbfcm") == "AUCTIONS|AVAILABLE" and U.ledgers_of("tx_govease") == "AUCTIONS"
     def e(county, source_id, status, **kw):
         return {"county": county, "harvester": source_id, "status": status, "checked_at": T.isoformat(), "state": "FL", "row_count": 1, **kw}
     entries = [U.normalize_entry(e("Alachua", "fl_laft_realtdm", "COMPLETE"), default_state="FL", default_source=None),
@@ -400,14 +408,19 @@ def test_x01_fl_and_tx_behaviour_is_unchanged():
     # FL / TX unchanged; LA joined the production states on 2026-09-30 (state-expansion sprint).
     assert states.PRODUCTION_STATES == {"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"} and states.is_activated("FL") and states.is_activated("TX")
     # The AVAILABLE rows are byte-for-byte the 109 rows the LAFT / struck-off machinery has always read.
-    avail = [r for r in ROWS if r.state in ("FL", "TX") and not (r.ledger_set and "AVAILABLE" not in r.ledger_set)]
-    assert len(avail) == 109
+    TXV = {"tx_pbfcm", "tx_mvba", "tx_govease"}  # unblocked 2026-10-26 (owner decision); pinned separately below
+    avail = [r for r in ROWS if r.state in ("FL", "TX") and not (r.ledger_set and "AVAILABLE" not in r.ledger_set)
+             and r.source_id not in TXV]
+    # 109 until 2026-10-26, when the 14 ledger-less 'blocked vendor only' rows were replaced by vendor rows.
+    assert len(avail) == 95
     assert len([r for r in avail if r.state == "FL"]) == 67 and len({r.county for r in avail if r.state == "FL"}) == 67
     assert {r.county for r in avail if r.state == "TX" and r.is_production} == {"Galveston", "Liberty", "Leon", "Maverick", "Jim Wells", "Hardin", "Van Zandt", "Goliad"}
     # Texas: LGBS is still the only AVAILABLE production source, still not retried; blocked vendors still carry no URL.
     assert all(r.source_id == "tx_lgbs" and "Do not retry" in r.notes for r in avail if r.state == "TX" and r.is_production)
     assert all(r.canonical_url == "" and r.governance_status == "BLOCKED" for r in ROWS if r.source_id in BLOCKED_SOURCE_IDS)
-    assert not any("govease" in r.source_id for r in ROWS if r.is_production)
+    # 2026-10-26: GovEase / PBFCM / MVBA are production sources on the owner's decision (terms risk accepted).
+    assert {r.source_id for r in ROWS if r.is_production and r.source_id in TXV} == TXV
+    assert all(r.publication_status == "APPROVED_GRANDFATHERED" for r in ROWS if r.source_id in TXV)
     # The frontend's three ledgers keep their keys, slugs and TX overrides; no fourth ledger.
     app = (REPO / "public/app.js").read_text(encoding="utf-8")
     assert 'const LEDGER_ORDER = ["auction", "laft", "certificate"];' in app
