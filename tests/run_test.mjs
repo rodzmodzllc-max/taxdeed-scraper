@@ -7296,8 +7296,8 @@ const EXPECTED = {
   gatePageCustomerPublished: { open: true, hash: '#/lands/p15', gate: 'CUSTOMER_PUBLISHED', reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: true },
   gatePageCustomerWithheldDeepLink: { open: false, hash: '#/lands', gate: null, reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: false },
   gatePageOff: { open: true, hash: '#/lands/p15', gate: '', reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: false },
-  rulesCoverage: { AUCTIONS: { cov: ['Oconee collected, awaiting review', 'York published'], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' },
-    AVAILABLE: { cov: ['Georgetown collected, awaiting review', 'Horry collected, awaiting review'], here: 'Georgetown County: covered - collected, awaiting review.', covered: '1' },
+  rulesCoverage: { AUCTIONS: { cov: ['Oconee published', 'York published'], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' },
+    AVAILABLE: { cov: ['Georgetown published', 'Horry published'], here: 'Georgetown County: covered - published.', covered: '1' },
     LIENS_CERTIFICATES: { cov: [], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' } },
   rulesHistory: { entries: [['tax_sale_model', '1']], versions: 1, notFixedPrice: true },
   rulesTn: { title: 'Tennessee tax-sale rules', ledgers: { AUCTIONS: 'NOT_TRACKED', AVAILABLE: 'TRACKED', LIENS_CERTIFICATES: 'NOT_TRACKED' },
@@ -7389,7 +7389,8 @@ const EXPECTED = {
   devVisPreviewScLands: { cards: 1, reviewChips: ['Source review: Unreviewed · not customer-published'], programs: [], pending: '1 record from sources awaiting customer-publication review is shown in customer preview mode, each labelled "Source review". Customers in published mode do not see it.', withheld: null },
   // AVAILABLE coverage: the zero names its reason; Florida (rows present) shows none.
   availCoverage: {
-    MI: { status: 'REVIEW_REQUIRED', text: 'Why this list is empty: Official sources were found and are awaiting publication review. Nothing is published from them yet. 4 candidate sources: Lenawee, Oceana, Wayne. Current list found, awaiting publication review: Lenawee.', cards: 0 },
+    // Owner decision 2026-10-26: every collected source is published, so MI's sources are tracked, not awaiting review.
+    MI: { status: 'SOURCE_TRACKED', text: 'Why this list is empty: Source tracked - the county list is read on schedule and its last read found nothing currently available.', cards: 0 },
     CO: { status: 'NO_QUALIFYING_PROGRAM', text: 'Why this list is empty: No qualifying government-held inventory - this state\'s post-sale instrument is a lien or an auction, not property held for purchase. Unsold parcels stay with the county as tax liens / certificates (see Liens & Certificates or Auctions).', cards: 0 },
     WY: { status: 'NO_QUALIFYING_PROGRAM', text: 'Why this list is empty: No qualifying government-held inventory - this state\'s post-sale instrument is a lien or an auction, not property held for purchase. Unsold parcels stay with the county as tax liens / certificates (see Liens & Certificates or Auctions).', cards: 0 },
     FL: { status: null, text: '', cards: 2 }
@@ -7810,7 +7811,7 @@ const EXPECTED = {
   adminShellShowsNoEmail: true,
   adminSourcesRows: 365,   // + the LRA, Ramsey and Fayette process evidence rows (2026-10-26) and the TX/LA candidates
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: '365 source(s): 237 approved, 113 review required, 15 hard blocked.',
+  adminSourcesStatusText: '365 source(s): 250 approved, 100 review required, 15 hard blocked.',
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,

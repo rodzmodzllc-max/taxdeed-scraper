@@ -3,8 +3,8 @@
 Generated from public/acquisition-evidence.json, data/current_state/state-coverage.json, data/acquisition_candidate_pages.csv and the registry. Counts only.
 
 - Acquisition-path units: 72 total, 43 unresolved (NEEDS_REVIEW 5, NOT_FOUND 32, UNAVAILABLE 6, VERIFIED 29).
-- State x ledger units: 39 total (APPROVAL_UNRESOLVED 7, CURRENT 6, OFFERED_SOURCE_NOT_IMPLEMENTED 1, OFFERED_VERIFIED_EMPTY 1, RULES_NOT_VERIFIED 19, SOURCE_FAILED_OR_STALE 4, SOURCE_IMPLEMENTED_NEVER_READ 1).
-- Queue: 76 entries - by category A 2, B 4, C 26, D 7, E 10, F 27; completable now from the repository: 2.
+- State x ledger units: 39 total (CURRENT 12, OFFERED_SOURCE_NOT_IMPLEMENTED 1, OFFERED_VERIFIED_EMPTY 1, RECORDS_WITHHELD_NO_PATH 1, RULES_NOT_VERIFIED 19, SOURCE_FAILED_OR_STALE 4, SOURCE_IMPLEMENTED_NEVER_READ 1).
+- Queue: 70 entries - by category A 2, B 4, C 27, D 7, E 3, F 27; completable now from the repository: 2.
 
 ## A. implementable now from repository data or an accessible official source (2)
 
@@ -19,10 +19,10 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 |---|---|---|---|---|---|---|---|
 | FL Indian River (fl_laft_html) | AVAILABLE | NEEDS_REVIEW | yes | yes | n/a | no | Implement a browser-rendered capture for the county's script-rendered process page, then record the evidence row |
 | FL St. Lucie (fl_laft_stlucie) | AVAILABLE | NEEDS_REVIEW | yes | yes | n/a | no | Implement a browser-rendered capture for the county's script-rendered process page, then record the evidence row |
-| TN Shelby (tn_shelby_landbank) | AVAILABLE | NEEDS_REVIEW | yes | no | n/a | no | Implement OCR extraction of the scanned process packet, then record the evidence row |
+| TN Shelby (tn_shelby_landbank) | AVAILABLE | NEEDS_REVIEW | yes | yes | n/a | no | Implement OCR extraction of the scanned process packet, then record the evidence row |
 | WY * | LIENS_CERTIFICATES | OFFERED_SOURCE_NOT_IMPLEMENTED | yes | no | no | no | Implement the adapter for the known source (registry candidate), gated and fixture-validated first |
 
-## C. needs official evidence through the approved capture mechanism (job=evidence) (26)
+## C. needs official evidence through the approved capture mechanism (job=evidence) (27)
 
 | Unit | Ledger | Status | Source reachable | Approved | Rule verified | Process verified | Next action |
 |---|---|---|---|---|---|---|---|
@@ -31,7 +31,7 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | FL Miami-Dade (fl_laft_realtdm) | AVAILABLE | NOT_FOUND | yes | yes | n/a | no | Capture the identified candidate page(s) with job=evidence, read the digest, record a verified evidence row or an outcome |
 | FL Polk (fl_laft_realtdm) | AVAILABLE | NOT_FOUND | yes | yes | n/a | no | Capture the identified candidate page(s) with job=evidence, read the digest, record a verified evidence row or an outcome |
 | FL Putnam (fl_laft_html) | AVAILABLE | NOT_FOUND | yes | yes | n/a | no | Capture the identified candidate page(s) with job=evidence, read the digest, record a verified evidence row or an outcome |
-| MI Wayne (mi_detroit_landbank_programs) | AVAILABLE | NEEDS_REVIEW | yes | no | n/a | no | Capture the identified official page(s) with job=evidence (acquisition_candidates scope), read the digest, record a verified evidence row |
+| MI Wayne (mi_detroit_landbank_programs) | AVAILABLE | NEEDS_REVIEW | yes | yes | n/a | no | Capture the identified official page(s) with job=evidence (acquisition_candidates scope), read the digest, record a verified evidence row |
 | CO * | AUCTIONS | SOURCE_IMPLEMENTED_NEVER_READ | yes | yes | no | no | The next scheduled read (or job=evidence) records the first read; nothing to change until it runs |
 | CO * | AVAILABLE | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |
 | LA * | AUCTIONS | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |
@@ -47,6 +47,7 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | PA * | LIENS_CERTIFICATES | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |
 | SC * | LIENS_CERTIFICATES | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |
 | TN * | AUCTIONS | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |
+| TN * | AVAILABLE | RECORDS_WITHHELD_NO_PATH | yes | yes | no | no | Capture the county's acquisition process with job=evidence and record the evidence row |
 | TN * | LIENS_CERTIFICATES | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |
 | TX * | LIENS_CERTIFICATES | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |
 | WI * | AVAILABLE | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |
@@ -65,18 +66,11 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | FL Sarasota (fl_laft_realtdm) | AVAILABLE | UNAVAILABLE | no | yes | n/a | no | The county's official pages answer HTTP 403 to the GitHub runner; a records request or an allow-listed capture host is the only way forward |
 | FL * | LIENS_CERTIFICATES | SOURCE_FAILED_OR_STALE | no | yes | yes | no | LienHub answers HTTP 403 to the GitHub runner since 2026-10-01; nothing to change in code until the source is reachable |
 
-## E. blocked by source-use permission or an owner decision (10)
+## E. blocked by source-use permission or an owner decision (3)
 
 | Unit | Ledger | Status | Source reachable | Approved | Rule verified | Process verified | Next action |
 |---|---|---|---|---|---|---|---|
 | TX Harris (tx_hctax) | AVAILABLE | NOT_FOUND | yes | no | n/a | no | Owner / legal decision on the source: registry governance LEGAL_REVIEW_REQUIRED: hctax.net terms not cleared for redistribution |
-| MI * | AVAILABLE | APPROVAL_UNRESOLVED | yes | no | no | yes | Owner publication review of the source (admin publication panel): approve, restrict or block |
-| MN * | AVAILABLE | APPROVAL_UNRESOLVED | yes | no | no | yes | Owner publication review of the source (admin publication panel): approve, restrict or block |
-| MO * | AVAILABLE | APPROVAL_UNRESOLVED | yes | no | no | yes | Owner publication review of the source (admin publication panel): approve, restrict or block |
-| OK * | AVAILABLE | APPROVAL_UNRESOLVED | yes | no | no | yes | Owner publication review of the source (admin publication panel): approve, restrict or block |
-| PA * | AVAILABLE | APPROVAL_UNRESOLVED | yes | no | no | yes | Owner publication review of the source (admin publication panel): approve, restrict or block |
-| SC * | AVAILABLE | APPROVAL_UNRESOLVED | yes | no | no | yes | Owner publication review of the source (admin publication panel): approve, restrict or block |
-| TN * | AVAILABLE | APPROVAL_UNRESOLVED | yes | no | no | no | Owner publication review of the source (admin publication panel): approve, restrict or block |
 | TX * | AUCTIONS | SOURCE_FAILED_OR_STALE | yes | yes | no | yes | Manual-only source by owner decision (job=texas); a read happens only when the owner dispatches it |
 | TX * | AVAILABLE | SOURCE_FAILED_OR_STALE | yes | yes | no | yes | Manual-only source by owner decision (job=texas); a read happens only when the owner dispatches it |
 

@@ -467,7 +467,9 @@ def expansion_rows() -> list[dict]:
             new = cfg.source_id not in EX.SIX_STATE_SOURCE_IDS
             runs = (EX.TN_EVIDENCE_RUNS if tn else EX.AVAILABLE_FIVE_EVIDENCE_RUNS if five else EX.AVAILABLE_SPRINT_EVIDENCE_RUNS if available
                     else EX.FIVE_STATE_EVIDENCE_RUNS if new else EX.EVIDENCE_RUNS)
-            decision = (("LICENCE STATED BY THE SOURCE (quoted in restrictions)" if publication == "APPROVED"
+            decision = ("OWNER PUBLICATION DECISION 2026-10-26 (legal review pending)"
+                        if cfg.source_id in EX.OWNER_APPROVED_2026_10_26_SOURCE_IDS else
+                        ("LICENCE STATED BY THE SOURCE (quoted in restrictions)" if publication == "APPROVED"
                          else "NO PUBLICATION DECISION YET (UNREVIEWED)") if new else "OWNER PUBLICATION DECISION 2026-09-30")
             latest = cfg is EX.PA_FAYETTE_REPOSITORY    # Fayette PA: newest dated file, read live 2026-10-26
             day = "2026-10-08" if tn else "2026-10-04" if five else "2026-10-02" if available else "2026-10-01" if new else "2026-09-30"
