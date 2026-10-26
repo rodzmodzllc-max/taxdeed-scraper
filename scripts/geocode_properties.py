@@ -399,10 +399,18 @@ def geocode_one(address, county, state):
     return None, reason
 
 
+# Per-row lines carry the address sent to the Census geocoder - and for a
+# listing with no street address that is the placeholder "Parcel <number>" /
+# "Case <number>". Job logs of this public repository are public, so the
+# scheduled run prints COUNTS ONLY (2026-10-26: run 381's deeds log listed
+# parcel numbers this way). GEOCODE_ROW_LOG=1 restores the per-row lines for
+# a local run; a scoped (AVAILABLE) run never prints them.
+ROW_LOG = os.environ.get("GEOCODE_ROW_LOG", "") == "1"
+
+
 def _rowlog(msg, **kw):
-    """A per-row log line. Suppressed on a scoped (AVAILABLE) run: job logs
-    are public, so such a run prints counts only, never an address."""
-    if not SCOPE_SOURCE_ID:
+    """A per-row log line - only on a local run that asks for it."""
+    if ROW_LOG and not SCOPE_SOURCE_ID:
         print(msg, **kw)
 
 
@@ -453,6 +461,7 @@ def main():
         "errors": 0,
     }
     per_state = {}  # state -> [verified, attempted]
+    per_county = {}  # "County, ST" -> {outcome: n} - counts only, printed at the end
     for i, (unit, key, row) in enumerate(work, 1):
         if i > 1:
             checkpoint.advance(*prev)
@@ -470,24 +479,28 @@ def main():
             _rowlog(f"  [{i}/{len(rows)}] skipped (row has no state): {address!r} / {county}")
             continue
         query = build_query(address, state)
+        unit_tally = per_county.setdefault(f"{county}, {state}", {})
         tally = per_state.setdefault(state, [0, 0])
         tally[1] += 1
         try:
             result, reason = geocode_one(address, county, state)
         except requests.RequestException as e:
             counts["errors"] += 1
+            unit_tally["error"] = unit_tally.get("error", 0) + 1
             _rowlog(f"  [{i}/{len(rows)}] ERROR geocoding {query!r}: {e}", file=sys.stderr)
             time.sleep(REQUEST_DELAY_SECONDS)
             continue
 
         if result is None:
             counts[reason] = counts.get(reason, 0) + 1
+            unit_tally[reason] = unit_tally.get(reason, 0) + 1
             if reason == "no-match":
                 _rowlog(f"  [{i}/{len(rows)}] no match: {query}")
             else:
                 _rowlog(f"  [{i}/{len(rows)}] rejected ({reason}, row county {county}): {query}")
         else:
             counts["verified"] += 1
+            unit_tally["verified"] = unit_tally.get("verified", 0) + 1
             tally[0] += 1
             _rowlog(f"  [{i}/{len(rows)}] verified ({county} County, {state}): {query} -> {result['matched_address']}")
             if not DRY_RUN:
@@ -514,6 +527,9 @@ def main():
         f"(of {attempted} attempted; skipped {counts['skipped-no-address']} without address/county, "
         f"{counts['skipped-no-state']} without state).{mode}"
     )
+    print("Per-county outcomes this run (counts only):")
+    for unit in sorted(per_county):
+        print(f"  {unit}: " + ", ".join(f"{k} {v}" for k, v in sorted(per_county[unit].items())))
     print("Per-state verified/attempted this run:")
     for state in sorted(per_state):
         verified, tried = per_state[state]
