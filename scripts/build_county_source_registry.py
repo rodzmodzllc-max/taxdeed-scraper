@@ -451,9 +451,9 @@ def expansion_rows() -> list[dict]:
     for state, sources in EX.SOURCES.items():
         for src in sources:
             cfg = src.config
-            if cfg.source_id in seen:
+            if (cfg.source_id, cfg.county) in seen:
                 continue                      # WI: one source, two tables on one page
-            seen.add(cfg.source_id)
+            seen.add((cfg.source_id, cfg.county))
             ev = EXPANSION_EVIDENCE[state]
             ledger = {"auction": AUCTIONS, "certificate": LIENS, "laft": AVAILABLE}[cfg.record_source]
             arcgis = src.kind == "arcgis"
@@ -477,8 +477,10 @@ def expansion_rows() -> list[dict]:
                    "csv": getattr(cfg, "document_url", ""), "pdf_table": getattr(cfg, "document_url", ""),
                    # The page's newest dated file as of the last live read (the harvester follows the newest on every run).
                    "latest_dated_document": EX.PA_FAYETTE_LATEST_READ[1] if cfg is EX.PA_FAYETTE_REPOSITORY else getattr(cfg, "document_url", ""),
-                   "epropertyplus": getattr(cfg, "portal", "") + "/landmgmtpub/remote/public/property/getPublishedProperties"}.get(src.kind, "")
-            access, fmt = {"arcgis": ("JSON_ENDPOINT", "JSON"), "epropertyplus": ("JSON_ENDPOINT", "JSON"), "sc_flc_pdf": ("HTTP_GET_PDF", "PDF"),
+                   "epropertyplus": getattr(cfg, "portal", "") + "/landmgmtpub/remote/public/property/getPublishedProperties",
+                   "tax_sale_info": "https://www.tax-sale.info/catalog/getCsv/id/"}.get(src.kind, "")
+            access, fmt = {"arcgis": ("JSON_ENDPOINT", "JSON"), "epropertyplus": ("JSON_ENDPOINT", "JSON"),
+                           "tax_sale_info": ("HTTP_GET_HTML", "CSV"), "sc_flc_pdf": ("HTTP_GET_PDF", "PDF"),
                            "pdf_table": ("HTTP_GET_PDF", "PDF"), "csv": ("HTTP_GET_HTML", "CSV"),
                            "latest_dated_document": ("HTTP_GET_HTML", "XLSX"),
                            "xlsx_flc_lists": ("HTTP_GET_HTML", "XLSX")}.get(src.kind, ("HTTP_GET_HTML", "HTML_TABLE"))

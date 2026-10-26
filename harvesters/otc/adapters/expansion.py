@@ -26,6 +26,7 @@ from .epropertyplus import EppConfig
 from .property_page import PropertyPage
 from .sc_flc import GEORGETOWN as SC_GEORGETOWN_FLC   # Georgetown SC FLC list (PR #69)
 from .tabular import ColumnMap, TabularConfig
+from . import tax_sale_info as TSI
 
 EVIDENCE_RUNS = ("36778382226", "36779189506", "36780071129", "pass-4 2026-09-30")
 APPROVAL = "owner publication approval 2026-09-30 (no explicit reuse licence published by the source)"
@@ -590,6 +591,30 @@ MI_CALHOUN_LANDBANK = EppConfig(
 NEW_EPP_SOURCES = (MO_KC_LANDBANK, PA_PITTSBURGH_CITY_PROPERTY, MI_WAYNE_COUNTY_LANDBANK, MI_SAGINAW_LANDBANK,
                    MI_CALHOUN_LANDBANK)
 
+# Tax-Sale.info (Title Check, LLC - the auction service Michigan county
+# treasurers use for their tax-foreclosure auctions; harvesters/otc/adapters/
+# tax_sale_info.py). One configuration per county Tax-Sale.info listed in its
+# 2026 season, for each of its two lists:
+#  * mi_tax_sale_info_auction - the UPCOMING auction catalogs (AUCTIONS):
+#    2026-10-26 the 'No Reserve Auction' of October 30, 2026 listed 46
+#    county catalogs, 755 lots; a county with no upcoming catalog reads EMPTY
+#    (closed, never sold);
+#  * mi_tax_sale_info_surplus - the counties' surplus offers (AVAILABLE):
+#    "properties that have gone through the auction process already and failed
+#    to sell ... sold on a first come first serve basis" (8 counties, 57 lots).
+MI_TSI_AUCTIONS = tuple(TSI.TaxSaleInfoConfig(
+    source_id="mi_tax_sale_info_auction", state="MI", county=c, kind="auction", list_url=TSI.AUCTIONS_URL,
+    amount_kind=AmountKind.OPENING_BID, columns_verified=True,
+    notes="Tax-Sale.info (Title Check, LLC) upcoming Michigan tax-foreclosure auction catalogs: each county catalog's own "
+          "'Catalog Spreadsheet' (CSV). Minimum Bid kept as the published opening bid; sale date = the auction entry's date. "
+          "Past auction catalogs are never read.") for c in TSI.SEASON_COUNTIES)
+MI_TSI_SURPLUS = tuple(TSI.TaxSaleInfoConfig(
+    source_id="mi_tax_sale_info_surplus", state="MI", county=c, kind="surplus", list_url=TSI.SURPLUS_URL,
+    inventory_type=InventoryType.POST_SALE, amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, columns_verified=True,
+    notes="Tax-Sale.info surplus property catalogs: lots that failed to sell at the county's tax-foreclosure auction, "
+          "re-offered first come first served through the site's surplus lot request form. The catalog's 'Minimum Bid' is "
+          "kept as a published amount of unspecified kind.") for c in TSI.SEASON_COUNTIES)
+
 
 HELD_AVAILABLE = ("AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for "
                   "development, labelled UNREVIEWED; not customer-published until an admin review approves it.")
@@ -615,7 +640,7 @@ PUBLICATION = {
     "pa_fayette_repository": ("UNREVIEWED", HELD_AVAILABLE),
     "mn_ramsey_tax_forfeit": ("UNREVIEWED", HELD_AVAILABLE),
     "tn_shelby_landbank": ("UNREVIEWED", HELD_AVAILABLE),
-    **{c.source_id: ("UNREVIEWED", OWNER_INTERIM_2026_10_26) for c in NEW_EPP_SOURCES},
+    **{c.source_id: ("UNREVIEWED", OWNER_INTERIM_2026_10_26) for c in NEW_EPP_SOURCES + MI_TSI_AUCTIONS[:1] + MI_TSI_SURPLUS[:1]},
 }
 
 
@@ -634,7 +659,8 @@ SOURCES: dict[str, tuple[ExpansionSource, ...]] = {
            ExpansionSource("html_table", MI_OCEANA_LANDBANK, MI_OCEANA_LANDBANK.list_url),
            ExpansionSource("epropertyplus", MI_WAYNE_COUNTY_LANDBANK, MI_WAYNE_COUNTY_LANDBANK.portal),
            ExpansionSource("epropertyplus", MI_SAGINAW_LANDBANK, MI_SAGINAW_LANDBANK.portal),
-           ExpansionSource("epropertyplus", MI_CALHOUN_LANDBANK, MI_CALHOUN_LANDBANK.portal)),
+           ExpansionSource("epropertyplus", MI_CALHOUN_LANDBANK, MI_CALHOUN_LANDBANK.portal),
+           *(ExpansionSource("tax_sale_info", c, c.list_url) for c in MI_TSI_AUCTIONS + MI_TSI_SURPLUS)),
     "WY": (ExpansionSource("arcgis", WY_ALBANY, WY_ALBANY.layer_url),),
     "SC": (ExpansionSource("arcgis", SC_YORK, SC_YORK.layer_url),
            ExpansionSource("html_table", SC_OCONEE, SC_OCONEE.list_url),
@@ -664,4 +690,4 @@ AVAILABLE_FIVE_SOURCE_IDS = frozenset({"mo_stl_lra_inventory", "ok_oklahoma_coun
                                        "mn_ramsey_tax_forfeit"})
 TN_SOURCE_IDS = frozenset({"tn_shelby_landbank"})
 # Owner decision 2026-10-26: every new source of the new-sources sprint.
-NEW_SOURCE_IDS = frozenset(c.source_id for c in NEW_EPP_SOURCES)
+NEW_SOURCE_IDS = frozenset(c.source_id for c in NEW_EPP_SOURCES + MI_TSI_AUCTIONS + MI_TSI_SURPLUS)

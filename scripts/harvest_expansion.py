@@ -278,6 +278,23 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
         if res.outcome == "INCOMPLETE":
             return "INCOMPLETE", res.records, res.error_category, res.error_detail, None
         return res.outcome, res.records, None, None, ("no_offered_status" if res.outcome == "EMPTY" else None)
+    if src.kind == "tax_sale_info":
+        # New-sources sprint (2026-10-26): Tax-Sale.info catalogs (Michigan).
+        from harvesters.otc.adapters import tax_sale_info as TSI  # noqa: PLC0415
+        if fixture:
+            pages = json.loads(Path(fixture).read_text(encoding="utf-8"))   # {url: text}
+
+            def ft(url):
+                return pages[url]
+        else:
+            ft = fetch_text
+        res = TSI.fetch_county(cfg, ft, retrieved_at=retrieved_at)
+        if res.outcome == "FAILED":
+            return "FAILED", [], res.error_category, res.error_detail, None
+        if res.catalogs:
+            print(f"{cfg.source_id} [{cfg.county}]: catalogs={res.catalogs} read={res.rows_read} kept={len(res.records)} "
+                  f"no-parcel={res.rejected}")
+        return res.outcome, res.records, None, None, ("no_catalog_listed" if res.outcome == "EMPTY" else None)
     if src.kind == "sc_flc_pdf":
         from harvesters.otc.adapters import sc_flc  # noqa: PLC0415
         try:

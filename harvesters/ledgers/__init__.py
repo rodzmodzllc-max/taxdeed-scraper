@@ -151,6 +151,9 @@ SOURCE_LEDGERS: dict[str, frozenset[Ledger]] = {
     "mi_wayne_county_landbank": frozenset({Ledger.AVAILABLE}),
     "mi_saginaw_landbank": frozenset({Ledger.AVAILABLE}),
     "mi_calhoun_landbank": frozenset({Ledger.AVAILABLE}),
+    "mi_tax_sale_info_auction": frozenset({Ledger.AUCTIONS}),
+    "mi_tax_sale_info_surplus": frozenset({Ledger.AVAILABLE}),
+    # NEW-SOURCES-ANCHOR
 }
 # The four blocked Texas vendors: discovery only, they feed no ledger.
 BLOCKED_SOURCE_IDS = frozenset({"tx_pbfcm", "tx_mvba", "tx_govease", "tx_ctsa"})

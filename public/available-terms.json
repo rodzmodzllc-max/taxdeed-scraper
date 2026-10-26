@@ -345,6 +345,16 @@
    "quote": "No askingPrice is filled on any published row of the Saginaw County Land Bank portal.",
    "evidence": "new-sources live structure read 2026-10-26 (docs/new-sources-2026-10-26.md)",
    "observed_on": "2026-10-26"
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_tax_sale_info_surplus",
+   "basis": "MINIMUM_BID",
+   "figure_label": "Minimum bid (surplus catalog)",
+   "figure_note": "The surplus catalog's own 'Minimum Bid' for a lot that failed to sell at auction; offers are first come first served and the county may refuse a buyer. A $30 deed recording fee and a $20 processing fee are added per purchase.",
+   "quote": "Purchaser must pay full amount plus fees within 5 days of being deemed an eligible buyer ... There will be a $30 deed recording fee and a $20 processing fee for each purchase.",
+   "evidence": "https://www.tax-sale.info/surplus (live read 2026-10-26)",
+   "observed_on": "2026-10-26"
   }
  ]
 }

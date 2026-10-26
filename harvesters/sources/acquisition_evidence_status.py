@@ -89,6 +89,7 @@ _AUTHORITY = {
     "mi_wayne_county_landbank": ("county_land_bank", "Wayne County Land Bank Corporation"),
     "mi_saginaw_landbank": ("county_land_bank", "Saginaw County Land Bank Authority"),
     "mi_calhoun_landbank": ("county_land_bank", "Calhoun County Land Bank Authority"),
+    "mi_tax_sale_info_surplus": ("other_government", "Michigan county treasurer (foreclosing governmental unit) via Tax-Sale.info"),
 }
 _AUTHORITY_COUNTY = {("tx_lgbs", "Galveston"): ("other_government", "Galveston County Sheriff's Office")}
 
