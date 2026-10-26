@@ -229,7 +229,9 @@ def test_page_data_carries_eligibility_coverage_and_meaning_per_ledger():
             else:
                 assert "eligibility_verified_on" not in l
     assert PAGE["states"]["FL"]["ledgers"]["LIENS_CERTIFICATES"]["eligibility"] == "OFFERED"
-    assert [c["county"] for c in PAGE["states"]["MI"]["ledgers"]["AUCTIONS"]["coverage"]] == ["Eaton", "Lenawee"]
+    # 2026-10-26: + the Tax-Sale.info county auction catalogs (one registry row per county of the 2026 season).
+    mi = [c["county"] for c in PAGE["states"]["MI"]["ledgers"]["AUCTIONS"]["coverage"]]
+    assert {"Eaton", "Lenawee", "Saginaw", "St. Clair"} <= set(mi) and len(mi) == len(set(mi)) == 77
     assert PAGE == json.loads((ROOT / "state-rules.json").read_text(encoding="utf-8"))
 
 

@@ -195,7 +195,9 @@ def test_acquisition_unit_counts_after_the_sprint():
     for u in ACQ["status"]:
         by[u["status"]] = by.get(u["status"], 0) + 1
     # 2026-10-26: LRA (MO), Ramsey (MN) and Fayette (PA) processes read -> VERIFIED with records.
-    assert len(ACQ["status"]) == 72 and by == {"VERIFIED": 29, "NEEDS_REVIEW": 5, "UNAVAILABLE": 6, "NOT_FOUND": 32}
+    # 2026-10-26 (new-sources sprint): +16 AVAILABLE units (5 ePropertyPlus land banks, Genesee, 8 Tax-Sale.info
+    # surplus counties, Hubbard MN, Saint Paul HRA) - none has a verified acquisition record yet.
+    assert len(ACQ["status"]) == 88 and by == {"VERIFIED": 29, "NEEDS_REVIEW": 6, "UNAVAILABLE": 6, "NOT_FOUND": 47}
 
 
 # ------------------------------------------------------------------ A2 county procedure rules
@@ -254,10 +256,10 @@ def test_gap_queue_is_generated_from_the_records_and_pinned():
     assert out.returncode == 0, out.stdout
     doc = json.loads((ROOT / "data/current_state/gap-queue.json").read_text(encoding="utf-8"))
     assert doc == GQ.build()
-    assert doc["denominators"]["acquisition_units"] == 72 and doc["denominators"]["acquisition_unresolved"] == 43   # 46 before the 2026-10-26 LRA / Ramsey / Fayette reads
+    assert doc["denominators"]["acquisition_units"] == 88 and doc["denominators"]["acquisition_unresolved"] == 59   # 46 before the 2026-10-26 LRA / Ramsey / Fayette reads
     assert doc["denominators"]["state_ledger_units"] == 39
     assert set(doc["summary"]["by_category"]) <= set(GQ.CATEGORIES)
-    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 43 + 33
+    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 59 + 33
     for u in doc["units"]:
         assert u["category"] in GQ.CATEGORIES and u["next_action"] and u["source_accessible"] and "reason" in u
         assert u["completable_now"] == (u["category"] == "A")

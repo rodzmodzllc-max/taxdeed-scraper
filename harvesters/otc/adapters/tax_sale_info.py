@@ -60,6 +60,11 @@ SEASON_COUNTIES = (
     "Ottawa", "Presque Isle", "Roscommon", "Saginaw", "Sanilac", "Schoolcraft", "Shiawassee", "St. Clair", "St. Joseph",
     "Tuscola", "Van Buren", "Wexford")
 
+# Counties whose surplus catalog Tax-Sale.info listed on /surplus (read 2026-10-26).
+# A surplus catalog for another county is counted by the harvester, never read
+# under a county it does not name; add the county here to collect it.
+SURPLUS_COUNTIES = ("Arenac", "Bay", "Jackson", "Monroe", "Montcalm", "Oceana", "Otsego", "Presque Isle")
+
 _DATE = re.compile(r"(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),\s+(\d{4})")
 
 

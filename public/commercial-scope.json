@@ -104,6 +104,18 @@
    "reason": "Registered, not collected."
   },
   {
+   "source_id": "co_saguache_tax_sale",
+   "state": "CO",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "fl_bid4assets_okaloosa",
    "state": "FL",
    "publication_status": "APPROVED_GRANDFATHERED",
@@ -383,6 +395,18 @@
    "reason": "Owner-approved for publication 2026-09-30; the county's own sold flag closes rows; county sale process recorded."
   },
   {
+   "source_id": "mi_genesee_landbank",
+   "state": "MI",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "mi_lenawee_tax_sale",
    "state": "MI",
    "publication_status": "APPROVED",
@@ -429,8 +453,44 @@
    "reason": "Registered, not collected."
   },
   {
+   "source_id": "mi_tax_sale_info_auction",
+   "state": "MI",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "mi_tax_sale_info_surplus",
+   "state": "MI",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "mi_wayne_county_landbank",
    "state": "MI",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "mn_hubbard_tfl_otc",
+   "state": "MN",
    "publication_status": "UNREVIEWED",
    "commercial_scope": "UNREVIEWED",
    "collected": false,
@@ -456,6 +516,18 @@
     "acquisition": "gap"
    },
    "reason": "UNREVIEWED: tester preview only."
+  },
+  {
+   "source_id": "mn_stpaul_hra_properties",
+   "state": "MN",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
   },
   {
    "source_id": "mo_kc_landbank",
@@ -565,6 +637,18 @@
     "acquisition": "ok"
    },
    "reason": "UNREVIEWED: tester preview only."
+  },
+  {
+   "source_id": "sc_horry_tax_sale",
+   "state": "SC",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
   },
   {
    "source_id": "sc_oconee_tax_sale_list",

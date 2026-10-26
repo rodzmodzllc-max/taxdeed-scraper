@@ -174,6 +174,16 @@
          "source_id": "co_morgan_treasurer_deed_auctions"
         }
        ]
+      },
+      {
+       "county": "Saguache",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "UNREVIEWED",
+         "source_id": "co_saguache_tax_sale"
+        }
+       ]
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
@@ -181,7 +191,7 @@
      "eligibility_source_url": "https://www.arcgis.com/home/item.html?id=87f9905d9faf4ae3a7a385c0707717b5",
      "eligibility_verified_on": "2026-10-01",
      "meaning": "Shown here: the county's dated tax lien sale event (Douglas) - a sale of liens, not the land; Morgan's treasurer's deed auctions are collected but unreviewed.",
-     "note": "Douglas County's advertised tax lien sale list (a sale of liens, not land).",
+     "note": "Douglas County's advertised tax lien sale list (a sale of liens, not land). Saguache County's 2026 tax sale list collected since 2026-10-26 (awaiting review).",
      "office": "County Treasurer",
      "status": "TRACKED"
     },
@@ -2732,6 +2742,226 @@
     "AUCTIONS": {
      "coverage": [
       {
+       "county": "Alcona",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Alger",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Allegan",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Alpena",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Antrim",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Arenac",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Baraga",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Barry",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Bay",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Benzie",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Berrien",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Branch",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Calhoun",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Cass",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Charlevoix",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Cheboygan",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Chippewa",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Clare",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Clinton",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Crawford",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Delta",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Dickinson",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
        "county": "Eaton",
        "procedures": [
         "acquisition_procedure_auctions"
@@ -2741,6 +2971,216 @@
          "authority": "GOVERNMENT_DIRECT",
          "publication": "APPROVED",
          "source_id": "mi_eaton_treasurer_sale"
+        }
+       ]
+      },
+      {
+       "county": "Emmet",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Genesee",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Gladwin",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Gogebic",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Grand Traverse",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Gratiot",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Hillsdale",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Houghton",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Huron",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Ionia",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Iosco",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Iron",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Isabella",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Jackson",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Kalamazoo",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Kalkaska",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Kent",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Keweenaw",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Lake",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Lapeer",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Leelanau",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
         }
        ]
       },
@@ -2756,6 +3196,326 @@
          "source_id": "mi_lenawee_tax_sale"
         }
        ]
+      },
+      {
+       "county": "Livingston",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Luce",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Mackinac",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Manistee",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Marquette",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Mason",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Mecosta",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Menominee",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Missaukee",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Monroe",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Montcalm",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Montmorency",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Muskegon",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Oakland",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Oceana",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Ogemaw",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Ontonagon",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Osceola",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Oscoda",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Otsego",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Ottawa",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Presque Isle",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Roscommon",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Saginaw",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Sanilac",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Schoolcraft",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Shiawassee",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "St. Clair",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "St. Joseph",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Tuscola",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Van Buren",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Wexford",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
@@ -2763,12 +3523,32 @@
      "eligibility_source_url": "https://www.eatoncounty.org/1530/2026-Foreclosure-Sale",
      "eligibility_verified_on": "2026-10-01",
      "meaning": "A county treasurer's sale of tax-foreclosed parcels.",
-     "note": "Eaton and Lenawee county tax / foreclosure sales.",
+     "note": "Eaton and Lenawee county tax / foreclosure sales. Tax-Sale.info county auction catalogs collected since 2026-10-26 (awaiting review).",
      "office": "County Treasurer",
      "status": "TRACKED"
     },
     "AVAILABLE": {
      "coverage": [
+      {
+       "county": "Arenac",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_surplus"
+        }
+       ]
+      },
+      {
+       "county": "Bay",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_surplus"
+        }
+       ]
+      },
       {
        "county": "Calhoun",
        "sources": [
@@ -2780,12 +3560,77 @@
        ]
       },
       {
+       "county": "Genesee",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_genesee_landbank"
+        }
+       ]
+      },
+      {
+       "county": "Jackson",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_surplus"
+        }
+       ]
+      },
+      {
+       "county": "Monroe",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_surplus"
+        }
+       ]
+      },
+      {
+       "county": "Montcalm",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_surplus"
+        }
+       ]
+      },
+      {
        "county": "Oceana",
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
          "publication": "UNREVIEWED",
          "source_id": "mi_oceana_landbank"
+        },
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_surplus"
+        }
+       ]
+      },
+      {
+       "county": "Otsego",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_surplus"
+        }
+       ]
+      },
+      {
+       "county": "Presque Isle",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "UNREVIEWED",
+         "source_id": "mi_tax_sale_info_surplus"
         }
        ]
       },
@@ -2828,7 +3673,7 @@
      "eligibility_source_url": "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0",
      "eligibility_verified_on": "2026-10-02",
      "meaning": "Land bank inventory: publicly held parcels offered under the land bank's own programs.",
-     "note": "Detroit Land Bank and Oceana County Land Bank inventories (awaiting customer-publication review).",
+     "note": "Detroit Land Bank and Oceana County Land Bank inventories (awaiting customer-publication review). Wayne, Saginaw, Calhoun and Genesee county land banks and Tax-Sale.info surplus catalogs collected since 2026-10-26 (awaiting review).",
      "office": "Land bank authority (Detroit, Oceana County)",
      "status": "TRACKED"
     },
@@ -2955,6 +3800,16 @@
     "AVAILABLE": {
      "coverage": [
       {
+       "county": "Hubbard",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "UNREVIEWED",
+         "source_id": "mn_hubbard_tfl_otc"
+        }
+       ]
+      },
+      {
        "county": "Ramsey",
        "procedures": [
         "tax_forfeit_sale",
@@ -2965,6 +3820,11 @@
          "authority": "GOVERNMENT_DIRECT",
          "publication": "UNREVIEWED",
          "source_id": "mn_ramsey_tax_forfeit"
+        },
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "UNREVIEWED",
+         "source_id": "mn_stpaul_hra_properties"
         }
        ]
       }
@@ -2974,7 +3834,7 @@
      "eligibility_source_url": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/MapServer/0",
      "eligibility_verified_on": "2026-10-04",
      "meaning": "Tax-forfeited land the county offers for purchase.",
-     "note": "Ramsey County tax-forfeited land (awaiting review).",
+     "note": "Ramsey County tax-forfeited land (awaiting review). Hubbard County over-the-counter land and Saint Paul HRA land collected since 2026-10-26 (awaiting review).",
      "office": "Ramsey County (tax-forfeited land)",
      "status": "TRACKED"
     },
@@ -3106,7 +3966,7 @@
      "eligibility_source_url": "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=30",
      "eligibility_verified_on": "2026-10-04",
      "meaning": "Land Reutilization Authority inventory: parcels held by the City of St. Louis's LRA, offered under its own process (not yet verified).",
-     "note": "St. Louis Land Reutilization Authority inventory (awaiting review).",
+     "note": "St. Louis Land Reutilization Authority inventory (awaiting review). Kansas City Land Bank collected since 2026-10-26 (awaiting review).",
      "office": "Land Reutilization Authority (City of St. Louis)",
      "status": "TRACKED"
     },
@@ -3330,7 +4190,7 @@
      "eligibility_source_url": "https://www.fayettecountypa.org/DocumentCenter/View/9761/Repository-Update-10-7-2025",
      "eligibility_verified_on": "2026-10-04",
      "meaning": "Repository property: parcels unsold at the tax sales, offered by the Tax Claim Bureau by bid.",
-     "note": "Fayette County repository list (awaiting review).",
+     "note": "Fayette County repository list (awaiting review). City of Pittsburgh city-owned property collected since 2026-10-26 (awaiting review).",
      "office": "Tax Claim Bureau (Fayette County)",
      "status": "TRACKED"
     },
@@ -3449,6 +4309,16 @@
     "AUCTIONS": {
      "coverage": [
       {
+       "county": "Horry",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "UNREVIEWED",
+         "source_id": "sc_horry_tax_sale"
+        }
+       ]
+      },
+      {
        "county": "Oconee",
        "sources": [
         {
@@ -3477,7 +4347,7 @@
      "eligibility_source_url": "https://www.yorkcountysc.gov/DocumentCenter/View/5241/Tax-Sale-Fact-Sheet",
      "eligibility_verified_on": "2026-10-01",
      "meaning": "A county tax sale of the property, subject to the former owner's redemption period.",
-     "note": "York County's tax sale list.",
+     "note": "York County's tax sale list. Horry County's delinquent tax sale list collected since 2026-10-26 (awaiting review).",
      "office": "County Treasurer / Delinquent Tax Collector",
      "status": "TRACKED"
     },
@@ -4510,7 +5380,7 @@
     "FAIL": 0,
     "NOT_APPLICABLE": 3,
     "NOT_VERIFIED": 3,
-    "PASS": 18
+    "PASS": 19
    },
    "findings": [
     {
@@ -4527,21 +5397,21 @@
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 2 source(s) (co_douglas_tax_sale_list, co_morgan_treasurer_deed_auctions) read 2026-10-01",
+     "detail": "COUNTY_DEPENDENT: 3 source(s) (co_douglas_tax_sale_list, co_morgan_treasurer_deed_auctions, co_saguache_tax_sale) read 2026-10-01",
      "state": "CO",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "county_coverage",
-     "detail": "2 counties: Douglas, Morgan",
+     "detail": "3 counties: Douglas, Morgan, Saguache",
      "state": "CO",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: co_douglas_tax_sale_list, co_morgan_treasurer_deed_auctions",
+     "detail": "TRACKED: co_douglas_tax_sale_list, co_morgan_treasurer_deed_auctions, co_saguache_tax_sale",
      "state": "CO",
      "status": "PASS",
      "subject": "AUCTIONS"
@@ -4642,6 +5512,13 @@
      "state": "CO",
      "status": "PASS",
      "subject": "co_morgan_treasurer_deed_auctions"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AUCTIONS",
+     "state": "CO",
+     "status": "PASS",
+     "subject": "co_saguache_tax_sale"
     },
     {
      "check": "available_terms",
@@ -5022,7 +5899,7 @@
     "FAIL": 0,
     "NOT_APPLICABLE": 1,
     "NOT_VERIFIED": 4,
-    "PASS": 23
+    "PASS": 26
    },
    "findings": [
     {
@@ -5039,21 +5916,21 @@
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 2 source(s) (mi_eaton_treasurer_sale, mi_lenawee_tax_sale) read 2026-10-01",
+     "detail": "COUNTY_DEPENDENT: 3 source(s) (mi_eaton_treasurer_sale, mi_lenawee_tax_sale, mi_tax_sale_info_auction) read 2026-10-01",
      "state": "MI",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "county_coverage",
-     "detail": "2 counties: Eaton, Lenawee",
+     "detail": "77 counties: Alcona, Alger, Allegan, Alpena, Antrim, Arenac, Baraga, Barry, Bay, Benzie, Berrien, Branch …",
      "state": "MI",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: mi_eaton_treasurer_sale, mi_lenawee_tax_sale",
+     "detail": "TRACKED: mi_eaton_treasurer_sale, mi_lenawee_tax_sale, mi_tax_sale_info_auction",
      "state": "MI",
      "status": "PASS",
      "subject": "AUCTIONS"
@@ -5067,21 +5944,21 @@
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 6 source(s) (mi_calhoun_landbank, mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank, mi_saginaw_landbank, mi_wayne_county_landbank) read 2026-10-02",
+     "detail": "COUNTY_DEPENDENT: 8 source(s) (mi_calhoun_landbank, mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_genesee_landbank, mi_oceana_landbank, mi_saginaw_landbank, mi_tax_sale_info_surplus, mi_wayne_county_landbank) read 2026-10-02",
      "state": "MI",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "county_coverage",
-     "detail": "4 counties: Calhoun, Oceana, Saginaw, Wayne",
+     "detail": "12 counties: Arenac, Bay, Calhoun, Genesee, Jackson, Monroe, Montcalm, Oceana, Otsego, Presque Isle, Saginaw, Wayne",
      "state": "MI",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: mi_calhoun_landbank, mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank, mi_saginaw_landbank, mi_wayne_county_landbank",
+     "detail": "TRACKED: mi_calhoun_landbank, mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_genesee_landbank, mi_oceana_landbank, mi_saginaw_landbank, mi_tax_sale_info_surplus, mi_wayne_county_landbank",
      "state": "MI",
      "status": "PASS",
      "subject": "AVAILABLE"
@@ -5157,6 +6034,13 @@
     },
     {
      "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "MI",
+     "status": "PASS",
+     "subject": "mi_genesee_landbank"
+    },
+    {
+     "check": "source_classification",
      "detail": "AUCTIONS",
      "state": "MI",
      "status": "PASS",
@@ -5178,6 +6062,20 @@
     },
     {
      "check": "source_classification",
+     "detail": "AUCTIONS",
+     "state": "MI",
+     "status": "PASS",
+     "subject": "mi_tax_sale_info_auction"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "MI",
+     "status": "PASS",
+     "subject": "mi_tax_sale_info_surplus"
+    },
+    {
+     "check": "source_classification",
      "detail": "AVAILABLE",
      "state": "MI",
      "status": "PASS",
@@ -5185,13 +6083,13 @@
     },
     {
      "check": "available_terms",
-     "detail": "every AVAILABLE source has a terms row (6)",
+     "detail": "every AVAILABLE source has a terms row (8)",
      "state": "MI",
      "status": "PASS"
     },
     {
      "check": "acquisition_path",
-     "detail": "2/6 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+     "detail": "2/15 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
      "state": "MI",
      "status": "NOT_VERIFIED"
     },
@@ -5220,8 +6118,8 @@
     "BLOCKED": 0,
     "FAIL": 0,
     "NOT_APPLICABLE": 2,
-    "NOT_VERIFIED": 4,
-    "PASS": 15
+    "NOT_VERIFIED": 5,
+    "PASS": 16
    },
    "findings": [
     {
@@ -5266,21 +6164,21 @@
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 1 source(s) (mn_ramsey_tax_forfeit) read 2026-10-04",
+     "detail": "COUNTY_DEPENDENT: 3 source(s) (mn_hubbard_tfl_otc, mn_ramsey_tax_forfeit, mn_stpaul_hra_properties) read 2026-10-04",
      "state": "MN",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "county_coverage",
-     "detail": "1 county: Ramsey",
+     "detail": "2 counties: Hubbard, Ramsey",
      "state": "MN",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: mn_ramsey_tax_forfeit",
+     "detail": "TRACKED: mn_hubbard_tfl_otc, mn_ramsey_tax_forfeit, mn_stpaul_hra_properties",
      "state": "MN",
      "status": "PASS",
      "subject": "AVAILABLE"
@@ -5331,19 +6229,33 @@
      "detail": "AVAILABLE",
      "state": "MN",
      "status": "PASS",
+     "subject": "mn_hubbard_tfl_otc"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "MN",
+     "status": "PASS",
      "subject": "mn_ramsey_tax_forfeit"
     },
     {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "MN",
+     "status": "PASS",
+     "subject": "mn_stpaul_hra_properties"
+    },
+    {
      "check": "available_terms",
-     "detail": "every AVAILABLE source has a terms row (1)",
+     "detail": "every AVAILABLE source has a terms row (3)",
      "state": "MN",
      "status": "PASS"
     },
     {
      "check": "acquisition_path",
-     "detail": "1/1 AVAILABLE unit(s) with a verified official process",
+     "detail": "1/3 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
      "state": "MN",
-     "status": "PASS"
+     "status": "NOT_VERIFIED"
     },
     {
      "check": "state_page",
@@ -5835,7 +6747,7 @@
     "FAIL": 0,
     "NOT_APPLICABLE": 1,
     "NOT_VERIFIED": 3,
-    "PASS": 20
+    "PASS": 21
    },
    "findings": [
     {
@@ -5852,21 +6764,21 @@
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 2 source(s) (sc_oconee_tax_sale_list, sc_york_tax_sale) read 2026-10-01",
+     "detail": "COUNTY_DEPENDENT: 3 source(s) (sc_horry_tax_sale, sc_oconee_tax_sale_list, sc_york_tax_sale) read 2026-10-01",
      "state": "SC",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "county_coverage",
-     "detail": "2 counties: Oconee, York",
+     "detail": "3 counties: Horry, Oconee, York",
      "state": "SC",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: sc_oconee_tax_sale_list, sc_york_tax_sale",
+     "detail": "TRACKED: sc_horry_tax_sale, sc_oconee_tax_sale_list, sc_york_tax_sale",
      "state": "SC",
      "status": "PASS",
      "subject": "AUCTIONS"
@@ -5953,6 +6865,13 @@
      "state": "SC",
      "status": "PASS",
      "subject": "sc_horry_forfeited_land"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AUCTIONS",
+     "state": "SC",
+     "status": "PASS",
+     "subject": "sc_horry_tax_sale"
     },
     {
      "check": "source_classification",

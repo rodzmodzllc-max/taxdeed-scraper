@@ -305,6 +305,30 @@
     {
      "access": "ACCESSIBLE",
      "availability": "NOT_READ",
+     "county": "Arenac",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MI:Arenac:mi_tax_sale_info_surplus",
+     "url": "https://www.tax-sale.info/surplus"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Bay",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MI:Bay:mi_tax_sale_info_surplus",
+     "url": "https://www.tax-sale.info/surplus"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
      "county": "Calhoun",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
@@ -313,6 +337,30 @@
      "read_at": "",
      "source_id": "MI:Calhoun:mi_calhoun_landbank",
      "url": "https://public-cclb.epropertyplus.com/landmgmtpub/app/base/landing"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Genesee",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MI:Genesee:mi_genesee_landbank",
+     "url": "https://www.thelandbank.org/find_properties.asp"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Jackson",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MI:Jackson:mi_tax_sale_info_surplus",
+     "url": "https://www.tax-sale.info/surplus"
     },
     {
      "access": "ACCESSIBLE",
@@ -329,6 +377,30 @@
     {
      "access": "ACCESSIBLE",
      "availability": "NOT_READ",
+     "county": "Monroe",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MI:Monroe:mi_tax_sale_info_surplus",
+     "url": "https://www.tax-sale.info/surplus"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Montcalm",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MI:Montcalm:mi_tax_sale_info_surplus",
+     "url": "https://www.tax-sale.info/surplus"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
      "county": "Oceana",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
@@ -337,6 +409,42 @@
      "read_at": "",
      "source_id": "MI:Oceana:mi_oceana_landbank",
      "url": "https://oceana.mi.us/departments/treasurer/land-bank-authority/"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Oceana",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MI:Oceana:mi_tax_sale_info_surplus",
+     "url": "https://www.tax-sale.info/surplus"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Otsego",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MI:Otsego:mi_tax_sale_info_surplus",
+     "url": "https://www.tax-sale.info/surplus"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Presque Isle",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MI:Presque Isle:mi_tax_sale_info_surplus",
+     "url": "https://www.tax-sale.info/surplus"
     },
     {
      "access": "ACCESSIBLE",
@@ -407,6 +515,18 @@
     {
      "access": "ACCESSIBLE",
      "availability": "NOT_READ",
+     "county": "Hubbard",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MN:Hubbard:mn_hubbard_tfl_otc",
+     "url": "https://services.arcgis.com/auNjCUvKlkSqV04X/arcgis/rest/services/TFL_Sales_view/FeatureServer/0"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
      "county": "Ramsey",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
@@ -415,6 +535,18 @@
      "read_at": "",
      "source_id": "MN:Ramsey:mn_ramsey_tax_forfeit",
      "url": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/MapServer/0"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Ramsey",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MN:Ramsey:mn_stpaul_hra_properties",
+     "url": "https://services1.arcgis.com/9meaaHE3uiba0zr8/arcgis/rest/services/HRA_Owned_Parcels_for_Sale/FeatureServer/0"
     }
    ],
    "last_reads": {},

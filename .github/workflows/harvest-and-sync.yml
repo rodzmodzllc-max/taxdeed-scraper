@@ -281,11 +281,16 @@ on:
           County Land Bank site (and any ArcGIS layer behind its map: metadata
           and a count only), the Clerk & Master tax-sale page and sale-book
           PDFs, and the City of Memphis real-estate page, STRUCTURE only
-          (scripts/capture_tn_shelby.py).
+          (scripts/capture_tn_shelby.py). "new_sources_validate" = the
+          new-sources sprint (owner decision 2026-10-26): run the expansion
+          harvest (scripts/harvest_expansion.py) for MI MO PA SC CO MN with NO
+          database credential - every configured source of those states is
+          read through the real adapters and only counts / statuses /
+          identifier SHAPES are printed; nothing is synced.
         required: false
         type: choice
         default: available
-        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby]
+        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, new_sources_validate]
 
 concurrency:
   # Evidence captures (job=evidence) are read-only and never write to the
@@ -1512,7 +1517,8 @@ jobs:
     # writes to the database and nothing here is a purchase path.
     name: Capture purchase / application evidence (manual only)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # 45 (was 25) since 2026-10-26: new_sources_validate reads six states' full inventories.
+    timeout-minutes: 45
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'evidence'
     steps:
       - name: Checkout repository
@@ -1639,6 +1645,12 @@ jobs:
             # whitelisted headers, licence text); no row, name, address or
             # identifier. No database credential exists in this job.
             python3 scripts/capture_available_sources.py
+            exit 0
+          fi
+          if [ "$SCOPE" = "new_sources_validate" ]; then
+            # New-sources sprint (2026-10-26): read-only real harvest of every source of
+            # these states (no database credential in this job; nothing synced).
+            for st in MI MO PA SC CO MN; do python3 scripts/harvest_expansion.py --state "$st" || true; done
             exit 0
           fi
           if [ "$SCOPE" = "available_validate" ]; then

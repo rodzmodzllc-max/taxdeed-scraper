@@ -89,6 +89,7 @@ _AUTHORITY = {
     "mi_wayne_county_landbank": ("county_land_bank", "Wayne County Land Bank Corporation"),
     "mi_saginaw_landbank": ("county_land_bank", "Saginaw County Land Bank Authority"),
     "mi_calhoun_landbank": ("county_land_bank", "Calhoun County Land Bank Authority"),
+    "mi_genesee_landbank": ("county_land_bank", "Genesee County Land Bank Authority"),
     "mn_stpaul_hra_properties": ("other_government", "Saint Paul Housing and Redevelopment Authority"),
     "mn_hubbard_tfl_otc": ("other_government", "Hubbard County Tax-Forfeited Land"),
     "mi_tax_sale_info_surplus": ("other_government", "Michigan county treasurer (foreclosing governmental unit) via Tax-Sale.info"),

@@ -232,7 +232,7 @@ def link_property_pages(cfg, recs, fetch_text, *, offline: bool) -> int:
     return n
 
 
-def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None = None, fetch_bytes=None):
+def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None = None, fetch_bytes=None, post_text=None):
     """-> (status, records, category, detail, empty_signal)."""
     cfg = src.config
     if getattr(cfg, "superseded", None) and not fixture:
@@ -278,6 +278,25 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
         if res.outcome == "INCOMPLETE":
             return "INCOMPLETE", res.records, res.error_category, res.error_detail, None
         return res.outcome, res.records, None, None, ("no_offered_status" if res.outcome == "EMPTY" else None)
+    if src.kind == "paged_table":
+        # New-sources sprint (2026-10-26): a server-side paged HTML table (Genesee County Land Bank, MI).
+        from harvesters.otc.adapters import paged_table as PT  # noqa: PLC0415
+        if fixture:
+            pages = json.loads(Path(fixture).read_text(encoding="utf-8"))   # [page 1 html, page 2 html, ...]
+            it = iter(pages)
+
+            def pt(url, data):
+                return next(it)
+        else:
+            pt = post_text
+        if pt is None:
+            return "FAILED", [], "UNKNOWN", "no POST transport", None
+        res = PT.fetch_all(cfg, pt, retrieved_at=retrieved_at, sleep=(lambda s: None) if fixture else None)
+        print(f"{cfg.source_id}: pages={res.pages} listings={res.total} read={res.rows_read} kept={len(res.records)} "
+              f"not-offered={res.excluded_status} bad-id={res.rejected_ids}")
+        if res.outcome == "FAILED":
+            return "FAILED", [], res.error_category, res.error_detail, None
+        return res.outcome, res.records, None, None, ("empty_list" if res.outcome == "EMPTY" else None)
     if src.kind == "tax_sale_info":
         # New-sources sprint (2026-10-26): Tax-Sale.info catalogs (Michigan).
         from harvesters.otc.adapters import tax_sale_info as TSI  # noqa: PLC0415
@@ -402,7 +421,7 @@ def main(argv=None) -> int:
     out = Path(a.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     retrieved_at = datetime.now(timezone.utc).replace(microsecond=0)
-    fetch_json = fetch_text = fetch_bytes = None
+    fetch_json = fetch_text = fetch_bytes = post_text = None
     if not fixtures:
         import requests  # noqa: PLC0415 - only after the gate passed
         session = requests.Session()
@@ -422,6 +441,12 @@ def main(argv=None) -> int:
             r = session.get(url, timeout=60, headers=PAGE_HEADERS)
             r.raise_for_status()
             return r.content
+
+        def post_text(url, data):
+            # A form POST in the same session (cookies kept): server-side paged tables.
+            r = session.post(url, data=data, timeout=60, headers=PAGE_HEADERS)
+            r.raise_for_status()
+            return r.text
     sources, gated = runnable_sources(st, reg)
     if fixtures:
         # Offline (tests): every configured source with a fixture is parsed;
@@ -436,7 +461,8 @@ def main(argv=None) -> int:
         cfg = src.config
         try:
             status, recs, cat, detail, empty = run_source(src, fetch_json, fetch_text, retrieved_at=retrieved_at,
-                                                         fixture=fixtures.get(cfg.source_id), fetch_bytes=fetch_bytes)
+                                                         fixture=fixtures.get(cfg.source_id), fetch_bytes=fetch_bytes,
+                                                         post_text=post_text)
         except Exception as exc:  # noqa: BLE001 - one source never stops the others
             status, recs, cat, detail, empty = "FAILED", [], "UNKNOWN", type(exc).__name__, None
         # A record that fails validation is dropped (never written) and its

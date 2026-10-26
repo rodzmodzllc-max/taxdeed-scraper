@@ -16,7 +16,7 @@ Built by `scripts/build_state_coverage.py` from the registry, the rules, the led
 
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
-| AUCTIONS | COUNTY_DEPENDENT | SOURCE_IMPLEMENTED_NEVER_READ | 2 / 2 / 1 | - | - | - | 0 of 0 | Dispatch the source's job once (owner decision) and read its status file; a failure is a source problem, not an empty list. |
+| AUCTIONS | COUNTY_DEPENDENT | SOURCE_IMPLEMENTED_NEVER_READ | 3 / 3 / 1 | - | - | - | 0 of 0 | Dispatch the source's job once (owner decision) and read its status file; a failure is a source problem, not an empty list. |
 | AVAILABLE | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
 | LIENS_CERTIFICATES | COUNTY_DEPENDENT | CURRENT | 2 / 2 / 2 | 141 | 0 | 0 | 0 of 0 | Keep reading; raise field population where a verified official layer exists (see fields). |
 CO - AUCTIONS: no row and no read recorded in the snapshot
@@ -59,15 +59,15 @@ LA - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
-| AUCTIONS | COUNTY_DEPENDENT | CURRENT | 2 / 2 / 2 | 38 | 0 | 0 | 0 of 0 | Keep reading; raise field population where a verified official layer exists (see fields). |
-| AVAILABLE | COUNTY_DEPENDENT | APPROVAL_UNRESOLVED | 6 / 6 / 0 | 30775 | 0 | 30770 | 2 of 6 | An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only. |
+| AUCTIONS | COUNTY_DEPENDENT | CURRENT | 77 / 77 / 2 | 38 | 0 | 0 | 0 of 0 | Keep reading; raise field population where a verified official layer exists (see fields). |
+| AVAILABLE | COUNTY_DEPENDENT | APPROVAL_UNRESOLVED | 15 / 15 / 0 | 30775 | 0 | 30770 | 2 of 15 | An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only. |
 | LIENS_CERTIFICATES | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
 
 MI - AUCTIONS field population (active rows, snapshot): amount 38/38; bid_amount_mismatch 0/38; coords 38/38; dup_parcel 0/38; flood_checked 38/38; laft_bid_without_amount 0/38; link_not_https 0/38; list_as_of 0/38; list_as_of_future 0/38; never_seen 0/38; parcel 38/38; parcel_no_digit 0/38; past_sale 35/38; path_typed 38/38; provenance 38/38; seen_gt36h 0/38; seen_order_bad 0/38; source_link 38/38
 MI - AUCTIONS: 38 active rows; 0 never stamped, 0 older than 36 h at the snapshot
 
 MI - AVAILABLE field population (active rows, snapshot): amount 0/30775; bid_amount_mismatch 0/30775; coords 30771/30775; dup_parcel 0/30775; flood_checked 434/30775; laft_bid_without_amount 0/30775; link_not_https 0/30775; list_as_of 0/30775; list_as_of_future 0/30775; never_seen 0/30775; parcel 30775/30775; parcel_no_digit 0/30775; past_sale 0/30775; path_typed 5/30775; provenance 30775/30775; seen_gt36h 30770/30775; seen_order_bad 0/30775; source_link 30775/30775
-MI - AVAILABLE: 6 production source(s), none APPROVED for customers: UNREVIEWED
+MI - AVAILABLE: 15 production source(s), none APPROVED for customers: UNREVIEWED
 MI - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 
 ## MN
@@ -75,12 +75,12 @@ MI - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
 | AUCTIONS | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
-| AVAILABLE | COUNTY_DEPENDENT | APPROVAL_UNRESOLVED | 1 / 1 / 0 | 2 | 0 | 0 | 1 of 1 | An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only. |
+| AVAILABLE | COUNTY_DEPENDENT | APPROVAL_UNRESOLVED | 3 / 3 / 0 | 2 | 0 | 0 | 1 of 3 | An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only. |
 | LIENS_CERTIFICATES | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
 MN - AUCTIONS: eligibility NOT_VERIFIED; no production source
 
 MN - AVAILABLE field population (active rows, snapshot): amount 2/2; bid_amount_mismatch 0/2; coords 2/2; dup_parcel 0/2; flood_checked 2/2; laft_bid_without_amount 0/2; link_not_https 0/2; list_as_of 0/2; list_as_of_future 0/2; never_seen 0/2; parcel 2/2; parcel_no_digit 0/2; past_sale 0/2; path_typed 0/2; provenance 2/2; seen_gt36h 0/2; seen_order_bad 0/2; source_link 2/2
-MN - AVAILABLE: 1 production source(s), none APPROVED for customers: UNREVIEWED
+MN - AVAILABLE: 3 production source(s), none APPROVED for customers: UNREVIEWED
 MN - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 
 ## MO
@@ -126,7 +126,7 @@ PA - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
-| AUCTIONS | COUNTY_DEPENDENT | CURRENT | 2 / 2 / 1 | 853 | 0 | 0 | 0 of 0 | Keep reading; raise field population where a verified official layer exists (see fields). |
+| AUCTIONS | COUNTY_DEPENDENT | CURRENT | 3 / 3 / 1 | 853 | 0 | 0 | 0 of 0 | Keep reading; raise field population where a verified official layer exists (see fields). |
 | AVAILABLE | COUNTY_DEPENDENT | APPROVAL_UNRESOLVED | 2 / 2 / 0 | 52 | 0 | 0 | 2 of 2 | An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only. |
 | LIENS_CERTIFICATES | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
 

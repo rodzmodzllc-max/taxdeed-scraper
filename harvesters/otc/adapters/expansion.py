@@ -27,6 +27,7 @@ from .property_page import PropertyPage
 from .sc_flc import GEORGETOWN as SC_GEORGETOWN_FLC   # Georgetown SC FLC list (PR #69)
 from .tabular import ColumnMap, TabularConfig
 from . import tax_sale_info as TSI
+from .paged_table import PagedTableConfig
 
 EVIDENCE_RUNS = ("36778382226", "36779189506", "36780071129", "pass-4 2026-09-30")
 APPROVAL = "owner publication approval 2026-09-30 (no explicit reuse licence published by the source)"
@@ -696,14 +697,42 @@ MN_STPAUL_HRA = ArcGisLayerConfig(
     notes="Saint Paul Housing and Redevelopment Authority land held for resale: Marketing Status '5 - Available on the "
           "open market, subject to disposition policy' only. No price on the layer.")
 
-NEW_TABLE_SOURCES = (SC_HORRY_TAX_SALE, CO_SAGUACHE_TAX_SALE, MN_WRIGHT_TAX_FORFEIT, MN_HUBBARD_TFL_OTC, MN_STPAUL_HRA)
+# Genesee County (MI) Land Bank Authority (Flint) - "Search All Properties"
+# (thelandbank.org/find_properties.asp): the Land Bank's inventory as one
+# server-side paged table, 25 per page (427 pages, ~10,670 listings,
+# 2026-10-26), columns Parcel ID | Address | City | ZIP | Class | Sale Type.
+# Sale Type is the Land Bank's own word for how the parcel is sold ('Vacant
+# Land', 'Commercial/Industrial', 'Featured Lot for Development', 'Listed with
+# Realtor', ...) and is kept verbatim; 'Demolition Program' (a structure in the
+# demolition program) is not read as offered.
+MI_GENESEE_LANDBANK = PagedTableConfig(
+    table=TabularConfig(
+        source_id="mi_genesee_landbank", state="MI", county="Genesee",
+        source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
+        columns=ColumnMap(case_no=("Parcel ID",), parcel=("Parcel ID",), address=("Address",), land_use=("Class",),
+                          status=("Sale Type",)),
+        status_exclude=("Demolition Program",), id_pattern=r"\d{2}-\d{2}-\d{3}-\d{3}", header_required=("Parcel ID", "Sale Type"),
+        list_url="https://www.thelandbank.org/find_properties.asp", columns_verified=True,
+        notes="Genesee County Land Bank Authority inventory ('Search All Properties'), every page of the site's own paged "
+              "table read in one session. Sale Type kept verbatim; 'Demolition Program' rows are not read. No price per row; "
+              "buyers apply on the Land Bank's applications (Lots Available / Residential / Commercial interest forms)."),
+    first_url="https://www.thelandbank.org/find_properties.asp?LRCsearch=do",
+    next_url="https://www.thelandbank.org/find_properties.asp?LRCsearch=redo")
+
+NEW_TABLE_SOURCES = (MI_GENESEE_LANDBANK, SC_HORRY_TAX_SALE, CO_SAGUACHE_TAX_SALE, MN_HUBBARD_TFL_OTC, MN_STPAUL_HRA)
+# Configured and read live (38 'Open' rows, 2026-10-26) but NOT scheduled: the
+# Minnesota page's customer copy (app.js EXPANSION_LEDGER_COPY, owned by the
+# front-end session) still says "No Minnesota auction source is tracked", and
+# the state-rules engine fails a tracked ledger whose copy denies it. Add it to
+# SOURCES["MN"] (and NEW_TABLE_SOURCES) once that copy is updated.
+HELD_FOR_FRONTEND_COPY = (MN_WRIGHT_TAX_FORFEIT,)
 
 MI_TSI_SURPLUS = tuple(TSI.TaxSaleInfoConfig(
     source_id="mi_tax_sale_info_surplus", state="MI", county=c, kind="surplus", list_url=TSI.SURPLUS_URL,
     inventory_type=InventoryType.POST_SALE, amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, columns_verified=True,
     notes="Tax-Sale.info surplus property catalogs: lots that failed to sell at the county's tax-foreclosure auction, "
           "re-offered first come first served through the site's surplus lot request form. The catalog's 'Minimum Bid' is "
-          "kept as a published amount of unspecified kind.") for c in TSI.SEASON_COUNTIES)
+          "kept as a published amount of unspecified kind.") for c in TSI.SURPLUS_COUNTIES)
 
 
 HELD_AVAILABLE = ("AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for "
@@ -750,6 +779,7 @@ SOURCES: dict[str, tuple[ExpansionSource, ...]] = {
            ExpansionSource("epropertyplus", MI_WAYNE_COUNTY_LANDBANK, MI_WAYNE_COUNTY_LANDBANK.portal),
            ExpansionSource("epropertyplus", MI_SAGINAW_LANDBANK, MI_SAGINAW_LANDBANK.portal),
            ExpansionSource("epropertyplus", MI_CALHOUN_LANDBANK, MI_CALHOUN_LANDBANK.portal),
+           ExpansionSource("paged_table", MI_GENESEE_LANDBANK, MI_GENESEE_LANDBANK.first_url),
            *(ExpansionSource("tax_sale_info", c, c.list_url) for c in MI_TSI_AUCTIONS + MI_TSI_SURPLUS)),
     "WY": (ExpansionSource("arcgis", WY_ALBANY, WY_ALBANY.layer_url),),
     "SC": (ExpansionSource("arcgis", SC_YORK, SC_YORK.layer_url),
@@ -772,7 +802,6 @@ SOURCES: dict[str, tuple[ExpansionSource, ...]] = {
     "PA": (ExpansionSource("latest_dated_document", PA_FAYETTE_REPOSITORY, PA_FAYETTE_PAGE),
            ExpansionSource("epropertyplus", PA_PITTSBURGH_CITY_PROPERTY, PA_PITTSBURGH_CITY_PROPERTY.portal)),
     "MN": (ExpansionSource("arcgis", MN_RAMSEY_TAX_FORFEIT, MN_RAMSEY_TAX_FORFEIT.layer_url),
-           ExpansionSource("arcgis", MN_WRIGHT_TAX_FORFEIT, MN_WRIGHT_TAX_FORFEIT.layer_url),
            ExpansionSource("arcgis", MN_HUBBARD_TFL_OTC, MN_HUBBARD_TFL_OTC.layer_url),
            ExpansionSource("arcgis", MN_STPAUL_HRA, MN_STPAUL_HRA.layer_url)),
     "TN": (ExpansionSource("epropertyplus", TN_SHELBY_LANDBANK, TN_SHELBY_LANDBANK.portal),),

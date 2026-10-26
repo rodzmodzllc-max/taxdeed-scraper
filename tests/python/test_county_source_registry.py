@@ -123,7 +123,10 @@ def test_r07_to_db_rows_uses_nulls_and_the_migration_018_column_set():
     # five five-state-sprint rows (2026-10-01).
     fl_tx = [r for r in ROWS if r.state in ("FL", "TX")]
     rows = csr.to_db_rows(fl_tx)
-    assert len(rows) == len(fl_tx) == len(ROWS) - 4 - 6 - 5 - 5 - 4 - 1 and all(set(r) == set(csr.COLUMNS) for r in rows)
+    # New-sources sprint (2026-10-26): every registry row it added is outside FL / TX.
+    from harvesters.otc.adapters import expansion as EX
+    new = sum(1 for r in ROWS if r.source_id in EX.NEW_SOURCE_IDS)
+    assert len(rows) == len(fl_tx) == len(ROWS) - 4 - 6 - 5 - 5 - 4 - 1 - new and all(set(r) == set(csr.COLUMNS) for r in rows)
     with pytest.raises(ValueError, match="migration 018"):
         csr.to_db_rows(ROWS)
     baker = next(r for r in rows if r["county"] == "Baker" and r["state"] == "FL")

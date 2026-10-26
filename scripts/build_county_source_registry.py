@@ -482,7 +482,7 @@ def expansion_rows() -> list[dict]:
                    "epropertyplus": getattr(cfg, "portal", "") + "/landmgmtpub/remote/public/property/getPublishedProperties",
                    "tax_sale_info": "https://www.tax-sale.info/catalog/getCsv/id/"}.get(src.kind, "")
             access, fmt = {"arcgis": ("JSON_ENDPOINT", "JSON"), "epropertyplus": ("JSON_ENDPOINT", "JSON"),
-                           "tax_sale_info": ("HTTP_GET_HTML", "CSV"), "sc_flc_pdf": ("HTTP_GET_PDF", "PDF"),
+                           "tax_sale_info": ("HTTP_GET_HTML", "CSV"), "paged_table": ("HTTP_GET_HTML", "HTML_TABLE"), "sc_flc_pdf": ("HTTP_GET_PDF", "PDF"),
                            "pdf_table": ("HTTP_GET_PDF", "PDF"), "csv": ("HTTP_GET_HTML", "CSV"),
                            "latest_dated_document": ("HTTP_GET_HTML", "XLSX"),
                            "xlsx_flc_lists": ("HTTP_GET_HTML", "XLSX")}.get(src.kind, ("HTTP_GET_HTML", "HTML_TABLE"))

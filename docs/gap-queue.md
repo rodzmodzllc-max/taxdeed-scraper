@@ -2,9 +2,9 @@
 
 Generated from public/acquisition-evidence.json, data/current_state/state-coverage.json, data/acquisition_candidate_pages.csv and the registry. Counts only.
 
-- Acquisition-path units: 77 total, 48 unresolved (NEEDS_REVIEW 6, NOT_FOUND 36, UNAVAILABLE 6, VERIFIED 29).
+- Acquisition-path units: 88 total, 59 unresolved (NEEDS_REVIEW 6, NOT_FOUND 47, UNAVAILABLE 6, VERIFIED 29).
 - State x ledger units: 39 total (APPROVAL_UNRESOLVED 7, CURRENT 6, OFFERED_SOURCE_NOT_IMPLEMENTED 1, OFFERED_VERIFIED_EMPTY 1, RULES_NOT_VERIFIED 19, SOURCE_FAILED_OR_STALE 4, SOURCE_IMPLEMENTED_NEVER_READ 1).
-- Queue: 81 entries - by category A 2, B 4, C 27, D 7, E 10, F 31; completable now from the repository: 2.
+- Queue: 92 entries - by category A 2, B 4, C 27, D 7, E 10, F 42; completable now from the repository: 2.
 
 ## A. implementable now from repository data or an accessible official source (2)
 
@@ -81,7 +81,7 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | TX * | AUCTIONS | SOURCE_FAILED_OR_STALE | yes | yes | no | yes | Manual-only source by owner decision (job=texas); a read happens only when the owner dispatches it |
 | TX * | AVAILABLE | SOURCE_FAILED_OR_STALE | yes | yes | no | yes | Manual-only source by owner decision (job=texas); a read happens only when the owner dispatches it |
 
-## F. the jurisdiction's process or product cannot yet be established authoritatively (31)
+## F. the jurisdiction's process or product cannot yet be established authoritatively (42)
 
 | Unit | Ledger | Status | Source reachable | Approved | Rule verified | Process verified | Next action |
 |---|---|---|---|---|---|---|---|
@@ -105,8 +105,19 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | FL Union (fl_laft_html) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL Walton (fl_laft_pioneer) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL Washington (fl_laft_realtdm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| MI Arenac (mi_tax_sale_info_surplus) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| MI Bay (mi_tax_sale_info_surplus) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | MI Calhoun (mi_calhoun_landbank) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| MI Genesee (mi_genesee_landbank) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| MI Jackson (mi_tax_sale_info_surplus) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| MI Monroe (mi_tax_sale_info_surplus) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| MI Montcalm (mi_tax_sale_info_surplus) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| MI Oceana (mi_tax_sale_info_surplus) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| MI Otsego (mi_tax_sale_info_surplus) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| MI Presque Isle (mi_tax_sale_info_surplus) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | MI Saginaw (mi_saginaw_landbank) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| MN Hubbard (mn_hubbard_tfl_otc) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| MN Ramsey (mn_stpaul_hra_properties) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | MO Jackson (mo_kc_landbank) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | PA Allegheny (pa_pittsburgh_city_property) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Goliad (tx_lgbs) | AVAILABLE | NOT_FOUND | yes | yes | n/a | no | No official resale-process page exists to read (The Tax Assessor-Collector page and the Trustee / Foreclosure Sales notices page carry no struck-off or resale text); the path cannot be established from a delinquent-tax counsel's vendor listing; the county publishes no resale process page |
