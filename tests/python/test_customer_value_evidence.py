@@ -65,7 +65,7 @@ def test_c02_evidence_job_is_manual_only_and_never_part_of_all():
     assert "capture_purchase_evidence.py" in runs and "artifact_evidence.py" in runs
     assert "SUPABASE_SERVICE_KEY" not in json.dumps(ev)          # the capture never touches the database
     on = wf.get("on") or wf.get(True)
-    assert on["schedule"] == [{"cron": "0 10 * * *"}, {"cron": "0 22 * * *"}, {"cron": "0 12 * * *"}]
+    assert on["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 22 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 17 * * *"}]
 
 
 # ==================== 2. evidence record -> typed path with provenance ====================

@@ -523,7 +523,7 @@ def test_workflow_runs_writer_after_each_property_sync_and_never_the_seed():
         assert "continue-on-error" not in report
     # Texas is still workflow_dispatch only - Phase B changes no schedule.
     assert "if: github.event_name == 'workflow_dispatch'" in texas
-    assert yml.count("cron:") == 3
+    assert yml.count("cron:") == 4   # 2026-10-26: + the second daily AVAILABLE read; Texas still unscheduled
 
 
 def test_existing_pipeline_files_do_not_reference_the_writer():
