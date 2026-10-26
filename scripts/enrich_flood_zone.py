@@ -42,7 +42,6 @@ starvation lesson the geocoding backfill learned the hard way.
 from __future__ import annotations
 
 import os
-import random
 import sys
 import time
 from collections import Counter
@@ -302,19 +301,16 @@ def fetch_county_batch(unit, limit, outstanding=None):
     established: without `order` PostgREST returns the same rows every run,
     and because a miss is never stamped, the same rows would lead the slice
     forever and the county would never advance past them."""
-    offset = 0
-    if outstanding and outstanding > limit:
-        offset = random.randrange(0, outstanding - limit + 1)
     params = {
         "select": "id,county,state,latitude,longitude",
         "flood_checked_at": "is.null",
         "latitude": "not.is.null",
         "longitude": "not.is.null",
-        "order": "id.asc",
-        "offset": str(offset),
-        "limit": str(limit),
     }
     params.update(EU.unit_params(unit))
+    # Keyset from a random id, wrapping - never a deep offset (2026-10-26).
+    if outstanding and outstanding > limit:
+        return EU.get_window(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, limit)
     return EU.get_paged(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, limit)
 
 

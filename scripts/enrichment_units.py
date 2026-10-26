@@ -56,16 +56,54 @@ API_MAX_ROWS = 1000
 
 
 def get_paged(get, url: str, params: dict, limit: int, *, page: int = API_MAX_ROWS) -> list:
-    """Up to `limit` rows from a PostgREST read, in pages of `page` rows
-    starting at params['offset'] (default 0). `get(url, params)` returns the
-    parsed JSON list. A short page ends the read."""
+    """Up to `limit` rows from a PostgREST read, in pages of `page` rows,
+    keyset-paged by id (`order=id.asc`, `id=gt.<last id>`). `get(url,
+    params)` returns the parsed JSON list. A short page ends the read.
+
+    2026-10-26: this read used `offset`, which makes Postgres walk and
+    discard every skipped row - at offset 18,802 in Detroit's 30,549 rows
+    the request hit the statement timeout (HTTP 500) and failed the deeds
+    job (scheduled run 376). Keyset pages cost the same at any depth.
+    `id` is always selected (it is the page cursor); an `offset` param is
+    ignored. `params['id']` (e.g. `gt.<uuid>` / `lt.<uuid>`) bounds the
+    first page."""
+    params = {k: v for k, v in params.items() if k != "offset"}
+    select = params.get("select")
+    if select and "id" not in [c.strip() for c in select.split(",")]:
+        params["select"] = select + ",id"
+    params["order"] = "id.asc"
+    bound = str(params.get("id") or "")
+    upper = bound if bound.startswith(("lt.", "lte.")) else None
+    if upper:
+        params.pop("id")
+        params["and"] = f"(id.{upper})"
     out: list = []
-    start = int(params.get("offset", 0) or 0)
+    cursor = None
     while len(out) < limit:
         want = min(page, limit - len(out))
-        rows = get(url, {**params, "offset": str(start + len(out)), "limit": str(want)})
+        q = dict(params, limit=str(want))
+        if cursor is not None:
+            q["id"] = f"gt.{cursor}"
+        rows = get(url, q)
         rows = rows if isinstance(rows, list) else []
         out += rows
-        if len(rows) < want:
+        if len(rows) < want or not rows:
+            break
+        cursor = rows[-1].get("id") if isinstance(rows[-1], dict) else None
+        if cursor is None:
             break
     return out
+
+
+def get_window(get, url: str, params: dict, limit: int, *, start: str | None = None) -> list:
+    """Up to `limit` rows starting at a random point of the backlog (id
+    order), wrapping to the beginning: the same rotation the old random
+    `offset` gave (a county's backlog advances run to run) without a deep
+    offset. `start` = the id to begin after (random when None)."""
+    import uuid  # noqa: PLC0415
+    start = start or str(uuid.uuid4())
+    first = get_paged(get, url, dict(params, id=f"gt.{start}"), limit)
+    if len(first) >= limit:
+        return first
+    rest = get_paged(get, url, dict(params, id=f"lte.{start}"), limit - len(first))
+    return first + rest

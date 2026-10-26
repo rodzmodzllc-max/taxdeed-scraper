@@ -55,7 +55,6 @@ from __future__ import annotations
 
 import json
 import os
-import random
 import sys
 import time
 from collections import Counter
@@ -331,12 +330,13 @@ def fetch_counties_needing_photos(tier_filter: dict | None = None):
 
 
 def fetch_county_batch(unit, limit, outstanding=None, tier_filter: dict | None = None):
-    offset = 0
-    if outstanding and outstanding > limit:
-        offset = random.randrange(0, outstanding - limit + 1)
-    params = {"select": "id,county,state,latitude,longitude", "order": "id.asc", "offset": str(offset), "limit": str(limit)}
+    # A random window into the backlog (keyset from a random id, wrapping) -
+    # never a deep offset, which timed out on Detroit's 30,549 rows (2026-10-26).
+    params = {"select": "id,county,state,latitude,longitude"}
     params.update(tier_params(tier_filter if tier_filter is not None else IMAGERY_TIERS[0][1]))
     params.update(EU.unit_params(unit))
+    if outstanding and outstanding > limit:
+        return EU.get_window(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, limit)
     return EU.get_paged(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, limit)
 
 
