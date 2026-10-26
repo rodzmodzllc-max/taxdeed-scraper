@@ -160,7 +160,7 @@ def test_s07_workflow_records_health_after_every_sync_step_without_retrying_or_f
         assert "harvest" not in step["run"].split("--status")[0].replace("harvest_", "")
     # Texas is manual, everything else scheduled with a cadence.
     tx = next(s for s in wf["jobs"]["texas"]["steps"] if "source_health.py" in str(s.get("run", "")))
-    assert "--mode manual" in tx["run"] and "--cadence-hours" not in tx["run"]
+    assert "--mode scheduled --cadence-hours 24" in tx["run"]  # Texas reads daily since 2026-10-26
     for job, hours in (("deeds", 12), ("certificates", 24), ("laft", 24), ("backup", 24)):
         st = next(s for s in wf["jobs"][job]["steps"] if "source_health.py" in str(s.get("run", "")))
         assert f"--cadence-hours {hours}" in st["run"], job

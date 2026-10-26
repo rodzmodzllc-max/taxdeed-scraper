@@ -126,7 +126,7 @@ def test_g01_the_registry_row_is_the_owner_decision_on_the_live_evidence():
 def test_w01_louisiana_runs_in_the_existing_laft_job_after_florida_and_can_never_fail_it():
     wf = yaml.safe_load(WF.read_text(encoding="utf-8"))
     on = wf.get("on") or wf.get(True)
-    assert on["schedule"] == [{"cron": "0 10 * * *"}, {"cron": "0 22 * * *"}, {"cron": "0 12 * * *"}]   # unchanged
+    assert on["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 22 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 17 * * *"}]   # unchanged
     steps = wf["jobs"]["laft"]["steps"]
     names = [s.get("name", "") for s in steps]
     la = [i for i, n in enumerate(names) if n.startswith("Louisiana")]
