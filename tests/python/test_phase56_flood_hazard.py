@@ -231,8 +231,12 @@ def test_p56_22_county_batch_is_randomly_windowed(flood):
     run, and a county never advances past its first failures."""
     src = SCRIPT.read_text(encoding="utf-8")
     body = src[src.index("def fetch_county_batch"):src.index("def patch_property")]
-    assert "random.randrange" in body
-    assert '"order"' in body
+    # 2026-10-26: the window is a keyset read from a random id that wraps
+    # (EU.get_window), not a random offset - a deep offset timed out.
+    assert "EU.get_window(" in body and '"offset"' not in body
+    units_src = (SCRIPT.parent / "enrichment_units.py").read_text(encoding="utf-8")
+    win = units_src[units_src.index("def get_window"):]
+    assert "uuid.uuid4()" in win and '"order"] = "id.asc"' in units_src
 
 
 def test_p56_23_counties_are_shuffled(flood):
