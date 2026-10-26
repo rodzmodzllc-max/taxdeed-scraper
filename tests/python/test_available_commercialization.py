@@ -63,7 +63,7 @@ def test_g01_committed_registry_publishes_only_the_grandfathered_production_sour
         elif r.state in EXPANSION_STATES and r.source_id in EX.SIX_STATE_SOURCE_IDS:
             # Six-state expansion (2026-09-30): a reviewed owner decision, not grandfathered.
             assert eff == "APPROVED" and r.is_production and "owner on 2026-09-30" in r.restrictions, (r.state, r.source_id)
-        elif r.source_id in EX.OWNER_APPROVED_2026_10_26_SOURCE_IDS:
+        elif r.source_id in EX.OWNER_APPROVED_2026_10_26_SOURCE_IDS | EX.NEW_SOURCE_IDS:
             # Owner decision 2026-10-26 (docs/publish-all-sources.md): published now, legal review pending.
             assert eff == "APPROVED" and r.is_production and "Owner approved customer publication 2026-10-26" in r.restrictions, (r.state, r.source_id)
         elif r.state in EXPANSION_STATES:
@@ -74,7 +74,7 @@ def test_g01_committed_registry_publishes_only_the_grandfathered_production_sour
                 # An auction / lien source awaiting review writes nothing; an AVAILABLE
                 # one is collected for development and labelled, never customer-published
                 # (collection vs customer publication, 2026-10-02).
-                expected = ("not customer-published" if r.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS
+                expected = ("not customer-published" if r.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS | EX.NEW_SOURCE_IDS
                             else "no row is written")
                 assert eff == "UNREVIEWED" and expected in r.restrictions, (r.state, r.source_id)
         elif r.is_production and r.restrictions.startswith("Owner approved customer publication 2026-10-26"):

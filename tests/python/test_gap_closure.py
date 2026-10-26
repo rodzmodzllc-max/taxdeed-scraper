@@ -199,7 +199,8 @@ def test_acquisition_unit_counts_after_the_sprint():
     # 2026-10-26: LRA (MO), Ramsey (MN) and Fayette (PA) processes read -> VERIFIED with records.
     # 2026-10-26: + 55 PBFCM / MVBA AVAILABLE units (owner decision) and the county-source sprint's units (FL Lake /
     # DeSoto / Wakulla / Charlotte, TX county lists), none with acquisition evidence yet.
-    assert len(ACQ["status"]) == 142 and by == {"VERIFIED": 29, "NEEDS_REVIEW": 8, "UNAVAILABLE": 6, "NOT_FOUND": 99}
+    # + 15 new-sources sprint units (5 ePropertyPlus land banks, 8 Tax-Sale.info surplus counties, Hubbard, Saint Paul HRA).
+    assert len(ACQ["status"]) == 157 and by == {"VERIFIED": 29, "NEEDS_REVIEW": 9, "UNAVAILABLE": 6, "NOT_FOUND": 113}
 
 
 # ------------------------------------------------------------------ A2 county procedure rules
@@ -259,11 +260,11 @@ def test_gap_queue_is_generated_from_the_records_and_pinned():
     doc = json.loads((ROOT / "data/current_state/gap-queue.json").read_text(encoding="utf-8"))
     assert doc == GQ.build()
     # 46 before the 2026-10-26 LRA / Ramsey / Fayette reads; then the PBFCM / MVBA and county-source units of the same day.
-    assert doc["denominators"]["acquisition_units"] == 142 and doc["denominators"]["acquisition_unresolved"] == 113
+    assert doc["denominators"]["acquisition_units"] == 157 and doc["denominators"]["acquisition_unresolved"] == 128   # + 15 new-sources units
     assert doc["denominators"]["state_ledger_units"] == 39
     assert set(doc["summary"]["by_category"]) <= set(GQ.CATEGORIES)
     # one queue entry per unresolved acquisition unit plus one per non-current state x ledger unit.
-    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 113 + 27
+    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 128 + 27
     for u in doc["units"]:
         assert u["category"] in GQ.CATEGORIES and u["next_action"] and u["source_accessible"] and "reason" in u
         assert u["completable_now"] == (u["category"] == "A")

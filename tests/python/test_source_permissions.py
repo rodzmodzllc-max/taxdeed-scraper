@@ -27,6 +27,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "harvesters"))
 
 from harvesters.governance import permissions as PERM  # noqa: E402
+from harvesters.otc.adapters import expansion as EX  # noqa: E402
 from harvesters.governance.county_source_registry import BLOCKED_SOURCE_IDS, load_registry  # noqa: E402
 from harvesters.governance.publication import PUBLISHABLE_STATUSES, effective_publication  # noqa: E402
 from permission_fixtures import install, permissions_with, record  # noqa: E402
@@ -46,7 +47,7 @@ def _day(source_id: str) -> date:
     # Sarasota Tax Collector county-held certificates: also the owner's 2026-10-26 decision.
     return OWNER_DAY if (source_id in OWNER_IDS or source_id in COUNTY_SOURCES_2026_10_26
                          or source_id == "fl_sarasota_tc_certificates"
-                         or source_id in ("tx_pbfcm", "tx_mvba", "tx_govease")) else DAY
+                         or source_id in ("tx_pbfcm", "tx_mvba", "tx_govease") or source_id in EX.NEW_SOURCE_IDS) else DAY
 
 
 def perms(*rows, base=False, **kw):

@@ -424,7 +424,14 @@ def workbook_sheet_rows(data: bytes, sheet: str | None) -> list[list[str]]:
     import openpyxl  # noqa: PLC0415 - only the XLSX sources need it
     wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
     names = {re.sub(r"\s+", " ", n).strip().lower(): n for n in wb.sheetnames}
-    name = names.get(re.sub(r"\s+", " ", sheet).strip().lower())
+    # "*" (2026-10-26, Horry SC): the workbook's ONLY sheet - a workbook with
+    # several sheets is not the configured one (KeyError), never a guess.
+    if sheet == "*":
+        if len(wb.sheetnames) != 1:
+            raise KeyError("workbook has more than one sheet; the source's single list sheet is expected")
+        name = wb.sheetnames[0]
+    else:
+        name = names.get(re.sub(r"\s+", " ", sheet).strip().lower())
     if name is None:
         raise KeyError(f"workbook has no {sheet!r} sheet")
     rows: list[list[str]] = []
