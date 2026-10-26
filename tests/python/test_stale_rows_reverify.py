@@ -296,6 +296,37 @@ def test_keyset_repeat_with_different_values_and_missing_ids_fail():
     assert res.outcome == "FAILED" and "object-id" in res.error_detail
 
 
+
+def test_keyset_asks_for_the_object_id_and_reads_it_in_any_case():
+    """Run 382 (2026-10-26): the real Detroit layers return only the fields
+    named in outFields, and the mapped fields never include the object id -
+    every batch failed with "a feature carries no numeric ObjectId". The
+    keyset query must request it, and a server echoing another case
+    (OBJECTID for ObjectId) still advances."""
+    import dataclasses  # noqa: PLC0415
+    from urllib.parse import parse_qs, urlsplit  # noqa: PLC0415
+    AG, _ = _arc()
+    from harvesters.otc.adapters import expansion as EX  # noqa: PLC0415
+    cfg = dataclasses.replace(EX.MI_DETROIT_LANDBANK_PROGRAMS, page_size=2)
+    feats = [_feat(i, f"P{i}.") for i in (3, 7, 9)]
+    fetch, _calls = _keyset_layer(feats)
+
+    def strict(url):
+        out = fetch(url)
+        if url.endswith("?f=json"):
+            return out
+        asked = parse_qs(urlsplit(url).query)["outFields"][0].split(",")
+        keep = {a.lower() for a in asked}
+        trimmed = []
+        for f in out["features"]:
+            attrs = {("OBJECTID" if k == "ObjectId" else k): v for k, v in f["attributes"].items() if k.lower() in keep}
+            trimmed.append({"attributes": attrs})
+        return {**out, "features": trimmed}
+
+    res = AG.fetch_all(cfg, strict, retrieved_at=NOW)
+    assert res.outcome == "COMPLETE" and sorted(r.case_no for r in res.records) == ["P3.", "P7.", "P9."]
+    assert "ObjectId" in AG.keyset_params(cfg, "ObjectId", None)["outFields"].split(",")
+
 # ==================== LAFT PDF successor discovery ====================
 
 PASCO_PAGE = """<html><body>

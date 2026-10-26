@@ -238,6 +238,11 @@ def keyset_params(cfg: ArcGisLayerConfig, oid_field: str, after: int | None) -> 
     params = query_params(cfg, 0)
     params.pop("resultOffset")
     params["orderByFields"] = oid_field
+    # The object id must be in the response: a server returns only the
+    # fields asked for, and the next batch starts after the highest one.
+    fields = params["outFields"].split(",")
+    if oid_field.lower() not in {f.lower() for f in fields}:
+        params["outFields"] = ",".join(fields + [oid_field])
     if after is not None:
         params["where"] = f"({cfg.where}) AND {oid_field} > {int(after)}"
     return params
@@ -568,7 +573,10 @@ def _fetch_all_keyset(cfg: ArcGisLayerConfig, fetch_json: Callable[[str], Any], 
             break
         ids = []
         for feat in payload.get("features") or []:
-            v = (feat.get("attributes") or {}).get(oid) if isinstance(feat, dict) else None
+            attrs = (feat.get("attributes") or {}) if isinstance(feat, dict) else {}
+            v = attrs.get(oid)
+            if v is None:  # servers may echo the field name in another case
+                v = next((val for k, val in attrs.items() if isinstance(k, str) and k.lower() == oid.lower()), None)
             if isinstance(v, bool) or not isinstance(v, (int, float)):
                 return ArcGisResult("FAILED", pages=pages, error_category="PARSE_FORMAT_CHANGE",
                                     error_detail=f"a feature carries no numeric {oid} - keyset reading is not possible")
