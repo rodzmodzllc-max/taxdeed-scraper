@@ -477,6 +477,67 @@ def test_offlist_closeout_never_closes_on_a_possibly_truncated_sale_day():
     assert sorted(ids) == ["id20", "id21"]
 
 
+def test_offlist_closeout_holds_only_a_provably_short_sale_day():
+    # 2026-10-26: the harvester reads every Waiting page and records per sale
+    # day the items and pages read and the page count the page publishes
+    # ("page 1 of N"). A day read in full is closed from absence however many
+    # rows it holds; a day read short (or whose page count was not published)
+    # is held.
+    import auction_offlist_closeout as C  # noqa: PLC0415
+    rows = [_auction(i, "Lee", "2026-11-05", ago(hours=1)) for i in range(1, 21)]
+    rows += [_auction(30, "Lee", "2026-11-05", None),        # absent from a fully read 2-page day -> close
+             _auction(31, "Lee", "2026-11-12", None),        # absent from a day read 1 of 2 pages -> hold
+             _auction(32, "Lee", "2026-11-19", None),        # day whose page count was not published -> hold
+             _auction(33, "Lee", "2026-11-26", None)]        # day no longer on the calendar -> close
+    harvest = [{"county": "Lee", "case": f"C{i}", "sale_date": "11/05/2026"} for i in range(1, 21)]
+    harvest += [{"county": "Lee", "case": f"X{i}", "sale_date": "11/12/2026"} for i in range(10)]
+    harvest += [{"county": "Lee", "case": f"Y{i}", "sale_date": "11/19/2026"} for i in range(10)]
+    status = [{"county": "Lee", "status": "COMPLETE", "rowCount": 40, "saleDays": [
+        {"sale_date": "11/05/2026", "read": 20, "pages_read": 2, "published_pages": 2, "complete": True},
+        {"sale_date": "11/12/2026", "read": 10, "pages_read": 1, "published_pages": 2, "complete": False},
+        {"sale_date": "11/19/2026", "read": 10, "pages_read": 1, "published_pages": None, "complete": False}]}]
+    days = C.day_reads(status)
+    assert days[("Lee", "2026-11-05")]["complete"] and not days[("Lee", "2026-11-12")]["complete"]
+    ids, rep = C.plan(rows, complete=C.complete_counties(status), harvested=C.harvested_cases(harvest), now=NOW,
+                      per_day=C.harvested_per_day(harvest), days=days)
+    assert sorted(ids) == ["id30", "id33"]
+    assert rep["counts"]["sale_day_read_incomplete"] == 2 and "sale_day_possibly_truncated" not in rep["counts"]
+
+
+def test_offlist_closeout_day_record_must_prove_completeness():
+    import auction_offlist_closeout as C  # noqa: PLC0415
+    good = {"sale_date": "11/05/2026", "read": 12, "pages_read": 2, "published_pages": 2, "complete": True}
+    status = {"county": "Lee", "status": "COMPLETE", "saleDays": good}   # PowerShell's one-element form
+    assert C.day_reads(status)[("Lee", "2026-11-05")]["complete"]
+    empty = {**good, "read": 0, "pages_read": 0, "published_pages": 0}  # a day with no items is read in full
+    assert C.day_reads([{"county": "Lee", "saleDays": [empty]}])[("Lee", "2026-11-05")]["complete"]
+    for bad in ({"pages_read": 1},                  # fewer pages read than published
+                {"read": 10},                       # 2 published pages hold at least 11 items
+                {"complete": "true"},               # not literally true
+                {"published_pages": ""},            # no published page count
+                {"published_pages": None},
+                {"read": "x"}):                     # unreadable count
+        rec = C.day_reads([{"county": "Lee", "saleDays": [{**good, **bad}]}])
+        assert rec[("Lee", "2026-11-05")]["complete"] is False, bad
+
+
+def test_offlist_closeout_main_reads_day_records(tmp_path):
+    rows = [_auction(1, "Lee", "2026-11-05", ago(hours=1))] + [_auction(i, "Lee", "2026-11-05", None) for i in (2, 3)]
+    harvest = [{"county": "Lee", "case": "C1", "sale_date": "11/05/2026"}] + \
+              [{"county": "Lee", "case": f"Z{i}", "sale_date": "11/05/2026"} for i in range(11)]
+    for complete, expect in ((True, "would close 2"), (False, "would close 0")):
+        status = [{"county": "Lee", "status": "COMPLETE", "rowCount": 12,
+                   "saleDays": [{"sale_date": "11/05/2026", "read": 12, "pages_read": 2 if complete else 1,
+                                 "published_pages": 2, "complete": complete}]}]
+        for name, data in (("rows.json", rows), ("status.json", status), ("harvest.json", harvest)):
+            (tmp_path / name).write_text(json.dumps(data))
+        r = subprocess.run([sys.executable, str(ROOT / "scripts/auction_offlist_closeout.py"), "--rows", str(tmp_path / "rows.json"),
+                            "--status", str(tmp_path / "status.json"), "--harvest", str(tmp_path / "harvest.json"),
+                            "--now", NOW.isoformat()], capture_output=True, text=True, check=True, env={"PATH": "/usr/bin:/bin"})
+        assert expect in r.stdout, r.stdout
+        assert "Z1" not in r.stdout and "C2" not in r.stdout
+
+
 def test_iso_day_reads_the_feed_and_iso_forms():
     import auction_offlist_closeout as C  # noqa: PLC0415
     assert C.iso_day("11/05/2026") == "2026-11-05" and C.iso_day("2026-11-05") == "2026-11-05"

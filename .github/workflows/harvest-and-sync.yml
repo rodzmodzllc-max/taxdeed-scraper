@@ -281,14 +281,20 @@ on:
           County Land Bank site (and any ArcGIS layer behind its map: metadata
           and a count only), the Clerk & Master tax-sale page and sale-book
           PDFs, and the City of Memphis real-estate page, STRUCTURE only
-          (scripts/capture_tn_shelby.py).
+          (scripts/capture_tn_shelby.py). "realauction_paging" = how a
+          RealAuction sale-day page reaches its second Waiting page (the
+          deed harvester's own permission, value-free: counts, page text,
+          masked pager code; scripts/realauction_paging_check.py).
         required: false
         type: choice
         default: available
-        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby]
+        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging]
 
 concurrency:
-  group: harvest-and-sync
+  # Evidence captures (job=evidence) are read-only and never write to the
+  # database, so each gets its own group: they can no longer queue behind,
+  # or knock out, a pending harvest in the single harvest slot.
+  group: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'evidence') && format('evidence-{0}', github.run_id) || 'harvest-and-sync' }}
   cancel-in-progress: false
 
 jobs:
@@ -1384,6 +1390,22 @@ jobs:
           python3 scripts/stamp_seen.py --state TX --source laft --harvest out/harvest_texas.json --case-key account_number --row-source
           python3 scripts/stamp_seen.py --state TX --source auction --harvest out/harvest_texas.json --case-key account_number --row-source
 
+      - name: Close Texas rows the source no longer lists (and reopen re-listed ones)
+        # scripts/texas_closeout.py (2026-10-26). Closes ('closed' +
+        # delisted_at, never 'sold') only stored active tx_lgbs /
+        # tx_realauction rows whose (source, county) read this run was
+        # COMPLETE or EMPTY in out/harvest_texas_status.json and which that
+        # read no longer lists, of a ledger the source feeds; an INCOMPLETE /
+        # FAILED / unread county closes nothing. Rows the harvest lists again
+        # are reopened. Runs before the inventory-status step so it sees the
+        # new statuses. Never fails the job.
+        if: steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/texas_closeout.py
+
       # Phase B (auction-event history): same writer as the deeds job, fed by
       # out/harvest_texas.json. Texas has no per-county completeness file, so
       # the writer applies no absence-based transitions here (see its header).
@@ -1636,6 +1658,17 @@ jobs:
             # whitelisted headers, licence text); no row, name, address or
             # identifier. No database credential exists in this job.
             python3 scripts/capture_available_sources.py
+            exit 0
+          fi
+          if [ "$SCOPE" = "realauction_paging" ]; then
+            # FL deed harvester paging (2026-10-26): the sale-day page's own
+            # pager code and, per paging sequence, item / new / repeated
+            # counts. The harvester's own fl_realauction sale_calendar
+            # fetch+parse permission; value-free; nothing is written.
+            cargs=""
+            IFS=',' read -ra cs <<< "$COUNTIES"
+            for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
+            eval python3 scripts/realauction_paging_check.py $cargs
             exit 0
           fi
           if [ "$SCOPE" = "available_validate" ]; then

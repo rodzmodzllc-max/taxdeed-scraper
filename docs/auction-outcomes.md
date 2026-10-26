@@ -109,6 +109,15 @@ own as the manual `job=outcomes`.
 
 ## 5. Known limits
 
+- **Corrected 2026-10-26:** the pager CAN be driven anonymously. The site's
+  own "Next Page" (auction.js `changePage` -> `loadArea(area, 1, 0, 0)`) sends
+  `PageDir=1&doR=0&bypassPage=0`; every earlier request here sent
+  `bypassPage=1`, which makes the server ignore PageDir and return page one
+  (paging check run 40380815661, `scripts/realauction_paging_check.py`:
+  page 1..5 of 5 with bypassPage=0, page one every time with bypassPage=1).
+  `ajax_url(..., reset=False)` and the deed harvester now send
+  `bypassPage=0` for every next page. The text below records the earlier
+  limit; the truncation report stays as a guard.
 - The closed listing pages at ten items and the site's pager could not be
   driven anonymously (`PageDir=1&doR=0` returned the same ten). On a sale day
   with more than ten closed items the rest stay "Outcome not yet verified".
