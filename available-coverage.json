@@ -341,18 +341,6 @@
     {
      "access": "ACCESSIBLE",
      "availability": "NOT_READ",
-     "county": "Genesee",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MI:Genesee:mi_genesee_landbank",
-     "url": "https://www.thelandbank.org/find_properties.asp"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
      "county": "Jackson",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,

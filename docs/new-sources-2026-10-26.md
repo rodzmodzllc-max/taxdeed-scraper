@@ -26,7 +26,6 @@ harvest prints counts and identifier shapes only).
 | MI | `mi_wayne_county_landbank` | Available | Wayne County Land Bank - ePropertyPlus `public-wclb`, `available = 'Y'` | 810 of 841 |
 | MI | `mi_saginaw_landbank` | Available | Saginaw County Land Bank - ePropertyPlus `public-sclb` (list presence; no price) | 712 |
 | MI | `mi_calhoun_landbank` | Available | Calhoun County Land Bank - ePropertyPlus `public-cclb` (list presence) | 219 |
-| MI | `mi_genesee_landbank` | Available | Genesee County Land Bank (Flint) - "Search All Properties", a server-side paged table (`paged_table.py`); 'Demolition Program' excluded | ~10,670 listed (427 pages) |
 | MI | `mi_tax_sale_info_auction` | Auctions | Tax-Sale.info (Title Check, LLC) upcoming county auction catalogs - Oct 30, 2026 No Reserve Auction (46 counties); one registry row per county of the 2026 season (75) | 753 |
 | MI | `mi_tax_sale_info_surplus` | Available | Tax-Sale.info surplus (unsold, first come first served) catalogs, 8 counties | 57 |
 | SC | `sc_horry_tax_sale` | Auctions | Horry County Treasurer's newest dated delinquent real-estate list (Dec 1, 2026 sale); FLC Bid Amount = opening bid | 2,343 |
@@ -38,7 +37,19 @@ New adapter code: `harvesters/otc/adapters/tax_sale_info.py`, `harvesters/otc/ad
 per-portal options (`offered=()` list presence, `excluded`, `county_field`, `status_field`; the `required_fields` change
 is the same as the Cook County PR #181); tabular `document_sheet="*"`; runner kinds `tax_sale_info`, `paged_table`.
 
+Runner validation: `job=evidence`, `evidence_scope=new_sources_validate`, run 40387071809 (2026-10-26, no database
+credential) - every source in the table read COMPLETE with the counts above (Tax-Sale.info: 46 county auction catalogs
+COMPLETE, the rest EMPTY `no_catalog_listed`; surplus: 7 COMPLETE, Presque Isle EMPTY).
+
 ## Found, not implemented (and why)
+
+- **Genesee County Land Bank (Flint, MI)** - ~10,670 listings ("Search All Properties", 427 pages of 25, a server-side
+  session-paged table). Reader built and tested (`paged_table.py`, config `expansion.MI_GENESEE_LANDBANK`: one
+  FindTWP township / city part at a time, a failed part restarted, the parts must add up to the full search), but
+  **held**: the site answers HTTP 500 at random about every 50-60 pages (and on six township filters every time), and a
+  500 mid-session moves its page cursor; Flint quadrant 40 (123 pages) failed on all three attempts in the sandbox.
+  Runner run 40387071809 also FAILED it (HTTPError). Next: split the Flint quadrants further (FindPropclass within
+  FindTWP), then schedule it.
 
 - **Wright County MN tax-forfeited parcels** (38 'Open', auction starting price) - configured as
   `expansion.MN_WRIGHT_TAX_FORFEIT` but **held**: the Minnesota page's customer copy in `app.js`

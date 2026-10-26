@@ -2135,82 +2135,6 @@
    ],
    "conditions": [],
    "dataset": "*",
-   "effective_on": "2026-10-26",
-   "evidence_date": "2026-10-26",
-   "evidence_ref": "data/county_source_registry.csv mi_genesee_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
-   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
-   "expires_on": "2027-04-12",
-   "findings": [],
-   "jurisdiction": "MI",
-   "operation": "discover",
-   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
-   "source_id": "mi_genesee_landbank",
-   "status": "OWNER_PERMISSION_REQUIRED"
-  },
-  {
-   "call_sites": [
-    "scripts/source_publication.py (collectable / publishable)",
-    "harvesters/governance/publication_state.py (display)"
-   ],
-   "conditions": [],
-   "dataset": "*",
-   "effective_on": "2026-10-26",
-   "evidence_date": "2026-10-26",
-   "evidence_ref": "data/county_source_registry.csv mi_genesee_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
-   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
-   "expires_on": "2027-04-12",
-   "findings": [],
-   "jurisdiction": "MI",
-   "operation": "fetch",
-   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
-   "source_id": "mi_genesee_landbank",
-   "status": "OWNER_PERMISSION_REQUIRED"
-  },
-  {
-   "call_sites": [
-    "scripts/source_publication.py (collectable / publishable)",
-    "harvesters/governance/publication_state.py (display)"
-   ],
-   "conditions": [],
-   "dataset": "*",
-   "effective_on": "2026-10-26",
-   "evidence_date": "2026-10-26",
-   "evidence_ref": "data/county_source_registry.csv mi_genesee_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
-   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
-   "expires_on": "2027-04-12",
-   "findings": [],
-   "jurisdiction": "MI",
-   "operation": "parse",
-   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
-   "source_id": "mi_genesee_landbank",
-   "status": "OWNER_PERMISSION_REQUIRED"
-  },
-  {
-   "call_sites": [
-    "scripts/source_publication.py (collectable / publishable)",
-    "harvesters/governance/publication_state.py (display)"
-   ],
-   "conditions": [],
-   "dataset": "*",
-   "effective_on": "2026-10-26",
-   "evidence_date": "2026-10-26",
-   "evidence_ref": "data/county_source_registry.csv mi_genesee_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
-   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
-   "expires_on": "2027-04-12",
-   "findings": [],
-   "jurisdiction": "MI",
-   "operation": "store",
-   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
-   "source_id": "mi_genesee_landbank",
-   "status": "OWNER_PERMISSION_REQUIRED"
-  },
-  {
-   "call_sites": [
-    "scripts/source_publication.py (collectable / publishable)",
-    "harvesters/governance/publication_state.py (display)"
-   ],
-   "conditions": [],
-   "dataset": "*",
    "effective_on": "2026-09-30",
    "evidence_date": "2026-09-30",
    "evidence_ref": "data/county_source_registry.csv mi_lenawee_tax_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
@@ -3840,12 +3764,12 @@
  "interim_max_days": 210,
  "summary": {
   "by_expiry": {
-   "2027-04-12": 181
+   "2027-04-12": 177
   },
   "by_finding": {
    "REVIEWER_IS_NOT_A_DECISION": 77
   },
-  "records": 181,
-  "sources": 48
+  "records": 177,
+  "sources": 47
  }
 }

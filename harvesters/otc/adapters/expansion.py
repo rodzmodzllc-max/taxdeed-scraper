@@ -726,13 +726,22 @@ MI_GENESEE_LANDBANK = PagedTableConfig(
     partition_values=("01", "02", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17",
                       "18", "40", "41", "46", "47", "51", "52", "53", "55", "56", "57", "58", "59", "60", "61"))
 
-NEW_TABLE_SOURCES = (MI_GENESEE_LANDBANK, SC_HORRY_TAX_SALE, CO_SAGUACHE_TAX_SALE, MN_HUBBARD_TFL_OTC, MN_STPAUL_HRA)
+NEW_TABLE_SOURCES = (SC_HORRY_TAX_SALE, CO_SAGUACHE_TAX_SALE, MN_HUBBARD_TFL_OTC, MN_STPAUL_HRA)
 # Configured and read live (38 'Open' rows, 2026-10-26) but NOT scheduled: the
 # Minnesota page's customer copy (app.js EXPANSION_LEDGER_COPY, owned by the
 # front-end session) still says "No Minnesota auction source is tracked", and
 # the state-rules engine fails a tracked ledger whose copy denies it. Add it to
 # SOURCES["MN"] (and NEW_TABLE_SOURCES) once that copy is updated.
 HELD_FOR_FRONTEND_COPY = (MN_WRIGHT_TAX_FORFEIT,)
+# Genesee (MI) is configured and its reader tested, but HELD (not scheduled):
+# read from the sandbox 2026-10-26, the site answers HTTP 500 at random about
+# every 50-60 pages and on six township filters every time; a 500 mid-session
+# moves its server-side page cursor, so the largest part (Flint quadrant 40,
+# 123 pages) failed on all three attempts. Every failed read is FAILED (nothing
+# written, nothing closed), but each try costs ~15 minutes of requests. Next
+# step: split the big Flint quadrants further (FindPropclass within FindTWP),
+# then add it to SOURCES["MI"], ledgers, permissions and the terms table.
+HELD_SERVER_ERRORS = (MI_GENESEE_LANDBANK,)
 
 MI_TSI_SURPLUS = tuple(TSI.TaxSaleInfoConfig(
     source_id="mi_tax_sale_info_surplus", state="MI", county=c, kind="surplus", list_url=TSI.SURPLUS_URL,
@@ -786,7 +795,6 @@ SOURCES: dict[str, tuple[ExpansionSource, ...]] = {
            ExpansionSource("epropertyplus", MI_WAYNE_COUNTY_LANDBANK, MI_WAYNE_COUNTY_LANDBANK.portal),
            ExpansionSource("epropertyplus", MI_SAGINAW_LANDBANK, MI_SAGINAW_LANDBANK.portal),
            ExpansionSource("epropertyplus", MI_CALHOUN_LANDBANK, MI_CALHOUN_LANDBANK.portal),
-           ExpansionSource("paged_table", MI_GENESEE_LANDBANK, MI_GENESEE_LANDBANK.first_url),
            *(ExpansionSource("tax_sale_info", c, c.list_url) for c in MI_TSI_AUCTIONS + MI_TSI_SURPLUS)),
     "WY": (ExpansionSource("arcgis", WY_ALBANY, WY_ALBANY.layer_url),),
     "SC": (ExpansionSource("arcgis", SC_YORK, SC_YORK.layer_url),

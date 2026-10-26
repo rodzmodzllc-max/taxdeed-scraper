@@ -10,12 +10,12 @@
  "denominators": {
   "acquisition_by_status": {
    "NEEDS_REVIEW": 6,
-   "NOT_FOUND": 47,
+   "NOT_FOUND": 46,
    "UNAVAILABLE": 6,
    "VERIFIED": 29
   },
-  "acquisition_units": 88,
-  "acquisition_unresolved": 59,
+  "acquisition_units": 87,
+  "acquisition_unresolved": 58,
   "state_ledger_by_classification": {
    "APPROVAL_UNRESOLVED": 7,
    "CURRENT": 6,
@@ -35,14 +35,14 @@
   "registry": "data/county_source_registry.csv"
  },
  "summary": {
-  "acquisition_units_queued": 59,
+  "acquisition_units_queued": 58,
   "by_category": {
    "A": 2,
    "B": 4,
    "C": 27,
    "D": 7,
    "E": 10,
-   "F": 42
+   "F": 41
   },
   "completable_now": 2,
   "state_ledger_units_queued": 33
@@ -830,10 +830,10 @@
    "ledger": "AVAILABLE",
    "next_action": "Owner publication review of the source (admin publication panel): approve, restrict or block",
    "process_verified": true,
-   "reason": "15 production source(s), none APPROVED for customers: UNREVIEWED",
+   "reason": "14 production source(s), none APPROVED for customers: UNREVIEWED",
    "requires": "blocked by source-use permission or an owner decision",
    "rule_verified": false,
-   "source": "15 production source(s) of 15 known",
+   "source": "14 production source(s) of 14 known",
    "source_accessible": "yes",
    "state": "MI",
    "status": "APPROVAL_UNRESOLVED"
@@ -1439,26 +1439,6 @@
    "source": "registry source mi_calhoun_landbank",
    "source_accessible": "unknown",
    "source_id": "mi_calhoun_landbank",
-   "state": "MI",
-   "status": "NOT_FOUND"
-  },
-  {
-   "approved_for_customers": false,
-   "candidate_pages": 0,
-   "category": "F",
-   "completable_now": false,
-   "county": "Genesee",
-   "kind": "acquisition_unit",
-   "ledger": "AVAILABLE",
-   "next_action": "No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it",
-   "process_verified": false,
-   "publication_status": "UNREVIEWED",
-   "reason": "No official acquisition page identified yet",
-   "requires": "the jurisdiction's process or product cannot yet be established authoritatively",
-   "rule_verified": null,
-   "source": "registry source mi_genesee_landbank",
-   "source_accessible": "unknown",
-   "source_id": "mi_genesee_landbank",
    "state": "MI",
    "status": "NOT_FOUND"
   },

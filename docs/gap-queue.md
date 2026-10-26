@@ -2,9 +2,9 @@
 
 Generated from public/acquisition-evidence.json, data/current_state/state-coverage.json, data/acquisition_candidate_pages.csv and the registry. Counts only.
 
-- Acquisition-path units: 88 total, 59 unresolved (NEEDS_REVIEW 6, NOT_FOUND 47, UNAVAILABLE 6, VERIFIED 29).
+- Acquisition-path units: 87 total, 58 unresolved (NEEDS_REVIEW 6, NOT_FOUND 46, UNAVAILABLE 6, VERIFIED 29).
 - State x ledger units: 39 total (APPROVAL_UNRESOLVED 7, CURRENT 6, OFFERED_SOURCE_NOT_IMPLEMENTED 1, OFFERED_VERIFIED_EMPTY 1, RULES_NOT_VERIFIED 19, SOURCE_FAILED_OR_STALE 4, SOURCE_IMPLEMENTED_NEVER_READ 1).
-- Queue: 92 entries - by category A 2, B 4, C 27, D 7, E 10, F 42; completable now from the repository: 2.
+- Queue: 91 entries - by category A 2, B 4, C 27, D 7, E 10, F 41; completable now from the repository: 2.
 
 ## A. implementable now from repository data or an accessible official source (2)
 
@@ -81,7 +81,7 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | TX * | AUCTIONS | SOURCE_FAILED_OR_STALE | yes | yes | no | yes | Manual-only source by owner decision (job=texas); a read happens only when the owner dispatches it |
 | TX * | AVAILABLE | SOURCE_FAILED_OR_STALE | yes | yes | no | yes | Manual-only source by owner decision (job=texas); a read happens only when the owner dispatches it |
 
-## F. the jurisdiction's process or product cannot yet be established authoritatively (42)
+## F. the jurisdiction's process or product cannot yet be established authoritatively (41)
 
 | Unit | Ledger | Status | Source reachable | Approved | Rule verified | Process verified | Next action |
 |---|---|---|---|---|---|---|---|
@@ -108,7 +108,6 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | MI Arenac (mi_tax_sale_info_surplus) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | MI Bay (mi_tax_sale_info_surplus) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | MI Calhoun (mi_calhoun_landbank) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
-| MI Genesee (mi_genesee_landbank) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | MI Jackson (mi_tax_sale_info_surplus) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | MI Monroe (mi_tax_sale_info_surplus) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | MI Montcalm (mi_tax_sale_info_surplus) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |

@@ -5566,30 +5566,6 @@
   {
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state MI; last completeness UNKNOWN",
-   "county": "Genesee",
-   "evidence": "LIVE CAPTURE 2026-10-26 (live structure read 2026-10-26): Genesee County - mi_genesee_landbank; OWNER DECISION 2026-10-26 (collect every source; terms risk accepted; INTERIM permission; UNREVIEWED); docs/new-sources-2026-10-26.md",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "no publication / reuse review recorded yet",
-   "last_checked": "2026-10-26",
-   "legacy_status": "UNREVIEWED",
-   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-   "next_action": "Publication / rights review (registry restrictions: Owner decision 2026-10-26 (collect every property from every source; terms / licensing risk accepted, legal review to follow): collected and synced under INTERIM permission records expiring 2027-04-12, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
-   "origin": "registry",
-   "publisher": "Genesee County",
-   "roles": [
-    "availability",
-    "identity",
-    "lifecycle",
-    "source_date"
-   ],
-   "source_id": "MI:Genesee:mi_genesee_landbank",
-   "source_type": "GOVERNMENT",
-   "state": "MI",
-   "url": "https://www.thelandbank.org/find_properties.asp"
-  },
-  {
-   "access": "ACCESSIBLE",
-   "access_note": "production harvester harvest_expansion.py --state MI; last completeness UNKNOWN",
    "county": "Gladwin",
    "evidence": "LIVE CAPTURE 2026-10-26 (live structure read 2026-10-26): Gladwin County - mi_tax_sale_info_auction; OWNER DECISION 2026-10-26 (collect every source; terms risk accepted; INTERIM permission; UNREVIEWED); docs/new-sources-2026-10-26.md",
    "governance": "REVIEW_REQUIRED",
@@ -10460,14 +10436,14 @@
   "MI": {
    "APPROVED": 7,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 92,
+   "REVIEW_REQUIRED": 91,
    "by_type": {
     "AUCTION_VENDOR": 83,
     "DOCUMENT": 1,
     "GIS": 1,
-    "GOVERNMENT": 14
+    "GOVERNMENT": 13
    },
-   "sources": 99
+   "sources": 98
   },
   "MN": {
    "APPROVED": 3,

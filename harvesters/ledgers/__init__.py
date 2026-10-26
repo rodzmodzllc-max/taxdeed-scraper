@@ -157,7 +157,6 @@ SOURCE_LEDGERS: dict[str, frozenset[Ledger]] = {
     "co_saguache_tax_sale": frozenset({Ledger.AUCTIONS}),
     "mn_hubbard_tfl_otc": frozenset({Ledger.AVAILABLE}),
     "mn_stpaul_hra_properties": frozenset({Ledger.AVAILABLE}),
-    "mi_genesee_landbank": frozenset({Ledger.AVAILABLE}),
     # (new-sources sprint 2026-10-26 entries end here)
 }
 # The four blocked Texas vendors: discovery only, they feed no ledger.

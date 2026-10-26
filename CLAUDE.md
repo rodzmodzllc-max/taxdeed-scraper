@@ -3540,9 +3540,10 @@ Full description: `docs/new-sources-2026-10-26.md`. Stable facts:
   expiring 2027-04-12), never `display`, and is `UNREVIEWED`. `expansion.NEW_SOURCE_IDS` +
   `source_publication.owner_collection()` let these sources be collected for AUCTIONS too (not only AVAILABLE).
 - **Sources**: ePropertyPlus tenants KC MO (`public-kclb`), Pittsburgh PA (`public-pgh`), Wayne / Saginaw / Calhoun MI;
-  Genesee MI land bank (`paged_table.py`, session-paged HTML table); Tax-Sale.info MI upcoming auction catalogs (one
+  Tax-Sale.info MI upcoming auction catalogs (one
   registry row per county, `tax_sale_info.py`) + surplus catalogs; Horry SC delinquent tax sale list (newest dated XLSX,
   `document_sheet="*"`); Saguache CO 2026 tax sale layer; Hubbard MN OTC land; Saint Paul HRA land.
 - Registry rows are keyed `(source_id, county)` in `build_county_source_registry.expansion_rows()`.
-- Wright MN is configured but held until app.js's MN auctions copy changes (state-rules `ledger_copy`).
+- Held, configured but not scheduled: Wright MN (app.js's MN auctions copy says none is tracked; state-rules
+  `ledger_copy`) and Genesee MI land bank (`paged_table.py`; the site's random HTTP 500s move its session cursor).
 - Read-only validation: `job=evidence`, `evidence_scope=new_sources_validate` (MI MO PA SC CO MN, no DB credential).

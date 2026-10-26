@@ -7374,10 +7374,10 @@
      "acquisition": {
       "by_status": {
        "NEEDS_REVIEW": 2,
-       "NOT_FOUND": 11,
+       "NOT_FOUND": 10,
        "VERIFIED": 2
       },
-      "units": 15,
+      "units": 14,
       "verified_units": [
        "Wayne (mi_detroit_landbank_lots)",
        "Oceana (mi_oceana_landbank)"
@@ -7385,7 +7385,7 @@
      },
      "classification": "APPROVAL_UNRESOLVED",
      "classification_reasons": [
-      "15 production source(s), none APPROVED for customers: UNREVIEWED"
+      "14 production source(s), none APPROVED for customers: UNREVIEWED"
      ],
      "counties": [
       {
@@ -7571,7 +7571,6 @@
        "Arenac",
        "Bay",
        "Calhoun",
-       "Genesee",
        "Jackson",
        "Monroe",
        "Montcalm",
@@ -7581,9 +7580,9 @@
        "Saginaw",
        "Wayne"
       ],
-      "implemented": 15,
-      "known": 15,
-      "restricted": 15,
+      "implemented": 14,
+      "known": 14,
+      "restricted": 14,
       "rows": [
        {
         "amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
@@ -7633,23 +7632,6 @@
         "publishing_unit_name": "Calhoun County",
         "restrictions": "Owner decision 2026-10-26 (collect every property from every source; terms / licensing risk accepted, legal review to follow): collected and synced under INTERIM permission records expiring 2027-04-12, labelled UNREVIEWED; not customer-published until an admin review approves it.",
         "source_id": "mi_calhoun_landbank",
-        "update_frequency": "not published by the source (read on each run)",
-        "verification_status": "PRODUCTION_VERIFIED"
-       },
-       {
-        "amount_kind": "NOT_PUBLISHED",
-        "approved_for_customers": false,
-        "canonical_url": "https://www.thelandbank.org/find_properties.asp",
-        "county": "Genesee",
-        "governance_status": "APPROVED",
-        "harvester": "harvest_expansion.py --state MI",
-        "has_evidence": true,
-        "implemented": true,
-        "last_checked": "2026-10-26",
-        "publication_status": "UNREVIEWED",
-        "publishing_unit_name": "Genesee County",
-        "restrictions": "Owner decision 2026-10-26 (collect every property from every source; terms / licensing risk accepted, legal review to follow): collected and synced under INTERIM permission records expiring 2027-04-12, labelled UNREVIEWED; not customer-published until an admin review approves it.",
-        "source_id": "mi_genesee_landbank",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
        },
@@ -7841,7 +7823,7 @@
         "verification_status": "PRODUCTION_VERIFIED"
        }
       ],
-      "with_evidence": 15
+      "with_evidence": 14
      },
      "tracked": "TRACKED",
      "withheld": {

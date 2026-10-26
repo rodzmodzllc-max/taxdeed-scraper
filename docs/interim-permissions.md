@@ -9,8 +9,8 @@ current practice continue until `expires_on`, and `permissions.authorize()` deni
 after (`EXPIRED`), with no fallback to a broader record. A window longer than
 210 days is a configuration error that denies every request.
 
-- Records: 181 across 48 sources
-- By expiry: 2027-04-12 (181)
+- Records: 177 across 47 sources
+- By expiry: 2027-04-12 (177)
 - Findings: REVIEWER_IS_NOT_A_DECISION (77)
 - Configuration: valid
 
@@ -113,10 +113,6 @@ found in the code for that source.
 | mi_eaton_treasurer_sale | MI | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-09-30 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mi_eaton_treasurer_sale | MI | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-09-30 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mi_eaton_treasurer_sale | MI | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-09-30 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
-| mi_genesee_landbank | MI | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
-| mi_genesee_landbank | MI | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
-| mi_genesee_landbank | MI | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
-| mi_genesee_landbank | MI | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mi_lenawee_tax_sale | MI | * | display | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-09-30 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mi_lenawee_tax_sale | MI | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-09-30 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mi_lenawee_tax_sale | MI | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-09-30 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |

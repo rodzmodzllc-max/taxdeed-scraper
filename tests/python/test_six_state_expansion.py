@@ -68,7 +68,6 @@ NEW_SOURCE_HOSTS = {   # new-sources sprint 2026-10-26 (owner decision; docs/new
     "mi_wayne_county_landbank": "https://public-wclb.epropertyplus.com",
     "mi_saginaw_landbank": "https://public-sclb.epropertyplus.com",
     "mi_calhoun_landbank": "https://public-cclb.epropertyplus.com",
-    "mi_genesee_landbank": "https://www.thelandbank.org/",
     "sc_horry_tax_sale": "https://www.horrycountysc.gov/departments/treasurer/delinquent-tax/",
     "co_saguache_tax_sale": "https://services1.arcgis.com/zH7gQ37AKcpvTX6d/",
     "mn_hubbard_tfl_otc": "https://services.arcgis.com/auNjCUvKlkSqV04X/",

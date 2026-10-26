@@ -33,7 +33,7 @@
    "FAIL": 0,
    "NOT_APPLICABLE": 1,
    "NOT_VERIFIED": 4,
-   "PASS": 26
+   "PASS": 25
   },
   "MN": {
    "BLOCKED": 0,
@@ -628,21 +628,21 @@
   },
   {
    "check": "ledger_eligibility",
-   "detail": "COUNTY_DEPENDENT: 8 source(s) (mi_calhoun_landbank, mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_genesee_landbank, mi_oceana_landbank, mi_saginaw_landbank, mi_tax_sale_info_surplus, mi_wayne_county_landbank) read 2026-10-02",
+   "detail": "COUNTY_DEPENDENT: 7 source(s) (mi_calhoun_landbank, mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank, mi_saginaw_landbank, mi_tax_sale_info_surplus, mi_wayne_county_landbank) read 2026-10-02",
    "state": "MI",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "county_coverage",
-   "detail": "12 counties: Arenac, Bay, Calhoun, Genesee, Jackson, Monroe, Montcalm, Oceana, Otsego, Presque Isle, Saginaw, Wayne",
+   "detail": "11 counties: Arenac, Bay, Calhoun, Jackson, Monroe, Montcalm, Oceana, Otsego, Presque Isle, Saginaw, Wayne",
    "state": "MI",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: mi_calhoun_landbank, mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_genesee_landbank, mi_oceana_landbank, mi_saginaw_landbank, mi_tax_sale_info_surplus, mi_wayne_county_landbank",
+   "detail": "TRACKED: mi_calhoun_landbank, mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank, mi_saginaw_landbank, mi_tax_sale_info_surplus, mi_wayne_county_landbank",
    "state": "MI",
    "status": "PASS",
    "subject": "AVAILABLE"
@@ -718,13 +718,6 @@
   },
   {
    "check": "source_classification",
-   "detail": "AVAILABLE",
-   "state": "MI",
-   "status": "PASS",
-   "subject": "mi_genesee_landbank"
-  },
-  {
-   "check": "source_classification",
    "detail": "AUCTIONS",
    "state": "MI",
    "status": "PASS",
@@ -767,13 +760,13 @@
   },
   {
    "check": "available_terms",
-   "detail": "every AVAILABLE source has a terms row (8)",
+   "detail": "every AVAILABLE source has a terms row (7)",
    "state": "MI",
    "status": "PASS"
   },
   {
    "check": "acquisition_path",
-   "detail": "2/15 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "detail": "2/14 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
    "state": "MI",
    "status": "NOT_VERIFIED"
   },
@@ -2154,6 +2147,6 @@
   "FAIL": 0,
   "NOT_APPLICABLE": 25,
   "NOT_VERIFIED": 52,
-  "PASS": 231
+  "PASS": 230
  }
 }

@@ -60,14 +60,14 @@ LA - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
 | AUCTIONS | COUNTY_DEPENDENT | CURRENT | 77 / 77 / 2 | 38 | 0 | 0 | 0 of 0 | Keep reading; raise field population where a verified official layer exists (see fields). |
-| AVAILABLE | COUNTY_DEPENDENT | APPROVAL_UNRESOLVED | 15 / 15 / 0 | 30775 | 0 | 30770 | 2 of 15 | An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only. |
+| AVAILABLE | COUNTY_DEPENDENT | APPROVAL_UNRESOLVED | 14 / 14 / 0 | 30775 | 0 | 30770 | 2 of 14 | An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only. |
 | LIENS_CERTIFICATES | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
 
 MI - AUCTIONS field population (active rows, snapshot): amount 38/38; bid_amount_mismatch 0/38; coords 38/38; dup_parcel 0/38; flood_checked 38/38; laft_bid_without_amount 0/38; link_not_https 0/38; list_as_of 0/38; list_as_of_future 0/38; never_seen 0/38; parcel 38/38; parcel_no_digit 0/38; past_sale 35/38; path_typed 38/38; provenance 38/38; seen_gt36h 0/38; seen_order_bad 0/38; source_link 38/38
 MI - AUCTIONS: 38 active rows; 0 never stamped, 0 older than 36 h at the snapshot
 
 MI - AVAILABLE field population (active rows, snapshot): amount 0/30775; bid_amount_mismatch 0/30775; coords 30771/30775; dup_parcel 0/30775; flood_checked 434/30775; laft_bid_without_amount 0/30775; link_not_https 0/30775; list_as_of 0/30775; list_as_of_future 0/30775; never_seen 0/30775; parcel 30775/30775; parcel_no_digit 0/30775; past_sale 0/30775; path_typed 5/30775; provenance 30775/30775; seen_gt36h 30770/30775; seen_order_bad 0/30775; source_link 30775/30775
-MI - AVAILABLE: 15 production source(s), none APPROVED for customers: UNREVIEWED
+MI - AVAILABLE: 14 production source(s), none APPROVED for customers: UNREVIEWED
 MI - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 
 ## MN
