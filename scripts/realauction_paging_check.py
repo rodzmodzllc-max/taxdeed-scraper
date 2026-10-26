@@ -70,13 +70,16 @@ def permitted() -> bool:
 
 
 def item_keys(body: str) -> list[str]:
-    """One opaque key per AITEM_ block (hash of its Case # cell, else of the
-    block) - compared in memory, never printed."""
-    text = (body or "").replace('\\"', '"')
+    """One opaque key per AITEM_ block (hash of the block's own item id,
+    e.g. AITEM_<id>) - compared in memory, never printed."""
+    try:
+        text = json.loads(body).get("retHTML") or ""
+    except (ValueError, AttributeError):
+        text = body or ""
     keys = []
     for block in text.split("AITEM_")[1:]:
-        m = re.search(r"Case #:[\s\S]{0,120}?CAD_DTA\">\s*([^@<]+)", block)
-        raw = (m.group(1) if m else block[:400]).strip()
+        m = re.match(r"(\d+)", block)
+        raw = m.group(1) if m else block[:600]
         keys.append(hashlib.sha256(raw.encode()).hexdigest()[:16])
     return keys
 
@@ -107,7 +110,7 @@ def page_counts(update_body: str) -> dict:
     out = {"keys": sorted(d.keys()) if isinstance(d, dict) else []}
     for k in ("PW", "PC", "WC", "CC", "WM", "CM", "RW", "RC", "RA", "RR", "NC"):
         v = str((d or {}).get(k, "")) if isinstance(d, dict) else ""
-        if re.fullmatch(r"Page \d{1,3} of \d{1,3}", v) or re.fullmatch(r"\d{1,4}", v) or v == "":
+        if re.fullmatch(r"(?i)\s*page \d{1,3} of \d{1,3}\s*", v) or re.fullmatch(r"\d{1,4}", v) or v == "":
             out[k] = v
         else:
             out[k] = re.sub(r"\d", "#", re.sub(r"[A-Za-z]", "a", v))[:30]
@@ -135,16 +138,22 @@ class Site:
         return r.status_code, r.text
 
 
-def load(area: str, page_dir: int, do_r: int) -> str:
-    return f"zaction=AUCTION&Zmethod=UPDATE&FNC=LOAD&AREA={area}&PageDir={page_dir}&doR={do_r}&bypassPage=1&test=1"
+def load(area: str, page_dir: int, do_r: int, bypass: int = 1) -> str:
+    return f"zaction=AUCTION&Zmethod=UPDATE&FNC=LOAD&AREA={area}&PageDir={page_dir}&doR={do_r}&bypassPage={bypass}&test=1"
 
 
+# name -> list of (AREA, PageDir, doR, bypassPage); every sequence starts a
+# fresh session. auction.js (run 40380366927): the page loads area R
+# (0, 1, 0) then W (0, 1, its bypassPage var = 1); its "Next Page" arrow
+# calls loadArea(area, 1, 0, 0).
 SEQUENCES = {
-    # name -> list of (PageDir, doR); the first call of every sequence starts a fresh session.
-    "harvester_now(0/1,1/1,2/1)": [(0, 1), (1, 1), (2, 1)],
-    "next_doR0(0/1,1/0,1/0)": [(0, 1), (1, 0), (1, 0)],
-    "fresh_doR0(0/0,1/0,1/0)": [(0, 0), (1, 0), (1, 0)],
+    "harvester_now": [("W", 0, 1, 1), ("W", 1, 1, 1), ("W", 2, 1, 1)],
+    "next_bp1": [("W", 0, 1, 1), ("W", 1, 0, 1), ("W", 1, 0, 1)],
+    "site_next": [("R", 0, 1, 0), ("W", 0, 1, 1)] + [("W", 1, 0, 0)] * 6,
+    "next_bp0_noR": [("W", 0, 1, 1)] + [("W", 1, 0, 0)] * 6,
+    "all_bp0_noR": [("W", 0, 1, 0)] + [("W", 1, 0, 0)] * 6,
 }
+_JS_FUNCS = ("keyPage", "changePage", "loadArea", "pageLoad", "LoadNewArea", "PF", "tickII", "refreshdata")
 
 
 def script_snippets(site: "Site", shell: str, limit: int = 40) -> dict:
@@ -169,6 +178,11 @@ def script_snippets(site: "Site", shell: str, limit: int = 40) -> dict:
                 out["snippets"].append(f"{name}: {mask(snip)}")
             if len(out["snippets"]) >= limit:
                 break
+    for name, body in bodies:
+        for fn in _JS_FUNCS:
+            m = re.search(r"function\s+" + fn + r"\s*\(", body or "")
+            if m:
+                out["snippets"].append(f"FUNC {fn} ({name}): " + mask(re.sub(r"\s+", " ", body[m.start():m.start() + 1400])))
     for m in re.finditer(r"(curP[WC]|max[WC]|PageLeft|PageRight|PageText|Page\s*<)", shell or ""):
         a, b = max(0, m.start() - 250), min(len(shell), m.end() + 250)
         frag = mask(re.sub(r"\s+", " ", shell[a:b]))
@@ -207,18 +221,28 @@ def probe(county: str, host: str, max_days: int, want_script: bool) -> dict:
                 rec["script"] = script_snippets(site, shell)
             seen: set[str] = set()
             steps = []
-            for i, (pd, dr) in enumerate(seq):
-                code, body = site.ajax(load("W", pd, dr))
+            first = True
+            for area, pd, dr, bp in seq:
+                code, body = site.ajax(load(area, pd, dr, bp))
+                if area != "W":
+                    steps.append({"AREA": area, "http": code})
+                    continue
                 keys = item_keys(body)
-                new = [k for k in keys if k not in seen]
-                steps.append({"PageDir": pd, "doR": dr, "http": code, "json_keys": json_keys(body),
-                              "items": len(keys), "new": len(new), "repeated": len(keys) - len(new)})
+                new = [k for k in dict.fromkeys(keys) if k not in seen]
+                step = {"PageDir": pd, "doR": dr, "bypassPage": bp, "http": code, "items": len(keys),
+                        "new": len(new), "repeated": len(keys) - len(new)}
                 seen.update(keys)
-                if i == 0 and name.startswith("harvester"):
-                    ids = rlist(body)
-                    if ids:
-                        uc, ub = site.ajax(f"zaction=AUCTION&ZMETHOD=UPDATE&FNC=UPDATE&ref={','.join(ids)}")
-                        drec["status_refresh"] = {"http": uc, **page_counts(ub)}
+                ids = rlist(body)
+                if ids:
+                    uc, ub = site.ajax(f"zaction=AUCTION&ZMETHOD=UPDATE&FNC=UPDATE&ref={','.join(ids)}")
+                    pc = page_counts(ub)
+                    step["refresh"] = {k: pc.get(k) for k in ("PW", "WC", "WM", "NC")}
+                    if first and name == "harvester_now":
+                        drec["status_refresh"] = {"http": uc, **pc}
+                first = False
+                steps.append(step)
+                if not keys:
+                    break
             drec["sequences"][name] = {"distinct_items": len(seen), "steps": steps}
         rec["days"].append(drec)
         print(f"  {county} day#{drec['day_index']}: " + json.dumps(drec, sort_keys=True), flush=True)
@@ -228,7 +252,7 @@ def probe(county: str, host: str, max_days: int, want_script: bool) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--county", action="append", default=[])
-    ap.add_argument("--max-days", type=int, default=2)
+    ap.add_argument("--max-days", type=int, default=1)
     ap.add_argument("--out", default="out/public/realauction-paging-check.json")
     a = ap.parse_args(argv)
     if not permitted():
