@@ -144,10 +144,15 @@ def tx_lgbs_status(row: dict) -> StatusObservation:
     """A Texas LGBS row: the vendor's raw sale status is the only state it
     publishes (properties.tx_sale_status, verbatim)."""
     raw = str(row.get("tx_sale_status") or "").strip()
+    if _pipeline_status(row.get("status")) in GONE_PIPELINE_STATUSES:
+        # Off the vendor feed: whatever sale status the row last carried was
+        # read while it was still listed and is not a statement about it now
+        # (a stored "Scheduled for Auction" on a row the feed dropped is not
+        # upcoming). Kept verbatim as raw; never a result.
+        return StatusObservation("closed", "LIST_PRESENCE", raw=raw or None,
+                                 note="left the vendor feed; no status published" if not raw
+                                 else "left the vendor feed; the last sale status it carried is kept verbatim, not a result")
     if not raw:
-        ps = _pipeline_status(row.get("status"))
-        if ps in GONE_PIPELINE_STATUSES:
-            return StatusObservation("closed", "LIST_PRESENCE", note="left the vendor feed; no status published")
         return StatusObservation("unknown", "NOT_PUBLISHED", note="the vendor row carries no sale status")
     status = LGBS_STATUS_MAP.get(raw.lower())
     if status is None:

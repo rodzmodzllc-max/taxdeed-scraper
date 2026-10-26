@@ -75,7 +75,45 @@ def blank_for(row: dict, column: str) -> bool:
     return False
 
 
-def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: str, cfg=None, outcomes=None) -> dict:
+def _query_failure(exc) -> str:
+    """A value-free cause for a failed layer query (never the URL: it carries
+    the identifiers)."""
+    code = getattr(exc, "code", None)
+    if isinstance(code, int):
+        return f"http_{code}"
+    if isinstance(exc, (TimeoutError,)) or "timed out" in str(exc).lower():
+        return "timeout"
+    if isinstance(exc, ValueError):
+        return "bad_json"
+    return type(exc).__name__
+
+
+def _fetch_with_retry(fetch_json, url, retries: int, sleep, kinds: dict):
+    """fetch_json(url), retried `retries` more times on a transport error or
+    an ArcGIS error envelope. Run 382 (2026-10-26): both Colorado county
+    queries failed once and the whole state's enrichment read 0 matched /
+    2 failed queries, where the run before matched 117 - one transient
+    failure must not cost a county its run. Returns (data, ok)."""
+    for attempt in range(retries + 1):
+        try:
+            data = fetch_json(url)
+        except Exception as exc:  # noqa: BLE001 - a failed query attaches nothing
+            kind = _query_failure(exc)
+        else:
+            if isinstance(data, dict) and "error" in data:
+                err = data.get("error")
+                code = err.get("code") if isinstance(err, dict) else None
+                kind = f"arcgis_error_{code}" if code else "arcgis_error"
+            else:
+                return data, True
+        kinds[kind] = kinds.get(kind, 0) + 1
+        if attempt < retries:
+            sleep(2.0 * (attempt + 1))
+    return None, False
+
+
+def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: str, cfg=None, outcomes=None,
+        retries: int = 0, sleep=time.sleep) -> dict:
     """The whole pipeline for one state, I/O injected. Returns the coverage
     report (counts only). `cfg` names a specific layer (a county-scoped one);
     the default is the state's statewide layer. `outcomes`, when given, is a
@@ -89,15 +127,15 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
     if not ok:
         return {**report, "skipped": why}
     cov = P.Coverage()
+    failure_kinds: dict = {}
     by_county = defaultdict(list)
     for r in rows:
         by_county[r.get("county") or ""].append(r)
     for county, crow in sorted(by_county.items()):
         features, failed = [], False
         for url in P.query_urls(cfg, county, [r.get(cfg.row_id_column) for r in crow]):
-            try:
-                data = fetch_json(url)
-            except Exception:  # noqa: BLE001 - a failed query attaches nothing
+            data, ok_ = _fetch_with_retry(fetch_json, url, retries, sleep, failure_kinds)
+            if not ok_:
                 failed = True
                 break
             if cfg.transport == "socrata":
@@ -136,7 +174,8 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
             for k in fields:
                 if k != "field_provenance":
                     cov.fields_written[k] = cov.fields_written.get(k, 0) + 1
-    return {**report, "dataset": cfg.dataset, "layer_url": cfg.layer_url, **cov.as_dict()}
+    return {**report, "dataset": cfg.dataset, "layer_url": cfg.layer_url, **cov.as_dict(),
+            "query_failures_by_cause": dict(sorted(failure_kinds.items()))}
 
 
 def main(argv=None) -> int:
@@ -164,11 +203,11 @@ def main(argv=None) -> int:
         return http_json(url)
 
     report = run(st, rows, fetch_json, write=None if a.dry_run else (lambda i, f: patch(base, key, i, f)),
-                 recorded_at=FP.now_iso())
+                 recorded_at=FP.now_iso(), retries=2)
     out = Path(a.out or REPO / "out" / "public" / f"enrichment-{st.lower()}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({k: report.get(k) for k in ("state", "rows_considered", "matched", "unmatched", "ambiguous", "no_identifier", "failed_queries", "rows_written", "skipped")}))
+    print(json.dumps({k: report.get(k) for k in ("state", "rows_considered", "matched", "unmatched", "ambiguous", "no_identifier", "failed_queries", "query_failures_by_cause", "rows_written", "skipped")}))
     return 0
 
 

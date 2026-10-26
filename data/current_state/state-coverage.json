@@ -3181,7 +3181,7 @@
        {
         "amount_kind": "OPENING_BID",
         "approved_for_customers": true,
-        "canonical_url": "https://www.brevardclerk.us/lands-available",
+        "canonical_url": "https://www.brevardclerk.us/services/clerk-services/property-sales/tax-deeds-auctions/",
         "county": "Brevard",
         "governance_status": "APPROVED_GRANDFATHERED",
         "harvester": "harvest_laft_pdfs.py",

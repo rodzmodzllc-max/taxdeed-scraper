@@ -900,8 +900,10 @@ def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, di
         by_county.setdefault(county, []).append(case_no)
     for county, keys in by_county.items():
         for i in range(0, len(keys), BATCH):
+            # A re-listed row is not delisted: it sheds the delisted_at its
+            # earlier close-out wrote (2026-10-26), once the column exists.
             api.patch(f"state=eq.{state}&source=eq.{SOURCE}&county=eq.{q(county)}&case_no=in.{q(in_list(keys[i:i + BATCH]))}",
-                      {"status": "active"})
+                      {"status": "active", "delisted_at": None} if have_017 else {"status": "active"})
             counts["reactivated"] += len(keys[i:i + BATCH])
     # 2. last_seen_at + provenance (migration 017 only).
     if have_017:
