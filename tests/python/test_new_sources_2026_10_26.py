@@ -288,3 +288,18 @@ def test_genesee_lost_session_or_short_read_is_failed():
     short = [_gpage(1, 1, 1, 5, [("41-05-257-024", "Vacant Land")])]
     it = iter(short)
     assert PT.fetch_all(EX.MI_GENESEE_LANDBANK, lambda u, d: next(it), retrieved_at=AT, sleep=lambda s: None).outcome == "FAILED"
+
+
+def test_genesee_retries_a_server_error_and_still_checks_the_page_counter():
+    class Boom(Exception):
+        response = type("R", (), {"status_code": 500})()
+    pages = [_gpage(1, 2, 1, 1, [("41-05-257-024", "Vacant Land")]), Boom(), _gpage(2, 2, 2, 2, [("41-05-257-026", "Vacant Land")])]
+    it = iter(pages)
+
+    def post(url, data):
+        x = next(it)
+        if isinstance(x, Exception):
+            raise x
+        return x
+    res = PT.fetch_all(EX.MI_GENESEE_LANDBANK, post, retrieved_at=AT, sleep=lambda s: None)
+    assert res.outcome == "COMPLETE" and len(res.records) == 2

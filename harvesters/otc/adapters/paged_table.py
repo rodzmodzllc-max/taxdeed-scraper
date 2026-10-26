@@ -71,10 +71,27 @@ def counter(html: str) -> tuple[int, int, int, int] | None:
     return tuple(int(x) for x in m.groups()) if m else None
 
 
+def _retrying(post_text, sleep, attempts: int = 3):
+    """A POST that answered 5xx is retried (bounded, with back-off). A retry
+    that moved the server-side session past a page is caught by the page
+    counter check (FAILED, never a silent skip)."""
+    def call(url, data):
+        for i in range(attempts):
+            try:
+                return post_text(url, data)
+            except Exception as exc:  # noqa: BLE001
+                status = getattr(getattr(exc, "response", None), "status_code", None)
+                if status is None or status < 500 or i == attempts - 1:
+                    raise
+                sleep(2.0 * (i + 1))
+    return call
+
+
 def fetch_all(cfg: PagedTableConfig, post_text: Callable[[str, dict], str], *, retrieved_at: datetime,
               sleep: Callable[[float], None] | None = None) -> PagedResult:
     import time  # noqa: PLC0415
     sleep = sleep or time.sleep
+    post_text = _retrying(post_text, sleep)
     records: list[OtcRecord] = []
     excluded = rejected = 0
     seen: set[str] = set()
