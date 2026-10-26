@@ -90,9 +90,19 @@ def live_fetcher():
     return fetch_text
 
 
-def record_outcomes(recorder: StatusRecorder, outcomes) -> None:
+def record_outcomes(recorder: StatusRecorder, outcomes, cfg=None) -> None:
+    """One status entry per outcome. When the read was the source's own
+    document (Louisiana: the dataset CSV), the entry names the list page as
+    source_url and the CSV as document_url - the same two URLs the records
+    carry (OtcRecord.list_url / document_url). scripts/laft_lifecycle.py
+    writes its list_url / document_url from this entry; before 2026-10-26 it
+    wrote the CSV as list_url and NULL as document_url, the sync wrote them
+    back the other way, and every Louisiana row was rewritten twice a run."""
+    list_url, document_url = getattr(cfg, "list_url", None), getattr(cfg, "document_url", None)
     for oc in outcomes:
         kw = dict(source_url=oc.url)
+        if list_url and document_url and oc.url == document_url:
+            kw = dict(source_url=list_url, document_url=document_url)
         if oc.status == "COMPLETE":
             recorder.complete(oc.county, oc.row_count, **kw)
         elif oc.status == "EMPTY":
@@ -138,7 +148,7 @@ def main(argv=None) -> int:
 
     recorder = StatusRecorder(cfg.source_id, source_class="GOVERNMENT_DIRECT", source_id=cfg.source_id, parser_version=PARSER_VERSION,
                               path=status, state=state)
-    record_outcomes(recorder, result.outcomes)
+    record_outcomes(recorder, result.outcomes, cfg)
     recorder.write()
     rows = [r.to_harvest_row() for r in result.records]
     out.parent.mkdir(parents=True, exist_ok=True)

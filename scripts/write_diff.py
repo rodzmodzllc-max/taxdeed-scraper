@@ -19,7 +19,12 @@ This module is the one rule every sync uses before it writes:
     still recorded at least once a day for every row a read lists (the
     Dashboard's stale rule is 36 h), and a second run the same day writes
     nothing for it;
-  * a new row, or a row with any changed value, is written as before.
+  * a new row, or a row with any changed value, is written as before;
+  * read-time stamps nested inside a jsonb column (VOLATILE_PATHS:
+    otc_provenance.retrieved_at, otc_provenance.source_match.read_at) never
+    make a row "changed" either - they say when the row was read, which
+    last_seen_at already records (2026-10-26: Louisiana's ~4,500 rows were
+    rewritten every run because each read carried a new retrieved_at).
 
 Pure functions; no request is made here. Counts only in any log line.
 """
@@ -31,6 +36,29 @@ from datetime import datetime, timedelta, timezone
 FRESH_HOURS = 20
 # Columns that never make a row "changed" on their own.
 IGNORE = frozenset({"last_seen_at", "updated_at", "created_at", "id"})
+# Nested read-time stamps, as (column, key, key ...): compared as if absent.
+VOLATILE_PATHS = frozenset({("otc_provenance", "retrieved_at"), ("otc_provenance", "source_match", "read_at")})
+
+
+def strip_paths(column: str, value, paths=VOLATILE_PATHS):
+    """`value` (the column's value) with every path of `paths` that starts at
+    `column` removed. Never mutates its input."""
+    tails = [p[1:] for p in paths if p and p[0] == column and len(p) > 1]
+    if not tails or not isinstance(value, dict):
+        return value
+
+    def drop(v, tail):
+        if not isinstance(v, dict):
+            return v
+        if len(tail) == 1:
+            return {k: x for k, x in v.items() if k != tail[0]}
+        if tail[0] not in v:
+            return v
+        return {**v, tail[0]: drop(v[tail[0]], tail[1:])}
+
+    for tail in tails:
+        value = drop(value, tail)
+    return value
 
 
 def _ts(value):
@@ -87,8 +115,9 @@ def same(a, b) -> bool:
     return False
 
 
-def unchanged(row: dict, stored: dict | None, ignore=IGNORE) -> bool:
-    """True when every column `row` would write already holds that value."""
+def unchanged(row: dict, stored: dict | None, ignore=IGNORE, ignore_paths=VOLATILE_PATHS) -> bool:
+    """True when every column `row` would write already holds that value
+    (`ignore` columns skipped; `ignore_paths` nested keys compared as absent)."""
     if stored is None:
         return False
     for k, v in row.items():
@@ -99,7 +128,7 @@ def unchanged(row: dict, stored: dict | None, ignore=IGNORE) -> bool:
         if k == "field_provenance":
             if not same(strip_recorded(v), strip_recorded(stored.get(k))):
                 return False
-        elif not same(v, stored.get(k)):
+        elif not same(strip_paths(k, v, ignore_paths), strip_paths(k, stored.get(k), ignore_paths)):
             return False
     return True
 

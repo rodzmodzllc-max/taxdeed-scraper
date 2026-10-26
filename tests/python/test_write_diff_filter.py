@@ -352,10 +352,12 @@ def test_lifecycle_provenance_patch_carries_the_freshness_guard():
     assert "last_seen_at" not in api.patches[1]
 
 
-def test_louisiana_lifecycle_step_opts_out_of_the_guard():
+def test_louisiana_lifecycle_step_no_longer_opts_out_of_the_guard():
+    # 2026-10-26 (tests/python/test_la_no_pingpong.py): the lifecycle decides per
+    # row against the stored values, so Louisiana needs no opt-out any more.
     wf = (ROOT / ".github" / "workflows" / "harvest-and-sync.yml").read_text(encoding="utf-8")
     line = next(l for l in wf.splitlines() if "laft_lifecycle.py --state LA" in l)
-    assert "--no-fresh-guard" in line
+    assert "--no-fresh-guard" not in line
     fl = next(l for l in wf.splitlines() if l.strip() == "run: python3 scripts/laft_lifecycle.py")
     assert "--no-fresh-guard" not in fl
 

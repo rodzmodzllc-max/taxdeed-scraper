@@ -3592,3 +3592,17 @@ Full description: `docs/publish-all-sources.md`. Stable facts:
   a result) stored active tx_lgbs / tx_realauction rows absent from a COMPLETE / EMPTY read of their own (source,
   county), through `sync_state_inventory.plan_close()`; reopens 'closed' rows the harvest lists again (never 'sold');
   refuses a source that would lose >50% of its active, not-yet-past-sale rows in one run (`--allow-large-close`).
+
+## Louisiana: no sync / lifecycle rewrite loop (2026-10-26, PR open, no migration)
+
+- Every Louisiana `laft` run used to rewrite each active row TWICE: the sync wrote the adapter's otc_provenance /
+  list_url / document_url, then the lifecycle (`--no-fresh-guard`) PATCHed its own values back (always with a new
+  retrieved_at). Now:
+  - `write_diff.VOLATILE_PATHS` (otc_provenance.retrieved_at, .source_match.read_at) never make a row "changed";
+  - `laft_lifecycle.execute()` (with db_rows, as main() passes) MERGES its otc_provenance onto the stored dict
+    (`merge_otc`; the purchase-path group moves as a unit, kept when this read resolved none) and patches a row only
+    when `write_diff.needs_write` says new / changed / restamp; `--no-fresh-guard` is obsolete (accepted, ignored);
+  - the sync leaves `laft_lifecycle.LIFECYCLE_OTC_KEYS` to the lifecycle once the stored dict has its "harvester" key;
+  - the LA status entry names the list page as `source_url` and the CSV as `document_url` (as the records do).
+- `rest_pages.read_all` accepts `select=*` (PR #217's sync read refused it). Proof: `tests/python/test_la_no_pingpong.py`
+  runs harvest -> sync -> lifecycle against an in-memory PostgREST table: a second run writes 0 rows.

@@ -85,8 +85,9 @@ def keyset_query(params: dict, after, page: int = PAGE) -> str:
 def read_all(base_url: str, table: str, headers: dict, params: dict, *, page: int = PAGE,
              fetch: Callable[[str], list] | None = None) -> list[dict]:
     """Every row of `table` matching `params`, by keyset pages. `params`
-    must select `id`. A short page ends the read."""
-    if "id" not in [c.strip() for c in str(params.get("select", "id")).split(",")]:
+    must select `id` (or `*`, which includes it). A short page ends the read."""
+    cols = [c.strip() for c in str(params.get("select", "id")).split(",")]
+    if "id" not in cols and "*" not in cols:
         raise ValueError("keyset paging needs `id` in select")
     url = f"{base_url.rstrip('/')}/rest/v1/{table}"
     fetch = fetch or (lambda qs: get_json(f"{url}?{qs}", headers))
