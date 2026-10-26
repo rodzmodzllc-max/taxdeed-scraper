@@ -1,0 +1,2 @@
+County,Platform,BaseUrl,Notes
+Charlotte,kendo_taxdeed,https://taxdeeds.charlotteclerk.com,"Charlotte Clerk 'Tax Deed Services' (ASP.NET MVC + Kendo grid). The Lands Available page's grid reads POST /TaxDeed/GetTaxDeedViewByLandsAvailable (JSON {Data, Total, Errors}) with the page's own anti-forgery token - no login, no CAPTCHA. Read live 2026-10-26: Total 4, every row Status 'LANDS AVAILABLE'."

@@ -21,14 +21,14 @@
    "source_not_published": 43197
   },
   "by_reason": {
-   "EVIDENCE_NOT_FOUND": 2349,
+   "EVIDENCE_NOT_FOUND": 311,
    "EVIDENCE_UNAVAILABLE": 28,
    "OBSERVATION_MISSING": 41,
-   "EVIDENCE_NEEDS_REVIEW": 40915,
-   "EVIDENCE_NO_CHANNEL": 2,
+   "EVIDENCE_NEEDS_REVIEW": 2058,
+   "EVIDENCE_NO_CHANNEL": 31012,
    "LIST_DATED_STALE": 10710,
    "SOURCE_NOT_PUBLISHED": 43197,
-   "EVIDENCE_NO_RECORD": 252
+   "EVIDENCE_UNTRUSTED_URL": 252
   }
  },
  "by_state": {
@@ -75,8 +75,9 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 30775,
-    "EVIDENCE_NO_RECORD": 5,
-    "EVIDENCE_NEEDS_REVIEW": 30770
+    "EVIDENCE_UNTRUSTED_URL": 5,
+    "EVIDENCE_NO_CHANNEL": 30763,
+    "EVIDENCE_NEEDS_REVIEW": 12
    }
   },
   "MN": {
@@ -89,8 +90,7 @@
     "source_not_published": 2
    },
    "by_reason": {
-    "SOURCE_NOT_PUBLISHED": 2,
-    "EVIDENCE_NEEDS_REVIEW": 2
+    "SOURCE_NOT_PUBLISHED": 2
    }
   },
   "MO": {
@@ -103,8 +103,7 @@
     "source_not_published": 9759
    },
    "by_reason": {
-    "SOURCE_NOT_PUBLISHED": 9759,
-    "EVIDENCE_NEEDS_REVIEW": 9759
+    "SOURCE_NOT_PUBLISHED": 9759
    }
   },
   "OK": {
@@ -118,7 +117,8 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 195,
-    "EVIDENCE_NO_RECORD": 195
+    "EVIDENCE_UNTRUSTED_URL": 195,
+    "EVIDENCE_NO_CHANNEL": 195
    }
   },
   "PA": {
@@ -132,8 +132,7 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 376,
-    "LIST_DATED_STALE": 376,
-    "EVIDENCE_NEEDS_REVIEW": 376
+    "LIST_DATED_STALE": 376
    }
   },
   "SC": {
@@ -147,7 +146,8 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 52,
-    "EVIDENCE_NO_RECORD": 52
+    "EVIDENCE_UNTRUSTED_URL": 52,
+    "EVIDENCE_NO_CHANNEL": 52
    }
   },
   "TN": {
@@ -161,7 +161,7 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 2038,
-    "EVIDENCE_NOT_FOUND": 2038
+    "EVIDENCE_NEEDS_REVIEW": 2038
    }
   },
   "TX": {
@@ -224,8 +224,9 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 30775,
-    "EVIDENCE_NO_RECORD": 5,
-    "EVIDENCE_NEEDS_REVIEW": 30770
+    "EVIDENCE_UNTRUSTED_URL": 5,
+    "EVIDENCE_NO_CHANNEL": 30763,
+    "EVIDENCE_NEEDS_REVIEW": 12
    }
   },
   "MN \u00b7 Available": {
@@ -238,8 +239,7 @@
     "source_not_published": 2
    },
    "by_reason": {
-    "SOURCE_NOT_PUBLISHED": 2,
-    "EVIDENCE_NEEDS_REVIEW": 2
+    "SOURCE_NOT_PUBLISHED": 2
    }
   },
   "MO \u00b7 Available": {
@@ -252,8 +252,7 @@
     "source_not_published": 9759
    },
    "by_reason": {
-    "SOURCE_NOT_PUBLISHED": 9759,
-    "EVIDENCE_NEEDS_REVIEW": 9759
+    "SOURCE_NOT_PUBLISHED": 9759
    }
   },
   "OK \u00b7 Available": {
@@ -267,7 +266,8 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 195,
-    "EVIDENCE_NO_RECORD": 195
+    "EVIDENCE_UNTRUSTED_URL": 195,
+    "EVIDENCE_NO_CHANNEL": 195
    }
   },
   "PA \u00b7 Available": {
@@ -281,8 +281,7 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 376,
-    "LIST_DATED_STALE": 376,
-    "EVIDENCE_NEEDS_REVIEW": 376
+    "LIST_DATED_STALE": 376
    }
   },
   "SC \u00b7 Available": {
@@ -296,7 +295,8 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 52,
-    "EVIDENCE_NO_RECORD": 52
+    "EVIDENCE_UNTRUSTED_URL": 52,
+    "EVIDENCE_NO_CHANNEL": 52
    }
   },
   "TN \u00b7 Available": {
@@ -310,7 +310,7 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 2038,
-    "EVIDENCE_NOT_FOUND": 2038
+    "EVIDENCE_NEEDS_REVIEW": 2038
    }
   },
   "TX \u00b7 Available": {
@@ -473,7 +473,7 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 30758,
-    "EVIDENCE_NEEDS_REVIEW": 30758
+    "EVIDENCE_NO_CHANNEL": 30758
    }
   },
   "MI \u00b7 mi_detroit_landbank_programs": {
@@ -501,7 +501,8 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 5,
-    "EVIDENCE_NO_RECORD": 5
+    "EVIDENCE_UNTRUSTED_URL": 5,
+    "EVIDENCE_NO_CHANNEL": 5
    }
   },
   "MN \u00b7 mn_ramsey_tax_forfeit": {
@@ -514,8 +515,7 @@
     "source_not_published": 2
    },
    "by_reason": {
-    "SOURCE_NOT_PUBLISHED": 2,
-    "EVIDENCE_NEEDS_REVIEW": 2
+    "SOURCE_NOT_PUBLISHED": 2
    }
   },
   "MO \u00b7 mo_stl_lra_inventory": {
@@ -528,8 +528,7 @@
     "source_not_published": 9759
    },
    "by_reason": {
-    "SOURCE_NOT_PUBLISHED": 9759,
-    "EVIDENCE_NEEDS_REVIEW": 9759
+    "SOURCE_NOT_PUBLISHED": 9759
    }
   },
   "OK \u00b7 ok_oklahoma_county_owned": {
@@ -543,7 +542,8 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 195,
-    "EVIDENCE_NO_RECORD": 195
+    "EVIDENCE_UNTRUSTED_URL": 195,
+    "EVIDENCE_NO_CHANNEL": 195
    }
   },
   "PA \u00b7 pa_fayette_repository": {
@@ -557,8 +557,7 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 376,
-    "LIST_DATED_STALE": 376,
-    "EVIDENCE_NEEDS_REVIEW": 376
+    "LIST_DATED_STALE": 376
    }
   },
   "SC \u00b7 sc_georgetown_forfeited_land": {
@@ -572,7 +571,8 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 1,
-    "EVIDENCE_NO_RECORD": 1
+    "EVIDENCE_UNTRUSTED_URL": 1,
+    "EVIDENCE_NO_CHANNEL": 1
    }
   },
   "SC \u00b7 sc_horry_forfeited_land": {
@@ -586,7 +586,8 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 51,
-    "EVIDENCE_NO_RECORD": 51
+    "EVIDENCE_UNTRUSTED_URL": 51,
+    "EVIDENCE_NO_CHANNEL": 51
    }
   },
   "TN \u00b7 tn_shelby_landbank": {
@@ -600,7 +601,7 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 2038,
-    "EVIDENCE_NOT_FOUND": 2038
+    "EVIDENCE_NEEDS_REVIEW": 2038
    }
   },
   "TX \u00b7 tx_lgbs": {
@@ -934,7 +935,8 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 5,
-    "EVIDENCE_NO_RECORD": 5
+    "EVIDENCE_UNTRUSTED_URL": 5,
+    "EVIDENCE_NO_CHANNEL": 5
    }
   },
   "MI \u00b7 Wayne": {
@@ -948,7 +950,8 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 30770,
-    "EVIDENCE_NEEDS_REVIEW": 30770
+    "EVIDENCE_NO_CHANNEL": 30758,
+    "EVIDENCE_NEEDS_REVIEW": 12
    }
   },
   "MN \u00b7 Ramsey": {
@@ -961,8 +964,7 @@
     "source_not_published": 2
    },
    "by_reason": {
-    "SOURCE_NOT_PUBLISHED": 2,
-    "EVIDENCE_NEEDS_REVIEW": 2
+    "SOURCE_NOT_PUBLISHED": 2
    }
   },
   "MO \u00b7 St. Louis City": {
@@ -975,8 +977,7 @@
     "source_not_published": 9759
    },
    "by_reason": {
-    "SOURCE_NOT_PUBLISHED": 9759,
-    "EVIDENCE_NEEDS_REVIEW": 9759
+    "SOURCE_NOT_PUBLISHED": 9759
    }
   },
   "OK \u00b7 Oklahoma": {
@@ -990,7 +991,8 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 195,
-    "EVIDENCE_NO_RECORD": 195
+    "EVIDENCE_UNTRUSTED_URL": 195,
+    "EVIDENCE_NO_CHANNEL": 195
    }
   },
   "PA \u00b7 Fayette": {
@@ -1004,8 +1006,7 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 376,
-    "LIST_DATED_STALE": 376,
-    "EVIDENCE_NEEDS_REVIEW": 376
+    "LIST_DATED_STALE": 376
    }
   },
   "SC \u00b7 Georgetown": {
@@ -1019,7 +1020,8 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 1,
-    "EVIDENCE_NO_RECORD": 1
+    "EVIDENCE_UNTRUSTED_URL": 1,
+    "EVIDENCE_NO_CHANNEL": 1
    }
   },
   "SC \u00b7 Horry": {
@@ -1033,7 +1035,8 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 51,
-    "EVIDENCE_NO_RECORD": 51
+    "EVIDENCE_UNTRUSTED_URL": 51,
+    "EVIDENCE_NO_CHANNEL": 51
    }
   },
   "TN \u00b7 Shelby": {
@@ -1047,7 +1050,7 @@
    },
    "by_reason": {
     "SOURCE_NOT_PUBLISHED": 2038,
-    "EVIDENCE_NOT_FOUND": 2038
+    "EVIDENCE_NEEDS_REVIEW": 2038
    }
   },
   "TX \u00b7 Galveston": {
@@ -1585,7 +1588,8 @@
    "classification": "source_not_published",
    "reasons": [
     "SOURCE_NOT_PUBLISHED",
-    "EVIDENCE_NO_RECORD"
+    "EVIDENCE_UNTRUSTED_URL",
+    "EVIDENCE_NO_CHANNEL"
    ]
   },
   {
@@ -1597,12 +1601,12 @@
    "seen_bucket": "le14d",
    "list_bucket": "none",
    "n": 30758,
-   "evidence_status": "NEEDS_REVIEW",
+   "evidence_status": "VERIFIED",
    "verified": false,
    "classification": "source_not_published",
    "reasons": [
     "SOURCE_NOT_PUBLISHED",
-    "EVIDENCE_NEEDS_REVIEW"
+    "EVIDENCE_NO_CHANNEL"
    ]
   },
   {
@@ -1631,12 +1635,11 @@
    "seen_bucket": "le14d",
    "list_bucket": "none",
    "n": 2,
-   "evidence_status": "NEEDS_REVIEW",
+   "evidence_status": "VERIFIED",
    "verified": false,
    "classification": "source_not_published",
    "reasons": [
-    "SOURCE_NOT_PUBLISHED",
-    "EVIDENCE_NEEDS_REVIEW"
+    "SOURCE_NOT_PUBLISHED"
    ]
   },
   {
@@ -1648,12 +1651,11 @@
    "seen_bucket": "le14d",
    "list_bucket": "none",
    "n": 9759,
-   "evidence_status": "NEEDS_REVIEW",
+   "evidence_status": "VERIFIED",
    "verified": false,
    "classification": "source_not_published",
    "reasons": [
-    "SOURCE_NOT_PUBLISHED",
-    "EVIDENCE_NEEDS_REVIEW"
+    "SOURCE_NOT_PUBLISHED"
    ]
   },
   {
@@ -1670,7 +1672,8 @@
    "classification": "source_not_published",
    "reasons": [
     "SOURCE_NOT_PUBLISHED",
-    "EVIDENCE_NO_RECORD"
+    "EVIDENCE_UNTRUSTED_URL",
+    "EVIDENCE_NO_CHANNEL"
    ]
   },
   {
@@ -1682,13 +1685,12 @@
    "seen_bucket": "le14d",
    "list_bucket": "gt365d",
    "n": 376,
-   "evidence_status": "NEEDS_REVIEW",
+   "evidence_status": "VERIFIED",
    "verified": false,
    "classification": "source_not_published",
    "reasons": [
     "SOURCE_NOT_PUBLISHED",
-    "LIST_DATED_STALE",
-    "EVIDENCE_NEEDS_REVIEW"
+    "LIST_DATED_STALE"
    ]
   },
   {
@@ -1705,7 +1707,8 @@
    "classification": "source_not_published",
    "reasons": [
     "SOURCE_NOT_PUBLISHED",
-    "EVIDENCE_NO_RECORD"
+    "EVIDENCE_UNTRUSTED_URL",
+    "EVIDENCE_NO_CHANNEL"
    ]
   },
   {
@@ -1722,7 +1725,8 @@
    "classification": "source_not_published",
    "reasons": [
     "SOURCE_NOT_PUBLISHED",
-    "EVIDENCE_NO_RECORD"
+    "EVIDENCE_UNTRUSTED_URL",
+    "EVIDENCE_NO_CHANNEL"
    ]
   },
   {
@@ -1734,12 +1738,12 @@
    "seen_bucket": "le14d",
    "list_bucket": "none",
    "n": 2038,
-   "evidence_status": "NOT_FOUND",
+   "evidence_status": "NEEDS_REVIEW",
    "verified": false,
    "classification": "source_not_published",
    "reasons": [
     "SOURCE_NOT_PUBLISHED",
-    "EVIDENCE_NOT_FOUND"
+    "EVIDENCE_NEEDS_REVIEW"
    ]
   },
   {

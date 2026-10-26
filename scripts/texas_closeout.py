@@ -5,7 +5,11 @@ The Texas sync (scripts/sync-texas-to-supabase.py) is upsert-only and never
 sends `status`, so a row LGBS or a Texas RealAuction county stopped listing
 stayed 'active' forever (165 such rows were closed by hand on 2026-10-26),
 and a row closed earlier stayed closed when the source listed it again.
-This step runs after the sync and the last_seen_at stamp:
+This step runs after the sync and the last_seen_at stamp. Since 2026-10-26 it
+also serves the Texas COUNTY-published lists (scripts/harvest_tx_county_sales.py,
+synced by scripts/sync_state_inventory.py): each list is its own source id,
+read from its own harvest / status files (--harvest / --status may repeat), and
+closes only its own rows, the same way:
 
   close       a stored ACTIVE row of tx_lgbs / tx_realauction whose
               (source, county) read this run was COMPLETE or EMPTY
@@ -53,10 +57,18 @@ import rest_pages as RP  # noqa: E402
 import sync_state_inventory as SI  # noqa: E402
 
 STATE = "TX"
-# + the vendors the owner unblocked on 2026-10-26 (harvesters/texas_vendors.py writes the same
-# per-(source, county) entries; a county whose index page was not read is never COMPLETE).
-SOURCE_IDS = frozenset({"tx_lgbs", "tx_realauction", "tx_pbfcm", "tx_mvba", "tx_govease"})
-# The dataset their permission records name (scripts/stamp_seen.py STORE_SOURCES).
+# The vendor feeds: LGBS, Texas RealAuction, and the vendors the owner unblocked on 2026-10-26
+# (harvesters/texas_vendors.py writes the same per-(source, county) entries; a county whose
+# index page was not read is never COMPLETE).
+VENDOR_SOURCE_IDS = frozenset({"tx_lgbs", "tx_realauction", "tx_pbfcm", "tx_mvba", "tx_govease"})
+# The county-published lists (scripts/harvest_tx_county_sales.py SOURCE_IDS -
+# a test pins the two equal; not imported, so this step needs no `requests`).
+COUNTY_LIST_SOURCE_IDS = frozenset({"tx_hctax", "tx_bexar_resale", "tx_jefferson_sheriff_sale", "tx_montgomery_tax_trust",
+                                    "tx_orange_trust_property", "tx_trinity_cad_resale", "tx_randall_trustee_property",
+                                    "tx_hood_cad_struck_off"})
+SOURCE_IDS = VENDOR_SOURCE_IDS | COUNTY_LIST_SOURCE_IDS
+# The dataset the vendor permission records name (scripts/stamp_seen.py
+# STORE_SOURCES); the county-list records name every dataset ('*').
 DATASET = "tax_sale_listing"
 REACTIVATABLE = frozenset({"closed", "dropped", "notfound"})
 MAX_CLOSE_SHARE = 0.5
@@ -126,19 +138,26 @@ def plan(harvest: list[dict], stored: list[dict], units: dict, permitted: set[st
                                                   for c in closes).items()))}
 
 
-def units_from(path: Path) -> dict:
-    """{(source_id, county): reader status} from the harvester's status file
-    (its `counties` entries). A missing / unreadable file is no read at all."""
+def _status_entries(path: Path) -> list[dict]:
+    """The entries of one status file: the Texas harvester's
+    {"counties": [...]} or the laft_status list the county-list harvester
+    writes. A missing / unreadable file is no read at all."""
     if not path.exists():
-        return {}
+        return []
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except ValueError:
-        return {}
-    entries = data.get("counties") if isinstance(data, dict) else None
-    # Only entries naming a source: a bare-county entry would stand in for
-    # every source of that county (health.ledger_units' fallback).
-    return LH.ledger_units([e for e in entries or [] if isinstance(e, dict) and e.get("source_id") in SOURCE_IDS])
+        return []
+    entries = data.get("counties") if isinstance(data, dict) else data
+    return [e for e in entries or [] if isinstance(e, dict)]
+
+
+def units_from(*paths: Path) -> dict:
+    """{(source_id, county): reader status} from the harvesters' status
+    files. Only entries naming one of SOURCE_IDS: a bare-county entry would
+    stand in for every source of that county (health.ledger_units' fallback)."""
+    entries = [e for p in paths for e in _status_entries(Path(p))]
+    return LH.ledger_units([e for e in entries if e.get("source_id") in SOURCE_IDS])
 
 
 def store_permitted() -> set[str]:
@@ -176,16 +195,22 @@ def _send(url: str, body: dict, key: str) -> None:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--harvest", default=str(REPO / "out" / "harvest_texas.json"))
-    ap.add_argument("--status", default=str(REPO / "out" / "harvest_texas_status.json"))
+    ap.add_argument("--harvest", action="append", default=None,
+                    help="a harvest file (repeatable; default out/harvest_texas.json)")
+    ap.add_argument("--status", action="append", default=None,
+                    help="a status file (repeatable; default out/harvest_texas_status.json)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--allow-large-close", action="store_true",
                     help=f"close even when a source would lose more than {MAX_CLOSE_SHARE:.0%} of its active rows")
     args = ap.parse_args(argv)
 
-    harvest_path = Path(args.harvest)
-    harvest = json.loads(harvest_path.read_text(encoding="utf-8")) if harvest_path.exists() else []
-    units = units_from(Path(args.status))
+    harvest: list[dict] = []
+    for name in args.harvest or [str(REPO / "out" / "harvest_texas.json")]:
+        harvest_path = Path(name)
+        if harvest_path.exists():
+            data = json.loads(harvest_path.read_text(encoding="utf-8"))
+            harvest.extend(data if isinstance(data, list) else [])
+    units = units_from(*[Path(p) for p in (args.status or [str(REPO / "out" / "harvest_texas_status.json")])])
     reads = Counter(f"{k[0]}:{st}" for k, st in units.items() if isinstance(k, tuple))
     print(f"TX close-out: {len(harvest_identities(harvest))} listed identities; county reads {dict(sorted(reads.items()))}")
     if not units:

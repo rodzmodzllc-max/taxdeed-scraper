@@ -3606,3 +3606,23 @@ Full description: `docs/publish-all-sources.md`. Stable facts:
   - the LA status entry names the list page as `source_url` and the CSV as `document_url` (as the records do).
 - `rest_pages.read_all` accepts `select=*` (PR #217's sync read refused it). Proof: `tests/python/test_la_no_pingpong.py`
   runs harvest -> sync -> lifecycle against an in-memory PostgREST table: a second run writes 0 rows.
+
+## FL / TX county sources (2026-10-26, PR open, no migration)
+
+Full description: `docs/county-sources-2026-10-26.md`. Stable facts:
+- **Owner decision 2026-10-26:** collect every county source now; legal review afterwards. New sources carry
+  `OWNER_PERMISSION_REQUIRED` / `INTERNAL_RISK_ACCEPTANCE` records (effective 2026-10-26, expiring 2027-04-12),
+  including `discover` records - so `test_discovery_guard` now allows exactly those. No challenge, login,
+  paywall or IP block is bypassed; a block reads FAILED / ACCESS_DENIED.
+- **FL:** Lake joined realTDM, DeSoto and Wakulla the static-HTML list (both pages state an empty list);
+  `scripts/harvest_laft_portals.py` (`fl_laft_portals`, `data/laft_portal_sources.csv`) reads Charlotte's Kendo
+  grid JSON - 403 from Actions runners. Publication is per SOURCE: Lake / DeSoto / Wakulla carry their platform's
+  decision; `fl_laft_portals` is APPROVED by the owner's publication decision (`OWNER_APPROVED_2026_10_26`).
+  `FL_ADDED_2026_10_26` in the registry builder names the additions (migration 017's backfill covers only the earlier 52).
+- **TX:** `scripts/harvest_tx_county_sales.py` (texas job) reads Harris (`tx_hctax`, AUCTIONS), Jefferson,
+  Bexar, Montgomery, Orange, Trinity, Randall, Hood; one harvest + status + properties-rows file per ledger.
+  Published (owner, 2026-10-26, legal review pending): registry `PRODUCTION_VERIFIED` / `APPROVED`
+  (`TX_COUNTY_SOURCES` + `TX_COUNTY_META`), INTERIM state-level fetch/parse/store/display/link records.
+  Synced by `sync_state_inventory.py --keep-other-sources` (never takes over an LGBS / RealAuction row); closed
+  per source by `texas_closeout.py --harvest/--status` (county files) after a COMPLETE / EMPTY read only.
+  `registry.py` `_TX_HCTAX` stays LEGAL_REVIEW_REQUIRED (the legal record; the vendor sync path only).

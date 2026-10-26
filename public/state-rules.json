@@ -1432,6 +1432,16 @@
        ]
       },
       {
+       "county": "Charlotte",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "fl_laft_portals"
+        }
+       ]
+      },
+      {
        "county": "Citrus",
        "procedures": [
         "acquisition_procedure_available"
@@ -1459,6 +1469,16 @@
       },
       {
        "county": "Columbia",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "fl_laft_html"
+        }
+       ]
+      },
+      {
+       "county": "DeSoto",
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -1649,6 +1669,16 @@
          "authority": "GOVERNMENT_DIRECT",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "fl_laft_html"
+        }
+       ]
+      },
+      {
+       "county": "Lake",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_PLATFORM",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "fl_laft_realtdm"
         }
        ]
       },
@@ -1926,6 +1956,16 @@
          "authority": "GOVERNMENT_DIRECT",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "fl_laft_pdfs"
+        }
+       ]
+      },
+      {
+       "county": "Wakulla",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "fl_laft_html"
         }
        ]
       },
@@ -3633,11 +3673,11 @@
    ],
    "county_rules": [
     {
-     "ambiguity": "Whether the terms permit a read for display only has not been reviewed; until a review records permission the source stays restricted.",
-     "changed_on": "2026-10-11",
+     "ambiguity": "The county's terms have not been reviewed for redistribution; the twelve Phase 9.6 rights questions stay open.",
+     "changed_on": "2026-10-26",
      "county": "Harris",
-     "depends_on": "harvesters/otc/gate.py refuses tx_hctax; the AUCTIONS coverage report lists Harris County as SOURCE_RESTRICTED",
-     "evidence": "data/county_source_registry.csv row tx_hctax (verification_status SEARCH_EVIDENCE_ONLY, governance_status LEGAL_REVIEW_REQUIRED, restrictions \"hctax.net terms not cleared for redistribution; gate refuses until resolved\"); harvesters/otc/gate.py",
+     "depends_on": "scripts/sync_state_inventory.py writes tx_hctax rows; scripts/texas_closeout.py closes them after a COMPLETE read",
+     "evidence": "data/county_source_registry.csv row tx_hctax (PRODUCTION_VERIFIED, APPROVED, restrictions 'Owner approved customer publication 2026-10-26; legal review pending'); scripts/harvest_tx_county_sales.py parse_harris(), LIVE READ 2026-10-26: sale date 2026-11-03, 149 For Sale listings; harvesters/governance/registry.py _TX_HCTAX keeps the Phase 9.5 legal record (LEGAL_REVIEW_REQUIRED) for the vendor sync path, which this source does not use",
      "implementation_status": "IMPLEMENTED",
      "kind": "SOURCE",
      "ledger": "AUCTIONS",
@@ -3647,11 +3687,12 @@
      "source_title": "Harris County Tax Office - Tax Sale Listing",
      "source_url": "https://www.hctax.net/Property/listings/taxsalelisting",
      "state": "TX",
-     "statement": "Harris County's own tax sale listing (hctax.net, the Tax Assessor-Collector's site) is the only official per-county tax-sale list located for Harris County, and it cannot be used: the site's terms were not cleared for redistribution (registry tx_hctax, Phase 9.5), so the ingestion gate refuses it and no Harris County auction row comes from it. The county's sales appear only through the vendor calendar (tx_realauction) where that platform lists them.",
-     "status": "SOURCE_RESTRICTED",
-     "test_ref": "tests/python/test_state_coverage.py",
+     "statement": "Harris County's own tax sale listing (hctax.net, the Tax Assessor-Collector's site) is the official per-county list of the next monthly constable sale. It is read daily by scripts/harvest_tx_county_sales.py and published to customers by the owner's 2026-10-26 decision (an internal risk acceptance, not the county's permission; legal review pending): each For Sale listing becomes one Auctions row with its own Minimum Bid; Cancelled listings are not written.",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_county_sources_2026_10_26.py",
      "topic": "tax_sale_list_source",
-     "version": "1"
+     "verified_on": "2026-10-26",
+     "version": "2"
     },
     {
      "changed_on": "2026-10-11",
@@ -3684,6 +3725,16 @@
      "prior_statement": "Texas tax foreclosure sales and resales of struck-off property are conducted county by county (in Galveston by the Sheriff). The statewide statutory model (Tex. Tax Code chapter 34) has not been read and recorded here.",
      "prior_status": "NOT_VERIFIED",
      "topic": "tax_sale_model",
+     "version": "1"
+    },
+    {
+     "affects": "data/county_source_registry.csv tx_hctax; State rules page; Auctions coverage",
+     "change": "The owner published the Harris County list on 2026-10-26 (legal review pending); a reader and the sync now use it",
+     "changed_on": "2026-10-26",
+     "county": "Harris",
+     "prior_statement": "Harris County's own tax sale listing (hctax.net, the Tax Assessor-Collector's site) is the only official per-county tax-sale list located for Harris County, and it cannot be used: the site's terms were not cleared for redistribution (registry tx_hctax, Phase 9.5), so the ingestion gate refuses it and no Harris County auction row comes from it. The county's sales appear only through the vendor calendar (tx_realauction) where that platform lists them.",
+     "prior_status": "SOURCE_RESTRICTED",
+     "topic": "tax_sale_list_source",
      "version": "1"
     }
    ],
@@ -4040,7 +4091,15 @@
       },
       {
        "county": "Harris",
+       "procedures": [
+        "tax_sale_list_source"
+       ],
        "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "tx_hctax"
+        },
         {
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
@@ -4125,6 +4184,16 @@
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Jefferson",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "tx_jefferson_sheriff_sale"
         }
        ]
       },
@@ -4574,7 +4643,7 @@
      "eligibility_source_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
      "eligibility_verified_on": "2026-10-01",
      "meaning": "A sheriff's or constable's tax foreclosure sale of the property under a court judgment.",
-     "note": "Sheriff / county tax sales (LGBS, RealAuction) - manual harvest only.",
+     "note": "Sheriff / constable tax sales: LGBS and RealAuction listings and the Harris and Jefferson county sale lists.",
      "office": "County Sheriff or Constable; delinquent-tax counsel for the taxing units",
      "status": "TRACKED"
     },
@@ -4627,6 +4696,16 @@
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Bexar",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "tx_bexar_resale"
         }
        ]
       },
@@ -4859,6 +4938,16 @@
        ]
       },
       {
+       "county": "Hood",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "tx_hood_cad_struck_off"
+        }
+       ]
+      },
+      {
        "county": "Houston",
        "sources": [
         {
@@ -5002,6 +5091,11 @@
        "county": "Montgomery",
        "sources": [
         {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "tx_montgomery_tax_trust"
+        },
+        {
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_pbfcm"
@@ -5029,6 +5123,16 @@
        ]
       },
       {
+       "county": "Orange",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "tx_orange_trust_property"
+        }
+       ]
+      },
+      {
        "county": "Palo Pinto",
        "sources": [
         {
@@ -5045,6 +5149,16 @@
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Randall",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "tx_randall_trustee_property"
         }
        ]
       },
@@ -5095,6 +5209,16 @@
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Trinity",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "tx_trinity_cad_resale"
         }
        ]
       },
@@ -5199,10 +5323,12 @@
        ]
       }
      ],
-     "eligibility": "NOT_VERIFIED",
-     "eligibility_basis": "LGBS lists property struck off to taxing units, but whether, when and how a taxing unit resells it (Tex. Tax Code 34.05, lead only) is set per taxing unit and has not been verified from any official page. Harris County's tax office list (tx_hctax) is restricted pending legal review; other county struck-off pages are unreviewed candidates. Struck-off property is not automatically for sale at a fixed price.",
+     "eligibility": "COUNTY_DEPENDENT",
+     "eligibility_basis": "Resale of property struck off to the taxing units is run county by county: six county offices (Bexar, Montgomery, Orange, Trinity CAD, Randall, Hood CAD) publish their own trust / resale lists, read live 2026-10-26 by scripts/harvest_tx_county_sales.py, and Galveston's process is a verified evidence row. Tex. Tax Code 34.05 itself has not been read (lead only). Struck-off property is not automatically for sale at a fixed price.",
+     "eligibility_source_url": "https://www.mctx.org/departments/departments_q_-_z/tax_office/tax_trust_property.php",
+     "eligibility_verified_on": "2026-10-26",
      "meaning": "Property struck off to a taxing unit after no sufficient bid, which the unit may later resell under its own process.",
-     "note": "Struck-off property offered for resale (LGBS) - manual harvest only.",
+     "note": "Struck-off property offered for resale: LGBS listings and county-published trust / resale lists (Bexar, Montgomery, Orange, Trinity, Randall, Hood).",
      "office": "Taxing units (county, city, school district) and their delinquent-tax counsel",
      "status": "TRACKED"
     },
@@ -5736,7 +5862,7 @@
     "FAIL": 0,
     "NOT_APPLICABLE": 0,
     "NOT_VERIFIED": 2,
-    "PASS": 29
+    "PASS": 30
    },
    "findings": [
     {
@@ -5781,14 +5907,14 @@
     },
     {
      "check": "county_coverage",
-     "detail": "52 counties fed; eligibility is OFFERED",
+     "detail": "56 counties fed; eligibility is OFFERED",
      "state": "FL",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: fl_laft_hillsborough, fl_laft_html, fl_laft_leon, fl_laft_orange, fl_laft_osceola, fl_laft_pdfs, fl_laft_pioneer, fl_laft_realtdm, fl_laft_stlucie",
+     "detail": "TRACKED: fl_laft_hillsborough, fl_laft_html, fl_laft_leon, fl_laft_orange, fl_laft_osceola, fl_laft_pdfs, fl_laft_pioneer, fl_laft_portals, fl_laft_realtdm, fl_laft_stlucie",
      "state": "FL",
      "status": "PASS",
      "subject": "AVAILABLE"
@@ -5881,6 +6007,13 @@
      "detail": "AVAILABLE",
      "state": "FL",
      "status": "PASS",
+     "subject": "fl_laft_portals"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "FL",
+     "status": "PASS",
      "subject": "fl_laft_realtdm"
     },
     {
@@ -5913,13 +6046,13 @@
     },
     {
      "check": "available_terms",
-     "detail": "every AVAILABLE source has a terms row (9)",
+     "detail": "every AVAILABLE source has a terms row (10)",
      "state": "FL",
      "status": "PASS"
     },
     {
      "check": "acquisition_path",
-     "detail": "19/52 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+     "detail": "19/56 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
      "state": "FL",
      "status": "NOT_VERIFIED"
     },
@@ -7182,8 +7315,8 @@
     "BLOCKED": 0,
     "FAIL": 0,
     "NOT_APPLICABLE": 1,
-    "NOT_VERIFIED": 5,
-    "PASS": 18
+    "NOT_VERIFIED": 4,
+    "PASS": 27
    },
    "findings": [
     {
@@ -7194,48 +7327,48 @@
     },
     {
      "check": "state_law_recorded",
-     "detail": "no statute has been read and recorded for this state; unresolved: redemption, tax_sale_list_source, tax_sale_model",
+     "detail": "no statute has been read and recorded for this state; unresolved: redemption, tax_sale_model",
      "state": "TX",
      "status": "NOT_VERIFIED"
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 5 source(s) (tx_govease, tx_lgbs, tx_mvba, tx_pbfcm, tx_realauction) read 2026-10-01",
+     "detail": "COUNTY_DEPENDENT: 7 source(s) (tx_govease, tx_hctax, tx_jefferson_sheriff_sale, tx_lgbs, tx_mvba, tx_pbfcm, tx_realauction) read 2026-10-01",
      "state": "TX",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "county_coverage",
-     "detail": "82 counties: Angelina, Aransas, Archer, Atascosa, Austin, Bandera, Bastrop, Bell, Brazoria, Brewster, Brown, Caldwell …",
+     "detail": "83 counties: Angelina, Aransas, Archer, Atascosa, Austin, Bandera, Bastrop, Bell, Brazoria, Brewster, Brown, Caldwell …",
      "state": "TX",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: tx_govease, tx_lgbs, tx_mvba, tx_pbfcm, tx_realauction",
+     "detail": "TRACKED: tx_govease, tx_hctax, tx_jefferson_sheriff_sale, tx_lgbs, tx_mvba, tx_pbfcm, tx_realauction",
      "state": "TX",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "ledger_eligibility",
-     "detail": "LGBS lists property struck off to taxing units, but whether, when and how a taxing unit resells it (Tex. Tax Code 34.05, lead only) is set per taxing unit and h",
+     "detail": "COUNTY_DEPENDENT: 9 source(s) (tx_bexar_resale, tx_hood_cad_struck_off, tx_lgbs, tx_montgomery_tax_trust, tx_mvba, tx_orange_trust_property, tx_pbfcm, tx_randall_trustee_property, tx_trinity_cad_resale) read 2026-10-26",
      "state": "TX",
-     "status": "NOT_VERIFIED",
+     "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "county_coverage",
-     "detail": "60 counties fed; eligibility is NOT_VERIFIED",
+     "detail": "65 counties: Archer, Austin, Bandera, Bastrop, Bell, Bexar, Brazoria, Brewster, Brown, Caldwell, Cameron, Chambers …",
      "state": "TX",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: tx_lgbs, tx_mvba, tx_pbfcm",
+     "detail": "TRACKED: tx_bexar_resale, tx_hood_cad_struck_off, tx_lgbs, tx_montgomery_tax_trust, tx_mvba, tx_orange_trust_property, tx_pbfcm, tx_randall_trustee_property, tx_trinity_cad_resale",
      "state": "TX",
      "status": "PASS",
      "subject": "AVAILABLE"
@@ -7263,9 +7396,16 @@
     },
     {
      "check": "rule_history",
-     "detail": "1 rule(s) with a recorded prior version",
+     "detail": "2 rule(s) with a recorded prior version",
      "state": "TX",
      "status": "PASS"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_bexar_resale"
     },
     {
      "check": "source_classification",
@@ -7276,10 +7416,38 @@
     },
     {
      "check": "source_classification",
+     "detail": "AUCTIONS",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_hctax"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_hood_cad_struck_off"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AUCTIONS",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_jefferson_sheriff_sale"
+    },
+    {
+     "check": "source_classification",
      "detail": "AUCTIONS/AVAILABLE",
      "state": "TX",
      "status": "PASS",
      "subject": "tx_lgbs"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_montgomery_tax_trust"
     },
     {
      "check": "source_classification",
@@ -7290,10 +7458,24 @@
     },
     {
      "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_orange_trust_property"
+    },
+    {
+     "check": "source_classification",
      "detail": "AUCTIONS/AVAILABLE",
      "state": "TX",
      "status": "PASS",
      "subject": "tx_pbfcm"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_randall_trustee_property"
     },
     {
      "check": "source_classification",
@@ -7303,14 +7485,21 @@
      "subject": "tx_realauction"
     },
     {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_trinity_cad_resale"
+    },
+    {
      "check": "available_terms",
-     "detail": "every AVAILABLE source has a terms row (3)",
+     "detail": "every AVAILABLE source has a terms row (9)",
      "state": "TX",
      "status": "PASS"
     },
     {
      "check": "acquisition_path",
-     "detail": "1/63 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+     "detail": "1/69 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
      "state": "TX",
      "status": "NOT_VERIFIED"
     },

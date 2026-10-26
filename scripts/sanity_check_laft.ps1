@@ -75,7 +75,8 @@ $harvestFiles = @(
     (Join-Path $here "../out/harvest_laft_stlucie.json"),
     (Join-Path $here "../out/harvest_laft_osceola.json"),
     (Join-Path $here "../out/harvest_laft_hillsborough.json"),
-    (Join-Path $here "../out/harvest_laft_leon.json")
+    (Join-Path $here "../out/harvest_laft_leon.json"),
+    (Join-Path $here "../out/harvest_laft_portals.json")
 )
 
 # Today's per-county row counts across every harvester's fresh output.
