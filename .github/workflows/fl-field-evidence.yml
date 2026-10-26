@@ -1,0 +1,37 @@
+# TEMPORARY (2026-10-26, branch claude/fl-field-fixes): runs the two value-free
+# evidence reads of this branch on a GitHub runner without waiting for the
+# harvest-and-sync concurrency slot (a queued production run holds it). Holds
+# no database credential and syncs nothing. Removed before the PR is merged;
+# the same reads stay available as harvest-and-sync.yml evidence scopes
+# realauction_labels and fl_certificate_sources.
+name: FL field evidence (temporary)
+on:
+  push:
+    branches: [claude/fl-field-fixes]
+    paths: [.github/workflows/fl-field-evidence.yml]
+permissions:
+  contents: read
+jobs:
+  labels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: RealAuction label vocabulary (Orange, Lee, Hillsborough), value-free
+        run: |
+          HARVEST_COUNTIES="Orange,Lee,Hillsborough" HARVEST_LABEL_REPORT=1 pwsh -NoProfile -File scripts/harvest_all_counties.ps1 | grep -v '^Saved:'
+          rm -f out/harvest_all.json out/harvest_all.csv
+  certificates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests pdfplumber
+      - name: Sarasota county-held certificates (counts only)
+        run: |
+          python3 scripts/harvest_sarasota_certificates.py
+          python3 -c "import json; [print('STATUS', e['county'], e['status'], e['rowCount'], e.get('error_category','')) for e in json.load(open('out/harvest_sarasota_certificates_status.json'))]"
+          rm -f out/harvest_certificates_sarasota.json

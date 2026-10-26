@@ -285,7 +285,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, realauction_labels, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby]
+        options: [available, realauction_labels, fl_certificate_sources, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby]
 
 concurrency:
   group: harvest-and-sync
@@ -566,6 +566,9 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # Refill tax-roll values a sync erased before sync_value_guard.py
+          # (2026-10-26: 146 FL auction rows' FDOR `assessed`).
+          ENRICH_REFILL_ERASED: "1"
         run: python3 scripts/enrich_property_details.py
 
       # Flood is the first Risk & Legal panel field with a real source. It
@@ -1538,6 +1541,18 @@ jobs:
             # job and nothing is synced; out/harvest_all.json is never uploaded.
             HARVEST_COUNTIES="${COUNTIES:-Orange,Lee}" HARVEST_LABEL_REPORT=1 pwsh -NoProfile -File scripts/harvest_all_counties.ps1 | grep -v '^Saved:'
             rm -f out/harvest_all.json out/harvest_all.csv
+            exit 0
+          fi
+          if [ "$SCOPE" = "fl_certificate_sources" ]; then
+            # 2026-10-26: Florida county-held certificate lists published on a
+            # county's OWN site while LienHub refuses the runners (never worked
+            # around). Each reader checks its own interim fetch/parse/store
+            # records first and prints counts only. No database credential
+            # exists in this job and nothing is synced; the row files are
+            # deleted before the artifact step.
+            python3 scripts/harvest_sarasota_certificates.py || true
+            cat out/harvest_sarasota_certificates_status.json 2>/dev/null | python3 -c "import json,sys; [print('STATUS', e.get('county'), e.get('status'), e.get('rowCount'), e.get('error_category','')) for e in json.load(sys.stdin)]" || true
+            rm -f out/harvest_certificates_sarasota.json
             exit 0
           fi
           if [ "$SCOPE" = "pioneer_statements" ]; then
