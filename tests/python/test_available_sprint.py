@@ -129,7 +129,8 @@ def test_a_row_read_in_a_truncated_walk_is_still_observed_but_nothing_unseen_is_
     idx = L.index_feed(recs(raw("100")))
     oc, body = L.plan_row(row(), idx, now=NOW, walk_complete=False)
     assert oc == "OBSERVED" and body["last_seen_at"] == NOW
-    assert L.plan_row(row(case_no="999"), idx, now=NOW, walk_complete=False) == ("NOT_IN_FEED", {})
+    # Unseen in a truncated walk is NOT_READ - never "not in the feed".
+    assert L.plan_row(row(case_no="999"), idx, now=NOW, walk_complete=False) == ("NOT_READ", {})
 
 
 def test_absence_and_other_statuses_are_counted_never_closed():

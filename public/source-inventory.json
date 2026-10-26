@@ -7075,6 +7075,28 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "SOURCE_EMPTY: Only a 2020 sale notice and the Comptroller's office directory - no resale process",
+   "county": "Leon",
+   "evidence": "runs 36858070184 / 36865836152 (docs/available-ledger.md 13.5)",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-01",
+   "legacy_status": "",
+   "name": "Tax Assessor-Collector page: refers buyers to the delinquent-tax counsels' sites for current tax-sale listings; no county list or procedure",
+   "next_action": "Look for a separate Lands Available / resale process document",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Leon:54",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://www.co.leon.tx.us/page/leon.County.Assessor.Collector"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "production harvester harvesters/texas_harvester.py; last completeness FAILED",
    "county": "Leon",
    "evidence": "harvesters/governance/registry.py tx_lgbs; data/tx_lgbs_observed_county_roster.csv",
@@ -7165,6 +7187,28 @@
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://notices.libertycountytx.com/auctions"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "SOURCE_EMPTY: County pages carry foreclosure notices only",
+   "county": "Liberty",
+   "evidence": "runs 36858070184 / 36865836152 (docs/available-ledger.md 13.5)",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-01",
+   "legacy_status": "",
+   "name": "Tax Assessor-Collector page: its Tax Sale Property Listing document (2017) says to contact the counsel or obtain a list from the Tax Office",
+   "next_action": "Look for a separate Lands Available / resale process document",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Liberty:55",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://www.co.liberty.tx.us/page/liberty.County.Assessor.Collector"
   },
   {
    "access": "ACCESSIBLE",
@@ -8415,7 +8459,7 @@
    "sources": 2
   },
   "TX": {
-   "APPROVED": 16,
+   "APPROVED": 18,
    "HARD_BLOCKED": 14,
    "REVIEW_REQUIRED": 60,
    "by_type": {
@@ -8423,11 +8467,11 @@
     "COURT_PUBLIC_RECORD": 1,
     "DOCUMENT": 12,
     "GIS": 5,
-    "GOVERNMENT": 24,
+    "GOVERNMENT": 26,
     "PUBLIC_NOTICE": 1,
     "THIRD_PARTY": 23
    },
-   "sources": 90
+   "sources": 92
   },
   "UT": {
    "APPROVED": 1,

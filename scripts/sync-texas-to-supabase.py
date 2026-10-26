@@ -19,10 +19,13 @@ fields are now sent, each ONLY when the harvester actually carries it, never
 as an explicit null:
   url_auction + url_auction_kind  from TexasSaleRow.auction_url /
       .auction_url_kind - today only harvest_realauction() sets them (the
-      county sale-date PREVIEW page it fetched, kind 'sale'). LGBS rows
-      carry neither, so the keys are omitted and the DB column stays null:
-      the UI then says "Auction link not published". A URL is never
-      composed here from a county name or a provider homepage.
+      county sale-date PREVIEW page it fetched, kind 'sale') and, since
+      2026-10-25, harvest_lgbs() from the record's own `property_loc`
+      (kind 'county'). A row without one omits the keys, so the DB column
+      stays null and the UI says "Auction link not published". A URL is
+      never composed here from a county name or a provider homepage.
+  document_url  from TexasSaleRow.sale_list_url (2026-10-25) - the county
+      sale-list document LGBS publishes for the record, verbatim, https only.
   tx_sale_status  from TexasSaleRow.sale_status - LGBS's raw status,
       verbatim.
 Because PostgREST rejects a batch whose objects do not all share one key
@@ -332,6 +335,12 @@ def main() -> None:
         if auction_url and auction_url_kind in ("property", "sale", "county", "info"):
             row["url_auction"] = auction_url
             row["url_auction_kind"] = auction_url_kind
+        # The county sale-list document the source published for this record
+        # (LGBS county_sale_list, 2026-10-25), verbatim, https only - sent only
+        # when present, so a row without one never nulls a stored value.
+        sale_list_url = (p.get("sale_list_url") or "").strip()
+        if sale_list_url.startswith("https://") and not any(c.isspace() for c in sale_list_url):
+            row["document_url"] = sale_list_url
         # The vendor's own raw sale status, verbatim, when it published one.
         sale_status = (p.get("sale_status") or "").strip()
         if sale_status:
@@ -455,7 +464,7 @@ def main() -> None:
 
     sent = 0
     for keys, group in groups.items():
-        label = "+".join(k for k in ("latitude", "url_auction", "tx_sale_status") if k in keys) or "base columns only"
+        label = "+".join(k for k in ("latitude", "url_auction", "document_url", "tx_sale_status") if k in keys) or "base columns only"
         if not group:
             continue
         for i in range(0, len(group), BATCH_SIZE):

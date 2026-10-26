@@ -249,8 +249,10 @@ def test_l02_lineage_map_covers_the_three_new_fields_and_says_lgbs_has_no_url():
     names = {f.name for f in fields(th.TexasSaleRow)} - {"state", "harvester_source"}
     for source in ("tx_lgbs", "tx_realauction"):
         assert names <= set(th.FIELD_LINEAGE_MAP[source])
-    assert th.FIELD_LINEAGE_MAP["tx_lgbs"]["auction_url"] is None
-    assert th.FIELD_LINEAGE_MAP["tx_lgbs"]["auction_url_kind"] is None
+    # 2026-10-25: LGBS's own per-record property_loc, verbatim, never composed.
+    assert "property_loc" in th.FIELD_LINEAGE_MAP["tx_lgbs"]["auction_url"]
+    assert "never composed" in th.FIELD_LINEAGE_MAP["tx_lgbs"]["auction_url"]
+    assert "'county'" in th.FIELD_LINEAGE_MAP["tx_lgbs"]["auction_url_kind"]
     assert "status" in th.FIELD_LINEAGE_MAP["tx_lgbs"]["sale_status"]
     assert "'sale'" in th.FIELD_LINEAGE_MAP["tx_realauction"]["auction_url_kind"]
 
