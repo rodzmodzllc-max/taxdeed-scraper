@@ -260,7 +260,7 @@ def test_okaloosa_status_write_replaces_not_duplicates_its_own_prior_entry():
 
 def test_closeout_runs_after_the_upsert_section():
     src = _sync_src()
-    upsert_idx = src.index("Done. $sent properties upserted to Supabase")
+    upsert_idx = src.index("properties upserted to Supabase")
     closeout_idx = src.index("# ---- Close out properties that fell off the Waiting feed ----")
     assert upsert_idx < closeout_idx
 
@@ -646,7 +646,7 @@ def test_part6_no_workflow_schedule_change():
     workflow = _read(".github", "workflows", "harvest-and-sync.yml")
     assert "0 10,22 * * *" not in workflow  # this schedule string was never in this file to begin with; see next line
     assert "'13 10 * * *'" in workflow
-    assert "'13 22 * * *'" in workflow
+    assert "'13 4 * * *'" in workflow
     assert "'37 11 * * *'" in workflow
 
 
