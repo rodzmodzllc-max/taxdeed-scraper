@@ -1,0 +1,17 @@
+# THROWAWAY probe branch only - never merged. Runs the value-free RealAuction
+# paging check outside the shared harvest-and-sync concurrency slot.
+name: RealAuction paging probe (throwaway)
+on:
+  push:
+    branches: [claude/fl-auction-paging-probe]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - run: python3 scripts/realauction_paging_check.py --county Polk --county Duval --county Hillsborough
