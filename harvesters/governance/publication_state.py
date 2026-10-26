@@ -310,7 +310,7 @@ def _source_listing(row: dict, unit: dict, base: dict, observed) -> "PathEvidenc
     return PathEvidence(**{**base, "destination_url": url, "path_type": "source_listing",
                            "scope": "record" if field_name in ("purchase_url", "url_auction") else "source",
                            "verification_status": "VERIFIED", "last_verified": observed.isoformat() if observed else "",
-                           "procedure": "Where the property is published: the official listing it was found on",
+                           "procedure": "Where the property is published: the source listing it was found on",
                            "notes": f"source listing ({field_name}); no verified purchase procedure on file"})
 
 def _path_for(row: dict, ledger: str, sid: str, ctx: Context) -> tuple[PathEvidence, str | None]:
