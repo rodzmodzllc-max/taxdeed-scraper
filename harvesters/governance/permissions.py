@@ -36,7 +36,9 @@ APPROVED row on internal-acceptance evidence, so an internal decision cannot
 be upgraded to documented permission by editing a status word.
 
 Hard blocks: the vendors in county_source_registry.BLOCKED_SOURCE_IDS
-(tx_pbfcm, tx_mvba, tx_govease, tx_ctsa) are denied in code whatever the
+(tx_ctsa since 2026-10-26; tx_pbfcm, tx_mvba and tx_govease were lifted by
+the owner's decision of that date, which accepts the terms risk pending
+legal review) are denied in code whatever the
 file says, and a file that records anything but BLOCKED for one of them is
 INVALID (so every operation is denied until the file is corrected). Lifting
 one of these blocks therefore needs a reviewed code change, a record change
@@ -121,8 +123,10 @@ COLUMNS = (
 try:
     from .county_source_registry import BLOCKED_SOURCE_IDS as _BLOCKED
 except Exception:  # noqa: BLE001 - a broken import must not open the gate
-    _BLOCKED = frozenset({"tx_pbfcm", "tx_mvba", "tx_govease", "tx_ctsa"})
-HARD_BLOCKED_SOURCE_IDS = frozenset(_BLOCKED) | {"tx_pbfcm", "tx_mvba", "tx_govease", "tx_ctsa"}
+    _BLOCKED = frozenset({"tx_ctsa"})
+# tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner's decision of 2026-10-26
+# ("Do not block vendors ..."; terms risk accepted, legal review pending). tx_ctsa stays blocked (paywall).
+HARD_BLOCKED_SOURCE_IDS = frozenset(_BLOCKED) | {"tx_ctsa"}
 
 
 class PermissionConfigError(ValueError):

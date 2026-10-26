@@ -82,7 +82,7 @@
    "FAIL": 0,
    "NOT_APPLICABLE": 1,
    "NOT_VERIFIED": 5,
-   "PASS": 15
+   "PASS": 18
   },
   "WI": {
    "BLOCKED": 0,
@@ -1622,21 +1622,21 @@
   },
   {
    "check": "ledger_eligibility",
-   "detail": "COUNTY_DEPENDENT: 2 source(s) (tx_lgbs, tx_realauction) read 2026-10-01",
+   "detail": "COUNTY_DEPENDENT: 5 source(s) (tx_govease, tx_lgbs, tx_mvba, tx_pbfcm, tx_realauction) read 2026-10-01",
    "state": "TX",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "county_coverage",
-   "detail": "31 counties: Angelina, Aransas, Atascosa, Caldwell, Cameron, Dallas, El Paso, Ellis, Galveston, Goliad, Gregg, Hardin …",
+   "detail": "82 counties: Angelina, Aransas, Archer, Atascosa, Austin, Bandera, Bastrop, Bell, Brazoria, Brewster, Brown, Caldwell …",
    "state": "TX",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: tx_lgbs, tx_realauction",
+   "detail": "TRACKED: tx_govease, tx_lgbs, tx_mvba, tx_pbfcm, tx_realauction",
    "state": "TX",
    "status": "PASS",
    "subject": "AUCTIONS"
@@ -1650,14 +1650,14 @@
   },
   {
    "check": "county_coverage",
-   "detail": "8 counties fed; eligibility is NOT_VERIFIED",
+   "detail": "60 counties fed; eligibility is NOT_VERIFIED",
    "state": "TX",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: tx_lgbs",
+   "detail": "TRACKED: tx_lgbs, tx_mvba, tx_pbfcm",
    "state": "TX",
    "status": "PASS",
    "subject": "AVAILABLE"
@@ -1691,10 +1691,31 @@
   },
   {
    "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_govease"
+  },
+  {
+   "check": "source_classification",
    "detail": "AUCTIONS/AVAILABLE",
    "state": "TX",
    "status": "PASS",
    "subject": "tx_lgbs"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS/AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_mvba"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS/AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_pbfcm"
   },
   {
    "check": "source_classification",
@@ -1705,13 +1726,13 @@
   },
   {
    "check": "available_terms",
-   "detail": "every AVAILABLE source has a terms row (1)",
+   "detail": "every AVAILABLE source has a terms row (3)",
    "state": "TX",
    "status": "PASS"
   },
   {
    "check": "acquisition_path",
-   "detail": "1/8 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "detail": "1/63 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
    "state": "TX",
    "status": "NOT_VERIFIED"
   },
@@ -2077,6 +2098,6 @@
   "FAIL": 0,
   "NOT_APPLICABLE": 25,
   "NOT_VERIFIED": 49,
-  "PASS": 223
+  "PASS": 226
  }
 }

@@ -206,9 +206,10 @@ def test_r01_committed_registry_is_unchanged_county_level_and_still_valid():
     # 227 (2026-10-01, five-state sprint) = 222 + Douglas CO (2, CC BY-SA 4.0) and the three
     # implemented-but-UNREVIEWED county sources (Morgan CO deed auctions, Dane WI, Oconee SC).
     # 232 = 227 + the AVAILABLE sprint's five held MI / SC AVAILABLE sources (expansion.py).
-    assert len(rows) == 238 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA", "AZ", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"}
+    # 238 - 14 blocked-vendor-only rows + 61 PBFCM / MVBA / GovEase rows (owner decision 2026-10-26).
+    assert len(rows) == 238 - 14 + 61 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA", "AZ", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"}
     available = [r for r in rows if r.state in ("FL", "TX") and "AVAILABLE" in r.ledger_set or r.state in ("FL", "TX") and not r.ledger_set]
-    assert len(available) == 112 - 3
+    assert len(available) == 112 - 3 - 14 + 55
     assert all(r.publishing_unit == "COUNTY" for r in rows if r.state in ("FL", "TX"))
     with open(csr.REGISTRY_PATH, newline="", encoding="utf-8") as fh:
         assert csv.DictReader(fh).fieldnames == csr.EXTENDED_COLUMNS

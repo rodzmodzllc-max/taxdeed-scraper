@@ -307,10 +307,11 @@ def test_g03_an_admin_review_turns_a_source_on_and_an_invalid_one_does_not(monke
             record(source_id="wi_dane_tax_deed_auction", jurisdiction="WI", operation="display"), base=False)
     assert SP.publishable(reg["wi_dane_tax_deed_auction"])
     # A review that tries to publish a blocked vendor is refused by the same validator publication_gate uses.
-    bad = {("TX", "tx_govease"): {"id": 2, "state": "TX", "source_id": "tx_govease", "publication_status": "APPROVED",
-                                  "restrictions": "", "decided_at": "2026-10-01T00:00:00Z"}}
+    # (tx_ctsa - the one vendor still blocked since the owner unblocked GovEase / PBFCM / MVBA on 2026-10-26.)
+    bad = {("TX", "tx_ctsa"): {"id": 2, "state": "TX", "source_id": "tx_ctsa", "publication_status": "APPROVED",
+                               "restrictions": "", "decided_at": "2026-10-01T00:00:00Z"}}
     reg_tx, rep_tx = SP.registry_with_reviews("TX", reviews=bad)
-    assert not SP.publishable(reg_tx.get("tx_govease")) and ("TX/tx_govease" in rep_tx["reviews"]["rejected"] or "TX/tx_govease" in rep_tx["reviews"]["unknown_source"])
+    assert not SP.publishable(reg_tx.get("tx_ctsa")) and ("TX/tx_ctsa" in rep_tx["reviews"]["rejected"] or "TX/tx_ctsa" in rep_tx["reviews"]["unknown_source"])
 
 
 def test_g04_acquisition_evidence_rows_are_verified_and_anchored():

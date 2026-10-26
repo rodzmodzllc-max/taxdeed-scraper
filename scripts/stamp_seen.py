@@ -66,8 +66,8 @@ STORE_SOURCES = {
     ("FL", "certificate"): (("fl_lienhub_certificates",), "county_held_certificates"),
     # Texas (2026-10-26): the LGBS / RealAuction sync never set last_seen_at,
     # so every Texas row read as never-read ("unknown") after each harvest.
-    ("TX", "laft"): (("tx_lgbs",), "tax_sale_listing"),
-    ("TX", "auction"): (("tx_lgbs", "tx_realauction"), "tax_sale_listing"),
+    ("TX", "laft"): (("tx_lgbs", "tx_pbfcm", "tx_mvba"), "tax_sale_listing"),
+    ("TX", "auction"): (("tx_lgbs", "tx_realauction", "tx_pbfcm", "tx_mvba", "tx_govease"), "tax_sale_listing"),
 }
 PERMISSION_DENIED_EXIT = 3
 

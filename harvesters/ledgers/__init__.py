@@ -111,6 +111,11 @@ SOURCE_LEDGERS: dict[str, frozenset[Ledger]] = {
     "tx_realauction": frozenset({Ledger.AUCTIONS}),
     "tx_lgbs": frozenset({Ledger.AUCTIONS, Ledger.AVAILABLE}),
     "tx_hctax": frozenset({Ledger.AVAILABLE}),
+    # 2026-10-26 (owner decision): the delinquent-tax law firms publish sale lists
+    # (AUCTIONS) and resale / trust lists (AVAILABLE); GovEase runs online auctions.
+    "tx_pbfcm": frozenset({Ledger.AUCTIONS, Ledger.AVAILABLE}),
+    "tx_mvba": frozenset({Ledger.AUCTIONS, Ledger.AVAILABLE}),
+    "tx_govease": frozenset({Ledger.AUCTIONS}),
     # Registered, not activated states
     "al_ador_state_land": frozenset({Ledger.AVAILABLE}),
     "ar_cosl_post_auction": frozenset({Ledger.AVAILABLE}),
@@ -146,8 +151,10 @@ SOURCE_LEDGERS: dict[str, frozenset[Ledger]] = {
     # Tennessee (2026-10-08): Shelby County Land Bank (UNREVIEWED) - docs/tennessee-survey.md.
     "tn_shelby_landbank": frozenset({Ledger.AVAILABLE}),
 }
-# The four blocked Texas vendors: discovery only, they feed no ledger.
-BLOCKED_SOURCE_IDS = frozenset({"tx_pbfcm", "tx_mvba", "tx_govease", "tx_ctsa"})
+# tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner's decision of 2026-10-26
+# ("Do not block vendors ..."; terms risk accepted, legal review pending). tx_ctsa stays blocked (paywall).
+# The remaining blocked Texas vendor: discovery only, it feeds no ledger.
+BLOCKED_SOURCE_IDS = frozenset({"tx_ctsa"})
 
 
 def ledger_for_source(source: str) -> Ledger:

@@ -53,7 +53,9 @@ import rest_pages as RP  # noqa: E402
 import sync_state_inventory as SI  # noqa: E402
 
 STATE = "TX"
-SOURCE_IDS = frozenset({"tx_lgbs", "tx_realauction"})
+# + the vendors the owner unblocked on 2026-10-26 (harvesters/texas_vendors.py writes the same
+# per-(source, county) entries; a county whose index page was not read is never COMPLETE).
+SOURCE_IDS = frozenset({"tx_lgbs", "tx_realauction", "tx_pbfcm", "tx_mvba", "tx_govease"})
 # The dataset their permission records name (scripts/stamp_seen.py STORE_SOURCES).
 DATASET = "tax_sale_listing"
 REACTIVATABLE = frozenset({"closed", "dropped", "notfound"})

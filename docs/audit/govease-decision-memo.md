@@ -1,5 +1,7 @@
 # GovEase: evidence and decision memo
 
+> **Superseded 2026-10-26.** The owner decided: "Do not block vendors. Post their shit and we'll figure out the legal shit afterwards." GovEase is harvested from that date (terms / robots.txt risk accepted, legal review pending) - see `docs/texas-vendor-sources.md`. The memo below is kept as the record of the earlier block.
+
 **Date:** 2026-10-12. **Status:** BLOCKED, and it stays blocked. Nothing in this memo changes it. No one at GovEase or any county was contacted, and no GovEase endpoint was requested for this memo.
 
 **The decision belongs to the owner.** This memo lays out options. It does not choose one.

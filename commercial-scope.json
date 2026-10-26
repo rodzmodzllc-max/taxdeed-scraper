@@ -560,6 +560,18 @@
    "reason": "Registered, not collected."
   },
   {
+   "source_id": "tx_govease",
+   "state": "TX",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "commercial_scope": "REQUIRES_PUBLICATION_DECISION",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "tx_hctax",
    "state": "TX",
    "publication_status": "RESTRICTED",
@@ -591,8 +603,8 @@
   {
    "source_id": "tx_mvba",
    "state": "TX",
-   "publication_status": "BLOCKED",
-   "commercial_scope": "BLOCKED",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "commercial_scope": "REQUIRES_PUBLICATION_DECISION",
    "collected": false,
    "paid_beta": false,
    "tester_preview": false,
@@ -603,8 +615,8 @@
   {
    "source_id": "tx_pbfcm",
    "state": "TX",
-   "publication_status": "BLOCKED",
-   "commercial_scope": "BLOCKED",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "commercial_scope": "REQUIRES_PUBLICATION_DECISION",
    "collected": false,
    "paid_beta": false,
    "tester_preview": false,

@@ -29,7 +29,8 @@ from permission_fixtures import install as install_perms  # noqa: E402
 from permission_fixtures import record  # noqa: E402
 
 SCRIPTS = ("capture_available_sources", "capture_pioneer_statements", "capture_purchase_evidence", "capture_sc_available",
-           "capture_state_sources", "capture_tn_shelby", "discover_sources", "probe_fdor_starvation", "probe_field_fill")
+           "capture_state_sources", "capture_tn_shelby", "capture_tx_vendors", "discover_sources", "probe_fdor_starvation",
+           "probe_field_fill")
 
 IDX = [DG.Target("zz_ok", "ZZ", None, "ok.example.gov", "/list"),
        DG.Target("zz_other", "ZZ", None, "shared.example.gov", "/a"),
@@ -171,21 +172,23 @@ def test_project_database_host_is_not_a_source(monkeypatch, transport):
 
 # --- the real repository today --------------------------------------------------
 
-def test_no_source_holds_a_discover_permission_today_so_every_mapped_url_is_refused():
-    # The only discover records are the four BLOCKED vendors, plus (owner decision
-    # 2026-10-26) the interim one-read record for TaxSys' county-held reports,
-    # whose hosts are in no index table - so every mapped URL is still refused.
-    # Evidence capture therefore needs an owner-recorded discover permission per
-    # source first.
+OWNER_VENDORS = {"tx_pbfcm", "tx_mvba", "tx_govease"}  # discover recorded with the owner's decision of 2026-10-26
+VENDOR_HOSTS = {"www.pbfcm.com", "mvbalaw.com", "www.mvbataxsales.com", "liveauctions.govease.com"}
+
+
+def test_only_owner_recorded_sources_hold_a_discover_permission():
+    # Evidence capture needs an owner-recorded discover permission per source. On file: the three
+    # Texas vendors the owner unblocked on 2026-10-26, and the interim one-read record for TaxSys'
+    # county-held reports (whose hosts are in no index table).
     allowing = [r for r in PERM.Permissions.from_file().records if r.operation == "discover" and r.status != "BLOCKED"]
-    assert [(r.source_id, r.evidence_type, r.expires_on) for r in allowing] == [
-        ("fl_taxsys_county_held", "INTERNAL_RISK_ACCEPTANCE", "2027-04-12")]
+    assert {r.source_id for r in allowing} == OWNER_VENDORS | {"fl_taxsys_county_held"}
+    assert all(r.evidence_type == "INTERNAL_RISK_ACCEPTANCE" and r.expires_on == "2027-04-12" for r in allowing)
     g = DG.Guard("t")
     hosts = sorted({t.host for t in g.index})
-    assert hosts and not any(g.decide(f"https://{h}/").allowed for h in hosts)
+    assert hosts and not any(g.decide(f"https://{h}/").allowed for h in hosts if h not in VENDOR_HOSTS)
 
 
-@pytest.mark.parametrize("url", ["https://liveauctions.govease.com/tx/denton", "https://www.govease.com/",
+@pytest.mark.parametrize("url", ["https://www.govease.com/", "https://countytaxsaleapp.org/",
                                  "https://taxsales.lgbs.com/api/property_sales/", "https://lienhub.com/doc/terms"])
 def test_blocked_and_restricted_vendors_are_refused(url):
     assert not DG.Guard("t").decide(url).allowed

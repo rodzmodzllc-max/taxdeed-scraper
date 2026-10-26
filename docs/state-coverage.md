@@ -154,15 +154,15 @@ TN - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
-| AUCTIONS | COUNTY_DEPENDENT | SOURCE_FAILED_OR_STALE | 32 / 32 / 32 | 122 | 122 | 0 | 1 of 8 | Investigate the last read's error category (registry last_error_category / unit freshness) and restore the read; rows are kept, never closed, until a COMPLETE read. |
-| AVAILABLE | NOT_VERIFIED | SOURCE_FAILED_OR_STALE | 28 / 8 / 8 | 421 | 39 | 382 | 1 of 9 | Investigate the last read's error category (registry last_error_category / unit freshness) and restore the read; rows are kept, never closed, until a COMPLETE read. |
+| AUCTIONS | COUNTY_DEPENDENT | SOURCE_FAILED_OR_STALE | 93 / 93 / 93 | 122 | 122 | 0 | 1 of 63 | Investigate the last read's error category (registry last_error_category / unit freshness) and restore the read; rows are kept, never closed, until a COMPLETE read. |
+| AVAILABLE | NOT_VERIFIED | SOURCE_FAILED_OR_STALE | 83 / 63 / 63 | 421 | 39 | 382 | 1 of 64 | Investigate the last read's error category (registry last_error_category / unit freshness) and restore the read; rows are kept, never closed, until a COMPLETE read. |
 | LIENS_CERTIFICATES | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
 
 TX - AUCTIONS field population (active rows, snapshot): amount 122/122; bid_amount_mismatch 0/122; coords 82/122; dup_parcel 3/122; flood_checked 82/122; laft_bid_without_amount 0/122; link_not_https 0/122; list_as_of 0/122; list_as_of_future 0/122; never_seen 122/122; parcel 122/122; parcel_no_digit 0/122; past_sale 122/122; path_typed 0/122; provenance 0/122; seen_gt36h 0/122; seen_order_bad 0/122; source_link 103/122
-TX - AUCTIONS: 122 of 122 active rows never stamped, 0 read more than 36 h before the snapshot; every production source is manual-only (dispatched by hand, never scheduled): the last read is the last manual dispatch
+TX - AUCTIONS: 122 of 122 active rows never stamped, 0 read more than 36 h before the snapshot
 
 TX - AVAILABLE field population (active rows, snapshot): amount 402/421; bid_amount_mismatch 0/421; coords 421/421; dup_parcel 94/421; flood_checked 421/421; laft_bid_without_amount 402/421; link_not_https 0/421; list_as_of 0/421; list_as_of_future 0/421; never_seen 39/421; parcel 421/421; parcel_no_digit 0/421; past_sale 0/421; path_typed 183/421; provenance 382/421; seen_gt36h 382/421; seen_order_bad 0/421; source_link 421/421
-TX - AVAILABLE: 39 of 421 active rows never stamped, 382 read more than 36 h before the snapshot; every production source is manual-only (dispatched by hand, never scheduled): the last read is the last manual dispatch
+TX - AVAILABLE: 39 of 421 active rows never stamped, 382 read more than 36 h before the snapshot
 TX - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 
 ## WI

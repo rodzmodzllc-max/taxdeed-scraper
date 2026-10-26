@@ -452,12 +452,12 @@ def test_phase34b_section11_blocked_source_denied_before_any_authorization_looku
     denied by the ingestion gate itself, with the authorization-record
     lookup never even reached (ingestion_gate_allowed=False, authorization_
     status=None - not merely 'no record found')."""
-    assert SOURCE_REGISTRY["tx_pbfcm"].legal_status == SourceStatus.BLOCKED
-    decision = check_authorized_use("tx_pbfcm", "automated_access")
+    assert SOURCE_REGISTRY["tx_ctsa"].legal_status == SourceStatus.BLOCKED  # tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner on 2026-10-26; tx_ctsa stays BLOCKED
+    decision = check_authorized_use("tx_ctsa", "automated_access")
     assert decision.allowed is False
     assert decision.ingestion_gate_allowed is False
     assert decision.authorization_status is None
-    assert authorized_for_ingestion("tx_pbfcm") is False
+    assert authorized_for_ingestion("tx_ctsa") is False
 
 
 def test_phase34b_section11_disabled_status_is_not_an_ingestion_allowed_status():

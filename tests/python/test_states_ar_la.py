@@ -363,7 +363,7 @@ def test_g01_registry_rows_mirror_the_adapters_ar_refused_la_production():
     spec.loader.exec_module(mod)
     assert mod.render(mod.build_rows()) == csr.REGISTRY_PATH.read_text(encoding="utf-8")
     # FL / TX untouched.
-    assert len(csr.expected_harvest_units(ROWS, "FL")) == 52 and len(csr.expected_harvest_units(ROWS, "TX")) == 8   # AVAILABLE ledger
+    assert len(csr.expected_harvest_units(ROWS, "FL")) == 52 and len(csr.expected_harvest_units(ROWS, "TX")) == 63  # AVAILABLE ledger (+PBFCM/MVBA 2026-10-26)
     for code in ("FL", "TX"):
         assert states.is_activated(code)
 

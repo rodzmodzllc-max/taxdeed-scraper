@@ -270,8 +270,8 @@ def test_adv_06_source_failure_is_not_no_records():
 
 
 def test_adv_07_no_silent_fallback():
-    assert check_fallback_allowed("tx_lgbs", "tx_pbfcm", explicitly_configured=False).allowed is False
-    assert check_fallback_allowed("tx_lgbs", "tx_pbfcm", explicitly_configured=True).allowed is False
+    assert check_fallback_allowed("tx_lgbs", "tx_ctsa", explicitly_configured=False).allowed is False  # tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner on 2026-10-26; tx_ctsa stays BLOCKED
+    assert check_fallback_allowed("tx_lgbs", "tx_ctsa", explicitly_configured=True).allowed is False
 
 
 def test_adv_08_cross_state_identity_collision():
