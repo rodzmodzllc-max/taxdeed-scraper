@@ -69,6 +69,42 @@ function Get-Href($block, $label) {
     if ($m.Success) { return ($m.Groups[1].Value -replace '&amp;','&') }
     return $null
 }
+# The tax certificate that opened the deed application. Most RealAuction
+# county skins label it "Certificate #"; a county skin may word the label
+# differently (2026-10-26: Orange, 0 of 69 active rows carried a certificate
+# number although its list is read every run). Labels are tried in order and
+# the first one PRESENT with a value wins; "Certificate #" stays first, so a
+# county that already read correctly reads exactly as before. The label must
+# be the WHOLE label cell (anchored on the CAD_LBL cell's '>' and its ':'), so
+# a shorter label never matches inside a longer one and a value is never read
+# from another cell. Pinned by tests/python/test_fl_field_fixes.py, which runs
+# this function under pwsh.
+$CertLabels = @('Certificate #', 'Certificate Number', 'Certificate No.', 'Certificate No', 'Certificate',
+                'Cert #', 'Cert. #', 'Cert Number', 'Cert No.', 'Cert No', 'Cert',
+                'Tax Certificate #', 'Tax Certificate Number', 'Tax Certificate No.', 'Tax Certificate No', 'Tax Certificate',
+                'Tax Cert #', 'Tax Cert', 'TC #', 'TC Number')
+function Get-CertificateNumber($block) {
+    foreach ($label in $CertLabels) {
+        $pat = 'CAD_LBL\\"[^>]*>\s*' + [regex]::Escape($label) + '\s*:(?:@F|<)[\s\S]{0,200}?CAD_DTA\\">\s*([^@<]*(?:<a[^>]*>([^<]*)</a>)?[^@<]*)'
+        $m = [regex]::Match($block, $pat, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        if (-not $m.Success) { continue }
+        $v = if ($m.Groups[2].Success -and $m.Groups[2].Value) { $m.Groups[2].Value } else { $m.Groups[1].Value }
+        $v = (($v -replace '<[^>]+>','') -replace '\\"','"' -replace '\s+',' ').Trim()
+        if ($v) { return $v }
+    }
+    return $null
+}
+# Value-free label vocabulary of the items read (HARVEST_LABEL_REPORT=1, set
+# only by the manual evidence job's realauction_labels scope): each CAD_LBL
+# label text with every digit masked, counted per county. Never a cell value.
+function Get-LabelTexts($block) {
+    [regex]::Matches($block, 'CAD_LBL\\"[^>]*>\s*([^@<]{1,60})') | ForEach-Object {
+        ((($_.Groups[1].Value -replace '\d','#') -replace '\s+',' ').Trim().TrimEnd(':')).Trim()
+    } | Where-Object { $_ }
+}
+$LabelReport = ($env:HARVEST_LABEL_REPORT -eq "1")
+$LabelCounts = @{}
+
 function ToNum($s) {
     if (-not $s) { return $null }
     $c = ($s -replace '[^0-9.]','')
@@ -77,6 +113,13 @@ function ToNum($s) {
 }
 
 $counties = Import-Csv $csv
+# HARVEST_COUNTIES (comma-separated) limits the read to those counties. Set
+# only by the manual evidence job's value-free label capture, which runs with
+# no database credential and syncs nothing; the scheduled harvest never sets it.
+if (-not [string]::IsNullOrWhiteSpace($env:HARVEST_COUNTIES)) {
+    $only = @($env:HARVEST_COUNTIES -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $counties = @($counties | Where-Object { $only -contains $_.County })
+}
 # A List + HashSet rather than a plain @() array, for two separate reasons -
 # both of which were real, measured costs, not micro-optimisation:
 #
@@ -210,6 +253,11 @@ $ci = 0
 
             foreach ($b in $blocks) {
                 $seen++
+                if ($LabelReport) {
+                    if (-not $LabelCounts.ContainsKey($c.County)) { $LabelCounts[$c.County] = @{} }
+                    foreach ($lt in @(Get-LabelTexts $b)) { $LabelCounts[$c.County][$lt] = 1 + [int]$LabelCounts[$c.County][$lt] }
+                    $LabelCounts[$c.County]['(items)'] = 1 + [int]$LabelCounts[$c.County]['(items)']
+                }
                 $case = Get-Field $b 'Case #'
                 if (-not $case) { continue }
                 $case = ($case -replace '<[^>]+>','').Trim()
@@ -243,7 +291,7 @@ $ci = 0
                     host        = $hostName
                     sale_date   = $date
                     case        = $case
-                    cert        = (Get-Field $b 'Certificate #')
+                    cert        = (Get-CertificateNumber $b)
                     bid         = $bid
                     assessed    = ToNum (Get-Field $b 'Assessed Value')
                     parcel      = ((Get-Field $b 'Parcel ID') -replace '<[^>]+>','').Trim()
@@ -301,5 +349,17 @@ Write-Host ("With bid amount: {0}" -f ($all | Where-Object { $_.bid }).Count)
 Write-Host ("With assessed value from the feed: {0}" -f ($all | Where-Object { $_.assessed }).Count)
 Write-Host ("With parcel ID: {0}" -f ($all | Where-Object { $_.parcel }).Count)
 Write-Host ("With appraiser deep-link: {0}" -f ($all | Where-Object { $_.appraiser }).Count)
+Write-Host ("With certificate number: {0}" -f ($all | Where-Object { $_.cert }).Count)
+foreach ($cn in @($all.county | Select-Object -Unique)) {
+    $cRows = @($all | Where-Object { $_.county -eq $cn })
+    $cCert = @($cRows | Where-Object { $_.cert }).Count
+    if ($cCert -lt $cRows.Count) { Write-Host ("  {0}: certificate number on {1} of {2} rows" -f $cn, $cCert, $cRows.Count) }
+}
+if ($LabelReport) {
+    Write-Host "Label vocabulary per county (digits masked, never a value):"
+    foreach ($cn in @($LabelCounts.Keys | Sort-Object)) {
+        foreach ($lt in @($LabelCounts[$cn].Keys | Sort-Object)) { Write-Host ("  LABEL {0} | {1} | {2}" -f $cn, $lt, $LabelCounts[$cn][$lt]) }
+    }
+}
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host "Saved: $outJson"
