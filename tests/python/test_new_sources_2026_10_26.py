@@ -63,8 +63,9 @@ def test_every_new_source_is_unreviewed_collected_and_never_displayed():
 
 def test_owner_collection_never_reaches_a_source_outside_the_sprint():
     reg = SP.registry_with_reviews("WI", reviews={})[0]
-    assert not SP.owner_collection(reg["wi_dane_tax_deed_auction"])
-    assert not SP.collectable(reg["wi_dane_tax_deed_auction"], "auction")          # unreviewed auction: still not collected
+    row = dataclasses.replace(reg["wi_dane_tax_deed_auction"], publication_status="UNREVIEWED")
+    assert not SP.owner_collection(row)
+    assert not SP.collectable(row, "auction")          # an unreviewed auction source outside the sprint: still not collected
 
 
 def test_the_gate_lets_each_new_state_run():

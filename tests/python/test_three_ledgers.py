@@ -192,8 +192,14 @@ def test_r02_auction_and_certificate_rows_mirror_the_harvesters_own_county_lists
         assert row.is_production and row.inventory_type == "" and row.source_authority == "VENDOR_AUCTION"
     with open(REPO / "data/florida_certificate_sale_platforms.csv", newline="", encoding="utf-8") as fh:
         lienhub = {r["County"] for r in csv.DictReader(fh) if r["Platform"] == "LienHub"}
-    fl_cert = {r.county: r for r in ROWS if r.state == "FL" and r.ledger_set == {"LIENS_CERTIFICATES"}}
+    fl_cert = {r.county: r for r in ROWS if r.state == "FL" and r.ledger_set == {"LIENS_CERTIFICATES"}
+               and r.source_id == "fl_lienhub_certificates"}
     assert set(fl_cert) == lienhub and len(fl_cert) == 32
+    # The one certificate source outside LienHub (owner decision 2026-10-26): the
+    # Sarasota Tax Collector's own county-held list, a second row for that county.
+    other = [r for r in ROWS if r.state == "FL" and r.ledger_set == {"LIENS_CERTIFICATES"} and r.source_id != "fl_lienhub_certificates"]
+    assert [(r.county, r.source_id, r.harvester, r.source_authority) for r in other] == [
+        ("Sarasota", "fl_sarasota_tc_certificates", "harvest_sarasota_certificates.py", "GOVERNMENT_DIRECT")]
     for county, row in fl_cert.items():
         slug = re.sub(r"[^a-z]", "", county.lower())
         assert row.canonical_url == f"https://lienhub.com/county/{slug}/countyheld/certificates" and row.source_id == "fl_lienhub_certificates"
@@ -209,8 +215,8 @@ def test_r03_expected_units_are_scoped_per_ledger():
     assert len(csr.expected_harvest_units(ROWS, "FL")) == 52                                   # default: AVAILABLE
     assert len(csr.expected_harvest_units(ROWS, "FL", ledger="AVAILABLE")) == 52
     assert len(csr.expected_harvest_units(ROWS, "FL", ledger="AUCTIONS")) == 47
-    assert len(csr.expected_harvest_units(ROWS, "FL", ledger="LIENS_CERTIFICATES")) == 32
-    assert len(csr.expected_harvest_units(ROWS, "FL", ledger=None)) == 52 + 47 + 32
+    assert len(csr.expected_harvest_units(ROWS, "FL", ledger="LIENS_CERTIFICATES")) == 32 + 1   # + Sarasota Tax Collector (2026-10-26)
+    assert len(csr.expected_harvest_units(ROWS, "FL", ledger=None)) == 52 + 47 + 32 + 1
     assert len(csr.expected_harvest_units(ROWS, "TX", ledger="AVAILABLE")) == 8                # LGBS only
     assert len(csr.expected_harvest_units(ROWS, "TX", ledger="AUCTIONS")) == 24 + 8            # RealAuction + LGBS
     assert csr.expected_harvest_units(ROWS, "TX", ledger="LIENS_CERTIFICATES") == []           # no TX certificate ledger

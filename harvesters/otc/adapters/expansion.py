@@ -753,6 +753,20 @@ MI_TSI_SURPLUS = tuple(TSI.TaxSaleInfoConfig(
 
 HELD_AVAILABLE = ("AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for "
                   "development, labelled UNREVIEWED; not customer-published until an admin review approves it.")
+# Owner decision, 2026-10-26 (quoted in docs/publish-all-sources.md): every
+# collected source is published to customers now; the legal review follows.
+# It is the owner's internal risk acceptance, recorded as such everywhere
+# (registry restrictions; data/source_permissions.csv INTERIM display / link
+# records expiring 2027-04-12) - never as the source's own permission.
+OWNER_APPROVED_2026_10_26 = ("Owner approved customer publication 2026-10-26; legal review pending. The source publishes no "
+                             "explicit reuse licence; this is the owner's internal risk acceptance, not the source's "
+                             "permission. Show only what the source publishes; no inferred results.")
+OWNER_APPROVED_2026_10_26_SOURCE_IDS = frozenset({
+    "co_morgan_treasurer_deed_auctions", "wi_dane_tax_deed_auction", "sc_oconee_tax_sale_list",
+    "mi_detroit_landbank_lots", "mi_detroit_landbank_programs", "mi_oceana_landbank",
+    "sc_horry_forfeited_land", "sc_georgetown_forfeited_land", "mo_stl_lra_inventory",
+    "ok_oklahoma_county_owned", "pa_fayette_repository", "mn_ramsey_tax_forfeit", "tn_shelby_landbank",
+})
 PUBLICATION = {
     "mi_eaton_treasurer_sale": ("APPROVED", OWNER_APPROVED_2026_09_30),
     "mi_lenawee_tax_sale": ("APPROVED", OWNER_APPROVED_2026_09_30),
@@ -762,21 +776,8 @@ PUBLICATION = {
     "wi_green_tax_deed_sales": ("APPROVED", OWNER_APPROVED_2026_09_30),
     "co_douglas_county_held_liens": ("APPROVED", DOUGLAS_CC_BY_SA),
     "co_douglas_tax_sale_list": ("APPROVED", DOUGLAS_CC_BY_SA),
-    "co_morgan_treasurer_deed_auctions": ("UNREVIEWED", UNREVIEWED_NO_LICENCE),
-    "wi_dane_tax_deed_auction": ("UNREVIEWED", UNREVIEWED_NO_LICENCE),
-    "sc_oconee_tax_sale_list": ("UNREVIEWED", UNREVIEWED_NO_LICENCE),
-    "mi_detroit_landbank_lots": ("UNREVIEWED", HELD_AVAILABLE),
-    "mi_detroit_landbank_programs": ("UNREVIEWED", HELD_AVAILABLE),
-    "mi_oceana_landbank": ("UNREVIEWED", HELD_AVAILABLE),
-    "sc_horry_forfeited_land": ("UNREVIEWED", HELD_AVAILABLE),
-    "sc_georgetown_forfeited_land": ("UNREVIEWED", HELD_AVAILABLE),
-    "mo_stl_lra_inventory": ("UNREVIEWED", HELD_AVAILABLE),
-    "ok_oklahoma_county_owned": ("UNREVIEWED", HELD_AVAILABLE),
-    "pa_fayette_repository": ("UNREVIEWED", HELD_AVAILABLE),
-    "mn_ramsey_tax_forfeit": ("UNREVIEWED", HELD_AVAILABLE),
-    "tn_shelby_landbank": ("UNREVIEWED", HELD_AVAILABLE),
     **{c.source_id: ("UNREVIEWED", OWNER_INTERIM_2026_10_26) for c in NEW_EPP_SOURCES + NEW_TABLE_SOURCES + MI_TSI_AUCTIONS[:1] + MI_TSI_SURPLUS[:1]},
-}
+} | {sid: ("APPROVED", OWNER_APPROVED_2026_10_26) for sid in sorted(OWNER_APPROVED_2026_10_26_SOURCE_IDS)}
 
 
 @dataclass(frozen=True)

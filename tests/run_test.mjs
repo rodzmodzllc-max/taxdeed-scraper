@@ -4535,7 +4535,7 @@ await navMap.close();
       if (!cc) return null;
       const links = Array.from(cc.querySelectorAll('.cc-link')).map(a => a.getAttribute('href'));
       return { events: Number(cc.dataset.events), shown: cc.querySelectorAll(':scope > ol.sales-timeline > .cc-event').length, rest: cc.querySelectorAll('.cc-rest .cc-event').length,
-        head: cc.querySelector('.cc-head .eyebrow').textContent.trim(),
+        head: (document.querySelector('#saleStrip .ss-head .eyebrow') || {}).textContent,
         firstFacts: Array.from(cc.querySelectorAll('.cc-event')[0].querySelectorAll('.cc-facts span')).map(s => s.textContent),
         linksFromRows: links.length > 0 && links.every(h => /^https?:\/\//.test(h)),
         noInvented: !/deposit|registration deadline|bidder/i.test(cc.textContent) };
@@ -7228,6 +7228,57 @@ await big.press('#globalSearchInput', 'Enter');
 }
 
 
+// Sale-day strip + popups that fit the screen (2026-10-26, the owner's phone
+// report): on Auctions the sale days are the first thing, always open and
+// scrolled sideways - never a fold; the Look menu, the ledger question and the
+// card price note open fully inside a phone screen.
+{
+  for (const [tag, vp] of [['phone', { width: 360, height: 800 }], ['desktop', { width: 1280, height: 900 }]]) {
+    const pg = await newPage({ viewport: vp });
+    pg.on('pageerror', e => errors.push('sale strip pageerror: ' + e.message));
+    await pg.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+    await pg.waitForTimeout(500);
+    const inView = sel => pg.evaluate(s => { const el = document.querySelector(s); if (!el) return null; const r = el.getBoundingClientRect(); return r.width > 0 && r.left >= 0 && r.right <= document.documentElement.clientWidth; }, sel);
+    const head = await pg.evaluate(() => {
+      const strip = document.getElementById('saleStrip');
+      const head = strip && strip.closest('.ledger-head');
+      return { strip: !!strip, first: !!head && head.firstElementChild === strip, inFold: !!(strip && strip.closest('details')),
+        calendarFold: [...document.querySelectorAll('#main details > summary')].some(x => /calendar/i.test(x.textContent)),
+        days: strip ? Number(strip.dataset.days) : 0, chips: strip ? strip.querySelectorAll('.ss-day').length : 0,
+        selected: strip ? strip.querySelectorAll('.ss-day[aria-selected="true"]').length : 0,
+        scrolls: strip ? getComputedStyle(strip.querySelector('.ss-scroll')).overflowX : null };
+    });
+    await pg.click('#saleStrip .ss-day:nth-child(2)');
+    await pg.waitForTimeout(250);
+    const picked = await pg.evaluate(() => ({ date: document.getElementById('upcomingSales').dataset.date,
+      chip: document.querySelector('#saleStrip .ss-day[aria-selected="true"]').dataset.date, events: document.querySelectorAll('#upcomingSales .cc-event').length }));
+    await pg.click('#saleStrip .ss-go');
+    await pg.waitForTimeout(700);
+    const jumped = await pg.evaluate(d => { const t = document.querySelector(`#main .date-divider[data-date="${d}"]`); if (!t) return null; const top = t.getBoundingClientRect().top; return top >= 40 && top < 200; }, picked.date);
+    await pg.click('.ib-btn[data-ledger-question="auction"]');
+    await pg.waitForTimeout(150);
+    const question = await inView('.ib.open > .ib-pop');
+    await pg.keyboard.press('Escape');
+    await pg.click('#lookBtn');
+    await pg.waitForTimeout(150);
+    const look = await inView('#lookMenu');
+    await pg.click('#lookBtn');
+    await pg.evaluate(() => { location.hash = '#/lands'; });
+    await pg.waitForTimeout(700);
+    const pb = pg.locator('#main .card-price-info .ib-btn').first();
+    await pb.scrollIntoViewIfNeeded();
+    await pb.click();
+    await pg.waitForTimeout(200);
+    const price = await pg.evaluate(() => { const p = document.querySelector('.card-price-info .ib.open > .ib-pop'); if (!p) return null;
+      const r = p.getBoundingClientRect(), c = p.closest('.prop-card').getBoundingClientRect();
+      return { insideCard: r.left >= c.left && r.right <= c.right, insideScreen: r.left >= 0 && r.right <= document.documentElement.clientWidth, inFlow: getComputedStyle(p).position === 'static' }; });
+    results['saleStrip_' + tag] = { head, pickedSecond: picked.date === picked.chip && picked.events > 0, jumped, question, look, price,
+      noOverflow: await pg.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth) };
+    await pg.close();
+  }
+}
+
+
 await browser.close();
 
 // ============================================================
@@ -7239,6 +7290,8 @@ await browser.close();
 
 
 const EXPECTED = {
+  saleStrip_phone: {"head": {"strip": true, "first": true, "inFold": false, "calendarFold": false, "days": 9, "chips": 9, "selected": 1, "scrolls": "auto"}, "pickedSecond": true, "jumped": true, "question": true, "look": true, "price": {"insideCard": true, "insideScreen": true, "inFlow": true}, "noOverflow": true},
+  saleStrip_desktop: {"head": {"strip": true, "first": true, "inFold": false, "calendarFold": false, "days": 9, "chips": 9, "selected": 1, "scrolls": "auto"}, "pickedSecond": true, "jumped": true, "question": true, "look": true, "price": {"insideCard": true, "insideScreen": true, "inFlow": true}, "noOverflow": true},
   researchGroup_phone: { closed: true, title: "Research", acquireOutside: true, moneyOutside: true, holds: true },
   researchGroup_desktop: { closed: true, title: "Research", acquireOutside: true, moneyOutside: true, holds: true },
   researchGroupJumpOpens_phone: true,
@@ -7296,8 +7349,8 @@ const EXPECTED = {
   gatePageCustomerPublished: { open: true, hash: '#/lands/p15', gate: 'CUSTOMER_PUBLISHED', reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: true },
   gatePageCustomerWithheldDeepLink: { open: false, hash: '#/lands', gate: null, reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: false },
   gatePageOff: { open: true, hash: '#/lands/p15', gate: '', reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: false },
-  rulesCoverage: { AUCTIONS: { cov: ['Oconee collected, awaiting review', 'York published'], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' },
-    AVAILABLE: { cov: ['Georgetown collected, awaiting review', 'Horry collected, awaiting review'], here: 'Georgetown County: covered - collected, awaiting review.', covered: '1' },
+  rulesCoverage: { AUCTIONS: { cov: ['Oconee published', 'York published'], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' },
+    AVAILABLE: { cov: ['Georgetown published', 'Horry published'], here: 'Georgetown County: covered - published.', covered: '1' },
     LIENS_CERTIFICATES: { cov: [], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' } },
   rulesHistory: { entries: [['tax_sale_model', '1']], versions: 1, notFixedPrice: true },
   rulesTn: { title: 'Tennessee tax-sale rules', ledgers: { AUCTIONS: 'NOT_TRACKED', AVAILABLE: 'TRACKED', LIENS_CERTIFICATES: 'NOT_TRACKED' },
@@ -7389,14 +7442,15 @@ const EXPECTED = {
   devVisPreviewScLands: { cards: 1, reviewChips: ['Source review: Unreviewed · not customer-published'], programs: [], pending: '1 record from sources awaiting customer-publication review is shown in customer preview mode, each labelled "Source review". Customers in published mode do not see it.', withheld: null },
   // AVAILABLE coverage: the zero names its reason; Florida (rows present) shows none.
   availCoverage: {
-    MI: { status: 'REVIEW_REQUIRED', text: 'Why this list is empty: Official sources were found and are awaiting publication review. Nothing is published from them yet. 4 candidate sources: Lenawee, Oceana, Wayne. Current list found, awaiting publication review: Lenawee.', cards: 0 },
+    // Owner decision 2026-10-26: every collected source is published, so MI's sources are tracked, not awaiting review.
+    MI: { status: 'SOURCE_TRACKED', text: 'Why this list is empty: Source tracked - the county list is read on schedule and its last read found nothing currently available.', cards: 0 },
     CO: { status: 'NO_QUALIFYING_PROGRAM', text: 'Why this list is empty: No qualifying government-held inventory - this state\'s post-sale instrument is a lien or an auction, not property held for purchase. Unsold parcels stay with the county as tax liens / certificates (see Liens & Certificates or Auctions).', cards: 0 },
     WY: { status: 'NO_QUALIFYING_PROGRAM', text: 'Why this list is empty: No qualifying government-held inventory - this state\'s post-sale instrument is a lien or an auction, not property held for purchase. Unsold parcels stay with the county as tax liens / certificates (see Liens & Certificates or Auctions).', cards: 0 },
     FL: { status: null, text: '', cards: 2 }
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v142"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v143"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -7808,9 +7862,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 365,   // + the LRA, Ramsey and Fayette process evidence rows (2026-10-26) and the TX/LA candidates
+  adminSourcesRows: 366,   // + Sarasota Tax Collector certificates (2026-10-26); + the LRA, Ramsey and Fayette process evidence rows (2026-10-26) and the TX/LA candidates
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: '365 source(s): 237 approved, 113 review required, 15 hard blocked.',
+  adminSourcesStatusText: '366 source(s): 251 approved, 100 review required, 15 hard blocked.',
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,
@@ -8567,9 +8621,9 @@ const EXPECTED = {
   finderBadges: {"p3": ["path", "amount"], "p15": ["path"], "auctionAmountBadges": 0, "noScoreWords": true},
   finderSortPath: {"n": 2, "verifiedFirst": true},
   finderReadRecent: true,
-  commandCenter: {"events": 9, "shown": 4, "rest": 5, "head": "Auction command center · next 45 days", "firstFacts": ["1 of 1 with a published bid", "Sale process not yet verified"], "linksFromRows": true, "noInvented": true},
+  commandCenter: {"events":1,"shown":1,"rest":0,"head":"Sale days · next 45 days","firstFacts":["1 of 1 with a published bid","Sale process not yet verified"],"linksFromRows":true,"noInvented":true},   // 2026-10-26: the sale-day strip shows the selected day's events (one day in the fixture), no fold
   commandCenterDossier: true,
-  commandCenterMobile: {"visible": 4, "overflow": 0, "minTap": 44},
+  commandCenterMobile: {"visible":1,"overflow":0,"minTap":44},   // 2026-10-26: the sale-day strip shows the selected day's events (one day in the fixture), no fold
   // Financial position + documents & links (2026-10-05).
   financialPositionVectors: [],
   acquisitionDocumentVectors: [],

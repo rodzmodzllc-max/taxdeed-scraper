@@ -171,14 +171,16 @@ def test_project_database_host_is_not_a_source(monkeypatch, transport):
 
 # --- the real repository today --------------------------------------------------
 
-def test_only_the_owner_decision_sources_hold_a_discover_permission():
-    # The only discover records besides the four BLOCKED vendors are the
-    # owner-accepted INTERIM records of the new-sources sprint (owner decision
-    # 2026-10-26); every other mapped source is still refused.
+def test_only_owner_decision_sources_hold_a_discover_permission():
+    # The only discover records besides the four BLOCKED vendors are owner-accepted
+    # INTERIM records of 2026-10-26: TaxSys' one-read record (hosts in no index table)
+    # and the new-sources sprint's sources; every other mapped source is still refused.
     allowing = [r for r in PERM.Permissions.from_file().records if r.operation == "discover" and r.status != "BLOCKED"]
-    assert allowing and all(r.evidence_type == "INTERNAL_RISK_ACCEPTANCE" and str(r.effective_on) == "2026-10-26"
+    assert allowing and all(r.evidence_type == "INTERNAL_RISK_ACCEPTANCE" and str(r.expires_on) == "2027-04-12"
                             for r in allowing)
+    from harvesters.otc.adapters import expansion as EX  # noqa: PLC0415
     owner = {r.source_id for r in allowing}
+    assert owner - {"fl_taxsys_county_held"} <= set(EX.NEW_SOURCE_IDS) and "fl_taxsys_county_held" in owner
     g = DG.Guard("t")
     hosts = sorted({t.host for t in g.index if t.source_id not in owner})
     assert hosts and not any(g.decide(f"https://{h}/").allowed for h in hosts

@@ -395,18 +395,6 @@
      "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
      "publication_review": "",
      "read_at": "",
-     "source_id": "MI:Oceana:mi_oceana_landbank",
-     "url": "https://oceana.mi.us/departments/treasurer/land-bank-authority/"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Oceana",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
      "source_id": "MI:Oceana:mi_tax_sale_info_surplus",
      "url": "https://www.tax-sale.info/surplus"
     },
@@ -455,37 +443,18 @@
      "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
      "publication_review": "",
      "read_at": "",
-     "source_id": "MI:Wayne:mi_detroit_landbank_lots",
-     "url": "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Wayne",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MI:Wayne:mi_detroit_landbank_programs",
-     "url": "https://www.arcgis.com/home/item.html?id=e0c4f46a09b9405cb18837e66e85c622"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Wayne",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
      "source_id": "MI:Wayne:mi_wayne_county_landbank",
      "url": "https://public-wclb.epropertyplus.com/landmgmtpub/app/base/landing"
     }
    ],
-   "last_reads": {},
-   "production_counties": [],
-   "production_sources": 0,
+   "last_reads": {
+    "UNKNOWN": 3
+   },
+   "production_counties": [
+    "Oceana",
+    "Wayne"
+   ],
+   "production_sources": 3,
    "rejected": [],
    "research": {
     "checked_on": "2026-10-02",
@@ -496,7 +465,7 @@
     "next_action": "Capture the Lenawee Landbank page; Eaton has no candidate yet"
    },
    "state": "MI",
-   "status": "REVIEW_REQUIRED"
+   "status": "SOURCE_TRACKED"
   },
   {
    "candidates": [
@@ -521,29 +490,21 @@
      "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
      "publication_review": "",
      "read_at": "",
-     "source_id": "MN:Ramsey:mn_ramsey_tax_forfeit",
-     "url": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/MapServer/0"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Ramsey",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
      "source_id": "MN:Ramsey:mn_stpaul_hra_properties",
      "url": "https://services1.arcgis.com/9meaaHE3uiba0zr8/arcgis/rest/services/HRA_Owned_Parcels_for_Sale/FeatureServer/0"
     }
    ],
-   "last_reads": {},
-   "production_counties": [],
-   "production_sources": 0,
+   "last_reads": {
+    "UNKNOWN": 1
+   },
+   "production_counties": [
+    "Ramsey"
+   ],
+   "production_sources": 1,
    "rejected": [],
    "research": {},
    "state": "MN",
-   "status": "REVIEW_REQUIRED"
+   "status": "SOURCE_TRACKED"
   },
   {
    "candidates": [
@@ -558,50 +519,33 @@
      "read_at": "",
      "source_id": "MO:Jackson:mo_kc_landbank",
      "url": "https://public-kclb.epropertyplus.com/landmgmtpub/app/base/landing"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "St. Louis City",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MO:St. Louis City:mo_stl_lra_inventory",
-     "url": "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=30"
     }
    ],
-   "last_reads": {},
-   "production_counties": [],
-   "production_sources": 0,
+   "last_reads": {
+    "UNKNOWN": 1
+   },
+   "production_counties": [
+    "St. Louis City"
+   ],
+   "production_sources": 1,
    "rejected": [],
    "research": {},
    "state": "MO",
-   "status": "REVIEW_REQUIRED"
+   "status": "SOURCE_TRACKED"
   },
   {
-   "candidates": [
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Oklahoma",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "OK:Oklahoma:ok_oklahoma_county_owned",
-     "url": "https://docs.oklahomacounty.org/treasurer/CountyOwnedList.asp"
-    }
+   "candidates": [],
+   "last_reads": {
+    "UNKNOWN": 1
+   },
+   "production_counties": [
+    "Oklahoma"
    ],
-   "last_reads": {},
-   "production_counties": [],
-   "production_sources": 0,
+   "production_sources": 1,
    "rejected": [],
    "research": {},
    "state": "OK",
-   "status": "REVIEW_REQUIRED"
+   "status": "SOURCE_TRACKED"
   },
   {
    "candidates": [
@@ -616,54 +560,22 @@
      "read_at": "",
      "source_id": "PA:Allegheny:pa_pittsburgh_city_property",
      "url": "https://public-pgh.epropertyplus.com/landmgmtpub/app/base/landing"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Fayette",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "PA:Fayette:pa_fayette_repository",
-     "url": "https://www.fayettecountypa.org/930/Repository-Sale"
     }
    ],
-   "last_reads": {},
-   "production_counties": [],
-   "production_sources": 0,
+   "last_reads": {
+    "UNKNOWN": 1
+   },
+   "production_counties": [
+    "Fayette"
+   ],
+   "production_sources": 1,
    "rejected": [],
    "research": {},
    "state": "PA",
-   "status": "REVIEW_REQUIRED"
+   "status": "SOURCE_TRACKED"
   },
   {
    "candidates": [
-    {
-     "access": "ACCESSIBLE",
-     "availability": "CURRENT_INVENTORY",
-     "county": "Georgetown",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": true,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "REVIEW_REQUIRED",
-     "read_at": "2026-10-02T16:27:27Z",
-     "source_id": "SC:Georgetown:sc_georgetown_forfeited_land",
-     "url": "https://www.gtcountysc.gov/415/Forfeited-Land-Commission"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Horry",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "SC:Horry:sc_horry_forfeited_land",
-     "url": "https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/"
-    },
     {
      "access": "ACCESSIBLE",
      "availability": "EMPTY",
@@ -725,9 +637,14 @@
      "url": "https://www.yorkcountysc.gov/216/Tax-Collection"
     }
    ],
-   "last_reads": {},
-   "production_counties": [],
-   "production_sources": 0,
+   "last_reads": {
+    "UNKNOWN": 2
+   },
+   "production_counties": [
+    "Georgetown",
+    "Horry"
+   ],
+   "production_sources": 2,
    "rejected": [
     {
      "availability": "AUCTION_ONLY",
@@ -757,30 +674,21 @@
     "next_action": "Capture York's FLC posting when published (January) and the other counties' FLC pages; review before any adapter"
    },
    "state": "SC",
-   "status": "REVIEW_REQUIRED"
+   "status": "SOURCE_TRACKED"
   },
   {
-   "candidates": [
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Shelby",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "TN:Shelby:tn_shelby_landbank",
-     "url": "https://public-sctn.epropertyplus.com/landmgmtpub/app/base/landing"
-    }
+   "candidates": [],
+   "last_reads": {
+    "UNKNOWN": 1
+   },
+   "production_counties": [
+    "Shelby"
    ],
-   "last_reads": {},
-   "production_counties": [],
-   "production_sources": 0,
+   "production_sources": 1,
    "rejected": [],
    "research": {},
    "state": "TN",
-   "status": "REVIEW_REQUIRED"
+   "status": "SOURCE_TRACKED"
   },
   {
    "candidates": [

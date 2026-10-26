@@ -181,13 +181,13 @@
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state CO; last completeness UNKNOWN",
    "county": "Morgan",
-   "evidence": "LIVE CAPTURE 2026-10-01 (GitHub Actions runs 36793062673, 36793611223, 36793980491): Morgan County - co_morgan_treasurer_deed_auctions; NO PUBLICATION DECISION YET (UNREVIEWED); docs/five-state-enrichment.md",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "no publication / reuse review recorded yet",
+   "evidence": "LIVE CAPTURE 2026-10-01 (GitHub Actions runs 36793062673, 36793611223, 36793980491): Morgan County - co_morgan_treasurer_deed_auctions; OWNER PUBLICATION DECISION 2026-10-26 (legal review pending); docs/five-state-enrichment.md",
+   "governance": "APPROVED",
+   "governance_reason": "",
    "last_checked": "2026-10-01",
-   "legacy_status": "UNREVIEWED",
+   "legacy_status": "APPROVED",
    "name": "parcels on the county's published tax / tax-deed sale list (AUCTIONS)",
-   "next_action": "Publication / rights review (registry restrictions: Implemented and read live, but the source publishes no reuse licence and no owner decision exists: not requested on a schedule and no row is written until an admin review approves it.)",
+   "next_action": "",
    "origin": "registry",
    "publisher": "Morgan County",
    "roles": [
@@ -4008,6 +4008,28 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_sarasota_certificates.py; last completeness UNKNOWN",
+   "county": "Sarasota",
+   "evidence": "docs/review/fl-certificate-sources-2026-10-26.md; scripts/harvest_sarasota_certificates.py; data/source_permissions.csv fl_sarasota_tc_certificates (owner decision 2026-10-26, interim)",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-26",
+   "legacy_status": "APPROVED",
+   "name": "'County-Held Certificates for Purchase': certificate number, tax year, 'purchase price', interest (LIENS & CERTIFICATES)",
+   "next_action": "",
+   "origin": "registry",
+   "publisher": "Sarasota County Tax Collector",
+   "roles": [
+    "identity",
+    "lifecycle"
+   ],
+   "source_id": "FL:Sarasota:fl_sarasota_tc_certificates",
+   "source_type": "DOCUMENT",
+   "state": "FL",
+   "url": "https://www.sarasotataxcollector.gov/services/tax-services/property-tax/tax-cert-sale"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_laft_realtdm.py; last completeness COMPLETE",
    "county": "Sarasota",
    "evidence": "data/laft_realtdm_counties.csv",
@@ -6478,13 +6500,13 @@
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state MI; last completeness UNKNOWN",
    "county": "Oceana",
-   "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37038385659): Oceana County - mi_oceana_landbank; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-inventory.md",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "no publication / reuse review recorded yet",
+   "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37038385659): Oceana County - mi_oceana_landbank; OWNER PUBLICATION DECISION 2026-10-26 (legal review pending); docs/available-inventory.md",
+   "governance": "APPROVED",
+   "governance_reason": "",
    "last_checked": "2026-10-02",
-   "legacy_status": "UNREVIEWED",
+   "legacy_status": "APPROVED",
    "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "next_action": "",
    "origin": "registry",
    "publisher": "Oceana County",
    "roles": [
@@ -6973,13 +6995,13 @@
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state MI; last completeness UNKNOWN",
    "county": "Wayne",
-   "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37038385659): Wayne County - mi_detroit_landbank_lots; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-inventory.md",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "no publication / reuse review recorded yet",
+   "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37038385659): Wayne County - mi_detroit_landbank_lots; OWNER PUBLICATION DECISION 2026-10-26 (legal review pending); docs/available-inventory.md",
+   "governance": "APPROVED",
+   "governance_reason": "",
    "last_checked": "2026-10-02",
-   "legacy_status": "UNREVIEWED",
+   "legacy_status": "APPROVED",
    "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "next_action": "",
    "origin": "registry",
    "publisher": "Wayne County",
    "roles": [
@@ -6997,13 +7019,13 @@
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state MI; last completeness UNKNOWN",
    "county": "Wayne",
-   "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37038385659): Wayne County - mi_detroit_landbank_programs; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-inventory.md",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "no publication / reuse review recorded yet",
+   "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37038385659): Wayne County - mi_detroit_landbank_programs; OWNER PUBLICATION DECISION 2026-10-26 (legal review pending); docs/available-inventory.md",
+   "governance": "APPROVED",
+   "governance_reason": "",
    "last_checked": "2026-10-02",
-   "legacy_status": "UNREVIEWED",
+   "legacy_status": "APPROVED",
    "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "next_action": "",
    "origin": "registry",
    "publisher": "Wayne County",
    "roles": [
@@ -7135,13 +7157,13 @@
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state MN; last completeness UNKNOWN",
    "county": "Ramsey",
-   "evidence": "LIVE CAPTURE 2026-10-04 (GitHub Actions runs 37203515518, 37203652975, 37203694092, 37203843581, 37204541253): Ramsey County - mn_ramsey_tax_forfeit; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-expansion-2026-10.md",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "no publication / reuse review recorded yet",
+   "evidence": "LIVE CAPTURE 2026-10-04 (GitHub Actions runs 37203515518, 37203652975, 37203694092, 37203843581, 37204541253): Ramsey County - mn_ramsey_tax_forfeit; OWNER PUBLICATION DECISION 2026-10-26 (legal review pending); docs/available-expansion-2026-10.md",
+   "governance": "APPROVED",
+   "governance_reason": "",
    "last_checked": "2026-10-04",
-   "legacy_status": "UNREVIEWED",
+   "legacy_status": "APPROVED",
    "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "next_action": "",
    "origin": "registry",
    "publisher": "Ramsey County",
    "roles": [
@@ -7273,13 +7295,13 @@
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state MO; last completeness UNKNOWN",
    "county": "St. Louis City",
-   "evidence": "LIVE CAPTURE 2026-10-04 (GitHub Actions runs 37203515518, 37203652975, 37203694092, 37203843581, 37204541253): St. Louis City - mo_stl_lra_inventory; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-expansion-2026-10.md",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "no publication / reuse review recorded yet",
+   "evidence": "LIVE CAPTURE 2026-10-04 (GitHub Actions runs 37203515518, 37203652975, 37203694092, 37203843581, 37204541253): St. Louis City - mo_stl_lra_inventory; OWNER PUBLICATION DECISION 2026-10-26 (legal review pending); docs/available-expansion-2026-10.md",
+   "governance": "APPROVED",
+   "governance_reason": "",
    "last_checked": "2026-10-04",
-   "legacy_status": "UNREVIEWED",
+   "legacy_status": "APPROVED",
    "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "next_action": "",
    "origin": "registry",
    "publisher": "St. Louis City",
    "roles": [
@@ -7469,13 +7491,13 @@
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state OK; last completeness UNKNOWN",
    "county": "Oklahoma",
-   "evidence": "LIVE CAPTURE 2026-10-04 (GitHub Actions runs 37203515518, 37203652975, 37203694092, 37203843581, 37204541253): Oklahoma County - ok_oklahoma_county_owned; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-expansion-2026-10.md",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "no publication / reuse review recorded yet",
+   "evidence": "LIVE CAPTURE 2026-10-04 (GitHub Actions runs 37203515518, 37203652975, 37203694092, 37203843581, 37204541253): Oklahoma County - ok_oklahoma_county_owned; OWNER PUBLICATION DECISION 2026-10-26 (legal review pending); docs/available-expansion-2026-10.md",
+   "governance": "APPROVED",
+   "governance_reason": "",
    "last_checked": "2026-10-04",
-   "legacy_status": "UNREVIEWED",
+   "legacy_status": "APPROVED",
    "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "next_action": "",
    "origin": "registry",
    "publisher": "Oklahoma County",
    "roles": [
@@ -7518,13 +7540,13 @@
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state PA; last completeness UNKNOWN",
    "county": "Fayette",
-   "evidence": "LIVE CAPTURE 2026-10-04 (GitHub Actions runs 37203515518, 37203652975, 37203694092, 37203843581, 37204541253): Fayette County - pa_fayette_repository; LIVE READ 2026-10-26 of the Repository Sale page: newest dated file Repository-Update-10-7-2026 (XLSX, sheets Active + Completed; only Active read); NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-expansion-2026-10.md",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "no publication / reuse review recorded yet",
+   "evidence": "LIVE CAPTURE 2026-10-04 (GitHub Actions runs 37203515518, 37203652975, 37203694092, 37203843581, 37204541253): Fayette County - pa_fayette_repository; LIVE READ 2026-10-26 of the Repository Sale page: newest dated file Repository-Update-10-7-2026 (XLSX, sheets Active + Completed; only Active read); OWNER PUBLICATION DECISION 2026-10-26 (legal review pending); docs/available-expansion-2026-10.md",
+   "governance": "APPROVED",
+   "governance_reason": "",
    "last_checked": "2026-10-26",
-   "legacy_status": "UNREVIEWED",
+   "legacy_status": "APPROVED",
    "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "next_action": "",
    "origin": "registry",
    "publisher": "Fayette County",
    "roles": [
@@ -7672,13 +7694,13 @@
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state SC; last completeness UNKNOWN",
    "county": "Georgetown",
-   "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37038385659): Georgetown County - sc_georgetown_forfeited_land; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-inventory.md",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "no publication / reuse review recorded yet",
+   "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37038385659): Georgetown County - sc_georgetown_forfeited_land; OWNER PUBLICATION DECISION 2026-10-26 (legal review pending); docs/available-inventory.md",
+   "governance": "APPROVED",
+   "governance_reason": "",
    "last_checked": "2026-10-02",
-   "legacy_status": "UNREVIEWED",
+   "legacy_status": "APPROVED",
    "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "next_action": "",
    "origin": "registry",
    "publisher": "Georgetown County",
    "roles": [
@@ -7697,13 +7719,13 @@
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state SC; last completeness UNKNOWN",
    "county": "Horry",
-   "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37038385659): Horry County - sc_horry_forfeited_land; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-inventory.md",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "no publication / reuse review recorded yet",
+   "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37038385659): Horry County - sc_horry_forfeited_land; OWNER PUBLICATION DECISION 2026-10-26 (legal review pending); docs/available-inventory.md",
+   "governance": "APPROVED",
+   "governance_reason": "",
    "last_checked": "2026-10-02",
-   "legacy_status": "UNREVIEWED",
+   "legacy_status": "APPROVED",
    "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "next_action": "",
    "origin": "registry",
    "publisher": "Horry County",
    "roles": [
@@ -7790,13 +7812,13 @@
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state SC; last completeness UNKNOWN",
    "county": "Oconee",
-   "evidence": "LIVE CAPTURE 2026-10-01 (GitHub Actions runs 36793062673, 36793611223, 36793980491): Oconee County - sc_oconee_tax_sale_list; NO PUBLICATION DECISION YET (UNREVIEWED); docs/five-state-enrichment.md",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "no publication / reuse review recorded yet",
+   "evidence": "LIVE CAPTURE 2026-10-01 (GitHub Actions runs 36793062673, 36793611223, 36793980491): Oconee County - sc_oconee_tax_sale_list; OWNER PUBLICATION DECISION 2026-10-26 (legal review pending); docs/five-state-enrichment.md",
+   "governance": "APPROVED",
+   "governance_reason": "",
    "last_checked": "2026-10-01",
-   "legacy_status": "UNREVIEWED",
+   "legacy_status": "APPROVED",
    "name": "parcels on the county's published tax / tax-deed sale list (AUCTIONS)",
-   "next_action": "Publication / rights review (registry restrictions: Implemented and read live, but the source publishes no reuse licence and no owner decision exists: not requested on a schedule and no row is written until an admin review approves it.)",
+   "next_action": "",
    "origin": "registry",
    "publisher": "Oconee County",
    "roles": [
@@ -7947,13 +7969,13 @@
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state TN; last completeness UNKNOWN",
    "county": "Shelby",
-   "evidence": "LIVE CAPTURE 2026-10-08 (GitHub Actions runs 37855584514, 37855783595, 37856005485, 37856189946, 37856396525): Shelby County - tn_shelby_landbank; NO PUBLICATION DECISION YET (UNREVIEWED); docs/tennessee-survey.md",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "no publication / reuse review recorded yet",
+   "evidence": "LIVE CAPTURE 2026-10-08 (GitHub Actions runs 37855584514, 37855783595, 37856005485, 37856189946, 37856396525): Shelby County - tn_shelby_landbank; OWNER PUBLICATION DECISION 2026-10-26 (legal review pending); docs/tennessee-survey.md",
+   "governance": "APPROVED",
+   "governance_reason": "",
    "last_checked": "2026-10-08",
-   "legacy_status": "UNREVIEWED",
+   "legacy_status": "APPROVED",
    "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "next_action": "",
    "origin": "registry",
    "publisher": "Shelby County",
    "roles": [
@@ -10124,13 +10146,13 @@
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state WI; last completeness UNKNOWN",
    "county": "Dane",
-   "evidence": "LIVE CAPTURE 2026-10-01 (GitHub Actions runs 36793062673, 36793611223, 36793980491): Dane County - wi_dane_tax_deed_auction; NO PUBLICATION DECISION YET (UNREVIEWED); docs/five-state-enrichment.md",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "no publication / reuse review recorded yet",
+   "evidence": "LIVE CAPTURE 2026-10-01 (GitHub Actions runs 36793062673, 36793611223, 36793980491): Dane County - wi_dane_tax_deed_auction; OWNER PUBLICATION DECISION 2026-10-26 (legal review pending); docs/five-state-enrichment.md",
+   "governance": "APPROVED",
+   "governance_reason": "",
    "last_checked": "2026-10-01",
-   "legacy_status": "UNREVIEWED",
+   "legacy_status": "APPROVED",
    "name": "parcels on the county's published tax / tax-deed sale list (AUCTIONS)",
-   "next_action": "Publication / rights review (registry restrictions: Implemented and read live, but the source publishes no reuse licence and no owner decision exists: not requested on a schedule and no row is written until an admin review approves it.)",
+   "next_action": "",
    "origin": "registry",
    "publisher": "Dane County",
    "roles": [
@@ -10397,9 +10419,9 @@
    "sources": 1
   },
   "CO": {
-   "APPROVED": 7,
+   "APPROVED": 8,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 2,
+   "REVIEW_REQUIRED": 1,
    "by_type": {
     "DOCUMENT": 1,
     "GIS": 1,
@@ -10408,18 +10430,18 @@
    "sources": 9
   },
   "FL": {
-   "APPROVED": 176,
+   "APPROVED": 177,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 17,
    "by_type": {
     "AUCTION_VENDOR": 79,
     "COURT_PUBLIC_RECORD": 1,
-    "DOCUMENT": 13,
+    "DOCUMENT": 14,
     "GIS": 1,
     "GOVERNMENT": 98,
     "PUBLIC_NOTICE": 1
    },
-   "sources": 193
+   "sources": 194
   },
   "LA": {
    "APPROVED": 8,
@@ -10434,9 +10456,9 @@
    "sources": 11
   },
   "MI": {
-   "APPROVED": 7,
+   "APPROVED": 10,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 91,
+   "REVIEW_REQUIRED": 88,
    "by_type": {
     "AUCTION_VENDOR": 83,
     "DOCUMENT": 1,
@@ -10446,18 +10468,18 @@
    "sources": 98
   },
   "MN": {
-   "APPROVED": 3,
+   "APPROVED": 4,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 3,
+   "REVIEW_REQUIRED": 2,
    "by_type": {
     "GOVERNMENT": 6
    },
    "sources": 6
   },
   "MO": {
-   "APPROVED": 3,
+   "APPROVED": 4,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 3,
+   "REVIEW_REQUIRED": 2,
    "by_type": {
     "DOCUMENT": 1,
     "GIS": 1,
@@ -10476,18 +10498,18 @@
    "sources": 4
   },
   "OK": {
-   "APPROVED": 0,
+   "APPROVED": 1,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 1,
+   "REVIEW_REQUIRED": 0,
    "by_type": {
     "GOVERNMENT": 1
    },
    "sources": 1
   },
   "PA": {
-   "APPROVED": 4,
+   "APPROVED": 5,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 2,
+   "REVIEW_REQUIRED": 1,
    "by_type": {
     "DOCUMENT": 1,
     "GOVERNMENT": 5
@@ -10495,9 +10517,9 @@
    "sources": 6
   },
   "SC": {
-   "APPROVED": 2,
+   "APPROVED": 5,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 12,
+   "REVIEW_REQUIRED": 9,
    "by_type": {
     "DOCUMENT": 4,
     "GOVERNMENT": 10
@@ -10505,9 +10527,9 @@
    "sources": 14
   },
   "TN": {
-   "APPROVED": 1,
+   "APPROVED": 2,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 1,
+   "REVIEW_REQUIRED": 0,
    "by_type": {
     "GOVERNMENT": 2
    },
@@ -10538,9 +10560,9 @@
    "sources": 1
   },
   "WI": {
-   "APPROVED": 3,
+   "APPROVED": 4,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 5,
+   "REVIEW_REQUIRED": 4,
    "by_type": {
     "GIS": 1,
     "GOVERNMENT": 7

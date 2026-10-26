@@ -6,6 +6,7 @@ Fixtures are SYNTHETIC (live column names and identifier shapes only).
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import sys
 from datetime import date, datetime, timezone
@@ -259,23 +260,30 @@ def test_n05_albany_superseded_list_reads_not_published_never_listed():
 def test_g01_publication_decisions_per_source():
     reg = {r.source_id: r for r in csr.load_registry()}
     approved = {"co_douglas_county_held_liens", "co_douglas_tax_sale_list"} | set(EX.SIX_STATE_SOURCE_IDS)
-    gated = {"co_morgan_treasurer_deed_auctions", "wi_dane_tax_deed_auction", "sc_oconee_tax_sale_list"}
     for sid in approved:
         assert SP.publishable(reg[sid]) and pub.publication_problems(reg[sid]) == [], sid
     for sid in ("co_douglas_county_held_liens", "co_douglas_tax_sale_list"):
         assert "Creative Commons Attribution-ShareAlike 4.0" in reg[sid].restrictions
-    for sid in gated:
+    # Owner decision 2026-10-26: every source that was UNREVIEWED (the three gated
+    # auction sources and the held AVAILABLE ones) is published, legal review pending.
+    owner = {"co_morgan_treasurer_deed_auctions", "wi_dane_tax_deed_auction", "sc_oconee_tax_sale_list"} \
+        | set(EX.AVAILABLE_SPRINT_SOURCE_IDS) | set(EX.AVAILABLE_FIVE_SOURCE_IDS) | set(EX.TN_SOURCE_IDS)
+    assert owner == set(EX.OWNER_APPROVED_2026_10_26_SOURCE_IDS)
+    for sid in owner:
+        assert pub.effective_publication(reg[sid]) == "APPROVED" and SP.publishable(reg[sid]), sid
+        assert pub.publication_problems(reg[sid]) == [] and "legal review pending" in reg[sid].restrictions, sid
+    # New-sources sprint (2026-10-26): collected under INTERIM permission, still UNREVIEWED.
+    new = set(EX.NEW_SOURCE_IDS)
+    for sid in new:
         assert pub.effective_publication(reg[sid]) == "UNREVIEWED" and not SP.publishable(reg[sid]), sid
-    # AVAILABLE sprint: the held AVAILABLE sources are UNREVIEWED too (collected and held, never written).
-    held = set(EX.AVAILABLE_SPRINT_SOURCE_IDS) | set(EX.AVAILABLE_FIVE_SOURCE_IDS) | set(EX.TN_SOURCE_IDS) | set(EX.NEW_SOURCE_IDS)   # + AVAILABLE expansion 2026-10-04, new sources 2026-10-26
-    for sid in held:
-        assert pub.effective_publication(reg[sid]) == "UNREVIEWED" and not SP.publishable(reg[sid]), sid
-    assert set(EX.PUBLICATION) == approved | gated | held
+    assert set(EX.PUBLICATION) == approved | owner | new
 
 
 def test_g02_unreviewed_sources_make_no_request_and_write_no_row():
     import harvest_expansion as HX2
     reg, _ = SP.registry_with_reviews("WI", reviews={})
+    # Dane is published since 2026-10-26; the rule is pinned on Dane as it stood before.
+    reg = dict(reg, wi_dane_tax_deed_auction=dataclasses.replace(reg["wi_dane_tax_deed_auction"], publication_status="UNREVIEWED"))
     run, gated = HX2.runnable_sources("WI", reg)
     assert {s.config.source_id for s in run} == {"wi_green_tax_deed_sales"} and gated == [("wi_dane_tax_deed_auction", "UNREVIEWED")]
     rows = [r.to_properties_row() for r in TabularListAdapter(EX.WI_DANE_AVAILABLE).parse_html_table((FIX / "wi_dane.html").read_text(), retrieved_at=T)]
@@ -287,14 +295,20 @@ def test_g03_an_admin_review_turns_a_source_on_and_an_invalid_one_does_not(monke
     review = {("WI", "wi_dane_tax_deed_auction"): {"id": 1, "state": "WI", "source_id": "wi_dane_tax_deed_auction",
                                                     "publication_status": "APPROVED", "restrictions": "owner decision (test)",
                                                     "decided_at": "2026-10-01T00:00:00Z"}}
-    reg, report = SP.registry_with_reviews("WI", reviews=review)
-    assert "WI/wi_dane_tax_deed_auction" in report["reviews"]["applied"]
+    pending = {r.source_id: r for r in csr.load_registry() if r.state == "WI"}
+    pending["wi_dane_tax_deed_auction"] = dataclasses.replace(pending["wi_dane_tax_deed_auction"], publication_status="UNREVIEWED")
+    import publication_gate as PG
+    reg_list, rep = PG.apply_reviews(list(pending.values()), review)
+    reg = {r.source_id: r for r in reg_list}
+    assert "WI/wi_dane_tax_deed_auction" in rep["applied"]
     # 2026-10-12: a publication review alone no longer publishes - the source
-    # also needs a recorded `display` permission (data/source_permissions.csv),
-    # which Dane does not have. With one recorded, the review turns it on.
-    assert not SP.publishable(reg["wi_dane_tax_deed_auction"])
+    # also needs a recorded `display` permission (data/source_permissions.csv).
+    # Without one the review publishes nothing; with one recorded, it turns it on.
     from permission_fixtures import install, record
-    install(monkeypatch, record(source_id="wi_dane_tax_deed_auction", jurisdiction="WI", operation="display"))
+    install(monkeypatch, record(source_id="wi_dane_tax_deed_auction", jurisdiction="WI", operation="fetch"), base=False)
+    assert not SP.publishable(reg["wi_dane_tax_deed_auction"])
+    install(monkeypatch, record(source_id="wi_dane_tax_deed_auction", jurisdiction="WI", operation="fetch"),
+            record(source_id="wi_dane_tax_deed_auction", jurisdiction="WI", operation="display"), base=False)
     assert SP.publishable(reg["wi_dane_tax_deed_auction"])
     # A review that tries to publish a blocked vendor is refused by the same validator publication_gate uses.
     bad = {("TX", "tx_govease"): {"id": 2, "state": "TX", "source_id": "tx_govease", "publication_status": "APPROVED",

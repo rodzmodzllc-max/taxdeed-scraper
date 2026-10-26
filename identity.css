@@ -1443,3 +1443,43 @@ html[data-shell="v3"] .cert-card{display:flex;flex-direction:column;gap:6px;padd
 .detail-research > .detail-more-summary{flex-wrap:wrap;gap:.1rem .6rem;padding:.7rem 0}
 .detail-more-title{font-family:var(--font-display,Georgia,serif);font-size:1.05rem;letter-spacing:0;font-weight:700}
 .detail-more-sub{flex:1 1 100%;order:3;font-weight:400;font-size:.78rem;letter-spacing:0;color:var(--ink-soft)}
+
+/* Sale-day strip (2026-10-26): the auction calendar is always open at the top
+   of Auctions - sale days scroll sideways; the selected day's county sales
+   sit underneath. */
+.sale-strip{margin:0 0 .9rem;padding:.7rem 0 .2rem;border-bottom:1px solid var(--rule)}
+.sale-strip .ss-head{display:flex;flex-wrap:wrap;align-items:center;gap:.25rem .8rem;margin-bottom:.45rem}
+.sale-strip .ss-sum{font-family:var(--font-mono);font-size:.74rem;color:var(--ink-soft)}
+.sale-strip .ss-head .ib{margin-left:auto}
+.sale-strip .ss-scroll{display:flex;gap:.5rem;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;padding:.2rem .1rem .6rem;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.sale-strip .ss-day{flex:0 0 auto;scroll-snap-align:center;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:64px;min-height:84px;padding:.45rem .5rem;border:1px solid var(--rule);border-radius:14px;background:var(--paper-white,#FBF9F5);color:var(--charcoal);font:inherit;cursor:pointer;transition:transform .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease}
+.sale-strip .ss-day:hover{border-color:var(--rust)}
+.sale-strip .ss-day:focus-visible{outline:2px solid var(--rust);outline-offset:2px}
+.sale-strip .ss-wd,.sale-strip .ss-mon{font-size:.62rem;font-weight:700;letter-spacing:.1em;color:var(--warm-gray)}
+.sale-strip .ss-dd{font-family:var(--font-display,Georgia,serif);font-size:1.45rem;line-height:1.05}
+.sale-strip .ss-n{font-family:var(--font-mono);font-size:.68rem;color:var(--ink-soft)}
+.sale-strip .ss-day.soon{border-color:var(--rust)}
+.sale-strip .ss-day.on{background:var(--rust);border-color:var(--rust);color:#fff;transform:translateY(-2px);box-shadow:0 10px 18px -12px rgba(164,81,42,.9)}
+.sale-strip .ss-day.on .ss-wd,.sale-strip .ss-day.on .ss-mon,.sale-strip .ss-day.on .ss-n{color:#FBEDE4}
+.sale-strip .ss-watch{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--plum)}
+.sale-strip .ss-panel{margin-top:.15rem}
+.sale-strip .ss-panel-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:.2rem .7rem;font-size:.86rem;padding:.2rem 0 .3rem}
+.sale-strip .ss-panel-head span{color:var(--ink-soft);font-size:.78rem}
+.sale-strip .ss-go{margin:.45rem 0 .2rem;min-height:44px;padding:0 1rem;border:1px solid var(--rust);border-radius:999px;background:none;color:var(--rust);font:inherit;font-weight:600;font-size:.82rem;cursor:pointer}
+.sale-strip .ss-panel.ss-swap{animation:ssSwap .22s ease}
+@keyframes ssSwap{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.sale-strip .ss-day{transition:none}.sale-strip .ss-day.on{transform:none}.sale-strip .ss-panel.ss-swap{animation:none}}
+.ss-q-only{margin:0 0 .5rem}
+
+/* Price note on cards (2026-10-26): it opened as a floating bubble that ran
+   off a phone screen and was clipped by the card. It now opens inside the
+   card, full width, under its button; hover alone never opens it. */
+.card-price-info .ib{display:block}
+.card-price-info .ib-pop{position:static;width:auto;max-width:none;margin-top:.45rem;box-shadow:none;transform:none!important}
+.card-price-info .ib:hover:not(.open):not(:focus-within)>.ib-pop{display:none}
+.sale-strip .desk-event{grid-template-columns:minmax(0,1fr) auto}
+.sale-strip .desk-event > .desk-event-where,.sale-strip .desk-event > .desk-event-what{grid-column:1}
+.sale-strip .desk-event > .desk-event-n{grid-column:2}
+.sale-strip .cc-facts{grid-column:1 / -1}
+.sale-strip .cc-actions{padding-left:0!important}
+.date-divider{scroll-margin-top:84px}

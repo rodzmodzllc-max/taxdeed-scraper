@@ -69,20 +69,21 @@ def test_states_are_activated_county_level_available_states():
         assert cfg.production_inventory_types == frozenset({"", "POST_SALE"}) and cfg.lifecycle_inventory_type is None
         ev = states.EXPANSION_EVIDENCE[st]
         assert list(ev) == list(states.ACTIVATION_REQUIREMENTS)
-        assert "UNREVIEWED" in ev["governance_approved"] and "never customer-published" in ev["governance_approved"]
+        assert "owner publication decision 2026-10-26" in ev["governance_approved"] and "legal review pending" in ev["governance_approved"]
     assert not states.is_supported("MS")          # evaluated and deferred: no deterministic public source
 
 
-def test_every_source_is_available_ledger_unreviewed_and_collected_not_published():
+def test_every_source_is_available_ledger_collected_and_owner_published():
     assert EX.AVAILABLE_FIVE_SOURCE_IDS == {sid for sid, _ in FIXTURE.values()}
     for st in NEW:
         cfg = _src(st).config
         assert cfg.record_source == "laft" and cfg.inventory_type is InventoryType.POST_SALE and cfg.columns_verified
         assert SOURCE_LEDGERS[cfg.source_id] == {Ledger.AVAILABLE}
-        assert EX.PUBLICATION[cfg.source_id] == ("UNREVIEWED", EX.HELD_AVAILABLE)
+        # Owner decision 2026-10-26: published to customers, legal review pending.
+        assert EX.PUBLICATION[cfg.source_id] == ("APPROVED", EX.OWNER_APPROVED_2026_10_26)
         row = _reg(st)[cfg.source_id]
-        assert row.is_production and row.publication_status == "UNREVIEWED" and row.ledgers == "AVAILABLE"
-        assert SP.collectable(row, "laft") and not SP.publishable(row)        # admin collection, no customer release
+        assert row.is_production and row.publication_status == "APPROVED" and row.ledgers == "AVAILABLE"
+        assert SP.collectable(row, "laft") and SP.publishable(row)
         assert HE.gate(st, reg=_reg(st)) == []
         run, gated = HE.runnable_sources(st, _reg(st))
         assert [s.config.source_id for s in run if s.config.source_id not in EX.NEW_SOURCE_IDS] == [cfg.source_id] and gated == []
@@ -251,11 +252,11 @@ def test_mn_empty_layer_is_the_sources_own_empty(tmp_path):
 # ==================== shared: lifecycle, sync, isolation ====================
 
 @pytest.mark.parametrize("st", sorted(NEW))
-def test_rows_sync_labelled_unreviewed_and_close_only_after_a_trusted_read(st, tmp_path):
+def test_rows_sync_labelled_approved_and_close_only_after_a_trusted_read(st, tmp_path):
     rows, units = _run(st, tmp_path)
     sent, counts = SY.plan(st, rows, _reg(st), units)
-    assert counts["upsert"] == len(rows) and counts["written_review_pending"] == len(rows)
-    assert {r["publication_status"] for r in sent} == {"UNREVIEWED"} and {r["ledger_type"] for r in sent} == {"buy"}
+    assert counts["upsert"] == len(rows) and counts["written_review_pending"] == 0
+    assert {r["publication_status"] for r in sent} == {"APPROVED"} and {r["ledger_type"] for r in sent} == {"buy"}
     assert all(r.get("owner_name") is None for r in sent)
     county = next(iter(units))
     sid = FIXTURE[st][0]
