@@ -1620,6 +1620,7 @@
     "scripts/auction_events_writer.py",
     "scripts/auction_outcomes.py",
     "scripts/harvest_all_counties.ps1",
+    "scripts/realauction_paging_check.py",
     "scripts/source_permission_check.py",
     "scripts/stamp_seen.py",
     "scripts/sync-harvest-to-supabase.ps1",
@@ -1647,6 +1648,7 @@
     "scripts/auction_events_writer.py",
     "scripts/auction_outcomes.py",
     "scripts/harvest_all_counties.ps1",
+    "scripts/realauction_paging_check.py",
     "scripts/source_permission_check.py",
     "scripts/stamp_seen.py",
     "scripts/sync-harvest-to-supabase.ps1",
@@ -1674,6 +1676,7 @@
     "scripts/auction_events_writer.py",
     "scripts/auction_outcomes.py",
     "scripts/harvest_all_counties.ps1",
+    "scripts/realauction_paging_check.py",
     "scripts/source_permission_check.py",
     "scripts/stamp_seen.py",
     "scripts/sync-harvest-to-supabase.ps1",
@@ -1701,6 +1704,7 @@
     "scripts/auction_events_writer.py",
     "scripts/auction_outcomes.py",
     "scripts/harvest_all_counties.ps1",
+    "scripts/realauction_paging_check.py",
     "scripts/source_permission_check.py",
     "scripts/stamp_seen.py",
     "scripts/sync-harvest-to-supabase.ps1",
@@ -1728,6 +1732,7 @@
     "scripts/auction_events_writer.py",
     "scripts/auction_outcomes.py",
     "scripts/harvest_all_counties.ps1",
+    "scripts/realauction_paging_check.py",
     "scripts/source_permission_check.py",
     "scripts/stamp_seen.py",
     "scripts/sync-harvest-to-supabase.ps1",
@@ -1755,6 +1760,7 @@
     "scripts/auction_events_writer.py",
     "scripts/auction_outcomes.py",
     "scripts/harvest_all_counties.ps1",
+    "scripts/realauction_paging_check.py",
     "scripts/source_permission_check.py",
     "scripts/stamp_seen.py",
     "scripts/sync-harvest-to-supabase.ps1",
@@ -1782,6 +1788,7 @@
     "scripts/auction_events_writer.py",
     "scripts/auction_outcomes.py",
     "scripts/harvest_all_counties.ps1",
+    "scripts/realauction_paging_check.py",
     "scripts/source_permission_check.py",
     "scripts/stamp_seen.py",
     "scripts/sync-harvest-to-supabase.ps1",
@@ -1809,6 +1816,7 @@
     "scripts/auction_events_writer.py",
     "scripts/auction_outcomes.py",
     "scripts/harvest_all_counties.ps1",
+    "scripts/realauction_paging_check.py",
     "scripts/source_permission_check.py",
     "scripts/stamp_seen.py",
     "scripts/sync-harvest-to-supabase.ps1",
@@ -3149,6 +3157,7 @@
   {
    "call_sites": [
     "scripts/auction_events_writer.py",
+    "scripts/texas_closeout.py",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
@@ -3171,6 +3180,7 @@
   {
    "call_sites": [
     "scripts/auction_events_writer.py",
+    "scripts/texas_closeout.py",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
@@ -3193,6 +3203,7 @@
   {
    "call_sites": [
     "scripts/auction_events_writer.py",
+    "scripts/texas_closeout.py",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
@@ -3215,6 +3226,7 @@
   {
    "call_sites": [
     "scripts/auction_events_writer.py",
+    "scripts/texas_closeout.py",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
@@ -3237,6 +3249,7 @@
   {
    "call_sites": [
     "scripts/auction_events_writer.py",
+    "scripts/texas_closeout.py",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
@@ -3259,6 +3272,7 @@
   {
    "call_sites": [
     "scripts/auction_events_writer.py",
+    "scripts/texas_closeout.py",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
@@ -3281,6 +3295,7 @@
   {
    "call_sites": [
     "scripts/auction_events_writer.py",
+    "scripts/texas_closeout.py",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
@@ -3303,6 +3318,7 @@
   {
    "call_sites": [
     "scripts/auction_events_writer.py",
+    "scripts/texas_closeout.py",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
