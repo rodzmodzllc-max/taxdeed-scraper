@@ -22,20 +22,28 @@ search-index ledger (`EBR_EVIDENCE`). The manual evidence job
                                               -> identity = PROPERTY NUMBER, the latest TAX YEAR row kept
     * No price and no purchase column.        -> amount NOT_PUBLISHED; no purchase URL
 
-THE LIST IS DATED. The rows were last updated 2024-02-27. Publication was
-approved by the owner on 2026-09-30 ONLY as "adjudicated inventory as of"
-that date: every record carries `list_as_of` = the metadata's own
-rowsUpdatedAt (read on every run, never the retrieval date), and the
-frontend never calls a Louisiana row "available now". A run whose metadata
-no longer says PUBLIC_DOMAIN refuses to publish anything (the approval was
-for that licence).
+THE LIST IS DATED. Publication was approved by the owner on 2026-09-30 ONLY
+as "adjudicated inventory as of" the dataset's own last-update date: every
+record carries `list_as_of` = the metadata's own rowsUpdatedAt (read on every
+run, never the retrieval date), and the frontend never calls a Louisiana row
+"available now". A run whose metadata no longer says PUBLIC_DOMAIN refuses to
+publish anything (the approval was for that licence).
 
-WHAT THIS MODULE DOES: `EBR_SOURCE` (enabled 2026-09-30), `parse_csv()` (the
-CSV with the indexed headers -> records: PROPERTY NUMBER as identity and
-parcel, physical address, legal description, taxpayer name as the name on
-the roll, assessed / market value, tax year, geolocation when it parses in
-one of two deterministic shapes), `classify_outcome()`, a gated
-`harvest()` (one CSV download) with an injected transport.
+SWITCHED 2026-10-26 (owner decision, "Yes close 6,643"): production reads the
+Parish's NEWER "Adjudicated Parcel" dataset shrr-fsqq (rows updated
+2026-05-06, STATUS 'AJ' only - `EBR_PARCEL_SOURCE`, aliased as `EBR_SOURCE`).
+The older a4h4-zi7e "Adjudicated Property" config (rows updated 2024-02-27)
+is kept, disabled, as `EBR_LEGACY_SOURCE`. Same source_id and the same
+identity: the assessor's number as published (old PROPERTY NUMBER = new
+ASSESSMENT NO., both 999-9999-9), so the 3,691 numbers on both lists keep
+their rows and the next COMPLETE read closes the 6,643 that are not on it.
+
+WHAT THIS MODULE DOES: `EBR_SOURCE` (production), `parse_csv()` (the CSV
+with the configured headers -> records: the assessor's number as identity
+and parcel, physical address, legal description, the name on the row,
+assessed / market value, tax year and geolocation where the dataset carries
+them), `classify_outcome()`, a gated `harvest()` (metadata + one CSV
+download) with an injected transport.
 """
 from __future__ import annotations
 
@@ -53,7 +61,7 @@ from ..model import AmountKind, InventoryType, OtcRecord, SourceAuthority
 from . import common
 from .common import CountyOutcome, Evidence, GateDecision, HarvestResult
 
-__all__ = ["EBR_EVIDENCE", "EBR_PARCEL_COLUMNS", "EBR_PARCEL_EVIDENCE", "EBR_PARCEL_SOURCE", "EBR_SOURCE", "INDEXED_COLUMNS",
+__all__ = ["EBR_EVIDENCE", "EBR_LEGACY_SOURCE", "EBR_PARCEL_COLUMNS", "EBR_PARCEL_EVIDENCE", "EBR_PARCEL_SOURCE", "EBR_SOURCE", "INDEXED_COLUMNS",
            "ColumnLabels", "LouisianaSourceConfig", "can_run", "classify_outcome", "harvest", "parse_csv", "parse_geolocation",
            "parse_metadata", "requirement_evidence"]
 
@@ -151,16 +159,22 @@ EBR_PARCEL_COLUMNS = ColumnLabels(identity="ASSESSMENT NO.", owner="OWNER NAME",
 
 def requirement_evidence() -> dict[str, str]:
     return {
-        "source_of_record_identified": "the Parish's open-data dataset a4h4-zi7e (attribution: East Baton Rouge Parish Assessor's Office), read live",
-        "live_source_verified": "dataset page, metadata JSON and CSV read by the manual evidence job 2026-09-30 (runs 36752875012, 36753767965)",
+        "source_of_record_identified": "the Parish's open-data dataset shrr-fsqq 'Adjudicated Parcel' (attribution: East Baton Rouge "
+                                       "Parish Assessor), read live 2026-10-25; it replaced a4h4-zi7e (read live 2026-09-30) on 2026-10-26",
+        "live_source_verified": "metadata JSON and CSV read live 2026-10-25 (EBR_PARCEL_EVIDENCE); a4h4-zi7e read by the manual "
+                                "evidence job 2026-09-30 (runs 36752875012, 36753767965)",
         "publishing_unit_coverage_established": "one parish (East Baton Rouge); the other 63 are not covered",
-        "identifier_format_established": "PROPERTY NUMBER, shape 999-9999-9 (a few 999-99999-9 / 9999999-9), one row per tax year",
-        "inventory_semantics_established": "'adjudicated to the Parish ... the most current adjudicated property listing' - a DATED list (rows updated 2024-02-27)",
+        "identifier_format_established": "ASSESSMENT NO., shape 999-9999-9 (4,524 / 4,527) - the same assessor's number a4h4-zi7e "
+                                         "published as PROPERTY NUMBER, in the same shape",
+        "inventory_semantics_established": "STATUS 'AJ' ('Status of the parcel (adjudicated)') - a DATED list (rows updated "
+                                           "2026-05-06; the earlier a4h4-zi7e list was dated 2024-02-27)",
         "purchase_path_established": "none published in the dataset (no purchase column, no link) - shown as not published",
         "amount_semantics_established": "no price column -> NOT_PUBLISHED (assessed / market value are tax-roll figures, not prices)",
-        "parser_fixture_validated": "tests/python/fixtures/louisiana/ carries the LIVE header verbatim with synthetic values in the live shapes",
-        "governance_approved": "licence PUBLIC_DOMAIN (dataset metadata); owner publication decision 2026-09-30, dated list only",
-        "production_registry_authorized": "owner decision 2026-09-30 (docs/state-expansion.md)",
+        "parser_fixture_validated": "tests/python/fixtures/louisiana/ carries the LIVE headers verbatim with synthetic values in the live shapes",
+        "governance_approved": "licence PUBLIC_DOMAIN (dataset metadata); owner publication decision 2026-09-30, dated list only; "
+                               "owner switch to shrr-fsqq 2026-10-26",
+        "production_registry_authorized": "owner decisions 2026-09-30 (docs/state-expansion.md) and 2026-10-26 "
+                                          "(docs/la-tx-acquisition-paths.md)",
     }
 
 
@@ -409,7 +423,10 @@ def harvest(cfg: LouisianaSourceConfig, fetch_text: Callable[[str], str], *, ret
     return result
 
 
-EBR_SOURCE = LouisianaSourceConfig(
+# The OLDER list (a4h4-zi7e, rows updated 2024-02-27): production from
+# 2026-09-30 to 2026-10-26, kept DISABLED (never requested) for reference and
+# for the parser's structural tests.
+EBR_LEGACY_SOURCE = LouisianaSourceConfig(
     source_id="la_ebr_adjudicated",
     publishing_unit=PublishingUnit.PARISH.value,
     publishing_unit_name="East Baton Rouge Parish (City of Baton Rouge / Parish of East Baton Rouge open data)",
@@ -419,17 +436,17 @@ EBR_SOURCE = LouisianaSourceConfig(
     required_columns=("PROPERTY NUMBER", "PHYSICAL ADDRESS", "LEGAL DESCRIPTION", "TAX YEAR"),
     source_terminology="adjudicated property; adjudicated to the Parish of East Baton Rouge; property number; tax year",
     metadata_url=EBR_METADATA_URL,
-    live_verified=True, identifier_format_established=True, parser_fixture_validated=True, enabled=True,
+    live_verified=True, identifier_format_established=True, parser_fixture_validated=True, enabled=False,
     evidence="harvesters/otc/adapters/louisiana.py EBR_EVIDENCE (search index + LIVE READ, 2026-09-30); docs/state-expansion.md",
 )
 
 
-# The newer list, READY BUT NOT ENABLED: switching the production source from
-# a4h4-zi7e to shrr-fsqq changes the list date the owner's 2026-09-30
-# publication decision was taken on and would close the 6,643 property numbers
-# that are not on it (a COMPLETE read closes absent rows) - an owner decision,
-# recorded in docs/la-tx-acquisition-paths.md. Same source_id: the same Parish,
-# portal and licence, and the same identity (the assessor's number).
+# The newer list - PRODUCTION since 2026-10-26 (owner decision: "Yes close
+# 6,643"). It moves the list date from 2024-02-27 to 2026-05-06, and the next
+# COMPLETE read closes the 6,643 property numbers that are not on it (the laft
+# lifecycle closes absent rows of a COMPLETE read only). Same source_id: the
+# same Parish, portal and licence, and the same identity (the assessor's
+# number, as published).
 EBR_PARCEL_SOURCE = LouisianaSourceConfig(
     source_id="la_ebr_adjudicated",
     publishing_unit=PublishingUnit.PARISH.value,
@@ -442,6 +459,9 @@ EBR_PARCEL_SOURCE = LouisianaSourceConfig(
     metadata_url=EBR_PARCEL_METADATA_URL,
     columns=EBR_PARCEL_COLUMNS,
     status_include=("AJ",),
-    live_verified=True, identifier_format_established=True, parser_fixture_validated=True, enabled=False,
+    live_verified=True, identifier_format_established=True, parser_fixture_validated=True, enabled=True,
     evidence="harvesters/otc/adapters/louisiana.py EBR_PARCEL_EVIDENCE (LIVE READ 2026-10-25); docs/la-tx-acquisition-paths.md",
 )
+
+# The production source (scripts/harvest_state_inventory.py, the registry builder).
+EBR_SOURCE = EBR_PARCEL_SOURCE

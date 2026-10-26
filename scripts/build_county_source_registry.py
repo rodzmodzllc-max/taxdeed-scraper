@@ -403,29 +403,36 @@ LA_EBR = dict(
     inventory_type=EBR_SOURCE.inventory_type.value, source_authority=EBR_SOURCE.source_authority.value,
     canonical_url=EBR_SOURCE.list_url, document_url=EBR_SOURCE.document_url, purchase_url="", purchase_url_kind="",
     access_method="JSON_ENDPOINT", machine_format="CSV",
-    # 2026-09-30 (state-expansion sprint): read LIVE by the manual evidence job
-    # (runs 36752875012, 36753767965 - scripts/capture_state_sources.py) and
-    # approved for customer publication by the owner, dated: the dataset's own
-    # metadata says licence PUBLIC_DOMAIN, provenance official, rows last
-    # updated 2024-02-27. docs/state-expansion.md.
+    # 2026-09-30 (state-expansion sprint): a4h4-zi7e read LIVE by the manual
+    # evidence job (runs 36752875012, 36753767965) and approved for customer
+    # publication by the owner, dated. 2026-10-26: the owner switched
+    # production to the Parish's newer list shrr-fsqq ("Yes close 6,643"),
+    # read live 2026-10-25 (louisiana.py EBR_PARCEL_EVIDENCE):
+    # licence PUBLIC_DOMAIN, provenance official, rows updated 2026-05-06.
+    # docs/la-tx-acquisition-paths.md.
     verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
-    last_checked="2026-09-30", completeness_status="UNKNOWN",
-    evidence_ref="LIVE CAPTURE 2026-09-30 (GitHub Actions runs 36752875012, 36753767965: dataset metadata licenseId=PUBLIC_DOMAIN, "
-                 "provenance=official, attribution 'East Baton Rouge Parish Assessor's Office', rowsUpdatedAt 2024-02-27, CSV header = the 16 "
-                 "indexed columns, PROPERTY NUMBER shape 999-9999-9); OWNER PUBLICATION DECISION 2026-09-30 (dated list only); docs/state-expansion.md",
-    notes="East Baton Rouge Parish open-data dataset a4h4-zi7e 'Adjudicated Property' - properties 'adjudicated to the Parish of East "
-          "Baton Rouge' after no one bought them at the tax sale ('The records in this dataset reflect the most current adjudicated "
-          "property listing'). Public Domain licence (the dataset's own metadata). The rows were last updated 2024-02-27: every row is "
-          "published as 'adjudicated inventory as of' that date (list_as_of, read from the dataset metadata on every run), never as "
-          "available now. The CSV carries one row per property number per tax year; the harvester keeps the latest tax year. No price "
-          "and no purchase link in the dataset (NOT_PUBLISHED; no purchase path).",
+    last_checked="2026-10-25", completeness_status="UNKNOWN",
+    evidence_ref="LIVE READ 2026-10-25 of dataset shrr-fsqq (metadata licenseId=PUBLIC_DOMAIN, provenance=official, attribution "
+                 "'East Baton Rouge Parish Assessor', Update Frequency 'Annually', rowsUpdatedAt 2026-05-06; CSV header = the 21 "
+                 "EBR_PARCEL_HEADER columns, 4,527 rows, STATUS 'AJ' on every row, ASSESSMENT NO. shape 999-9999-9); OWNER DECISION "
+                 "2026-10-26 to switch from a4h4-zi7e and close the 6,643 numbers not on the newer list; earlier: LIVE CAPTURE "
+                 "2026-09-30 of a4h4-zi7e (runs 36752875012, 36753767965) and OWNER PUBLICATION DECISION 2026-09-30 (dated list only); "
+                 "docs/la-tx-acquisition-paths.md, docs/state-expansion.md",
+    notes="East Baton Rouge Parish open-data dataset shrr-fsqq 'Adjudicated Parcel' - 'adjudicated tax parcels in East Baton Rouge "
+          "Parish', STATUS 'AJ' ('Status of the parcel (adjudicated)'; only AJ rows are read). Public Domain licence (the dataset's own "
+          "metadata). The rows were last updated 2026-05-06: every row is published as 'adjudicated inventory as of' that date "
+          "(list_as_of, read from the dataset metadata on every run), never as available now. Identity = ASSESSMENT NO. as published "
+          "(the same assessor's number the earlier a4h4-zi7e list published as PROPERTY NUMBER). Replaced a4h4-zi7e 'Adjudicated "
+          "Property' (rows updated 2024-02-27) on 2026-10-26 by owner decision. No price and no purchase link in the dataset "
+          "(NOT_PUBLISHED; no purchase path); its geometry is a polygon, not a point.",
     publishing_unit="PARISH", publishing_unit_name=EBR_SOURCE.publishing_unit_name,
     amount_kind="NOT_PUBLISHED",
-    update_frequency="Annually (the dataset's own 'Update Frequency'); rows last updated 2024-02-27 (dataset metadata rowsUpdatedAt)",
+    update_frequency="Annually (the dataset's own 'Update Frequency'); rows last updated 2026-05-06 (dataset metadata rowsUpdatedAt)",
     source_terminology=EBR_SOURCE.source_terminology,
     ledgers=AVAILABLE, publication_status="APPROVED",
-    restrictions="Dated list: shown only as adjudicated inventory as of the dataset's rows-updated date (2024-02-27 when approved); "
-                 "never as available now. Owner decision 2026-09-30.",
+    restrictions="Dated list: shown only as adjudicated inventory as of the dataset's rows-updated date (2024-02-27 when approved; "
+                 "2026-05-06 since the owner's 2026-10-26 switch to shrr-fsqq); never as available now. Owner decisions 2026-09-30, "
+                 "2026-10-26.",
 )
 
 
@@ -462,12 +469,16 @@ def expansion_rows() -> list[dict]:
                     else EX.FIVE_STATE_EVIDENCE_RUNS if new else EX.EVIDENCE_RUNS)
             decision = (("LICENCE STATED BY THE SOURCE (quoted in restrictions)" if publication == "APPROVED"
                          else "NO PUBLICATION DECISION YET (UNREVIEWED)") if new else "OWNER PUBLICATION DECISION 2026-09-30")
+            latest = cfg is EX.PA_FAYETTE_REPOSITORY    # Fayette PA: newest dated file, read live 2026-10-26
             day = "2026-10-08" if tn else "2026-10-04" if five else "2026-10-02" if available else "2026-10-01" if new else "2026-09-30"
             doc = {"arcgis": getattr(cfg, "layer_url", ""), "sc_flc_pdf": getattr(cfg, "document_url", ""),
                    "csv": getattr(cfg, "document_url", ""), "pdf_table": getattr(cfg, "document_url", ""),
+                   # The page's newest dated file as of the last live read (the harvester follows the newest on every run).
+                   "latest_dated_document": EX.PA_FAYETTE_LATEST_READ[1] if cfg is EX.PA_FAYETTE_REPOSITORY else getattr(cfg, "document_url", ""),
                    "epropertyplus": getattr(cfg, "portal", "") + "/landmgmtpub/remote/public/property/getPublishedProperties"}.get(src.kind, "")
             access, fmt = {"arcgis": ("JSON_ENDPOINT", "JSON"), "epropertyplus": ("JSON_ENDPOINT", "JSON"), "sc_flc_pdf": ("HTTP_GET_PDF", "PDF"),
                            "pdf_table": ("HTTP_GET_PDF", "PDF"), "csv": ("HTTP_GET_HTML", "CSV"),
+                           "latest_dated_document": ("HTTP_GET_HTML", "XLSX"),
                            "xlsx_flc_lists": ("HTTP_GET_HTML", "XLSX")}.get(src.kind, ("HTTP_GET_HTML", "HTML_TABLE"))
             unit_name = cfg.county if cfg.county.endswith(" City") else f"{cfg.county} County"
             purchase = getattr(cfg, "purchase_url", None) or getattr(cfg, "application_url", None) or ""
@@ -480,9 +491,12 @@ def expansion_rows() -> list[dict]:
                 purchase_url_kind=pkind.value if (available and pkind) else "",
                 access_method=access, machine_format=fmt,
                 verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
-                last_checked=day, completeness_status="UNKNOWN",
+                last_checked=EX.PA_FAYETTE_LATEST_READ[0] if latest else day, completeness_status="UNKNOWN",
                 evidence_ref=(f"LIVE CAPTURE {day} (GitHub Actions runs {', '.join(runs)}): "
                               + (f"{unit_name} - {cfg.source_id}; " if new else f"{ev['source_of_record_identified']}; ")
+                              + (f"LIVE READ {EX.PA_FAYETTE_LATEST_READ[0]} of the Repository Sale page: newest dated file "
+                                 f"{EX.PA_FAYETTE_LATEST_READ[1].rsplit('/', 1)[-1]} (XLSX, sheets Active + Completed; only Active read); "
+                                 if latest else "")
                               + f"{decision}; docs/{'tennessee-survey' if tn else 'available-expansion-2026-10' if five else 'available-inventory' if available else 'five-state-enrichment' if new else 'six-state-expansion'}.md"),
                 notes=cfg.notes, publishing_unit="COUNTY", publishing_unit_name=unit_name,
                 amount_kind=cfg.amount_kind.value, update_frequency="not published by the source (read on each run)",

@@ -374,27 +374,39 @@ OK_OKLAHOMA_COUNTY_OWNED = TabularConfig(
           "'BUYER BEWARE' (the list page). Bids on the Treasurer's bid form (PDF, offline). The suggested initial bid is "
           "kept as published, never called a minimum or a price.")
 
-# Fayette County, PA Tax Claim Bureau - repository list (PDF, 13 pages, 404
-# rows): "Bids to be opened the first Tuesday of every month at 10:00 a.m.".
+# Fayette County, PA Tax Claim Bureau - repository list. The Bureau's
+# "Repository Sale" page links a new dated file for every update
+# ("Repository Update M-D-YYYY", DocumentCenter): the harvester
+# (`latest_dated_document`) reads the page, follows the link whose file name
+# carries the NEWEST date, and reads that file - an XLSX workbook (its "Active"
+# sheet only; the "Completed" sheet is never read) or a text PDF (the 2025
+# files). list_as_of is that file name's own date.
 # Columns PARCEL | Municipality | OWNER | DESCRIPTION | SALE | Min. Bid |
-# Comments. OWNER is never mapped. A row whose Comments read "Bid Received" has
-# a pending bid (repository sales need the taxing bodies' consent) and is not
-# read as offered. The document is the county's own dated file
-# ("Repository Update 10-7-2025"): list_as_of comes from its name, and a newer
-# file published under another DocumentCenter id is NOT followed - the list is
-# shown with its own date.
+# Comments (below the workbook's title rows). OWNER is never mapped. A row
+# whose Comments read "Bid Received" (any case / spacing) has a pending bid -
+# repository sales need the taxing bodies' consent - and is not read as offered.
+# History: pinned to the 10-7-2025 PDF (DocumentCenter 9761) from 2026-10-04 to
+# 2026-10-26; the page read live 2026-10-26 linked eleven newer files, the
+# newest "Repository-Update-10-7-2026" (DocumentCenter 16576, XLSX) - owner
+# decision 2026-10-26 to always read the newest.
+PA_FAYETTE_PAGE = "https://www.fayettecountypa.org/930/Repository-Sale"
+PA_FAYETTE_LATEST_READ = ("2026-10-26", "https://www.fayettecountypa.org/DocumentCenter/View/16576/Repository-Update-10-7-2026")
 PA_FAYETTE_REPOSITORY = TabularConfig(
     source_id="pa_fayette_repository", state="PA", county="Fayette",
     source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
     columns=ColumnMap(case_no=("PARCEL",), parcel=("PARCEL",), legal_desc=("DESCRIPTION",), amount=("Min. Bid",),
                       status=("Comments",)),
     amount_kind=AmountKind.OPENING_BID, status_exclude=("Bid Received",),
-    id_pattern=r"\d{2}-\d{2}-\d{4}(?:-\d{1,4})*",
+    # A segment may lead with one letter: the 10-7-2026 workbook lists two
+    # parcels shaped 99-99-9999-A9-9 (live read 2026-10-26, shapes only).
+    id_pattern=r"\d{2}-\d{2}-\d{4}(?:-[A-Z]?\d{1,4})*",
     list_as_of_pattern=r"Repository-Update-(\d{1,2}-\d{1,2}-\d{4})", list_as_of_formats=("%m-%d-%Y",),
-    list_url="https://www.fayettecountypa.org/DocumentCenter/View/9761/Repository-Update-10-7-2025",
-    document_url="https://www.fayettecountypa.org/DocumentCenter/View/9761/Repository-Update-10-7-2025", columns_verified=True,
+    document_sheet="Active",
+    list_url=PA_FAYETTE_PAGE, document_url=PA_FAYETTE_PAGE, columns_verified=True,
     notes="Repository of unsold properties (PA Real Estate Tax Sale Law): sealed bids opened monthly; 'Min. Bid' kept as "
-          "the published minimum bid. No purchase form URL verified - the path is the Tax Claim Bureau's bid process.")
+          "the published minimum bid. The Repository Sale page's newest dated 'Repository Update' file is read on every run "
+          "(its 'Active' sheet when it is a workbook; 'Completed' is never read); 'Bid Received' rows are pending, not offered. "
+          "No purchase form URL verified - the path is the Tax Claim Bureau's bid process.")
 
 # Ramsey County, MN - Tax Forfeited Land public layer (109 points). Its own
 # Status: "Available for purchase" (over the counter), "Purchased from
@@ -489,6 +501,7 @@ PUBLICATION = {
 @dataclass(frozen=True)
 class ExpansionSource:
     kind: str                     # "arcgis" | "html_table" | "csv" | "pdf_table" | "xlsx_flc_lists" | "sc_flc_pdf" | "epropertyplus"
+                                  # | "latest_dated_document"
     config: object
     url: str                      # what is fetched
 
@@ -513,7 +526,7 @@ SOURCES: dict[str, tuple[ExpansionSource, ...]] = {
            ExpansionSource("html_table", WI_DANE_SOLD, WI_DANE_SOLD.list_url)),
     "MO": (ExpansionSource("csv", MO_STL_LRA, MO_STL_LRA.document_url),),
     "OK": (ExpansionSource("html_table", OK_OKLAHOMA_COUNTY_OWNED, OK_OKLAHOMA_COUNTY_OWNED.list_url),),
-    "PA": (ExpansionSource("pdf_table", PA_FAYETTE_REPOSITORY, PA_FAYETTE_REPOSITORY.document_url),),
+    "PA": (ExpansionSource("latest_dated_document", PA_FAYETTE_REPOSITORY, PA_FAYETTE_PAGE),),
     "MN": (ExpansionSource("arcgis", MN_RAMSEY_TAX_FORFEIT, MN_RAMSEY_TAX_FORFEIT.layer_url),),
     "TN": (ExpansionSource("epropertyplus", TN_SHELBY_LANDBANK, TN_SHELBY_LANDBANK.portal),),
 }

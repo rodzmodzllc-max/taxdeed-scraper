@@ -107,6 +107,10 @@ class TabularConfig:
     # (e.g. Fayette PA's "Bid Received": a bid is pending the taxing bodies'
     # consent). Counted in `excluded_status`, never kept.
     status_exclude: tuple[str, ...] = ()
+    # 2026-10-26 (Fayette PA): the ONE workbook sheet a source's XLSX list is
+    # read from (matched case- and whitespace-insensitively). Other sheets -
+    # e.g. a "Completed" sheet of finished sales - are never read.
+    document_sheet: str | None = None
 
 
 # Cell tokens a source uses for "no value here" (never a published value).
@@ -354,6 +358,57 @@ def pdf_table_rows(data: bytes) -> list[list[str]]:
             for table in page.extract_tables() or []:
                 rows.extend([[c if c is not None else "" for c in r] for r in table])
     return rows
+
+
+def _cell(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()
+
+
+def workbook_sheet_rows(data: bytes, sheet: str | None) -> list[list[str]]:
+    """Every non-empty row of ONE named sheet of an XLSX workbook, as text
+    cells. A workbook without that sheet (or no sheet configured) raises
+    KeyError - the list is not the configured one, never an empty list."""
+    if not sheet:
+        raise KeyError("no workbook sheet configured for this source")
+    import openpyxl  # noqa: PLC0415 - only the XLSX sources need it
+    wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    names = {re.sub(r"\s+", " ", n).strip().lower(): n for n in wb.sheetnames}
+    name = names.get(re.sub(r"\s+", " ", sheet).strip().lower())
+    if name is None:
+        raise KeyError(f"workbook has no {sheet!r} sheet")
+    rows: list[list[str]] = []
+    for r in wb[name].iter_rows(values_only=True):
+        cells = [_cell(c) for c in r]
+        if any(cells):
+            rows.append(cells)
+    return rows
+
+
+def latest_dated_link(html: str | bytes, base_url: str, cfg: TabularConfig) -> tuple[str, date] | None:
+    """(url, date) of the link on a list page whose file name carries the
+    newest date by the config's `list_as_of_pattern` - or None. Only https
+    links on the page's own host are considered; the date is the one in the
+    file name (the county's own label for the list), never the retrieval
+    date. Ties keep the lexically greatest URL (deterministic)."""
+    from urllib.parse import unquote, urljoin, urlsplit  # noqa: PLC0415
+    from bs4 import BeautifulSoup  # noqa: PLC0415
+    host = urlsplit(base_url).hostname
+    best: tuple[str, date] | None = None
+    for a in BeautifulSoup(html, "html.parser").find_all("a", href=True):
+        href = urljoin(base_url, a["href"].strip())
+        parts = urlsplit(href)
+        if parts.scheme != "https" or parts.hostname != host:
+            continue
+        when = list_as_of_from_name(unquote(parts.path.rstrip("/").rsplit("/", 1)[-1]), cfg)
+        if when is None:
+            continue
+        if best is None or (when, href) > (best[1], best[0]):
+            best = (href, when)
+    return best
 
 
 # The Texas government-direct lists the audit found, and why each is a

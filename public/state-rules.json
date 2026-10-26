@@ -2493,25 +2493,25 @@
    ],
    "county_rules": [
     {
-     "changed_on": "2026-10-10",
+     "changed_on": "2026-10-26",
      "county": "East Baton Rouge",
      "depends_on": "app.js isDatedList(): an ADJUDICATED_PROPERTY row is never called 'available now'",
-     "evidence": "docs/state-expansion.md (Socrata metadata licenseId=PUBLIC_DOMAIN, rowsUpdatedAt)",
+     "evidence": "harvesters/otc/adapters/louisiana.py EBR_PARCEL_EVIDENCE (Socrata metadata licenseId=PUBLIC_DOMAIN, rowsUpdatedAt 2026-05-06, read live 2026-10-25); owner switch 2026-10-26, docs/la-tx-acquisition-paths.md",
      "implementation_status": "IMPLEMENTED",
      "kind": "SOURCE",
      "ledger": "AVAILABLE",
      "office": "East Baton Rouge Parish",
      "related_sources": "la_ebr_adjudicated",
      "scope": "county",
-     "source_title": "East Baton Rouge open data: Adjudicated Property",
-     "source_url": "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e",
+     "source_title": "East Baton Rouge open data: Adjudicated Parcel",
+     "source_url": "https://data.brla.gov/d/shrr-fsqq",
      "state": "LA",
-     "statement": "East Baton Rouge Parish publishes its adjudicated-property list as open data under a Public Domain licence. The list's own last update is 2024-02-27, so it is shown as a dated list, never as current availability.",
+     "statement": "East Baton Rouge Parish publishes its adjudicated-parcel list as open data under a Public Domain licence. The list's own last update is 2026-05-06, so it is shown as a dated list, never as current availability.",
      "status": "VERIFIED",
      "test_ref": "tests/python/test_state_expansion_la.py",
      "topic": "source_dated_list",
-     "verified_on": "2026-09-30",
-     "version": "1"
+     "verified_on": "2026-10-25",
+     "version": "2"
     },
     {
      "changed_on": "2026-10-11",
@@ -2535,7 +2535,18 @@
      "version": "1"
     }
    ],
-   "history": [],
+   "history": [
+    {
+     "affects": "list_as_of on every LA row; registry row la_ebr_adjudicated; State rules page",
+     "change": "Production source switched by owner decision from a4h4-zi7e 'Adjudicated Property' (rows updated 2024-02-27) to shrr-fsqq 'Adjudicated Parcel' (rows updated 2026-05-06)",
+     "changed_on": "2026-10-26",
+     "county": "East Baton Rouge",
+     "prior_statement": "East Baton Rouge Parish publishes its adjudicated-property list as open data under a Public Domain licence. The list's own last update is 2024-02-27, so it is shown as a dated list, never as current availability.",
+     "prior_status": "VERIFIED",
+     "topic": "source_dated_list",
+     "version": "1"
+    }
+   ],
    "ledgers": {
     "AUCTIONS": {
      "coverage": [],
@@ -4799,7 +4810,7 @@
     },
     {
      "check": "rule_history",
-     "detail": "every rule is at version 1",
+     "detail": "1 rule(s) with a recorded prior version",
      "state": "LA",
      "status": "PASS"
     },

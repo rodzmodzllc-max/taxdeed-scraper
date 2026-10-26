@@ -144,6 +144,71 @@ def runnable_sources(state: str, reg: dict) -> tuple[list, list[tuple[str, str]]
     return run, gated
 
 
+XLSX_MAGIC = b"PK"          # an XLSX workbook is a zip archive
+PDF_MAGIC = b"%PDF-"
+
+
+def document_rows(data: bytes, cfg) -> tuple[list[list[str]], str]:
+    """(table rows, format) of a downloaded list file, by its own magic
+    bytes - never by its URL or name: an XLSX workbook (only the config's
+    `document_sheet`) or a text PDF. Anything else raises ValueError."""
+    from harvesters.otc.adapters.tabular import pdf_table_rows, workbook_sheet_rows  # noqa: PLC0415
+    if data[:2] == XLSX_MAGIC:
+        return workbook_sheet_rows(data, cfg.document_sheet), "XLSX"
+    if data[:5] == PDF_MAGIC:
+        return pdf_table_rows(data), "PDF"
+    raise ValueError("neither an XLSX workbook nor a PDF")
+
+
+def run_latest_dated_document(src, fetch_text, fetch_bytes, *, retrieved_at, fixture: str | None = None):
+    """A list page that links one dated file per update (Fayette PA's
+    'Repository Update M-D-YYYY'): read the page, follow the link whose file
+    name carries the NEWEST date (config list_as_of_pattern), read that file
+    (XLSX sheet or PDF) - list_as_of = that name's date. Offline (`fixture`)
+    the fixture IS the document and its file name is the dated name.
+
+    FAILED, never EMPTY: a transport error (TRANSPORT_CONNECTION), a page with
+    no dated link (PARSE_NO_TABLE), a file that is neither XLSX nor PDF, lacks
+    the configured sheet, or yields no identifier row (PARSE_FORMAT_CHANGE).
+    EMPTY only when every row read is a well-formed identifier carrying the
+    source's own not-offered status (no malformed identifier at all). -> (status, records, category, detail, empty_signal)."""
+    import dataclasses  # noqa: PLC0415
+    cfg = src.config
+    doc_url = None
+    try:
+        if fixture:
+            data, name = Path(fixture).read_bytes(), Path(fixture).name
+        else:
+            from harvesters.otc.adapters.tabular import latest_dated_link  # noqa: PLC0415
+            picked = latest_dated_link(fetch_text(src.url), src.url, cfg)
+            if picked is None:
+                return "FAILED", [], "PARSE_NO_TABLE", "no dated document linked on the list page", None
+            doc_url = picked[0]
+            data = fetch_bytes(doc_url)          # requests follows redirects
+            name = doc_url.rstrip("/").rsplit("/", 1)[-1]
+    except Exception as exc:  # noqa: BLE001 - transport failure is FAILED, never zero
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        return "FAILED", [], "TRANSPORT_CONNECTION", f"{type(exc).__name__}" + (f" HTTP {status}" if status else ""), None
+    run_cfg = dataclasses.replace(cfg, document_url=doc_url) if doc_url else cfg
+    adapter = TabularListAdapter(run_cfg)
+    try:
+        rows, fmt = document_rows(data, cfg)
+        recs = adapter.parse_rows(rows, retrieved_at=retrieved_at, document_name=name)
+    except Exception as exc:  # noqa: BLE001 - an unreadable file is a format change, never "empty"
+        return "FAILED", [], "PARSE_FORMAT_CHANGE", type(exc).__name__, None
+    for r in recs:
+        r.provenance["document"] = f"the list page's newest dated file ({fmt}" + (f", sheet {cfg.document_sheet!r})" if fmt == "XLSX" else ")")
+    # Counts and the public file name only - never a row value.
+    print(f"{cfg.source_id}: file={name} format={fmt} offered={len(recs)} excluded={adapter.excluded_status} "
+          f"bad-id={adapter.rejected_ids}")
+    if recs:
+        return "COMPLETE", recs, None, None, None
+    if adapter.excluded_status and not adapter.rejected_ids:
+        # Every row a well-formed identifier carrying a not-offered status: the source's own statement.
+        return "EMPTY", [], None, None, "no_offered_status"
+    return "FAILED", [], "PARSE_FORMAT_CHANGE", f"no offered identifier row in {name} ({fmt})", None
+
+
 def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None = None, fetch_bytes=None):
     """-> (status, records, category, detail, empty_signal)."""
     cfg = src.config
@@ -217,6 +282,8 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
             # Lists past redemption exist but no row carried an identifier: a format change, never "empty".
             return "FAILED", [], "PARSE_FORMAT_CHANGE", f"no identifier row in {len(current)} list(s)", None
         return ("COMPLETE", recs, None, None, None) if recs else ("EMPTY", [], None, None, "no_list_past_redemption")
+    if src.kind == "latest_dated_document":
+        return run_latest_dated_document(src, fetch_text, fetch_bytes, retrieved_at=retrieved_at, fixture=fixture)
     if src.kind in ("csv", "pdf_table"):
         # AVAILABLE expansion (2026-10-04): a published CSV file (St. Louis LRA)
         # or a text PDF's tables (Fayette PA repository list).

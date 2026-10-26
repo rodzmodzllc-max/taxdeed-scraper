@@ -58,7 +58,7 @@ AVAILABLE_HOSTS = {
 AVAILABLE_FIVE_HOSTS = {   # AVAILABLE expansion 2026-10-04 (docs/available-expansion-2026-10.md)
     "mo_stl_lra_inventory": "https://static.stlouis-mo.gov/open-data/SLDC/REAL-ESTATE/",
     "ok_oklahoma_county_owned": "https://docs.oklahomacounty.org/treasurer/",
-    "pa_fayette_repository": "https://www.fayettecountypa.org/DocumentCenter/View/9761/",
+    "pa_fayette_repository": "https://www.fayettecountypa.org/",   # the Repository Sale page; the newest dated file is followed (2026-10-26)
     "mn_ramsey_tax_forfeit": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/",
     "tn_shelby_landbank": "https://public-sctn.epropertyplus.com",     # Tennessee 2026-10-08 (docs/tennessee-survey.md)
 }

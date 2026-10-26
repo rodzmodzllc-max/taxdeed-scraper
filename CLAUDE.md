@@ -1835,12 +1835,19 @@ Full description: `docs/auction-outcomes.md`. Stable facts:
 
 Full description: `docs/state-expansion.md`. Stable facts:
 - **Production states are FL, TX, LA** (`states.PRODUCTION_STATES`). LA's one
-  source is East Baton Rouge Parish's open-data "Adjudicated Property" list
-  (Public Domain), approved by the owner **as a dated list only**: every
-  row's `list_as_of` is the dataset's own `rowsUpdatedAt` (2024-02-27 when
-  approved) and the frontend never calls an `ADJUDICATED_PROPERTY` row
-  "available now" (`isDatedList()` in app.js). The harvest refuses a run
-  whose metadata licence is no longer PUBLIC_DOMAIN.
+  source is East Baton Rouge Parish's open data (Public Domain), approved by
+  the owner **as a dated list only**: every row's `list_as_of` is the
+  dataset's own `rowsUpdatedAt` and the frontend never calls an
+  `ADJUDICATED_PROPERTY` row "available now" (`isDatedList()` in app.js). The
+  harvest refuses a run whose metadata licence is no longer PUBLIC_DOMAIN.
+  **Since 2026-10-26** (owner: "Yes close 6,643") the source is the newer
+  "Adjudicated Parcel" dataset `shrr-fsqq` (rows updated 2026-05-06, STATUS
+  `AJ` only; `louisiana.EBR_SOURCE` = `EBR_PARCEL_SOURCE`); the older
+  "Adjudicated Property" `a4h4-zi7e` (2024-02-27) is kept disabled as
+  `EBR_LEGACY_SOURCE`. Same source_id and identity (ASSESSMENT NO. = the old
+  PROPERTY NUMBER, same format), so the next COMPLETE read closes only the
+  numbers not on the newer list - through `laft_lifecycle.py --state LA` (the
+  LA sync step runs without `--close-absent`).
 - **Migration 020 is APPLIED** (2026-09-30): POST_SALE / STATE_HELD_TAX_LAND /
   ADJUDICATED_PROPERTY and QUOTED_ON_APPLICATION are storable; the storable
   sets in model.py / county_source_registry.py / laft_status.py include them.
@@ -2340,7 +2347,7 @@ Full description: `docs/available-expansion-2026-10.md`.
 |---|---|---|
 | MO | St. Louis LRA CSV (`Parcel_Status = Available` only) | 9,758 |
 | OK | Oklahoma County county-owned list (suggested bid = `PUBLISHED_AMOUNT_KIND_UNSPECIFIED`; offline bid form) | 195 |
-| PA | Fayette repository PDF (`Bid Received` excluded; dated 2025-10-07) | 376 |
+| PA | Fayette repository: the Repository Sale page's newest dated file (`latest_dated_document`; XLSX `Active` sheet or PDF; `Bid Received` excluded; since 2026-10-26, was the 10-7-2025 PDF) | 247 (10-7-2026 file) |
 | MN | Ramsey tax-forfeited layer (`Available for purchase` only) | 2 |
 
 **Shared adapter additions** (`tabular.py`):
