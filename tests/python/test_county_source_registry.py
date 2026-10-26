@@ -143,12 +143,32 @@ def test_r07_to_db_rows_uses_nulls_and_the_migration_018_column_set():
         assert re.search(rf"^\s+{col}\s", sql, re.M), col
 
 
+# Sources whose published address moved AFTER migration 017 was applied. 017
+# is an applied, historical migration and is never edited: its one-time
+# backfill keeps the address that was current then, while the registry
+# follows the source. Each entry names why it moved.
+#   Brevard (2026-10-26): the clerk redesigned www.brevardclerk.us - the
+#   _cache PDF answered 410 and /lands-available 404 (runs #366, #379); the
+#   same file (same File_id) is now linked from the Tax Deeds & Auctions page.
+MOVED_SINCE_017 = {
+    ("Brevard", "fl_laft_pdfs"): (
+        "https://www.brevardclerk.us/lands-available",
+        "https://www.brevardclerk.us/_cache/files/7/b/7b8e6515-1af7-4968-977f-cc32647e2257/"
+        "A61EE6220F52FD754C0693E0343635FF.lola.pdf",
+    ),
+}
+
+
 def test_r08_migration_017_backfill_values_equal_the_registry():
     sql = (REPO / "scripts/migrations/017_otc_inventory_provenance_lifecycle.sql").read_text(encoding="utf-8")
     block = sql[sql.index("with fl_sources("):sql.index(")\nupdate public.properties p")]
     tuples = re.findall(r"\('([^']*)', '([^']*)', '([^']*)', '([^']*)', '([^']*)'\)", block)
-    expected = sorted((r.county, r.source_id, r.source_authority, r.canonical_url, r.document_url)
+    expected = sorted((r.county, r.source_id, r.source_authority,
+                       *MOVED_SINCE_017.get((r.county, r.source_id), (r.canonical_url, r.document_url)))
                       for r in csr.production_rows(ROWS, "FL") if "AVAILABLE" in r.ledger_set)
+    for (county, sid), _old in MOVED_SINCE_017.items():
+        now = csr.lookup(ROWS, "FL", county, sid)
+        assert (now.canonical_url, now.document_url) != _old, f"{county} no longer moved - drop it from MOVED_SINCE_017"
     assert sorted(tuples) == expected and len(tuples) == 52
 
 

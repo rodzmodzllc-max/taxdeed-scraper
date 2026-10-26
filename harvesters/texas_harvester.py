@@ -611,6 +611,10 @@ _LGBS_COUNTY_NAME_OVERRIDES = {
     "Mclennan": "McLennan",
     "Mcculloch": "McCulloch",
     "Mcmullen": "McMullen",
+    # 2026-10-26: "DEWITT COUNTY" / "DE WITT COUNTY" title-case to neither
+    # spelling the app's basemap and county roster use ("DeWitt").
+    "Dewitt": "DeWitt",
+    "De Witt": "DeWitt",
 }
 
 
@@ -752,9 +756,19 @@ def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[Te
     skipped_non_tx = 0
     skipped_status: dict[str, int] = {}
     page_num = 0
+    limited = False
 
     pages_retried = 0
     truncated_at_page: int | None = None
+    # 2026-10-26 (Texas close-out): what the feed itself says it holds. The
+    # walk may close absent rows only when it read exactly that many records
+    # and the total never moved between pages (an offset walk over a list
+    # that changed mid-walk can skip one record and read another twice).
+    source_counts: set = set()
+    record_ids: set = set()
+    records_without_id = 0
+    unattributed = 0
+    rows_per_county: dict[str, int] = {}
 
     while url:
         page_num += 1
@@ -803,8 +817,13 @@ def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[Te
             truncated_at_page = page_num
             break
 
+        source_counts.add(payload.get("count"))
         for raw in payload.get("results", []):
             seen_raw += 1
+            if raw.get("id") is None:
+                records_without_id += 1
+            else:
+                record_ids.add(raw.get("id"))
 
             if raw.get("state") != "TX":
                 skipped_non_tx += 1
@@ -819,6 +838,10 @@ def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[Te
             county = _lgbs_normalize_county(raw.get("county"))
             account_number = raw.get("account_nbr") or None
             if not county or not account_number:
+                # A Texas record this walk cannot attribute to a county and
+                # account: it might be any stored row, so no county of this
+                # read may be closed against (lgbs_county_entries).
+                unattributed += 1
                 continue
 
             coords = ((raw.get("geometry") or {}).get("coordinates")) or [None, None]
@@ -849,9 +872,11 @@ def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[Te
                 )
             )
             counties_seen.add(county)
+            rows_per_county[county] = rows_per_county.get(county, 0) + 1
 
             if limit is not None and len(rows) >= limit:
                 url = None
+                limited = True
                 break
 
         if url is None:
@@ -873,10 +898,23 @@ def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[Te
     # A truncated walk is the one case where "fewer rows" means "we do not
     # know what we missed", which is why it is reported separately.
     complete = truncated_at_page is None
+    # One total, the same on every page, and an integer - or no total at all.
+    only = next(iter(source_counts)) if len(source_counts) == 1 else None
+    source_count = only if isinstance(only, int) and not isinstance(only, bool) else None
+    count_matches = bool(complete and not limited and source_count is not None and seen_raw == source_count
+                         and (records_without_id or len(record_ids) == seen_raw))
     if stats is not None:
         stats.update(
             {
                 "complete": complete,
+                "limited": limited,
+                "source_count": source_count,
+                "source_counts_seen": len(source_counts),
+                "count_matches": count_matches,
+                "distinct_record_ids": len(record_ids),
+                "records_without_id": records_without_id,
+                "unattributed": unattributed,
+                "rows_per_county": dict(sorted(rows_per_county.items())),
                 "pages_walked": page_num,
                 "pages_retried": pages_retried,
                 "truncated_at_page": truncated_at_page,
@@ -897,6 +935,69 @@ def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[Te
         file=sys.stderr,
     )
     return rows
+
+
+TX_COUNTIES_CSV = HERE / "../data/tx_county_coverage_matrix.csv"
+
+
+def texas_counties(path: Path | None = None) -> list[str]:
+    """Texas's 254 counties, spelled the way this app stores them
+    (data/tx_county_coverage_matrix.csv). Empty when the file is missing -
+    then no county gets an EMPTY entry and nothing absent is closed."""
+    path = path or TX_COUNTIES_CSV
+    if not path.exists():
+        return []
+    with open(path, newline="", encoding="utf-8") as f:
+        return sorted({(r.get("county") or "").strip() for r in csv.DictReader(f) if r.get("state") == "TX"} - {""})
+
+
+def lgbs_county_entries(stats: dict, counties: list[str]) -> list[dict]:
+    """Per-county read status of one LGBS walk, in the shape every status
+    file uses (harvesters/ledgers/health.py reads it).
+
+    LGBS is ONE statewide feed, so every county's read is the walk's read:
+      * the walk reached the end of the feed, was not cut by `limit`, read
+        exactly the `count` the API reported (the same on every page; and,
+        when records carry an `id`, as many distinct ids), and attributed
+        every Texas record to a county + account
+          -> COMPLETE for each county with rows, and EMPTY (signal: the
+             complete statewide walk lists no record for it) for every other
+             Texas county;
+      * a page failed after its retries -> FAILED, TRANSPORT_PAGE_FAILED
+        (read as SOURCE_UNAVAILABLE: closes nothing);
+      * anything else (count mismatch, a moved total, an unattributable
+        record, a limited walk) -> INCOMPLETE for every county.
+    A county the feed names but the roster does not spell is still recorded
+    from the walk itself."""
+    per = dict(stats.get("rows_per_county") or {})
+    names = sorted(set(counties) | set(per))
+    verified = bool(stats.get("complete") and stats.get("count_matches") and not stats.get("unattributed")
+                    and not stats.get("limited"))
+    out = []
+    for county in names:
+        n = int(per.get(county, 0))
+        e = {"source_id": "tx_lgbs", "county": county, "row_count": n}
+        if stats.get("truncated_at_page") is not None:
+            e.update(status="FAILED", transport_ok=False, error_category="TRANSPORT_PAGE_FAILED",
+                     reason=f"page {stats.get('truncated_at_page')} failed after its retries")
+        elif not verified:
+            if stats.get("limited"):
+                why = "walk cut short by a row limit"
+            elif stats.get("unattributed"):
+                why = f"{stats.get('unattributed')} Texas record(s) without a county or account"
+            else:
+                why = (f"read {stats.get('raw_rows_seen')} record(s); the feed reported "
+                       f"{stats.get('source_count')} (or a total that changed between pages)")
+            e.update(status="INCOMPLETE", transport_ok=True, parse_ok=True, reason=why)
+        elif n:
+            e.update(status="COMPLETE", transport_ok=True, parse_ok=True,
+                     reason="statewide feed walked to its end; records read equal the feed's own count")
+        else:
+            e.update(status="EMPTY", transport_ok=True, parse_ok=True,
+                     empty_signal="complete statewide feed walk lists no record for this county",
+                     reason="statewide feed walked to its end; records read equal the feed's own count")
+        out.append(e)
+    return out
 
 
 REALAUCTION_COUNTIES_CSV = HERE / "../data/tx_realauction_counties.csv"
@@ -964,8 +1065,26 @@ def _realauction_date_to_iso(mmddyyyy: str) -> str | None:
     except ValueError:
         return None
 
+# The waiting list serves this many items per page (scripts/realauction_results.py
+# PAGE_SIZE, measured); a sale date with more pages than this is a partial read.
+REALAUCTION_PAGE_SIZE = 10
+REALAUCTION_MAX_PAGES = 30
 
-def harvest_realauction(limit: int | None = None) -> list[TexasSaleRow]:
+
+def _realauction_is_area_response(txt: str) -> bool:
+    """True when an AJAX body is the site's own listing response (a JSON
+    object carrying `retHTML` / `rlist`) - the only body from which "this
+    page lists nothing" may be read. A login wall, an HTML error page or an
+    unparseable body is not."""
+    import json as _json
+    try:
+        data = _json.loads(txt)
+    except ValueError:
+        return False
+    return isinstance(data, dict) and ("retHTML" in data or "rlist" in data)
+
+
+def harvest_realauction(limit: int | None = None, stats: dict | None = None) -> list[TexasSaleRow]:
     """Harvest Texas's RealAuction/RealForeclose county sites
     (`<county>.texas.sheriffsaleauctions.com` / `<county>.texas.realforeclose.com`).
 
@@ -1058,6 +1177,8 @@ def harvest_realauction(limit: int | None = None) -> list[TexasSaleRow]:
     rows: list[TexasSaleRow] = []
     seen_keys: set[tuple[str, str]] = set()
     counties_with_matches = 0
+    county_entries: list[dict] = []
+    limited = False
     now = __import__("datetime").datetime.now()
 
     for c in counties:
@@ -1066,6 +1187,15 @@ def harvest_realauction(limit: int | None = None) -> list[TexasSaleRow]:
 
         jar = http.cookiejar.CookieJar()
         opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+        # 2026-10-26 (Texas close-out): one read status per county. A county
+        # is COMPLETE only when every request succeeded, every item parsed,
+        # and every sale date's paging ended on the site's own end signal
+        # (see _realauction_page_end); EMPTY only when the calendar or the
+        # waiting list positively shows nothing. Anything else closes nothing.
+        failures: list[str] = []
+        parse_problems: list[str] = []
+        truncations: list[str] = []
+        empty_dates = 0
 
         def _get(url: str, extra_headers: dict | None = None) -> str | None:
             req = urllib.request.Request(url, headers={"User-Agent": REALAUCTION_USER_AGENT, **(extra_headers or {})})
@@ -1074,6 +1204,7 @@ def harvest_realauction(limit: int | None = None) -> list[TexasSaleRow]:
                     return resp.read().decode("utf-8", errors="replace")
             except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
                 print(f"harvest_realauction: {county_name} request failed ({url}): {exc}", file=sys.stderr)
+                failures.append(url)
                 return None
 
         # Walk the current month plus the next 2, same 3-month lookahead
@@ -1089,23 +1220,37 @@ def harvest_realauction(limit: int | None = None) -> list[TexasSaleRow]:
             html = _get(cal_url)
             if html is None:
                 continue
-            dates.extend(re.findall(r"CALSELT[^>]*dayid=['\"](\d{2}/\d{2}/\d{4})['\"]", html))
+            found = re.findall(r"CALSELT[^>]*dayid=['\"](\d{2}/\d{2}/\d{4})['\"]", html)
+            if not found and "CALBOX" not in html:
+                # Not a calendar page at all (a login wall, an error page):
+                # "no sale days" cannot be read from it.
+                parse_problems.append(f"calendar month {month_offset} carried no calendar")
+            dates.extend(found)
         dates = sorted(set(dates))
 
+        county_kept = 0
         if not dates:
             print(f"harvest_realauction: {county_name} - no auction days in the next 3 months", file=sys.stderr)
-            continue
-
-        county_kept = 0
         for date in dates:
             preview_url = f"https://{host}/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate={date}"
             calendar_referer_url = f"https://{host}/index.cfm?zaction=USER&zmethod=CALENDAR"
-            _get(preview_url, {"Referer": calendar_referer_url})
+            if _get(preview_url, {"Referer": calendar_referer_url}) is None:
+                continue
 
-            for page in range(12):
+            for page in range(REALAUCTION_MAX_PAGES):
+                # The site's own pager (scripts/realauction_results.py, measured):
+                # page 0 is PageDir=0&doR=1; the NEXT page is PageDir=1&doR=0.
+                # doR=1 re-reads the first page - asking PageDir=N&doR=1 (this
+                # function before 2026-10-26) returned the first ten items
+                # again, so every sale date stopped at ten properties. With
+                # bypassPage=1 the server also ignores PageDir (measured on the
+                # Florida hosts, run 40380815661), so the next page sends
+                # bypassPage=0 exactly as the site's own changePage() does.
                 update_url = (
                     f"https://{host}/index.cfm?zaction=AUCTION&Zmethod=UPDATE&FNC=LOAD"
-                    f"&AREA=W&PageDir={page}&doR=1&bypassPage=1&test=1"
+                    + ("&AREA=W&PageDir=0&doR=1&bypassPage=1" if page == 0
+                       else "&AREA=W&PageDir=1&doR=0&bypassPage=0")
+                    + "&test=1"
                 )
                 txt = _get(
                     update_url,
@@ -1115,11 +1260,14 @@ def harvest_realauction(limit: int | None = None) -> list[TexasSaleRow]:
                         "Referer": preview_url,
                     },
                 )
-                if not txt or "AITEM_" not in txt:
+                if txt is None:
                     break
-
-                blocks = txt.split("AITEM_")[1:]
+                blocks = txt.split("AITEM_")[1:] if "AITEM_" in txt else []
                 if not blocks:
+                    if not _realauction_is_area_response(txt):
+                        parse_problems.append(f"{date} page {page}: not a listing response")
+                    elif page == 0:
+                        empty_dates += 1
                     break
 
                 new_on_page = 0
@@ -1127,6 +1275,7 @@ def harvest_realauction(limit: int | None = None) -> list[TexasSaleRow]:
                     fields_found = {label: _realauction_get_field(block, label) for label in REALAUCTION_FIELD_LABELS}
                     account_number = fields_found["Account Number"]
                     if not account_number:
+                        parse_problems.append(f"{date} page {page}: an item without an Account Number")
                         continue
                     key = (county_name, account_number)
                     if key in seen_keys:
@@ -1158,44 +1307,67 @@ def harvest_realauction(limit: int | None = None) -> list[TexasSaleRow]:
                     county_kept += 1
 
                     if limit is not None and len(rows) >= limit:
+                        limited = True
                         break
-                if limit is not None and len(rows) >= limit:
+                if limited:
                     break
+                if len(blocks) < REALAUCTION_PAGE_SIZE:
+                    break  # a short page is the list's last page
                 if new_on_page == 0:
+                    # A full page of items already read: the pager did not
+                    # advance, so more items may exist that were not read.
+                    truncations.append(f"{date} page {page} repeated a full page")
                     break
                 time.sleep(0.2)  # polite pacing between pages, same rationale as harvest_lgbs()
-            if limit is not None and len(rows) >= limit:
+            else:
+                truncations.append(f"{date}: page limit {REALAUCTION_MAX_PAGES} reached")
+            if limited:
                 break
+
+        entry = {"source_id": "tx_realauction", "county": county_name, "row_count": county_kept,
+                 "sale_dates": len(dates), "transport_ok": not failures, "parse_ok": not parse_problems}
+        if failures:
+            entry.update(status="FAILED", error_category="TRANSPORT_REQUEST_FAILED",
+                         reason=f"{len(failures)} request(s) failed")
+        elif parse_problems or truncations or limited:
+            entry.update(status="INCOMPLETE",
+                         reason="; ".join((parse_problems + truncations)[:3]) or "walk cut short by a row limit")
+        elif county_kept:
+            entry.update(status="COMPLETE", reason="calendar and every sale date's waiting list read to the list's end")
+        else:
+            entry.update(status="EMPTY",
+                         empty_signal=("calendar lists no sale day in the next 3 months" if not dates
+                                       else f"waiting list empty on all {len(dates)} sale date(s)"),
+                         reason="every request succeeded")
+        county_entries.append(entry)
+
         if county_kept:
             counties_with_matches += 1
-            print(f"harvest_realauction: {county_name} - {county_kept} properties across {len(dates)} sale date(s)", file=sys.stderr)
-        else:
+            print(f"harvest_realauction: {county_name} - {county_kept} properties across {len(dates)} sale date(s), "
+                  f"read {entry['status']}", file=sys.stderr)
+        elif dates:
             # CONFIRMED LIVE 2026-09-14 (first real workflow_dispatch run):
             # this branch was previously silent - a county whose calendar
             # DID have scheduled dates but whose AJAX pages produced zero
-            # rows with a parseable Account Number printed nothing at all,
-            # indistinguishable in the log from a county that was never
-            # visited. That run hit this exact case for 6 of 24 counties
-            # (Cameron, El Paso, Galveston, Gregg, Orange, Victoria) - one
-            # of them, El Paso, is an individually browser-confirmed-good
-            # hostname, not a pattern-derived guess, so "no log line" could
-            # not be trusted to mean
-            # "verified empty" - it could equally mean a wrong page
-            # structure or a blocked/failed per-page request that didn't
-            # itself raise (a non-2xx body without AITEM_ in it, e.g.).
-            # Every county now gets exactly one terminal line covering all
-            # three outcomes (no auction days / N kept / dates-but-0-kept),
-            # so "no source this run" and "something to investigate" are
-            # never silently the same thing again.
+            # rows printed nothing at all. Every county gets exactly one
+            # terminal line, now with its read status.
             print(
                 f"harvest_realauction: {county_name} - {len(dates)} sale date(s) found but 0 properties "
-                "parsed (calendar loaded; either the sale(s) genuinely list nothing yet, or the page "
-                "structure/field labels didn't match what this county's host returned - worth a manual check)",
+                f"parsed, read {entry['status']} ({empty_dates} date(s) with an empty waiting list)",
                 file=sys.stderr,
             )
-        if limit is not None and len(rows) >= limit:
+        if limited:
             break
 
+    if stats is not None:
+        complete = bool(county_entries) and not limited and all(
+            e["status"] in ("COMPLETE", "EMPTY") for e in county_entries)
+        stats.update({
+            "complete": complete,
+            "limited": limited,
+            "counties_read": len(county_entries),
+            "county_entries": county_entries,
+        })
     print(
         f"harvest_realauction: kept {len(rows)} TX rows across {counties_with_matches}/{len(counties)} counties with matches",
         file=sys.stderr,
@@ -1297,6 +1469,7 @@ def main() -> None:
     all_rows: list[TexasSaleRow] = []
     rows_by_source: dict[str, int] = {}
     status_by_source: dict[str, dict] = {}
+    county_entries: list[dict] = []
     for name, fn in SOURCES.items():
         decision = check_ingestion_gate(name)
         if not decision.allowed:
@@ -1364,10 +1537,17 @@ def main() -> None:
         )
         all_rows.extend(vendor_rows)
         rows_by_source[name] = rows_by_source.get(name, 0) + len(vendor_rows)
+        # 2026-10-26: one read status per (source, county) - what
+        # scripts/texas_closeout.py may close against. LGBS is one statewide
+        # feed (lgbs_county_entries); RealAuction reads each county itself.
+        if name == "tx_lgbs":
+            county_entries.extend(lgbs_county_entries(source_stats, texas_counties()))
+        else:
+            county_entries.extend(e for e in source_stats.get("county_entries") or [] if isinstance(e, dict))
         status_by_source[name] = {
             "rows": len(vendor_rows),
             "complete": completeness,
-            **{k: v for k, v in source_stats.items() if k != "complete"},
+            **{k: v for k, v in source_stats.items() if k not in ("complete", "county_entries")},
         }
 
     out_path.write_text(json.dumps([asdict(r) for r in all_rows], indent=2))
@@ -1381,18 +1561,24 @@ def main() -> None:
     # identical in the row file, and only one of them means "we do not know
     # what we missed".
     #
-    # Nothing consumes this yet. The TX sync is upsert-only - it never
-    # closes out or deletes rows a harvest did not mention - so a truncated
-    # run under-delivers rather than destroying data, and gating the sync on
-    # completeness is not required for safety today. It WOULD be required
-    # before Texas ever gets a close-out step like Florida's, which is
-    # precisely when this file needs to already exist.
+    # 2026-10-26: `counties` holds one entry per (source_id, county) read -
+    # COMPLETE / EMPTY / INCOMPLETE / FAILED - and is what
+    # scripts/texas_closeout.py reads (through harvesters/ledgers/health.py)
+    # to close rows a COMPLETE / EMPTY read no longer lists. A source that
+    # did not run (gate, permission, exception) has no entries: its rows are
+    # never closed by this run.
     status_path = out_dir / "harvest_texas_status.json"
     status_path.write_text(
         json.dumps(
-            {"retrieved_at": retrieved_at, "sources": status_by_source}, indent=2, sort_keys=True
+            {"retrieved_at": retrieved_at, "sources": status_by_source, "counties": county_entries},
+            indent=2, sort_keys=True,
         )
     )
+    by_status: dict[str, int] = {}
+    for e in county_entries:
+        key = f"{e.get('source_id')}:{e.get('status')}"
+        by_status[key] = by_status.get(key, 0) + 1
+    print(f"main: county read status {dict(sorted(by_status.items()))}", file=sys.stderr)
     incomplete = [n for n, st in status_by_source.items() if st.get("complete") is False]
     if incomplete:
         print(

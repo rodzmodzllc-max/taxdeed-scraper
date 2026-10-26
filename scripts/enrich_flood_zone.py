@@ -70,6 +70,15 @@ except ValueError as _exc:
 COUNTY_MISS_STREAK = int(os.environ.get("FLOOD_COUNTY_MISS_STREAK", "10"))
 REQUEST_DELAY_SECONDS = float(os.environ.get("FLOOD_REQUEST_DELAY_SECONDS", "0.25"))
 REQUEST_TIMEOUT = int(os.environ.get("FLOOD_REQUEST_TIMEOUT", "20"))
+# Wall-clock budget for the FEMA lookups of one run (2026-10-26). Run 381's
+# deeds job spent 36 minutes in this step - 308 of 445 lookups failed, most
+# of them waiting out REQUEST_TIMEOUT - and the job hit its 60-minute limit,
+# so GitHub cancelled the whole run (NAIP and every later step lost, the run
+# marked cancelled). The step now stops cleanly at the budget, prints its
+# summary, and leaves the rest unstamped for the next run. 0 = no budget (the
+# manual enrich / available jobs, which have their own step timeouts); the
+# deeds job sets it.
+TIME_BUDGET_SECONDS = float(os.environ.get("FLOOD_TIME_BUDGET_SECONDS", "0"))
 
 NFHL_ENDPOINT = (
     "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query"
@@ -185,6 +194,26 @@ def bfe_value(raw):
     return value
 
 
+# Why the most recent lookup failed - "timeout", "connection", "http_<code>",
+# "bad_json" or "arcgis_error_<code>" - so the run log can say what is failing
+# instead of only how many (run 381: "failed 308", cause unknowable).
+LAST_FAILURE = None
+
+
+def failure_kind(exc) -> str:
+    """One short, value-free category for a failed FEMA request."""
+    if isinstance(exc, requests.Timeout):
+        return "timeout"
+    if isinstance(exc, requests.ConnectionError):
+        return "connection"
+    if isinstance(exc, requests.HTTPError):
+        code = getattr(getattr(exc, "response", None), "status_code", None)
+        return f"http_{code}" if code else "http"
+    if isinstance(exc, ValueError):
+        return "bad_json"
+    return type(exc).__name__
+
+
 def lookup_flood_zone(latitude, longitude):
     """Return (attrs_or_None, ok).
 
@@ -201,17 +230,23 @@ def lookup_flood_zone(latitude, longitude):
         "returnGeometry": "false",
         "f": "json",
     }
+    global LAST_FAILURE
+    LAST_FAILURE = None
     try:
         resp = requests.get(NFHL_ENDPOINT, params=params, timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
-    except (requests.RequestException, ValueError):
+    except (requests.RequestException, ValueError) as exc:
+        LAST_FAILURE = failure_kind(exc)
         return None, False
 
     # ArcGIS reports failures in a 200 body. An error envelope is a failed
     # request, not an unmapped point - treating it as "unmapped" would stamp
     # a finding onto a row we learned nothing about.
     if isinstance(data, dict) and data.get("error"):
+        err = data.get("error")
+        code = err.get("code") if isinstance(err, dict) else None
+        LAST_FAILURE = f"arcgis_error_{code}" if code else "arcgis_error"
         return None, False
 
     features = data.get("features") or []
@@ -356,21 +391,33 @@ def main():
     unmapped = 0
     failed = 0
     zones = Counter()
+    failure_kinds = Counter()
+    started = time.monotonic()
+    out_of_time = False
 
     for unit, limit, outstanding in plan_slices(counties):
         county = EU.label(unit)
-        if attempted >= BATCH_LIMIT:
+        if attempted >= BATCH_LIMIT or out_of_time:
             break
         rows = fetch_county_batch(unit, min(limit, BATCH_LIMIT - attempted), outstanding)
         if not rows:
             continue
 
         miss_streak = 0
+        county_kinds = Counter()
         for row in rows:
+            if TIME_BUDGET_SECONDS > 0 and time.monotonic() - started >= TIME_BUDGET_SECONDS:
+                out_of_time = True
+                print(
+                    f"  time budget of {TIME_BUDGET_SECONDS:.0f}s spent - stopping; "
+                    "the remaining rows stay unstamped for the next run."
+                )
+                break
             if miss_streak >= COUNTY_MISS_STREAK:
                 print(
-                    f"  [{county}] {miss_streak} consecutive request failures - "
-                    "skipping the rest of this county's slice this run."
+                    f"  [{county}] {miss_streak} consecutive request failures "
+                    f"({_kinds_text(county_kinds)}) - skipping the rest of this "
+                    "county's slice this run."
                 )
                 break
             attempted += 1
@@ -381,6 +428,9 @@ def main():
                 # Nothing written, nothing stamped: retried next run.
                 failed += 1
                 miss_streak += 1
+                kind = LAST_FAILURE or "unknown"
+                county_kinds[kind] += 1
+                failure_kinds[kind] += 1
                 continue
 
             miss_streak = 0
@@ -405,7 +455,13 @@ def main():
     )
     if zones:
         print("Zones written: " + ", ".join(f"{z}={n}" for z, n in zones.most_common()))
+    if failure_kinds:
+        print("Failed lookups by cause: " + _kinds_text(failure_kinds))
     return 0
+
+
+def _kinds_text(kinds) -> str:
+    return ", ".join(f"{k}={n}" for k, n in kinds.most_common()) or "no cause recorded"
 
 
 if __name__ == "__main__":

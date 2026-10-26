@@ -260,6 +260,12 @@ def test_pbfcm_harvest_rows_ledgers_and_units():
     assert u["Palo Pinto"]["status"] == "EMPTY" and u["Harris"]["status"] == "COMPLETE"
     assert stats["skipped_links"] == {"external_links": 1, "unknown_county": 0, "blank_links": 1}
     assert stats["complete"] is False  # the scanned Brazoria resale list is not a complete read
+    # The status-file entries every reader uses (harvesters/ledgers/health.py).
+    from harvesters.ledgers import health as LH
+    ent = {e["county"]: e for e in stats["county_entries"]}
+    assert all(e["source_id"] == "tx_pbfcm" for e in ent.values())
+    assert LH.reader_status(ent["Palo Pinto"]) == "EMPTY" and LH.reader_status(ent["Harris"]) == "COMPLETE"
+    assert LH.reader_status(ent["Brazoria"]) == "INCOMPLETE"
     # Only the firm's own PDFs were requested: never the external texascg.com link, never a commented-out county.
     assert not any("texascg" in u or "anderson" in u for u, _ in f.calls)
 
@@ -270,6 +276,11 @@ def test_pbfcm_index_failure_and_document_refusal_are_failed_not_empty():
     stats = {}
     V.harvest_pbfcm(fetcher=f, stats=stats, read_pdf=_fake_read_pdf)
     assert stats["units"]["Brazoria"]["status"] == "FAILED"
+    from harvesters.ledgers import health as LH
+    brazoria = next(e for e in stats["county_entries"] if e["county"] == "Brazoria")
+    assert LH.reader_status(brazoria) == "SOURCE_UNAVAILABLE"   # a refusal closes nothing
+    # The resale index was not read: no county is vouched for, so nothing of the unread list can be closed.
+    assert all(LH.reader_status(e) not in ("COMPLETE", "EMPTY") for e in stats["county_entries"])
     assert stats["index_errors"] == {"taxresale.html": "TRANSPORT"} and stats["complete"] is False
 
 

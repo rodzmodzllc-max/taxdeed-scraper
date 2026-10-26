@@ -185,6 +185,36 @@ class UnitBook:
     def stats(self) -> dict:
         return {k: self.units[k] for k in sorted(self.units)}
 
+    def county_entries(self, source_id: str, *, index_errors: dict | None = None) -> list[dict]:
+        """One entry per county in the status-file shape every reader uses
+        (harvesters/ledgers/health.py reader_status): EMPTY carries the
+        documents' own signal, a refused / unreachable read carries an
+        ACCESS_ / TRANSPORT_ category (read as SOURCE_UNAVAILABLE).
+
+        When an index page (a whole list of counties' documents) could not be
+        read, no county of the source is vouched for: a COMPLETE / EMPTY
+        county is reported INCOMPLETE, so a close-out never removes rows of
+        the list that was not read."""
+        out = []
+        for county in sorted(self.units):
+            u = self.units[county]
+            signals = sorted({d["signal"] for d in u["documents"] if d.get("signal")})
+            status = u["status"]
+            if index_errors and status in (COMPLETE, EMPTY):
+                status = INCOMPLETE
+                signals.append("INDEX_UNREAD:" + ",".join(sorted(set(index_errors.values()))))
+            e = {"source_id": source_id, "county": county, "status": status, "row_count": u["rows"],
+                 "ledgers": dict(sorted(u["ledgers"].items())), "reason": ", ".join(signals)}
+            if status == EMPTY:
+                e["empty_signal"] = ", ".join(signals) or "no offered row in any listed document"
+            if status == FAILED:
+                failed = [d["signal"] for d in u["documents"] if d["status"] == FAILED]
+                cat = failed[0] if failed else "TRANSPORT"
+                e["error_category"] = cat if cat.startswith(("ACCESS_", "TRANSPORT")) else f"TRANSPORT_{cat}"
+                e["transport_ok"] = False
+            out.append(e)
+        return out
+
 
 def _row(*, source_id: str, ledger: str, county: str, account: str, cause: str | None = None,
          legal: str | None = None, address: str | None = None, min_bid: float | None = None,
@@ -333,7 +363,7 @@ def harvest_pbfcm(fetcher: PoliteFetcher | None = None, stats: dict | None = Non
     if stats is not None:
         stats.update({"complete": not index_errors and book.complete(), "index_errors": index_errors,
                       "skipped_links": skipped_total, "units": book.stats(), "requests": fetcher.requests,
-                      "rows_kept": len(rows)})
+                      "rows_kept": len(rows), "county_entries": book.county_entries("tx_pbfcm", index_errors=index_errors)})
     _log("harvest_pbfcm", rows, book, index_errors)
     return rows[:limit] if limit is not None else rows
 
@@ -486,7 +516,7 @@ def harvest_mvba(fetcher: PoliteFetcher | None = None, stats: dict | None = None
     if stats is not None:
         stats.update({"complete": not index_errors and book.complete(), "index_errors": index_errors,
                       "skipped_links": skipped_total, "online": online, "units": book.stats(),
-                      "requests": fetcher.requests, "rows_kept": len(rows)})
+                      "requests": fetcher.requests, "rows_kept": len(rows), "county_entries": book.county_entries("tx_mvba", index_errors=index_errors)})
     _log("harvest_mvba", rows, book, index_errors)
     return rows[:limit] if limit is not None else rows
 
@@ -693,7 +723,8 @@ def harvest_govease(fetcher: PoliteFetcher | None = None, stats: dict | None = N
     if stats is not None:
         stats.update({"complete": not index_errors and book.complete(), "index_errors": index_errors,
                       "unknown_counties": unknown if counties or unknown else [], "skipped_rows": skipped,
-                      "units": book.stats(), "requests": fetcher.requests, "rows_kept": len(rows)})
+                      "units": book.stats(), "requests": fetcher.requests, "rows_kept": len(rows),
+                      "county_entries": book.county_entries("tx_govease", index_errors=index_errors)})
     _log("harvest_govease", rows, book, index_errors)
     return rows[:limit] if limit is not None else rows
 

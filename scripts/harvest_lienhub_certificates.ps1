@@ -88,6 +88,30 @@ $here = $PSScriptRoot
 $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 $registryPath = Join-Path $here "../data/florida_certificate_sale_platforms.csv"
 $outDir = Join-Path $here "../out"
+# Test hooks (tests/python/test_read_failures_oct26.py runs this script against
+# a local fake LienHub). Production sets none of these.
+if ($env:LIENHUB_REGISTRY) { $registryPath = $env:LIENHUB_REGISTRY }
+if ($env:LIENHUB_OUT_DIR) { $outDir = $env:LIENHUB_OUT_DIR }
+$lienhubBase = if ($env:LIENHUB_BASE) { $env:LIENHUB_BASE.TrimEnd('/') } else { "https://lienhub.com" }
+$backoffSeconds = if ($env:LIENHUB_BACKOFFS) { @($env:LIENHUB_BACKOFFS -split ',' | ForEach-Object { [int]$_ }) } else { @(20, 45) }
+$countyDelay = if ($null -ne $env:LIENHUB_COUNTY_DELAY) { [int]$env:LIENHUB_COUNTY_DELAY } else { -1 }
+
+# Site-wide block stop (2026-10-26). Since 2026-10-01 LienHub has answered
+# 403 to every GitHub runner request: every run spent ~35 minutes (32
+# counties x the 20 s + 45 s retry backoff) learning the same thing 32 times
+# (runs #366, #374). Once the site has refused this many counties IN A ROW on
+# every attempt, the remaining counties are recorded FAILED with
+# TRANSPORT_HTTP_403_BLOCKED - a reader treats that as SOURCE_UNAVAILABLE, so
+# nothing is stamped, reconciled or closed - without being requested. This is
+# not a workaround: no request is made differently; fewer are made.
+$blockStopAfter = if ($env:LIENHUB_BLOCK_STOP) { [int]$env:LIENHUB_BLOCK_STOP } else { 3 }
+$blocked403Streak = 0
+
+function Test-Is403($err) {
+    $resp = $err.Exception.Response
+    if ($resp -and $resp.StatusCode -and [int]$resp.StatusCode -eq 403) { return $true }
+    return ($err.Exception.Message -match '\b403\b')
+}
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 $outJson = Join-Path $outDir "harvest_certificates.json"
 $outCsv  = Join-Path $outDir "harvest_certificates.csv"
@@ -131,28 +155,60 @@ foreach ($row in $counties) {
     # long enough most of the time. This revision adds a second retry with a
     # longer backoff (escalating 20s then 45s) and widens the base
     # inter-county delay, rather than changing approach again.
-    if ($i -gt 1) { Start-Sleep -Seconds (Get-Random -Minimum 4 -Maximum 9) }
     $slug = Get-Slug $row.County
-    $base = "https://lienhub.com/county/$slug/countyheld/certificates"
+    $base = "$lienhubBase/county/$slug/countyheld/certificates"
     Write-Host ("[{0}/{1}] {2} ({3})" -f $i, $counties.Count, $row.County, $slug) -ForegroundColor Cyan
+
+    if ($blocked403Streak -ge $blockStopAfter) {
+        Write-Host ("      not requested - LienHub refused the last {0} counties with 403 on every attempt (site-wide block)" -f $blocked403Streak) -ForegroundColor Yellow
+        $countyStatus += [pscustomobject]@{
+            county         = $row.County
+            status         = "FAILED"
+            error_category = "TRANSPORT_HTTP_403_BLOCKED"
+            transport_ok   = $false
+            rowCount       = 0
+            reason         = "not requested: the site answered 403 to the previous $blocked403Streak counties on every attempt (site-wide block) - nothing is stamped or closed"
+        }
+        continue
+    }
+    if ($i -gt 1) {
+        if ($countyDelay -ge 0) { Start-Sleep -Seconds $countyDelay } else { Start-Sleep -Seconds (Get-Random -Minimum 4 -Maximum 9) }
+    }
 
     try {
         $getResp = $null
-        $backoffs = @(20, 45)
+        $backoffs = $backoffSeconds
+        $all403 = $true
         for ($attempt = 1; $attempt -le ($backoffs.Count + 1); $attempt++) {
             try {
                 $getResp = Invoke-WebRequest -Uri $base -UserAgent $ua -TimeoutSec 25 -SessionVariable session -ErrorAction Stop
                 break
             } catch {
+                if (-not (Test-Is403 $_)) { $all403 = $false }
                 if ($attempt -le $backoffs.Count) {
                     $wait = $backoffs[$attempt - 1]
                     Write-Host ("      GET attempt {0} failed ({1}) - backing off {2}s and retrying" -f $attempt, $_.Exception.Message, $wait) -ForegroundColor Yellow
                     Start-Sleep -Seconds $wait
+                } elseif ($all403) {
+                    $blocked403Streak++
+                    Write-Host ("      ERROR: 403 on every attempt ({0} county(ies) in a row)" -f $blocked403Streak) -ForegroundColor Red
+                    $countyStatus += [pscustomobject]@{
+                        county         = $row.County
+                        status         = "FAILED"
+                        error_category = "TRANSPORT_HTTP_403_BLOCKED"
+                        transport_ok   = $false
+                        rowCount       = 0
+                        reason         = "$($_.Exception.Message)"
+                    }
+                    $getResp = $null
+                    break
                 } else {
                     throw
                 }
             }
         }
+        if ($null -eq $getResp) { continue }
+        $blocked403Streak = 0
         $html = $getResp.Content
 
         $metaTag = [regex]::Match($html, '<meta[^>]*name=["'']csrf_token["''][^>]*>')
@@ -277,6 +333,7 @@ foreach ($row in $counties) {
             reason   = "full result set retrieved ($($collected.Count) of $recordsTotal reported)"
         }
     } catch {
+        $blocked403Streak = 0   # a failure that was not 403 on every attempt breaks the run of refusals
         Write-Host ("      ERROR: {0}" -f $_.Exception.Message) -ForegroundColor Red
         $countyStatus += [pscustomobject]@{
             county   = $row.County
@@ -296,7 +353,8 @@ foreach ($row in $counties) {
 $countyStatus | ConvertTo-Json -Depth 3 | Set-Content $outStatus -Encoding utf8
 $completeCount = @($countyStatus | Where-Object { $_.status -eq "COMPLETE" }).Count
 $incompleteCount = @($countyStatus | Where-Object { $_.status -eq "INCOMPLETE" }).Count
-Write-Host ("Completeness: {0} COMPLETE, {1} INCOMPLETE (of {2} counties attempted)" -f $completeCount, $incompleteCount, $countyStatus.Count)
+$blockedCount = @($countyStatus | Where-Object { $_.status -eq "FAILED" }).Count
+Write-Host ("Completeness: {0} COMPLETE, {1} INCOMPLETE, {2} FAILED (source unavailable: 403) (of {3} counties)" -f $completeCount, $incompleteCount, $blockedCount, $countyStatus.Count)
 
 if ($all.Count -eq 0) { Write-Host "No certificate rows harvested this run (see completeness status above)."; exit }
 

@@ -22,14 +22,19 @@ A row is closed only when ALL of these hold (the app's rule, plus the read):
     (harvest_all_status.json through harvesters/ledgers/health.py - the same
     gate as the sync's own close-out)
   * its case number is NOT in this run's harvest for that county
-  * its SALE DAY was read in full this run: this run's harvest holds fewer
-    than PAGE_SIZE (10) rows for that (county, sale date). RealAuction serves
-    a sale day's Waiting list ten items per page and the harvester's pager
-    does not reach page two anonymously (deeds run 40200487211: 62 sale days
-    kept exactly 10 of "20 seen" - the second request repeats the first page;
-    docs/auction-outcomes.md records the same limit for the closed listing).
-    On such a day an absent row may simply be on page two, so it is never
-    closed from absence (counted as sale_day_possibly_truncated)
+  * its SALE DAY was not provably read short this run. Since 2026-10-26 the
+    harvester reads every Waiting page of a sale day and records, per sale
+    day, the items and pages it read and the page count the page itself
+    publishes ("page 1 of N"; harvest_all_status.json `saleDays`: read /
+    pages_read / published_pages / complete). A day read short - fewer pages
+    than published, fewer items than those pages hold, or no published
+    count - is held: an absent row may be on a page that was not read
+    (counted as sale_day_read_incomplete). Any day read in full is closed
+    from absence however many rows it holds. A status file without per-day
+    records (a harvester older than the paging fix, whose pager repeated
+    page one - deeds run 40200487211: 62 sale days kept exactly 10 of
+    "20 seen") keeps the old fail-closed hold: a day with PAGE_SIZE (10) or
+    more harvested rows is held (sale_day_possibly_truncated)
   * its own last_seen_at is missing or more than 36 h older than the
     county's newest last_seen_at among its active auction rows, and that
     newest read is itself within 36 h of now (stamp_seen.py ran this run;
@@ -134,6 +139,38 @@ def harvested_per_day(harvest_rows) -> dict[tuple[str, str], int]:
     return out
 
 
+def day_reads(status_entries) -> dict[tuple[str, str], dict]:
+    """(county, ISO sale date) -> {"read", "pages_read", "published_pages",
+    "complete"} from the harvester's per-sale-day records (status entry key
+    `saleDays`). The page publishes its page count ("page 1 of N"), not an
+    item count, so a day counts as read in full only when its record says
+    `complete` (literally true), every published page was read, and the
+    items read reach that page count's minimum ((N - 1) * PAGE_SIZE + 1).
+    Anything else - a short read, a missing or unreadable count - is short."""
+    def _int(v):
+        try:
+            return int(v) if v is not None and str(v).strip() != "" else None
+        except (TypeError, ValueError):
+            return None
+
+    out: dict[tuple[str, str], dict] = {}
+    for e in as_list(status_entries):
+        if not isinstance(e, dict):
+            continue
+        county = str(e.get("county") or "").strip()
+        for d in as_list(e.get("saleDays")):
+            if not isinstance(d, dict):
+                continue
+            day = iso_day(d.get("sale_date"))
+            if not county or not day:
+                continue
+            read, pages, published = _int(d.get("read")), _int(d.get("pages_read")), _int(d.get("published_pages"))
+            complete = (d.get("complete") is True and None not in (read, pages, published) and published >= 0
+                        and pages >= published and (published == 0 or read >= (published - 1) * PAGE_SIZE + 1))
+            out[(county, day)] = {"read": read, "pages_read": pages, "published_pages": published, "complete": complete}
+    return out
+
+
 def covered_counties(path: Path | str = HOSTS_PATH) -> set[str]:
     """Every county a deeds harvester reads: the RealAuction host list plus
     Okaloosa's Bid4Assets feed. An unreadable or empty list gives an empty
@@ -152,12 +189,15 @@ def florida_today(now: datetime) -> str:
 
 
 def plan(rows: list[dict], *, complete: set[str], harvested: dict[str, set[str]], now: datetime,
-         per_day: dict[tuple[str, str], int] | None = None, covered: set[str] | None = None) -> tuple[list[str], dict]:
+         per_day: dict[tuple[str, str], int] | None = None, covered: set[str] | None = None,
+         days: dict[tuple[str, str], dict] | None = None) -> tuple[list[str], dict]:
     """(ids to close, counts). Pure; see the module docstring for the rules.
-    `per_day` (harvested_per_day) protects a sale day the harvest may have
-    read only partly; `covered` (covered_counties) enables the past-sale rule
-    for counties no harvester reads - None or empty disables it."""
+    `days` (day_reads) holds a sale day whose read the harvester recorded as
+    short; `per_day` (harvested_per_day) is the fallback for a day with no
+    such record (older status file); `covered` (covered_counties) enables the
+    past-sale rule for counties no harvester reads - None or empty disables it."""
     per_day = per_day or {}
+    days = days or {}
     today = florida_today(now)
     active = [r for r in rows if str(r.get("status") or "").lower() == "active"]
     newest: dict[str, datetime] = {}
@@ -186,7 +226,12 @@ def plan(rows: list[dict], *, complete: set[str], harvested: dict[str, set[str]]
         if str(r.get("case_no") or "").strip() in harvested.get(county, set()):
             counts["on_current_list"] += 1
             continue
-        if per_day.get((county, sale), 0) >= PAGE_SIZE:
+        record = days.get((county, sale))
+        if record is not None:
+            if not record["complete"]:
+                counts["sale_day_read_incomplete"] += 1
+                continue
+        elif per_day.get((county, sale), 0) >= PAGE_SIZE:
             counts["sale_day_possibly_truncated"] += 1
             continue
         top = newest.get(county)
@@ -270,7 +315,7 @@ def main(argv=None) -> int:
             return 0
         rows = fetch_rows(base, key)
     ids, report = plan(rows, complete=complete, harvested=harvested, now=now,
-                       per_day=harvested_per_day(harvest), covered=covered_counties())
+                       per_day=harvested_per_day(harvest), covered=covered_counties(), days=day_reads(status))
     enabled = write_enabled(a.apply)
     mode = "apply" if enabled else (f"plan-only ({FLAG}={FLAG_OFF})" if a.apply else "plan-only")
     print(f"auction off-list close-out (FL): mode {mode}; COMPLETE counties {len(complete)}; "
