@@ -72,11 +72,12 @@ def relative_day(day: str, today: date) -> str:
 
 
 def blocks_of(body: str) -> list[str]:
-    try:
-        text = json.loads(body).get("retHTML") or ""
-    except (ValueError, AttributeError):
-        text = body or ""
-    return text.split("AITEM_")[1:]
+    """AITEM_ blocks of the RAW response text, split exactly as
+    harvest_realauction() splits it. The harvester's field pattern expects
+    the JSON-escaped markup (CAD_DTA\\">) - decoding the JSON first made
+    every label read False in the first capture (run 40384532568), an
+    artifact of this script, not of the harvester."""
+    return (body or "").split("AITEM_")[1:]
 
 
 def json_keys(body: str) -> list[str]:
