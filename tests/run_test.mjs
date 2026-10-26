@@ -7716,9 +7716,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 362,
+  adminSourcesRows: 365,   // + the LRA, Ramsey and Fayette process evidence rows (2026-10-26) and the TX/LA candidates
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: '362 source(s): 234 approved, 113 review required, 15 hard blocked.',
+  adminSourcesStatusText: '365 source(s): 237 approved, 113 review required, 15 hard blocked.',
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,
@@ -8550,7 +8550,9 @@ const EXPECTED = {
   amountMeta: {"pa": {"semantic": "OPENING_BID", "rows": ["Amount type: Opening bid", "Valid through: Not published"], "statusMatchesRule": true}, "ok": {"semantic": "OTHER_PUBLISHED_AMOUNT", "rows": ["Amount type: Other published amount", "Valid through: Not published"], "statusMatchesRule": true}, "mo": {"semantic": "NONE", "rows": ["Amount type: Not published", "Valid through: Not published"], "statusMatchesRule": true}, "mn": {"semantic": "OPENING_BID", "rows": ["Amount type: Opening bid", "Valid through: Not published"], "statusMatchesRule": true}},
   coordVectors: [],
   coordGisRows: {"mn": {"method": "PARCEL_GIS", "source": "Official parcel GIS layer", "type": "Point"}, "la": {"method": "OFFICIAL_ADDRESS", "source": "Location published by the source list", "type": "Point"}, "mo": {"method": "NONE", "source": "No authoritative coordinates available", "type": null}},
-  acqEvidenceStatus: {"mo": {"status": "NEEDS_REVIEW", "authority": "Land Reutilization Authority (St. Louis Development Corporation)", "candidates": 2, "allMarked": true, "httpsOnly": true, "method": null}, "pa": {"status": "NEEDS_REVIEW", "authority": "Fayette County Tax Claim Bureau", "candidates": 3, "allMarked": true, "httpsOnly": true, "method": null}, "mn": {"status": "NEEDS_REVIEW", "authority": "Ramsey County Tax-Forfeited Land", "candidates": 2, "allMarked": true, "httpsOnly": true, "method": null}, "ok": {"status": null, "authority": null, "candidates": 0, "allMarked": true, "httpsOnly": true, "method": "Bid application required - purchase process not online"}},
+  // 2026-10-26: the MO (LRA), PA (Fayette) and MN (Ramsey) processes were read - their units are VERIFIED,
+  // so these untyped fixture rows no longer show the "not yet verified" block (a harvest types their path).
+  acqEvidenceStatus: {"mo": {"status": null, "authority": null, "candidates": 0, "allMarked": true, "httpsOnly": true, "method": null}, "pa": {"status": null, "authority": null, "candidates": 0, "allMarked": true, "httpsOnly": true, "method": null}, "mn": {"status": null, "authority": null, "candidates": 0, "allMarked": true, "httpsOnly": true, "method": null}, "ok": {"status": null, "authority": null, "candidates": 0, "allMarked": true, "httpsOnly": true, "method": "Bid application required - purchase process not online"}},
   acqModeFilter: {"phone": ["p3"], "multi_step": ["p15"], "online": [], "unverified": []},
   acqModeChip: "Acquisition method: Phone the county",
   mapSharedFilters: {"shared": ["p3"], "toggle": {"on": true, "pressed": "true", "text": "Same filters as the List (1)"}, "offCount": 12, "offHash": "#/map?lf=0"},

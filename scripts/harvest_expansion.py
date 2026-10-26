@@ -208,6 +208,29 @@ def run_latest_dated_document(src, fetch_text, fetch_bytes, *, retrieved_at, fix
         return "EMPTY", [], None, None, "no_offered_status"
     return "FAILED", [], "PARSE_FORMAT_CHANGE", f"no offered identifier row in {name} ({fmt})", None
 
+def link_property_pages(cfg, recs, fetch_text, *, offline: bool) -> int:
+    """The source's own per-property page on each record (tabular.attach_property_pages).
+    When the config names the source's listed-on-page file, it is read first; a
+    failed read links nothing and drops nothing (the rows keep their listing page
+    as the acquisition path). Offline (fixture) runs make no request. Counts only."""
+    from harvesters.otc.adapters.tabular import attach_property_pages, listed_ids  # noqa: PLC0415
+    if getattr(cfg, "property_page", None) is None or not recs:
+        return 0
+    listed = None
+    if cfg.property_page_listed_url:
+        if offline or fetch_text is None:
+            print(f"{cfg.source_id}: per-property pages not linked (offline run; the listed-on-page file is not read)")
+            return 0
+        try:
+            listed = listed_ids(fetch_text(cfg.property_page_listed_url), cfg.property_page_listed_column)
+        except Exception as exc:  # noqa: BLE001 - never fatal: the rows stay, unlinked
+            print(f"{cfg.source_id}: per-property pages not linked ({type(exc).__name__} reading the listed-on-page file)")
+            return 0
+    n = attach_property_pages(recs, cfg, listed)
+    print(f"{cfg.source_id}: per-property page linked on {n} of {len(recs)} row(s)"
+          + (f" (listed-on-page file: {len(listed)} identifier(s))" if listed is not None else ""))
+    return n
+
 
 def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None = None, fetch_bytes=None):
     """-> (status, records, category, detail, empty_signal)."""
@@ -308,6 +331,7 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
         if adapter.rejected_ids or adapter.excluded_status:
             print(f"{cfg.source_id}: {adapter.rejected_ids} non-identifier row(s), "
                   f"{adapter.excluded_status} row(s) whose own status is not an offer - skipped")
+        link_property_pages(cfg, recs, fetch_text, offline=bool(fixture))
         if recs:
             return "COMPLETE", recs, None, None, None
         if adapter.excluded_status and not adapter.rejected_ids:
@@ -322,6 +346,7 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
         return "FAILED", [], "TRANSPORT_CONNECTION", f"{type(exc).__name__}" + (f" HTTP {status}" if status else ""), None
     adapter = TabularListAdapter(cfg)
     recs = adapter.parse_html_table(html, retrieved_at=retrieved_at)
+    link_property_pages(cfg, recs, fetch_text, offline=bool(fixture))
     if adapter.rejected_ids or adapter.excluded_status:
         print(f"{cfg.source_id}: {adapter.rejected_ids} non-identifier row(s), "
               f"{adapter.excluded_status} row(s) whose own status is not an offer - skipped")

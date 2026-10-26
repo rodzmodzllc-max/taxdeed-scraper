@@ -88,7 +88,7 @@ def test_only_the_portals_own_for_sale_and_available_rows_are_read():
     assert a.amount == 4500.0 and a.amount_kind is AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED
     assert b.amount is None and b.amount_kind is AmountKind.NOT_PUBLISHED and b.land_use is None and b.latitude is None
     assert a.owner_name is None and "comments" not in json.dumps(a.provenance)   # free text never mapped
-    assert a.purchase_url is None
+    assert a.purchase_url == "https://public-sctn.epropertyplus.com/property/07001200000010"   # the portal's own page
 
 
 def test_a_short_read_or_bad_page_fails_whole_never_partial():

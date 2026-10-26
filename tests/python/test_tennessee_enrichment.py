@@ -70,10 +70,13 @@ def test_shelby_acquisition_is_needs_review_from_a_capture_never_verified():
     assert all(not AES.outcome_problems(o) for o in AES.load_outcomes())
 
 
-def test_shelby_rows_carry_no_purchase_link():
+def test_shelby_rows_carry_only_the_portals_own_property_page():
+    # 2026-10-25: each offered row carries the portal's own /property/<parcelNumber> page (the
+    # pattern the portal's code publishes, verified live) - never any other constructed link.
     for r in _records():
         row = r.to_properties_row()
-        assert row.get("purchase_url") is None and row.get("purchase_path_type") in (None, "")
+        assert row["purchase_url"] == f"{EX.TN_SHELBY_LANDBANK.portal}/property/{row['case_no']}"
+        assert row["purchase_url_kind"] == "online_purchase" and row.get("purchase_path_type") in (None, "")
         assert row["list_url"] == EX.TN_SHELBY_LANDBANK.list_url
 
 

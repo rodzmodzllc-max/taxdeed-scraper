@@ -2640,15 +2640,15 @@
     },
     {
      "county": "Wayne",
-     "evidence": "The DLBA's 'Amended and Restated Vacant Land Policy' (final October 2023, 26 pages): Side Lots, Neighborhood Lots and Oversize Lots are DLBA-owned vacant residential lots sold by application at policy prices - 'Side Lots are priced at $100 per lot', a Neighborhood Lot '$250 per lot, unless the estimated value of the lot exceeds $2,500', an Oversize Lot '$200 per lot, unless the estimated value of the lot as determined by the DLBA exceeds $2,500' - to a defined buyer: the owner-occupant of a Detroit home adjacent to (Side / Oversize Lot) or within 500 feet of (Neighborhood Lot) the lot, who holds title, is current on Detroit property taxes and is in good standing with the DLBA; a purchase is made by a 'Complete Application ... to purchase property under this Policy'",
-     "evidence_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/DLBA+Policies/POLICIES+-+Vacant+Land+Policy+(FINAL+Oct+2023).pdf",
-     "instructions": "A purchase is made by a 'Complete Application ... to purchase property under this Policy'. The DLBA holds applications for at least ten days after the first one arrives, then chooses by priority. The DLBA 'may choose to remove a property from ... eligibility at any time and for any reason'. A non-adjacent Neighborhood Lot needs an endorsement (block club, Community Partner, Council Member or District Manager); the application is cancelled after 60 days without one.",
-     "observed_on": "2026-10-03",
+     "evidence": "The DLBA's 'Second Amended and Restated Vacant Land Policy' (adopted by the Board of Directors 11/11/2025, 31 pages), linked from the DLBA's own Policies page (buildingdetroit.org/our-policies/): DLBA-owned vacant lots are sold by application at policy prices - 'Side Lots are priced at $100 per lot', 'Neighborhood Lots are priced at $250 per lot provided, however, ...', 'Oversize Lots are priced at $250 per lot' - and a purchase is made by a 'Complete Application' ('a copy of the then in force version of an application to purchase property under this Policy')",
+     "evidence_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/Land-reuse/SECOND-AMENDED-AND-RESTATED-VACANT-LAND-POLICY.pdf",
+     "instructions": "A purchase is made by a 'Complete Application' - 'a copy of the then in force version of an application to purchase property under this Policy with all required information filled-in by the person applying to purchase the property, including in the case of a Neighborhood Lot the endorsement required by Section V(C)(6)'. The DLBA holds applications for at least ten days from the date the first Complete Application is received before a purchaser is selected.",
+     "observed_on": "2026-10-26",
      "office": "Detroit Land Bank Authority",
      "path_type": "county_instructions",
      "source_id": "mi_detroit_landbank_lots",
-     "source_title": "DETROIT LAND BANK AUTHORITY AMENDED AND RESTATED VACANT LAND POLICY (FINAL Oct 2023)",
-     "steps": "Hold title to, and occupy, the Detroit home adjacent to the lot (Side Lot / Oversize Lot) or within 500 feet of it (Neighborhood Lot), be current on Detroit property taxes and in good standing with the DLBA | Submit a Complete Application to purchase the lot under the DLBA Vacant Land Policy (a non-adjacent Neighborhood Lot needs an endorsement) | The DLBA holds applications for at least ten days after the first one arrives, then selects by the policy's priority order"
+     "source_title": "DETROIT LAND BANK AUTHORITY SECOND AMENDED AND RESTATED VACANT LAND POLICY (Adopted by Board of Directors 11/11/2025)",
+     "steps": "Meet the policy's eligibility for the lot type (Side / Oversize Lot: the adjacent owner-occupant; Neighborhood Lot: within the policy's distance, with the endorsement Section V(C)(6) requires) | Submit a Complete Application to purchase the lot under the DLBA Vacant Land Policy | The DLBA holds applications for at least ten days after the first Complete Application is received, then selects a purchaser by the policy's priority order"
     }
    ],
    "county_rules": [
@@ -2695,7 +2695,7 @@
      "version": "1"
     },
     {
-     "changed_on": "2026-10-11",
+     "changed_on": "2026-10-26",
      "county": "Wayne",
      "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
      "evidence": "data/purchase_path_evidence_expansion.csv: MI/mi_detroit_landbank_lots/Wayne (county_instructions; review_state verified)",
@@ -2705,18 +2705,29 @@
      "office": "Detroit Land Bank Authority",
      "related_sources": "mi_detroit_landbank_lots",
      "scope": "county",
-     "source_title": "DETROIT LAND BANK AUTHORITY AMENDED AND RESTATED VACANT LAND POLICY (FINAL Oct 2023)",
-     "source_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/DLBA+Policies/POLICIES+-+Vacant+Land+Policy+(FINAL+Oct+2023).pdf",
+     "source_title": "DETROIT LAND BANK AUTHORITY SECOND AMENDED AND RESTATED VACANT LAND POLICY (Adopted by Board of Directors 11/11/2025)",
+     "source_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/Land-reuse/SECOND-AMENDED-AND-RESTATED-VACANT-LAND-POLICY.pdf",
      "state": "MI",
-     "statement": "The DLBA's 'Amended and Restated Vacant Land Policy' (final October 2023, 26 pages): Side Lots, Neighborhood Lots and Oversize Lots are DLBA-owned vacant residential lots sold by application at policy prices - 'Side Lots are priced at $100 per lot', a Neighborhood Lot '$250 per lot, unless the estimated value of the lot exceeds $2,500', an Oversize Lot '$200 per lot, unless the estimated value of the lot as determined by the DLBA exceeds $2,500' - to a defined buyer: the owner-occupant of a Detroit home adjacent to (Side / Oversize Lot) or within 500 feet of (Neighborhood Lot) the lot, who holds title, is current on Detroit property taxes and is in good standing with the DLBA; a purchase is made by a 'Complete Application ... to purchase property under this Policy'",
+     "statement": "The DLBA's 'Second Amended and Restated Vacant Land Policy' (adopted by the Board of Directors 11/11/2025, 31 pages), linked from the DLBA's own Policies page (buildingdetroit.org/our-policies/): DLBA-owned vacant lots are sold by application at policy prices - 'Side Lots are priced at $100 per lot', 'Neighborhood Lots are priced at $250 per lot provided, however, ...', 'Oversize Lots are priced at $250 per lot' - and a purchase is made by a 'Complete Application' ('a copy of the then in force version of an application to purchase property under this Policy')",
      "status": "VERIFIED",
      "test_ref": "tests/python/test_gap_closure.py",
      "topic": "acquisition_procedure_available",
-     "verified_on": "2026-10-03",
+     "verified_on": "2026-10-26",
+     "version": "2"
+    }
+   ],
+   "history": [
+    {
+     "affects": "data/purchase_path_evidence_expansion.csv MI/mi_detroit_landbank_lots/Wayne; public/acquisition-evidence.json",
+     "change": "Superseded 2026-10-26: the DLBA's Policies page no longer links the October 2023 Amended and Restated Vacant Land Policy; the rule now rests on the Second Amended and Restated Vacant Land Policy (adopted 11/11/2025), whose Oversize Lot price is $250 per lot (was $200)",
+     "changed_on": "2026-10-11",
+     "county": "Wayne",
+     "prior_statement": "The DLBA's 'Amended and Restated Vacant Land Policy' (final October 2023, 26 pages): Side Lots, Neighborhood Lots and Oversize Lots are DLBA-owned vacant residential lots sold by application at policy prices - 'Side Lots are priced at $100 per lot', a Neighborhood Lot '$250 per lot, unless the estimated value of the lot exceeds $2,500', an Oversize Lot '$200 per lot, unless the estimated value of the lot as determined by the DLBA exceeds $2,500' - to a defined buyer: the owner-occupant of a Detroit home adjacent to (Side / Oversize Lot) or within 500 feet of (Neighborhood Lot) the lot, who holds title, is current on Detroit property taxes and is in good standing with the DLBA; a purchase is made by a 'Complete Application ... to purchase property under this Policy'",
+     "prior_status": "VERIFIED",
+     "topic": "acquisition_procedure_available",
      "version": "1"
     }
    ],
-   "history": [],
    "ledgers": {
     "AUCTIONS": {
      "coverage": [
@@ -2848,7 +2859,20 @@
    ]
   },
   "MN": {
-   "county_procedures": [],
+   "county_procedures": [
+    {
+     "county": "Ramsey",
+     "evidence": "Ramsey County's 'Over-the-Counter Property List': 'Properties listed below are available for immediate purchase through Ramsey County's over-the-counter sale process. These tax-forfeited properties did not sell at the public auction and are now offered on a first-come, first-served basis. Browse the available properties and review the purchase requirements before submitting an inquiry.' The Tax-Forfeited Public Sales page: parcels not sold at a public sale may be 'purchased by eligible purchasers to pay the appraised price plus taxes and fees'",
+     "evidence_url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list",
+     "instructions": "Properties listed below are available for immediate purchase through Ramsey County's over-the-counter sale process. These tax-forfeited properties did not sell at the public auction and are now offered on a first-come, first-served basis. Browse the available properties and review the purchase requirements before submitting an inquiry.",
+     "observed_on": "2026-10-26",
+     "office": "Ramsey County Productive Properties",
+     "path_type": "county_instructions",
+     "source_id": "mn_ramsey_tax_forfeit",
+     "source_title": "Over-the-Counter Property List | Ramsey County, Minnesota",
+     "steps": "Find the parcel on the county's Over-the-Counter Property List | Review the purchase requirements and submit an inquiry to Productive Properties (651-266-2080) | Parcels sell first-come, first-served to eligible purchasers at the appraised price plus taxes and fees"
+    }
+   ],
    "county_rules": [
     {
      "changed_on": "2026-10-10",
@@ -2870,6 +2894,27 @@
      "topic": "tax_forfeit_sale",
      "verified_on": "2026-10-04",
      "version": "1"
+    },
+    {
+     "changed_on": "2026-10-26",
+     "county": "Ramsey",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence_expansion.csv: MN/mn_ramsey_tax_forfeit/Ramsey (county_instructions; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Ramsey County Productive Properties",
+     "related_sources": "mn_ramsey_tax_forfeit",
+     "scope": "county",
+     "source_title": "Over-the-Counter Property List | Ramsey County, Minnesota",
+     "source_url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list",
+     "state": "MN",
+     "statement": "Ramsey County's 'Over-the-Counter Property List': 'Properties listed below are available for immediate purchase through Ramsey County's over-the-counter sale process. These tax-forfeited properties did not sell at the public auction and are now offered on a first-come, first-served basis. Browse the available properties and review the purchase requirements before submitting an inquiry.' The Tax-Forfeited Public Sales page: parcels not sold at a public sale may be 'purchased by eligible purchasers to pay the appraised price plus taxes and fees'",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-10-26",
+     "version": "1"
     }
    ],
    "history": [],
@@ -2887,7 +2932,8 @@
       {
        "county": "Ramsey",
        "procedures": [
-        "tax_forfeit_sale"
+        "tax_forfeit_sale",
+        "acquisition_procedure_available"
        ],
        "sources": [
         {
@@ -2938,7 +2984,20 @@
    ]
   },
   "MO": {
-   "county_procedures": [],
+   "county_procedures": [
+    {
+     "county": "St. Louis City",
+     "evidence": "The LRA's 'Offer to Purchase' page: 'All offers, excluding the Side Lot and Temporary Use Applications, must be submitted using the Offer Submission Form'; 'At this time, all offers must be submitted in-person to:' the LRA office; 'All offers are taken by appointment.' The City's 'Purchase City-Owned Property' page (the target of each property page's 'Purchase Property' button) sends LRA buyers to 'choose a program under which to purchase the property' and 'submit your offer to the LRA' (lrastl.org/offer-to-purchase)",
+     "evidence_url": "https://www.lrastl.org/offer-to-purchase",
+     "instructions": "All offers, excluding the Side Lot and Temporary Use Applications, must be submitted using the Offer Submission Form. At this time, all offers must be submitted in-person to: [the LRA office]. All offers are taken by appointment. If you do not provide a complete offer submission, your application will not be processed.",
+     "observed_on": "2026-10-26",
+     "office": "St. Louis Development Corporation | Land Reutilization Authority (LRA)",
+     "path_type": "application_download",
+     "source_id": "mo_stl_lra_inventory",
+     "source_title": "Offer to Purchase — LRA, Land Reutilization Authority",
+     "steps": "Open the property's page on the City's Available City-Owned Property Search and choose a program under which to purchase it | Complete the LRA Offer Submission Form (and the Offer Submission Checklist) | Submit the offer in person at the LRA office, by appointment | LRA staff review the offer and contact the offeror; the LRA commission decides"
+    }
+   ],
    "county_rules": [
     {
      "changed_on": "2026-10-10",
@@ -2958,6 +3017,27 @@
      "test_ref": "tests/python/test_state_rules.py",
      "topic": "acquisition_process",
      "version": "1"
+    },
+    {
+     "changed_on": "2026-10-26",
+     "county": "St. Louis City",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence_expansion.csv: MO/mo_stl_lra_inventory/St. Louis City (application_download; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "St. Louis Development Corporation | Land Reutilization Authority (LRA)",
+     "related_sources": "mo_stl_lra_inventory",
+     "scope": "county",
+     "source_title": "Offer to Purchase — LRA, Land Reutilization Authority",
+     "source_url": "https://www.lrastl.org/offer-to-purchase",
+     "state": "MO",
+     "statement": "The LRA's 'Offer to Purchase' page: 'All offers, excluding the Side Lot and Temporary Use Applications, must be submitted using the Offer Submission Form'; 'At this time, all offers must be submitted in-person to:' the LRA office; 'All offers are taken by appointment.' The City's 'Purchase City-Owned Property' page (the target of each property page's 'Purchase Property' button) sends LRA buyers to 'choose a program under which to purchase the property' and 'submit your offer to the LRA' (lrastl.org/offer-to-purchase)",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-10-26",
+     "version": "1"
     }
    ],
    "history": [],
@@ -2974,6 +3054,9 @@
      "coverage": [
       {
        "county": "St. Louis City",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -3112,7 +3195,20 @@
    ]
   },
   "PA": {
-   "county_procedures": [],
+   "county_procedures": [
+    {
+     "county": "Fayette",
+     "evidence": "Fayette County Tax Claim Bureau: 'If the property still does not sell, it is put on our Repository List and can be bid on at any time.' 'We keep the sealed bids in a lockbox.' 'We open the envelopes on the first Tuesday of the month at 10:00 a.m.' 'It is the decision of the authorities to accept or reject your bid. (Municipality and School District)' 'We will notify you by mail within 30-45 days of the decision.' The Repository Sale page links the 'Repository Bid Form' and 'Repository Affidavit'",
+     "evidence_url": "https://www.fayettecountypa.org/269/Tax-Claim-Bureau",
+     "instructions": "If the property still does not sell, it is put on our Repository List and can be bid on at any time. We keep the sealed bids in a lockbox. We open the envelopes on the first Tuesday of the month at 10:00 a.m. It is the decision of the authorities to accept or reject your bid. (Municipality and School District) We will notify you by mail within 30-45 days of the decision.",
+     "observed_on": "2026-10-26",
+     "office": "Fayette County Tax Claim Bureau",
+     "path_type": "application_download",
+     "source_id": "pa_fayette_repository",
+     "source_title": "Tax Sale Information | Fayette County, PA",
+     "steps": "Complete one Repository Sale Sealed Bid Form per parcel, with the Affidavit of Bidder(s) | Enclose a money order, certified check, or cashier's check for the bid amount in an envelope marked 'Sealed Repository Bid' | Bids are opened on the first Tuesday of the month at 10:00 a.m.; the municipality and school district accept or reject the bid, and the bureau notifies by mail within 30-45 days"
+    }
+   ],
    "county_rules": [
     {
      "changed_on": "2026-10-10",
@@ -3134,6 +3230,27 @@
      "topic": "repository_sale",
      "verified_on": "2026-10-04",
      "version": "1"
+    },
+    {
+     "changed_on": "2026-10-26",
+     "county": "Fayette",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence_expansion.csv: PA/pa_fayette_repository/Fayette (application_download; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Fayette County Tax Claim Bureau",
+     "related_sources": "pa_fayette_repository",
+     "scope": "county",
+     "source_title": "Tax Sale Information | Fayette County, PA",
+     "source_url": "https://www.fayettecountypa.org/269/Tax-Claim-Bureau",
+     "state": "PA",
+     "statement": "Fayette County Tax Claim Bureau: 'If the property still does not sell, it is put on our Repository List and can be bid on at any time.' 'We keep the sealed bids in a lockbox.' 'We open the envelopes on the first Tuesday of the month at 10:00 a.m.' 'It is the decision of the authorities to accept or reject your bid. (Municipality and School District)' 'We will notify you by mail within 30-45 days of the decision.' The Repository Sale page links the 'Repository Bid Form' and 'Repository Affidavit'",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-10-26",
+     "version": "1"
     }
    ],
    "history": [],
@@ -3151,7 +3268,8 @@
       {
        "county": "Fayette",
        "procedures": [
-        "repository_sale"
+        "repository_sale",
+        "acquisition_procedure_available"
        ],
        "sources": [
         {
@@ -4960,7 +5078,7 @@
     },
     {
      "check": "rule_history",
-     "detail": "every rule is at version 1",
+     "detail": "1 rule(s) with a recorded prior version",
      "state": "MI",
      "status": "PASS"
     },
@@ -5036,13 +5154,13 @@
     "BLOCKED": 0,
     "FAIL": 0,
     "NOT_APPLICABLE": 2,
-    "NOT_VERIFIED": 5,
-    "PASS": 14
+    "NOT_VERIFIED": 4,
+    "PASS": 15
    },
    "findings": [
     {
      "check": "rules_valid",
-     "detail": "2 rule(s) recorded",
+     "detail": "3 rule(s) recorded",
      "state": "MN",
      "status": "PASS"
     },
@@ -5157,9 +5275,9 @@
     },
     {
      "check": "acquisition_path",
-     "detail": "0/1 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+     "detail": "1/1 AVAILABLE unit(s) with a verified official process",
      "state": "MN",
-     "status": "NOT_VERIFIED"
+     "status": "PASS"
     },
     {
      "check": "state_page",
@@ -5186,13 +5304,13 @@
     "BLOCKED": 0,
     "FAIL": 0,
     "NOT_APPLICABLE": 2,
-    "NOT_VERIFIED": 5,
-    "PASS": 14
+    "NOT_VERIFIED": 4,
+    "PASS": 15
    },
    "findings": [
     {
      "check": "rules_valid",
-     "detail": "2 rule(s) recorded",
+     "detail": "3 rule(s) recorded",
      "state": "MO",
      "status": "PASS"
     },
@@ -5307,9 +5425,9 @@
     },
     {
      "check": "acquisition_path",
-     "detail": "0/1 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+     "detail": "1/1 AVAILABLE unit(s) with a verified official process",
      "state": "MO",
-     "status": "NOT_VERIFIED"
+     "status": "PASS"
     },
     {
      "check": "state_page",
@@ -5486,13 +5604,13 @@
     "BLOCKED": 0,
     "FAIL": 0,
     "NOT_APPLICABLE": 2,
-    "NOT_VERIFIED": 5,
-    "PASS": 14
+    "NOT_VERIFIED": 4,
+    "PASS": 15
    },
    "findings": [
     {
      "check": "rules_valid",
-     "detail": "2 rule(s) recorded",
+     "detail": "3 rule(s) recorded",
      "state": "PA",
      "status": "PASS"
     },
@@ -5607,9 +5725,9 @@
     },
     {
      "check": "acquisition_path",
-     "detail": "0/1 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+     "detail": "1/1 AVAILABLE unit(s) with a verified official process",
      "state": "PA",
-     "status": "NOT_VERIFIED"
+     "status": "PASS"
     },
     {
      "check": "state_page",

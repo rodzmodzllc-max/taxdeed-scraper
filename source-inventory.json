@@ -5059,14 +5059,14 @@
   },
   {
    "access": "ACCESSIBLE",
-   "access_note": "verified capture, observed 2026-10-03",
+   "access_note": "verified capture, observed 2026-10-26",
    "county": "Wayne",
-   "evidence": "Official document read 2026-10-03 (docs/available-publication-evidence.md section 2): PDF created 2023-10-04, modified 2023-10-23, SHA-256 ac01ff4fa32154ca28c6bf04800124d77f1d90e56dab9485f093337823b6ffba. The policy names buildingdetroit.or",
+   "evidence": "Read 2026-10-26: PDF created/modified 2025-11-14, SHA-256 66690c9200cf75e82672e75ff2ba55e8419116982f6b4bc805376494bc68e866. Replaces the October 2023 'Amended and Restated Vacant Land Policy' row (observed 2026-10-03), which the DLBA's Poli",
    "governance": "APPROVED",
    "governance_reason": "",
-   "last_checked": "2026-10-03",
+   "last_checked": "2026-10-26",
    "legacy_status": "",
-   "name": "DETROIT LAND BANK AUTHORITY AMENDED AND RESTATED VACANT LAND POLICY (FINAL Oct 2023)",
+   "name": "DETROIT LAND BANK AUTHORITY SECOND AMENDED AND RESTATED VACANT LAND POLICY (Adopted by Board of Directors 11/11/2025)",
    "next_action": "",
    "origin": "evidence",
    "publisher": "Detroit Land Bank Authority",
@@ -5077,7 +5077,7 @@
    "source_id": "evidence:MI:Wayne:30",
    "source_type": "DOCUMENT",
    "state": "MI",
-   "url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/DLBA+Policies/POLICIES+-+Vacant+Land+Policy+(FINAL+Oct+2023).pdf"
+   "url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/Land-reuse/SECOND-AMENDED-AND-RESTATED-VACANT-LAND-POLICY.pdf"
   },
   {
    "access": "ACCESSIBLE",
@@ -5241,6 +5241,28 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "verified capture, observed 2026-10-26",
+   "county": "Ramsey",
+   "evidence": "Read 2026-10-26; quotes checked against the pages' raw text. The list publishes no per-property link (no parcel cell is a link) and the layer's link fields (ZoneLink, CommissionerLink, PlatLink) are not purchase pages. The page is on the co",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-26",
+   "legacy_status": "",
+   "name": "Over-the-Counter Property List | Ramsey County, Minnesota",
+   "next_action": "",
+   "origin": "evidence",
+   "publisher": "Ramsey County Productive Properties",
+   "roles": [
+    "acquisition",
+    "source_date"
+   ],
+   "source_id": "evidence:MN:Ramsey:32",
+   "source_type": "GOVERNMENT",
+   "state": "MN",
+   "url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state MO; last completeness UNKNOWN",
    "county": "St. Louis City",
    "evidence": "LIVE CAPTURE 2026-10-04 (GitHub Actions runs 37203515518, 37203652975, 37203694092, 37203843581, 37204541253): St. Louis City - mo_stl_lra_inventory; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-expansion-2026-10.md",
@@ -5328,6 +5350,28 @@
    "source_type": "GOVERNMENT",
    "state": "MO",
    "url": "https://www.stlouis-mo.gov/government/property/purchase-city-owned-property.cfm"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "verified capture, observed 2026-10-26",
+   "county": "St. Louis City",
+   "evidence": "Read 2026-10-26; quotes checked against the pages' raw text. lrastl.org is the LRA's own site, linked from the City's Purchase City-Owned Property page on stlouis-mo.gov (the registry's canonical host) - hence third_party_permitted=yes. The",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-26",
+   "legacy_status": "",
+   "name": "Offer to Purchase — LRA, Land Reutilization Authority",
+   "next_action": "",
+   "origin": "evidence",
+   "publisher": "St. Louis Development Corporation | Land Reutilization Authority (LRA)",
+   "roles": [
+    "acquisition",
+    "source_date"
+   ],
+   "source_id": "evidence:MO:St. Louis City:31",
+   "source_type": "GOVERNMENT",
+   "state": "MO",
+   "url": "https://www.lrastl.org/offer-to-purchase"
   },
   {
    "access": "ACCESSIBLE",
@@ -5524,6 +5568,28 @@
     "discovery"
    ],
    "source_id": "candidate:PA:Fayette:48",
+   "source_type": "GOVERNMENT",
+   "state": "PA",
+   "url": "https://www.fayettecountypa.org/269/Tax-Claim-Bureau"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "verified capture, observed 2026-10-26",
+   "county": "Fayette",
+   "evidence": "Read 2026-10-26; quotes checked against the pages' raw text and the bid form's own text (pdftotext). The repository list PDF and the Repository Sale page publish no per-property link. The Repository Sale page now also lists repository updat",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-26",
+   "legacy_status": "",
+   "name": "Tax Sale Information | Fayette County, PA",
+   "next_action": "",
+   "origin": "evidence",
+   "publisher": "Fayette County Tax Claim Bureau",
+   "roles": [
+    "acquisition",
+    "source_date"
+   ],
+   "source_id": "evidence:PA:Fayette:33",
    "source_type": "GOVERNMENT",
    "state": "PA",
    "url": "https://www.fayettecountypa.org/269/Tax-Claim-Bureau"
@@ -8325,24 +8391,24 @@
    "sources": 12
   },
   "MN": {
-   "APPROVED": 2,
+   "APPROVED": 3,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 1,
    "by_type": {
-    "GOVERNMENT": 3
+    "GOVERNMENT": 4
    },
-   "sources": 3
+   "sources": 4
   },
   "MO": {
-   "APPROVED": 2,
+   "APPROVED": 3,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 2,
    "by_type": {
     "DOCUMENT": 1,
     "GIS": 1,
-    "GOVERNMENT": 2
+    "GOVERNMENT": 3
    },
-   "sources": 4
+   "sources": 5
   },
   "NATIONAL": {
    "APPROVED": 3,
@@ -8364,14 +8430,14 @@
    "sources": 1
   },
   "PA": {
-   "APPROVED": 3,
+   "APPROVED": 4,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 1,
    "by_type": {
     "DOCUMENT": 1,
-    "GOVERNMENT": 3
+    "GOVERNMENT": 4
    },
-   "sources": 4
+   "sources": 5
   },
   "SC": {
    "APPROVED": 2,
