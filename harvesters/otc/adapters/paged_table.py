@@ -42,7 +42,16 @@ class PagedTableConfig:
     # no body is refused (HTTP 411 Length Required, Genesee 2026-10-26).
     first_data: tuple[tuple[str, str], ...] = (("LRCsort", ""), ("LRCpage", ""))
     max_pages: int = 1000
-    delay_s: float = 0.3
+    delay_s: float = 0.5
+    # The search form's own filter that splits the inventory into disjoint
+    # parts (Genesee: FindTWP, one township / city / Flint quadrant at a
+    # time). A long session-paged read can lose its place on a server error
+    # (2026-10-26: an HTTP 500 moved the session on a page); a part is short,
+    # and a part whose read fails is restarted from its own page 1 (up to
+    # `attempts` times). The parts must add up to the unfiltered search's size.
+    partition_field: str | None = None
+    partition_values: tuple[str, ...] = ()
+    attempts: int = 3
 
     @property
     def source_id(self) -> str:
@@ -71,67 +80,92 @@ def counter(html: str) -> tuple[int, int, int, int] | None:
     return tuple(int(x) for x in m.groups()) if m else None
 
 
-def _retrying(post_text, sleep, attempts: int = 3):
-    """A POST that answered 5xx is retried (bounded, with back-off). A retry
-    that moved the server-side session past a page is caught by the page
-    counter check (FAILED, never a silent skip)."""
-    def call(url, data):
-        for i in range(attempts):
-            try:
-                return post_text(url, data)
-            except Exception as exc:  # noqa: BLE001
-                status = getattr(getattr(exc, "response", None), "status_code", None)
-                if status is None or status < 500 or i == attempts - 1:
-                    raise
-                sleep(2.0 * (i + 1))
-    return call
+class _ReadError(Exception):
+    def __init__(self, category: str, detail: str):
+        super().__init__(detail)
+        self.category, self.detail = category, detail
 
 
-def fetch_all(cfg: PagedTableConfig, post_text: Callable[[str, dict], str], *, retrieved_at: datetime,
-              sleep: Callable[[float], None] | None = None) -> PagedResult:
-    import time  # noqa: PLC0415
-    sleep = sleep or time.sleep
-    post_text = _retrying(post_text, sleep)
-    records: list[OtcRecord] = []
-    excluded = rejected = 0
-    seen: set[str] = set()
+def _read_search(cfg: PagedTableConfig, post_text, extra: dict, *, retrieved_at, sleep):
+    """One search, every page in its session -> (records, listings, excluded, rejected, pages, page_size).
+    Raises _ReadError on any transport failure, missing counter or lost session."""
     try:
-        html = post_text(cfg.first_url, dict(cfg.first_data))
+        html = post_text(cfg.first_url, {**dict(cfg.first_data), **extra})
     except Exception as exc:  # noqa: BLE001
-        return PagedResult("FAILED", error_category="TRANSPORT_CONNECTION", error_detail=type(exc).__name__)
-    page_no, total_pages, last_listing = 0, None, 0
+        raise _ReadError("TRANSPORT_CONNECTION", type(exc).__name__) from exc
+    records, excluded, rejected, page_no, last, size = [], 0, 0, 0, 0, 0
     for _ in range(cfg.max_pages):
         c = counter(html)
         adapter = TabularListAdapter(cfg.table)
         got = adapter.parse_html_table(html, retrieved_at=retrieved_at)
         if c is None:
             if not got and page_no == 0:
-                return PagedResult("EMPTY", pages=0, total=0)
-            return PagedResult("FAILED", error_category="PARSE_FORMAT_CHANGE", error_detail=f"no page counter after page {page_no}")
+                return [], 0, 0, 0, 0, 0              # the site's own empty result
+            raise _ReadError("PARSE_FORMAT_CHANGE", f"no page counter after page {page_no}")
         cur, total_pages, first, last = c
         if cur != page_no + 1:
-            return PagedResult("FAILED", error_category="PARSE_FORMAT_CHANGE",
-                               error_detail=f"page counter {cur} after page {page_no} (session paging lost)")
-        page_no, last_listing = cur, last
+            raise _ReadError("PARSE_FORMAT_CHANGE", f"page counter {cur} after page {page_no} (session paging lost)")
+        if cur == 1:
+            size = last - first + 1
+        page_no = cur
         excluded += adapter.excluded_status
         rejected += adapter.rejected_ids
-        for r in got:
-            if r.case_no not in seen:
-                seen.add(r.case_no)
-                records.append(r)
+        records += got
         if cur >= total_pages:
             break
         sleep(cfg.delay_s)
         try:
             html = post_text(cfg.next_url, dict(cfg.next_data))
         except Exception as exc:  # noqa: BLE001
-            return PagedResult("FAILED", error_category="TRANSPORT_CONNECTION", error_detail=type(exc).__name__)
+            raise _ReadError("TRANSPORT_CONNECTION", type(exc).__name__) from exc
     else:
-        return PagedResult("FAILED", error_category="PARSE_FORMAT_CHANGE", error_detail=f"page cap {cfg.max_pages} hit")
+        raise _ReadError("PARSE_FORMAT_CHANGE", f"page cap {cfg.max_pages} hit")
     read = len(records) + excluded + rejected
-    if read < last_listing:
-        # fewer rows than the site's own listing total: a page was lost or repeated
-        return PagedResult("FAILED", error_category="PARSE_FORMAT_CHANGE", error_detail=f"read {read} of {last_listing} listings",
-                           pages=page_no, total=last_listing, rows_read=read)
-    return PagedResult("COMPLETE" if records else "EMPTY", records, pages=page_no, total=last_listing, rows_read=read,
+    if read != last:
+        raise _ReadError("PARSE_FORMAT_CHANGE", f"read {read} of {last} listings")
+    return records, last, excluded, rejected, page_no, size
+
+
+def fetch_all(cfg: PagedTableConfig, post_text: Callable[[str, dict], str], *, retrieved_at: datetime,
+              sleep: Callable[[float], None] | None = None) -> PagedResult:
+    import time  # noqa: PLC0415
+    sleep = sleep or time.sleep
+    parts = [{cfg.partition_field: v} for v in cfg.partition_values] if cfg.partition_field else [{}]
+    expect_pages = expect_size = None
+    if cfg.partition_field:
+        # The unfiltered search's own size: page 1 only (its counter names the page count).
+        try:
+            c = counter(post_text(cfg.first_url, dict(cfg.first_data)))
+        except Exception as exc:  # noqa: BLE001
+            return PagedResult("FAILED", error_category="TRANSPORT_CONNECTION", error_detail=type(exc).__name__)
+        if c is None:
+            return PagedResult("FAILED", error_category="PARSE_FORMAT_CHANGE", error_detail="no page counter on the full search")
+        expect_pages, expect_size = c[1], c[3] - c[2] + 1
+    records: list[OtcRecord] = []
+    seen: set[str] = set()
+    listings = excluded = rejected = pages = 0
+    for extra in parts:
+        for attempt in range(cfg.attempts):
+            try:
+                got, n, ex, rj, pg, _ = _read_search(cfg, post_text, extra, retrieved_at=retrieved_at, sleep=sleep)
+                break
+            except _ReadError as err:
+                if attempt == cfg.attempts - 1:
+                    return PagedResult("FAILED", error_category=err.category,
+                                       error_detail=f"{err.detail}" + (f" (part {extra})" if extra else ""))
+                sleep(3.0 * (attempt + 1))
+        listings += n
+        excluded += ex
+        rejected += rj
+        pages += pg
+        for r in got:
+            if r.case_no not in seen:
+                seen.add(r.case_no)
+                records.append(r)
+    if expect_pages is not None and not ((expect_pages - 1) * expect_size < listings <= expect_pages * expect_size):
+        return PagedResult("FAILED", error_category="PARSE_FORMAT_CHANGE",
+                           error_detail=f"parts add up to {listings} listings; the full search has {expect_pages} pages of "
+                                        f"{expect_size}", pages=pages, total=listings)
+    read = len(records) + excluded + rejected
+    return PagedResult("COMPLETE" if records else "EMPTY", records, pages=pages, total=listings, rows_read=read,
                        excluded_status=excluded, rejected_ids=rejected)

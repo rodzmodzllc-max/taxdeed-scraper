@@ -5,6 +5,7 @@ synthetic), is collected for admins and never customer-published, and holds
 only owner-accepted INTERIM permission records (never display)."""
 from __future__ import annotations
 
+import dataclasses
 import io
 import json
 import sys
@@ -267,6 +268,9 @@ def _gpage(cur, total, first, last, rows):
             f"{body}</table></html>")
 
 
+GEN_ONE = dataclasses.replace(EX.MI_GENESEE_LANDBANK, partition_field=None, partition_values=())
+
+
 def test_genesee_pages_through_the_session_and_drops_the_demolition_program():
     pages = [_gpage(1, 2, 1, 2, [("41-05-257-024", "Vacant Land"), ("41-05-257-025", "Demolition Program")]),
              _gpage(2, 2, 3, 3, [("41-05-257-026", "Listed with Realtor")])]
@@ -275,25 +279,29 @@ def test_genesee_pages_through_the_session_and_drops_the_demolition_program():
     def post(url, data):
         calls.append((url, data))
         return pages[len(calls) - 1]
-    res = PT.fetch_all(EX.MI_GENESEE_LANDBANK, post, retrieved_at=AT, sleep=lambda s: None)
+    res = PT.fetch_all(GEN_ONE, post, retrieved_at=AT, sleep=lambda s: None)
     assert res.outcome == "COMPLETE" and [r.case_no for r in res.records] == ["41-05-257-024", "41-05-257-026"]
-    assert res.excluded_status == 1 and calls[1] == (EX.MI_GENESEE_LANDBANK.next_url, {"LRCpage": "next"})
+    assert res.excluded_status == 1 and calls[1] == (GEN_ONE.next_url, {"LRCpage": "next"})
     assert res.records[1].source_status_text == "Listed with Realtor"
 
 
 def test_genesee_lost_session_or_short_read_is_failed():
+    one = dataclasses.replace(GEN_ONE, attempts=1)
     pages = [_gpage(1, 2, 1, 1, [("41-05-257-024", "Vacant Land")]), _gpage(1, 2, 1, 1, [("41-05-257-024", "Vacant Land")])]
     it = iter(pages)
-    assert PT.fetch_all(EX.MI_GENESEE_LANDBANK, lambda u, d: next(it), retrieved_at=AT, sleep=lambda s: None).outcome == "FAILED"
+    assert PT.fetch_all(one, lambda u, d: next(it), retrieved_at=AT, sleep=lambda s: None).outcome == "FAILED"
     short = [_gpage(1, 1, 1, 5, [("41-05-257-024", "Vacant Land")])]
     it = iter(short)
-    assert PT.fetch_all(EX.MI_GENESEE_LANDBANK, lambda u, d: next(it), retrieved_at=AT, sleep=lambda s: None).outcome == "FAILED"
+    assert PT.fetch_all(one, lambda u, d: next(it), retrieved_at=AT, sleep=lambda s: None).outcome == "FAILED"
 
 
-def test_genesee_retries_a_server_error_and_still_checks_the_page_counter():
-    class Boom(Exception):
-        response = type("R", (), {"status_code": 500})()
-    pages = [_gpage(1, 2, 1, 1, [("41-05-257-024", "Vacant Land")]), Boom(), _gpage(2, 2, 2, 2, [("41-05-257-026", "Vacant Land")])]
+class _Boom(Exception):
+    response = type("R", (), {"status_code": 500})()
+
+
+def test_genesee_restarts_a_part_after_a_server_error():
+    pages = [_gpage(1, 2, 1, 1, [("41-05-257-024", "Vacant Land")]), _Boom(),
+             _gpage(1, 2, 1, 1, [("41-05-257-024", "Vacant Land")]), _gpage(2, 2, 2, 2, [("41-05-257-026", "Vacant Land")])]
     it = iter(pages)
 
     def post(url, data):
@@ -301,5 +309,20 @@ def test_genesee_retries_a_server_error_and_still_checks_the_page_counter():
         if isinstance(x, Exception):
             raise x
         return x
-    res = PT.fetch_all(EX.MI_GENESEE_LANDBANK, post, retrieved_at=AT, sleep=lambda s: None)
+    res = PT.fetch_all(GEN_ONE, post, retrieved_at=AT, sleep=lambda s: None)
     assert res.outcome == "COMPLETE" and len(res.records) == 2
+
+
+def test_genesee_parts_must_add_up_to_the_full_search():
+    cfg = dataclasses.replace(EX.MI_GENESEE_LANDBANK, partition_values=("01", "02"))
+    full = _gpage(1, 1, 1, 3, [("41-05-257-024", "Vacant Land")])          # the unfiltered search: 1 page of up to 3
+    parts = {"01": _gpage(1, 1, 1, 2, [("01-05-257-001", "Vacant Land"), ("01-05-257-002", "Vacant Land")]),
+             "02": _gpage(1, 1, 1, 1, [("02-05-257-001", "Vacant Land")])}
+
+    def post(url, data):
+        return parts[data["FindTWP"]] if "FindTWP" in data else full
+    res = PT.fetch_all(cfg, post, retrieved_at=AT, sleep=lambda s: None)
+    assert res.outcome == "COMPLETE" and len(res.records) == 3
+    big = _gpage(1, 2, 1, 3, [("41-05-257-024", "Vacant Land")])           # full search says 2 pages of 3 (4-6 listings)
+    res = PT.fetch_all(cfg, lambda u, d: parts[d["FindTWP"]] if "FindTWP" in d else big, retrieved_at=AT, sleep=lambda s: None)
+    assert res.outcome == "FAILED" and "add up" in res.error_detail

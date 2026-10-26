@@ -717,7 +717,14 @@ MI_GENESEE_LANDBANK = PagedTableConfig(
               "table read in one session. Sale Type kept verbatim; 'Demolition Program' rows are not read. No price per row; "
               "buyers apply on the Land Bank's applications (Lots Available / Residential / Commercial interest forms)."),
     first_url="https://www.thelandbank.org/find_properties.asp?LRCsearch=do",
-    next_url="https://www.thelandbank.org/find_properties.asp?LRCsearch=redo")
+    next_url="https://www.thelandbank.org/find_properties.asp?LRCsearch=redo",
+    # The search form's own Township / City filter (FindTWP), read 2026-10-26: every
+    # township and city, with the City of Flint as its four quadrants ('4' = the
+    # entire city would overlap them and is not used). The parts must add up to the
+    # unfiltered search (checked on every run).
+    partition_field="FindTWP",
+    partition_values=("01", "02", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17",
+                      "18", "40", "41", "46", "47", "51", "52", "53", "55", "56", "57", "58", "59", "60", "61"))
 
 NEW_TABLE_SOURCES = (MI_GENESEE_LANDBANK, SC_HORRY_TAX_SALE, CO_SAGUACHE_TAX_SALE, MN_HUBBARD_TFL_OTC, MN_STPAUL_HRA)
 # Configured and read live (38 'Open' rows, 2026-10-26) but NOT scheduled: the
