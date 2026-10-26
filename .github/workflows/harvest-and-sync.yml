@@ -377,7 +377,6 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/stamp_seen.py --state FL --source auction --harvest out/harvest_all.json --case-key case --provenance
 
-
       - name: Source id - fill a blank source_id the row itself proves (auction)
         # scripts/backfill_source_ids.py: the PowerShell sync never sends
         # source_id; fill-blank only (source_id=is.null in every filter).
@@ -387,6 +386,20 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/backfill_source_ids.py --source auction
+
+      - name: Off-list close-out - future-dated rows absent from a COMPLETE county (OFF unless vars.AUCTION_OFFLIST_CLOSE == '1')
+        # scripts/auction_offlist_closeout.py, after the stamp: a future-dated
+        # active row absent from this run's harvest of a COMPLETE county, whose
+        # own last_seen_at is missing or 36 h+ older than the county's newest
+        # read, is set to status 'closed' (no result). Plan-only (counts) unless
+        # the repository variable AUCTION_OFFLIST_CLOSE is '1' - an owner decision.
+        if: steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          AUCTION_OFFLIST_CLOSE: ${{ vars.AUCTION_OFFLIST_CLOSE }}
+        run: python3 scripts/auction_offlist_closeout.py --status out/harvest_all_status.json --harvest out/harvest_all.json --apply
 
       - name: Publication state - customer-publication gate (FL)
         # scripts/publication_state_writer.py (migration 031): one auditable
