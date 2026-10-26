@@ -42,7 +42,9 @@ CATEGORY_LABELS = {
     "F": "the jurisdiction's process or product cannot yet be established authoritatively",
 }
 # Blocked vendors / legal-review sources the engine refuses (registry governance).
-RESTRICTED_SOURCES = {"tx_hctax": "registry governance LEGAL_REVIEW_REQUIRED: hctax.net terms not cleared for redistribution"}
+# (tx_hctax left this list on 2026-10-26: published by the owner's decision,
+# legal review pending - docs/publish-all-sources.md.)
+RESTRICTED_SOURCES: dict[str, str] = {}
 VENDOR_LISTINGS = {"tx_lgbs": "a delinquent-tax counsel's vendor listing; the county publishes no resale process page"}
 
 

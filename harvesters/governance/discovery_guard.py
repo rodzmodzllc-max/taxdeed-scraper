@@ -47,6 +47,8 @@ INDEX_TABLES = (
     ("data/available_source_candidates.csv", ("url",)),
     ("data/purchase_path_evidence.csv", ("url", "evidence_url", "application_url")),
     ("data/purchase_path_evidence_expansion.csv", ("url", "evidence_url", "application_url")),
+    # 2026-10-26 county-source sprint: FL Tax Collector county-held certificate candidates.
+    ("data/county_source_candidates.csv", ("url",)),
 )
 
 

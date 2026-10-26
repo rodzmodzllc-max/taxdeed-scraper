@@ -177,15 +177,23 @@ VENDOR_HOSTS = {"www.pbfcm.com", "mvbalaw.com", "www.mvbataxsales.com", "liveauc
 
 
 def test_only_owner_recorded_sources_hold_a_discover_permission():
-    # Evidence capture needs an owner-recorded discover permission per source. On file: the three
-    # Texas vendors the owner unblocked on 2026-10-26, and the interim one-read record for TaxSys'
-    # county-held reports (whose hosts are in no index table).
+    # Evidence capture needs an owner-recorded discover permission per source. On file, all the
+    # owner's 2026-10-26 interim risk acceptances (never documented permission): the three Texas
+    # vendors, the FL / TX county-source sprint, and the one-read record for TaxSys' county-held
+    # reports (whose hosts are in no index table). Every other mapped URL is refused.
     allowing = [r for r in PERM.Permissions.from_file().records if r.operation == "discover" and r.status != "BLOCKED"]
-    assert {r.source_id for r in allowing} == OWNER_VENDORS | {"fl_taxsys_county_held"}
-    assert all(r.evidence_type == "INTERNAL_RISK_ACCEPTANCE" and r.expires_on == "2027-04-12" for r in allowing)
+    assert OWNER_VENDORS | {"fl_taxsys_county_held"} <= {r.source_id for r in allowing}
+    # (The vendors' records carry status LEGAL_REVIEW_REQUIRED, the county sources' OWNER_PERMISSION_REQUIRED; both
+    # are INTERIM allowances.)
+    assert all(r.status in ("OWNER_PERMISSION_REQUIRED", "LEGAL_REVIEW_REQUIRED") and r.evidence_type == "INTERNAL_RISK_ACCEPTANCE"
+               and r.effective_on == "2026-10-26" and r.expires_on == "2027-04-12"
+               and r.state in ("FL", "TX") for r in allowing)
+    permitted = {r.source_id for r in allowing}
     g = DG.Guard("t")
-    hosts = sorted({t.host for t in g.index})
-    assert hosts and not any(g.decide(f"https://{h}/").allowed for h in hosts if h not in VENDOR_HOSTS)
+    hosts = sorted({t.host for t in g.index if t.source_id not in permitted})
+    shared = {t.host for t in g.index if t.source_id in permitted}
+    hosts = [h for h in hosts if h not in shared]
+    assert hosts and not any(g.decide(f"https://{h}/").allowed for h in hosts)
 
 
 @pytest.mark.parametrize("url", ["https://www.govease.com/", "https://countytaxsaleapp.org/",

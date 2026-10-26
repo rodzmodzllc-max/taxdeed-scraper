@@ -107,10 +107,21 @@ SOURCE_LEDGERS: dict[str, frozenset[Ledger]] = {
     "fl_laft_orange": frozenset({Ledger.AVAILABLE}), "fl_laft_stlucie": frozenset({Ledger.AVAILABLE}),
     "fl_laft_osceola": frozenset({Ledger.AVAILABLE}), "fl_laft_hillsborough": frozenset({Ledger.AVAILABLE}),
     "fl_laft_leon": frozenset({Ledger.AVAILABLE}),
+    "fl_laft_portals": frozenset({Ledger.AVAILABLE}),   # 2026-10-26: clerk tax-deed portals (scripts/harvest_laft_portals.py)
     # Texas (existing restrictions untouched: LGBS is never retried here; blocked vendors feed nothing)
     "tx_realauction": frozenset({Ledger.AUCTIONS}),
     "tx_lgbs": frozenset({Ledger.AUCTIONS, Ledger.AVAILABLE}),
-    "tx_hctax": frozenset({Ledger.AVAILABLE}),
+    # Harris: the hctax.net listing is the next monthly constable SALE (read live
+    # 2026-10-26: "Sale Date: November 03, 2026", types SALE / RESALE / EOS / EXE).
+    "tx_hctax": frozenset({Ledger.AUCTIONS}),
+    # County-published lists read by scripts/harvest_tx_county_sales.py (2026-10-26; published by the owner's decision, legal review pending)
+    "tx_jefferson_sheriff_sale": frozenset({Ledger.AUCTIONS}),
+    "tx_bexar_resale": frozenset({Ledger.AVAILABLE}),
+    "tx_montgomery_tax_trust": frozenset({Ledger.AVAILABLE}),
+    "tx_orange_trust_property": frozenset({Ledger.AVAILABLE}),
+    "tx_trinity_cad_resale": frozenset({Ledger.AVAILABLE}),
+    "tx_randall_trustee_property": frozenset({Ledger.AVAILABLE}),
+    "tx_hood_cad_struck_off": frozenset({Ledger.AVAILABLE}),
     # 2026-10-26 (owner decision): the delinquent-tax law firms publish sale lists
     # (AUCTIONS) and resale / trust lists (AVAILABLE); GovEase runs online auctions.
     "tx_pbfcm": frozenset({Ledger.AUCTIONS, Ledger.AVAILABLE}),

@@ -2,17 +2,15 @@
 
 Generated from public/acquisition-evidence.json, data/current_state/state-coverage.json, data/acquisition_candidate_pages.csv and the registry. Counts only.
 
-- Acquisition-path units: 127 total, 98 unresolved (NEEDS_REVIEW 8, NOT_FOUND 84, UNAVAILABLE 6, VERIFIED 29).
+- Acquisition-path units: 142 total, 113 unresolved (NEEDS_REVIEW 8, NOT_FOUND 99, UNAVAILABLE 6, VERIFIED 29).
 - State x ledger units: 39 total (CURRENT 12, OFFERED_SOURCE_NOT_IMPLEMENTED 1, OFFERED_VERIFIED_EMPTY 1, RECORDS_WITHHELD_NO_PATH 1, RULES_NOT_VERIFIED 19, SOURCE_FAILED_OR_STALE 4, SOURCE_IMPLEMENTED_NEVER_READ 1).
-- Queue: 125 entries - by category A 4, B 4, C 30, D 7, E 1, F 79; completable now from the repository: 4.
+- Queue: 140 entries - by category A 2, B 4, C 30, D 7, E 2, F 95; completable now from the repository: 2.
 
-## A. implementable now from repository data or an accessible official source (4)
+## A. implementable now from repository data or an accessible official source (2)
 
 | Unit | Ledger | Status | Source reachable | Approved | Rule verified | Process verified | Next action |
 |---|---|---|---|---|---|---|---|
 | LA * | AVAILABLE | SOURCE_FAILED_OR_STALE | yes | yes | no | yes | Deploy the keyset-read fix (PR #132 stack: sync_state_inventory.stored_provenance) - the state's sync has failed on HTTP 500 every run since; no code left to write |
-| TX * | AUCTIONS | SOURCE_FAILED_OR_STALE | yes | yes | no | yes | Deploy the keyset-read fix (PR #132 stack: sync_state_inventory.stored_provenance) - the state's sync has failed on HTTP 500 every run since; no code left to write |
-| TX * | AVAILABLE | SOURCE_FAILED_OR_STALE | yes | yes | no | yes | Deploy the keyset-read fix (PR #132 stack: sync_state_inventory.stored_provenance) - the state's sync has failed on HTTP 500 every run since; no code left to write |
 | WI * | AUCTIONS | OFFERED_VERIFIED_EMPTY | yes | yes | no | no | Nothing to do: the source was read and lists nothing |
 
 ## B. needs a parser / extractor / adapter / enrichment implementation (4)
@@ -71,18 +69,21 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | FL Sarasota (fl_laft_realtdm) | AVAILABLE | UNAVAILABLE | no | yes | n/a | no | The county's official pages answer HTTP 403 to the GitHub runner; a records request or an allow-listed capture host is the only way forward |
 | FL * | LIENS_CERTIFICATES | SOURCE_FAILED_OR_STALE | no | yes | yes | no | LienHub answers HTTP 403 to the GitHub runner since 2026-10-01; nothing to change in code until the source is reachable |
 
-## E. blocked by source-use permission or an owner decision (1)
+## E. blocked by source-use permission or an owner decision (2)
 
 | Unit | Ledger | Status | Source reachable | Approved | Rule verified | Process verified | Next action |
 |---|---|---|---|---|---|---|---|
-| TX Harris (tx_hctax) | AVAILABLE | NOT_FOUND | yes | no | n/a | no | Owner / legal decision on the source: registry governance LEGAL_REVIEW_REQUIRED: hctax.net terms not cleared for redistribution |
+| TX * | AUCTIONS | SOURCE_FAILED_OR_STALE | yes | yes | no | yes | Manual-only source by owner decision (job=texas); a read happens only when the owner dispatches it |
+| TX * | AVAILABLE | SOURCE_FAILED_OR_STALE | yes | yes | no | yes | Manual-only source by owner decision (job=texas); a read happens only when the owner dispatches it |
 
-## F. the jurisdiction's process or product cannot yet be established authoritatively (79)
+## F. the jurisdiction's process or product cannot yet be established authoritatively (95)
 
 | Unit | Ledger | Status | Source reachable | Approved | Rule verified | Process verified | Next action |
 |---|---|---|---|---|---|---|---|
 | FL Bradford (fl_laft_pdfs) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| FL Charlotte (fl_laft_portals) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL Columbia (fl_laft_html) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| FL DeSoto (fl_laft_html) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL Flagler (fl_laft_realtdm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL Gadsden (fl_laft_html) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL Glades (fl_laft_pdfs) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
@@ -91,6 +92,7 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | FL Hardee (fl_laft_html) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL Holmes (fl_laft_html) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL Lafayette (fl_laft_html) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| FL Lake (fl_laft_realtdm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL Manatee (fl_laft_html) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL Martin (fl_laft_pioneer) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL Okeechobee (fl_laft_pioneer) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
@@ -99,6 +101,7 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | FL Seminole (fl_laft_realtdm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL St. Johns (fl_laft_pioneer) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL Union (fl_laft_html) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| FL Wakulla (fl_laft_html) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL Walton (fl_laft_pioneer) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | FL Washington (fl_laft_realtdm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Archer (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
@@ -106,6 +109,8 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | TX Bandera (tx_mvba) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Bastrop (tx_mvba) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Bell (tx_mvba) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| TX Bexar (tx_bexar_resale) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| TX Brazoria (tx_brazoria_tax_resale) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Brazoria (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Brewster (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Brown (tx_mvba) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
@@ -115,23 +120,29 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | TX Cherokee (tx_mvba) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Childress (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Clay (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| TX Collin (tx_collin_constable_sale) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Comal (tx_mvba) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Dickens (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Dimmit (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Foard (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Fort Bend (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Goliad (tx_lgbs) | AVAILABLE | NOT_FOUND | yes | yes | n/a | no | No official resale-process page exists to read (The Tax Assessor-Collector page and the Trustee / Foreclosure Sales notices page carry no struck-off or resale text); the path cannot be established from a delinquent-tax counsel's vendor listing; the county publishes no resale process page |
+| TX Grayson (tx_grayson_struck_off) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| TX Gregg (tx_gregg_tax_resale) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Gregg (tx_mvba) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Hardeman (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Hardin (tx_lgbs) | AVAILABLE | NOT_FOUND | yes | yes | n/a | no | No official resale-process page exists to read (The county site moved to hardincountytx.gov; its Foreclosure Sales and Tax Assessor-Collector pages carry no struck-off, resale or buyer text. Only a 2024 commissioners-court resale resolution exists); the path cannot be established from a delinquent-tax counsel's vendor listing; the county publishes no resale process page |
 | TX Harris (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Hays (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Hill (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| TX Hood (tx_hood_cad_struck_off) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Houston (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Hunt (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Jack (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Jasper (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| TX Jefferson (tx_jefferson_county_resale) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Jim Wells (tx_lgbs) | AVAILABLE | NOT_FOUND | yes | yes | n/a | no | No official resale-process page exists to read (The City of Alice Property Tax Sales page sends buyers to the delinquent-tax counsel's site; the county site carries foreclosure notices only. No county list or buyer procedure); the path cannot be established from a delinquent-tax counsel's vendor listing; the county publishes no resale process page |
+| TX Johnson (tx_johnson_constable_sale) | AVAILABLE | NOT_FOUND | unknown | no | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Johnson (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Knox (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Leon (tx_lgbs) | AVAILABLE | NOT_FOUND | yes | yes | n/a | no | No official resale-process page exists to read (The Tax Assessor-Collector page says to visit the delinquent-tax counsels' sites to view current tax-sale listings; no county list or buyer procedure); the path cannot be established from a delinquent-tax counsel's vendor listing; the county publishes no resale process page |
@@ -140,16 +151,20 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | TX Maverick (tx_lgbs) | AVAILABLE | NOT_FOUND | yes | yes | n/a | no | No official resale-process page exists to read (The county site listed in directories (co.maverick.tx.us) returned 404; the City of Eagle Pass Tax Office page carries no tax-sale text; the trust-property list is a blocked vendor's); the path cannot be established from a delinquent-tax counsel's vendor listing; the county publishes no resale process page |
 | TX Milam (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Montague (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| TX Montgomery (tx_montgomery_tax_trust) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Montgomery (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Nacogdoches (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Newton (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| TX Orange (tx_orange_trust_property) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Palo Pinto (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Panola (tx_mvba) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| TX Randall (tx_randall_trustee_property) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Reeves (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Runnels (tx_mvba) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX San Jacinto (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Tarrant (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Throckmorton (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
+| TX Trinity (tx_trinity_cad_resale) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Uvalde (tx_pbfcm) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Val Verde (tx_mvba) | AVAILABLE | NOT_FOUND | unknown | yes | n/a | no | No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it |
 | TX Van Zandt (tx_lgbs) | AVAILABLE | NOT_FOUND | yes | yes | n/a | no | No official resale-process page exists to read (The Tax Assessor-Collector page refers property-tax questions to the Van Zandt County Appraisal District; no struck-off or resale text); the path cannot be established from a delinquent-tax counsel's vendor listing; the county publishes no resale process page |

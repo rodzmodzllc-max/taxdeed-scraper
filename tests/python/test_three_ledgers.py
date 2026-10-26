@@ -209,22 +209,28 @@ def test_r02_auction_and_certificate_rows_mirror_the_harvesters_own_county_lists
         slug = re.sub(r"[^a-z]", "", county.lower())
         assert row.canonical_url == f"https://lienhub.com/county/{slug}/countyheld/certificates" and row.source_id == "fl_lienhub_certificates"
         assert row.harvester == "harvest_lienhub_certificates.ps1" and row.inventory_type == ""
-    tx_auction = {r.county: r for r in ROWS if r.state == "TX" and r.ledger_set == {"AUCTIONS"} and r.source_id != "tx_govease"}
+    # RealAuction's Texas auction rows; GovEase and the county-published sale lists (Harris, Jefferson, published
+    # 2026-10-26 by the owner's decisions) are their own production sources.
+    tx_auction = {r.county: r for r in ROWS if r.state == "TX" and r.ledger_set == {"AUCTIONS"}
+                  and r.source_id not in ("tx_govease", "tx_hctax", "tx_jefferson_sheriff_sale")}
     assert set(tx_auction) == _names("tx_realauction_counties.csv") and len(tx_auction) == 24
+    assert {(r.county, r.source_id) for r in ROWS if r.state == "TX" and r.ledger_set == {"AUCTIONS"} and r.is_production
+            and r.source_id not in ("tx_realauction", "tx_govease")} == {("Harris", "tx_hctax"), ("Jefferson", "tx_jefferson_sheriff_sale")}
     assert all(r.source_id == "tx_realauction" and r.is_production for r in tx_auction.values())
     # A non-LienHub certificate platform county has NO certificate row: nothing is invented for it.
     assert "Baker" not in fl_cert and csr.lookup(ROWS, "FL", "Baker", "fl_lienhub_certificates") is None
 
 
 def test_r03_expected_units_are_scoped_per_ledger():
-    assert len(csr.expected_harvest_units(ROWS, "FL")) == 52                                   # default: AVAILABLE
-    assert len(csr.expected_harvest_units(ROWS, "FL", ledger="AVAILABLE")) == 52
+    assert len(csr.expected_harvest_units(ROWS, "FL")) == 56                                   # default: AVAILABLE
+    assert len(csr.expected_harvest_units(ROWS, "FL", ledger="AVAILABLE")) == 56
     assert len(csr.expected_harvest_units(ROWS, "FL", ledger="AUCTIONS")) == 47
     assert len(csr.expected_harvest_units(ROWS, "FL", ledger="LIENS_CERTIFICATES")) == 32 + 1   # + Sarasota Tax Collector (2026-10-26)
-    assert len(csr.expected_harvest_units(ROWS, "FL", ledger=None)) == 52 + 47 + 32 + 1
-    # 2026-10-26: PBFCM (45 counties) and MVBA (10) feed AUCTIONS and AVAILABLE, GovEase (6) AUCTIONS.
-    assert len(csr.expected_harvest_units(ROWS, "TX", ledger="AVAILABLE")) == 8 + 45 + 10      # LGBS + PBFCM + MVBA
-    assert len(csr.expected_harvest_units(ROWS, "TX", ledger="AUCTIONS")) == 24 + 8 + 45 + 10 + 6  # + RealAuction + GovEase
+    assert len(csr.expected_harvest_units(ROWS, "FL", ledger=None)) == 56 + 47 + 32 + 1
+    # 2026-10-26: PBFCM (45 counties) and MVBA (10) feed AUCTIONS and AVAILABLE, GovEase (6) AUCTIONS; the county lists
+    # add 6 AVAILABLE and 2 AUCTIONS units.
+    assert len(csr.expected_harvest_units(ROWS, "TX", ledger="AVAILABLE")) == 8 + 45 + 10 + 6  # LGBS + PBFCM + MVBA + county lists
+    assert len(csr.expected_harvest_units(ROWS, "TX", ledger="AUCTIONS")) == 24 + 8 + 45 + 10 + 6 + 2  # + Harris, Jefferson
     assert csr.expected_harvest_units(ROWS, "TX", ledger="LIENS_CERTIFICATES") == []           # no TX certificate ledger
     # A county name shared by two ledgers is two units, never one.
     assert ("fl_laft_realtdm", "Alachua") in csr.expected_harvest_units(ROWS, "FL", ledger="AVAILABLE")
@@ -420,9 +426,13 @@ def test_x01_fl_and_tx_behaviour_is_unchanged():
     # 109 until 2026-10-26, when the 14 ledger-less 'blocked vendor only' rows were replaced by vendor rows.
     assert len(avail) == 95
     assert len([r for r in avail if r.state == "FL"]) == 67 and len({r.county for r in avail if r.state == "FL"}) == 67
-    assert {r.county for r in avail if r.state == "TX" and r.is_production} == {"Galveston", "Liberty", "Leon", "Maverick", "Jim Wells", "Hardin", "Van Zandt", "Goliad"}
-    # Texas: LGBS is still the only AVAILABLE production source, still not retried; blocked vendors still carry no URL.
-    assert all(r.source_id == "tx_lgbs" and "Do not retry" in r.notes for r in avail if r.state == "TX" and r.is_production)
+    assert {r.county for r in avail if r.state == "TX" and r.is_production and r.source_id == "tx_lgbs"} == {"Galveston", "Liberty", "Leon", "Maverick", "Jim Wells", "Hardin", "Van Zandt", "Goliad"}
+    # Texas: LGBS rows unchanged (not retried); the county-published lists (2026-10-26) are the other AVAILABLE production
+    # sources; blocked vendors still carry no URL.
+    assert all("Do not retry" in r.notes for r in avail if r.state == "TX" and r.is_production and r.source_id == "tx_lgbs")
+    assert {r.source_id for r in avail if r.state == "TX" and r.is_production} == {
+        "tx_lgbs", "tx_bexar_resale", "tx_montgomery_tax_trust", "tx_orange_trust_property", "tx_trinity_cad_resale",
+        "tx_randall_trustee_property", "tx_hood_cad_struck_off"}
     assert all(r.canonical_url == "" and r.governance_status == "BLOCKED" for r in ROWS if r.source_id in BLOCKED_SOURCE_IDS)
     # 2026-10-26: GovEase / PBFCM / MVBA are production sources on the owner's decision (terms risk accepted).
     assert {r.source_id for r in ROWS if r.is_production and r.source_id in TXV} == TXV
