@@ -173,6 +173,7 @@ from harvesters.governance.authorization import authorized_for_customer_output  
 from harvesters.governance.gate import check_ingestion_gate  # noqa: E402
 from harvesters.governance import permissions as PERM  # noqa: E402
 from harvesters.ledgers import records as LEDGER_RECORDS  # noqa: E402
+from harvesters.enrichment import geocode as _GEO  # noqa: E402  (STATE_BOUNDS / in_state)
 
 _STORE_CACHE: dict = {}
 
@@ -296,7 +297,13 @@ def main() -> None:
             continue
 
         address = (p.get("address") or "").strip() or f"Account {case_no}"
+        # A minimum bid of 0 (or less) is the vendor's "not posted" value, not
+        # a published $0 bid: it is stored as NULL, exactly as a blank cell
+        # (data-quality audit 2026-10-26: 22 active LGBS rows carried
+        # min_bid = 0, which the "TX Min Bid" export printed as a real bid).
         min_bid = _num(p.get("min_bid"))
+        if min_bid is not None and min_bid <= 0:
+            min_bid = None
         bid = min_bid if min_bid is not None else 0
 
         row = {
@@ -314,6 +321,14 @@ def main() -> None:
         }
         if SEND_HARVESTER_SOURCE:
             row["harvester_source"] = p.get("harvester_source") or None
+        # The row's source id (migration 022) is the harvester's own source
+        # id, never anything else. Without it the steps keyed on
+        # `source_id=eq.tx_lgbs` (scripts/apply_acquisition_paths.py: the
+        # registry listing link and the verified county acquisition record)
+        # never reached the row: on 2026-10-26, 3,263 of 3,637 active LGBS
+        # Available rows carried no source link at all, and 512 auction rows
+        # no source id.
+        row["source_id"] = harvester_source
         # latitude/longitude get the safe-merge treatment PER ROW, not just
         # script-wide: scripts/geocode_properties.py only ever fills these
         # in when they are still NULL, so sending an explicit null here for
@@ -322,6 +337,11 @@ def main() -> None:
         # keys entirely when we don't have real coordinates, rather than
         # sending null.
         lat, lon = _num(p.get("latitude")), _num(p.get("longitude"))
+        # A vendor point outside Texas is not this property's location
+        # (2026-10-26: one active LGBS row sat in Louisiana): it is not sent,
+        # exactly like a row with no point, and the geocoder may fill it.
+        if lat is not None and lon is not None and not _GEO.in_state(lat, lon, "TX"):
+            lat = lon = None
         if lat is not None and lon is not None:
             row["latitude"] = lat
             row["longitude"] = lon

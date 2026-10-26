@@ -114,6 +114,8 @@ def plan_row(row: dict, *, registry: dict, evidence: list, state: str, today: st
         if m:
             prov["source_match"] = m
     payload: dict = {}
+    if not row.get("source_id") and row.get("harvester_source"):
+        payload["source_id"] = row["harvester_source"]      # the harvester's own id, never another source's
     if not row.get("list_url") and not row.get("document_url"):
         payload["list_url"] = listing
     outcome = "no_verified_evidence"
@@ -153,7 +155,10 @@ def fetch_rows(base: str, key: str, state: str, source_id: str | None) -> list[d
     while True:
         q = {"select": SELECT, "state": f"eq.{state}", "source": "eq.laft", "order": "id", "limit": "1000", "offset": str(offset)}
         if source_id:
-            q["source_id"] = f"eq.{source_id}"
+            # source_id OR the harvester's own harvester_source: a row a sync
+            # wrote without source_id (Texas, before 2026-10-26) is still that
+            # source's row, and plan_row() already resolves it the same way.
+            q["or"] = f"(source_id.eq.{source_id},harvester_source.eq.{source_id})"
         page = _req("GET", f"{base.rstrip('/')}/rest/v1/properties?{urllib.parse.urlencode(q)}", key) or []
         rows.extend(page)
         if len(page) < 1000:

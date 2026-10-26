@@ -301,6 +301,65 @@ def stamp_provenance(base: str, key: str, *, state: str, source: str, rows: list
     return read, patched, failed
 
 
+# --delisted (data-quality audit, 2026-10-26): the Florida PowerShell
+# close-outs write only `status` ('closed' for a deed that left a COMPLETE
+# county's Waiting feed, the certificate sync's own gone status for a certificate that left a COMPLETE
+# county's list); the database trigger (migration 006) stamps `gone_since` in
+# that same write. `delisted_at` - the column every other ledger's close-out
+# writes and the customer freshness reads - stayed NULL on all of them (1,622
+# closed Florida auctions, 56 such certificates). This step copies the
+# row's own trigger-stamped gone_since into delisted_at: the instant the
+# close-out saw it gone, never a new or guessed time. Only absence-based
+# closes qualify; a row the source itself marked sold, or that carries a
+# published result, is not "delisted". Idempotent: rows that already have a
+# delisted_at, or no gone_since, are never touched.
+# Read, never written: the absence-based gone statuses (closed / the
+# certificate sync's own), from the one shared vocabulary. 'sold' is a result
+# and 'dropped' a legacy value of unknown origin - neither qualifies.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from harvesters.governance.inventory_status import GONE_PIPELINE_STATUSES as _GONE  # noqa: E402
+
+DELISTED_STATUSES = tuple(sorted(_GONE - {"sold", "dropped"}))
+
+
+def plan_delisted(rows: list[dict]) -> dict[str, list[str]]:
+    """gone_since -> ids whose delisted_at should be that gone_since. Pure."""
+    out: dict[str, list[str]] = defaultdict(list)
+    for r in rows:
+        if str(r.get("status") or "") not in DELISTED_STATUSES or r.get("delisted_at") or not r.get("gone_since"):
+            continue
+        if r.get("inventory_status") == "sold" or r.get("result_amount") is not None or r.get("result_date"):
+            continue
+        out[str(r["gone_since"])].append(str(r["id"]))
+    return {k: sorted(v) for k, v in sorted(out.items())}
+
+
+def stamp_delisted(base: str, key: str, *, state: str, source: str) -> tuple[int, int]:
+    """(rows stamped, failures). Keyset read of this (state, source)'s gone
+    rows without delisted_at, then one PATCH per gone_since value (a close-out
+    batch shares one trigger time), filtered on delisted_at=is.null."""
+    import rest_pages as RP
+    headers = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json", "User-Agent": USER_AGENT}
+    params = {"select": "id,status,gone_since,delisted_at,inventory_status,result_amount,result_date",
+              "state": f"eq.{state}", "source": f"eq.{source}", "delisted_at": "is.null", "gone_since": "not.is.null"}
+    params["status"] = f"in.({','.join(DELISTED_STATUSES)})"     # a read filter; this script never writes a status
+    rows = RP.read_all(base, "properties", headers, params)
+    stamped = failed = 0
+    for gone_since, ids in plan_delisted(rows).items():
+        for i in range(0, len(ids), CHUNK):
+            chunk = ids[i:i + CHUNK]
+            url = (f"{base.rstrip('/')}/rest/v1/properties?id=in.({','.join(chunk)})&delisted_at=is.null")
+            req = urllib.request.Request(url, data=json.dumps({"delisted_at": gone_since}).encode(), method="PATCH",
+                                         headers={**headers, "Prefer": "return=minimal"})
+            try:
+                with urllib.request.urlopen(req, timeout=120):
+                    stamped += len(chunk)
+            except Exception as exc:  # noqa: BLE001 - one failed chunk stamps nothing, the rest continue
+                failed += 1
+                print(f"::warning title=stamp_seen::a delisted_at chunk was not stamped ({type(exc).__name__})")
+    return stamped, failed
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--state", required=True)
@@ -311,6 +370,8 @@ def main(argv=None) -> int:
     ap.add_argument("--row-source", action="store_true",
                     help="count only harvest rows whose own 'source' field equals --source (mixed-ledger harvest files)")
     ap.add_argument("--provenance", action="store_true", help="also record field_provenance for the list's own columns (idempotent)")
+    ap.add_argument("--delisted", action="store_true",
+                    help="also copy each absence-closed row's trigger-stamped gone_since into a missing delisted_at (idempotent)")
     a = ap.parse_args(argv)
     if not store_permitted(a.state, a.source):
         return PERMISSION_DENIED_EXIT
@@ -360,6 +421,13 @@ def main(argv=None) -> int:
         carried = ", ".join(sorted(CARRY_COLUMNS.get(a.source, {}).values())) or "none"
         print(f"{a.state} {a.source}: provenance - {read} stored row(s) read back, {patched} gained list-column entries or carried "
               f"columns ({carried}), {pfailed} failure(s)")
+    if a.delisted:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        try:
+            done, dfailed = stamp_delisted(base, key, state=a.state.upper(), source=a.source)
+            print(f"{a.state} {a.source}: delisted_at - {done} closed row(s) given their close-out time, {dfailed} chunk(s) failed")
+        except Exception as exc:  # noqa: BLE001 - the stamp never fails the sync job
+            print(f"::warning title=stamp_seen::delisted_at read failed ({type(exc).__name__})")
     return 0
 
 

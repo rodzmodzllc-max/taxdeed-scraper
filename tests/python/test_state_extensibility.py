@@ -474,7 +474,7 @@ def test_l04_end_to_end_for_an_activated_third_state_applies_the_same_gates(tmp_
     scoped = [p for p, b in store.patches if "state=eq." in p]
     assert scoped and all("state=eq.ZZ" in p and "source=eq.laft" in p for p in scoped)
     # Observed: COMPLETE + INCOMPLETE rows only; A1 reactivated.
-    assert [(p, b) for p, b in store.patches if b == {"status": "active"}][0][0].count("Alpha") == 1
+    assert [(p, b) for p, b in store.patches if b == {"status": "active", "delisted_at": None}][0][0].count("Alpha") == 1
     prov = [(p, b) for p, b in store.patches if "last_seen_at" in b]
     assert {p.split("county=eq.")[1].split("&")[0] for p, _ in prov} == {"Alpha", "Gamma"}
     for _, b in prov:

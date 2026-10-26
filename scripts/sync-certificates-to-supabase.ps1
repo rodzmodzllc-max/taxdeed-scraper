@@ -227,6 +227,12 @@ url_auction = $p.url_auction
 # certificate can be found, not a per-certificate page - so 'county'
 # whenever a URL is present (migration 013).
 url_auction_kind = if ([string]::IsNullOrWhiteSpace($p.url_auction)) { $null } else { "county" }
+# On the county-held list this run => listed (2026-10-26). Without status in
+# the payload a certificate marked notfound by an earlier run and listed again
+# stayed notfound forever - the same defect sync-harvest-to-supabase.ps1 fixed
+# for deeds (run #181). The re-listed row also sheds its delisted_at.
+status = "active"
+delisted_at = $null
 }
 }
 
