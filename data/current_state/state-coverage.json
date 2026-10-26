@@ -6005,10 +6005,11 @@
     "AVAILABLE": {
      "acquisition": {
       "by_status": {
-       "NEEDS_REVIEW": 1,
+       "NEEDS_REVIEW": 2,
+       "NOT_FOUND": 2,
        "VERIFIED": 2
       },
-      "units": 3,
+      "units": 6,
       "verified_units": [
        "Wayne (mi_detroit_landbank_lots)",
        "Oceana (mi_oceana_landbank)"
@@ -6016,7 +6017,7 @@
      },
      "classification": "APPROVAL_UNRESOLVED",
      "classification_reasons": [
-      "3 production source(s), none APPROVED for customers: UNREVIEWED"
+      "6 production source(s), none APPROVED for customers: UNREVIEWED"
      ],
      "counties": [
       {
@@ -6199,13 +6200,32 @@
      "sources": {
       "approved_for_customers": 0,
       "counties": [
+       "Calhoun",
        "Oceana",
+       "Saginaw",
        "Wayne"
       ],
-      "implemented": 3,
-      "known": 3,
-      "restricted": 3,
+      "implemented": 6,
+      "known": 6,
+      "restricted": 6,
       "rows": [
+       {
+        "amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+        "approved_for_customers": false,
+        "canonical_url": "https://public-cclb.epropertyplus.com/landmgmtpub/app/base/landing",
+        "county": "Calhoun",
+        "governance_status": "APPROVED",
+        "harvester": "harvest_expansion.py --state MI",
+        "has_evidence": true,
+        "implemented": true,
+        "last_checked": "2026-10-26",
+        "publication_status": "UNREVIEWED",
+        "publishing_unit_name": "Calhoun County",
+        "restrictions": "Owner decision 2026-10-26 (collect every property from every source; terms / licensing risk accepted, legal review to follow): collected and synced under INTERIM permission records expiring 2027-04-12, labelled UNREVIEWED; not customer-published until an admin review approves it.",
+        "source_id": "mi_calhoun_landbank",
+        "update_frequency": "not published by the source (read on each run)",
+        "verification_status": "PRODUCTION_VERIFIED"
+       },
        {
         "amount_kind": "NOT_PUBLISHED",
         "approved_for_customers": false,
@@ -6220,6 +6240,23 @@
         "publishing_unit_name": "Oceana County",
         "restrictions": "AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.",
         "source_id": "mi_oceana_landbank",
+        "update_frequency": "not published by the source (read on each run)",
+        "verification_status": "PRODUCTION_VERIFIED"
+       },
+       {
+        "amount_kind": "NOT_PUBLISHED",
+        "approved_for_customers": false,
+        "canonical_url": "https://public-sclb.epropertyplus.com/landmgmtpub/app/base/landing",
+        "county": "Saginaw",
+        "governance_status": "APPROVED",
+        "harvester": "harvest_expansion.py --state MI",
+        "has_evidence": true,
+        "implemented": true,
+        "last_checked": "2026-10-26",
+        "publication_status": "UNREVIEWED",
+        "publishing_unit_name": "Saginaw County",
+        "restrictions": "Owner decision 2026-10-26 (collect every property from every source; terms / licensing risk accepted, legal review to follow): collected and synced under INTERIM permission records expiring 2027-04-12, labelled UNREVIEWED; not customer-published until an admin review approves it.",
+        "source_id": "mi_saginaw_landbank",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
        },
@@ -6256,9 +6293,26 @@
         "source_id": "mi_detroit_landbank_programs",
         "update_frequency": "not published by the source (read on each run)",
         "verification_status": "PRODUCTION_VERIFIED"
+       },
+       {
+        "amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+        "approved_for_customers": false,
+        "canonical_url": "https://public-wclb.epropertyplus.com/landmgmtpub/app/base/landing",
+        "county": "Wayne",
+        "governance_status": "APPROVED",
+        "harvester": "harvest_expansion.py --state MI",
+        "has_evidence": true,
+        "implemented": true,
+        "last_checked": "2026-10-26",
+        "publication_status": "UNREVIEWED",
+        "publishing_unit_name": "Wayne County",
+        "restrictions": "Owner decision 2026-10-26 (collect every property from every source; terms / licensing risk accepted, legal review to follow): collected and synced under INTERIM permission records expiring 2027-04-12, labelled UNREVIEWED; not customer-published until an admin review approves it.",
+        "source_id": "mi_wayne_county_landbank",
+        "update_frequency": "not published by the source (read on each run)",
+        "verification_status": "PRODUCTION_VERIFIED"
        }
       ],
-      "with_evidence": 3
+      "with_evidence": 6
      },
      "tracked": "TRACKED",
      "withheld": {
@@ -6603,16 +6657,17 @@
     "AVAILABLE": {
      "acquisition": {
       "by_status": {
+       "NOT_FOUND": 1,
        "VERIFIED": 1
       },
-      "units": 1,
+      "units": 2,
       "verified_units": [
        "St. Louis City (mo_stl_lra_inventory)"
       ]
      },
      "classification": "APPROVAL_UNRESOLVED",
      "classification_reasons": [
-      "1 production source(s), none APPROVED for customers: UNREVIEWED"
+      "2 production source(s), none APPROVED for customers: UNREVIEWED"
      ],
      "counties": [
       {
@@ -6751,12 +6806,30 @@
      "sources": {
       "approved_for_customers": 0,
       "counties": [
+       "Jackson",
        "St. Louis City"
       ],
-      "implemented": 1,
-      "known": 1,
-      "restricted": 1,
+      "implemented": 2,
+      "known": 2,
+      "restricted": 2,
       "rows": [
+       {
+        "amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+        "approved_for_customers": false,
+        "canonical_url": "https://public-kclb.epropertyplus.com/landmgmtpub/app/base/landing",
+        "county": "Jackson",
+        "governance_status": "APPROVED",
+        "harvester": "harvest_expansion.py --state MO",
+        "has_evidence": true,
+        "implemented": true,
+        "last_checked": "2026-10-26",
+        "publication_status": "UNREVIEWED",
+        "publishing_unit_name": "Jackson County",
+        "restrictions": "Owner decision 2026-10-26 (collect every property from every source; terms / licensing risk accepted, legal review to follow): collected and synced under INTERIM permission records expiring 2027-04-12, labelled UNREVIEWED; not customer-published until an admin review approves it.",
+        "source_id": "mo_kc_landbank",
+        "update_frequency": "not published by the source (read on each run)",
+        "verification_status": "PRODUCTION_VERIFIED"
+       },
        {
         "amount_kind": "NOT_PUBLISHED",
         "approved_for_customers": false,
@@ -6775,7 +6848,7 @@
         "verification_status": "PRODUCTION_VERIFIED"
        }
       ],
-      "with_evidence": 1
+      "with_evidence": 2
      },
      "tracked": "TRACKED",
      "withheld": {
@@ -7121,16 +7194,17 @@
     "AVAILABLE": {
      "acquisition": {
       "by_status": {
+       "NOT_FOUND": 1,
        "VERIFIED": 1
       },
-      "units": 1,
+      "units": 2,
       "verified_units": [
        "Fayette (pa_fayette_repository)"
       ]
      },
      "classification": "APPROVAL_UNRESOLVED",
      "classification_reasons": [
-      "1 production source(s), none APPROVED for customers: UNREVIEWED"
+      "2 production source(s), none APPROVED for customers: UNREVIEWED"
      ],
      "counties": [
       {
@@ -7268,12 +7342,30 @@
      "sources": {
       "approved_for_customers": 0,
       "counties": [
+       "Allegheny",
        "Fayette"
       ],
-      "implemented": 1,
-      "known": 1,
-      "restricted": 1,
+      "implemented": 2,
+      "known": 2,
+      "restricted": 2,
       "rows": [
+       {
+        "amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+        "approved_for_customers": false,
+        "canonical_url": "https://public-pgh.epropertyplus.com/landmgmtpub/app/base/landing",
+        "county": "Allegheny",
+        "governance_status": "APPROVED",
+        "harvester": "harvest_expansion.py --state PA",
+        "has_evidence": true,
+        "implemented": true,
+        "last_checked": "2026-10-26",
+        "publication_status": "UNREVIEWED",
+        "publishing_unit_name": "Allegheny County",
+        "restrictions": "Owner decision 2026-10-26 (collect every property from every source; terms / licensing risk accepted, legal review to follow): collected and synced under INTERIM permission records expiring 2027-04-12, labelled UNREVIEWED; not customer-published until an admin review approves it.",
+        "source_id": "pa_pittsburgh_city_property",
+        "update_frequency": "not published by the source (read on each run)",
+        "verification_status": "PRODUCTION_VERIFIED"
+       },
        {
         "amount_kind": "OPENING_BID",
         "approved_for_customers": false,
@@ -7292,7 +7384,7 @@
         "verification_status": "PRODUCTION_VERIFIED"
        }
       ],
-      "with_evidence": 1
+      "with_evidence": 2
      },
      "tracked": "TRACKED",
      "withheld": {

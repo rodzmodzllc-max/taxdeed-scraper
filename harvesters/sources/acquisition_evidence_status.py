@@ -84,6 +84,11 @@ _AUTHORITY = {
     "sc_horry_forfeited_land": ("other_government", "Horry County Forfeited Land Commission"),
     "sc_georgetown_forfeited_land": ("other_government", "Georgetown County Forfeited Land Commission"),
     "tn_shelby_landbank": ("county_land_bank", "Shelby County Land Bank"),
+    "mo_kc_landbank": ("county_land_bank", "Land Bank of Kansas City, Missouri"),
+    "pa_pittsburgh_city_property": ("other_government", "City of Pittsburgh (city-owned property)"),
+    "mi_wayne_county_landbank": ("county_land_bank", "Wayne County Land Bank Corporation"),
+    "mi_saginaw_landbank": ("county_land_bank", "Saginaw County Land Bank Authority"),
+    "mi_calhoun_landbank": ("county_land_bank", "Calhoun County Land Bank Authority"),
 }
 _AUTHORITY_COUNTY = {("tx_lgbs", "Galveston"): ("other_government", "Galveston County Sheriff's Office")}
 

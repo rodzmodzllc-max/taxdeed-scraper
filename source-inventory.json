@@ -4900,6 +4900,30 @@
   {
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state MI; last completeness UNKNOWN",
+   "county": "Calhoun",
+   "evidence": "LIVE CAPTURE 2026-10-26 (live structure read 2026-10-26): Calhoun County - mi_calhoun_landbank; OWNER DECISION 2026-10-26 (collect every source; terms risk accepted; INTERIM permission; UNREVIEWED); docs/new-sources-2026-10-26.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-26",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: Owner decision 2026-10-26 (collect every property from every source; terms / licensing risk accepted, legal review to follow): collected and synced under INTERIM permission records expiring 2027-04-12, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "origin": "registry",
+   "publisher": "Calhoun County",
+   "roles": [
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "MI:Calhoun:mi_calhoun_landbank",
+   "source_type": "GOVERNMENT",
+   "state": "MI",
+   "url": "https://public-cclb.epropertyplus.com/landmgmtpub/app/base/landing"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_expansion.py --state MI; last completeness UNKNOWN",
    "county": "Eaton",
    "evidence": "LIVE CAPTURE 2026-09-30 (GitHub Actions runs 36778382226, 36779189506, 36780071129, pass-4 2026-09-30): Eaton County Treasurer 'For Sale 2026' layer and Lenawee County '2026 Tax Sale' layer (county ArcGIS items); OWNER PUBLICATION DECISION 2026-09-30; docs/six-state-expansion.md",
    "governance": "APPROVED",
@@ -5059,6 +5083,30 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_expansion.py --state MI; last completeness UNKNOWN",
+   "county": "Saginaw",
+   "evidence": "LIVE CAPTURE 2026-10-26 (live structure read 2026-10-26): Saginaw County - mi_saginaw_landbank; OWNER DECISION 2026-10-26 (collect every source; terms risk accepted; INTERIM permission; UNREVIEWED); docs/new-sources-2026-10-26.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-26",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: Owner decision 2026-10-26 (collect every property from every source; terms / licensing risk accepted, legal review to follow): collected and synced under INTERIM permission records expiring 2027-04-12, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "origin": "registry",
+   "publisher": "Saginaw County",
+   "roles": [
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "MI:Saginaw:mi_saginaw_landbank",
+   "source_type": "GOVERNMENT",
+   "state": "MI",
+   "url": "https://public-sclb.epropertyplus.com/landmgmtpub/app/base/landing"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "verified capture, observed 2026-10-26",
    "county": "Wayne",
    "evidence": "Read 2026-10-26: PDF created/modified 2025-11-14, SHA-256 66690c9200cf75e82672e75ff2ba55e8419116982f6b4bc805376494bc68e866. Replaces the October 2023 'Amended and Restated Vacant Land Policy' row (observed 2026-10-03), which the DLBA's Poli",
@@ -5126,6 +5174,30 @@
    "source_type": "GOVERNMENT",
    "state": "MI",
    "url": "https://www.arcgis.com/home/item.html?id=e0c4f46a09b9405cb18837e66e85c622"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_expansion.py --state MI; last completeness UNKNOWN",
+   "county": "Wayne",
+   "evidence": "LIVE CAPTURE 2026-10-26 (live structure read 2026-10-26): Wayne County - mi_wayne_county_landbank; OWNER DECISION 2026-10-26 (collect every source; terms risk accepted; INTERIM permission; UNREVIEWED); docs/new-sources-2026-10-26.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-26",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: Owner decision 2026-10-26 (collect every property from every source; terms / licensing risk accepted, legal review to follow): collected and synced under INTERIM permission records expiring 2027-04-12, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "origin": "registry",
+   "publisher": "Wayne County",
+   "roles": [
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "MI:Wayne:mi_wayne_county_landbank",
+   "source_type": "GOVERNMENT",
+   "state": "MI",
+   "url": "https://public-wclb.epropertyplus.com/landmgmtpub/app/base/landing"
   },
   {
    "access": "NOT_CHECKED",
@@ -5260,6 +5332,30 @@
    "source_type": "GOVERNMENT",
    "state": "MN",
    "url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_expansion.py --state MO; last completeness UNKNOWN",
+   "county": "Jackson",
+   "evidence": "LIVE CAPTURE 2026-10-26 (live structure read 2026-10-26): Jackson County - mo_kc_landbank; OWNER DECISION 2026-10-26 (collect every source; terms risk accepted; INTERIM permission; UNREVIEWED); docs/new-sources-2026-10-26.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-26",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: Owner decision 2026-10-26 (collect every property from every source; terms / licensing risk accepted, legal review to follow): collected and synced under INTERIM permission records expiring 2027-04-12, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "origin": "registry",
+   "publisher": "Jackson County",
+   "roles": [
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "MO:Jackson:mo_kc_landbank",
+   "source_type": "GOVERNMENT",
+   "state": "MO",
+   "url": "https://public-kclb.epropertyplus.com/landmgmtpub/app/base/landing"
   },
   {
    "access": "ACCESSIBLE",
@@ -5481,6 +5577,30 @@
    "source_type": "GOVERNMENT",
    "state": "OK",
    "url": "https://docs.oklahomacounty.org/treasurer/CountyOwnedList.asp"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_expansion.py --state PA; last completeness UNKNOWN",
+   "county": "Allegheny",
+   "evidence": "LIVE CAPTURE 2026-10-26 (live structure read 2026-10-26): Allegheny County - pa_pittsburgh_city_property; OWNER DECISION 2026-10-26 (collect every source; terms risk accepted; INTERIM permission; UNREVIEWED); docs/new-sources-2026-10-26.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-26",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: Owner decision 2026-10-26 (collect every property from every source; terms / licensing risk accepted, legal review to follow): collected and synced under INTERIM permission records expiring 2027-04-12, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "origin": "registry",
+   "publisher": "Allegheny County",
+   "roles": [
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "PA:Allegheny:pa_pittsburgh_city_property",
+   "source_type": "GOVERNMENT",
+   "state": "PA",
+   "url": "https://public-pgh.epropertyplus.com/landmgmtpub/app/base/landing"
   },
   {
    "access": "ACCESSIBLE",
@@ -8382,13 +8502,13 @@
   "MI": {
    "APPROVED": 7,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 5,
+   "REVIEW_REQUIRED": 8,
    "by_type": {
     "DOCUMENT": 1,
     "GIS": 1,
-    "GOVERNMENT": 10
+    "GOVERNMENT": 13
    },
-   "sources": 12
+   "sources": 15
   },
   "MN": {
    "APPROVED": 3,
@@ -8402,13 +8522,13 @@
   "MO": {
    "APPROVED": 3,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 2,
+   "REVIEW_REQUIRED": 3,
    "by_type": {
     "DOCUMENT": 1,
     "GIS": 1,
-    "GOVERNMENT": 3
+    "GOVERNMENT": 4
    },
-   "sources": 5
+   "sources": 6
   },
   "NATIONAL": {
    "APPROVED": 3,
@@ -8432,12 +8552,12 @@
   "PA": {
    "APPROVED": 4,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 1,
+   "REVIEW_REQUIRED": 2,
    "by_type": {
     "DOCUMENT": 1,
-    "GOVERNMENT": 4
+    "GOVERNMENT": 5
    },
-   "sources": 5
+   "sources": 6
   },
   "SC": {
    "APPROVED": 2,

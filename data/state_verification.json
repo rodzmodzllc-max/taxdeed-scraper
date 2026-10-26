@@ -33,7 +33,7 @@
    "FAIL": 0,
    "NOT_APPLICABLE": 1,
    "NOT_VERIFIED": 4,
-   "PASS": 20
+   "PASS": 23
   },
   "MN": {
    "BLOCKED": 0,
@@ -46,7 +46,7 @@
    "BLOCKED": 0,
    "FAIL": 0,
    "NOT_APPLICABLE": 2,
-   "NOT_VERIFIED": 4,
+   "NOT_VERIFIED": 5,
    "PASS": 15
   },
   "OK": {
@@ -60,7 +60,7 @@
    "BLOCKED": 0,
    "FAIL": 0,
    "NOT_APPLICABLE": 2,
-   "NOT_VERIFIED": 4,
+   "NOT_VERIFIED": 5,
    "PASS": 15
   },
   "SC": {
@@ -621,21 +621,21 @@
   },
   {
    "check": "ledger_eligibility",
-   "detail": "COUNTY_DEPENDENT: 3 source(s) (mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank) read 2026-10-02",
+   "detail": "COUNTY_DEPENDENT: 6 source(s) (mi_calhoun_landbank, mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank, mi_saginaw_landbank, mi_wayne_county_landbank) read 2026-10-02",
    "state": "MI",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "county_coverage",
-   "detail": "2 counties: Oceana, Wayne",
+   "detail": "4 counties: Calhoun, Oceana, Saginaw, Wayne",
    "state": "MI",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank",
+   "detail": "TRACKED: mi_calhoun_landbank, mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank, mi_saginaw_landbank, mi_wayne_county_landbank",
    "state": "MI",
    "status": "PASS",
    "subject": "AVAILABLE"
@@ -686,6 +686,13 @@
    "detail": "AVAILABLE",
    "state": "MI",
    "status": "PASS",
+   "subject": "mi_calhoun_landbank"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "MI",
+   "status": "PASS",
    "subject": "mi_detroit_landbank_lots"
   },
   {
@@ -717,14 +724,28 @@
    "subject": "mi_oceana_landbank"
   },
   {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "mi_saginaw_landbank"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "mi_wayne_county_landbank"
+  },
+  {
    "check": "available_terms",
-   "detail": "every AVAILABLE source has a terms row (3)",
+   "detail": "every AVAILABLE source has a terms row (6)",
    "state": "MI",
    "status": "PASS"
   },
   {
    "check": "acquisition_path",
-   "detail": "2/3 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "detail": "2/6 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
    "state": "MI",
    "status": "NOT_VERIFIED"
   },
@@ -927,21 +948,21 @@
   },
   {
    "check": "ledger_eligibility",
-   "detail": "COUNTY_DEPENDENT: 1 source(s) (mo_stl_lra_inventory) read 2026-10-04",
+   "detail": "COUNTY_DEPENDENT: 2 source(s) (mo_kc_landbank, mo_stl_lra_inventory) read 2026-10-04",
    "state": "MO",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "county_coverage",
-   "detail": "1 county: St. Louis City",
+   "detail": "2 counties: Jackson, St. Louis City",
    "state": "MO",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: mo_stl_lra_inventory",
+   "detail": "TRACKED: mo_kc_landbank, mo_stl_lra_inventory",
    "state": "MO",
    "status": "PASS",
    "subject": "AVAILABLE"
@@ -992,19 +1013,26 @@
    "detail": "AVAILABLE",
    "state": "MO",
    "status": "PASS",
+   "subject": "mo_kc_landbank"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "MO",
+   "status": "PASS",
    "subject": "mo_stl_lra_inventory"
   },
   {
    "check": "available_terms",
-   "detail": "every AVAILABLE source has a terms row (1)",
+   "detail": "every AVAILABLE source has a terms row (2)",
    "state": "MO",
    "status": "PASS"
   },
   {
    "check": "acquisition_path",
-   "detail": "1/1 AVAILABLE unit(s) with a verified official process",
+   "detail": "1/2 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
    "state": "MO",
-   "status": "PASS"
+   "status": "NOT_VERIFIED"
   },
   {
    "check": "state_page",
@@ -1205,21 +1233,21 @@
   },
   {
    "check": "ledger_eligibility",
-   "detail": "COUNTY_DEPENDENT: 1 source(s) (pa_fayette_repository) read 2026-10-04",
+   "detail": "COUNTY_DEPENDENT: 2 source(s) (pa_fayette_repository, pa_pittsburgh_city_property) read 2026-10-04",
    "state": "PA",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "county_coverage",
-   "detail": "1 county: Fayette",
+   "detail": "2 counties: Allegheny, Fayette",
    "state": "PA",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: pa_fayette_repository",
+   "detail": "TRACKED: pa_fayette_repository, pa_pittsburgh_city_property",
    "state": "PA",
    "status": "PASS",
    "subject": "AVAILABLE"
@@ -1273,16 +1301,23 @@
    "subject": "pa_fayette_repository"
   },
   {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "PA",
+   "status": "PASS",
+   "subject": "pa_pittsburgh_city_property"
+  },
+  {
    "check": "available_terms",
-   "detail": "every AVAILABLE source has a terms row (1)",
+   "detail": "every AVAILABLE source has a terms row (2)",
    "state": "PA",
    "status": "PASS"
   },
   {
    "check": "acquisition_path",
-   "detail": "1/1 AVAILABLE unit(s) with a verified official process",
+   "detail": "1/2 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
    "state": "PA",
-   "status": "PASS"
+   "status": "NOT_VERIFIED"
   },
   {
    "check": "state_page",
@@ -2069,7 +2104,7 @@
   "BLOCKED": 0,
   "FAIL": 0,
   "NOT_APPLICABLE": 25,
-  "NOT_VERIFIED": 49,
-  "PASS": 222
+  "NOT_VERIFIED": 51,
+  "PASS": 225
  }
 }

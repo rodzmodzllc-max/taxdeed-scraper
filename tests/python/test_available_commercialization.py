@@ -67,7 +67,7 @@ def test_g01_committed_registry_publishes_only_the_grandfathered_production_sour
                 # An auction / lien source awaiting review writes nothing; an AVAILABLE
                 # one is collected for development and labelled, never customer-published
                 # (collection vs customer publication, 2026-10-02).
-                expected = ("not customer-published" if r.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS
+                expected = ("not customer-published" if r.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS | EX.NEW_SOURCE_IDS
                             else "no row is written")
                 assert eff == "UNREVIEWED" and expected in r.restrictions, (r.state, r.source_id)
         elif r.is_production:

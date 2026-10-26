@@ -304,6 +304,18 @@
    "candidates": [
     {
      "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Calhoun",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MI:Calhoun:mi_calhoun_landbank",
+     "url": "https://public-cclb.epropertyplus.com/landmgmtpub/app/base/landing"
+    },
+    {
+     "access": "ACCESSIBLE",
      "availability": "CURRENT_INVENTORY",
      "county": "Lenawee",
      "governance": "REVIEW_REQUIRED",
@@ -329,6 +341,18 @@
     {
      "access": "ACCESSIBLE",
      "availability": "NOT_READ",
+     "county": "Saginaw",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MI:Saginaw:mi_saginaw_landbank",
+     "url": "https://public-sclb.epropertyplus.com/landmgmtpub/app/base/landing"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
      "county": "Wayne",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
@@ -349,6 +373,18 @@
      "read_at": "",
      "source_id": "MI:Wayne:mi_detroit_landbank_programs",
      "url": "https://www.arcgis.com/home/item.html?id=e0c4f46a09b9405cb18837e66e85c622"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Wayne",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MI:Wayne:mi_wayne_county_landbank",
+     "url": "https://public-wclb.epropertyplus.com/landmgmtpub/app/base/landing"
     }
    ],
    "last_reads": {},
@@ -391,6 +427,18 @@
   },
   {
    "candidates": [
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Jackson",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MO:Jackson:mo_kc_landbank",
+     "url": "https://public-kclb.epropertyplus.com/landmgmtpub/app/base/landing"
+    },
     {
      "access": "ACCESSIBLE",
      "availability": "NOT_READ",
@@ -437,6 +485,18 @@
   },
   {
    "candidates": [
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Allegheny",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "PA:Allegheny:pa_pittsburgh_city_property",
+     "url": "https://public-pgh.epropertyplus.com/landmgmtpub/app/base/landing"
+    },
     {
      "access": "ACCESSIBLE",
      "availability": "NOT_READ",

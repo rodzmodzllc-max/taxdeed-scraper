@@ -171,14 +171,18 @@ def test_project_database_host_is_not_a_source(monkeypatch, transport):
 
 # --- the real repository today --------------------------------------------------
 
-def test_no_source_holds_a_discover_permission_today_so_every_mapped_url_is_refused():
-    # The only discover records are the four BLOCKED vendors. Evidence capture
-    # therefore needs an owner-recorded discover permission per source first.
+def test_only_the_owner_decision_sources_hold_a_discover_permission():
+    # The only discover records besides the four BLOCKED vendors are the
+    # owner-accepted INTERIM records of the new-sources sprint (owner decision
+    # 2026-10-26); every other mapped source is still refused.
     allowing = [r for r in PERM.Permissions.from_file().records if r.operation == "discover" and r.status != "BLOCKED"]
-    assert allowing == []
+    assert allowing and all(r.evidence_type == "INTERNAL_RISK_ACCEPTANCE" and str(r.effective_on) == "2026-10-26"
+                            for r in allowing)
+    owner = {r.source_id for r in allowing}
     g = DG.Guard("t")
-    hosts = sorted({t.host for t in g.index})
-    assert hosts and not any(g.decide(f"https://{h}/").allowed for h in hosts)
+    hosts = sorted({t.host for t in g.index if t.source_id not in owner})
+    assert hosts and not any(g.decide(f"https://{h}/").allowed for h in hosts
+                             if not any(t.host == h and t.source_id in owner for t in g.index))
 
 
 @pytest.mark.parametrize("url", ["https://liveauctions.govease.com/tx/denton", "https://www.govease.com/",

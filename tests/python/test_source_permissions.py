@@ -27,11 +27,13 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "harvesters"))
 
 from harvesters.governance import permissions as PERM  # noqa: E402
+from harvesters.otc.adapters import expansion as EX  # noqa: E402
 from harvesters.governance.county_source_registry import BLOCKED_SOURCE_IDS, load_registry  # noqa: E402
 from harvesters.governance.publication import PUBLISHABLE_STATUSES, effective_publication  # noqa: E402
 from permission_fixtures import install, permissions_with, record  # noqa: E402
 
 DAY = date(2026, 10, 12)  # the day these records were verified
+OWNER_DECISION_DAY = date(2026, 10, 26)  # new-sources sprint: owner-accepted interim records start here
 
 
 def perms(*rows, base=False, **kw):
@@ -255,8 +257,10 @@ def test_parity_every_currently_collected_registry_source_keeps_fetch_and_store(
             ds = "sale_calendar"
         else:
             ds = None
+        # The new-sources sprint's records start on the owner's decision day (2026-10-26).
+        day = OWNER_DECISION_DAY if row.source_id in EX.NEW_SOURCE_IDS else DAY
         for op in ("fetch", "store"):
-            d = p.authorize(row.source_id, op, state=row.state, county=row.county, dataset=ds, today=DAY)
+            d = p.authorize(row.source_id, op, state=row.state, county=row.county, dataset=ds, today=day)
             assert d.allowed, (row.source_id, row.county, op, d.reason_code)
 
 

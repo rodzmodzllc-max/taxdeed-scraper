@@ -497,6 +497,100 @@ TN_SHELBY_LANDBANK = EppConfig(
           "portal's own property page (its 'Apply For this Property' action needs a portal account) as its purchase URL.")
 
 
+# ---- New-sources sprint (2026-10-26): every property, every source ----------
+# Owner decision 2026-10-26: "You need to find every fucking property and every
+# source, and then we'll work on the legal shit." Terms-of-service / licensing
+# risk is accepted by the owner; every source below carries owner-accepted
+# INTERIM permission records (data/source_permissions.csv, expiring 2027-04-12)
+# and stays UNREVIEWED for customer publication. Hard limits kept: no login, no
+# CAPTCHA, no paywall, no IP evasion; honest User-Agent; a polite rate.
+# Structure read live 2026-10-26 (field names, counts, status vocabularies -
+# docs/new-sources-2026-10-26.md); evidence run ids in NEW_SOURCES_EVIDENCE_RUNS.
+NEW_SOURCES_EVIDENCE_RUNS: tuple[str, ...] = ("live structure read 2026-10-26",)
+OWNER_INTERIM_2026_10_26 = ("Owner decision 2026-10-26 (collect every property from every source; terms / licensing risk "
+                            "accepted, legal review to follow): collected and synced under INTERIM permission records expiring "
+                            "2027-04-12, labelled UNREVIEWED; not customer-published until an admin review approves it.")
+
+# ePropertyPlus land-bank tenants (the same public getPublishedProperties
+# endpoint as Shelby TN). These tenants publish no currentStatus / available
+# flags (every row null) - except Wayne County MI (`available` Y/N) and the
+# City of Pittsburgh (custom field s_custom_0010: 'Available for Sale' /
+# 'Sale Pending' / 'Not Available'). A tenant without a flag is read on list
+# presence: the land bank's published inventory IS its offered list (each
+# portal's public landing page is the land bank's "properties for sale").
+_EPP_LIST = "/landmgmtpub/app/base/landing"
+
+# Kansas City (MO) Land Bank - 2,577 published rows (2026-10-26), state MO,
+# county Jackson (1 row Clay, counted, never re-labelled); inventoryType
+# 'Land Bank' / 'KCMHA' (the Homesteading Authority's lots the Land Bank
+# sells) kept verbatim; one 'ePP TEST' row is the vendor's test record and is
+# excluded. askingPrice filled on every row: a published amount of
+# UNSPECIFIED kind (applications / offers to the Land Bank).
+MO_KC_LANDBANK = EppConfig(
+    source_id="mo_kc_landbank", state="MO", county="Jackson",
+    portal="https://public-kclb.epropertyplus.com", list_url="https://public-kclb.epropertyplus.com" + _EPP_LIST,
+    offered=(), excluded=(("inventoryType", "ePP TEST"),), county_field="county", county_values=("Jackson",),
+    id_pattern=r"[A-Z]{2}\d{16,17}|\d{2}-\d{3}-\d{2}-\d{2}-\d{2}-\d-\d{2}-\d{3}",
+    amount_field="askingPrice", amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, amount_label="Asking Price",
+    columns_verified=True,
+    notes="Land Bank of Kansas City, Missouri - its ePropertyPlus public portal (public-kclb). Every published row is read "
+          "(no availability flag is published; the row's comments, never mapped, say e.g. 'Property available to apply for'). "
+          "parcelNumber = the Jackson County parcel id ('JA' + 17 digits). askingPrice kept as published, never called a price.")
+
+# City of Pittsburgh (PA) - city-owned property portal (public-pgh), the
+# eProperty Plus database behind the City's 'City-Owned Properties' open data
+# (WPRDC). 2,933 rows, all Allegheny; s_custom_0010 'Available for Sale'
+# (1,590) is the only offered value read.
+PA_PITTSBURGH_CITY_PROPERTY = EppConfig(
+    source_id="pa_pittsburgh_city_property", state="PA", county="Allegheny",
+    portal="https://public-pgh.epropertyplus.com", list_url="https://public-pgh.epropertyplus.com" + _EPP_LIST,
+    offered=(("s_custom_0010", "Available for Sale"),), status_field="s_custom_0010",
+    id_pattern=r"\d{4}[A-Z]\d{5}[0-9A-Z]{6}",
+    amount_field="askingPrice", amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, amount_label="Asking Price",
+    columns_verified=True,
+    notes="City of Pittsburgh city-owned property (eProperty Plus public portal public-pgh; inventoryType 'Public Sale' / "
+          "'PLB Transfer' / 'URA Transfer' kept verbatim). Only rows whose s_custom_0010 reads 'Available for Sale' are read; "
+          "'Sale Pending' and 'Not Available' are not. parcelNumber = the Allegheny County 16-character lot-and-block id.")
+
+# Wayne County (MI) Land Bank - public-wclb: 841 rows, its own `available`
+# flag Y (810) / N (31); county 'WAYNE'. Only available = 'Y' is read.
+MI_WAYNE_COUNTY_LANDBANK = EppConfig(
+    source_id="mi_wayne_county_landbank", state="MI", county="Wayne",
+    portal="https://public-wclb.epropertyplus.com", list_url="https://public-wclb.epropertyplus.com" + _EPP_LIST,
+    offered=(("available", "Y"),), county_field="county", county_values=("Wayne",),
+    id_pattern=r"\d{8}(?:\d{6}|\.|-\d)?",
+    amount_field="askingPrice", amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, amount_label="Asking Price",
+    columns_verified=True,
+    notes="Wayne County Land Bank Corporation (Michigan) ePropertyPlus public portal (public-wclb); outside Detroit (Highland "
+          "Park, Romulus, Redford, ...). Offered = the portal's own available 'Y'. askingPrice kept as published.")
+
+# Saginaw County (MI) Land Bank Authority - public-sclb: 712 rows, all
+# 'Residential Vacant', no availability flag, no price on any row.
+MI_SAGINAW_LANDBANK = EppConfig(
+    source_id="mi_saginaw_landbank", state="MI", county="Saginaw",
+    portal="https://public-sclb.epropertyplus.com", list_url="https://public-sclb.epropertyplus.com" + _EPP_LIST,
+    offered=(), county_field="county", county_values=("Saginaw",),
+    id_pattern=r"\d{2}-\d{2}-\d-\d{1,2}-\d[0-9A-Z]\d{2}-\d{3}",
+    columns_verified=True,
+    notes="Saginaw County Land Bank Authority ePropertyPlus public portal (public-sclb): every published row read on list "
+          "presence (no availability flag published). No price published.")
+
+# Calhoun County (MI) Land Bank Authority - public-cclb: 219 rows (Battle
+# Creek / Albion), no availability flag; askingPrice on 215.
+MI_CALHOUN_LANDBANK = EppConfig(
+    source_id="mi_calhoun_landbank", state="MI", county="Calhoun",
+    portal="https://public-cclb.epropertyplus.com", list_url="https://public-cclb.epropertyplus.com" + _EPP_LIST,
+    offered=(), county_field="county", county_values=("Calhoun",),
+    id_pattern=r"\d{2,4}-\d{2,3}-\d{3}-\d{1,2}",
+    amount_field="askingPrice", amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, amount_label="Asking Price",
+    columns_verified=True,
+    notes="Calhoun County Land Bank Authority (Michigan) ePropertyPlus public portal (public-cclb): every published row read "
+          "on list presence; the program (s_custom_0003, e.g. 'Develop This Lot', 'Side Lot') is not mapped.")
+
+NEW_EPP_SOURCES = (MO_KC_LANDBANK, PA_PITTSBURGH_CITY_PROPERTY, MI_WAYNE_COUNTY_LANDBANK, MI_SAGINAW_LANDBANK,
+                   MI_CALHOUN_LANDBANK)
+
+
 HELD_AVAILABLE = ("AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for "
                   "development, labelled UNREVIEWED; not customer-published until an admin review approves it.")
 PUBLICATION = {
@@ -521,6 +615,7 @@ PUBLICATION = {
     "pa_fayette_repository": ("UNREVIEWED", HELD_AVAILABLE),
     "mn_ramsey_tax_forfeit": ("UNREVIEWED", HELD_AVAILABLE),
     "tn_shelby_landbank": ("UNREVIEWED", HELD_AVAILABLE),
+    **{c.source_id: ("UNREVIEWED", OWNER_INTERIM_2026_10_26) for c in NEW_EPP_SOURCES},
 }
 
 
@@ -536,7 +631,10 @@ SOURCES: dict[str, tuple[ExpansionSource, ...]] = {
     "MI": (ExpansionSource("arcgis", MI_EATON, MI_EATON.layer_url), ExpansionSource("arcgis", MI_LENAWEE, MI_LENAWEE.layer_url),
            ExpansionSource("arcgis", MI_DETROIT_LANDBANK_LOTS, MI_DETROIT_LANDBANK_LOTS.layer_url),
            ExpansionSource("arcgis", MI_DETROIT_LANDBANK_PROGRAMS, MI_DETROIT_LANDBANK_PROGRAMS.layer_url),
-           ExpansionSource("html_table", MI_OCEANA_LANDBANK, MI_OCEANA_LANDBANK.list_url)),
+           ExpansionSource("html_table", MI_OCEANA_LANDBANK, MI_OCEANA_LANDBANK.list_url),
+           ExpansionSource("epropertyplus", MI_WAYNE_COUNTY_LANDBANK, MI_WAYNE_COUNTY_LANDBANK.portal),
+           ExpansionSource("epropertyplus", MI_SAGINAW_LANDBANK, MI_SAGINAW_LANDBANK.portal),
+           ExpansionSource("epropertyplus", MI_CALHOUN_LANDBANK, MI_CALHOUN_LANDBANK.portal)),
     "WY": (ExpansionSource("arcgis", WY_ALBANY, WY_ALBANY.layer_url),),
     "SC": (ExpansionSource("arcgis", SC_YORK, SC_YORK.layer_url),
            ExpansionSource("html_table", SC_OCONEE, SC_OCONEE.list_url),
@@ -550,9 +648,11 @@ SOURCES: dict[str, tuple[ExpansionSource, ...]] = {
            ExpansionSource("html_table", WI_GREEN_PREVIOUS, WI_GREEN_PREVIOUS.list_url),
            ExpansionSource("html_table", WI_DANE_AVAILABLE, WI_DANE_AVAILABLE.list_url),
            ExpansionSource("html_table", WI_DANE_SOLD, WI_DANE_SOLD.list_url)),
-    "MO": (ExpansionSource("csv", MO_STL_LRA, MO_STL_LRA.document_url),),
+    "MO": (ExpansionSource("csv", MO_STL_LRA, MO_STL_LRA.document_url),
+           ExpansionSource("epropertyplus", MO_KC_LANDBANK, MO_KC_LANDBANK.portal)),
     "OK": (ExpansionSource("html_table", OK_OKLAHOMA_COUNTY_OWNED, OK_OKLAHOMA_COUNTY_OWNED.list_url),),
-    "PA": (ExpansionSource("latest_dated_document", PA_FAYETTE_REPOSITORY, PA_FAYETTE_PAGE),),
+    "PA": (ExpansionSource("latest_dated_document", PA_FAYETTE_REPOSITORY, PA_FAYETTE_PAGE),
+           ExpansionSource("epropertyplus", PA_PITTSBURGH_CITY_PROPERTY, PA_PITTSBURGH_CITY_PROPERTY.portal)),
     "MN": (ExpansionSource("arcgis", MN_RAMSEY_TAX_FORFEIT, MN_RAMSEY_TAX_FORFEIT.layer_url),),
     "TN": (ExpansionSource("epropertyplus", TN_SHELBY_LANDBANK, TN_SHELBY_LANDBANK.portal),),
 }
@@ -563,3 +663,5 @@ AVAILABLE_SPRINT_SOURCE_IDS = frozenset({"mi_detroit_landbank_lots", "mi_detroit
 AVAILABLE_FIVE_SOURCE_IDS = frozenset({"mo_stl_lra_inventory", "ok_oklahoma_county_owned", "pa_fayette_repository",
                                        "mn_ramsey_tax_forfeit"})
 TN_SOURCE_IDS = frozenset({"tn_shelby_landbank"})
+# Owner decision 2026-10-26: every new source of the new-sources sprint.
+NEW_SOURCE_IDS = frozenset(c.source_id for c in NEW_EPP_SOURCES)

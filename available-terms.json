@@ -297,6 +297,54 @@
    "quote": "portal field 'askingPrice' (display name 'Asking Price'); the Land Bank's Policies & Procedures page links the 'Offer to Purchase and Sales Agreement Packet'",
    "evidence": "tn_shelby evidence runs 37856189946 / 37856396525 (docs/tennessee-survey.md)",
    "observed_on": "2026-10-08"
+  },
+  {
+   "state": "MO",
+   "source_id": "mo_kc_landbank",
+   "basis": "OFFER_NEGOTIATED",
+   "figure_label": "Asking price (Land Bank portal)",
+   "figure_note": "The Land Bank's published asking price - not a fixed price; buyers apply on the Land Bank's portal.",
+   "quote": "portal field 'askingPrice' (display name 'Asking Price'); rows' comments read 'Property available to apply for. Please apply online'",
+   "evidence": "new-sources live structure read 2026-10-26 (docs/new-sources-2026-10-26.md)",
+   "observed_on": "2026-10-26"
+  },
+  {
+   "state": "PA",
+   "source_id": "pa_pittsburgh_city_property",
+   "basis": "OFFER_NEGOTIATED",
+   "figure_label": "Asking price (City property portal)",
+   "figure_note": "The City's published asking price for city-owned property - not a fixed price; the sale is the City's process.",
+   "quote": "portal field 'askingPrice' (display name 'Asking Price'); custom status 'Available for Sale'",
+   "evidence": "new-sources live structure read 2026-10-26 (docs/new-sources-2026-10-26.md)",
+   "observed_on": "2026-10-26"
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_wayne_county_landbank",
+   "basis": "OFFER_NEGOTIATED",
+   "figure_label": "Asking price (Land Bank portal)",
+   "figure_note": "The Land Bank's published asking price - not a fixed price; buyers apply on the Land Bank's portal.",
+   "quote": "portal field 'askingPrice' (display name 'Asking Price'); portal field available = 'Y'",
+   "evidence": "new-sources live structure read 2026-10-26 (docs/new-sources-2026-10-26.md)",
+   "observed_on": "2026-10-26"
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_calhoun_landbank",
+   "basis": "OFFER_NEGOTIATED",
+   "figure_label": "Asking price (Land Bank portal)",
+   "figure_note": "The Land Bank's published asking price - not a fixed price; buyers apply on the Land Bank's portal.",
+   "quote": "portal field 'askingPrice' (display name 'Asking Price')",
+   "evidence": "new-sources live structure read 2026-10-26 (docs/new-sources-2026-10-26.md)",
+   "observed_on": "2026-10-26"
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_saginaw_landbank",
+   "basis": "NOT_PUBLISHED",
+   "quote": "No askingPrice is filled on any published row of the Saginaw County Land Bank portal.",
+   "evidence": "new-sources live structure read 2026-10-26 (docs/new-sources-2026-10-26.md)",
+   "observed_on": "2026-10-26"
   }
  ]
 }

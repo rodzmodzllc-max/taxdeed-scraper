@@ -495,7 +495,7 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
             if eff == "APPROVED":
                 assert r.is_production and "Creative Commons" in r.restrictions, (r.state, r.source_id)
             else:
-                expected = "not customer-published" if r.source_id in (EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS) else "no row is written"
+                expected = "not customer-published" if r.source_id in (EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS | EX.NEW_SOURCE_IDS) else "no row is written"
                 assert eff == "UNREVIEWED" and expected in r.restrictions, (r.state, r.source_id)
         elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.source_id)
