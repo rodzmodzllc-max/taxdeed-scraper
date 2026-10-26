@@ -297,13 +297,19 @@ def test_G_two_parcels_sharing_one_cause_number_are_not_treated_as_duplicate_pro
 # ==================== H: freshness contract ====================
 
 
-def test_H_texas_job_remains_manual_only_this_phase_did_not_schedule_it():
+def test_H_texas_job_runs_daily_in_the_0737_run_and_on_dispatch():
+    # Daily since 2026-10-26 (owner approval). Was manual dispatch only.
     workflow = _read(".github", "workflows", "harvest-and-sync.yml")
     texas_block_start = workflow.index("\n  texas:")
     next_job_start = workflow.index("\n  backup:", texas_block_start)
     texas_block = workflow[texas_block_start:next_job_start]
     if_line = next(line for line in texas_block.splitlines() if line.strip().startswith("if:"))
-    assert if_line.strip() == "if: github.event_name == 'workflow_dispatch'"
+    assert if_line.strip() == (
+        "if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || "
+        "github.event.inputs.job == 'texas' || github.event.inputs.job == '')) || "
+        "github.event.schedule == '37 11 * * *'"
+    )
+    assert "cron: '37 11 * * *'" in workflow
 
 
 def test_H_texas_harvest_main_now_isolates_one_vendors_unexpected_failure_from_the_other():

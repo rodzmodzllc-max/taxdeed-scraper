@@ -139,7 +139,7 @@ on:
     # skipped run never leaves a whole day unread.
     - cron: '13 10 * * *'  # ~6:13 AM ET - deeds + okaloosa
     - cron: '13 22 * * *'  # ~6:13 PM ET - deeds + okaloosa
-    - cron: '37 11 * * *'  # ~7:37 AM ET - certificates + laft + expansion + backup
+    - cron: '37 11 * * *'  # ~7:37 AM ET - certificates + laft + expansion + texas + backup
     - cron: '37 17 * * *'  # ~1:37 PM ET - certificates + laft + expansion (second daily read)
   workflow_dispatch:  # manual trigger from the Actions tab, runs all jobs
     inputs:
@@ -1235,7 +1235,7 @@ jobs:
           retention-days: 14
 
   texas:
-    name: Harvest Texas tax sales (LGBS) + sync - manual only, not yet on cron
+    name: Harvest Texas tax sales (LGBS) + sync - daily
     runs-on: ubuntu-latest
     timeout-minutes: 60
     # MANUAL-ONLY for now, per the flip sequence this comment previously laid
@@ -1264,8 +1264,13 @@ jobs:
     # fallback needed here the way the three FL sync scripts have one.
     # Runs only on a dispatch that asks for it ("all" or "texas") - a
     # single-ledger dispatch (e.g. job=laft) never touches the LGBS feed.
-    if: github.event_name == 'workflow_dispatch'
-      && (github.event.inputs.job == 'all' || github.event.inputs.job == 'texas' || github.event.inputs.job == '')
+    # DAILY since 2026-10-26 (owner approval: "Approve texas daily run"),
+    # once a day in the 07:37 ET run alongside laft / expansion - the same
+    # run, so the one-pending concurrency slot can never drop it. The LGBS
+    # and Texas RealAuction permission records were updated the same day
+    # (data/source_permissions.csv); they stay interim, expiring 2027-04-12.
+    # Manual dispatch still works (job=all or job=texas).
+    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'texas' || github.event.inputs.job == '')) || github.event.schedule == '37 11 * * *'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -1323,7 +1328,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/source_health.py --source tx_sales --label "Texas tax sales (LGBS + county sheriff-sale sites) - manual runs" --state TX --mode manual --status out/harvest_texas_status.json --rows out/harvest_texas.json --outcome ${{ steps.sync.outcome }}
+        run: python3 scripts/source_health.py --source tx_sales --label "Texas tax sales (LGBS + county sheriff-sale sites)" --state TX --mode scheduled --cadence-hours 24 --status out/harvest_texas_status.json --rows out/harvest_texas.json --outcome ${{ steps.sync.outcome }}
 
       - name: Stamp last_seen_at on the Texas rows read this run
         # The Texas sync never set last_seen_at, so every Texas row read as

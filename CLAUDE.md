@@ -1688,7 +1688,7 @@ Full description: `docs/available-ledger.md` section 8. The stable facts:
 - **`harvest-and-sync.yml` has a `job` selector** on manual dispatch (all /
   deeds / certificates / laft / texas / backup). Dispatch `job=laft` for the
   normal AVAILABLE path; never dispatch `all` or `texas` unless LGBS is
-  meant to run. Schedules unchanged; texas is never scheduled.
+  meant to run. (Since 2026-10-26 texas also runs daily in the 07:37 ET run.)
 - **`scripts/purchase_path_engine.py`** is the only writer of
   `purchase_path_type` / `_scope` / `_evidence` / `_observed_on` (ten
   types; refusals for search engines, homepages, guessed patterns,
@@ -2070,10 +2070,12 @@ Full description: `docs/image-storage.md`. Stable facts:
   status file stamps nothing. A one-object JSON (PowerShell's single-element
   array) is read as one row. The NULLs on 2026-10-01 were correct: LienHub
   returned 403 for all 32 counties on the only run since stamping shipped.
-- **Texas is manual-only by design** (the `texas` job is dispatch-only; LGBS
-  and TX RealAuction run nowhere else). `unit_freshness.MANUAL_ONLY_SOURCES`
-  marks those units `manual_only` and never ages them by the clock. Their
-  last read is never advanced. A test pins that set to the job's trigger.
+- **Texas reads daily since 2026-10-26** (owner approval): the `texas` job
+  runs in the 07:37 ET scheduled run (once a day, never the 17:37 read) and
+  on dispatch; LGBS and TX RealAuction run nowhere else. Their permission
+  records stay interim (expire 2027-04-12). `unit_freshness.MANUAL_ONLY_SOURCES`
+  still lists both, mirrored by app.js `MANUAL_ONLY_SOURCE_IDS` (front end):
+  emptying both together is the follow-up that lets the clock age them.
 
 ## All-sources AVAILABLE enrichment engine (2026-10-01, PR open, no migration)
 

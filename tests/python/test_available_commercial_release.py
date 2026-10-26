@@ -428,7 +428,8 @@ def test_wf01_job_selector_gates_every_job_and_never_schedules_texas():
         for c in crons:
             assert f"github.event.schedule == '{c}'" in cond
     texas = wf["jobs"]["texas"]["if"]
-    assert texas.startswith("github.event_name == 'workflow_dispatch'") and "schedule" not in texas and "job == 'texas'" in texas
+    # Texas reads daily in the 07:37 ET run since 2026-10-26 (owner approval), once a day.
+    assert texas == "(github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'texas' || github.event.inputs.job == '')) || github.event.schedule == '37 11 * * *'"
     assert "job == 'laft'" not in texas
 
 
