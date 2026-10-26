@@ -7833,6 +7833,11 @@ function acquireBlockHtml(p) {
       if (evs.document_url && /^https:\/\//.test(evs.document_url)) howRows.push(["Official document read", ext(evs.document_url, "Official policy document · " + linkHost(evs.document_url) + " →", "acq-link", "candidate")]);
     }
     howRows.push(["How to acquire", esc(avail ? "See the official source for current instructions." : "Contact the county office named on the listing for current instructions.")]);
+    // Owner (2026-10-25): with no verified path, the least we offer is the
+    // listing the property was found on - as the primary button, named as a
+    // listing, never as a purchase page. "Source", not "official": for Texas
+    // that listing is a vendor's (LGBS), not a government page.
+    if (avail) cta = { label: "Open the source listing", href: avail.href, sub: avail.label, kind: "source" };
   } else {
     cta = acquisitionCta(a);
     howRows.push(["Method", esc(a.label)]);
@@ -7841,7 +7846,7 @@ function acquireBlockHtml(p) {
     if (state === "partial") howRows.push(["Additional acquisition details", notYet]);
     if (a.scope !== "property") howRows.push(["Applies to", esc("The county's process for every property on its list - not an approval for this parcel; confirm it is still available before paying.")]);
   }
-  const howHtml = (cta ? `<p class="acq-cta-row">${ext(cta.href, cta.label, "acq-cta", /^(mailto|tel):/.test(cta.href) ? "instructions" : (cta.href === a.applicationUrl || ["application_download", "application_page"].includes(a.type) ? "form" : "instructions"))}${cta.sub ? `<span class="acq-cta-sub">${esc(cta.sub)}</span>` : ""}</p>` : "") + dl(howRows);
+  const howHtml = (cta ? `<p class="acq-cta-row">${ext(cta.href, cta.label, "acq-cta", cta.kind ? cta.kind : /^(mailto|tel):/.test(cta.href) ? "instructions" : (cta.href === a.applicationUrl || ["application_download", "application_page"].includes(a.type) ? "form" : "instructions"))}${cta.sub ? `<span class="acq-cta-sub">${esc(cta.sub)}</span>` : ""}</p>` : "") + dl(howRows);
   // 4. What form do I need?
   const formsHtml = acquisitionFormsHtml(p);
   const formHtml = formsHtml || muted(a.verified ? "No form is published by the source - follow the steps above." : "Not yet verified - no county form has been established from evidence.");
