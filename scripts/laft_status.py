@@ -106,6 +106,7 @@ EMPTY_SIGNALS = (
     "no_list_past_redemption",  # SC FLC: no list year is past the redemption period
     "no_offered_status",        # status-filtered list: no row carries an offered status
     "empty_layer",              # the layer / table answered with zero features
+    "superseded_list",          # the county's own pages say this list's sale is over (config `superseded`; Albany WY 2026)
 )
 
 ERROR_CATEGORIES = (

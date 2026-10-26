@@ -317,3 +317,22 @@ def test_g04_acquisition_evidence_rows_are_verified_and_anchored():
     path, _ = PPE.resolve(row, state="WI", source_id="wi_dane_tax_deed_auction", county="Dane", registry_row=None, evidence=ev,
                           list_url="https://treasurer.danecounty.gov/taxdeedauction", harvest_date="2026-10-01")
     assert path and path.scope == "property" and path.url.endswith("/BidForm/1") and path.steps and path.email == "treasurer@danecounty.gov"
+
+
+def test_a_superseded_list_reads_empty_with_no_request_so_close_out_closes_it():
+    """Owner decision 2026-10-26: close Albany WY's finished 2026 sale. The
+    config's `superseded` makes the runner return EMPTY ('superseded_list')
+    before any request, so the sync's --close-absent closes the stored rows."""
+    import sys
+    from datetime import datetime, timezone
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+    import harvest_expansion as HX
+    from harvesters.otc.adapters.expansion import SOURCES, WY_ALBANY
+    assert WY_ALBANY.superseded
+    src = next(s for s in SOURCES["WY"] if s.config is WY_ALBANY)
+
+    def no_request(*_a, **_k):
+        raise AssertionError("a superseded list is never requested")
+    out = HX.run_source(src, no_request, no_request, retrieved_at=datetime.now(timezone.utc), fetch_bytes=no_request)
+    assert out == ("EMPTY", [], None, None, "superseded_list")
