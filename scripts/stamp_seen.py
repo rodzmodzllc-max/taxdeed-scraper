@@ -64,6 +64,10 @@ STAMP_ELIGIBLE = frozenset({"COMPLETE", "EMPTY"})
 STORE_SOURCES = {
     ("FL", "auction"): (("fl_realauction", "fl_bid4assets_okaloosa"), "sale_calendar"),
     ("FL", "certificate"): (("fl_lienhub_certificates",), "county_held_certificates"),
+    # Texas (2026-10-26): the LGBS / RealAuction sync never set last_seen_at,
+    # so every Texas row read as never-read ("unknown") after each harvest.
+    ("TX", "laft"): (("tx_lgbs",), "tax_sale_listing"),
+    ("TX", "auction"): (("tx_lgbs", "tx_realauction"), "tax_sale_listing"),
 }
 PERMISSION_DENIED_EXIT = 3
 
@@ -105,11 +109,16 @@ def eligible_counties(status) -> set[str]:
             if isinstance(e, dict) and str(e.get("status") or "").upper() in STAMP_ELIGIBLE} - {""}
 
 
-def observed(rows: list, case_key: str) -> dict[str, list[str]]:
-    """county -> sorted unique case numbers read this run."""
+def observed(rows: list, case_key: str, row_source: str | None = None) -> dict[str, list[str]]:
+    """county -> sorted unique case numbers read this run. With `row_source`,
+    only harvest rows whose own `source` (ledger) is that value count - a
+    harvest file that mixes ledgers (Texas: auction and laft) never stamps a
+    row of one ledger because the same case number was read in the other."""
     out: dict[str, set] = defaultdict(set)
     for r in as_list(rows):
         if not isinstance(r, dict):
+            continue
+        if row_source is not None and str(r.get("source") or "").strip() != row_source:
             continue
         county, case = str(r.get("county") or "").strip(), str(r.get(case_key) or "").strip()
         if county and case:
@@ -299,6 +308,8 @@ def main(argv=None) -> int:
     ap.add_argument("--harvest", required=True)
     ap.add_argument("--case-key", default="case_no")
     ap.add_argument("--status", help="harvester status file; only its COMPLETE / EMPTY counties are stamped")
+    ap.add_argument("--row-source", action="store_true",
+                    help="count only harvest rows whose own 'source' field equals --source (mixed-ledger harvest files)")
     ap.add_argument("--provenance", action="store_true", help="also record field_provenance for the list's own columns (idempotent)")
     a = ap.parse_args(argv)
     if not store_permitted(a.state, a.source):
@@ -311,7 +322,7 @@ def main(argv=None) -> int:
     if rows is None:
         print(f"{a.state} {a.source}: harvest file is not JSON - nothing stamped")
         return 0
-    by_county = observed(rows, a.case_key)
+    by_county = observed(rows, a.case_key, a.source if a.row_source else None)
     if a.status:
         status = read_json(Path(a.status))
         if status is None:
