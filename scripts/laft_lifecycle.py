@@ -90,7 +90,7 @@ DEFAULT_REGISTRY = REPO / "data/county_source_registry.csv"
 DEFAULT_HARVEST_FILES = [REPO / "out" / n for n in (
     "harvest_laft.json", "harvest_laft_html.json", "harvest_laft_realtdm.json", "harvest_laft_pioneer.json",
     "harvest_laft_orange.json", "harvest_laft_stlucie.json", "harvest_laft_osceola.json",
-    "harvest_laft_hillsborough.json", "harvest_laft_leon.json",
+    "harvest_laft_hillsborough.json", "harvest_laft_leon.json", "harvest_laft_portals.json",
 )]
 
 USER_AGENT = "taxdeed-scraper/1.0 (+https://github.com/rodzmodzllc-max/taxdeed-scraper; GitHub Actions)"

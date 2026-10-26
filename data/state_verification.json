@@ -19,7 +19,7 @@
    "FAIL": 0,
    "NOT_APPLICABLE": 0,
    "NOT_VERIFIED": 2,
-   "PASS": 29
+   "PASS": 30
   },
   "LA": {
    "BLOCKED": 0,
@@ -81,8 +81,8 @@
    "BLOCKED": 0,
    "FAIL": 0,
    "NOT_APPLICABLE": 1,
-   "NOT_VERIFIED": 5,
-   "PASS": 15
+   "NOT_VERIFIED": 4,
+   "PASS": 24
   },
   "WI": {
    "BLOCKED": 0,
@@ -302,14 +302,14 @@
   },
   {
    "check": "county_coverage",
-   "detail": "52 counties fed; eligibility is OFFERED",
+   "detail": "56 counties fed; eligibility is OFFERED",
    "state": "FL",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: fl_laft_hillsborough, fl_laft_html, fl_laft_leon, fl_laft_orange, fl_laft_osceola, fl_laft_pdfs, fl_laft_pioneer, fl_laft_realtdm, fl_laft_stlucie",
+   "detail": "TRACKED: fl_laft_hillsborough, fl_laft_html, fl_laft_leon, fl_laft_orange, fl_laft_osceola, fl_laft_pdfs, fl_laft_pioneer, fl_laft_portals, fl_laft_realtdm, fl_laft_stlucie",
    "state": "FL",
    "status": "PASS",
    "subject": "AVAILABLE"
@@ -402,6 +402,13 @@
    "detail": "AVAILABLE",
    "state": "FL",
    "status": "PASS",
+   "subject": "fl_laft_portals"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "FL",
+   "status": "PASS",
    "subject": "fl_laft_realtdm"
   },
   {
@@ -434,13 +441,13 @@
   },
   {
    "check": "available_terms",
-   "detail": "every AVAILABLE source has a terms row (9)",
+   "detail": "every AVAILABLE source has a terms row (10)",
    "state": "FL",
    "status": "PASS"
   },
   {
    "check": "acquisition_path",
-   "detail": "19/52 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "detail": "19/56 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
    "state": "FL",
    "status": "NOT_VERIFIED"
   },
@@ -1616,48 +1623,48 @@
   },
   {
    "check": "state_law_recorded",
-   "detail": "no statute has been read and recorded for this state; unresolved: redemption, tax_sale_list_source, tax_sale_model",
+   "detail": "no statute has been read and recorded for this state; unresolved: redemption, tax_sale_model",
    "state": "TX",
    "status": "NOT_VERIFIED"
   },
   {
    "check": "ledger_eligibility",
-   "detail": "COUNTY_DEPENDENT: 2 source(s) (tx_lgbs, tx_realauction) read 2026-10-01",
+   "detail": "COUNTY_DEPENDENT: 4 source(s) (tx_hctax, tx_jefferson_sheriff_sale, tx_lgbs, tx_realauction) read 2026-10-01",
    "state": "TX",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "county_coverage",
-   "detail": "31 counties: Angelina, Aransas, Atascosa, Caldwell, Cameron, Dallas, El Paso, Ellis, Galveston, Goliad, Gregg, Hardin …",
+   "detail": "33 counties: Angelina, Aransas, Atascosa, Caldwell, Cameron, Dallas, El Paso, Ellis, Galveston, Goliad, Gregg, Hardin …",
    "state": "TX",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: tx_lgbs, tx_realauction",
+   "detail": "TRACKED: tx_hctax, tx_jefferson_sheriff_sale, tx_lgbs, tx_realauction",
    "state": "TX",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "ledger_eligibility",
-   "detail": "LGBS lists property struck off to taxing units, but whether, when and how a taxing unit resells it (Tex. Tax Code 34.05, lead only) is set per taxing unit and h",
+   "detail": "COUNTY_DEPENDENT: 7 source(s) (tx_bexar_resale, tx_hood_cad_struck_off, tx_lgbs, tx_montgomery_tax_trust, tx_orange_trust_property, tx_randall_trustee_property, tx_trinity_cad_resale) read 2026-10-26",
    "state": "TX",
-   "status": "NOT_VERIFIED",
+   "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "county_coverage",
-   "detail": "8 counties fed; eligibility is NOT_VERIFIED",
+   "detail": "14 counties: Bexar, Galveston, Goliad, Hardin, Hood, Jim Wells, Leon, Liberty, Maverick, Montgomery, Orange, Randall …",
    "state": "TX",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: tx_lgbs",
+   "detail": "TRACKED: tx_bexar_resale, tx_hood_cad_struck_off, tx_lgbs, tx_montgomery_tax_trust, tx_orange_trust_property, tx_randall_trustee_property, tx_trinity_cad_resale",
    "state": "TX",
    "status": "PASS",
    "subject": "AVAILABLE"
@@ -1685,9 +1692,37 @@
   },
   {
    "check": "rule_history",
-   "detail": "1 rule(s) with a recorded prior version",
+   "detail": "2 rule(s) with a recorded prior version",
    "state": "TX",
    "status": "PASS"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_bexar_resale"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_hctax"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_hood_cad_struck_off"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_jefferson_sheriff_sale"
   },
   {
    "check": "source_classification",
@@ -1698,20 +1733,48 @@
   },
   {
    "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_montgomery_tax_trust"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_orange_trust_property"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_randall_trustee_property"
+  },
+  {
+   "check": "source_classification",
    "detail": "AUCTIONS",
    "state": "TX",
    "status": "PASS",
    "subject": "tx_realauction"
   },
   {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_trinity_cad_resale"
+  },
+  {
    "check": "available_terms",
-   "detail": "every AVAILABLE source has a terms row (1)",
+   "detail": "every AVAILABLE source has a terms row (7)",
    "state": "TX",
    "status": "PASS"
   },
   {
    "check": "acquisition_path",
-   "detail": "1/8 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "detail": "1/14 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
    "state": "TX",
    "status": "NOT_VERIFIED"
   },
@@ -2076,7 +2139,7 @@
   "BLOCKED": 0,
   "FAIL": 0,
   "NOT_APPLICABLE": 25,
-  "NOT_VERIFIED": 49,
-  "PASS": 223
+  "NOT_VERIFIED": 48,
+  "PASS": 233
  }
 }

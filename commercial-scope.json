@@ -235,6 +235,18 @@
    "reason": "APPROVED_GRANDFATHERED: legacy approval, never explicitly reviewed for paid reuse. Requires a publication decision."
   },
   {
+   "source_id": "fl_laft_portals",
+   "state": "FL",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "fl_laft_realtdm",
    "state": "FL",
    "publication_status": "APPROVED_GRANDFATHERED",
@@ -560,9 +572,117 @@
    "reason": "Registered, not collected."
   },
   {
+   "source_id": "tx_bexar_resale",
+   "state": "TX",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_brazoria_tax_resale",
+   "state": "TX",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_collin_constable_sale",
+   "state": "TX",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_grayson_struck_off",
+   "state": "TX",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_gregg_tax_resale",
+   "state": "TX",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "tx_hctax",
    "state": "TX",
-   "publication_status": "RESTRICTED",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_hood_cad_struck_off",
+   "state": "TX",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_jefferson_county_resale",
+   "state": "TX",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_jefferson_sheriff_sale",
+   "state": "TX",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_johnson_constable_sale",
+   "state": "TX",
+   "publication_status": "UNREVIEWED",
    "commercial_scope": "UNREVIEWED",
    "collected": false,
    "paid_beta": false,
@@ -589,6 +709,18 @@
    "reason": "Vendor listing (LGBS); its own rights audit is REVIEW_REQUIRED and it runs manual-only. Requires a publication decision."
   },
   {
+   "source_id": "tx_montgomery_tax_trust",
+   "state": "TX",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "tx_mvba",
    "state": "TX",
    "publication_status": "BLOCKED",
@@ -601,10 +733,34 @@
    "reason": "Registered, not collected."
   },
   {
+   "source_id": "tx_orange_trust_property",
+   "state": "TX",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "tx_pbfcm",
    "state": "TX",
    "publication_status": "BLOCKED",
    "commercial_scope": "BLOCKED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_randall_trustee_property",
+   "state": "TX",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": false,
    "paid_beta": false,
    "tester_preview": false,
@@ -628,6 +784,18 @@
     "acquisition": "partial"
    },
    "reason": "No publication decision on the rows (NULL); rights audit REVIEW_REQUIRED; manual-only. Requires a publication decision."
+  },
+  {
+   "source_id": "tx_trinity_cad_resale",
+   "state": "TX",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
   },
   {
    "source_id": "wi_dane_tax_deed_auction",

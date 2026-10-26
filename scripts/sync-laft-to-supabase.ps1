@@ -11,7 +11,7 @@ if (-not $permPython) {
     Write-Host "::error title=source_permission::Python not found - permission cannot be checked; stopping before any request"
     exit 3
 }
-& $permPython.Source (Join-Path $PSScriptRoot "source_permission_check.py") --source fl_laft_pdfs --source fl_laft_html --source fl_laft_realtdm --source fl_laft_pioneer --source fl_laft_orange --source fl_laft_stlucie --source fl_laft_osceola --source fl_laft_hillsborough --source fl_laft_leon --operation store --state FL --dataset lands_available
+& $permPython.Source (Join-Path $PSScriptRoot "source_permission_check.py") --source fl_laft_pdfs --source fl_laft_html --source fl_laft_realtdm --source fl_laft_pioneer --source fl_laft_orange --source fl_laft_stlucie --source fl_laft_osceola --source fl_laft_hillsborough --source fl_laft_leon --source fl_laft_portals --operation store --state FL --dataset lands_available
 if (0 -ne $LASTEXITCODE) {
     Write-Host "::error title=source_permission::LAFT sync not permitted (see the decision above) - stopping before any request or write"
     exit 3
@@ -158,7 +158,8 @@ $optionalSources = @(
     @{ Path = Join-Path $here "../out/harvest_laft_stlucie.json"; Label = "St. Lucie County AcclaimWeb (harvest_laft_stlucie.json)" },
     @{ Path = Join-Path $here "../out/harvest_laft_osceola.json"; Label = "Osceola County NewVision (harvest_laft_osceola.json)" },
     @{ Path = Join-Path $here "../out/harvest_laft_hillsborough.json"; Label = "Hillsborough County PAV (harvest_laft_hillsborough.json)" },
-    @{ Path = Join-Path $here "../out/harvest_laft_leon.json"; Label = "Leon County (harvest_laft_leon.json)" }
+    @{ Path = Join-Path $here "../out/harvest_laft_leon.json"; Label = "Leon County (harvest_laft_leon.json)" },
+    @{ Path = Join-Path $here "../out/harvest_laft_portals.json"; Label = "Clerk tax-deed portals (harvest_laft_portals.json)" }
 )
 
 $supabaseUrl = $env:SUPABASE_URL

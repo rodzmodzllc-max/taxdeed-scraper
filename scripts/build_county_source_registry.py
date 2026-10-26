@@ -158,6 +158,13 @@ def fl_production_rows() -> list[dict]:
                          access_method="HTTP_POST_FORM", machine_format="HTML_CARDS",
                          completeness_status=_completeness(src["County"]), evidence_ref="data/laft_realtdm_counties.csv",
                          notes="realTDM case-management portal (RealAuction family) contracted by the Clerk; vendor domain"))
+    for src in _read("laft_portal_sources.csv"):
+        rows.append(_row(**common, county=src["County"], source_id="fl_laft_portals", harvester="harvest_laft_portals.py",
+                         source_authority="GOVERNMENT_DIRECT", canonical_url=src["BaseUrl"].rstrip("/") + "/TaxDeed/Lands",
+                         document_url=src["BaseUrl"].rstrip("/") + "/TaxDeed/GetTaxDeedViewByLandsAvailable",
+                         access_method="JSON_ENDPOINT", machine_format="JSON",
+                         completeness_status=_completeness(src["County"]), evidence_ref="data/laft_portal_sources.csv",
+                         notes="Clerk tax-deed portal (" + src["Platform"] + "); the Lands Available grid's own JSON read"))
     singles = [
         ("Orange", "fl_laft_orange", "harvest_laft_orange.py", "GOVERNMENT_DIRECT",
          "https://occompt.com/158/Land-Available-For-Taxes", "HTTP_POST_FORM", "HTML_TABLE",
@@ -184,7 +191,45 @@ def fl_production_rows() -> list[dict]:
         for k, v in _fl_laft_meta(r["county"], r["source_id"]).items():
             if not r.get(k):
                 r[k] = v
+        if r["county"] in FL_ADDED_2026_10_26:
+            r["notes"] = r["notes"] + ". " + FL_ADDED_2026_10_26[r["county"]]
+            r["last_checked"] = "2026-10-26"
+            r["completeness_status"] = "UNKNOWN"
+            if r["source_id"] == "fl_laft_portals":
+                # A NEW source, published by the owner's 2026-10-26 decision
+                # ("post their shit"; docs/publish-all-sources.md): APPROVED
+                # with the same restriction text as every other owner-approved
+                # source, and INTERIM display / link records. Publication is
+                # decided per source, so a county added to an existing platform
+                # source (Lake, DeSoto, Wakulla) carries that source's decision.
+                r["publication_status"] = "APPROVED"
+                r["restrictions"] = OWNER_APPROVED_2026_10_26
     return rows
+
+
+# The owner's customer-publication decision of 2026-10-26, the same text
+# harvesters/otc/adapters/expansion.py records for the expansion sources
+# (docs/publish-all-sources.md).
+OWNER_APPROVED_2026_10_26 = ("Owner approved customer publication 2026-10-26; legal review pending. The source publishes no "
+                             "explicit reuse licence; this is the owner's internal risk acceptance, not the source's "
+                             "permission. Show only what the source publishes; no inferred results.")
+
+# 2026-10-26 (owner decision: find every property and every source, legal
+# review afterwards): counties added to a Lands Available harvester after a
+# live read from the sandbox. Each carries interim INTERNAL_RISK_ACCEPTANCE
+# permission records (data/source_permissions.csv); the new portal source is
+# customer-published by the same day's owner decision;
+# docs/county-sources-2026-10-26.md.
+FL_ADDED_2026_10_26 = {
+    "Lake": "Added 2026-10-26: the Clerk's Tax Deed Record Search links its 'Accept and Search' disclaimer button to "
+            "lake.realtdm.com/public/cases/list (realTDM).",
+    "DeSoto": "Added 2026-10-26: the Clerk's Tax Deeds page carries the list inline; read live it said 'There are no "
+              "properties on the list of lands available at this time.'",
+    "Wakulla": "Added 2026-10-26: the Clerk's Tax Deed Sales page carries the list inline; read live it said 'Currently, "
+               "there are no parcels available on the List of Lands.'",
+    "Charlotte": "Added 2026-10-26: the Clerk's Tax Deed Services portal (taxdeeds.charlotteclerk.com) Lands Available grid, "
+                 "read live (4 rows, Status 'LANDS AVAILABLE').",
+}
 
 
 AUDIT = "MASTER LAFT/OTC/STRUCK-OFF AUDIT 2026-09-29"
@@ -194,34 +239,35 @@ AUDIT = "MASTER LAFT/OTC/STRUCK-OFF AUDIT 2026-09-29"
 # canonical spelling (fl-counties.svg).
 FL_CANDIDATES = [
     # county, verification, authority, canonical_url, machine_format, notes
+    # Re-checked LIVE 2026-10-26 from the sandbox (docs/county-sources-2026-10-26.md). Lake, DeSoto, Wakulla and
+    # Charlotte moved to production harvesters the same day.
     ("Broward", "SEARCH_EVIDENCE_ONLY", "GOVERNMENT_DIRECT",
      "https://www.broward.org/RecordsTaxesTreasury/TaxesFees/Pages/LandsAvailableforTaxes.aspx", "HTML_TABLE",
-     "County Records, Taxes & Treasury (not the Clerk) LAFT list; SharePoint list page seen in search results only; purchase is offline (quote within 3-5 business days). NOT VERIFIED."),
-    ("Okaloosa", "SEARCH_EVIDENCE_ONLY", "GOVERNMENT_DIRECT",
-     "https://www.okaloosaclerk.com/board-services/tax-deed-sales/lands-available-for-taxes/", "UNKNOWN",
-     "Clerk page title only in search results. NOT VERIFIED."),
-    ("DeSoto", "SEARCH_EVIDENCE_ONLY", "GOVERNMENT_DIRECT",
-     "https://www.desotoclerk.com/public-sales/tax-deeds/", "PDF",
-     "Dated PDF (2025/06 path) seen in search results; page reportedly says no properties listed. NOT VERIFIED."),
-    ("Wakulla", "SEARCH_EVIDENCE_ONLY", "GOVERNMENT_DIRECT",
-     "https://www.wakullaclerk.org/official_records/tax_deed_sales.php", "UNKNOWN",
-     "Clerk page reportedly says the List of Lands currently has no parcels. NOT VERIFIED."),
-    ("Charlotte", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_DIRECT", "https://www.charlotteclerk.com/departments/taxdeed/", "UNKNOWN",
-     "Tax Collector says the listing is obtained by contacting the Clerk; portal at or.charlotteclerk.com/TaxDeeds unexamined."),
-    ("Collier", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_DIRECT", "https://www.collierclerk.com/accessing-tax-deed-sales-in-collier-county/", "UNKNOWN",
-     "Auctions described; no LAFT list seen."),
-    ("Gilchrist", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_DIRECT", "https://www.gilchristclerk.com/tax-deeds/", "UNKNOWN", "No list seen."),
-    ("Lake", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_DIRECT", "https://taxdeeds.lakecountyclerk.org", "UNKNOWN",
-     "Portal plus a 2022-2023 dated PDF; no newer document seen."),
-    ("Monroe", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_DIRECT", "https://www.monroe-clerk.com", "UNKNOWN", "Home page only."),
-    ("Nassau", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_DIRECT", "https://www.nassauclerk.com/view-tax-deeds-1", "UNKNOWN", "No list URL."),
-    ("Suwannee", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_DIRECT", "https://www.suwgov.org/tax-deed-sales/", "UNKNOWN",
-     "County page says unsold properties go on the List of Lands Available; no list URL."),
-    ("Jefferson", "HISTORICAL_ONLY", "GOVERNMENT_DIRECT", "https://www.jeffersonclerk.com", "PDF",
-     "Only a 2022/03 'Lands Available' PDF indexed; no current list found."),
-    ("Baker", "NOT_FOUND_AFTER_SEARCH", "", "", "NONE", "No government LAFT source found after one search query; manual check needed."),
-    ("Jackson", "NOT_FOUND_AFTER_SEARCH", "", "", "NONE", "No government LAFT source found after one search query; manual check needed."),
-    ("Liberty", "NOT_FOUND_AFTER_SEARCH", "", "", "NONE", "No government LAFT source found after one search query; manual check needed."),
+     "County Records, Taxes & Treasury (not the Clerk) LAFT list. 2026-10-26: broward.org answers a Cloudflare 'Attention "
+     "Required' challenge to a plain request - not bypassed; probed from GitHub Actions (evidence_scope=county_sources)."),
+    ("Okaloosa", "NOT_FOUND_AFTER_SEARCH", "GOVERNMENT_DIRECT",
+     "https://okaloosaclerk.com/board-services/tax-deed-sales/lands-available-for-taxes/", "NONE",
+     "Read live 2026-10-26: the Clerk's Lands Available page publishes the purchase PROCESS only (contact Tax Deeds for "
+     "the amount due; certified funds) - no list of parcels."),
+    ("Collier", "NOT_FOUND_AFTER_SEARCH", "GOVERNMENT_DIRECT", "https://www.collierclerk.com/tax-deed-sales/", "UNKNOWN",
+     "Read live 2026-10-26: Tax Deed Sales / Surplus pages and a Laserfiche document browser; no Lands Available list."),
+    ("Gilchrist", "NOT_FOUND_AFTER_SEARCH", "GOVERNMENT_DIRECT", "https://gilchristclerk.com/tax-deeds/", "UNKNOWN",
+     "Read live 2026-10-26: auction links to gilchrist.realtaxdeed.com only; no Lands Available list."),
+    ("Monroe", "NOT_FOUND_AFTER_SEARCH", "GOVERNMENT_DIRECT", "https://www.monroe-clerk.com/tax-deeds", "UNKNOWN",
+     "Read live 2026-10-26: 'Online Tax Deed' page links monroe.realtaxdeed.com only; no Lands Available list."),
+    ("Nassau", "NOT_FOUND_AFTER_SEARCH", "GOVERNMENT_DIRECT", "https://www.nassauclerk.com/190/View-Tax-Deed-Sales-and-Foreclosures", "UNKNOWN",
+     "Read live 2026-10-26: taxdeeds.nassauclerk.com lists upcoming realtaxdeed sale dates only; no Lands Available list."),
+    ("Suwannee", "NOT_FOUND_AFTER_SEARCH", "GOVERNMENT_DIRECT", "https://www.suwgov.org/tax-deed-sales/", "UNKNOWN",
+     "Read live 2026-10-26: process text says unsold properties go on the List of Lands Available; no list published."),
+    ("Jefferson", "HISTORICAL_ONLY", "GOVERNMENT_DIRECT", "https://www.jeffersonclerk.com/clerk-services/property-sales/tax-deed-sales/", "PDF",
+     "Only a 2022/03 'Lands Available' PDF indexed; read live 2026-10-26: the page carries no current list."),
+    ("Baker", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_DIRECT", "https://www.bakerclerk.com", "UNKNOWN",
+     "2026-10-26: bakerclerk.com answers a Cloudflare 'Attention Required' challenge to a plain request - not bypassed; "
+     "probed from GitHub Actions (evidence_scope=county_sources)."),
+    ("Jackson", "NOT_FOUND_AFTER_SEARCH", "GOVERNMENT_DIRECT", "https://www.jacksonclerk.com/clerk-services/tax-deed-sales/", "UNKNOWN",
+     "Read live 2026-10-26: auction links to jackson.realtaxdeed.com only; no Lands Available list."),
+    ("Liberty", "NOT_FOUND_AFTER_SEARCH", "GOVERNMENT_DIRECT", "https://libertyclerk.com/courts/tax-deeds/", "UNKNOWN",
+     "Read live 2026-10-26: brochure and surplus XLS only; no Lands Available list."),
 ]
 
 
@@ -229,12 +275,23 @@ def fl_candidate_rows() -> list[dict]:
     rows = []
     for county, verification, authority, url, fmt, note in FL_CANDIDATES:
         found = verification != "NOT_FOUND_AFTER_SEARCH"
-        rows.append(_row(state="FL", county=county, source_id="", harvester="", inventory_type=FL_INVENTORY if found else "",
+        rows.append(_row(state="FL", county=county, source_id=FL_CANDIDATE_SOURCE_IDS.get(county, ""), harvester="",
+                         inventory_type=FL_INVENTORY if found else "",
                          ledgers=AVAILABLE if found else "", publication_status="UNREVIEWED",
                          source_authority=authority, canonical_url=url, access_method="UNKNOWN" if url else "NONE",
                          machine_format=fmt, verification_status=verification, governance_status="TERMS_NOT_VERIFIED" if url else "NOT_APPLICABLE",
-                         last_checked="2026-09-29", completeness_status="UNKNOWN", evidence_ref=f"{AUDIT} s5", notes=note))
+                         last_checked="2026-10-26", completeness_status="UNKNOWN",
+                         evidence_ref=f"{AUDIT} s5; LIVE RE-CHECK 2026-10-26 (docs/county-sources-2026-10-26.md)", notes=note))
     return rows
+
+
+# Candidates that carry a source id. Empty since fl_laft_portals was published
+# (2026-10-26): publication is decided per SOURCE and the strictest row wins
+# (harvesters/governance/publication.py decisions_by_source), so an UNREVIEWED
+# Broward / Baker candidate row under that id would withhold Charlotte's
+# published rows. Both were probed once (Cloudflare challenge / redirect, not
+# bypassed; docs/county-sources-2026-10-26.md) and carry no source id now.
+FL_CANDIDATE_SOURCE_IDS: dict[str, str] = {}
 
 
 # Texas counties whose struck-off / future-resale rows are in production
@@ -251,27 +308,116 @@ TX_LGBS_PRODUCTION = ["Galveston", "Liberty", "Leon", "Maverick", "Jim Wells", "
 # "resale list" may hold struck-off and future-resale inventory alike and
 # nothing has been read. Harris keeps the registry's LEGAL_REVIEW_REQUIRED.
 TX_CANDIDATES = [
-    ("Dallas", "https://www.dallascounty.org/departments/pubworks/property-division.php", "HTML_TABLE", "TERMS_NOT_VERIFIED", "Public Works Property Division 'Tax Foreclosure Resales'; downloadable list reported."),
-    ("Bexar", "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information", "UNKNOWN", "TERMS_NOT_VERIFIED", "DocumentCenter 'struck off' general information; distribution list container unknown."),
-    ("Travis", "https://tax-office.traviscountytx.gov/properties/foreclosed", "XLSX", "TERMS_NOT_VERIFIED", "Tax Assessor-Collector 'Resale List' XLSX (ResaleList.xlsx) plus foreclosed-properties page."),
-    ("Harris", "https://www.hctax.net/Property/listings/taxsalelisting", "PORTAL", "LEGAL_REVIEW_REQUIRED", "hctax.net Tax Resales category; registry tx_hctax LEGAL_REVIEW_REQUIRED (Phase 9.5) - gate refuses until resolved."),
-    ("Montgomery", "https://www.mctx.org/departments/departments_q_-_z/tax_office/tax_trust_property.php", "HTML_TABLE", "TERMS_NOT_VERIFIED", "Tax Office 'Tax Trust Properties'."),
-    ("Collin", "https://www.collincountytx.gov/Tax-Assessor/properties-for-sale", "HTML_TABLE", "TERMS_NOT_VERIFIED", "Tax Assessor 'Properties For Sale'; bids reportedly processed by outside counsel."),
-    ("Brazoria", "https://www.brazoriacountytx.gov/departments/tax-office/property-taxes/sheriff-sale-tax-resales", "HTML_TABLE", "TERMS_NOT_VERIFIED", "Tax Office 'Sheriff Sale & Tax Resales'."),
-    ("Jefferson", "https://www.jeffersoncountytx.gov", "PDF", "TERMS_NOT_VERIFIED", "Dated 'Resale List' PDFs (2026-06-02, 2026-03-03, 2025-09-09) under Documents/Sales; some may be sale notices."),
-    ("Grayson", "https://taxsearch.co.grayson.tx.us:8443/Sales/Struck-Off-Properties", "PORTAL", "TERMS_NOT_VERIFIED", "County tax portal 'Struck Off Properties'."),
-    ("Gregg", "https://www.greggcounty.texas.gov/assets/main/tax-assessor-collector/tax-resale-property.pdf", "PDF", "TERMS_NOT_VERIFIED", "Tax Assessor-Collector 'tax resale property' PDF."),
-    ("Orange", "https://www.co.orange.tx.us/departments/TaxAssessor-Collector/PropertyTaxSales", "PDF", "TERMS_NOT_VERIFIED", "Tax Assessor-Collector 'Trust Property Listing' PDF dated 04.09.25 plus bid forms."),
-    ("Camp", "https://www.campcad.org/struck-off-list/", "HTML_TABLE", "TERMS_NOT_VERIFIED", "Appraisal district 'Struck Off List of Properties' (03-03-2026 snippet)."),
-    ("Hood", "https://www.hoodcad.net/struck-off-property-list/", "HTML_TABLE", "TERMS_NOT_VERIFIED", "Appraisal district 'Struck off Property List'."),
-    ("Fayette", "https://www.fayettecad.org/trust-properties-offered-for-sale", "HTML_TABLE", "TERMS_NOT_VERIFIED", "Appraisal district 'Trust Properties Offered for Sale'."),
-    ("Jim Wells", "https://www.co.jim-wells.tx.us", "PDF", "TERMS_NOT_VERIFIED", "County 'JWC Resale List' PDF (properties struck off to taxing entities)."),
-    ("Tom Green", "https://www.tomgreencountytx.gov/page/cck.TrusteeTaxSales", "HTML_TABLE", "TERMS_NOT_VERIFIED", "County Clerk 'Tax Trustee Property' (struck-off) list, bid forms, procedures PDF."),
-    ("Trinity", "https://www.trinitycad.net/resale-property-information/", "HTML_TABLE", "TERMS_NOT_VERIFIED", "Appraisal district 'Resale Property List'; bid form on the CIRA state host."),
-    ("Randall", "https://www.randallcounty.gov/293/Sheriff-Sale", "HTML_TABLE", "TERMS_NOT_VERIFIED", "Struck-off properties list reported in summary text only - weakest of the candidates."),
-    ("Bandera", "https://www.banderacounty.gov/page/open/1095/0/Purchasing%20Land%20Held%20in%20Trust", "HTML_TABLE", "TERMS_NOT_VERIFIED", "Tax Office 'land held in trust'; county also appears in a blocked vendor's roster."),
+    # county, url, machine_format, governance, notes[, source_id]
+    # Re-checked LIVE 2026-10-26 from the sandbox (docs/county-sources-2026-10-26.md). The lists that could be read
+    # and parsed moved to TX_COUNTY_SOURCES below (Harris, Bexar, Montgomery, Orange, Trinity, Randall, Hood).
+    ("Dallas", "https://www.dallascounty.org/departments/pubworks/property-division.php", "NONE", "TERMS_NOT_VERIFIED",
+     "Public Works Property Division 'Tax Foreclosure Resales'. Read live 2026-10-26: the page links only the LGBS map "
+     "(already harvested as tx_lgbs) and the RealAuction sheriff-sale site; no county struck-off list is posted."),
+    ("Travis", "https://tax-office.traviscountytx.gov/properties/foreclosed", "PORTAL", "TERMS_NOT_VERIFIED",
+     "Read live 2026-10-26: the 'Resales' card links travis.texas.realforeclose.com (RealAuction, harvested as "
+     "tx_realauction); no ResaleList.xlsx is linked any more."),
+    ("Collin", "https://www.collincountytx.gov/courts/constables/constable-sales", "PDF", "TERMS_NOT_VERIFIED",
+     "Read live 2026-10-26: one 'Notice of Constable Sale' PDF per case (tax suits and mortgage judgments mixed); no list. "
+     "Not implemented: a per-notice reader would have to tell a tax suit from a mortgage judgment.", "tx_collin_constable_sale"),
+    ("Brazoria", "https://www.brazoriacountytx.gov/departments/tax-office/property-taxes/sheriff-sale-tax-resales", "HTML_TABLE",
+     "TERMS_NOT_VERIFIED", "Tax Office 'Sheriff Sale & Tax Resales'. 2026-10-26: 403 'Access Denied' to the sandbox; probed "
+     "from GitHub Actions (evidence_scope=county_sources).", "tx_brazoria_tax_resale"),
+    ("Jefferson", "https://www.jeffersoncountytx.gov", "PDF", "TERMS_NOT_VERIFIED",
+     "Dated 'Resale List' PDFs (2026-06-02, 2026-03-03, 2025-09-09) under Documents/Sales. 2026-10-26: TLS chain not "
+     "verifiable from the sandbox; probed from GitHub Actions.", "tx_jefferson_county_resale"),
+    ("Grayson", "https://taxsearch.co.grayson.tx.us:8443/Sales/Struck-Off-Properties", "PORTAL", "TERMS_NOT_VERIFIED",
+     "County tax portal 'Struck Off Properties'. 2026-10-26: port 8443 unreachable from the sandbox; probed from GitHub Actions.",
+     "tx_grayson_struck_off"),
+    ("Gregg", "https://www.greggcounty.texas.gov/assets/main/tax-assessor-collector/tax-resale-property.pdf", "PDF", "TERMS_NOT_VERIFIED",
+     "Tax Assessor-Collector 'tax resale property' PDF. 2026-10-26: TLS chain not verifiable from the sandbox; probed from "
+     "GitHub Actions.", "tx_gregg_tax_resale"),
+    ("Johnson", "https://www.johnsoncountytx.org/public-safety/constables/constable-sale", "PDF", "TERMS_NOT_VERIFIED",
+     "Constable sale page with per-precinct sale-list PDFs (search index 2026-10-26). 403 to the sandbox; probed from "
+     "GitHub Actions.", "tx_johnson_constable_sale"),
+    ("Camp", "https://campcad.org/struck-off-list/", "PDF", "TERMS_NOT_VERIFIED",
+     "Read live 2026-10-26: the page is gone (404); the newest linked list is dated 06-06-2023 - historical, not read."),
+    ("Fayette", "https://fayettecad.org/trust-properties-offered-for-sale", "PDF", "TERMS_NOT_VERIFIED",
+     "Read live 2026-10-26: 'Trust Properties Offered For Sale' PDF dated 2024-03 and scanned (no text layer) - not "
+     "readable without OCR; not implemented."),
+    ("Jim Wells", "https://www.co.jim-wells.tx.us", "PDF", "TERMS_NOT_VERIFIED",
+     "County 'JWC Resale List' PDF (search index). Home page read 2026-10-26: no resale link found; not implemented."),
+    ("Tom Green", "https://www.tomgreencountytx.gov/page/cck.TrusteeTaxSales", "PDF", "TERMS_NOT_VERIFIED",
+     "Read live 2026-10-26: the page's 'NOTICE n' PDFs are Notices of Substitute Trustee Sale (mortgage foreclosures), "
+     "not tax resales; no tax list found."),
+    ("Bandera", "https://www.banderacounty.gov/page/open/1095/0/Purchasing%20Land%20Held%20in%20Trust", "PDF", "TERMS_NOT_VERIFIED",
+     "Read live 2026-10-26: the 'Purchasing Land Held in Trust' PDF is the procedure and blank bid forms; no list of parcels."),
     ("Bee", "https://www.beecounty.texas.gov", "DOCX", "TERMS_NOT_VERIFIED", "'TAX FORECLOSURE RESALE' DOCX; list or procedure unknown."),
 ]
+
+# Texas county-published lists read LIVE and parsed on 2026-10-26 by
+# scripts/harvest_tx_county_sales.py and synced by scripts/sync_state_inventory.py
+# (texas job). Customer-published by the owner's 2026-10-26 decision ("post
+# their shit"): APPROVED with OWNER_APPROVED_2026_10_26, INTERIM fetch / parse /
+# store / display / link permission records - legal review pending.
+# county, source_id, canonical_url, access, format, ledger, inventory_type, live read
+TX_COUNTY_SOURCES = [
+    ("Harris", "tx_hctax", "https://www.hctax.net/Property/listings/taxsalelisting", "HTTP_GET_HTML", "HTML_TABLE", AUCTIONS, "",
+     "Harris County Delinquent Tax Sale Property Listing (next monthly constable sale). LIVE READ 2026-10-26: Sale Date "
+     "2026-11-03, 182 listings, 149-150 'For Sale' (the rest Cancelled), types SALE / RESALE / EOS / EXE."),
+    ("Bexar", "tx_bexar_resale", "https://www.bexar.org/DocumentCenter/View/41852/Bexar-County-Resale-Properties-Distribution-List",
+     "HTTP_GET_PDF", "PDF", AVAILABLE, "STRUCK_OFF_HELD_IN_TRUST",
+     "Bexar County Resale Properties Distribution List (struck-off amount without interim tax / fees). LIVE READ 2026-10-26: "
+     "list updated 2026-10-06, 46 properties (44 single-account, 2 multiple-account groups)."),
+    ("Jefferson", "tx_jefferson_sheriff_sale", "https://jeffcotax.com/property-tax/delinquent-tax-sale/", "HTTP_GET_PDF", "PDF",
+     AUCTIONS, "", "Jefferson County Tax Office 'Notice of Sale' PDF for the next Sheriff's sale (2026-12-01): 131 properties "
+     "parsed from a copy read 2026-10-26. The page itself answers a plain request with a Sucuri bot challenge, which is not "
+     "bypassed - the reader fails closed ACCESS_DENIED when it is served."),
+    ("Montgomery", "tx_montgomery_tax_trust", "https://www.mctx.org/departments/departments_q_-_z/tax_office/tax_trust_property.php",
+     "HTTP_GET_PDF", "PDF", AVAILABLE, "STRUCK_OFF_HELD_IN_TRUST",
+     "Montgomery County Tax Trust Listing ('PDF Format' link; headed JUNE 2024, file modified 2026-04-15). LIVE READ "
+     "2026-10-26: 240 trust properties; no price published (appraisal value and base tax due only)."),
+    ("Orange", "tx_orange_trust_property", "https://www.co.orange.tx.us/departments/TaxAssessor-Collector/PropertyTaxSales",
+     "HTTP_GET_PDF", "PDF", AVAILABLE, "STRUCK_OFF_HELD_IN_TRUST",
+     "Orange County (TX) Trust Property list ('Date as of' February 2026). LIVE READ 2026-10-26: 17 properties; only bids at "
+     "the original tax-sale minimum are accepted (the list's own wording)."),
+    ("Trinity", "tx_trinity_cad_resale", "https://trinitycad.net/resale-property-information/", "HTTP_GET_PDF", "PDF", AVAILABLE,
+     "STRUCK_OFF_HELD_IN_TRUST",
+     "Trinity CAD Resale Property Lists (two PDFs dated 2026-09-22). LIVE READ 2026-10-26: 343 trustee-held parcels; no "
+     "price published (bid form)."),
+    ("Randall", "tx_randall_trustee_property", "https://www.randallcounty.gov/293/Sheriff-Sale", "HTTP_GET_PDF", "PDF", AVAILABLE,
+     "STRUCK_OFF_HELD_IN_TRUST",
+     "Randall County Trustee Property Listing (updated 2025-10-02). LIVE READ 2026-10-26: 3 struck-off properties with the "
+     "minimum bid at the original sale."),
+    ("Hood", "tx_hood_cad_struck_off", "https://hoodcad.net/struck-off-property-list/", "HTTP_GET_HTML", "HTML_TABLE", AVAILABLE,
+     "STRUCK_OFF_HELD_IN_TRUST",
+     "Hood CAD 'Struck off' Property List. LIVE READ 2026-10-26: the column headings with no property under them (EMPTY)."),
+]
+
+# What each Texas county list publishes (production rows name it - registry
+# validator): publisher, the kind of its figure (harvesters/otc/model.py
+# AmountKind), cadence and the list's own wording.
+TX_COUNTY_META = {
+    "tx_hctax": ("Harris County Tax Assessor-Collector", "MINIMUM_PURCHASE_AMOUNT",
+                 "rewritten for each monthly constable sale (first Tuesday); read daily",
+                 "'Delinquent Tax Sale Property Listing': Account#, Cause#, Type, For Sale / Cancelled, Adjudged Value, Minimum Bid"),
+    "tx_bexar_resale": ("Bexar County (Tax Assessor-Collector / Commissioners Court resale list)", "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+                        "updated when the county revises the list ('List Updated <date>'); read daily",
+                        "'Resale Properties Distribution List': Suit No., Account No., 'Struck off amt w/o interim tax / fees'"),
+    "tx_jefferson_sheriff_sale": ("Jefferson County Tax Assessor-Collector", "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+                                  "one Notice of Sale per monthly Sheriff's sale; read daily",
+                                  "'Notice of Sale': Sale #, Cause #, Acct #, Adjudged Value, 'Estimated Minimum Bid'"),
+    "tx_montgomery_tax_trust": ("Montgomery County Tax Assessor-Collector", "NOT_PUBLISHED",
+                                "revised irregularly (the list names its own month); read daily",
+                                "'Tax Trust Listing': Account #, Strike-Off Unit, Cause No., Appraisal Value, Base Tax Due"),
+    "tx_orange_trust_property": ("Orange County (TX) Tax Assessor-Collector", "MINIMUM_PURCHASE_AMOUNT",
+                                 "revised irregularly ('Date as of <date>'); read daily",
+                                 "'Trust Property Tax Sales': suit, account, 'Minimum* Bid Amount' (bids at the original minimum only)"),
+    "tx_trinity_cad_resale": ("Trinity Central Appraisal District", "NOT_PUBLISHED",
+                              "revised irregularly (each PDF carries its own date); read daily",
+                              "'Resale Property List': PID, trustee (file_as_name), legal description, state code"),
+    "tx_randall_trustee_property": ("Randall County Tax Assessor-Collector", "ORIGINAL_OPENING_BID",
+                                    "revised irregularly ('Updated <date>'); read daily",
+                                    "'Trustee Property Listing' / 'Struck Off Property': Account Number, Description, 'Minimum Bid at Sale'"),
+    "tx_hood_cad_struck_off": ("Hood Central Appraisal District", "NOT_PUBLISHED",
+                               "revised irregularly; read daily",
+                               "'Current Properties on the struck off property list': Account Number, Legal Description, Address"),
+}
 
 # Counties whose only known publication is a BLOCKED vendor (PBFCM / MVBA).
 # No URL is recorded: a blocked vendor's document must never enter a
@@ -301,14 +447,25 @@ def tx_rows() -> list[dict]:
                          amount_kind="PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
                          update_frequency="not published by the vendor; read only when the texas job is dispatched by hand (never on cron); not retried after the 2026-09-29 INCOMPLETE read",
                          source_terminology="LGBS struck-off / resale listing: 'Minimum Bid', cause number, account (AVAILABLE and AUCTIONS by the vendor's own sale status)"))
-    for county, url, fmt, governance, note in TX_CANDIDATES:
-        rows.append(_row(state="TX", county=county, source_id=("tx_hctax" if county == "Harris" else ""), harvester="",
+    for county, url, fmt, governance, note, *sid in TX_CANDIDATES:
+        rows.append(_row(state="TX", county=county, source_id=(sid[0] if sid else ""), harvester="",
                          inventory_type="", source_authority="GOVERNMENT_DIRECT", canonical_url=url, ledgers=AVAILABLE,
-                         publication_status="RESTRICTED" if county == "Harris" else "UNREVIEWED",
-                         restrictions="LEGAL_REVIEW_REQUIRED (registry tx_hctax, Phase 9.5): hctax.net terms not cleared for redistribution; gate refuses until resolved" if county == "Harris" else "",
-                         access_method="UNKNOWN", machine_format=fmt, verification_status="SEARCH_EVIDENCE_ONLY",
-                         governance_status=governance, last_checked="2026-09-29", completeness_status="UNKNOWN",
-                         evidence_ref=f"{AUDIT} s5", notes=note + " NOT VERIFIED (search index only)."))
+                         publication_status="UNREVIEWED", access_method="UNKNOWN", machine_format=fmt,
+                         verification_status="SEARCH_EVIDENCE_ONLY", governance_status=governance, last_checked="2026-10-26",
+                         completeness_status="UNKNOWN", evidence_ref=f"{AUDIT} s5; LIVE RE-CHECK 2026-10-26 (docs/county-sources-2026-10-26.md)",
+                         notes=note + " Not harvested."))
+    for county, sid, url, access, fmt, ledger, inv, note in TX_COUNTY_SOURCES:
+        unit_name, amount_kind, cadence, terms = TX_COUNTY_META[sid]
+        rows.append(_row(state="TX", county=county, source_id=sid, harvester="scripts/harvest_tx_county_sales.py",
+                         inventory_type=inv, source_authority="GOVERNMENT_DIRECT", canonical_url=url, ledgers=ledger,
+                         publication_status="APPROVED", restrictions=OWNER_APPROVED_2026_10_26,
+                         access_method=access, machine_format=fmt, verification_status="PRODUCTION_VERIFIED",
+                         governance_status="APPROVED", last_checked="2026-10-26", completeness_status="UNKNOWN",
+                         evidence_ref="LIVE READ 2026-10-26 by scripts/harvest_tx_county_sales.py (docs/county-sources-2026-10-26.md)",
+                         notes=note + " Synced by scripts/sync_state_inventory.py; closed only by scripts/texas_closeout.py "
+                                      "after a COMPLETE / EMPTY read of this source.",
+                         publishing_unit_name=unit_name, amount_kind=amount_kind, update_frequency=cadence,
+                         source_terminology=terms))
     for sid, counties in TX_BLOCKED_VENDOR_ONLY.items():
         for county in counties:
             rows.append(_row(state="TX", county=county, source_id=sid, harvester="", inventory_type="",

@@ -291,7 +291,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, realauction_labels, fl_certificate_sources, taxsys_check, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging, tx_realauction]
+        options: [available, realauction_labels, fl_certificate_sources, taxsys_check, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging, tx_realauction, county_sources, county_certificates]
 
 concurrency:
   # Evidence captures (job=evidence) are read-only and never write to the
@@ -941,6 +941,15 @@ jobs:
         if: always()
         run: python3 scripts/harvest_laft_leon.py
 
+      - name: Harvest Lands Available for Taxes clerk portals (Charlotte, ...)
+        # 2026-10-26 (owner decision: every source): clerk tax-deed PORTALS
+        # none of the harvesters above handle, CSV-driven
+        # (data/laft_portal_sources.csv). Charlotte's Tax Deed Services
+        # Lands Available grid is read through the same JSON request the
+        # page's own script makes. See harvest_laft_portals.py's docstring.
+        if: always()
+        run: python3 scripts/harvest_laft_portals.py
+
       - name: Prepare artifact (public evidence + encrypted raw)
         # Artifacts of a public repository are public. This writes
         # out/public/laft-evidence.json (run identity, the per-source
@@ -1369,10 +1378,22 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install requests
+        run: pip install requests beautifulsoup4 pdfplumber
 
       - name: Harvest Texas tax sales (LGBS / PBFCM / GovEase)
         run: python3 harvesters/texas_harvester.py
+
+      - name: Harvest Texas county-published lists
+        # 2026-10-26 (owner decisions: every source, then "post their shit";
+        # legal review pending): county tax-office / appraisal-district sale
+        # and struck-off lists (Harris, Jefferson, Bexar, Montgomery, Orange,
+        # Trinity, Randall, Hood) - scripts/harvest_tx_county_sales.py. Writes
+        # out/harvest_tx_county_{auctions,available}.json, their status files
+        # and the matching properties-row files the county sync below reads.
+        id: harvest_county
+        if: always()
+        continue-on-error: true
+        run: python3 scripts/harvest_tx_county_sales.py
 
       - name: Prepare artifact (public evidence + encrypted raw)
         # Artifacts of a public repository are public. This writes
@@ -1384,7 +1405,7 @@ jobs:
         if: always()
         env:
           ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
-        run: python3 scripts/artifact_evidence.py --job texas --status out/harvest_texas_status.json "out/harvest_texas.*"
+        run: python3 scripts/artifact_evidence.py --job texas --status out/harvest_texas_status.json --status out/harvest_tx_county_auctions_status.json --status out/harvest_tx_county_available_status.json "out/harvest_texas.*" "out/harvest_tx_county_*.json"
 
       - name: Upload artifact (evidence + encrypted raw)
         if: always()
@@ -1418,6 +1439,26 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/source_health.py --source tx_sales --label "Texas tax sales (LGBS + county sheriff-sale sites)" --state TX --mode scheduled --cadence-hours 24 --status out/harvest_texas_status.json --rows out/harvest_texas.json --outcome ${{ steps.sync.outcome }}
 
+      - name: Sync Texas county-published lists
+        # scripts/sync_state_inventory.py, once per ledger (its own rows and
+        # status file): upserts only rows of a PRODUCTION_VERIFIED, APPROVED
+        # registry source whose (source, county) read was COMPLETE or
+        # INCOMPLETE, with the store permission, through the ledger contract
+        # (harvesters/ledgers/records.py), stamped publication_status /
+        # last_seen_at / field_provenance. --keep-other-sources: an account an
+        # LGBS / RealAuction row already holds is not taken over. Nothing is
+        # closed here (scripts/texas_closeout.py below, per source). Never
+        # touches the LGBS / RealAuction rows; never fails the job.
+        id: sync_county
+        if: always() && steps.harvest_county.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 scripts/sync_state_inventory.py --state TX --keep-other-sources --rows out/tx_county_auctions_properties_rows.json --status out/harvest_tx_county_auctions_status.json
+          python3 scripts/sync_state_inventory.py --state TX --keep-other-sources --rows out/tx_county_available_properties_rows.json --status out/harvest_tx_county_available_status.json
+
       - name: Stamp last_seen_at on the Texas rows read this run
         # The Texas sync never set last_seen_at, so every Texas row read as
         # never-read and the inventory-status step marked it "unknown"
@@ -1448,6 +1489,21 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/texas_closeout.py
+
+      - name: Close Texas county-list rows the county no longer lists
+        # The same script and rule for the eight county-published lists: a
+        # source's stored active row is closed ('closed' + delisted_at, never
+        # 'sold') only when that source's own read this run was COMPLETE or
+        # EMPTY and no longer lists the account; an INCOMPLETE / FAILED
+        # (e.g. Jefferson's bot challenge) / unread source closes nothing, and
+        # a source losing more than half its rows in one read is refused.
+        # Runs only after the county sync succeeded. Never fails the job.
+        if: always() && steps.sync_county.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/texas_closeout.py --harvest out/harvest_tx_county_auctions.json --harvest out/harvest_tx_county_available.json --status out/harvest_tx_county_auctions_status.json --status out/harvest_tx_county_available_status.json
 
       # Phase B (auction-event history): same writer as the deeds job, fed by
       # out/harvest_texas.json. Texas has no per-county completeness file, so
@@ -1703,6 +1759,45 @@ jobs:
             IFS=',' read -ra cs <<< "$COUNTIES"
             for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
             eval python3 scripts/capture_purchase_evidence.py --candidates --candidates-file data/available_discovery_pages.csv --follow --discovery $cargs
+            exit 0
+          fi
+          if [ "$SCOPE" = "county_certificates" ]; then
+            # 2026-10-26: one value-free read of each FL Tax Collector's own
+            # county-held certificate publication outside LienHub
+            # (data/county_source_candidates.csv; discovery-guarded; Hernando's
+            # anonymous FTP file checked against its discover record first).
+            # LienHub / TaxSys refusals are final and not requested here.
+            pip install -q beautifulsoup4 >/dev/null
+            python3 scripts/capture_county_sources.py --certificates || true
+            exit 0
+          fi
+          if [ "$SCOPE" = "county_sources" ]; then
+            # FL / TX county-source sprint (2026-10-26). Read-only; no
+            # database credential exists in this job. (1) the value-free
+            # probe of the sources the sandbox could not read
+            # (scripts/capture_county_sources.py, discovery-guarded);
+            # (2) the new / extended readers run for real, printing only
+            # per-county status lines and counts: the clerk-portal LAFT
+            # harvester, the realTDM harvester (Lake added), the static
+            # HTML harvester (DeSoto, Wakulla added) and the Texas county
+            # lists. Their raw outputs stay on the runner (never uploaded).
+            pip install -q beautifulsoup4 pdfplumber >/dev/null
+            python3 scripts/capture_county_sources.py || true
+            export LAFT_STATUS_PATH=out/validate_laft_status.json
+            echo "=== harvest_laft_portals.py"; python3 scripts/harvest_laft_portals.py 2>&1 | grep -E "^\[|platform total|ERROR|status \(|Harvested" || true
+            echo "=== harvest_laft_realtdm.py"; python3 scripts/harvest_laft_realtdm.py 2>&1 | grep -E "^\[|cases|ERROR|status \(|Harvested|properties|listed" || true
+            echo "=== harvest_laft_html.py"; python3 scripts/harvest_laft_html.py 2>&1 | grep -E "^\[|rows|ERROR|status \(|Harvested|listed|INCOMPLETE" || true
+            echo "=== harvest_tx_county_sales.py"; python3 scripts/harvest_tx_county_sales.py --out-dir out/validate_tx 2>&1 | grep -E "^[A-Z][a-z]+ \(|rows;|ERROR|status \(|^ROWS|Harvested" || true
+            python3 - <<'PY'
+          import json, collections
+          st = json.load(open("out/validate_laft_status.json"))
+          c = collections.Counter((e["harvester"], e["status"]) for e in st)
+          for (h, s), n in sorted(c.items()):
+              print("LAFT_STATUS", h, s, n)
+          for e in st:
+              if e["county"] in ("Charlotte", "Lake", "DeSoto", "Wakulla"):
+                  print("NEW_COUNTY", e["county"], e["harvester"], e["status"], e.get("row_count"), e.get("error_category"))
+          PY
             exit 0
           fi
           if [ "$SCOPE" = "tn_shelby" ]; then

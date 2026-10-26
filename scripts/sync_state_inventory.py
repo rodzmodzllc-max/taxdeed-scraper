@@ -213,7 +213,7 @@ def registry_rows(state: str, path: Path = REGISTRY) -> dict[str, object]:
 
 def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, str], *, observed_at: str | None = None,
          stored_provenance: dict | None = None, stored_first_seen: dict | None = None,
-         stored_rows: dict | None = None) -> tuple[list[dict], dict]:
+         stored_rows: dict | None = None, keep_other_sources: bool = False) -> tuple[list[dict], dict]:
     """(rows to upsert, counts). Pure - no I/O. Raises ValueError when the
     state or a row's source may not be synced at all.
 
@@ -233,7 +233,12 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
     `stored_rows` (identity -> {harvester_source, otc_provenance, path
     columns}) is what the row's otc_provenance is MERGED into
     (merge_acquisition): verified acquisition evidence is never erased by a
-    read that lacks it, and a stored row of another source is never used."""
+    read that lacks it, and a stored row of another source is never used.
+
+    `keep_other_sources` (Texas county lists, 2026-10-26): a row whose
+    identity is already stored under ANOTHER source (an LGBS or RealAuction
+    row of the same account) is not written at all - the upsert would
+    otherwise take that row over, and each source closes only its own rows."""
     observed_at = observed_at or FP.now_iso()
     stored_provenance = stored_provenance or {}
     stored_first_seen = stored_first_seen or {}
@@ -287,6 +292,9 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
         row["field_provenance"] = list_provenance(row, stored_provenance.get(identity(row)), observed_at)
         prior = stored_rows.get(identity(row))
         if prior is not None and prior.get("harvester_source") not in (None, reg.source_id):
+            if keep_other_sources:
+                counts["skipped_row_of_other_source"] = counts.get("skipped_row_of_other_source", 0) + 1
+                continue
             prior = None                        # another source's row: never a merge base
         if prior is not None:                    # a new row's own dict is sent unchanged
             prov, restore, outcome = merge_acquisition(row, prior)
@@ -516,6 +524,8 @@ def main(argv=None) -> int:
     ap.add_argument("--rows", default=None)
     ap.add_argument("--status", required=True, help="the harvester's status file (per-unit COMPLETE / INCOMPLETE / ...)")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--keep-other-sources", action="store_true",
+                    help="never write a row whose identity is stored under another source (it would take that row over)")
     ap.add_argument("--close-absent", action="store_true",
                     help="close stored active rows a COMPLETE / EMPTY county read no longer lists (status 'closed' only)")
     args = ap.parse_args(argv)
@@ -533,7 +543,8 @@ def main(argv=None) -> int:
                                    first_seen=first_seen, rows_out=stored_rows)
     try:
         to_send, counts = plan(args.state, rows, reg, units_for(Path(args.status)), stored_provenance=stored,
-                               stored_first_seen=first_seen, stored_rows=stored_rows)
+                               stored_first_seen=first_seen, stored_rows=stored_rows,
+                               keep_other_sources=args.keep_other_sources)
     except ValueError as exc:
         print(f"::error title=sync_{args.state.lower()}::{exc} - 0 requests made")
         return 2

@@ -32,10 +32,20 @@ def test_r02_every_florida_county_has_exactly_one_row_and_52_are_production():
     avail = [r for r in fl if "AVAILABLE" in r.ledger_set or not r.ledger_set]
     assert len(fl) == 147 and len(avail) == 67 and len({r.county for r in avail}) == 67 and len({r.county for r in fl}) == 67
     prod = [r for r in csr.production_rows(ROWS, "FL") if "AVAILABLE" in r.ledger_set]
-    assert len(prod) == 52
+    # 52 until 2026-10-26, when Lake (realTDM), DeSoto and Wakulla (static HTML) and Charlotte (clerk portal) joined.
+    assert len(prod) == 52 + len(builder.FL_ADDED_2026_10_26) == 56
     assert csr.expected_harvest_units(ROWS) == sorted((r.source_id, r.county) for r in prod)
     assert {r.source_id for r in prod} == {"fl_laft_pdfs", "fl_laft_html", "fl_laft_pioneer", "fl_laft_realtdm",
-                                           "fl_laft_orange", "fl_laft_stlucie", "fl_laft_osceola", "fl_laft_hillsborough", "fl_laft_leon"}
+                                           "fl_laft_orange", "fl_laft_stlucie", "fl_laft_osceola", "fl_laft_hillsborough", "fl_laft_leon",
+                                           "fl_laft_portals"}
+    added = [r for r in prod if r.county in builder.FL_ADDED_2026_10_26]
+    assert {r.county for r in added} == {"Lake", "DeSoto", "Wakulla", "Charlotte"}
+    # Publication is decided per SOURCE: a county added to an existing platform source carries its decision;
+    # the new clerk-portal source is published by the owner's 2026-10-26 decision (legal review pending).
+    for r in added:
+        assert r.publication_status == ("APPROVED" if r.source_id == "fl_laft_portals" else "APPROVED_GRANDFATHERED"), r.county
+        if r.source_id == "fl_laft_portals":
+            assert r.restrictions.startswith("Owner approved customer publication 2026-10-26; legal review pending")
 
 
 def test_r03_production_rows_mirror_the_harvester_csvs_exactly():
@@ -67,27 +77,39 @@ def test_r04_candidates_are_never_runnable_and_blocked_vendors_carry_no_url():
         if r.source_id in csr.BLOCKED_SOURCE_IDS:
             assert r.governance_status == "BLOCKED" and r.canonical_url == "" and r.verification_status == "BLOCKED_VENDOR_ONLY", r
     fl_cands = {r.county: r.verification_status for r in ROWS if r.state == "FL" and not r.is_production}
+    # Re-checked live 2026-10-26: Lake, DeSoto, Wakulla and Charlotte moved to production; the pages
+    # of eight more were read and publish no Lands Available list.
     assert fl_cands == {
-        "Broward": "SEARCH_EVIDENCE_ONLY", "Okaloosa": "SEARCH_EVIDENCE_ONLY", "DeSoto": "SEARCH_EVIDENCE_ONLY", "Wakulla": "SEARCH_EVIDENCE_ONLY",
-        "Charlotte": "SOURCE_EXISTS_ACCESS_UNKNOWN", "Collier": "SOURCE_EXISTS_ACCESS_UNKNOWN", "Gilchrist": "SOURCE_EXISTS_ACCESS_UNKNOWN",
-        "Lake": "SOURCE_EXISTS_ACCESS_UNKNOWN", "Monroe": "SOURCE_EXISTS_ACCESS_UNKNOWN", "Nassau": "SOURCE_EXISTS_ACCESS_UNKNOWN",
-        "Suwannee": "SOURCE_EXISTS_ACCESS_UNKNOWN", "Jefferson": "HISTORICAL_ONLY",
-        "Baker": "NOT_FOUND_AFTER_SEARCH", "Jackson": "NOT_FOUND_AFTER_SEARCH", "Liberty": "NOT_FOUND_AFTER_SEARCH",
+        "Broward": "SEARCH_EVIDENCE_ONLY", "Baker": "SOURCE_EXISTS_ACCESS_UNKNOWN", "Jefferson": "HISTORICAL_ONLY",
+        "Okaloosa": "NOT_FOUND_AFTER_SEARCH", "Collier": "NOT_FOUND_AFTER_SEARCH", "Gilchrist": "NOT_FOUND_AFTER_SEARCH",
+        "Monroe": "NOT_FOUND_AFTER_SEARCH", "Nassau": "NOT_FOUND_AFTER_SEARCH", "Suwannee": "NOT_FOUND_AFTER_SEARCH",
+        "Jackson": "NOT_FOUND_AFTER_SEARCH", "Liberty": "NOT_FOUND_AFTER_SEARCH",
     }
 
 
 def test_r05_texas_rows_are_lgbs_production_search_candidates_or_blocked_only():
     tx = [r for r in ROWS if r.state == "TX"]
-    prod = [r for r in tx if r.is_production and "AVAILABLE" in r.ledger_set]
+    county_ids = {"tx_hctax", "tx_bexar_resale", "tx_jefferson_sheriff_sale", "tx_montgomery_tax_trust",
+                     "tx_orange_trust_property", "tx_trinity_cad_resale", "tx_randall_trustee_property", "tx_hood_cad_struck_off"}
+    prod = [r for r in tx if r.is_production and "AVAILABLE" in r.ledger_set and r.source_id not in county_ids]
     assert {r.county for r in prod} == {"Galveston", "Liberty", "Leon", "Maverick", "Jim Wells", "Hardin", "Van Zandt", "Goliad"}
     assert all(r.source_id == "tx_lgbs" and r.source_authority == "VENDOR_COUNSEL" and r.inventory_type == "" for r in prod)
-    # The AUCTIONS-only production rows (2026-09-30) are the 24 RealAuction counties, nothing else.
-    auctions_only = [r for r in tx if r.is_production and "AVAILABLE" not in r.ledger_set]
+    # The AUCTIONS-only vendor production rows (2026-09-30) are the 24 RealAuction counties.
+    auctions_only = [r for r in tx if r.is_production and "AVAILABLE" not in r.ledger_set and r.source_id not in county_ids]
     assert len(auctions_only) == 24 and all(r.source_id == "tx_realauction" and r.ledger_set == {"AUCTIONS"} for r in auctions_only)
     cands = [r for r in tx if r.verification_status == "SEARCH_EVIDENCE_ONLY"]
-    assert len(cands) == 20 and all(r.inventory_type == "" and r.source_authority == "GOVERNMENT_DIRECT" for r in cands)
-    harris = csr.lookup(ROWS, "TX", "Harris")
-    assert harris.governance_status == "LEGAL_REVIEW_REQUIRED" and harris.source_id == "tx_hctax" and not harris.runnable
+    assert len(cands) == 14 and all(r.inventory_type == "" and r.source_authority == "GOVERNMENT_DIRECT" for r in cands)
+    # 2026-10-26: county lists read live by scripts/harvest_tx_county_sales.py, synced by
+    # scripts/sync_state_inventory.py and published by the owner's decision (legal review pending).
+    read = [r for r in tx if r.source_id in county_ids]
+    assert sorted(r.source_id for r in read) == sorted(s[1] for s in builder.TX_COUNTY_SOURCES)
+    assert all(r.is_production and r.runnable and r.harvester == "scripts/harvest_tx_county_sales.py"
+               and r.governance_status == "APPROVED" and r.publication_status == "APPROVED"
+               and r.source_authority == "GOVERNMENT_DIRECT" for r in read)
+    assert {r.source_id for r in read if r.ledger_set == {"AUCTIONS"}} == {"tx_hctax", "tx_jefferson_sheriff_sale"}
+    assert all(r.inventory_type == "STRUCK_OFF_HELD_IN_TRUST" for r in read if r.ledger_set == {"AVAILABLE"})
+    harris = csr.lookup(ROWS, "TX", "Harris", "tx_hctax")
+    assert harris.restrictions.startswith("Owner approved customer publication 2026-10-26; legal review pending")
     blocked = [r for r in tx if r.verification_status == "BLOCKED_VENDOR_ONLY"]
     assert len(blocked) == 14 and {r.source_id for r in blocked} == {"tx_pbfcm", "tx_mvba"}
     assert not any("pbfcm.com" in r.canonical_url or "mvbalaw" in r.canonical_url for r in ROWS)
@@ -126,8 +148,10 @@ def test_r07_to_db_rows_uses_nulls_and_the_migration_018_column_set():
     assert len(rows) == len(fl_tx) == len(ROWS) - 4 - 6 - 5 - 5 - 4 - 1 and all(set(r) == set(csr.COLUMNS) for r in rows)
     with pytest.raises(ValueError, match="migration 018"):
         csr.to_db_rows(ROWS)
-    baker = next(r for r in rows if r["county"] == "Baker" and r["state"] == "FL")
-    assert baker["source_id"] is None and baker["canonical_url"] is None and baker["harvester"] is None
+    dallas = next(r for r in rows if r["county"] == "Dallas" and r["state"] == "TX" and r["source_id"] is None)
+    assert dallas["harvester"] is None and dallas["document_url"] is None
+    blocked = next(r for r in rows if r["source_id"] == "tx_pbfcm")
+    assert blocked["canonical_url"] is None and blocked["harvester"] is None
     sql = (REPO / "scripts/migrations/018_county_source_registry.sql").read_text(encoding="utf-8")
     for col in csr.COLUMNS:
         assert re.search(rf"^\s+{col}\s", sql, re.M), col
@@ -153,9 +177,11 @@ def test_r08_migration_017_backfill_values_equal_the_registry():
     sql = (REPO / "scripts/migrations/017_otc_inventory_provenance_lifecycle.sql").read_text(encoding="utf-8")
     block = sql[sql.index("with fl_sources("):sql.index(")\nupdate public.properties p")]
     tuples = re.findall(r"\('([^']*)', '([^']*)', '([^']*)', '([^']*)', '([^']*)'\)", block)
+    # Migration 017 was written (and applied) before the 2026-10-26 additions; it covers the 52 earlier sources.
     expected = sorted((r.county, r.source_id, r.source_authority,
                        *MOVED_SINCE_017.get((r.county, r.source_id), (r.canonical_url, r.document_url)))
-                      for r in csr.production_rows(ROWS, "FL") if "AVAILABLE" in r.ledger_set)
+                      for r in csr.production_rows(ROWS, "FL")
+                      if "AVAILABLE" in r.ledger_set and r.county not in builder.FL_ADDED_2026_10_26)
     for (county, sid), _old in MOVED_SINCE_017.items():
         now = csr.lookup(ROWS, "FL", county, sid)
         assert (now.canonical_url, now.document_url) != _old, f"{county} no longer moved - drop it from MOVED_SINCE_017"
@@ -168,5 +194,7 @@ def test_r09_generator_is_deterministic_and_registers_no_new_source_as_productio
     assert out.returncode == 0 and out.stdout.strip() == (REPO / "data/county_source_registry.csv").read_text(encoding="utf-8").strip()
     for county, *_ in builder.FL_CANDIDATES:
         assert csr.lookup(ROWS, "FL", county).verification_status != "PRODUCTION_VERIFIED"
-    for county, *_ in builder.TX_CANDIDATES:
-        assert csr.lookup(ROWS, "TX", county, "" if county != "Harris" else "tx_hctax").verification_status != "PRODUCTION_VERIFIED"
+    for county, _url, _fmt, _gov, _note, *sid in builder.TX_CANDIDATES:
+        assert csr.lookup(ROWS, "TX", county, sid[0] if sid else "").verification_status != "PRODUCTION_VERIFIED"
+    for county, sid, *_ in builder.TX_COUNTY_SOURCES:     # published 2026-10-26 (owner decision)
+        assert csr.lookup(ROWS, "TX", county, sid).verification_status == "PRODUCTION_VERIFIED"

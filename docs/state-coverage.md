@@ -30,7 +30,7 @@ CO - LIENS_CERTIFICATES: 141 active rows; 0 never stamped, 0 older than 36 h at 
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
 | AUCTIONS | OFFERED | CURRENT | 47 / 47 / 47 | 1185 | 251 | 69 | 0 of 0 | Keep reading; raise field population where a verified official layer exists (see fields). |
-| AVAILABLE | OFFERED | CURRENT | 64 / 52 / 52 | 157 | 3 | 13 | 19 of 52 | Keep reading; raise field population where a verified official layer exists (see fields). |
+| AVAILABLE | OFFERED | CURRENT | 59 / 56 / 56 | 157 | 3 | 13 | 19 of 56 | Keep reading; raise field population where a verified official layer exists (see fields). |
 | LIENS_CERTIFICATES | OFFERED | SOURCE_FAILED_OR_STALE | 33 / 33 / 33 | 1611 | 1611 | 0 | 0 of 0 | Investigate the last read's error category (registry last_error_category / unit freshness) and restore the read; rows are kept, never closed, until a COMPLETE read. |
 
 FL - AUCTIONS field population (active rows, snapshot): amount 1184/1185; bid_amount_mismatch 0/1185; coords 942/1185; dup_parcel 0/1185; flood_checked 942/1185; laft_bid_without_amount 0/1185; link_not_https 0/1185; list_as_of 0/1185; list_as_of_future 0/1185; never_seen 251/1185; parcel 1146/1185; parcel_no_digit 0/1185; past_sale 4/1185; path_typed 0/1185; provenance 243/1185; seen_gt36h 78/1185; seen_order_bad 0/1185; source_link 1185/1185
@@ -154,8 +154,8 @@ TN - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
-| AUCTIONS | COUNTY_DEPENDENT | SOURCE_FAILED_OR_STALE | 32 / 32 / 32 | 122 | 122 | 0 | 1 of 8 | Investigate the last read's error category (registry last_error_category / unit freshness) and restore the read; rows are kept, never closed, until a COMPLETE read. |
-| AVAILABLE | NOT_VERIFIED | SOURCE_FAILED_OR_STALE | 28 / 8 / 8 | 421 | 39 | 382 | 1 of 9 | Investigate the last read's error category (registry last_error_category / unit freshness) and restore the read; rows are kept, never closed, until a COMPLETE read. |
+| AUCTIONS | COUNTY_DEPENDENT | SOURCE_FAILED_OR_STALE | 34 / 34 / 34 | 122 | 122 | 0 | 1 of 8 | Investigate the last read's error category (registry last_error_category / unit freshness) and restore the read; rows are kept, never closed, until a COMPLETE read. |
+| AVAILABLE | COUNTY_DEPENDENT | SOURCE_FAILED_OR_STALE | 28 / 14 / 14 | 421 | 39 | 382 | 1 of 20 | Investigate the last read's error category (registry last_error_category / unit freshness) and restore the read; rows are kept, never closed, until a COMPLETE read. |
 | LIENS_CERTIFICATES | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
 
 TX - AUCTIONS field population (active rows, snapshot): amount 122/122; bid_amount_mismatch 0/122; coords 82/122; dup_parcel 3/122; flood_checked 82/122; laft_bid_without_amount 0/122; link_not_https 0/122; list_as_of 0/122; list_as_of_future 0/122; never_seen 122/122; parcel 122/122; parcel_no_digit 0/122; past_sale 122/122; path_typed 0/122; provenance 0/122; seen_gt36h 0/122; seen_order_bad 0/122; source_link 103/122

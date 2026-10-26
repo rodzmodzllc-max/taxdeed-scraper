@@ -27,6 +27,7 @@ from harvesters.ledgers import BLOCKED_SOURCE_IDS  # noqa: E402
 import inventory_status_writer as W  # noqa: E402
 import laft_lifecycle as L  # noqa: E402
 import laft_purchase_paths as PP  # noqa: E402
+from build_county_source_registry import FL_ADDED_2026_10_26  # noqa: E402
 import publication_gate as PG  # noqa: E402
 import unit_freshness as U  # noqa: E402
 
@@ -76,6 +77,9 @@ def test_g01_committed_registry_publishes_only_the_grandfathered_production_sour
                 expected = ("not customer-published" if r.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS
                             else "no row is written")
                 assert eff == "UNREVIEWED" and expected in r.restrictions, (r.state, r.source_id)
+        elif r.is_production and r.restrictions.startswith("Owner approved customer publication 2026-10-26"):
+            # 2026-10-26 new sources (Charlotte portal, TX county lists): published by the owner's decision.
+            assert eff == "APPROVED", (r.county, r.source_id)
         elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.county, r.source_id)     # already served today; carried forward
         elif r.source_id in BLOCKED_SOURCE_IDS:
@@ -90,7 +94,8 @@ def test_g01_committed_registry_publishes_only_the_grandfathered_production_sour
     # Louisiana East Baton Rouge: the reviewed APPROVED decision (dated list only).
     assert BY_SID["la_ebr_adjudicated"].customer_publishable and BY_SID["la_ebr_adjudicated"].publication == "APPROVED"
     assert BY_SID["la_ebr_adjudicated"].governance_ok
-    assert BY_SID["tx_hctax"].publication == "RESTRICTED" and not BY_SID["tx_hctax"].customer_publishable
+    # Harris County's list: published by the owner's 2026-10-26 decision (legal review pending).
+    assert BY_SID["tx_hctax"].publication == "APPROVED" and BY_SID["tx_hctax"].customer_publishable
     assert BY_SID["tx_pbfcm"].publication == "BLOCKED" and BY_SID["tx_mvba"].publication == "BLOCKED"
     assert BY_SID["fl_laft_pioneer"].customer_publishable and BY_SID["fl_laft_pioneer"].purchase_info == "none"
     assert "no purchase or application path published at source level" in BY_SID["fl_laft_pioneer"].reasons
@@ -144,7 +149,7 @@ def test_g04_row_publication_follows_the_source_and_never_guesses():
     assert pub.source_id_of({"harvester_source": "tx_lgbs"}) == "tx_lgbs"
     assert pub.source_id_of({}) is None
     assert pub.row_publication({"source_id": "fl_laft_pioneer"}, BY_SID) == "APPROVED_GRANDFATHERED"
-    assert pub.row_publication({"source_id": "tx_hctax"}, BY_SID) == "RESTRICTED"
+    assert pub.row_publication({"source_id": "tx_hctax"}, BY_SID) == "APPROVED"
     assert pub.row_publication({"source_id": "tx_pbfcm"}, BY_SID) == "BLOCKED"
     assert pub.row_publication({"harvester_source": "something_new"}, BY_SID) is None       # unclassified, never approved by default
     rows = [{"id": "1", "state": "FL", "source": "laft", "county": "Bay", "source_id": "fl_laft_pioneer", "purchase_url": None, "last_seen_at": T.isoformat()},
@@ -153,11 +158,12 @@ def test_g04_row_publication_follows_the_source_and_never_guesses():
             {"id": "4", "state": "FL", "source": "auction", "county": "Lee", "source_id": "fl_realauction"}]
     m = pub.measure(rows, BY_SID, now=T, unavailable_units={("FL", "fl_laft_pioneer", "Bay")})
     c = m["counts"]
-    assert (c["total_observed"], c["publishable"], c["restricted"], c["unclassified"], c["blocked"], c["unreviewed"]) == (3, 1, 1, 1, 0, 0)
+    # (Harris was RESTRICTED until the owner published it on 2026-10-26.)
+    assert (c["total_observed"], c["publishable"], c["restricted"], c["unclassified"], c["blocked"], c["unreviewed"]) == (3, 2, 0, 1, 0, 0)
     assert (c["with_purchase_path"], c["without_purchase_path"], c["stale"], c["unavailable_source"]) == (1, 2, 2, 1)
     assert m["by_source"]["fl_laft_pioneer"] == {"rows": 1, "publishable": 1, "with_purchase_path": 0, "stale": 0}
     groups, counts = PG.plan(rows, BY_SID)
-    assert groups == {"APPROVED_GRANDFATHERED": ["1"], "RESTRICTED": ["2"]} and counts["unclassified"] == 1 and counts["changed"] == 2
+    assert groups == {"APPROVED_GRANDFATHERED": ["1"], "APPROVED": ["2"]} and counts["unclassified"] == 1 and counts["changed"] == 2
     groups2, counts2 = PG.plan([dict(rows[0], publication_status="APPROVED_GRANDFATHERED")], BY_SID)
     assert groups2 == {} and counts2["unchanged"] == 1
 
@@ -170,9 +176,10 @@ def test_g05_gate_script_reports_without_credentials_and_measures_a_rows_file(tm
     assert r.returncode == 0 and "registry-only" in r.stdout, r.stdout + r.stderr
     rep = json.loads(report.read_text(encoding="utf-8"))
     assert rep["mode"].startswith("registry-only") and "measurement" not in rep
-    # Sarasota's county-held certificates: owner-approved 2026-10-26, not grandfathered.
-    assert all(v["publication"] == "APPROVED_GRANDFATHERED" for k, v in rep["sources"].items() if k != "fl_sarasota_tc_certificates")
-    assert rep["sources"]["fl_sarasota_tc_certificates"]["publication"] == "APPROVED"
+    # Owner-approved 2026-10-26 (not grandfathered): Sarasota's county-held certificates and the Charlotte portal.
+    owner = {"fl_sarasota_tc_certificates", "fl_laft_portals"}
+    assert all(v["publication"] == "APPROVED_GRANDFATHERED" for k, v in rep["sources"].items() if k not in owner)
+    assert all(rep["sources"][k]["publication"] == "APPROVED" for k in owner if k in rep["sources"])
     rows_file = tmp_path / "rows.json"
     rows_file.write_text(json.dumps([{"id": "a", "state": "FL", "source": "laft", "county": "Bay", "source_id": "fl_laft_pioneer"},
                                      {"id": "b", "state": "FL", "source": "laft", "county": "Broward", "harvester_source": "unknown_thing"}]), encoding="utf-8")
@@ -389,15 +396,23 @@ def test_m02_workflow_runs_the_gate_after_the_laft_sync_non_blocking_and_touches
 
 def test_x01_fl_tx_al_ar_la_az_regressions():
     assert states.PRODUCTION_STATES == {"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"} and not any(states.is_activated(c) for c in ("AL", "AR", "AZ"))
-    # FL Available production sources: still the 52 units, all grandfathered-publishable, no purchase path invented.
+    # FL Available production sources: the 52 grandfathered-publishable units plus the four 2026-10-26 additions
+    # (UNREVIEWED until a review); no purchase path invented.
     fl = [r for r in ROWS if r.state == "FL" and r.is_production and "AVAILABLE" in r.ledger_set]
-    assert len(fl) == 52 and all(pub.effective_publication(r) == "APPROVED_GRANDFATHERED" and not r.purchase_url for r in fl)
-    # TX: LGBS the only Available production source, not retried; RealAuction auctions only; blocked vendors blocked; hctax restricted.
+    old = [r for r in fl if r.county not in FL_ADDED_2026_10_26]
+    assert len(fl) == 56 and len(old) == 52 and not any(r.purchase_url for r in fl)
+    for r in fl:
+        assert pub.effective_publication(r) == ("APPROVED" if r.source_id == "fl_laft_portals" else "APPROVED_GRANDFATHERED"), r.county
+    # TX: LGBS not retried; RealAuction auctions; the eight county-published lists (2026-10-26, owner decision);
+    # blocked vendors blocked.
     tx_prod = [r for r in ROWS if r.state == "TX" and r.is_production]
-    assert {r.source_id for r in tx_prod} == {"tx_lgbs", "tx_realauction"} and all("Do not retry" in r.notes for r in tx_prod if r.source_id == "tx_lgbs")
+    assert {r.source_id for r in tx_prod} == {"tx_lgbs", "tx_realauction", "tx_hctax", "tx_bexar_resale", "tx_jefferson_sheriff_sale",
+                                             "tx_montgomery_tax_trust", "tx_orange_trust_property", "tx_trinity_cad_resale",
+                                             "tx_randall_trustee_property", "tx_hood_cad_struck_off"}
+    assert all("Do not retry" in r.notes for r in tx_prod if r.source_id == "tx_lgbs")
     assert not any("govease" in (r.source_id or "") for r in ROWS if r.is_production)
     assert all(pub.effective_publication(r) == "BLOCKED" and not r.canonical_url for r in ROWS if r.source_id in BLOCKED_SOURCE_IDS)
-    assert csr.lookup(ROWS, "TX", "Harris").publication_status == "RESTRICTED"
+    assert csr.lookup(ROWS, "TX", "Harris", "tx_hctax").publication_status == "APPROVED"
     # AL / AR / AZ: one row each, UNREVIEWED, never runnable; AZ is the certificate ledger.
     for code, sid, ledger in (("AL", "al_ador_state_land", "AVAILABLE"), ("AR", "ar_cosl_post_auction", "AVAILABLE"),
                               ("AZ", "az_maricopa_state_cp", "LIENS_CERTIFICATES")):

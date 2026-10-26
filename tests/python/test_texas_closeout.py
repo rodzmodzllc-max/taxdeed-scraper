@@ -234,8 +234,10 @@ def test_permission_denied_exits_3(monkeypatch):
     assert TC.main(["--harvest", "/nonexistent", "--status", "/nonexistent"]) == TC.PERMISSION_DENIED_EXIT
 
 
-def test_both_texas_sources_hold_the_store_permission_the_closeout_needs():
-    assert TC.store_permitted() == ALL
+def test_every_texas_source_holds_the_store_permission_the_closeout_needs():
+    """The two vendor feeds and the eight county-published lists (2026-10-26)."""
+    assert TC.store_permitted() == set(TC.SOURCE_IDS)
+    assert ALL == set(TC.VENDOR_SOURCE_IDS)
 
 
 def test_closeout_reuses_the_shared_close_rule():
