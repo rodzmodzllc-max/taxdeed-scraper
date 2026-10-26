@@ -285,10 +285,13 @@ on:
           RealAuction sale-day page reaches its second Waiting page (the
           deed harvester's own permission, value-free: counts, page text,
           masked pager code; scripts/realauction_paging_check.py).
+          "tx_realauction" = Texas RealAuction sale days, per area (waiting /
+          running / closed): item counts and which field labels the
+          harvester reads, value-free (scripts/tx_realauction_check.py).
         required: false
         type: choice
         default: available
-        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging]
+        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging, tx_realauction]
 
 concurrency:
   # Evidence captures (job=evidence) are read-only and never write to the
@@ -301,7 +304,12 @@ jobs:
   deeds:
     name: Harvest deed auctions + sync
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # 2026-10-26: 60 -> 80, and every enrichment step below now carries its
+    # own timeout-minutes. Run 381's job hit the 60-minute limit inside the
+    # FEMA step (36 minutes of mostly-timing-out lookups), and GitHub
+    # cancelled the whole run. Harvest + sync + Phase B take ~15 minutes;
+    # the enrichment step timeouts add up to 55 at most.
+    timeout-minutes: 80
     # Skip this job on the certificates-only schedule (12:00 UTC), but always
     # run it on the other two schedules and on manual dispatch.
     if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'deeds' || github.event.inputs.job == '')) || github.event.schedule == '13 10 * * *' || github.event.schedule == '13 22 * * *'
@@ -554,6 +562,7 @@ jobs:
         # skip FDOR / FEMA / NAIP after it. Not on a cancelled run.
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 10
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -569,6 +578,7 @@ jobs:
         # skip FDOR / FEMA / NAIP after it. Not on a cancelled run.
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 15
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -586,9 +596,13 @@ jobs:
         # skip FDOR / FEMA / NAIP after it. Not on a cancelled run.
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 15
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # Stop the FEMA lookups cleanly at 12 minutes (the step's own
+          # timeout is 15), printing the summary and the failure causes.
+          FLOOD_TIME_BUDGET_SECONDS: '720'
         run: python3 scripts/enrich_flood_zone.py
 
       # NAIP aerial imagery: USDA/USGS, public domain, no API key, no
@@ -603,6 +617,7 @@ jobs:
         # this job already completed, nor skip the steps after it.
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 12
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -1669,6 +1684,17 @@ jobs:
             IFS=',' read -ra cs <<< "$COUNTIES"
             for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
             eval python3 scripts/realauction_paging_check.py $cargs
+            exit 0
+          fi
+          if [ "$SCOPE" = "tx_realauction" ]; then
+            # Texas RealAuction "sale date found but 0 properties parsed"
+            # (2026-10-26): per sale day and area, item counts and which
+            # labels the harvester's parser reads. tx_realauction fetch+parse
+            # permission; value-free; nothing is written.
+            cargs=""
+            IFS=',' read -ra cs <<< "$COUNTIES"
+            for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
+            eval python3 scripts/tx_realauction_check.py $cargs
             exit 0
           fi
           if [ "$SCOPE" = "available_validate" ]; then

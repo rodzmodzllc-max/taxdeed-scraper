@@ -3250,6 +3250,7 @@
    "call_sites": [
     "scripts/auction_events_writer.py",
     "scripts/texas_closeout.py",
+    "scripts/tx_realauction_check.py",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
@@ -3273,6 +3274,7 @@
    "call_sites": [
     "scripts/auction_events_writer.py",
     "scripts/texas_closeout.py",
+    "scripts/tx_realauction_check.py",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
@@ -3296,6 +3298,7 @@
    "call_sites": [
     "scripts/auction_events_writer.py",
     "scripts/texas_closeout.py",
+    "scripts/tx_realauction_check.py",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
@@ -3319,6 +3322,7 @@
    "call_sites": [
     "scripts/auction_events_writer.py",
     "scripts/texas_closeout.py",
+    "scripts/tx_realauction_check.py",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
