@@ -1128,6 +1128,20 @@ jobs:
           python3 scripts/detect_property_changes.py --state LA --source laft || true
           python3 scripts/detect_property_changes.py --state TX --source laft || true
 
+      - name: Daily verification - every active FL Lands Available row seen in the last 36 h
+        # scripts/stale_rows_report.py --daily-laft: per county, active rows
+        # NOT seen on the county's list in the last 36 h and why (today's
+        # status file: SOURCE_UNAVAILABLE / READ_INCOMPLETE / NOT_READ_TODAY /
+        # READ_BUT_NOT_ON_LIST). Counts and county names only. Fails loudly
+        # (::error:: per county) so the run log states the answer; read-only,
+        # closes nothing; continue-on-error so it never blocks the job.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/stale_rows_report.py --daily-laft --state FL --status out/harvest_laft_status.json --json out/public/fl-available-daily.json
+
   expansion:
     # Six-state expansion (2026-09-30; docs/six-state-expansion.md). The
     # owner-approved county sources of MI, WY, SC, CO and WI
