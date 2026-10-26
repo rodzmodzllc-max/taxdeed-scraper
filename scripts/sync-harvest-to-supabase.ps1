@@ -166,6 +166,9 @@ foreach ($p in $harvest) {
         # Listed on a scheduled feed this run => active (see header). This is
         # what brings a previously closed-out, now re-listed row back.
         status        = "active"
+        # On the feed now, so not delisted: a re-listed row sheds the
+        # delisted_at its earlier close-out wrote (2026-10-26).
+        delisted_at   = $null
         # Phase 72: every writer of url_auction also writes what that URL
         # opens (migration 013). harvest_all_counties.ps1 stores the
         # RealAuction sale-date PREVIEW page (index.cfm?zaction=AUCTION&

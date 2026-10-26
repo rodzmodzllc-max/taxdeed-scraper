@@ -394,7 +394,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/stamp_seen.py --state FL --source auction --harvest out/harvest_all.json --case-key case --provenance
+        run: python3 scripts/stamp_seen.py --state FL --source auction --harvest out/harvest_all.json --case-key case --provenance --delisted
 
       - name: Source id - fill a blank source_id the row itself proves (auction)
         # scripts/backfill_source_ids.py: the PowerShell sync never sends
@@ -725,7 +725,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/stamp_seen.py --state FL --source certificate --harvest out/harvest_certificates.json --case-key case_no --status out/harvest_certificates_status.json --provenance
+        run: python3 scripts/stamp_seen.py --state FL --source certificate --harvest out/harvest_certificates.json --case-key case_no --status out/harvest_certificates_status.json --provenance --delisted
 
 
       - name: Source id - fill a blank source_id the row itself proves (certificate)
