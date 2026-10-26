@@ -200,11 +200,18 @@ def test_D_florida_assessed_writers_are_unchanged():
     fl_cert_sync = _read("scripts", "sync-certificates-to-supabase.ps1")
     # Fill-blank-only enrichment path, unchanged since Phase 13.
     assert '_num(row.get("assessed")) is None' in fl_enrich
-    # The two FL sync scripts still forward whatever the harvester itself
-    # scraped, unconditionally (not fill-blank at the sync layer - only
-    # enrich_property_details.py is fill-blank).
+    # The two FL sync scripts still build `assessed` from what the harvester
+    # itself scraped...
     assert "assessed      = $p.assessed" in fl_deed_sync
     assert "assessed = ToNum $p.assessed" in fl_cert_sync
+    # ...but, deliberately changed 2026-10-26, no longer forward it
+    # unconditionally: a blank listing cell used to erase the FDOR tax-roll
+    # value (146 active FL auction rows). The stored-value guard
+    # (scripts/sync_value_guard.py, tests/python/test_fl_field_fixes.py) puts
+    # the stored value back for a blank, and for a value of a higher-ranked
+    # field_provenance source, before the upsert.
+    assert '$rows = @(Protect-StoredValues "auction" $rows)' in fl_deed_sync
+    assert '$rows = @(Protect-StoredValues "certificate" $rows)' in fl_cert_sync
 
 
 def test_D_non_texas_rows_still_get_the_original_generic_label():

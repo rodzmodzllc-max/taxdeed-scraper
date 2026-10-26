@@ -46,8 +46,12 @@ class FakeSupabase:
     """Records every request; GET /properties answers with `active_rows`
     filtered by the query's county=in.(...) list."""
 
-    def __init__(self, active_rows=()):
+    def __init__(self, active_rows=(), stored_rows=()):
         self.active_rows = list(active_rows)
+        # Rows the stored-value guard (scripts/sync_value_guard.py) reads back:
+        # its GET selects field_provenance and filters county=eq.<name>.
+        self.stored_rows = list(stored_rows)
+        self.fail_guard = False
         self.requests: list[dict] = []
         fake = self
 
@@ -80,7 +84,15 @@ class FakeSupabase:
                 self._record("GET")
                 path = unquote(self.path)
                 rows = fake.active_rows
-                if "county=in.(" in path:
+                if "field_provenance" in path and fake.fail_guard:
+                    self.send_response(400)
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                if "field_provenance" in path:
+                    county = path.split("county=eq.", 1)[1].split("&", 1)[0].replace("+", " ")
+                    rows = [r for r in fake.stored_rows if r["county"] == county and "id=gt." not in path]
+                elif "county=in.(" in path:
                     allowed = set(path.split("county=in.(", 1)[1].split(")", 1)[0].split(","))
                     rows = [r for r in rows if r["county"] in allowed]
                 data = json.dumps(rows).encode()
@@ -98,7 +110,15 @@ class FakeSupabase:
         self.server.shutdown()
 
     def of(self, method):
-        return [r for r in self.requests if r["method"] == method]
+        """Requests of `method`; the stored-value guard's reads are listed by guard_reads()."""
+        return [r for r in self.requests if r["method"] == method and not self._is_guard(r)]
+
+    @staticmethod
+    def _is_guard(r):
+        return r["method"] == "GET" and "field_provenance" in r["path"]
+
+    def guard_reads(self):
+        return [r for r in self.requests if self._is_guard(r)]
 
     def posted_rows(self):
         out = []
