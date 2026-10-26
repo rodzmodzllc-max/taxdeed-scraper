@@ -188,9 +188,14 @@ def test_lgbs_callers_use_the_chain():
 # ==================== ArcGIS repeat listings ====================
 
 def _arc():
+    """The OFFSET path (a layer not opted into keyset reading): the Detroit
+    programs config with keyset switched off, so these rules stay pinned for
+    every other ArcGIS source. The Detroit layers themselves read by object
+    id since 2026-10-26 (tests below)."""
+    import dataclasses  # noqa: PLC0415
     from harvesters.otc.adapters import arcgis as AG  # noqa: PLC0415
     from harvesters.otc.adapters import expansion as EX  # noqa: PLC0415
-    return AG, EX.MI_DETROIT_LANDBANK_PROGRAMS
+    return AG, dataclasses.replace(EX.MI_DETROIT_LANDBANK_PROGRAMS, keyset=False)
 
 
 def _feat(oid, pid, program="Own It Now", addr="1 Test St"):
@@ -221,6 +226,74 @@ def test_identical_repeat_across_pages_still_fails():
     pages = iter([_payload([_feat(1, "A1.")], more=True), _payload([_feat(2, "A1.")])])
     res = AG.fetch_all(cfg, lambda url: next(pages), retrieved_at=NOW)
     assert res.outcome == "FAILED" and "across pages" in res.error_detail
+
+
+# ==================== ArcGIS keyset (object-id) reading ====================
+
+def _keyset_layer(features, page_size=2, meta=None):
+    """A fake layer honouring `where ... AND ObjectId > N`, orderByFields and
+    resultRecordCount, plus the `?f=json` metadata request."""
+    import re  # noqa: PLC0415
+    from urllib.parse import parse_qs, urlsplit  # noqa: PLC0415
+    calls = []
+
+    def fetch(url):
+        calls.append(url)
+        if url.endswith("?f=json"):
+            return meta if meta is not None else {"objectIdField": "ObjectId"}
+        q = {k: v[0] for k, v in parse_qs(urlsplit(url).query).items()}
+        assert "resultOffset" not in q and q["orderByFields"] == "ObjectId"
+        m = re.search(r"ObjectId > (\d+)", q["where"])
+        after = int(m.group(1)) if m else -1
+        rest = sorted((f for f in features if f["attributes"]["ObjectId"] > after), key=lambda f: f["attributes"]["ObjectId"])
+        n = int(q["resultRecordCount"])
+        return {"objectIdFieldName": "ObjectId", "features": rest[:n], "exceededTransferLimit": len(rest) > n}
+    return fetch, calls
+
+
+def test_detroit_layers_read_by_object_id():
+    from harvesters.otc.adapters import expansion as EX  # noqa: PLC0415
+    assert EX.MI_DETROIT_LANDBANK_LOTS.keyset is True and EX.MI_DETROIT_LANDBANK_PROGRAMS.keyset is True
+
+
+def test_keyset_batches_start_after_the_last_id_and_read_everything():
+    import dataclasses  # noqa: PLC0415
+    AG, _ = _arc()
+    from harvesters.otc.adapters import expansion as EX  # noqa: PLC0415
+    cfg = dataclasses.replace(EX.MI_DETROIT_LANDBANK_PROGRAMS, page_size=2)
+    feats = [_feat(i, f"P{i}.") for i in (3, 7, 9, 12, 20)]
+    fetch, calls = _keyset_layer(feats)
+    res = AG.fetch_all(cfg, fetch, retrieved_at=NOW)
+    assert res.outcome == "COMPLETE" and sorted(r.case_no for r in res.records) == ["P12.", "P20.", "P3.", "P7.", "P9."]
+    wheres = [c for c in calls if "query?" in c]
+    assert "ObjectId%20%3E%207" in wheres[1] and "ObjectId%20%3E%2012" in wheres[2]
+
+
+def test_keyset_identical_repeat_across_batches_collapses():
+    """With object-id batches nothing can shift between requests, so the same
+    listing in two batches is the layer publishing it twice (run 374's
+    Detroit failure): one record, counted as collapsed."""
+    import dataclasses  # noqa: PLC0415
+    AG, _ = _arc()
+    from harvesters.otc.adapters import expansion as EX  # noqa: PLC0415
+    cfg = dataclasses.replace(EX.MI_DETROIT_LANDBANK_PROGRAMS, page_size=2)
+    a = _feat(1, "A1."); b = _feat(2, "B2."); a2 = _feat(3, "A1."); a2["attributes"]["listing_date"] = a["attributes"]["listing_date"]
+    fetch, _calls = _keyset_layer([a, b, a2])
+    res = AG.fetch_all(cfg, fetch, retrieved_at=NOW)
+    assert res.outcome == "COMPLETE" and len(res.records) == 2 and res.duplicates_collapsed == 1
+
+
+def test_keyset_repeat_with_different_values_and_missing_ids_fail():
+    import dataclasses  # noqa: PLC0415
+    AG, _ = _arc()
+    from harvesters.otc.adapters import expansion as EX  # noqa: PLC0415
+    cfg = dataclasses.replace(EX.MI_DETROIT_LANDBANK_PROGRAMS, page_size=2)
+    fetch, _c = _keyset_layer([_feat(1, "A1.", program="Own It Now"), _feat(5, "A1.", program="Renovation Programs")])
+    res = AG.fetch_all(cfg, fetch, retrieved_at=NOW)
+    assert res.outcome == "FAILED" and res.records == []
+    fetch, _c = _keyset_layer([], meta={"fields": [{"name": "x", "type": "esriFieldTypeString"}]})
+    res = AG.fetch_all(cfg, fetch, retrieved_at=NOW)
+    assert res.outcome == "FAILED" and "object-id" in res.error_detail
 
 
 # ==================== LAFT PDF successor discovery ====================

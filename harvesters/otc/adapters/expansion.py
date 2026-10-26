@@ -271,6 +271,7 @@ MI_DETROIT_LANDBANK_LOTS = ArcGisLayerConfig(
     source_id="mi_detroit_landbank_lots", state="MI", county="Wayne",
     source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
     layer_url="https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/DLBA_Owned_Properties/FeatureServer/0",
+    keyset=True,   # object-id order, never offset pages (2026-10-26: run 374 FAILED on a page shift)
     fields=ArcGisFieldMap(case_no="parcel_id", parcel="parcel_id", address="name", status="inventory_status_socrata",
                           latitude="latitude", longitude="longitude"),
     where="inventory_status_socrata IN (" + ",".join(f"'{s}'" for s in DLBA_LOT_STATUSES + DLBA_STRUCTURE_STATUSES) + ")",
@@ -286,6 +287,7 @@ MI_DETROIT_LANDBANK_PROGRAMS = ArcGisLayerConfig(
     source_id="mi_detroit_landbank_programs", state="MI", county="Wayne",
     source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
     layer_url="https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/DLBA_For_Sale/FeatureServer/0",
+    keyset=True,   # object-id order, never offset pages (2026-10-26: run 374 FAILED on a page shift)
     fields=ArcGisFieldMap(case_no="parcel_id", parcel="parcel_id", address="address", status="program",
                           latitude="latitude", longitude="longitude"),
     where="program <> 'Auction'",

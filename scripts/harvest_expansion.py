@@ -246,6 +246,9 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
         if fixture:
             payload = json.loads(Path(fixture).read_text(encoding="utf-8"))
             fj = lambda url: payload  # noqa: E731 - one page fixture
+            if getattr(cfg, "keyset", False):
+                import dataclasses  # noqa: PLC0415 - a one-page fixture has no object-id batches to walk
+                cfg = dataclasses.replace(cfg, keyset=False)
         else:
             fj = fetch_json
         res = AG.fetch_all(cfg, fj, retrieved_at=retrieved_at)

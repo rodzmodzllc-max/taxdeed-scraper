@@ -133,6 +133,15 @@ class ArcGisLayerConfig:
     # after the server-side `where`): a feature without them means the
     # server ignored the filter, so the read is untrusted (FAILED).
     require: tuple[tuple[str, str], ...] = ()
+    # 2026-10-26 (Detroit Land Bank): read in object-id order, each batch
+    # asking for the ids after the last one read (`<oid> > last`), instead of
+    # offset pages ordered by the identifier. An identifier the layer lists
+    # more than once is not unique, so offset pages ordered by it can shift
+    # between requests (run 374: one Detroit program parcel came back on two
+    # pages and the whole read FAILED). True = the layer's own object-id
+    # field, read from its metadata (`?f=json` "objectIdField"); a string =
+    # that field name.
+    keyset: bool | str = False
 
     def __post_init__(self) -> None:
         if not LAYER_URL_RE.match(self.layer_url):
@@ -220,6 +229,41 @@ def _quote(value: str) -> str:
 
 def query_url(cfg: ArcGisLayerConfig, offset: int = 0) -> str:
     return f"{cfg.layer_url}/query?" + "&".join(f"{k}={_quote(v)}" for k, v in query_params(cfg, offset).items())
+
+
+def keyset_params(cfg: ArcGisLayerConfig, oid_field: str, after: int | None) -> dict[str, str]:
+    """One keyset batch: the features whose object id is above the last one
+    read, in object-id order. No offset - every batch costs the same and a
+    repeated identifier cannot move a page boundary."""
+    params = query_params(cfg, 0)
+    params.pop("resultOffset")
+    params["orderByFields"] = oid_field
+    if after is not None:
+        params["where"] = f"({cfg.where}) AND {oid_field} > {int(after)}"
+    return params
+
+
+def keyset_url(cfg: ArcGisLayerConfig, oid_field: str, after: int | None) -> str:
+    return f"{cfg.layer_url}/query?" + "&".join(f"{k}={_quote(v)}" for k, v in keyset_params(cfg, oid_field, after).items())
+
+
+_OID_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def object_id_field(cfg: ArcGisLayerConfig, fetch_json: Callable[[str], Any]) -> str:
+    """The layer's object-id field: the config's own name, else the layer
+    metadata's `objectIdField`. Raises ArcGisError when it cannot be named."""
+    if isinstance(cfg.keyset, str):
+        name = cfg.keyset
+    else:
+        meta = fetch_json(f"{cfg.layer_url}?f=json")
+        name = _text(meta.get("objectIdField")) if isinstance(meta, dict) else None
+        if not name and isinstance(meta, dict):
+            name = next((_text(f.get("name")) for f in meta.get("fields") or []
+                         if isinstance(f, dict) and f.get("type") == "esriFieldTypeOID"), None)
+    if not name or not _OID_NAME_RE.match(name):
+        raise ArcGisError("PARSE_FORMAT_CHANGE", "layer metadata names no object-id field - keyset reading is not possible")
+    return name
 
 
 def _amount(value: Any) -> float | None:
@@ -423,6 +467,8 @@ def fetch_all(cfg: ArcGisLayerConfig, fetch_json: Callable[[str], Any], *, retri
     """Read every page of the layer through `fetch_json(url)`. Any failure
     on any page makes the whole result FAILED with no records: a partial
     inventory would let the lifecycle close rows the layer still lists."""
+    if cfg.keyset:
+        return _fetch_all_keyset(cfg, fetch_json, retrieved_at=retrieved_at)
     records: list[tuple[int, OtcRecord]] = []      # (page number, record)
     offset = 0
     pages = 0
@@ -484,3 +530,71 @@ def _content(r: OtcRecord) -> OtcRecord:
     two features to be the same listing."""
     prov = {k: v for k, v in (r.provenance or {}).items() if k != "object_id"}
     return replace(r, provenance=prov)
+
+
+def _fetch_all_keyset(cfg: ArcGisLayerConfig, fetch_json: Callable[[str], Any], *, retrieved_at: datetime) -> ArcGisResult:
+    """fetch_all() for a keyset layer: batches in object-id order, each one
+    starting after the highest object id the previous batch returned. Any
+    failure is FAILED with no records, exactly as the offset path. Because
+    the batches cannot overlap, an identifier seen in two batches is the
+    layer publishing it twice: collapsed when every mapped field is equal,
+    FAILED otherwise (never two records for one identifier)."""
+    try:
+        oid = object_id_field(cfg, fetch_json)
+    except ArcGisError as exc:
+        return ArcGisResult("FAILED", error_category=exc.category, error_detail=exc.detail)
+    except Exception as exc:  # noqa: BLE001 - transport failure is FAILED, never zero
+        return ArcGisResult("FAILED", error_category="TRANSPORT", error_detail=f"{type(exc).__name__}: {exc}")
+    after: int | None = None
+    pages = 0
+    skipped_cycle = 0
+    records: list[OtcRecord] = []
+    while True:
+        if pages >= cfg.max_pages:
+            return ArcGisResult("FAILED", pages=pages, error_category="PARSE_TRUNCATED",
+                                error_detail=f"layer still reported more features after {pages} batches of {cfg.page_size}")
+        try:
+            payload = fetch_json(keyset_url(cfg, oid, after))
+        except Exception as exc:  # noqa: BLE001
+            return ArcGisResult("FAILED", pages=pages, error_category="TRANSPORT", error_detail=f"{type(exc).__name__}: {exc}")
+        try:
+            page = parse_page(cfg, payload, retrieved_at=retrieved_at, offset=pages * cfg.page_size)
+        except ArcGisError as exc:
+            return ArcGisResult("FAILED", pages=pages, error_category=exc.category, error_detail=exc.detail)
+        pages += 1
+        records.extend(page.records)
+        skipped_cycle += page.skipped_cycle
+        if page.feature_count == 0:
+            break
+        ids = []
+        for feat in payload.get("features") or []:
+            v = (feat.get("attributes") or {}).get(oid) if isinstance(feat, dict) else None
+            if isinstance(v, bool) or not isinstance(v, (int, float)):
+                return ArcGisResult("FAILED", pages=pages, error_category="PARSE_FORMAT_CHANGE",
+                                    error_detail=f"a feature carries no numeric {oid} - keyset reading is not possible")
+            ids.append(int(v))
+        top = max(ids)
+        if after is not None and top <= after:
+            return ArcGisResult("FAILED", pages=pages, error_category="PARSE_FORMAT_CHANGE",
+                                error_detail=f"{oid} did not advance past {after} - the server ignored the keyset filter")
+        after = top
+        if not page.exceeded_transfer_limit and page.feature_count < cfg.page_size:
+            break
+    kept: dict[tuple[str, str], OtcRecord] = {}
+    unique: list[OtcRecord] = []
+    collapsed = 0
+    for r in records:
+        key = (r.county, r.case_no)
+        if key in kept:
+            if _content(kept[key]) != _content(r):
+                return ArcGisResult("FAILED", pages=pages, error_category="PARSE_FORMAT_CHANGE",
+                                    error_detail=f"identifier {r.case_no!r} in {r.county} appeared twice with different "
+                                                 f"mapped values - not one record")
+            collapsed += 1
+            continue
+        kept[key] = r
+        unique.append(r)
+    result = ArcGisResult("COMPLETE" if unique else "EMPTY", records=unique, pages=pages)
+    result.skipped_cycle = skipped_cycle
+    result.duplicates_collapsed = collapsed
+    return result

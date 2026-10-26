@@ -50,7 +50,7 @@ import rest_pages as RP  # noqa: E402
 REGISTRY = REPO / "data" / "county_source_registry.csv"
 OUT = REPO / "out"
 USER_AGENT = "taxdeed-scraper state-inventory-sync (+https://github.com/rodzmodzllc-max/taxdeed-scraper)"
-BATCH = 500
+BATCH = 200   # 2026-10-26: was 500; one 500-row Michigan batch crossed the 8 s statement timeout (run 374)
 LEDGER_TYPE_FOR_SOURCE = {"laft": "buy", "auction": "auctions", "certificate": "lien"}
 OBSERVED = frozenset({"COMPLETE", "INCOMPLETE"})
 
@@ -445,18 +445,33 @@ def upsert(base: str, key: str, rows: list[dict]) -> int:
     return sum(_upsert(base, key, g) for g in groups.values())
 
 
-def _upsert(base: str, key: str, rows: list[dict]) -> int:
+# A batch that hits the statement timeout (PostgREST HTTP 500, code 57014) or
+# a transient gateway error is retried in halves: a timed-out statement is
+# rolled back whole, and the upsert is idempotent on its conflict key, so a
+# retry can neither double-write nor leave half a batch. 2026-10-25 run
+# 40208807557: one 500-row Michigan batch crossed the 8 s timeout while
+# other state jobs were writing, and the whole sync stopped there.
+MIN_BATCH = 50
+RETRY_PAUSE = 2.0
+TRANSIENT_STATUSES = frozenset({502, 503, 504, 520, 521, 522, 523, 524})
+
+
+def _transient(status: int, code) -> bool:
+    return status in TRANSIENT_STATUSES or (status == 500 and str(code) == "57014")
+
+
+def _upsert(base: str, key: str, rows: list[dict], *, post=None, sleep=None) -> int:
+    import time  # noqa: PLC0415
+    post = post or (lambda chunk: _post_chunk(base, key, chunk))
+    sleep = sleep or time.sleep
     requests = 0
-    for i in range(0, len(rows), BATCH):
-        chunk = rows[i:i + BATCH]
-        req = urllib.request.Request(
-            f"{base.rstrip('/')}/rest/v1/properties?on_conflict=state,source,county,case_no",
-            data=json.dumps(chunk).encode(), method="POST",
-            headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT, "Content-Type": "application/json",
-                     "Prefer": "resolution=merge-duplicates,return=minimal"})
+
+    def send(chunk: list[dict]) -> None:
+        nonlocal requests
         try:
-            with urllib.request.urlopen(req, timeout=120):
-                requests += 1
+            post(chunk)
+            requests += 1
+            return
         except urllib.error.HTTPError as exc:
             # Public log: PostgREST's code + message name the constraint / column; its
             # `details` can echo the failing row, so it is never printed.
@@ -464,8 +479,29 @@ def _upsert(base: str, key: str, rows: list[dict]) -> int:
                 err = json.loads(exc.read().decode("utf-8", "replace"))
             except ValueError:
                 err = {}
-            raise SystemExit(f"::error title=sync::upsert rejected: HTTP {exc.code} {err.get('code')} {str(err.get('message'))[:200]}") from None
+            if not _transient(exc.code, err.get("code")) or len(chunk) <= MIN_BATCH:
+                raise SystemExit(f"::error title=sync::upsert rejected: HTTP {exc.code} {err.get('code')} "
+                                 f"{str(err.get('message'))[:200]}") from None
+            print(f"::warning title=sync::a {len(chunk)}-row batch failed transiently "
+                  f"(HTTP {exc.code} {err.get('code')}); retrying it in halves")
+        sleep(RETRY_PAUSE)
+        mid = len(chunk) // 2
+        send(chunk[:mid])
+        send(chunk[mid:])
+
+    for i in range(0, len(rows), BATCH):
+        send(rows[i:i + BATCH])
     return requests
+
+
+def _post_chunk(base: str, key: str, chunk: list[dict]) -> None:
+    req = urllib.request.Request(
+        f"{base.rstrip('/')}/rest/v1/properties?on_conflict=state,source,county,case_no",
+        data=json.dumps(chunk).encode(), method="POST",
+        headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT, "Content-Type": "application/json",
+                 "Prefer": "resolution=merge-duplicates,return=minimal"})
+    with urllib.request.urlopen(req, timeout=120):
+        pass
 
 
 def main(argv=None) -> int:
