@@ -396,12 +396,12 @@ def test_w01_expansion_job_is_a_matrix_in_the_existing_slot_and_touches_no_sched
     wf = yaml.safe_load((REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8"))
     job = wf["jobs"]["expansion"]
     assert job["strategy"]["matrix"]["state"] == ["MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"] and job["strategy"]["fail-fast"] is False
-    assert "github.event.schedule == '0 12 * * *'" in job["if"] and "'expansion'" in job["if"]
+    assert "github.event.schedule == '37 11 * * *'" in job["if"] and "'expansion'" in job["if"]
     runs = " ".join(s.get("run", "") for s in job["steps"])
     assert "harvest_expansion.py" in runs and "--close-absent" in runs and "enrich_statewide_parcels.py" in runs
     assert "texas" not in runs.lower() and "lgbs" not in runs.lower()
     on = wf.get("on") or wf.get(True)
-    assert on["schedule"] == [{"cron": "0 10 * * *"}, {"cron": "0 22 * * *"}, {"cron": "0 12 * * *"}]
+    assert on["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 22 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 17 * * *"}]
     assert "expansion" in on["workflow_dispatch"]["inputs"]["job"]["options"]
 
 
