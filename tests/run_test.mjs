@@ -8620,9 +8620,9 @@ const EXPECTED = {
   finderBadges: {"p3": ["path", "amount"], "p15": ["path"], "auctionAmountBadges": 0, "noScoreWords": true},
   finderSortPath: {"n": 2, "verifiedFirst": true},
   finderReadRecent: true,
-  commandCenter: {"events": 9, "shown": 4, "rest": 5, "head": "Auction command center · next 45 days", "firstFacts": ["1 of 1 with a published bid", "Sale process not yet verified"], "linksFromRows": true, "noInvented": true},
+  commandCenter: {"events":1,"shown":1,"rest":0,"head":"Sale days · next 45 days","firstFacts":["1 of 1 with a published bid","Sale process not yet verified"],"linksFromRows":true,"noInvented":true},   // 2026-10-26: the sale-day strip shows the selected day's events (one day in the fixture), no fold
   commandCenterDossier: true,
-  commandCenterMobile: {"visible": 4, "overflow": 0, "minTap": 44},
+  commandCenterMobile: {"visible":1,"overflow":0,"minTap":44},   // 2026-10-26: the sale-day strip shows the selected day's events (one day in the fixture), no fold
   // Financial position + documents & links (2026-10-05).
   financialPositionVectors: [],
   acquisitionDocumentVectors: [],
