@@ -20,17 +20,22 @@ docs/review/fl-certificate-sources-2026-10-26.md.
 
 PERMISSION
 
-fetch / parse / store records for `fl_sarasota_tc_certificates` in
-data/source_permissions.csv are the owner's interim risk acceptance
-(decision 2026-10-26, expiring 2027-04-12, `excluded_from_paid_tier`), never
-the Tax Collector's permission. No display record exists. Checked before any
-request; a denial exits 3 with zero requests.
+fetch / parse / store / display / link records for `fl_sarasota_tc_certificates`
+in data/source_permissions.csv are the owner's interim risk acceptance
+(decisions of 2026-10-26, expiring 2027-04-12, `excluded_from_paid_tier`),
+never the Tax Collector's permission. Checked before any request; a denial
+exits 3 with zero requests.
 
-WHAT IS MAPPED (to the row shape sync-certificates-to-supabase.ps1 reads)
+PRODUCTION: the certificates job runs this reader, then
+scripts/sync_sarasota_certificates.py (one row per certificate under its own
+source_id; close-out only after a COMPLETE read, only this source's rows).
 
-  ACCOUNT        -> case_no and parcel (LienHub's Sarasota rows carry the same
-                    10-digit account as case_no, so a row lands on the same
-                    stored identity)
+WHAT IS MAPPED (the certificate row shape the syncs write)
+
+  ACCOUNT        -> parcel
+  TAX YEAR-CERT# -> case_no, one row per certificate (the identity key is
+                    (state, source, county, case_no); LienHub's Sarasota rows use
+                    the account as case_no, so the two sources never share a row)
   CERT#          -> certificate_no
   TAX YEAR       -> tax_year
   ASSESSED VALUE -> assessed
@@ -154,7 +159,11 @@ def parse_tables(tables: list[list[list]]) -> tuple[list[dict], dict]:
             rate = _money(get("interest"))
             records.append({
                 "county": COUNTY,
-                "case_no": account,
+                # One row per CERTIFICATE (2026-10-26): a Florida certificate is
+                # identified by its tax year and number, and the list repeats an
+                # account once per certificate (232 certificates on 94 accounts,
+                # (tax year, number) unique on all 232). The account is the parcel.
+                "case_no": f"{year}-{cert}",
                 "parcel": account,
                 "certificate_no": cert,
                 "tax_year": year,
@@ -229,7 +238,7 @@ def report(records: list[dict], counts: dict, entry: dict, year: str | None) -> 
     years = sorted({r["tax_year"] for r in records})
     print(f"{SOURCE_ID}: {entry['status']} - {len(records)} certificate(s) kept, {counts['rejected']} rejected, "
           f"{counts['rows']} data row(s), header on {counts['header_pages']} page(s); list year {year or 'not stated'}; "
-          f"tax years {', '.join(years) or 'none'}; distinct accounts {len({r['case_no'] for r in records})}")
+          f"tax years {', '.join(years) or 'none'}; distinct accounts {len({r['parcel'] for r in records})}, distinct certificates {len({r['case_no'] for r in records})}")
 
 
 def main(argv=None) -> int:

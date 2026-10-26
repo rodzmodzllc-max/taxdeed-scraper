@@ -174,7 +174,7 @@ def test_g02_registry_validation_for_the_new_columns(monkeypatch):
 def test_g03_to_db_rows_keeps_the_live_shape_for_fl_tx_and_needs_020_for_alabama():
     fl_tx = [r for r in ROWS if r.state in ("FL", "TX")]
     live = csr.to_db_rows(fl_tx)
-    assert len(live) == len(fl_tx) == 212 and all(set(d) == set(csr.COLUMNS) for d in live)
+    assert len(live) == len(fl_tx) == 213 and all(set(d) == set(csr.COLUMNS) for d in live)
     with pytest.raises(ValueError, match="migration 018"):
         csr.to_db_rows([AL_ROW])
     ext = csr.to_db_rows(ROWS, schema="020")

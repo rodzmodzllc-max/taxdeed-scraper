@@ -32,6 +32,9 @@ from harvesters.governance.publication import PUBLISHABLE_STATUSES, effective_pu
 from permission_fixtures import install, permissions_with, record  # noqa: E402
 
 DAY = date(2026, 10, 12)  # the day these records were verified
+# A source added after DAY is checked on the day its records took effect
+# (Sarasota Tax Collector county-held certificates: owner decision 2026-10-26).
+ADDED_AFTER_DAY = {"fl_sarasota_tc_certificates": date(2026, 10, 26)}
 
 
 def perms(*rows, base=False, **kw):
@@ -247,7 +250,7 @@ def test_parity_every_currently_collected_registry_source_keeps_fetch_and_store(
             ds = None
         elif row.source_id == "fl_realauction":
             ds = "sale_calendar"
-        elif row.source_id == "fl_lienhub_certificates":
+        elif row.source_id in ("fl_lienhub_certificates", "fl_sarasota_tc_certificates"):
             ds = "county_held_certificates"
         elif row.source_id.startswith("fl_laft_"):
             ds = "lands_available"
@@ -256,7 +259,8 @@ def test_parity_every_currently_collected_registry_source_keeps_fetch_and_store(
         else:
             ds = None
         for op in ("fetch", "store"):
-            d = p.authorize(row.source_id, op, state=row.state, county=row.county, dataset=ds, today=DAY)
+            d = p.authorize(row.source_id, op, state=row.state, county=row.county, dataset=ds,
+                            today=ADDED_AFTER_DAY.get(row.source_id, DAY))
             assert d.allowed, (row.source_id, row.county, op, d.reason_code)
 
 
@@ -264,11 +268,13 @@ def test_parity_every_currently_publishable_source_keeps_display():
     p = PERM.Permissions.from_file()
     for row in load_registry():
         if row.source_id and effective_publication(row) in PUBLISHABLE_STATUSES:
-            d = p.authorize(row.source_id, "display", state=row.state, county=row.county, today=DAY)
+            day = ADDED_AFTER_DAY.get(row.source_id, DAY)
+            d = p.authorize(row.source_id, "display", state=row.state, county=row.county, today=day)
             ds_d = p.authorize(row.source_id, "display", state=row.state, county=row.county,
                                dataset={"fl_realauction": "sale_calendar", "fl_lienhub_certificates": "county_held_certificates",
+                                        "fl_sarasota_tc_certificates": "county_held_certificates",
                                         "fl_bid4assets_okaloosa": "sale_calendar"}.get(row.source_id,
-                                        "lands_available" if row.source_id.startswith("fl_laft_") else None), today=DAY)
+                                        "lands_available" if row.source_id.startswith("fl_laft_") else None), today=day)
             assert d.allowed or ds_d.allowed, (row.source_id, row.county)
 
 

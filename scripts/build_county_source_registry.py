@@ -639,6 +639,9 @@ def fl_certificate_rows() -> list[dict]:
                      update_frequency="not published by the source; read daily by the certificates job (12:00 UTC)",
                      source_terminology="'County-Held Certificates for Purchase': certificate number, tax year, 'purchase price', "
                                         "interest (LIENS & CERTIFICATES)",
+                     restrictions="Approved for publication by the owner on 2026-10-26 (\"stop asking for approval\"); the "
+                                  "permission records are an interim internal risk acceptance expiring 2027-04-12, not the "
+                                  "Tax Collector's permission; excluded from the paid tier",
                      ledgers=LIENS))
     return rows
 

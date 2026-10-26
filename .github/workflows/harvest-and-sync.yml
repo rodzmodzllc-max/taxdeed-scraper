@@ -726,6 +726,31 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/backfill_source_ids.py --source certificate
 
+      - name: Sarasota Tax Collector county-held certificates - harvest (the county's own list, not LienHub)
+        # 2026-10-26 (owner decision): LienHub refuses the runners; Sarasota's Tax
+        # Collector publishes the same county-held list as a PDF on its own site.
+        # Independent of the LienHub steps above: runs whatever they did, and a
+        # failure here never fails the job.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        # Its own virtualenv: this job has no setup-python step, and the runner's
+        # system Python refuses a bare pip install (PEP 668).
+        run: |
+          python3 -m venv /tmp/sarasota-venv
+          /tmp/sarasota-venv/bin/pip install -q requests pdfplumber
+          /tmp/sarasota-venv/bin/python scripts/harvest_sarasota_certificates.py
+
+      - name: Sarasota Tax Collector county-held certificates - sync, stamp and close-out
+        # scripts/sync_sarasota_certificates.py: one row per certificate under its
+        # own source_id; last_seen_at stamped in the upsert; close-out only after a
+        # COMPLETE read and only for this source's rows.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/sync_sarasota_certificates.py
+
       - name: Publication state - customer-publication gate (FL)
         # scripts/publication_state_writer.py (migration 031): one auditable
         # publication state per active row - source approval, verified state

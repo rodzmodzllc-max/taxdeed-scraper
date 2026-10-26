@@ -352,7 +352,11 @@ $harvestedKeysByCounty[$r.county].Add([string]$r.case_no) | Out-Null
 }
 
 $encodedCounties = ($completeCounties | ForEach-Object { [uri]::EscapeDataString($_) }) -join ","
-$activeUrl = "$supabaseUrl/rest/v1/properties?state=eq.FL&source=eq.certificate&status=eq.active&county=in.($encodedCounties)&select=id,county,case_no&limit=5000"
+# Only LienHub's own rows (source_id fl_lienhub_certificates, or unset on a row
+# written before migration 017's backfill): a COMPLETE LienHub county read says
+# nothing about a certificate another source lists (2026-10-26: the Sarasota Tax
+# Collector's own county-held list, scripts/sync_sarasota_certificates.py).
+$activeUrl = "$supabaseUrl/rest/v1/properties?state=eq.FL&source=eq.certificate&status=eq.active&county=in.($encodedCounties)&or=(source_id.is.null,source_id.eq.fl_lienhub_certificates)&select=id,county,case_no&limit=5000"
 $activeRows = Invoke-RestMethod -Uri $activeUrl -Method Get -Headers $headers -UserAgent $SupabaseUserAgent
 
 $staleIds = @()

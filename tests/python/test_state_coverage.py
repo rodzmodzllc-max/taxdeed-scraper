@@ -160,7 +160,9 @@ def test_classification_facts_from_the_2026_10_10_snapshots():
     assert len(fl["AVAILABLE"]["acquisition"]["verified_units"]) >= 16
     # LienHub has answered 403 since 2026-10-01: every active certificate row is unstamped.
     liens = fl["LIENS_CERTIFICATES"]
-    assert liens["classification"] == "SOURCE_FAILED_OR_STALE" and liens["sources"]["restricted"] == 32
+    # 32 LienHub rows (SOURCE_UNAVAILABLE) + Sarasota's Tax Collector, whose
+    # restrictions column records the owner's 2026-10-26 approval.
+    assert liens["classification"] == "SOURCE_FAILED_OR_STALE" and liens["sources"]["restricted"] == 33
     assert liens["records"]["act_never_seen"] == liens["records"]["active"]
     # Shelby's source is collected but UNREVIEWED: approval, not data, is the blocker.
     assert DOC["states"]["TN"]["ledgers"]["AVAILABLE"]["classification"] == "APPROVAL_UNRESOLVED"

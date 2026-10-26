@@ -2595,9 +2595,17 @@ Full description: `docs/three-ledgers.md` (last section). Stable facts:
   `ENRICH_REFILL_ERASED=1` in the deeds job).
 - **Orange certificate numbers:** Orange's RealAuction feed publishes the "Certificate #" cell EMPTY (label capture,
   run 40383361568), so Orange auction rows have no certificate number to carry.
-- **Sarasota certificates:** `scripts/harvest_sarasota_certificates.py` reads the Sarasota Tax Collector's own
-  county-held certificate PDF. It holds interim permission (owner decision 2026-10-26) and is NOT wired into the
-  certificate sync. Survey: `docs/review/fl-certificate-sources-2026-10-26.md`.
+- **Sarasota certificates (production, owner decision 2026-10-26):** the certificates job runs
+  `scripts/harvest_sarasota_certificates.py` (the Tax Collector's own county-held PDF) and then
+  `scripts/sync_sarasota_certificates.py`.
+  - Source `fl_sarasota_tc_certificates`, a registry row with APPROVED governance and publication, interim
+    permission records through display / link (expire 2027-04-12).
+  - One row per certificate: `case_no` = `<tax year>-<cert #>`, `parcel` = the account.
+  - Close-out covers only its own rows, after a COMPLETE read.
+  - The LienHub close-out reads only `source_id` `fl_lienhub_certificates` (or unset).
+- **TaxSys** (`<county>.county-taxes.com`, Grant Street) answered a runner with a Cloudflare 403 challenge (run
+  40384773704): stopped, never worked around.
+- Survey: `docs/review/fl-certificate-sources-2026-10-26.md`.
 
 ## Where to look for more
 

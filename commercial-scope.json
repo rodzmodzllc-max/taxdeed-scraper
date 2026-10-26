@@ -303,6 +303,18 @@
    "reason": "No publication decision on the rows (NULL); the registry records only a grandfathered approval of the RealAuction county sites. Requires a publication decision."
   },
   {
+   "source_id": "fl_sarasota_tc_certificates",
+   "state": "FL",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "la_ebr_adjudicated",
    "state": "LA",
    "publication_status": "APPROVED",

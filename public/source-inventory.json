@@ -3986,6 +3986,28 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_sarasota_certificates.py; last completeness UNKNOWN",
+   "county": "Sarasota",
+   "evidence": "docs/review/fl-certificate-sources-2026-10-26.md; scripts/harvest_sarasota_certificates.py; data/source_permissions.csv fl_sarasota_tc_certificates (owner decision 2026-10-26, interim)",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-26",
+   "legacy_status": "APPROVED",
+   "name": "'County-Held Certificates for Purchase': certificate number, tax year, 'purchase price', interest (LIENS & CERTIFICATES)",
+   "next_action": "",
+   "origin": "registry",
+   "publisher": "Sarasota County Tax Collector",
+   "roles": [
+    "identity",
+    "lifecycle"
+   ],
+   "source_id": "FL:Sarasota:fl_sarasota_tc_certificates",
+   "source_type": "DOCUMENT",
+   "state": "FL",
+   "url": "https://www.sarasotataxcollector.gov/services/tax-services/property-tax/tax-cert-sale"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_laft_realtdm.py; last completeness COMPLETE",
    "county": "Sarasota",
    "evidence": "data/laft_realtdm_counties.csv",
@@ -8354,18 +8376,18 @@
    "sources": 8
   },
   "FL": {
-   "APPROVED": 176,
+   "APPROVED": 177,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 17,
    "by_type": {
     "AUCTION_VENDOR": 79,
     "COURT_PUBLIC_RECORD": 1,
-    "DOCUMENT": 13,
+    "DOCUMENT": 14,
     "GIS": 1,
     "GOVERNMENT": 98,
     "PUBLIC_NOTICE": 1
    },
-   "sources": 193
+   "sources": 194
   },
   "LA": {
    "APPROVED": 8,

@@ -4927,7 +4927,7 @@
       ]
      },
      "sources": {
-      "approved_for_customers": 32,
+      "approved_for_customers": 33,
       "counties": [
        "Alachua",
        "Bay",
@@ -4962,9 +4962,9 @@
        "Volusia",
        "Walton"
       ],
-      "implemented": 32,
-      "known": 32,
-      "restricted": 32,
+      "implemented": 33,
+      "known": 33,
+      "restricted": 33,
       "rows": [
        {
         "amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
@@ -5428,6 +5428,23 @@
        {
         "amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
         "approved_for_customers": true,
+        "canonical_url": "https://www.sarasotataxcollector.gov/services/tax-services/property-tax/tax-cert-sale",
+        "county": "Sarasota",
+        "governance_status": "APPROVED",
+        "harvester": "harvest_sarasota_certificates.py",
+        "has_evidence": true,
+        "implemented": true,
+        "last_checked": "2026-10-26",
+        "publication_status": "APPROVED",
+        "publishing_unit_name": "Sarasota County Tax Collector",
+        "restrictions": "Approved for publication by the owner on 2026-10-26 (\"stop asking for approval\"); the permission records are an interim internal risk acceptance expiring 2027-04-12, not the Tax Collector's permission; excluded from the paid tier",
+        "source_id": "fl_sarasota_tc_certificates",
+        "update_frequency": "not published by the source; read daily by the certificates job (12:00 UTC)",
+        "verification_status": "PRODUCTION_VERIFIED"
+       },
+       {
+        "amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+        "approved_for_customers": true,
         "canonical_url": "https://lienhub.com/county/seminole/countyheld/certificates",
         "county": "Seminole",
         "governance_status": "APPROVED_GRANDFATHERED",
@@ -5511,7 +5528,7 @@
         "verification_status": "PRODUCTION_VERIFIED"
        }
       ],
-      "with_evidence": 32
+      "with_evidence": 33
      },
      "tracked": "TRACKED",
      "withheld": {

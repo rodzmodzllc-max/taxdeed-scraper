@@ -93,7 +93,7 @@ def is_placeholder(source: str, column: str, value, row: dict) -> bool:
     v = value.strip()
     case_no, parcel = str(row.get("case_no") or ""), str(row.get("parcel") or "")
     if source == "certificate":
-        return v == f"Account {case_no}"
+        return v in {f"Account {case_no}", f"Account {parcel}"}
     if source == "laft":
         return v in {_LAFT_PLACEHOLDER, f"Case {case_no}", f"Parcel {parcel}"}
     return False
@@ -117,11 +117,14 @@ def protected_by_provenance(stored: dict, column: str, sync_source: str) -> bool
     return FP.rank_of(entry) >= FP.RANK[sync_source]
 
 
-def guard_row(source: str, row: dict, stored: dict | None, counts: Counter | None = None) -> dict:
-    """`row` with every value the rule forbids replaced by the stored one."""
+def guard_row(source: str, row: dict, stored: dict | None, counts: Counter | None = None,
+              sync_source: str | None = None) -> dict:
+    """`row` with every value the rule forbids replaced by the stored one.
+    `sync_source` overrides the provenance source the writer writes as (a
+    government list syncing certificate rows writes as `county_list`)."""
     if stored is None:
         return dict(row)
-    sync_source = SYNC_SOURCE[source]
+    sync_source = sync_source or SYNC_SOURCE[source]
     out = dict(row)
     kept: set[str] = set()
     for column in GUARDED[source]:
@@ -148,9 +151,11 @@ def guard_row(source: str, row: dict, stored: dict | None, counts: Counter | Non
     return out
 
 
-def guard_rows(source: str, rows: list[dict], stored_rows: list[dict], counts: Counter | None = None) -> list[dict]:
+def guard_rows(source: str, rows: list[dict], stored_rows: list[dict], counts: Counter | None = None,
+               sync_source: str | None = None) -> list[dict]:
     by_key = {(str(s.get("county") or ""), str(s.get("case_no") or "")): s for s in stored_rows}
-    return [guard_row(source, r, by_key.get((str(r.get("county") or ""), str(r.get("case_no") or ""))), counts)
+    return [guard_row(source, r, by_key.get((str(r.get("county") or ""), str(r.get("case_no") or ""))), counts,
+                      sync_source=sync_source)
             for r in rows]
 
 

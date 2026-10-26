@@ -33,9 +33,9 @@ hosts; those are marked "not reached", which says nothing about the site.
 
 | County | What the Tax Collector's own site offers for county-held certificates | Status |
 |---|---|---|
-| **Sarasota** | "County-Held Certificates for Purchase": `sarasotataxcollector.gov/files/docs/CountyHeldCertificates.pdf`, linked from `/services/tax-services/property-tax/tax-cert-sale`. A five-page table: ACCOUNT, CERT YEAR, CERT#, ASSESSED VALUE, FACE AMOUNT, INTEREST, TAX YEAR, two charge columns, PURCHASE PRICE. | **Reader built** (below) |
-| St. Lucie | "County Held Certificates" page: purchase through the Lien Auction site (LienHub); the list itself is the TaxSys report "All County Held Certs". | TaxSys (Grant Street `county-taxes.com`) answered the sandbox 403. Candidate; see TaxSys below |
-| Hillsborough | "County-Held Tax Certificates" page links LienHub, plus "Tax Certificate Search" / "download tax sale reports" on TaxSys (`hillsborough.county-taxes.com/public/reports/real_estate`, `county-taxes.net/.../reports/real-estate`). | TaxSys answered the sandbox 403. Candidate (TaxSys) |
+| **Sarasota** | "County-Held Certificates for Purchase": `sarasotataxcollector.gov/files/docs/CountyHeldCertificates.pdf`, linked from `/services/tax-services/property-tax/tax-cert-sale`. A five-page table: ACCOUNT, CERT YEAR, CERT#, ASSESSED VALUE, FACE AMOUNT, INTEREST, TAX YEAR, two charge columns, PURCHASE PRICE. | **In production** (below) |
+| St. Lucie | "County Held Certificates" page: purchase through the Lien Auction site (LienHub); the list itself is the TaxSys report "All County Held Certs". | TaxSys answered a GitHub runner with a Cloudflare 403 (run 40384773704). Stopped |
+| Hillsborough | "County-Held Tax Certificates" page links LienHub, plus "Tax Certificate Search" / "download tax sale reports" on TaxSys (`hillsborough.county-taxes.com/public/reports/real_estate`, `county-taxes.net/.../reports/real-estate`). | TaxSys answered a GitHub runner with a Cloudflare 403 (run 40384773704). Stopped |
 | Escambia | "County Held Certificate Sale" page points to `escambiataxsale.com` and LienHub; old sale-result PDFs (2011-2023). | `escambiataxsale.com` was not reachable. No current list found |
 | Osceola | "County Held Certificates" link goes to `lienhub.com/county/osceola/countyheld/certificates`. | LienHub only |
 | Lee | Both "Participate" and "Purchase or Research County Held Certificates" go to LienHub. | LienHub only |
@@ -49,48 +49,60 @@ hosts; those are marked "not reached", which says nothing about the site.
 
 ### TaxSys (`<county>.county-taxes.com` / `county-taxes.net`)
 
-TaxSys is the most promising lead. It is the counties' own online property-tax system: Grant Street hosts it, but it
-is a different service from LienHub. St. Lucie's page names a TaxSys report, "All County Held Certs", as the
-county-held list, and Hillsborough links TaxSys "tax sale reports".
+TaxSys is the counties' own online property-tax system. Grant Street hosts it, but it is a different service from
+LienHub. St. Lucie's page names a TaxSys report, "All County Held Certs", as the county-held list, and Hillsborough
+links TaxSys "tax sale reports".
 
-Both hosts answered the sandbox with HTTP 403. It is not known whether they refuse GitHub runners the way LienHub
-does.
+**Runner read, owner decision 2026-10-26:**
+- **Records:** interim `discover` / `fetch` / `parse` records for `fl_taxsys_county_held`.
+- **The read:** `scripts/harvest_taxsys_certificates.py --check` made one GET per county, with no retry, through
+  evidence run 40384773704 (`evidence_scope=taxsys_check`).
+- **Result:**
+  - `hillsborough.county-taxes.com/public/reports/real_estate`: HTTP 403, `server: cloudflare`, title "Just a
+    moment..." (a Cloudflare browser challenge);
+  - `stlucie.county-taxes.com/public/reports/real_estate`: the same response.
 
-TaxSys is Grant Street, the same vendor as LienHub. So it needs the owner's explicit decision before any read is
-attempted from a runner. A 403 there would be the same kind of block and would stay as it is. No reader was built
-and no permission record was added.
+**Stopped and recorded.** It is the same kind of block as LienHub's, and it is never worked around: no browser
+automation, no other address, no proxy. No harvester was built for TaxSys. The `--check` reader stays as the record of
+the read.
 
-## The Sarasota reader
+## The Sarasota reader and sync (in production on the owner's decision of 2026-10-26)
 
 - **Script:** `scripts/harvest_sarasota_certificates.py`, source `fl_sarasota_tc_certificates`.
 - **Link:** read from the page's own "County-Held Certificates for Purchase" link, never constructed.
-- **Mapping:**
-  - ACCOUNT goes to `case_no` and `parcel`, the same 10-digit account LienHub's Sarasota rows carry as `case_no`
-    (shape check: 93 active stored Sarasota certificate rows, all `##########`);
-  - CERT# goes to `certificate_no`, TAX YEAR to `tax_year`, ASSESSED VALUE to `assessed`, INTEREST to
-    `interest_rate`, and PURCHASE PRICE to `bid`.
-- **Not stored:** owner, address and issue date (the list publishes none).
-- **Statuses:** COMPLETE / INCOMPLETE / FAILED, as the docstring describes. A zero is never EMPTY.
-- **Permission:** `fetch` / `parse` / `store` records on `INTERNAL_RISK_ACCEPTANCE`:
+- **Identity, one row per certificate:**
+  - `case_no` = `<tax year>-<CERT#>`, unique on all 232 rows of the live list;
+  - `parcel` = ACCOUNT (94 accounts carry 232 certificates).
+  - LienHub's Sarasota rows use the account as `case_no`, so the two sources never share a row under the key
+    `(state, source, county, case_no)`.
+- **Mapping:** CERT# goes to `certificate_no`, TAX YEAR to `tax_year`, ASSESSED VALUE to `assessed`, INTEREST to
+  `interest_rate`, and PURCHASE PRICE to `bid`.
+- **Not stored:** owner, address (the NOT NULL placeholder is "Account <account>") and issue date. The list publishes
+  none of them.
+- **Statuses:** COMPLETE / INCOMPLETE / FAILED. A zero is never EMPTY.
+- **Permission:** `fetch` / `parse` / `store` / `display` / `link` records on `INTERNAL_RISK_ACCEPTANCE`:
   - status `OWNER_PERMISSION_REQUIRED`, jurisdiction `FL:Sarasota`;
   - effective 2026-10-26, expiring 2027-04-12;
   - condition `excluded_from_paid_tier`;
-  - the reason cites the owner's 2026-10-26 decision.
+  - the reason cites the owner's decisions.
 
-  There is no `display`, `redistribute` or `fetch_via_proxy` record, so each of those is denied.
-- **Live read on a GitHub runner** (run 40382658673, job `certificates`, 2026-10-26; repeated in run 40383361568):
-  - COMPLETE: 232 certificates kept, 0 rejected, header recognised on 6 pages;
-  - list headed "2026 CERTIFICATES"; tax years 2019-2021 and 2023-2025;
-  - 94 distinct accounts.
-- **Not wired into the certificate sync yet:**
-  - `sync-certificates-to-supabase.ps1` sends no `source_id` / `harvester_source`, so its rows would be read as
-    LienHub's;
-  - its identity is (county, account), so 232 certificates collapse to 94 rows (one per account). LienHub's
-    county-held rows have the same collapse.
+  There is no `redistribute` or `fetch_via_proxy` record.
+- **Registry:** `fl_sarasota_tc_certificates` is `PRODUCTION_VERIFIED`, governance and publication `APPROVED`,
+  authority `GOVERNMENT_DIRECT`. Its restrictions column records the owner's approval.
+- **Sync:** `scripts/sync_sarasota_certificates.py` writes nothing after a FAILED read, and checks the store
+  permission first. It then:
+  - writes `source_id` = `harvester_source` = `fl_sarasota_tc_certificates`;
+  - stamps `last_seen_at`, and keeps `first_seen_at`;
+  - merges `field_provenance` as `county_list`;
+  - applies the ledger contract and the stored-value guard;
+  - closes only this source's own rows to `notfound`, and only after a COMPLETE read.
 
-  Wiring needs a registry row, the source carried on the row and an owner decision on display. The reader is ready
-  for that step and is runnable on demand through the manual `evidence` job (`evidence_scope=fl_certificate_sources`),
-  which holds no database credential.
+  The LienHub close-out (`sync-certificates-to-supabase.ps1`) now reads only LienHub's own rows.
+- **Wiring:** two `continue-on-error` steps of the certificates job, independent of the LienHub steps.
+- **Live reads on GitHub runners:**
+  - run 40382658673 and run 40383361568: COMPLETE, 232 certificates kept, 0 rejected, header recognised on 6 pages;
+  - list headed "2026 CERTIFICATES"; tax years 2019-2021 and 2023-2025; 94 accounts.
+- **First production write:** the first scheduled certificates run after merge.
 
 ## Leon (PR #182)
 
@@ -102,14 +114,9 @@ and no permission record was added.
 - **Last read:** its single read (121 certificates) was taken through the assistant's fetch tool, because the
   sandbox got Akamai 403s. A runner read has not happened.
 
-## For the owner
+## Still open
 
-1. **Wire Sarasota into the certificate job**, which needs your display decision:
-   - a registry row;
-   - `source_id` on the certificate rows;
-   - the status entry's own source id, which already makes the close-out ignore it.
-2. **TaxSys:** decide whether a runner may try one county's public "All County Held Certs" report. It is Grant Street
-   (LienHub's vendor); a 403 would end it.
-3. **Hosts not reached here** need one runner read to know whether they publish a list: Charlotte, Citrus, Collier,
-   Hernando, Martin, Orange, Bay, Broward, Miami-Dade, Escambia's `escambiataxsale.com`. There is no `discover`
-   permission for them today, so the discovery guard would refuse the capture scripts.
+- **Hosts not reached here** need one runner read to know whether they publish a list: Charlotte, Citrus, Collier,
+  Hernando, Martin, Orange, Bay, Broward, Miami-Dade and Escambia's `escambiataxsale.com`. There is no `discover`
+  permission for them today, so the discovery guard would refuse the capture scripts.
+- **LienHub's 32 counties** stay SOURCE_UNAVAILABLE.

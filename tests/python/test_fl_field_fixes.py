@@ -382,7 +382,7 @@ def test_sarasota_parses_the_county_held_table():
     assert counts == {"rows": 3, "rejected": 0, "header_pages": 1, "furniture": 1}
     r = recs[0]
     assert (r["county"], r["case_no"], r["parcel"], r["certificate_no"], r["tax_year"]) == \
-        ("Sarasota", "0000000001", "0000000001", "12", "2024")
+        ("Sarasota", "2024-12", "0000000001", "12", "2024")
     assert r["bid"] == 100.0 and r["assessed"] == 1000.0 and r["interest_rate"] == 18.0
     assert r["owner_name"] is None and r["address"] is None and r["issued_date"] is None
     assert r["source_id"] == "fl_sarasota_tc_certificates" and r["url_auction"] == S.PAGE_URL
@@ -406,12 +406,14 @@ def test_sarasota_link_is_read_from_the_page_never_built():
     assert S.list_year("2026 CERTIFICATES\nACCOUNT") == "2026"
 
 
-def test_sarasota_permissions_are_interim_and_display_is_denied():
+def test_sarasota_permissions_are_interim_and_published_on_the_owners_decision():
+    # display / link were added deliberately on the owner's decision of 2026-10-26
+    # ("stop asking for approval"); every allowance is interim, never documented.
     from harvesters.governance import permissions as P
-    for op in ("fetch", "parse", "store"):
+    for op in ("fetch", "parse", "store", "display", "link"):
         d = P.authorize("fl_sarasota_tc_certificates", op, state="FL", county="Sarasota", dataset="county_held_certificates")
-        assert d.allowed and not d.documented
-    for op in ("display", "redistribute", "fetch_via_proxy"):
+        assert d.allowed and not d.documented and d.expires_on == "2027-04-12"
+    for op in ("redistribute", "fetch_via_proxy"):
         assert not P.authorize("fl_sarasota_tc_certificates", op, state="FL", county="Sarasota",
                                dataset="county_held_certificates").allowed
 
@@ -424,3 +426,92 @@ def test_sarasota_denied_permission_makes_no_request(monkeypatch):
     import requests
     monkeypatch.setattr(requests, "get", lambda *a, **k: pytest.fail("request made"))
     assert S.main([]) == S.LS.PERMISSION_DENIED_EXIT
+
+
+# ------------------------------------------------------------- C: Sarasota wired into production (owner decision 2026-10-26)
+
+import sync_sarasota_certificates as SS  # noqa: E402
+
+
+def _harvest_rec(year="2024", cert="12", acct="0000000001", price=100.0):
+    return {"county": "Sarasota", "case_no": f"{year}-{cert}", "parcel": acct, "certificate_no": cert, "tax_year": year,
+            "bid": price, "assessed": 1000.0, "interest_rate": 18.0, "url_auction": S.PAGE_URL, "source_id": SS.SOURCE_ID}
+
+
+def test_sync_rows_are_one_per_certificate_under_their_own_source():
+    recs = [_harvest_rec(cert="12"), _harvest_rec(cert="13")]           # one account, two certificates
+    rows = SS.build_rows(recs, {}, "2026-10-26T12:00:00+00:00")
+    assert [r["case_no"] for r in rows] == ["2024-12", "2024-13"] and {r["parcel"] for r in rows} == {"0000000001"}
+    r = rows[0]
+    assert (r["source"], r["source_id"], r["harvester_source"], r["source_authority"]) == \
+        ("certificate", "fl_sarasota_tc_certificates", "fl_sarasota_tc_certificates", "GOVERNMENT_DIRECT")
+    assert r["last_seen_at"] == r["first_seen_at"] == "2026-10-26T12:00:00+00:00" and r["status"] == "active"
+    rows = SS.attach_provenance(rows, rows, {}, "2026-10-26T12:00:00+00:00")
+    assert rows[0]["field_provenance"]["bid"]["source"] == "county_list" and r["url_auction_kind"] == "county"
+    assert len({frozenset(x) for x in rows}) == 1                       # one key set (PGRST102)
+    assert SS.contract_refusals(rows) == []
+
+
+def test_sync_keeps_first_seen_and_other_sources_values_and_provenance():
+    stored_row = {"county": "Sarasota", "case_no": "2024-12", "assessed": 5, "first_seen_at": "2026-10-20T00:00:00+00:00",
+                  "field_provenance": {"assessed": {"source": "fdor_nal"}}}
+    stored = {"2024-12": stored_row}
+    built = SS.build_rows([_harvest_rec()], stored, "2026-10-26T12:00:00+00:00")
+    assert built[0]["first_seen_at"] == "2026-10-20T00:00:00+00:00"
+    guarded = G.guard_rows("certificate", built, [stored_row], sync_source=SS.PROVENANCE_SOURCE)
+    (row,) = SS.attach_provenance(guarded, built, stored, "2026-10-26T12:00:00+00:00")
+    assert row["assessed"] == 5                                         # equal rank, another source: kept
+    assert row["field_provenance"]["assessed"] == {"source": "fdor_nal"}   # its entry is never replaced
+    assert row["field_provenance"]["bid"]["source"] == "county_list"    # this run's own column is recorded
+
+
+def test_close_out_touches_only_this_sources_active_rows():
+    stored = [{"id": 1, "case_no": "2024-12", "status": "active", "source_id": SS.SOURCE_ID},
+              {"id": 2, "case_no": "2023-9", "status": "active", "source_id": SS.SOURCE_ID},
+              {"id": 3, "case_no": "0000000001", "status": "active", "source_id": "fl_lienhub_certificates"},
+              {"id": 4, "case_no": "2022-1", "status": "notfound", "source_id": SS.SOURCE_ID}]
+    assert SS.close_plan(stored, {"2024-12"}) == [2]
+
+
+def test_lienhub_close_out_reads_only_lienhubs_own_rows():
+    text = (ROOT / "scripts" / "sync-certificates-to-supabase.ps1").read_text(encoding="utf-8")
+    line = next(ln for ln in text.splitlines() if ln.startswith("$activeUrl ="))
+    assert "or=(source_id.is.null,source_id.eq.fl_lienhub_certificates)" in line
+
+
+def test_certificates_job_runs_the_sarasota_steps_independently():
+    wf = (ROOT / ".github" / "workflows" / "harvest-and-sync.yml").read_text(encoding="utf-8")
+    job = wf[wf.index("\n  certificates:\n"):]
+    for cmd in ("scripts/harvest_sarasota_certificates.py", "python3 scripts/sync_sarasota_certificates.py"):
+        i = job.index(cmd)
+        step = job[job.rindex("      - name:", 0, i):i]
+        assert "continue-on-error: true" in step and "!cancelled()" in step
+
+
+@pytest.mark.parametrize("status,writes", [("FAILED", False), ("COMPLETE", True), ("INCOMPLETE", True)])
+def test_sync_end_to_end(tmp_path, monkeypatch, status, writes):
+    m = _ps()
+    monkeypatch.setattr(SS, "HARVEST", tmp_path / "h.json")
+    monkeypatch.setattr(SS, "STATUS", tmp_path / "s.json")
+    (tmp_path / "h.json").write_text(json.dumps([_harvest_rec(cert="12"), _harvest_rec(cert="13")]))
+    (tmp_path / "s.json").write_text(json.dumps([{"county": "Sarasota", "status": status, "source_id": SS.SOURCE_ID}]))
+    fake = m.FakeSupabase(stored_rows=[
+        {"id": 7, "county": "Sarasota", "case_no": "2023-9", "status": "active", "source_id": SS.SOURCE_ID,
+         "field_provenance": {}},
+        {"id": 8, "county": "Sarasota", "case_no": "0000000001", "status": "active", "source_id": "fl_lienhub_certificates",
+         "field_provenance": {}}])
+    monkeypatch.setenv("SUPABASE_URL", fake.url)
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "k")
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    for v in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy"):
+        monkeypatch.delenv(v, raising=False)
+    try:
+        assert SS.main([]) == 0
+    finally:
+        fake.close()
+    posted = fake.posted_rows()
+    if not writes:
+        assert posted == [] and fake.of("PATCH") == []
+        return
+    assert sorted(p["case_no"] for p in posted) == ["2024-12", "2024-13"]
+    assert fake.patched_ids() == (["7"] if status == "COMPLETE" else [])   # LienHub's row 8 is never touched
