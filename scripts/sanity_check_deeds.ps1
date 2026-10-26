@@ -78,13 +78,13 @@ $headers = @{
 # ---- Hard check: how many counties have fresh active auction data? ----
 $sinceIso = (Get-Date).ToUniversalTime().AddHours(-26).ToString("yyyy-MM-ddTHH:mm:ssZ")
 # 2026-10-26: "fresh" means READ this run - last_seen_at, which
-# stamp_seen.py sets on every row the harvest actually read - not
-# updated_at, which moves only when a row's values change. A run that read
-# every county fine but found nothing new had its rows' updated_at stay old,
-# so this check failed good runs and blocked the auction-results steps after
-# it. Florida only (Texas auctions are a separate, manual job). Read in
-# keyset pages (id order): PostgREST caps any single read at 1,000 rows, and
-# a capped read could drop whole counties from the count.
+# stamp_seen.py sets only on rows the harvest actually read - not updated_at,
+# which any writer bumps (inventory status, publication state, enrichment),
+# so it says nothing about whether a county was read. Florida only (Texas
+# auctions are a separate, manual job, and with no state filter their rows
+# filled the page). Read in keyset pages (id order): PostgREST returns at most
+# 1,000 rows per read, so the old single "limit=5000" read could drop whole
+# counties from the count and fail a run that read every county fine.
 $freshCountySet = [System.Collections.Generic.HashSet[string]]::new()
 $lastId = $null
 while ($true) {
