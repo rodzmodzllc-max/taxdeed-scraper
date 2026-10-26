@@ -401,20 +401,72 @@ def test_offlist_closeout_plan():
     assert rep["counts"]["county_newest_read_not_this_run"] == 2 and rep["counts"]["seen_within_grace"] == 1
 
 
-def test_offlist_closeout_is_off_by_default(tmp_path, monkeypatch):
+def test_offlist_closeout_is_on_by_default_with_a_kill_switch(tmp_path, monkeypatch):
+    # Owner decision 2026-10-26: --apply writes unless AUCTION_OFFLIST_CLOSE=0.
     import auction_offlist_closeout as C  # noqa: PLC0415
+    assert C.write_enabled(True, {}) and C.write_enabled(True, {C.FLAG: ""}) and C.write_enabled(True, {C.FLAG: "1"})
+    assert not C.write_enabled(True, {C.FLAG: "0"}) and not C.write_enabled(True, {C.FLAG: " 0 "})
+    assert not C.write_enabled(False, {})
     rows, status, harvest = _closeout_fixture()
     for name, data in (("rows.json", rows), ("status.json", status), ("harvest.json", harvest)):
         (tmp_path / name).write_text(json.dumps(data))
+    args = ["--rows", str(tmp_path / "rows.json"), "--status", str(tmp_path / "status.json"),
+            "--harvest", str(tmp_path / "harvest.json"), "--now", NOW.isoformat(), "--apply"]
+    r = subprocess.run([sys.executable, str(ROOT / "scripts/auction_offlist_closeout.py"), *args], capture_output=True, text=True,
+                       check=True, env={"PATH": "/usr/bin:/bin"})
+    assert "mode apply" in r.stdout and "would close 2" in r.stdout and "C2" not in r.stdout
+    r = subprocess.run([sys.executable, str(ROOT / "scripts/auction_offlist_closeout.py"), *args], capture_output=True, text=True,
+                       check=True, env={"PATH": "/usr/bin:/bin", C.FLAG: "0"})
+    assert "plan-only (AUCTION_OFFLIST_CLOSE=0)" in r.stdout and "would close 2" in r.stdout
+    # --rows is the offline path: even in apply mode nothing is sent.
     calls = []
     monkeypatch.setattr(C, "close", lambda *a, **k: calls.append(a) or 0)
     monkeypatch.delenv(C.FLAG, raising=False)
-    args = ["--rows", str(tmp_path / "rows.json"), "--status", str(tmp_path / "status.json"),
-            "--harvest", str(tmp_path / "harvest.json"), "--now", NOW.isoformat(), "--apply"]
     assert C.main(args) == 0 and calls == []
-    r = subprocess.run([sys.executable, str(ROOT / "scripts/auction_offlist_closeout.py"), *args], capture_output=True, text=True,
-                       check=True, env={"PATH": "/usr/bin:/bin"})
-    assert "plan-only" in r.stdout and "would close 2" in r.stdout and "C2" not in r.stdout
+
+
+def test_offlist_closeout_never_closes_on_a_possibly_truncated_sale_day():
+    # RealAuction pages the Waiting list ten at a time and the harvester's
+    # pager repeats page one: a sale day holding 10+ harvested rows may hide
+    # more on page two, so an absent row there is never closed.
+    import auction_offlist_closeout as C  # noqa: PLC0415
+    rows = [_auction(i, "Lee", "2026-11-05", ago(hours=1)) for i in range(1, 11)]
+    rows += [_auction(20, "Lee", "2026-11-05", None), _auction(21, "Lee", "2026-11-12", None)]
+    harvest = [{"county": "Lee", "case": f"C{i}", "sale_date": "11/05/2026"} for i in range(1, 11)]
+    harvest.append({"county": "Lee", "case": "C99", "sale_date": "11/12/2026"})
+    status = [{"county": "Lee", "status": "COMPLETE", "rowCount": 11}]
+    per_day = C.harvested_per_day(harvest)
+    assert per_day == {("Lee", "2026-11-05"): 10, ("Lee", "2026-11-12"): 1}
+    ids, rep = C.plan(rows, complete=C.complete_counties(status), harvested=C.harvested_cases(harvest), now=NOW, per_day=per_day)
+    assert ids == ["id21"]
+    assert rep["counts"]["sale_day_possibly_truncated"] == 1 and rep["counts"]["close"] == 1
+    # Nine rows read on the day: a short page, the whole day was read.
+    ids, _ = C.plan(rows, complete=C.complete_counties(status), harvested=C.harvested_cases(harvest), now=NOW,
+                    per_day={("Lee", "2026-11-05"): 9})
+    assert sorted(ids) == ["id20", "id21"]
+
+
+def test_iso_day_reads_the_feed_and_iso_forms():
+    import auction_offlist_closeout as C  # noqa: PLC0415
+    assert C.iso_day("11/05/2026") == "2026-11-05" and C.iso_day("2026-11-05") == "2026-11-05"
+    assert C.iso_day("") == "" and C.iso_day("soon") == "" and C.iso_day(None) == ""
+
+
+def test_offlist_closeout_closes_past_sale_rows_of_counties_no_harvester_reads(tmp_path):
+    import auction_offlist_closeout as C  # noqa: PLC0415
+    rows = [_auction(1, "DeSoto", "2026-10-01", None),          # no harvester reads DeSoto, sale over -> close
+            _auction(2, "DeSoto", "2026-11-20", None),          # future-dated: left to the off-list rule (county not COMPLETE)
+            _auction(3, "Lee", "2026-10-01", None),             # covered county: the sync's own past-sale rule
+            _auction(4, "Okaloosa", "2026-10-01", None),        # Bid4Assets county is covered
+            _auction(5, "DeSoto", None, None)]                  # no sale date -> keep
+    covered = C.covered_counties()
+    assert "Lee" in covered and "Okaloosa" in covered and "DeSoto" not in covered
+    ids, rep = C.plan(rows, complete=set(), harvested={}, now=NOW, covered=covered)
+    assert ids == ["id1"] and rep["counts"]["past_sale_no_harvester"] == 1 and rep["by_county"] == {"DeSoto": 1}
+    # No county list (unreadable) -> the rule is off.
+    assert C.covered_counties(tmp_path / "missing.csv") == set()
+    ids, _ = C.plan(rows, complete=set(), harvested={}, now=NOW, covered=set())
+    assert ids == []
 
 
 def test_offlist_closeout_writes_status_closed_only():
@@ -424,7 +476,7 @@ def test_offlist_closeout_writes_status_closed_only():
         assert f'"{forbidden}"' not in src
     wf = (ROOT / ".github/workflows/harvest-and-sync.yml").read_text()
     assert "AUCTION_OFFLIST_CLOSE: ${{ vars.AUCTION_OFFLIST_CLOSE }}" in wf
-    assert "scripts/auction_offlist_closeout.py --status out/harvest_all_status.json" in wf
+    assert "scripts/auction_offlist_closeout.py --status out/harvest_all_status.json --harvest out/harvest_all.json --apply" in wf
 
 
 def test_offlist_closeout_missing_status_closes_nothing(tmp_path, capsys):

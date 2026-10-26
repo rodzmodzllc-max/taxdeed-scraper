@@ -3118,6 +3118,16 @@ close-out only closes rows whose sale day has PASSED, so they stayed "active" an
 - `OFF_LIST_GRACE_MS` / `AUCTION_READ_CACHE` are `var` (TDZ). Stub knob `?offlist=1` (p8 fresh, p9 unread).
 - Closing such rows server-side would be a lifecycle change to the deed sync (future-dated rows absent from a
   COMPLETE county) and is a separate, owner-authorized decision. `sw.js` -> `tdw-shell-v108`.
+- **Since 2026-10-26 (owner: the auction ledger must be current after one daily run)** the deeds job closes them:
+  - `scripts/auction_offlist_closeout.py` is ON (`vars.AUCTION_OFFLIST_CLOSE == '0'` is the kill switch). It never
+    closes on a sale day the harvest holds 10+ rows for: **the RealAuction Waiting harvest reads only the first page
+    (10 items) of each sale day** - the second request repeats page one (deeds run 40200487211: 62 sale days at
+    exactly 10 of "20 seen"). Rows on page two are never stamped and look "off list" without being so. Fixing the
+    pager in `harvest_all_counties.ps1` needs a capture of the site's own paging call first.
+  - It also closes past-dated active rows in counties no deeds harvester reads (DeSoto).
+  - `auction_outcomes.py` also reads upcoming sale days with an item off the Waiting list (`--harvest`);
+    `scripts/auction_outcome_status.py` moves the row out of active from a verified result on its CURRENT sale
+    day's event: 'sold' for "Auction Sold", 'closed' otherwise; status only.
 
 ## Tennessee: Shelby County Land Bank (2026-10-08, PR open, no migration)
 
