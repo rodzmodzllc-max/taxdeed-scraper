@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from ..model import AmountKind, InventoryType, PurchaseUrlKind, SourceAuthority
 from .arcgis import ArcGisFieldMap, ArcGisLayerConfig
 from .epropertyplus import EppConfig
+from .property_page import PropertyPage
 from .sc_flc import GEORGETOWN as SC_GEORGETOWN_FLC   # Georgetown SC FLC list (PR #69)
 from .tabular import ColumnMap, TabularConfig
 
@@ -351,8 +352,21 @@ MO_STL_LRA = TabularConfig(
     status_include=("Available",), id_pattern=r"\d{11}", header_required=("ParcelId", "Parcel_Status"),
     list_url="https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=30",
     document_url="https://static.stlouis-mo.gov/open-data/SLDC/REAL-ESTATE/LRA_INVENTORY.csv", columns_verified=True,
+    property_page=PropertyPage(
+        template="https://www.stlouis-mo.gov/government/property/city-owned-property-search.cfm?action=detail&parcelId={id}",
+        kind=PurchaseUrlKind.OFFER_FORM, id_pattern=r"\d{11}", verified_on="2026-10-26", action_label="Purchase Property",
+        pattern_source="the City's Available City-Owned Property Search links each property as "
+                       "'?action=detail&parcelId=<ParcelId>' (the 11-digit ParcelId of LRA_INVENTORY.csv)",
+        verification="followed anonymously in a headless browser for 4 parcels sampled from the 'LRA Property For Sale' CSV "
+                     "(each page showed its parcel number and the page's own 'Purchase Property' button, which links the "
+                     "City's 'Purchase City-Owned Property' page); 2 Available parcels absent from that CSV read "
+                     "'No records found', so only listed parcels are linked"),
+    property_page_listed_url="https://static.stlouis-mo.gov/open-data/SLDC/REAL-ESTATE/LRA_INVENTORY_AVAILABLE.csv",
+    property_page_listed_column="ParcelId",
     notes="LRA_INVENTORY.csv (St. Louis Development Corporation open data): Parcel_Status 'Available' rows only; "
-          "PropertyType (Lot / Building / Other) kept verbatim as the land use. No price or purchase link per row.")
+          "PropertyType (Lot / Building / Other) kept verbatim as the land use. No price per row. A row on the City's own "
+          "'LRA Property For Sale' CSV (LRA_INVENTORY_AVAILABLE.csv, the same dataset page) carries its property page on "
+          "the City's search as its purchase URL; offers go to the LRA on its Offer Submission Form (evidence table).")
 
 # Oklahoma County, OK Treasurer - "County Owned Property" list (table#mytable,
 # 196 rows): "Once the County owns these properties, they can be purchased by
@@ -454,9 +468,19 @@ TN_SHELBY_LANDBANK = EppConfig(
     id_pattern=r"[A-Z0-9]{14}",
     amount_field="askingPrice", amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, amount_label="Asking Price",
     columns_verified=True,
+    property_page=PropertyPage(
+        template="https://public-sctn.epropertyplus.com/property/{id}",
+        kind=PurchaseUrlKind.ONLINE_PURCHASE, id_pattern=r"[A-Z0-9]{14}", verified_on="2026-10-25",
+        action_label="Apply For this Property",
+        pattern_source="the portal's own code routes a property's details to `/property/${parcelNumber}` "
+                       "(the parcelNumber field of getPublishedProperties) and serves that route without a login",
+        verification="rendered anonymously in a headless browser for 3 offered parcels sampled from getPublishedProperties "
+                     "(each page showed its parcel number and the portal's own 'Apply For this Property' button); the portal's "
+                     "public getPublishedPropertyByParcelNumber returned the same parcel, portal id and FOR SALE / Y status "
+                     "for 4 more sampled parcels"),
     notes="Shelby County Land Bank inventory (county-owned parcels from delinquent-tax sales, inventory type 'County "
-          "DTP'). Offered = the portal's own currentStatus 'FOR SALE' and available 'Y'. Offers by the Land Bank's "
-          "Offer to Purchase and Sales Agreement packet; no per-parcel purchase link is constructed.")
+          "DTP'). Offered = the portal's own currentStatus 'FOR SALE' and available 'Y'. Each offered row carries the "
+          "portal's own property page (its 'Apply For this Property' action needs a portal account) as its purchase URL.")
 
 
 HELD_AVAILABLE = ("AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for "

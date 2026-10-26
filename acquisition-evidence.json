@@ -6,6 +6,7 @@
    "source_id": "co_douglas_county_held_liens",
    "county": "Douglas",
    "path_type": "application_download",
+   "process_url": "https://www.douglasco.gov/documents/request-for-assignment-of-county-held.pdf/",
    "purchase_evidence_url": "https://www.douglasco.gov/documents/request-for-assignment-of-county-held.pdf/",
    "purchase_evidence_type": "county_document",
    "purchase_evidence_title": "Request for Assignment of County-Held Tax Lien (Douglas County, CO)",
@@ -589,6 +590,7 @@
    "source_id": "la_ebr_adjudicated",
    "county": "East Baton Rouge",
    "path_type": "county_instructions",
+   "process_url": "https://www.brla.gov/455/Adjudicated-Property",
    "purchase_evidence_url": "https://www.brla.gov/DocumentCenter/View/795/Adjudicated-Memo-PDF",
    "purchase_evidence_type": "county_document",
    "purchase_evidence_title": "MEMORANDUM - Office of the Parish Attorney, Property Division (purchase of adjudicated property)",
@@ -616,6 +618,32 @@
     ],
     "evidence_url": "https://www.brla.gov/DocumentCenter/View/795/Adjudicated-Memo-PDF",
     "observed_on": "2026-10-01"
+   }
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_detroit_landbank_lots",
+   "county": "Wayne",
+   "path_type": "county_instructions",
+   "process_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/Land-reuse/SECOND-AMENDED-AND-RESTATED-VACANT-LAND-POLICY.pdf",
+   "purchase_evidence_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/Land-reuse/SECOND-AMENDED-AND-RESTATED-VACANT-LAND-POLICY.pdf",
+   "purchase_evidence_type": "county_document",
+   "purchase_evidence_title": "DETROIT LAND BANK AUTHORITY SECOND AMENDED AND RESTATED VACANT LAND POLICY (Adopted by Board of Directors 11/11/2025)",
+   "purchase_instructions": "A purchase is made by a 'Complete Application' - 'a copy of the then in force version of an application to purchase property under this Policy with all required information filled-in by the person applying to purchase the property, including in the case of a Neighborhood Lot the endorsement required by Section V(C)(6)'. The DLBA holds applications for at least ten days from the date the first Complete Application is received before a purchaser is selected.",
+   "purchase_path_observed_on": "2026-10-26",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "instructions"
+    ],
+    "office": "Detroit Land Bank Authority",
+    "steps": [
+     "Meet the policy's eligibility for the lot type (Side / Oversize Lot: the adjacent owner-occupant; Neighborhood Lot: within the policy's distance, with the endorsement Section V(C)(6) requires)",
+     "Submit a Complete Application to purchase the lot under the DLBA Vacant Land Policy",
+     "The DLBA holds applications for at least ten days after the first Complete Application is received, then selects a purchaser by the policy's priority order"
+    ],
+    "evidence_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/Land-reuse/SECOND-AMENDED-AND-RESTATED-VACANT-LAND-POLICY.pdf",
+    "observed_on": "2026-10-26"
    }
   },
   {
@@ -649,6 +677,7 @@
    "source_id": "mi_lenawee_tax_sale",
    "county": "Lenawee",
    "path_type": "county_instructions",
+   "process_url": "https://www.lenawee.mi.us/712/Tax-Sale",
    "purchase_evidence_url": "https://www.lenawee.mi.us/712/Tax-Sale",
    "purchase_evidence_type": "county_page",
    "purchase_evidence_title": "Tax Sale | Lenawee County, MI",
@@ -668,6 +697,160 @@
     ],
     "evidence_url": "https://www.lenawee.mi.us/712/Tax-Sale",
     "observed_on": "2026-10-01"
+   }
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_oceana_landbank",
+   "county": "Oceana",
+   "path_type": "application_download",
+   "process_url": "https://oceana.mi.us/wp-content/uploads/2022/12/Purchase-Application-Land-Bank.pdf",
+   "purchase_path_observed_on": "2026-10-02",
+   "acquisition": {
+    "mode": "application",
+    "channels": [
+     "application"
+    ],
+    "observed_on": "2026-10-02"
+   }
+  },
+  {
+   "state": "MN",
+   "source_id": "mn_ramsey_tax_forfeit",
+   "county": "Ramsey",
+   "path_type": "county_instructions",
+   "process_url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list",
+   "purchase_evidence_url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list",
+   "purchase_evidence_type": "county_page",
+   "purchase_evidence_title": "Over-the-Counter Property List | Ramsey County, Minnesota",
+   "purchase_instructions": "Properties listed below are available for immediate purchase through Ramsey County's over-the-counter sale process. These tax-forfeited properties did not sell at the public auction and are now offered on a first-come, first-served basis. Browse the available properties and review the purchase requirements before submitting an inquiry.",
+   "purchase_path_observed_on": "2026-10-26",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "instructions",
+     "phone",
+     "in_person"
+    ],
+    "office": "Ramsey County Productive Properties",
+    "address": "Plato Building, 90 Plato Blvd. West, Saint Paul, MN 55107",
+    "phone": "651-266-2080",
+    "steps": [
+     "Find the parcel on the county's Over-the-Counter Property List",
+     "Review the purchase requirements and submit an inquiry to Productive Properties (651-266-2080)",
+     "Parcels sell first-come, first-served to eligible purchasers at the appraised price plus taxes and fees"
+    ],
+    "evidence_url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list",
+    "observed_on": "2026-10-26"
+   }
+  },
+  {
+   "state": "MO",
+   "source_id": "mo_stl_lra_inventory",
+   "county": "St. Louis City",
+   "path_type": "application_download",
+   "process_url": "https://www.lrastl.org/s/LRA-Offer-Submission-Form-5224.pdf",
+   "purchase_evidence_url": "https://www.lrastl.org/offer-to-purchase",
+   "purchase_evidence_type": "county_page",
+   "purchase_evidence_title": "Offer to Purchase — LRA, Land Reutilization Authority",
+   "purchase_instructions": "All offers, excluding the Side Lot and Temporary Use Applications, must be submitted using the Offer Submission Form. At this time, all offers must be submitted in-person to: [the LRA office]. All offers are taken by appointment. If you do not provide a complete offer submission, your application will not be processed.",
+   "purchase_path_observed_on": "2026-10-26",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "application",
+     "phone",
+     "in_person"
+    ],
+    "office": "St. Louis Development Corporation | Land Reutilization Authority (LRA)",
+    "address": "1520 Market St., Suite 221, St. Louis, MO 63103",
+    "phone": "314.657.3721",
+    "application_url": "https://www.lrastl.org/s/LRA-Offer-Submission-Form-5224.pdf",
+    "steps": [
+     "Open the property's page on the City's Available City-Owned Property Search and choose a program under which to purchase it",
+     "Complete the LRA Offer Submission Form (and the Offer Submission Checklist)",
+     "Submit the offer in person at the LRA office, by appointment",
+     "LRA staff review the offer and contact the offeror; the LRA commission decides"
+    ],
+    "evidence_url": "https://www.lrastl.org/offer-to-purchase",
+    "observed_on": "2026-10-26"
+   }
+  },
+  {
+   "state": "OK",
+   "source_id": "ok_oklahoma_county_owned",
+   "county": "Oklahoma",
+   "path_type": "application_download",
+   "process_url": "https://www.oklahomacounty.org/Portals/0/DNNGalleryPro/uploads/2021/4/28/BidForm.pdf",
+   "purchase_path_observed_on": "2026-10-04",
+   "acquisition": {
+    "mode": "bid",
+    "channels": [
+     "application"
+    ],
+    "observed_on": "2026-10-04"
+   }
+  },
+  {
+   "state": "PA",
+   "source_id": "pa_fayette_repository",
+   "county": "Fayette",
+   "path_type": "application_download",
+   "process_url": "https://www.fayettecountypa.org/DocumentCenter/View/5599/Repository-Bid-Form",
+   "purchase_evidence_url": "https://www.fayettecountypa.org/269/Tax-Claim-Bureau",
+   "purchase_evidence_type": "county_page",
+   "purchase_evidence_title": "Tax Sale Information | Fayette County, PA",
+   "purchase_instructions": "If the property still does not sell, it is put on our Repository List and can be bid on at any time. We keep the sealed bids in a lockbox. We open the envelopes on the first Tuesday of the month at 10:00 a.m. It is the decision of the authorities to accept or reject your bid. (Municipality and School District) We will notify you by mail within 30-45 days of the decision.",
+   "purchase_path_observed_on": "2026-10-26",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "application",
+     "phone",
+     "in_person"
+    ],
+    "office": "Fayette County Tax Claim Bureau",
+    "address": "2 West Main Street, Uniontown, PA 15401",
+    "phone": "724-430-1208",
+    "application_url": "https://www.fayettecountypa.org/DocumentCenter/View/5599/Repository-Bid-Form",
+    "payment": "money order, certified check, or cashier's check for the bid amount",
+    "steps": [
+     "Complete one Repository Sale Sealed Bid Form per parcel, with the Affidavit of Bidder(s)",
+     "Enclose a money order, certified check, or cashier's check for the bid amount in an envelope marked 'Sealed Repository Bid'",
+     "Bids are opened on the first Tuesday of the month at 10:00 a.m.; the municipality and school district accept or reject the bid, and the bureau notifies by mail within 30-45 days"
+    ],
+    "evidence_url": "https://www.fayettecountypa.org/269/Tax-Claim-Bureau",
+    "observed_on": "2026-10-26"
+   }
+  },
+  {
+   "state": "SC",
+   "source_id": "sc_georgetown_forfeited_land",
+   "county": "Georgetown",
+   "path_type": "application_download",
+   "process_url": "https://www.gtcountysc.gov/DocumentCenter/View/1587/FLC-Procedures-and-Bid-Apps-PDF",
+   "purchase_path_observed_on": "2026-10-02",
+   "acquisition": {
+    "mode": "application",
+    "channels": [
+     "application"
+    ],
+    "observed_on": "2026-10-02"
+   }
+  },
+  {
+   "state": "SC",
+   "source_id": "sc_horry_forfeited_land",
+   "county": "Horry",
+   "path_type": "application_download",
+   "process_url": "https://horrycountysc.gov/media/sinbmsz5/horrycountyflcguidelines.pdf",
+   "purchase_path_observed_on": "2026-10-02",
+   "acquisition": {
+    "mode": "bid",
+    "channels": [
+     "application"
+    ],
+    "observed_on": "2026-10-02"
    }
   },
   {
@@ -704,6 +887,7 @@
    "source_id": "tx_lgbs",
    "county": "Galveston",
    "path_type": "county_instructions",
+   "process_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
    "purchase_evidence_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
    "purchase_evidence_type": "county_document",
    "purchase_evidence_title": "Galveston County Sheriff's Office - Sheriff Sales Information & Procedures",
@@ -736,6 +920,7 @@
    "source_id": "wi_dane_tax_deed_auction",
    "county": "Dane",
    "path_type": "county_instructions",
+   "process_url": "https://treasurer.danecounty.gov/Tax-Deed-Details",
    "purchase_evidence_url": "https://treasurer.danecounty.gov/Tax-Deed-Details",
    "purchase_evidence_type": "county_page",
    "purchase_evidence_title": "Tax Deed Details | Dane County Treasurer Office",
@@ -763,6 +948,7 @@
    "source_id": "wi_green_tax_deed_sales",
    "county": "Green",
    "path_type": "application_download",
+   "process_url": "https://www.greencountywi.org/DocumentCenter/View/2103/Tax-Deed-Bid-Form",
    "purchase_evidence_url": "https://www.greencountywi.org/492/Current-Tax-Deed-Sales",
    "purchase_evidence_type": "county_page",
    "purchase_evidence_title": "Current Tax Deed Sales | Green County, WI",
@@ -1549,8 +1735,8 @@
    "county": "Wayne",
    "status": "VERIFIED",
    "basis": "evidence_table",
-   "reason": "DETROIT LAND BANK AUTHORITY AMENDED AND RESTATED VACANT LAND POLICY (FINAL Oct 2023)",
-   "attempted_on": "2026-10-03",
+   "reason": "DETROIT LAND BANK AUTHORITY SECOND AMENDED AND RESTATED VACANT LAND POLICY (Adopted by Board of Directors 11/11/2025)",
+   "attempted_on": "2026-10-26",
    "authority_type": "county_land_bank",
    "authority": "Detroit Land Bank Authority",
    "path_type": "county_instructions",
@@ -1584,51 +1770,34 @@
    "attempted_on": "2026-10-02",
    "authority_type": "county_land_bank",
    "authority": "Oceana County Land Bank Authority",
+   "path_type": "application_download",
    "scope": "source"
   },
   {
    "state": "MN",
    "source_id": "mn_ramsey_tax_forfeit",
    "county": "Ramsey",
-   "status": "NEEDS_REVIEW",
-   "basis": "search_index",
-   "reason": "Ramsey County's over-the-counter property list and sale terms pages were found through the search index only - not read",
-   "attempted_on": "2026-10-06",
+   "status": "VERIFIED",
+   "basis": "evidence_table",
+   "reason": "Over-the-Counter Property List | Ramsey County, Minnesota",
+   "attempted_on": "2026-10-26",
    "authority_type": "other_government",
    "authority": "Ramsey County Tax-Forfeited Land",
-   "scope": "source",
-   "candidates": [
-    {
-     "url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list",
-     "doc_kind": "PROCEDURE"
-    },
-    {
-     "url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/ramsey-county-tax-forfeited-land-online-sales-terms-conditions",
-     "doc_kind": "INSTRUCTIONS"
-    }
-   ]
+   "path_type": "county_instructions",
+   "scope": "source"
   },
   {
    "state": "MO",
    "source_id": "mo_stl_lra_inventory",
    "county": "St. Louis City",
-   "status": "NEEDS_REVIEW",
-   "basis": "search_index",
-   "reason": "The LRA's Offer to Purchase page and the City's Purchase City-Owned Property page were found through the search index only (offer submitted in person by appointment) - not read",
-   "attempted_on": "2026-10-06",
+   "status": "VERIFIED",
+   "basis": "evidence_table",
+   "reason": "Offer to Purchase — LRA, Land Reutilization Authority",
+   "attempted_on": "2026-10-26",
    "authority_type": "county_land_bank",
    "authority": "Land Reutilization Authority (St. Louis Development Corporation)",
-   "scope": "source",
-   "candidates": [
-    {
-     "url": "https://www.lrastl.org/offer-to-purchase",
-     "doc_kind": "PROCEDURE"
-    },
-    {
-     "url": "https://www.stlouis-mo.gov/government/property/purchase-city-owned-property.cfm",
-     "doc_kind": "INSTRUCTIONS"
-    }
-   ]
+   "path_type": "application_download",
+   "scope": "source"
   },
   {
    "state": "OK",
@@ -1640,33 +1809,21 @@
    "attempted_on": "2026-10-04",
    "authority_type": "county_treasurer",
    "authority": "Oklahoma County Treasurer",
+   "path_type": "application_download",
    "scope": "source"
   },
   {
    "state": "PA",
    "source_id": "pa_fayette_repository",
    "county": "Fayette",
-   "status": "NEEDS_REVIEW",
-   "basis": "search_index",
-   "reason": "The Tax Claim Bureau's Repository Sale page and repository FAQ were found through the search index only (sealed bid form and notarized affidavit) - not read",
-   "attempted_on": "2026-10-06",
+   "status": "VERIFIED",
+   "basis": "evidence_table",
+   "reason": "Tax Sale Information | Fayette County, PA",
+   "attempted_on": "2026-10-26",
    "authority_type": "county_tax_collector",
    "authority": "Fayette County Tax Claim Bureau",
-   "scope": "source",
-   "candidates": [
-    {
-     "url": "https://www.fayettecountypa.org/930/Repository-Sale",
-     "doc_kind": "PROCEDURE"
-    },
-    {
-     "url": "https://www.fayettecountypa.org/DocumentCenter/View/5600/repository-FAQ",
-     "doc_kind": "INSTRUCTIONS"
-    },
-    {
-     "url": "https://www.fayettecountypa.org/269/Tax-Claim-Bureau",
-     "doc_kind": "CONTACT"
-    }
-   ]
+   "path_type": "application_download",
+   "scope": "source"
   },
   {
    "state": "SC",
@@ -1678,6 +1835,7 @@
    "attempted_on": "2026-10-02",
    "authority_type": "other_government",
    "authority": "Georgetown County Forfeited Land Commission",
+   "path_type": "application_download",
    "scope": "source"
   },
   {
@@ -1690,6 +1848,7 @@
    "attempted_on": "2026-10-02",
    "authority_type": "other_government",
    "authority": "Horry County Forfeited Land Commission",
+   "path_type": "application_download",
    "scope": "source"
   },
   {

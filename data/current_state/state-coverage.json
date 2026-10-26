@@ -6345,10 +6345,12 @@
     "AVAILABLE": {
      "acquisition": {
       "by_status": {
-       "NEEDS_REVIEW": 1
+       "VERIFIED": 1
       },
       "units": 1,
-      "verified_units": []
+      "verified_units": [
+       "Ramsey (mn_ramsey_tax_forfeit)"
+      ]
      },
      "classification": "APPROVAL_UNRESOLVED",
      "classification_reasons": [
@@ -6476,9 +6478,9 @@
      "rules": {
       "by_status": {
        "NOT_VERIFIED": 1,
-       "VERIFIED": 1
+       "VERIFIED": 2
       },
-      "count": 2,
+      "count": 3,
       "county_rules": [
        "Ramsey"
       ],
@@ -6601,10 +6603,12 @@
     "AVAILABLE": {
      "acquisition": {
       "by_status": {
-       "NEEDS_REVIEW": 1
+       "VERIFIED": 1
       },
       "units": 1,
-      "verified_units": []
+      "verified_units": [
+       "St. Louis City (mo_stl_lra_inventory)"
+      ]
      },
      "classification": "APPROVAL_UNRESOLVED",
      "classification_reasons": [
@@ -6731,9 +6735,10 @@
      },
      "rules": {
       "by_status": {
-       "NOT_VERIFIED": 2
+       "NOT_VERIFIED": 2,
+       "VERIFIED": 1
       },
-      "count": 2,
+      "count": 3,
       "county_rules": [
        "St. Louis City"
       ],
@@ -7116,10 +7121,12 @@
     "AVAILABLE": {
      "acquisition": {
       "by_status": {
-       "NEEDS_REVIEW": 1
+       "VERIFIED": 1
       },
       "units": 1,
-      "verified_units": []
+      "verified_units": [
+       "Fayette (pa_fayette_repository)"
+      ]
      },
      "classification": "APPROVAL_UNRESOLVED",
      "classification_reasons": [
@@ -7247,9 +7254,9 @@
      "rules": {
       "by_status": {
        "NOT_VERIFIED": 1,
-       "VERIFIED": 1
+       "VERIFIED": 2
       },
-      "count": 2,
+      "count": 3,
       "county_rules": [
        "Fayette"
       ],

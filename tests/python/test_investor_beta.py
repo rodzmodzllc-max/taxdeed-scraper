@@ -31,8 +31,16 @@ def test_every_record_is_an_applicable_verified_evidence_row():
     applicable = {(e.state, e.source_id, e.county, e.path_type, e.observed_on) for e in rows if e.applicable}
     recs = json.loads(B.render())["records"]
     assert recs, "no records"
+    # 2026-10-26: a unit with no evidence row may also carry the record the engine
+    # types from its PRODUCTION_VERIFIED registry row's own purchase document.
+    from harvesters.governance.county_source_registry import load_registry  # noqa: PLC0415
+    reg = {(x.state, x.source_id): x for x in load_registry()}
     for r in recs:
-        assert (r["state"], r["source_id"], r["county"], r["path_type"], r["purchase_path_observed_on"]) in applicable
+        key = (r["state"], r["source_id"], r["county"], r["path_type"], r["purchase_path_observed_on"])
+        if key not in applicable:
+            row = reg[(r["state"], r["source_id"])]
+            assert row.verification_status == "PRODUCTION_VERIFIED" and row.county == r["county"]
+            assert r["process_url"] == row.purchase_url and r["purchase_path_observed_on"] == row.last_checked
         acq = r["acquisition"]
         assert acq["mode"] in PPE.ACQUISITION_MODE_LABELS
         assert acq["observed_on"] == r["purchase_path_observed_on"]

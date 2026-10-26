@@ -359,7 +359,7 @@ Counties (FOCUS first, then fewest failed rules and most visible records):
 * **Counties:** St. Louis City
 * **Ledger:** AVAILABLE
 * **Usable inventory:** 0 customer-visible of 9,758 active
-* **Published path:** 0% (acquisition evidence); 0 counties with a verified acquisition record
+* **Published path:** 0% (acquisition evidence); 1 county with a verified acquisition record
 * **Property data:** legal 100%, value 0%, taxable 0%, acreage 0%, land use 96%
 * **Coordinates:** 0% (0% authoritative)
 * **Imagery:** 0% imagery-capable, 0% stored
@@ -374,7 +374,7 @@ Counties (FOCUS first, then fewest failed rules and most visible records):
 * **Counties:** Fayette
 * **Ledger:** AVAILABLE
 * **Usable inventory:** 0 customer-visible of 376 active
-* **Published path:** 0% (acquisition evidence); 0 counties with a verified acquisition record
+* **Published path:** 0% (acquisition evidence); 1 county with a verified acquisition record
 * **Property data:** legal 100%, value 0%, taxable 0%, acreage 0%, land use 0%
 * **Coordinates:** 0% (0% authoritative)
 * **Imagery:** 0% imagery-capable, 0% stored
@@ -444,7 +444,7 @@ Counties (FOCUS first, then fewest failed rules and most visible records):
 * **Counties:** Ramsey
 * **Ledger:** AVAILABLE
 * **Usable inventory:** 0 customer-visible of 2 active
-* **Published path:** 0% (acquisition evidence); 0 counties with a verified acquisition record
+* **Published path:** 0% (acquisition evidence); 1 county with a verified acquisition record
 * **Property data:** legal 100%, value 0%, taxable 0%, acreage 0%, land use 0%
 * **Coordinates:** 100% (100% authoritative)
 * **Imagery:** 100% imagery-capable, 100% stored

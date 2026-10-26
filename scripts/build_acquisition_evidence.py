@@ -31,9 +31,31 @@ OUT = REPO / "public" / "acquisition-evidence.json"
 TABLES = (REPO / "data" / "purchase_path_evidence.csv", REPO / "data" / "purchase_path_evidence_expansion.csv")
 
 
-def records() -> list[dict]:
-    reg = {(r.state, r.source_id): r for r in load_registry()}
+def _record(state: str, source_id: str, county: str, path) -> dict:
+    rec = {"state": state, "source_id": source_id, "county": county, "path_type": path.path_type}
+    if path.url:
+        # The URL the path itself names (form, instructions page) - the
+        # customer's link to act on; process_url so it never collides with a
+        # row's own purchase_url.
+        rec["process_url"] = path.url
+    rec.update(path.provenance())
+    return rec
+
+
+def _available_units(reg_rows) -> set[tuple]:
+    return {(r.state, r.source_id, r.county) for r in reg_rows
+            if r.source_id and "AVAILABLE" in (r.ledgers or "") and r.county and r.county != "STATEWIDE"}
+
+
+def build() -> tuple[list[dict], dict[tuple, str]]:
+    """(county records, engine refusal per unit). A record exists only where the
+    purchase-path engine itself established a path: from an applicable evidence
+    row, or - for an AVAILABLE unit with none - from the PRODUCTION_VERIFIED
+    registry row's own purchase document (typed by the engine, source scope)."""
+    reg_rows = load_registry()
+    reg = {(r.state, r.source_id): r for r in reg_rows}
     out: dict[tuple, dict] = {}
+    refused: dict[tuple, str] = {}
     for table in TABLES:
         evidence = PPE.load_evidence(table)
         for e in evidence:
@@ -42,43 +64,70 @@ def records() -> list[dict]:
             key = (e.state, e.source_id, e.county)
             if key in out:
                 continue
-            path, _ = PPE.resolve({}, state=e.state, source_id=e.source_id, county=e.county, registry_row=reg.get((e.state, e.source_id)),
-                                  evidence=evidence, harvest_date=e.observed_on)
+            path, reasons = PPE.resolve({}, state=e.state, source_id=e.source_id, county=e.county,
+                                        registry_row=reg.get((e.state, e.source_id)), evidence=evidence, harvest_date=e.observed_on)
             # Only a path the evidence row itself established (not a registry fallback).
             if path is None or path.path_type != e.path_type or path.observed_on != e.observed_on:
+                refused.setdefault(key, "; ".join(reasons) or "the evidence row did not establish a path")
                 continue
-            rec = {"state": e.state, "source_id": e.source_id, "county": e.county, "path_type": path.path_type}
-            rec.update(path.provenance())
-            out[key] = rec
-    return [out[k] for k in sorted(out)]
+            out[key] = _record(e.state, e.source_id, e.county, path)
+    covered = {(k[0], k[1]) for k in out if k[2] == "*"}
+    for st, sid, county in sorted(_available_units(reg_rows)):
+        key = (st, sid, county)
+        if key in out or (st, sid) in covered:
+            continue
+        row = reg.get((st, sid))
+        if row is None or not str(getattr(row, "purchase_url", "") or "").startswith("https://"):
+            continue
+        path, reasons = PPE.from_registry(PPE._registry_fields(row), list_url=None, document_url=None,
+                                          harvest_date=getattr(row, "last_checked", "") or "")
+        if path is None:
+            refused.setdefault(key, reasons or "the registry purchase document did not establish a path")
+            continue
+        out[key] = _record(st, sid, county, path)
+    return [out[k] for k in sorted(out)], refused
+
+
+def records() -> list[dict]:
+    return build()[0]
 
 
 def status() -> list[dict]:
     """One acquisition-evidence status per AVAILABLE (state, source, county)
     unit (harvesters/sources/acquisition_evidence_status.py): every registry
     AVAILABLE source with a source id, plus every unit an outcome names.
-    County / source-wide, shared by every property of the unit."""
+    County / source-wide, shared by every property of the unit. A unit is
+    VERIFIED only when build() made its record (records and status agree)."""
     reg_rows = load_registry()
     reg = {(r.state, r.source_id): r for r in reg_rows}
     evidence = [e for t in TABLES for e in PPE.load_evidence(t)]
     outcomes = AES.load_outcomes()
     candidates = AES.load_candidates()
-    units = {(r.state, r.source_id, r.county) for r in reg_rows
-             if r.source_id and "AVAILABLE" in (r.ledgers or "") and r.county and r.county != "STATEWIDE"}
+    recs, refused = build()
+    units = _available_units(reg_rows)
     units |= {(o.state, o.source_id, o.county) for o in outcomes}
     out = []
     for st, sid, county in sorted(units):
         u = AES.unit_status(st, sid, county, evidence=evidence, registry_row=reg.get((st, sid)),
-                            outcomes=outcomes, candidates=candidates)
+                            outcomes=outcomes, candidates=candidates, records_known=True,
+                            record=find_record(recs, st, sid, county),
+                            refusal=refused.get((st, sid, county)) or refused.get((st, sid, "*"), ""))
         out.append(u.as_dict())
     return out
+
+
+def find_record(recs: list[dict], state: str, source_id: str, county: str) -> dict | None:
+    """The unit's county record, else the source-wide ('*') one - the same
+    lookup the acquisition gate uses (harvesters/sources/acquisition_gate.find_record)."""
+    from harvesters.sources.acquisition_gate import find_record as gate_find  # noqa: PLC0415
+    return gate_find(recs, state, source_id, county)
 
 
 def render() -> str:
     return json.dumps({"_comment": "Generated by scripts/build_acquisition_evidence.py from the verified purchase-path evidence "
                        "tables. County-level process records only; never per-parcel. 'status' is the acquisition-evidence "
                        "status of every AVAILABLE unit (VERIFIED / NEEDS_REVIEW / UNAVAILABLE / NOT_FOUND).",
-                       "records": records(), "status": status()},
+                       "records": build()[0], "status": status()},
                       indent=1, sort_keys=False, ensure_ascii=False) + "\n"
 
 
