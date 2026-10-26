@@ -95,8 +95,10 @@ def test_deed_harvester_checks_curl_exit_code_not_just_content():
     --fail plus an explicit $LASTEXITCODE check is what makes a real failure
     observable at all."""
     src = _deed_harvester_src()
-    assert src.count("--fail") >= 3  # calendar fetch, preview fetch, paginated fetch
-    assert src.count("if ($LASTEXITCODE -ne 0) {") == 3
+    # calendar fetch, preview fetch, paginated fetch, and (2026-10-26) the
+    # page-count refresh that tells the harvester how many pages a sale day has
+    assert src.count("--fail") >= 4
+    assert src.count("if ($LASTEXITCODE -ne 0) {") == 4
 
 
 def test_deed_harvester_marks_calendar_failure_incomplete_not_no_auction_days():
@@ -141,6 +143,7 @@ def test_deed_harvester_every_failure_path_sets_county_not_ok():
         'calendar fetch failed for month offset',
         'preview/referer warm-up fetch failed for $date',
         'paginated fetch failed for $date page $page',
+        'page-count refresh failed for $date',
     ]:
         idx = src.index(marker)
         preceding = src[max(0, idx - 200):idx]
@@ -163,7 +166,7 @@ def test_deed_harvester_always_writes_status_file_unconditionally():
     early-exit condition - it always runs once the county loop finishes,
     matching harvest_lienhub_certificates.ps1's 'always written' discipline."""
     src = _deed_harvester_src()
-    write_idx = src.index("$countyStatus | ConvertTo-Json -Depth 3 | Set-Content $outStatus")
+    write_idx = src.index("$countyStatus | ConvertTo-Json -Depth 5 | Set-Content $outStatus")
     loop_end_idx = src.rindex("\n}\n", 0, write_idx)  # the county loop's closing brace
     assert loop_end_idx < write_idx
     json_write_idx = src.index('$all | ConvertTo-Json -Depth 4 | Set-Content $outJson')
@@ -642,9 +645,9 @@ def test_part6_no_workflow_schedule_change():
     byte-identical to before this phase."""
     workflow = _read(".github", "workflows", "harvest-and-sync.yml")
     assert "0 10,22 * * *" not in workflow  # this schedule string was never in this file to begin with; see next line
-    assert "'0 10 * * *'" in workflow
-    assert "'0 22 * * *'" in workflow
-    assert "'0 12 * * *'" in workflow
+    assert "'13 10 * * *'" in workflow
+    assert "'13 22 * * *'" in workflow
+    assert "'37 11 * * *'" in workflow
 
 
 def test_part6_deed_job_step_order_unchanged():

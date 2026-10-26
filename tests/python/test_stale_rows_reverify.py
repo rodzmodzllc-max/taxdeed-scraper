@@ -296,6 +296,37 @@ def test_keyset_repeat_with_different_values_and_missing_ids_fail():
     assert res.outcome == "FAILED" and "object-id" in res.error_detail
 
 
+
+def test_keyset_asks_for_the_object_id_and_reads_it_in_any_case():
+    """Run 382 (2026-10-26): the real Detroit layers return only the fields
+    named in outFields, and the mapped fields never include the object id -
+    every batch failed with "a feature carries no numeric ObjectId". The
+    keyset query must request it, and a server echoing another case
+    (OBJECTID for ObjectId) still advances."""
+    import dataclasses  # noqa: PLC0415
+    from urllib.parse import parse_qs, urlsplit  # noqa: PLC0415
+    AG, _ = _arc()
+    from harvesters.otc.adapters import expansion as EX  # noqa: PLC0415
+    cfg = dataclasses.replace(EX.MI_DETROIT_LANDBANK_PROGRAMS, page_size=2)
+    feats = [_feat(i, f"P{i}.") for i in (3, 7, 9)]
+    fetch, _calls = _keyset_layer(feats)
+
+    def strict(url):
+        out = fetch(url)
+        if url.endswith("?f=json"):
+            return out
+        asked = parse_qs(urlsplit(url).query)["outFields"][0].split(",")
+        keep = {a.lower() for a in asked}
+        trimmed = []
+        for f in out["features"]:
+            attrs = {("OBJECTID" if k == "ObjectId" else k): v for k, v in f["attributes"].items() if k.lower() in keep}
+            trimmed.append({"attributes": attrs})
+        return {**out, "features": trimmed}
+
+    res = AG.fetch_all(cfg, strict, retrieved_at=NOW)
+    assert res.outcome == "COMPLETE" and sorted(r.case_no for r in res.records) == ["P3.", "P7.", "P9."]
+    assert "ObjectId" in AG.keyset_params(cfg, "ObjectId", None)["outFields"].split(",")
+
 # ==================== LAFT PDF successor discovery ====================
 
 PASCO_PAGE = """<html><body>
@@ -401,20 +432,133 @@ def test_offlist_closeout_plan():
     assert rep["counts"]["county_newest_read_not_this_run"] == 2 and rep["counts"]["seen_within_grace"] == 1
 
 
-def test_offlist_closeout_is_off_by_default(tmp_path, monkeypatch):
+def test_offlist_closeout_is_on_by_default_with_a_kill_switch(tmp_path, monkeypatch):
+    # Owner decision 2026-10-26: --apply writes unless AUCTION_OFFLIST_CLOSE=0.
     import auction_offlist_closeout as C  # noqa: PLC0415
+    assert C.write_enabled(True, {}) and C.write_enabled(True, {C.FLAG: ""}) and C.write_enabled(True, {C.FLAG: "1"})
+    assert not C.write_enabled(True, {C.FLAG: "0"}) and not C.write_enabled(True, {C.FLAG: " 0 "})
+    assert not C.write_enabled(False, {})
     rows, status, harvest = _closeout_fixture()
     for name, data in (("rows.json", rows), ("status.json", status), ("harvest.json", harvest)):
         (tmp_path / name).write_text(json.dumps(data))
+    args = ["--rows", str(tmp_path / "rows.json"), "--status", str(tmp_path / "status.json"),
+            "--harvest", str(tmp_path / "harvest.json"), "--now", NOW.isoformat(), "--apply"]
+    r = subprocess.run([sys.executable, str(ROOT / "scripts/auction_offlist_closeout.py"), *args], capture_output=True, text=True,
+                       check=True, env={"PATH": "/usr/bin:/bin"})
+    assert "mode apply" in r.stdout and "would close 2" in r.stdout and "C2" not in r.stdout
+    r = subprocess.run([sys.executable, str(ROOT / "scripts/auction_offlist_closeout.py"), *args], capture_output=True, text=True,
+                       check=True, env={"PATH": "/usr/bin:/bin", C.FLAG: "0"})
+    assert "plan-only (AUCTION_OFFLIST_CLOSE=0)" in r.stdout and "would close 2" in r.stdout
+    # --rows is the offline path: even in apply mode nothing is sent.
     calls = []
     monkeypatch.setattr(C, "close", lambda *a, **k: calls.append(a) or 0)
     monkeypatch.delenv(C.FLAG, raising=False)
-    args = ["--rows", str(tmp_path / "rows.json"), "--status", str(tmp_path / "status.json"),
-            "--harvest", str(tmp_path / "harvest.json"), "--now", NOW.isoformat(), "--apply"]
     assert C.main(args) == 0 and calls == []
-    r = subprocess.run([sys.executable, str(ROOT / "scripts/auction_offlist_closeout.py"), *args], capture_output=True, text=True,
-                       check=True, env={"PATH": "/usr/bin:/bin"})
-    assert "plan-only" in r.stdout and "would close 2" in r.stdout and "C2" not in r.stdout
+
+
+def test_offlist_closeout_never_closes_on_a_possibly_truncated_sale_day():
+    # RealAuction pages the Waiting list ten at a time and the harvester's
+    # pager repeats page one: a sale day holding 10+ harvested rows may hide
+    # more on page two, so an absent row there is never closed.
+    import auction_offlist_closeout as C  # noqa: PLC0415
+    rows = [_auction(i, "Lee", "2026-11-05", ago(hours=1)) for i in range(1, 11)]
+    rows += [_auction(20, "Lee", "2026-11-05", None), _auction(21, "Lee", "2026-11-12", None)]
+    harvest = [{"county": "Lee", "case": f"C{i}", "sale_date": "11/05/2026"} for i in range(1, 11)]
+    harvest.append({"county": "Lee", "case": "C99", "sale_date": "11/12/2026"})
+    status = [{"county": "Lee", "status": "COMPLETE", "rowCount": 11}]
+    per_day = C.harvested_per_day(harvest)
+    assert per_day == {("Lee", "2026-11-05"): 10, ("Lee", "2026-11-12"): 1}
+    ids, rep = C.plan(rows, complete=C.complete_counties(status), harvested=C.harvested_cases(harvest), now=NOW, per_day=per_day)
+    assert ids == ["id21"]
+    assert rep["counts"]["sale_day_possibly_truncated"] == 1 and rep["counts"]["close"] == 1
+    # Nine rows read on the day: a short page, the whole day was read.
+    ids, _ = C.plan(rows, complete=C.complete_counties(status), harvested=C.harvested_cases(harvest), now=NOW,
+                    per_day={("Lee", "2026-11-05"): 9})
+    assert sorted(ids) == ["id20", "id21"]
+
+
+def test_offlist_closeout_holds_only_a_provably_short_sale_day():
+    # 2026-10-26: the harvester reads every Waiting page and records per sale
+    # day the items and pages read and the page count the page publishes
+    # ("page 1 of N"). A day read in full is closed from absence however many
+    # rows it holds; a day read short (or whose page count was not published)
+    # is held.
+    import auction_offlist_closeout as C  # noqa: PLC0415
+    rows = [_auction(i, "Lee", "2026-11-05", ago(hours=1)) for i in range(1, 21)]
+    rows += [_auction(30, "Lee", "2026-11-05", None),        # absent from a fully read 2-page day -> close
+             _auction(31, "Lee", "2026-11-12", None),        # absent from a day read 1 of 2 pages -> hold
+             _auction(32, "Lee", "2026-11-19", None),        # day whose page count was not published -> hold
+             _auction(33, "Lee", "2026-11-26", None)]        # day no longer on the calendar -> close
+    harvest = [{"county": "Lee", "case": f"C{i}", "sale_date": "11/05/2026"} for i in range(1, 21)]
+    harvest += [{"county": "Lee", "case": f"X{i}", "sale_date": "11/12/2026"} for i in range(10)]
+    harvest += [{"county": "Lee", "case": f"Y{i}", "sale_date": "11/19/2026"} for i in range(10)]
+    status = [{"county": "Lee", "status": "COMPLETE", "rowCount": 40, "saleDays": [
+        {"sale_date": "11/05/2026", "read": 20, "pages_read": 2, "published_pages": 2, "complete": True},
+        {"sale_date": "11/12/2026", "read": 10, "pages_read": 1, "published_pages": 2, "complete": False},
+        {"sale_date": "11/19/2026", "read": 10, "pages_read": 1, "published_pages": None, "complete": False}]}]
+    days = C.day_reads(status)
+    assert days[("Lee", "2026-11-05")]["complete"] and not days[("Lee", "2026-11-12")]["complete"]
+    ids, rep = C.plan(rows, complete=C.complete_counties(status), harvested=C.harvested_cases(harvest), now=NOW,
+                      per_day=C.harvested_per_day(harvest), days=days)
+    assert sorted(ids) == ["id30", "id33"]
+    assert rep["counts"]["sale_day_read_incomplete"] == 2 and "sale_day_possibly_truncated" not in rep["counts"]
+
+
+def test_offlist_closeout_day_record_must_prove_completeness():
+    import auction_offlist_closeout as C  # noqa: PLC0415
+    good = {"sale_date": "11/05/2026", "read": 12, "pages_read": 2, "published_pages": 2, "complete": True}
+    status = {"county": "Lee", "status": "COMPLETE", "saleDays": good}   # PowerShell's one-element form
+    assert C.day_reads(status)[("Lee", "2026-11-05")]["complete"]
+    empty = {**good, "read": 0, "pages_read": 0, "published_pages": 0}  # a day with no items is read in full
+    assert C.day_reads([{"county": "Lee", "saleDays": [empty]}])[("Lee", "2026-11-05")]["complete"]
+    for bad in ({"pages_read": 1},                  # fewer pages read than published
+                {"read": 10},                       # 2 published pages hold at least 11 items
+                {"complete": "true"},               # not literally true
+                {"published_pages": ""},            # no published page count
+                {"published_pages": None},
+                {"read": "x"}):                     # unreadable count
+        rec = C.day_reads([{"county": "Lee", "saleDays": [{**good, **bad}]}])
+        assert rec[("Lee", "2026-11-05")]["complete"] is False, bad
+
+
+def test_offlist_closeout_main_reads_day_records(tmp_path):
+    rows = [_auction(1, "Lee", "2026-11-05", ago(hours=1))] + [_auction(i, "Lee", "2026-11-05", None) for i in (2, 3)]
+    harvest = [{"county": "Lee", "case": "C1", "sale_date": "11/05/2026"}] + \
+              [{"county": "Lee", "case": f"Z{i}", "sale_date": "11/05/2026"} for i in range(11)]
+    for complete, expect in ((True, "would close 2"), (False, "would close 0")):
+        status = [{"county": "Lee", "status": "COMPLETE", "rowCount": 12,
+                   "saleDays": [{"sale_date": "11/05/2026", "read": 12, "pages_read": 2 if complete else 1,
+                                 "published_pages": 2, "complete": complete}]}]
+        for name, data in (("rows.json", rows), ("status.json", status), ("harvest.json", harvest)):
+            (tmp_path / name).write_text(json.dumps(data))
+        r = subprocess.run([sys.executable, str(ROOT / "scripts/auction_offlist_closeout.py"), "--rows", str(tmp_path / "rows.json"),
+                            "--status", str(tmp_path / "status.json"), "--harvest", str(tmp_path / "harvest.json"),
+                            "--now", NOW.isoformat()], capture_output=True, text=True, check=True, env={"PATH": "/usr/bin:/bin"})
+        assert expect in r.stdout, r.stdout
+        assert "Z1" not in r.stdout and "C2" not in r.stdout
+
+
+def test_iso_day_reads_the_feed_and_iso_forms():
+    import auction_offlist_closeout as C  # noqa: PLC0415
+    assert C.iso_day("11/05/2026") == "2026-11-05" and C.iso_day("2026-11-05") == "2026-11-05"
+    assert C.iso_day("") == "" and C.iso_day("soon") == "" and C.iso_day(None) == ""
+
+
+def test_offlist_closeout_closes_past_sale_rows_of_counties_no_harvester_reads(tmp_path):
+    import auction_offlist_closeout as C  # noqa: PLC0415
+    rows = [_auction(1, "DeSoto", "2026-10-01", None),          # no harvester reads DeSoto, sale over -> close
+            _auction(2, "DeSoto", "2026-11-20", None),          # future-dated: left to the off-list rule (county not COMPLETE)
+            _auction(3, "Lee", "2026-10-01", None),             # covered county: the sync's own past-sale rule
+            _auction(4, "Okaloosa", "2026-10-01", None),        # Bid4Assets county is covered
+            _auction(5, "DeSoto", None, None)]                  # no sale date -> keep
+    covered = C.covered_counties()
+    assert "Lee" in covered and "Okaloosa" in covered and "DeSoto" not in covered
+    ids, rep = C.plan(rows, complete=set(), harvested={}, now=NOW, covered=covered)
+    assert ids == ["id1"] and rep["counts"]["past_sale_no_harvester"] == 1 and rep["by_county"] == {"DeSoto": 1}
+    # No county list (unreadable) -> the rule is off.
+    assert C.covered_counties(tmp_path / "missing.csv") == set()
+    ids, _ = C.plan(rows, complete=set(), harvested={}, now=NOW, covered=set())
+    assert ids == []
 
 
 def test_offlist_closeout_writes_status_closed_only():
@@ -424,7 +568,7 @@ def test_offlist_closeout_writes_status_closed_only():
         assert f'"{forbidden}"' not in src
     wf = (ROOT / ".github/workflows/harvest-and-sync.yml").read_text()
     assert "AUCTION_OFFLIST_CLOSE: ${{ vars.AUCTION_OFFLIST_CLOSE }}" in wf
-    assert "scripts/auction_offlist_closeout.py --status out/harvest_all_status.json" in wf
+    assert "scripts/auction_offlist_closeout.py --status out/harvest_all_status.json --harvest out/harvest_all.json --apply" in wf
 
 
 def test_offlist_closeout_missing_status_closes_nothing(tmp_path, capsys):

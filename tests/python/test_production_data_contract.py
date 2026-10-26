@@ -235,24 +235,25 @@ def test_G_no_provenance_field_name_appears_in_the_csv_export():
 # ==================== H: Production reality ====================
 
 
-def test_H_texas_harvest_job_is_manual_only_not_on_any_cron_schedule():
+def test_H_texas_harvest_job_is_on_the_daily_0737_schedule_once_a_day():
+    # Owner approval 2026-10-26: Texas reads daily. It rides the 07:37 ET run
+    # (the same run as laft / expansion), never the 17:37 second read, so
+    # LGBS is requested once a day.
     workflow = _read(".github", "workflows", "harvest-and-sync.yml")
     texas_block_start = workflow.index("  texas:")
     next_job_start = workflow.index("\n  backup:", texas_block_start)
     texas_block = workflow[texas_block_start:next_job_start]
-    assert "if: github.event_name == 'workflow_dispatch'" in texas_block
-    # A schedule branch would look like `|| github.event.schedule ==` -
-    # confirm that pattern is absent from the texas job's own `if:` line
-    # specifically (not merely absent from the whole file, which also
-    # contains schedule-gated jobs elsewhere).
     if_line = next(line for line in texas_block.splitlines() if line.strip().startswith("if:"))
-    assert "github.event.schedule" not in if_line
+    assert "github.event_name == 'workflow_dispatch'" in if_line
+    assert "github.event.schedule == '37 11 * * *'" in if_line
+    assert "'37 17 * * *'" not in if_line
+    assert "--mode scheduled --cadence-hours 24" in texas_block
 
 
 def test_H_florida_deed_job_is_on_a_real_cron_schedule_for_contrast():
     workflow = _read(".github", "workflows", "harvest-and-sync.yml")
-    assert "cron: '0 10 * * *'" in workflow
-    assert "cron: '0 22 * * *'" in workflow
+    assert "cron: '13 10 * * *'" in workflow
+    assert "cron: '13 22 * * *'" in workflow
     deeds_start = workflow.index("\n  deeds:")
     next_job_start = workflow.index("\n  certificates:", deeds_start)
     deeds_block = workflow[deeds_start:next_job_start]

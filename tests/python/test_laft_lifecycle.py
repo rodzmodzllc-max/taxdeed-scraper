@@ -388,9 +388,9 @@ def test_s03_workflow_wires_status_file_lifecycle_and_changes_no_schedule():
             if "laft_lifecycle.py" in str(s.get("run", "")):
                 assert job == "laft"
     raw = (REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8")
-    assert raw.count("cron:") == 3 and "cron: '0 12 * * *'" in raw
+    assert raw.count("cron:") == 4 and "cron: '37 11 * * *'" in raw
     texas = raw[raw.index("  texas:"):raw.index("\n  backup:")]
-    assert "if: github.event_name == 'workflow_dispatch'" in texas and "laft_lifecycle" not in texas
+    assert "github.event.schedule == '37 11 * * *'" in texas and "laft_lifecycle" not in texas  # daily since 2026-10-26
     assert names.index("Sync to Supabase") < names.index("Record source health")
 
 

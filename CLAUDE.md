@@ -1688,7 +1688,7 @@ Full description: `docs/available-ledger.md` section 8. The stable facts:
 - **`harvest-and-sync.yml` has a `job` selector** on manual dispatch (all /
   deeds / certificates / laft / texas / backup). Dispatch `job=laft` for the
   normal AVAILABLE path; never dispatch `all` or `texas` unless LGBS is
-  meant to run. Schedules unchanged; texas is never scheduled.
+  meant to run. (Since 2026-10-26 texas also runs daily in the 07:37 ET run.)
 - **`scripts/purchase_path_engine.py`** is the only writer of
   `purchase_path_type` / `_scope` / `_evidence` / `_observed_on` (ten
   types; refusals for search engines, homepages, guessed patterns,
@@ -2070,10 +2070,12 @@ Full description: `docs/image-storage.md`. Stable facts:
   status file stamps nothing. A one-object JSON (PowerShell's single-element
   array) is read as one row. The NULLs on 2026-10-01 were correct: LienHub
   returned 403 for all 32 counties on the only run since stamping shipped.
-- **Texas is manual-only by design** (the `texas` job is dispatch-only; LGBS
-  and TX RealAuction run nowhere else). `unit_freshness.MANUAL_ONLY_SOURCES`
-  marks those units `manual_only` and never ages them by the clock. Their
-  last read is never advanced. A test pins that set to the job's trigger.
+- **Texas reads daily since 2026-10-26** (owner approval): the `texas` job
+  runs in the 07:37 ET scheduled run (once a day, never the 17:37 read) and
+  on dispatch; LGBS and TX RealAuction run nowhere else. Their permission
+  records stay interim (expire 2027-04-12). `unit_freshness.MANUAL_ONLY_SOURCES`
+  still lists both, mirrored by app.js `MANUAL_ONLY_SOURCE_IDS` (front end):
+  emptying both together is the follow-up that lets the clock age them.
 
 ## All-sources AVAILABLE enrichment engine (2026-10-01, PR open, no migration)
 
@@ -3118,6 +3120,16 @@ close-out only closes rows whose sale day has PASSED, so they stayed "active" an
 - `OFF_LIST_GRACE_MS` / `AUCTION_READ_CACHE` are `var` (TDZ). Stub knob `?offlist=1` (p8 fresh, p9 unread).
 - Closing such rows server-side would be a lifecycle change to the deed sync (future-dated rows absent from a
   COMPLETE county) and is a separate, owner-authorized decision. `sw.js` -> `tdw-shell-v108`.
+- **Since 2026-10-26 (owner: the auction ledger must be current after one daily run)** the deeds job closes them:
+  - `scripts/auction_offlist_closeout.py` is ON (`vars.AUCTION_OFFLIST_CLOSE == '0'` is the kill switch). It never
+    closes on a sale day the harvest holds 10+ rows for: **the RealAuction Waiting harvest reads only the first page
+    (10 items) of each sale day** - the second request repeats page one (deeds run 40200487211: 62 sale days at
+    exactly 10 of "20 seen"). Rows on page two are never stamped and look "off list" without being so. Fixing the
+    pager in `harvest_all_counties.ps1` needs a capture of the site's own paging call first.
+  - It also closes past-dated active rows in counties no deeds harvester reads (DeSoto).
+  - `auction_outcomes.py` also reads upcoming sale days with an item off the Waiting list (`--harvest`);
+    `scripts/auction_outcome_status.py` moves the row out of active from a verified result on its CURRENT sale
+    day's event: 'sold' for "Auction Sold", 'closed' otherwise; status only.
 
 ## Tennessee: Shelby County Land Bank (2026-10-08, PR open, no migration)
 
@@ -3502,3 +3514,20 @@ Full description: `docs/review/header-tiers.md`. Stable facts:
   (`<!--RESEARCH-->` markers in `detailHtml()`); a nav jump opens it. Tests open it through the harness
   (`window.__suiteKeepResearchClosed` reads the default).
 - Shell CSS must never override `[hidden]` (filter rows and fields each needed a guard).
+
+## Texas close-out (2026-10-26, PR open, no migration)
+
+- **`out/harvest_texas_status.json` now carries `counties`**: one entry per (source_id, county) read, read through
+  `harvesters/ledgers/health.py`. LGBS is one statewide feed (`lgbs_county_entries`): COMPLETE / EMPTY only when the
+  walk ended, read exactly the API's own `count` (the same on every page; distinct `id`s when present) and attributed
+  every Texas record; a failed page is FAILED (TRANSPORT_, closes nothing); anything else INCOMPLETE. Every other county
+  of `data/tx_county_coverage_matrix.csv` gets EMPTY from a verified walk.
+- **TX RealAuction pager fixed**: page 0 is `PageDir=0&doR=1`, the next page `PageDir=1&doR=0` (doR=1 re-reads page 0 -
+  every sale date stopped at ten properties before). A county is COMPLETE only when every request succeeded, every item
+  had an Account Number and each date's paging ended on a short page; EMPTY from a real calendar with no sale day or a
+  JSON listing response with no items; a full page repeated, a login / non-JSON body or a failed request closes nothing.
+  The Florida `harvest_all_counties.ps1` still asks `PageDir=$page&doR=1` - same cap, not changed here.
+- **`scripts/texas_closeout.py`** (texas job, after the stamp, `continue-on-error`): closes ('closed' + delisted_at, never
+  a result) stored active tx_lgbs / tx_realauction rows absent from a COMPLETE / EMPTY read of their own (source,
+  county), through `sync_state_inventory.plan_close()`; reopens 'closed' rows the harvest lists again (never 'sold');
+  refuses a source that would lose >50% of its active, not-yet-past-sale rows in one run (`--allow-large-close`).
