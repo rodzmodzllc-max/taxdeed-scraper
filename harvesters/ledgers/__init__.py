@@ -101,6 +101,7 @@ SOURCE_LEDGERS: dict[str, frozenset[Ledger]] = {
     "fl_realauction": frozenset({Ledger.AUCTIONS}),
     "fl_bid4assets_okaloosa": frozenset({Ledger.AUCTIONS}),
     "fl_lienhub_certificates": frozenset({Ledger.LIENS_CERTIFICATES}),
+    "fl_sarasota_tc_certificates": frozenset({Ledger.LIENS_CERTIFICATES}),
     "fl_laft_pdfs": frozenset({Ledger.AVAILABLE}), "fl_laft_html": frozenset({Ledger.AVAILABLE}),
     "fl_laft_pioneer": frozenset({Ledger.AVAILABLE}), "fl_laft_realtdm": frozenset({Ledger.AVAILABLE}),
     "fl_laft_orange": frozenset({Ledger.AVAILABLE}), "fl_laft_stlucie": frozenset({Ledger.AVAILABLE}),

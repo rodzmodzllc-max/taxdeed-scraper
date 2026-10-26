@@ -616,6 +616,30 @@ def fl_certificate_rows() -> list[dict]:
                                       "on every scheduled read (no certificate row has been re-read or stamped since); not a usage restriction - "
                                       "an access failure awaiting the owner's decision (contact the platform or change the read path)",
                          ledgers=LIENS))
+    # 2026-10-26: the Sarasota Tax Collector publishes its county-held list on its
+    # own site (docs/review/fl-certificate-sources-2026-10-26.md). Collected and
+    # published on the owner's decision of 2026-10-26 ("stop asking for approval");
+    # the permission records are an interim internal risk acceptance, never the
+    # Tax Collector's permission (data/source_permissions.csv).
+    rows.append(_row(state="FL", county="Sarasota", source_id="fl_sarasota_tc_certificates",
+                     harvester="harvest_sarasota_certificates.py", inventory_type="", source_authority="GOVERNMENT_DIRECT",
+                     canonical_url="https://www.sarasotataxcollector.gov/services/tax-services/property-tax/tax-cert-sale",
+                     document_url="https://www.sarasotataxcollector.gov/files/docs/CountyHeldCertificates.pdf",
+                     access_method="HTTP_GET_PDF", machine_format="PDF",
+                     verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
+                     last_checked="2026-10-26", completeness_status="UNKNOWN", publication_status="APPROVED",
+                     evidence_ref="docs/review/fl-certificate-sources-2026-10-26.md; scripts/harvest_sarasota_certificates.py; "
+                                  "data/source_permissions.csv fl_sarasota_tc_certificates (owner decision 2026-10-26, interim)",
+                     notes="The Tax Collector's own 'County-Held Certificates for Purchase' PDF (one row per certificate: "
+                           "account, certificate year and number, tax year, assessed value, face amount, interest, purchase "
+                           "price). Live runner read 2026-10-26: 232 certificates on 94 accounts. Published on the owner's "
+                           "decision of 2026-10-26; the permission records are interim (expire 2027-04-12).",
+                     publishing_unit_name="Sarasota County Tax Collector",
+                     amount_kind="PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+                     update_frequency="not published by the source; read daily by the certificates job (12:00 UTC)",
+                     source_terminology="'County-Held Certificates for Purchase': certificate number, tax year, 'purchase price', "
+                                        "interest (LIENS & CERTIFICATES)",
+                     ledgers=LIENS))
     return rows
 
 
