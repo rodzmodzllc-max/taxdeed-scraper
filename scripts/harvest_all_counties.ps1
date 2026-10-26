@@ -71,8 +71,12 @@ function Get-Href($block, $label) {
 }
 # The tax certificate that opened the deed application. Most RealAuction
 # county skins label it "Certificate #"; a county skin may word the label
-# differently (2026-10-26: Orange, 0 of 69 active rows carried a certificate
-# number although its list is read every run). Labels are tried in order and
+# differently. (2026-10-26, Orange: 0 of 69 active rows carried a certificate
+# number. The value-free label capture - fl-field-evidence run 40383361568 -
+# showed Orange DOES use "Certificate #", on all 92 items read, but publishes
+# the cell EMPTY; so Orange has no certificate number to read on this feed,
+# and none is invented. Hillsborough and Lee use the same label, filled.)
+# Labels are tried in order and
 # the first one PRESENT with a value wins; "Certificate #" stays first, so a
 # county that already read correctly reads exactly as before. The label must
 # be the WHOLE label cell (anchored on the CAD_LBL cell's '>' and its ':'), so

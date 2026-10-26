@@ -262,6 +262,20 @@ def test_certificate_label_variants(ps, label, expected):
     assert got == (expected or "NULL")
 
 
+def test_an_empty_certificate_cell_reads_as_nothing(ps):
+    # Orange (run 40383361568): "Certificate #" present on every item, cell empty.
+    m, ws = ps
+    script = ws / "scripts" / "cert_empty.ps1"
+    script.write_text("$ErrorActionPreference = 'Stop'\n" + _harvester_functions() +
+                      "\n$b = Get-Content (Join-Path $PSScriptRoot 'item.txt') -Raw\n"
+                      "$v = Get-CertificateNumber $b\nif ($null -eq $v) { 'NULL' } else { $v }\n", encoding="utf-8")
+    (ws / "scripts" / "item.txt").write_text(_item("Certificate #:", value=""), encoding="utf-8")
+    r = subprocess.run([m.PWSH, "-NoProfile", "-NonInteractive", "-File", str(script)], capture_output=True, text=True,
+                       timeout=120)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.strip().splitlines()[-1] == "NULL"
+
+
 def test_label_report_masks_digits(ps):
     m, ws = ps
     script = ws / "scripts" / "labels_under_test.ps1"
@@ -288,3 +302,110 @@ def test_label_capture_scope_reads_only_and_syncs_nothing():
     # The evidence job holds no database credential.
     ev = wf[wf.index("\n  evidence:\n"):wf.index("\n  enrich:\n")]
     assert "SUPABASE_SERVICE_KEY" not in ev
+
+
+# ------------------------------------------------------------- A: refill of erased tax-roll values
+
+def test_enricher_refills_values_a_sync_erased(monkeypatch):
+    import importlib.util
+    monkeypatch.setenv("SUPABASE_URL", "https://example.test")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "not-a-real-key")
+    spec = importlib.util.spec_from_file_location("_flfix_enrich", ROOT / "scripts" / "enrich_property_details.py")
+    E = importlib.util.module_from_spec(spec)
+    sys.modules["_flfix_enrich"] = E
+    spec.loader.exec_module(E)
+    seen = []
+
+    class Resp:
+        def __init__(self, data):
+            self._d = data
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._d
+
+    def fake_get(url, headers=None, params=None, timeout=None):
+        seen.append(dict(params or {}))
+        if params.get("assessed") == "is.null":
+            return Resp([{"id": 1, "county": "Lee", "parcel": "P"}, {"id": 2, "county": "Clay", "parcel": "Q"}])
+        return Resp([{"id": 1, "county": "Lee", "parcel": "P"}])   # the owner_name query: the same row again
+    monkeypatch.setattr(E.requests, "get", fake_get)
+    out = E.fetch_erased_rows(50)
+    assert {c: [r["id"] for r in v] for c, v in out.items()} == {"Lee": [1], "Clay": [2]}   # a row only once
+    q = seen[0]
+    assert q["fdor_enriched_at"] == "not.is.null"
+    assert q["field_provenance->assessed->>source"] == "in.(fdor_nal,county_gis)"
+    assert set(E.ERASABLE_COLUMNS) == {"assessed", "owner_name"}
+
+
+def test_refill_is_switched_on_only_by_the_workflow():
+    src = (ROOT / "scripts" / "enrich_property_details.py").read_text(encoding="utf-8")
+    assert 'os.environ.get("ENRICH_REFILL_ERASED") == "1"' in src
+    wf = (ROOT / ".github" / "workflows" / "harvest-and-sync.yml").read_text(encoding="utf-8")
+    i = wf.index("run: python3 scripts/enrich_property_details.py")
+    assert 'ENRICH_REFILL_ERASED: "1"' in wf[i - 600:i]
+
+
+# ------------------------------------------------------------- C: Sarasota county-held certificates
+
+import harvest_sarasota_certificates as S  # noqa: E402
+
+HEADER = ["ACCOUNT", "CERT YEAR", "CERT#", "ASSESSED V", "AFLAUCEE AMOUNT", "INTEREST", "TAX YEAR", "4.50%", "",
+          "PURCHASE PRICE"]
+
+
+def srow(acct="0000000001", cert="12", year="2024", price="$100.00"):
+    return [acct, "2026", cert, "1,000", "$90.00", "18", year, "$4.05", "6.25", price]
+
+
+def test_sarasota_parses_the_county_held_table():
+    tables = [[HEADER, srow(), srow(acct="0000000002", cert="13")],
+              [["", "", "", "2026 CERTIFICATES", "Page", "", "", "", "", ""], srow(acct="0000000003")]]
+    recs, counts = S.parse_tables(tables)
+    assert counts == {"rows": 3, "rejected": 0, "header_pages": 1, "furniture": 1}
+    r = recs[0]
+    assert (r["county"], r["case_no"], r["parcel"], r["certificate_no"], r["tax_year"]) == \
+        ("Sarasota", "0000000001", "0000000001", "12", "2024")
+    assert r["bid"] == 100.0 and r["assessed"] == 1000.0 and r["interest_rate"] == 18.0
+    assert r["owner_name"] is None and r["address"] is None and r["issued_date"] is None
+    assert r["source_id"] == "fl_sarasota_tc_certificates" and r["url_auction"] == S.PAGE_URL
+    assert S.evaluate(recs, counts)["status"] == "COMPLETE"
+
+
+def test_sarasota_bad_rows_make_the_read_incomplete_and_never_empty():
+    recs, counts = S.parse_tables([[HEADER, srow(), srow(acct="12AB")]])
+    assert len(recs) == 1 and S.evaluate(recs, counts)["status"] == "INCOMPLETE"
+    recs, counts = S.parse_tables([[HEADER]])
+    assert S.evaluate(recs, counts)["status"] == "INCOMPLETE"
+    recs, counts = S.parse_tables([[["NAME", "VALUE"], ["x", "1"]]])
+    assert S.evaluate(recs, counts)["status"] == "FAILED"
+
+
+def test_sarasota_link_is_read_from_the_page_never_built():
+    html = '<a href="/files/docs/CountyHeldCertificates.pdf">County-Held Certificates for Purchase</a>'
+    assert S.find_pdf_link(html, S.PAGE_URL) == "https://www.sarasotataxcollector.gov/files/docs/CountyHeldCertificates.pdf"
+    assert S.find_pdf_link('<a href="/other.pdf">Budget</a>', S.PAGE_URL) is None
+    assert S.find_pdf_link('<a href="http://x.example/CountyHeldCertificates.pdf">x</a>', S.PAGE_URL) is None
+    assert S.list_year("2026 CERTIFICATES\nACCOUNT") == "2026"
+
+
+def test_sarasota_permissions_are_interim_and_display_is_denied():
+    from harvesters.governance import permissions as P
+    for op in ("fetch", "parse", "store"):
+        d = P.authorize("fl_sarasota_tc_certificates", op, state="FL", county="Sarasota", dataset="county_held_certificates")
+        assert d.allowed and not d.documented
+    for op in ("display", "redistribute", "fetch_via_proxy"):
+        assert not P.authorize("fl_sarasota_tc_certificates", op, state="FL", county="Sarasota",
+                               dataset="county_held_certificates").allowed
+
+
+def test_sarasota_denied_permission_makes_no_request(monkeypatch):
+    class Denied:
+        allowed = False
+        reason_code = "TEST"
+    monkeypatch.setattr(S.LS, "permission", lambda *a, **k: Denied())
+    import requests
+    monkeypatch.setattr(requests, "get", lambda *a, **k: pytest.fail("request made"))
+    assert S.main([]) == S.LS.PERMISSION_DENIED_EXIT
