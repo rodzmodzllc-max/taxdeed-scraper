@@ -59,6 +59,18 @@
   },
   {
    "state": "FL",
+   "source_id": "fl_laft_portals",
+   "basis": "OPENING_BID_PLUS_ADDITIONS",
+   "figure_note": "Not the price to buy now: the county's total adds omitted taxes, accrued interest and deed fees. Request the current Lands Available statement from the clerk.",
+   "additions": "interest|omitted_taxes|doc_stamps|recording_fees",
+   "included_in_figure": "Already inside the opening bid (F.S. 197.502(6)) and never added again: the outstanding tax certificates, the delinquent, omitted and current taxes then due, interest, and the costs and fees as of when the opening bid was set - plus half the assessed value on homestead property.",
+   "official_total": "The clerk's Lands Available statement - request it from the clerk; it is valid only until the date printed on it.",
+   "quote": "Thereafter, any person ... may purchase the property from the clerk ... for the opening bid ... Interest on the opening bid continues to accrue through the month of sale (F.S. 197.502(7)); the purchaser pays the documentary stamp tax and the recording fees, and delinquent taxes accrued after the tax deed application (F.S. 197.542(1)). Duval: \"the opening bid, subsequent omitted taxes, and any accrued interest. Documentary stamps and recording fees are also assessed\".",
+   "evidence": "2026 Florida Statutes 197.502(6)-(7), 197.542(1) (read 2026-10-05, run 37248930656); data/purchase_path_evidence.csv Duval and Orange rows; docs/available-amount-semantics.md",
+   "observed_on": "2026-10-05"
+  },
+  {
+   "state": "FL",
    "source_id": "fl_laft_osceola",
    "basis": "OPENING_BID_PLUS_ADDITIONS",
    "figure_note": "Not the price to buy now: the county's total adds omitted taxes, accrued interest and deed fees. Request the current Lands Available statement from the clerk.",
@@ -174,6 +186,63 @@
    "quote": "Bid Deposits - After registering through the Real Auction website, bidders must deposit with the Galveston County Sheriff an amount equal to at least five percent (5%) of the total amount of their bids",
    "evidence": "data/purchase_path_evidence.csv TX Galveston row",
    "observed_on": "2026-10-01"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_bexar_resale",
+   "basis": "NOT_PUBLISHED",
+   "figure_label": "Struck-off amount (without interim tax / fees)",
+   "figure_note": "The amount the property was struck off for at the failed sale, without interim taxes or fees - not a purchase price. The list publishes no resale price; ask the county for the resale terms.",
+   "quote": "Column heading 'Struck off amt w/o interim tax / fees' (Bexar County Resale Properties Distribution List).",
+   "evidence": "https://www.bexar.org/DocumentCenter/View/41852/Bexar-County-Resale-Properties-Distribution-List (read 2026-10-26 by scripts/harvest_tx_county_sales.py)",
+   "observed_on": "2026-10-26"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_montgomery_tax_trust",
+   "basis": "NOT_PUBLISHED",
+   "figure_note": "The Tax Trust Listing publishes no price: appraisal value and base tax due only (neither is a purchase figure).",
+   "quote": "Columns 'Account # | Strike-Off Unit | Legal Description | Cause No. | Appraisal Value | Base Tax Due | School District' - no price column.",
+   "evidence": "https://www.mctx.org/departments/departments_q_-_z/tax_office/tax_trust_property.php (Tax Trust Listing PDF, read 2026-10-26)",
+   "observed_on": "2026-10-26"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_orange_trust_property",
+   "basis": "MINIMUM_BID",
+   "figure_label": "Minimum bid (the original tax-sale minimum)",
+   "figure_note": "The list accepts bids at the original tax-sale minimum; it is not a fixed purchase price.",
+   "quote": "Column 'Minimum* Bid Amount' (Orange County Trust Property Tax Sales list: trust properties 'available for purchase').",
+   "evidence": "https://www.co.orange.tx.us/departments/TaxAssessor-Collector/PropertyTaxSales (Trust Property Tax Sales PDF, read 2026-10-26)",
+   "observed_on": "2026-10-26"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_trinity_cad_resale",
+   "basis": "BID_SUBMISSION",
+   "figure_note": "No price is published: bids are submitted on the appraisal district's bid form and decided by the taxing units.",
+   "quote": "'Resale Property List' columns 'PID | file_as_name | legal_desc | state_cd' and a bid form; no amount column.",
+   "evidence": "https://trinitycad.net/resale-property-information/ (read 2026-10-26)",
+   "observed_on": "2026-10-26"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_randall_trustee_property",
+   "basis": "BID_SUBMISSION",
+   "figure_label": "Minimum bid at the original sale",
+   "figure_note": "The figure is the minimum bid at the original sheriff's sale; bids are submitted on the county's bid form - not a purchase price.",
+   "quote": "'STRUCK OFF PROPERTY: Account Number | Description | Minimum Bid at Sale', followed by a 'BID SUBMISSION' form.",
+   "evidence": "https://www.randallcounty.gov/293/Sheriff-Sale (Properties Listing PDF, read 2026-10-26)",
+   "observed_on": "2026-10-26"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_hood_cad_struck_off",
+   "basis": "BID_SUBMISSION",
+   "figure_note": "No price is published: offers go in on the appraisal district's bidder submission form.",
+   "quote": "'Current Properties on the struck off property list: Account Number | Legal Description | Address' and a 'Bidder submission form'.",
+   "evidence": "https://hoodcad.net/struck-off-property-list/ (read 2026-10-26)",
+   "observed_on": "2026-10-26"
   },
   {
    "state": "MI",

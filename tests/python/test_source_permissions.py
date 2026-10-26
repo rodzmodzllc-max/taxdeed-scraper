@@ -37,9 +37,16 @@ OWNER_DAY = date(2026, 10, 26)  # the owner's customer-publication decision (doc
 from harvesters.otc.adapters.expansion import OWNER_APPROVED_2026_10_26_SOURCE_IDS as OWNER_IDS  # noqa: E402
 
 
+# county-source sprint (owner's interim risk acceptance, 2026-10-26; docs/county-sources-2026-10-26.md)
+COUNTY_SOURCES_2026_10_26 = {"fl_laft_portals", "tx_hctax", "tx_bexar_resale", "tx_jefferson_sheriff_sale",
+                             "tx_montgomery_tax_trust", "tx_orange_trust_property", "tx_trinity_cad_resale",
+                             "tx_randall_trustee_property", "tx_hood_cad_struck_off"}
+
+
 def _day(source_id: str) -> date:
     # Sarasota Tax Collector county-held certificates: also the owner's 2026-10-26 decision.
-    return OWNER_DAY if (source_id in OWNER_IDS or source_id == "fl_sarasota_tc_certificates"
+    return OWNER_DAY if (source_id in OWNER_IDS or source_id in COUNTY_SOURCES_2026_10_26
+                         or source_id == "fl_sarasota_tc_certificates"
                          or source_id in ("tx_pbfcm", "tx_mvba", "tx_govease") or source_id in EX.NEW_SOURCE_IDS) else DAY
 
 
@@ -182,9 +189,10 @@ def test_an_open_status_without_an_interim_allowance_denies():
 
 def test_link_only_allows_only_the_link():
     p = PERM.Permissions.from_file()
-    assert p.authorize("tx_hctax", "link", state="TX", county="Harris", today=DAY).basis == "LINK_ONLY"
+    # (tx_hctax was the example until 2026-10-26, when the owner published the Harris list.)
+    assert p.authorize("tx_comptroller_directory", "link", state="TX", today=DAY).basis == "LINK_ONLY"
     for op in ("fetch", "store", "display"):
-        assert not p.authorize("tx_hctax", op, state="TX", county="Harris", today=DAY).allowed
+        assert not p.authorize("tx_comptroller_directory", op, state="TX", today=DAY).allowed
 
 
 def test_allowances_expire_and_are_reported_before_they_do():

@@ -234,9 +234,11 @@ def test_permission_denied_exits_3(monkeypatch):
     assert TC.main(["--harvest", "/nonexistent", "--status", "/nonexistent"]) == TC.PERMISSION_DENIED_EXIT
 
 
-def test_both_texas_sources_hold_the_store_permission_the_closeout_needs():
-    # + the vendors the owner unblocked on 2026-10-26 (their store records take effect that day).
-    assert TC.store_permitted() == ALL | {"tx_pbfcm", "tx_mvba", "tx_govease"}
+def test_every_texas_source_holds_the_store_permission_the_closeout_needs():
+    """LGBS, Texas RealAuction, the vendors the owner unblocked on 2026-10-26 and the eight
+    county-published lists of the same day."""
+    assert TC.store_permitted() == set(TC.SOURCE_IDS)
+    assert set(TC.VENDOR_SOURCE_IDS) == ALL | {"tx_pbfcm", "tx_mvba", "tx_govease"}
 
 
 def test_closeout_reuses_the_shared_close_rule():

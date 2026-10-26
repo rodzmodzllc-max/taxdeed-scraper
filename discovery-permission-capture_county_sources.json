@@ -1,0 +1,9 @@
+{
+  "allowed": 14,
+  "denied": 0,
+  "denied_by_reason": {},
+  "hosts": [],
+  "label": "capture_county_sources",
+  "note": "counts, hosts, reason codes and source ids only; never a path, query, credential or row value",
+  "operation": "discover"
+}

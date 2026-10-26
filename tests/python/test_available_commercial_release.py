@@ -325,15 +325,17 @@ def test_w02_absence_is_never_a_result_even_with_result_fields_on_file():
 
 def test_g01_reviews_are_validated_like_csv_values_and_the_strictest_override_stands():
     reviews = {("FL", "fl_laft_pdfs"): {"id": 3, "publication_status": "RESTRICTED", "restrictions": "terms under review", "decided_at": "2026-09-30T00:00:00Z"},
-               ("TX", "tx_hctax"): {"id": 2, "publication_status": "APPROVED", "evidence": "x", "decided_at": "2026-09-30T00:00:00Z"},
+               # (tx_hctax was the refused example until the owner published it on 2026-10-26.)
+               ("TX", "tx_brazoria_tax_resale"): {"id": 2, "publication_status": "APPROVED", "evidence": "x", "decided_at": "2026-09-30T00:00:00Z"},
                ("AL", "al_ador_state_land"): {"id": 4, "publication_status": "APPROVED", "evidence": "x", "decided_at": "2026-09-30T00:00:00Z"},
                ("TX", "tx_pbfcm"): {"id": 6, "publication_status": "APPROVED", "evidence": "x", "decided_at": "2026-09-30T00:00:00Z"},
                ("ZZ", "nope"): {"id": 5, "publication_status": "APPROVED", "decided_at": "2026-09-30T00:00:00Z"}}
     out, rep = PG.apply_reviews(ROWS, reviews)
     # tx_pbfcm is an approved, production source since the owner's decision of 2026-10-26, so its review applies.
     assert list(rep["applied"]) == ["FL/fl_laft_pdfs", "TX/tx_pbfcm"]
-    assert set(rep["rejected"]) >= {"TX/tx_hctax", "AL/al_ador_state_land"}
-    assert any("LEGAL_REVIEW_REQUIRED" in r for r in rep["rejected"]["TX/tx_hctax"]["reasons"])
+    # (tx_hctax was the refused example until the owner published it on 2026-10-26.)
+    assert set(rep["rejected"]) >= {"TX/tx_brazoria_tax_resale", "AL/al_ador_state_land"}
+    assert any("not PRODUCTION_VERIFIED" in r for r in rep["rejected"]["TX/tx_brazoria_tax_resale"]["reasons"])
     assert any("not PRODUCTION_VERIFIED" in r for r in rep["rejected"]["AL/al_ador_state_land"]["reasons"])
     assert "ZZ/nope" in rep["unknown_source"]
     # A blocked vendor can never be approved - by rejection or by having no registry row at all
@@ -343,7 +345,7 @@ def test_g01_reviews_are_validated_like_csv_values_and_the_strictest_override_st
     assert "TX/tx_ctsa" in rep2["rejected"] or "TX/tx_ctsa" in rep2["unknown_source"]
     decisions = pub.decisions_by_source(out)
     assert decisions["fl_laft_pdfs"].publication == "RESTRICTED" and not decisions["fl_laft_pdfs"].customer_publishable
-    assert decisions["tx_hctax"].publication == "RESTRICTED"
+    assert decisions["tx_hctax"].publication == "APPROVED"          # owner decision 2026-10-26, legal review pending
     for sid in BLOCKED_SOURCE_IDS:
         if sid in decisions:
             assert decisions[sid].publication == "BLOCKED"
@@ -364,7 +366,9 @@ def test_g03_registry_only_run_takes_no_reviews_and_writes_the_report(tmp_path, 
     assert PG.main(["--state", "FL", "--report", str(report)]) == 0
     data = json.loads(report.read_text(encoding="utf-8"))
     assert data["mode"] == "registry-only (no credentials)" and "reviews" not in data
-    assert all(d["publication"] == "APPROVED_GRANDFATHERED" for k, d in data["sources"].items() if k.startswith("fl_laft_") and "candidate" not in k)
+    # fl_laft_portals (2026-10-26) is a new source, published by the owner's decision (legal review pending).
+    assert all(d["publication"] == ("APPROVED" if k == "fl_laft_portals" else "APPROVED_GRANDFATHERED")
+               for k, d in data["sources"].items() if k.startswith("fl_laft_") and "candidate" not in k)
 
 
 # ==================== 5. migration 023 ====================
@@ -507,6 +511,8 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
             else:
                 expected = "not customer-published" if r.source_id in (EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS | EX.NEW_SOURCE_IDS) else "no row is written"
                 assert eff == "UNREVIEWED" and expected in r.restrictions, (r.state, r.source_id)
+        elif r.is_production and r.restrictions.startswith("Owner approved customer publication 2026-10-26"):
+            assert eff == "APPROVED", (r.state, r.source_id)   # new sources 2026-10-26 (Charlotte portal, TX county lists)
         elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.source_id)
         elif r.source_id in BLOCKED_SOURCE_IDS:
@@ -519,6 +525,5 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
     assert [r.source_id for r in ROWS if r.state == "LA" and r.runnable] == ["la_ebr_adjudicated"]
     assert not any(r.runnable for r in ROWS if r.source_id in BLOCKED_SOURCE_IDS)
     # The AVAILABLE harvest units the registry expects (the laft job's own
-    # "52 unit entries this run"): FL 52, TX 8 - unchanged by this release.
-    # TX: LGBS 8 + PBFCM 45 + MVBA 10 since 2026-10-26 (owner decision).
-    assert len(csr.expected_harvest_units(ROWS, "FL")) == 52 and len(csr.expected_harvest_units(ROWS, "TX")) == 63
+    # "52 unit entries this run"): FL 52 (+4 on 2026-10-26); TX LGBS 8 + PBFCM 45 + MVBA 10 + 6 county lists (2026-10-26).
+    assert len(csr.expected_harvest_units(ROWS, "FL")) == 56 and len(csr.expected_harvest_units(ROWS, "TX")) == 69

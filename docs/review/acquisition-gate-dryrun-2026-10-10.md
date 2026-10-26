@@ -29,13 +29,13 @@ Every reason (a row can carry several):
 | Reason | Rows |
 |---|---|
 | `SOURCE_NOT_PUBLISHED` - The source is not approved for customer publication | 43,197 |
-| `EVIDENCE_NEEDS_REVIEW` - An official process was identified but has not been verified | 40,915 |
+| `EVIDENCE_NO_CHANNEL` - The verified process names no way to act (no form, page, or steps with a contact) | 31,012 |
 | `LIST_DATED_STALE` - The source's list is dated more than 365 days ago | 10,710 |
-| `EVIDENCE_NOT_FOUND` - No official acquisition process was found | 2,349 |
-| `EVIDENCE_NO_RECORD` - The unit is marked verified but no county process record is on file | 252 |
+| `EVIDENCE_NEEDS_REVIEW` - An official process was identified but has not been verified | 2,058 |
+| `EVIDENCE_NOT_FOUND` - No official acquisition process was found | 311 |
+| `EVIDENCE_UNTRUSTED_URL` - The evidence page is not an official https page | 252 |
 | `OBSERVATION_MISSING` - No read date has been recorded for this record | 41 |
 | `EVIDENCE_UNAVAILABLE` - The official acquisition pages could not be read | 28 |
-| `EVIDENCE_NO_CHANNEL` - The verified process names no way to act (no form, page, or steps with a contact) | 2 |
 
 ## By state
 
@@ -172,16 +172,16 @@ Every reason (a row can carry several):
 | FL | Volusia | fl_laft_pdfs | APPROVED_GRANDFATHERED | quoted_amount | le14d | none | VERIFIED | 10 | verified | - |
 | LA | East Baton Rouge | la_ebr_adjudicated | APPROVED | county_instructions | le14d | gt365d | VERIFIED | 3,500 | stale | LIST_DATED_STALE |
 | LA | East Baton Rouge | la_ebr_adjudicated | APPROVED | county_instructions | le14d | gt365d | VERIFIED | 6,834 | stale | LIST_DATED_STALE |
-| MI | Oceana | mi_oceana_landbank | UNREVIEWED | application_download | le14d | none | VERIFIED | 5 | source_not_published | SOURCE_NOT_PUBLISHED, EVIDENCE_NO_RECORD |
-| MI | Wayne | mi_detroit_landbank_lots | UNREVIEWED | - | le14d | none | NEEDS_REVIEW | 30,758 | source_not_published | SOURCE_NOT_PUBLISHED, EVIDENCE_NEEDS_REVIEW |
+| MI | Oceana | mi_oceana_landbank | UNREVIEWED | application_download | le14d | none | VERIFIED | 5 | source_not_published | SOURCE_NOT_PUBLISHED, EVIDENCE_UNTRUSTED_URL, EVIDENCE_NO_CHANNEL |
+| MI | Wayne | mi_detroit_landbank_lots | UNREVIEWED | - | le14d | none | VERIFIED | 30,758 | source_not_published | SOURCE_NOT_PUBLISHED, EVIDENCE_NO_CHANNEL |
 | MI | Wayne | mi_detroit_landbank_programs | UNREVIEWED | - | le14d | none | NEEDS_REVIEW | 12 | source_not_published | SOURCE_NOT_PUBLISHED, EVIDENCE_NEEDS_REVIEW |
-| MN | Ramsey | mn_ramsey_tax_forfeit | UNREVIEWED | - | le14d | none | NEEDS_REVIEW | 2 | source_not_published | SOURCE_NOT_PUBLISHED, EVIDENCE_NEEDS_REVIEW |
-| MO | St. Louis City | mo_stl_lra_inventory | UNREVIEWED | - | le14d | none | NEEDS_REVIEW | 9,759 | source_not_published | SOURCE_NOT_PUBLISHED, EVIDENCE_NEEDS_REVIEW |
-| OK | Oklahoma | ok_oklahoma_county_owned | UNREVIEWED | application_download | le14d | none | VERIFIED | 195 | source_not_published | SOURCE_NOT_PUBLISHED, EVIDENCE_NO_RECORD |
-| PA | Fayette | pa_fayette_repository | UNREVIEWED | - | le14d | gt365d | NEEDS_REVIEW | 376 | source_not_published | SOURCE_NOT_PUBLISHED, LIST_DATED_STALE, EVIDENCE_NEEDS_REVIEW |
-| SC | Georgetown | sc_georgetown_forfeited_land | UNREVIEWED | application_download | le14d | none | VERIFIED | 1 | source_not_published | SOURCE_NOT_PUBLISHED, EVIDENCE_NO_RECORD |
-| SC | Horry | sc_horry_forfeited_land | UNREVIEWED | application_download | le14d | none | VERIFIED | 51 | source_not_published | SOURCE_NOT_PUBLISHED, EVIDENCE_NO_RECORD |
-| TN | Shelby | tn_shelby_landbank | UNREVIEWED | - | le14d | none | NOT_FOUND | 2,038 | source_not_published | SOURCE_NOT_PUBLISHED, EVIDENCE_NOT_FOUND |
+| MN | Ramsey | mn_ramsey_tax_forfeit | UNREVIEWED | - | le14d | none | VERIFIED | 2 | source_not_published | SOURCE_NOT_PUBLISHED |
+| MO | St. Louis City | mo_stl_lra_inventory | UNREVIEWED | - | le14d | none | VERIFIED | 9,759 | source_not_published | SOURCE_NOT_PUBLISHED |
+| OK | Oklahoma | ok_oklahoma_county_owned | UNREVIEWED | application_download | le14d | none | VERIFIED | 195 | source_not_published | SOURCE_NOT_PUBLISHED, EVIDENCE_UNTRUSTED_URL, EVIDENCE_NO_CHANNEL |
+| PA | Fayette | pa_fayette_repository | UNREVIEWED | - | le14d | gt365d | VERIFIED | 376 | source_not_published | SOURCE_NOT_PUBLISHED, LIST_DATED_STALE |
+| SC | Georgetown | sc_georgetown_forfeited_land | UNREVIEWED | application_download | le14d | none | VERIFIED | 1 | source_not_published | SOURCE_NOT_PUBLISHED, EVIDENCE_UNTRUSTED_URL, EVIDENCE_NO_CHANNEL |
+| SC | Horry | sc_horry_forfeited_land | UNREVIEWED | application_download | le14d | none | VERIFIED | 51 | source_not_published | SOURCE_NOT_PUBLISHED, EVIDENCE_UNTRUSTED_URL, EVIDENCE_NO_CHANNEL |
+| TN | Shelby | tn_shelby_landbank | UNREVIEWED | - | le14d | none | NEEDS_REVIEW | 2,038 | source_not_published | SOURCE_NOT_PUBLISHED, EVIDENCE_NEEDS_REVIEW |
 | TX | Galveston | tx_lgbs | APPROVED_GRANDFATHERED | county_instructions | le14d | none | VERIFIED | 144 | verified | - |
 | TX | Galveston | tx_lgbs | APPROVED_GRANDFATHERED | county_instructions | never | none | VERIFIED | 39 | metadata_gap | OBSERVATION_MISSING |
 | TX | Goliad | tx_lgbs | APPROVED_GRANDFATHERED | - | le14d | none | NOT_FOUND | 1 | no_route | EVIDENCE_NOT_FOUND |
