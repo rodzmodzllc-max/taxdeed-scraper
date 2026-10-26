@@ -1188,11 +1188,15 @@ def harvest_realauction(limit: int | None = None, stats: dict | None = None) -> 
                 # page 0 is PageDir=0&doR=1; the NEXT page is PageDir=1&doR=0.
                 # doR=1 re-reads the first page - asking PageDir=N&doR=1 (this
                 # function before 2026-10-26) returned the first ten items
-                # again, so every sale date stopped at ten properties.
+                # again, so every sale date stopped at ten properties. With
+                # bypassPage=1 the server also ignores PageDir (measured on the
+                # Florida hosts, run 40380815661), so the next page sends
+                # bypassPage=0 exactly as the site's own changePage() does.
                 update_url = (
                     f"https://{host}/index.cfm?zaction=AUCTION&Zmethod=UPDATE&FNC=LOAD"
-                    + ("&AREA=W&PageDir=0&doR=1" if page == 0 else "&AREA=W&PageDir=1&doR=0")
-                    + "&bypassPage=1&test=1"
+                    + ("&AREA=W&PageDir=0&doR=1&bypassPage=1" if page == 0
+                       else "&AREA=W&PageDir=1&doR=0&bypassPage=0")
+                    + "&test=1"
                 )
                 txt = _get(
                     update_url,

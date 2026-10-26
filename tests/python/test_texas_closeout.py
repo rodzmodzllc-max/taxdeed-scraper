@@ -400,7 +400,10 @@ def test_realauction_follows_the_sites_own_pager_past_ten_items(monkeypatch, tmp
             return "<html></html>"
         if "PageDir=0&doR=1" in url:
             return _page(first)
-        if "PageDir=1&doR=0" in url:
+        # Like the live server: bypassPage=1 ignores PageDir and sends page one.
+        if "bypassPage=1" in url:
+            return _page(first)
+        if "PageDir=1&doR=0&bypassPage=0" in url:
             return _page(second)
         raise AssertionError(url)
 
