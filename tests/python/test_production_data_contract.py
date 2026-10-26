@@ -251,8 +251,8 @@ def test_H_texas_harvest_job_is_manual_only_not_on_any_cron_schedule():
 
 def test_H_florida_deed_job_is_on_a_real_cron_schedule_for_contrast():
     workflow = _read(".github", "workflows", "harvest-and-sync.yml")
-    assert "cron: '0 10 * * *'" in workflow
-    assert "cron: '0 22 * * *'" in workflow
+    assert "cron: '13 10 * * *'" in workflow
+    assert "cron: '13 22 * * *'" in workflow
     deeds_start = workflow.index("\n  deeds:")
     next_job_start = workflow.index("\n  certificates:", deeds_start)
     deeds_block = workflow[deeds_start:next_job_start]

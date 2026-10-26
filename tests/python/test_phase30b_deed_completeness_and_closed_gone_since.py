@@ -642,9 +642,9 @@ def test_part6_no_workflow_schedule_change():
     byte-identical to before this phase."""
     workflow = _read(".github", "workflows", "harvest-and-sync.yml")
     assert "0 10,22 * * *" not in workflow  # this schedule string was never in this file to begin with; see next line
-    assert "'0 10 * * *'" in workflow
-    assert "'0 22 * * *'" in workflow
-    assert "'0 12 * * *'" in workflow
+    assert "'13 10 * * *'" in workflow
+    assert "'13 22 * * *'" in workflow
+    assert "'37 11 * * *'" in workflow
 
 
 def test_part6_deed_job_step_order_unchanged():
