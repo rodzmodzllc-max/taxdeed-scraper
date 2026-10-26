@@ -108,7 +108,7 @@ class PoliteFetcher:
 
     def __init__(self, *, min_interval: float = MIN_INTERVAL_SECONDS, timeout: float = 60.0, attempts: int = 3,
                  opener: Callable | None = None, sleep: Callable[[float], None] = time.sleep,
-                 clock: Callable[[], float] = time.monotonic):
+                 clock: Callable[[], float] = time.monotonic, cookies: bool = False):
         self.min_interval = max(1.0, float(min_interval))
         self.timeout = timeout
         self.attempts = max(1, attempts)
@@ -117,10 +117,24 @@ class PoliteFetcher:
         self._clock = clock
         self._last: float | None = None
         self.requests = 0
+        # A site whose own pages keep an anonymous session cookie (the visitor
+        # session every browser gets on its first page): kept for this process only.
+        self._cookie_opener = None
+        if cookies and opener is None:
+            import http.cookiejar  # noqa: PLC0415
+            try:
+                from harvesters import tls_chain  # noqa: PLC0415
+            except ImportError:  # pragma: no cover
+                import tls_chain  # type: ignore  # noqa: PLC0415
+            self._cookie_opener = urllib.request.build_opener(
+                urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()),
+                urllib.request.HTTPSHandler(context=tls_chain.ssl_context()))
 
     def _open(self, req):
         if self._opener is not None:
             return self._opener(req, timeout=self.timeout)
+        if self._cookie_opener is not None:
+            return self._cookie_opener.open(req, timeout=self.timeout)
         try:
             from harvesters import tls_chain  # noqa: PLC0415
         except ImportError:  # pragma: no cover
@@ -134,11 +148,11 @@ class PoliteFetcher:
                 self._sleep(wait)
         self._last = self._clock()
 
-    def request(self, url: str, data: dict | None = None, *, accept: str = "*/*") -> bytes:
+    def request(self, url: str, data: dict | None = None, *, accept: str = "*/*", headers: dict | None = None) -> bytes:
         if not url.startswith("https://"):
             raise FetchError(url, "NOT_HTTPS", url)
         body = urllib.parse.urlencode(data).encode() if data is not None else None
-        headers = {"User-Agent": USER_AGENT, "Accept": accept}
+        headers = {**(headers or {}), "User-Agent": USER_AGENT, "Accept": accept}
         if body is not None:
             headers["Content-Type"] = "application/x-www-form-urlencoded"
         last_exc: Exception | None = None
@@ -444,18 +458,25 @@ def harvest_mvba_online(fetcher: PoliteFetcher, book: UnitBook) -> tuple[list[di
     /api/auctions lists the open auctions, /api/getitems with auction_id
     pages one auction's items (24 a page, `filters[page]`)."""
     info: dict = {"auctions": 0, "items": 0, "skipped": {}}
+    # The site's own pages call these endpoints as same-site XHR after the
+    # first page has set the visitor session cookie; the same sequence is
+    # followed here (honest User-Agent; nothing else about the client is claimed).
+    xhr = {"X-Requested-With": "XMLHttpRequest", "Referer": f"{MVBA_AUCTION_SITE}/"}
+    try:
+        fetcher.request(f"{MVBA_AUCTION_SITE}/", accept="text/html")
+    except FetchError as exc:
+        info["home_page"] = exc.category
     body = b""
     try:
         body = fetcher.request(f"{MVBA_AUCTION_SITE}/api/auctions",
-                               {"filters[page]": "1", "past_sales": "false"}, accept="application/json")
+                               {"filters[page]": "1", "past_sales": "false"}, accept="application/json", headers=xhr)
         listing = json.loads(body)
     except (FetchError, ValueError) as exc:
         info["error"] = getattr(exc, "category", "BAD_JSON")
-        if body:
-            # What came back instead of JSON, value-free: its size and page title.
-            title = re.search(rb"<title[^>]*>(.*?)</title>", body[:20000], re.I | re.S)
-            info["non_json"] = {"bytes": len(body), "html": body.lstrip()[:1] == b"<",
-                                "title": _clean_text(title.group(1).decode("utf-8", "replace"), 80) if title else None}
+        # What came back instead of JSON, value-free: its size and page title.
+        title = re.search(rb"<title[^>]*>(.*?)</title>", body[:20000], re.I | re.S)
+        info["non_json"] = {"bytes": len(body), "html": body.lstrip()[:1] == b"<",
+                            "title": _clean_text(title.group(1).decode("utf-8", "replace"), 80) if title else None}
         return [], info
     rows = []
     for auction in listing.get("data") or []:
@@ -473,7 +494,7 @@ def harvest_mvba_online(fetcher: PoliteFetcher, book: UnitBook) -> tuple[list[di
             try:
                 payload = json.loads(fetcher.request(f"{MVBA_AUCTION_SITE}/api/getitems",
                                                      {"auction_id": aid, "filters[page]": str(page)},
-                                                     accept="application/json"))
+                                                     accept="application/json", headers=xhr))
             except (FetchError, ValueError) as exc:
                 ok = False
                 info.setdefault("errors", []).append(getattr(exc, "category", "BAD_JSON"))
@@ -515,7 +536,12 @@ def harvest_mvba(fetcher: PoliteFetcher | None = None, stats: dict | None = None
         for doc in docs:
             rows.extend(_read_document(fetcher, book, source_id="tx_mvba", county=doc.county, ledger=ledger,
                                        url=doc.url, read_pdf=read_pdf))
-    online_rows, online = harvest_mvba_online(fetcher, book)
+    # The online auction site keeps its own visitor session cookie (a separate host, its own pacing).
+    real = type(fetcher) is PoliteFetcher and fetcher._opener is None
+    site_fetcher = PoliteFetcher(cookies=True) if real else fetcher
+    online_rows, online = harvest_mvba_online(site_fetcher, book)
+    if site_fetcher is not fetcher:
+        fetcher.requests += site_fetcher.requests
     if online.get("error"):
         index_errors[MVBA_AUCTION_SITE] = online["error"]
     rows.extend(online_rows)

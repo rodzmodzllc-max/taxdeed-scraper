@@ -37,7 +37,7 @@ class FakeFetcher:
         self.calls: list[tuple[str, dict | None]] = []
         self.requests = 0
 
-    def request(self, url, data=None, *, accept="*/*"):
+    def request(self, url, data=None, *, accept="*/*", headers=None):
         self.calls.append((url, data))
         self.requests += 1
         for key, cat in self.fail.items():
@@ -320,7 +320,7 @@ def _mvba_fetcher():
     def key(url, data):
         return (url, json.dumps(data, sort_keys=True))
     pages = {
-        V.MVBA_MONTH_URL: MVBA_MONTH, V.MVBA_TRUST_URL: MVBA_TRUST,
+        V.MVBA_MONTH_URL: MVBA_MONTH, V.MVBA_TRUST_URL: MVBA_TRUST, f"{V.MVBA_AUCTION_SITE}/": "<html></html>",
         "https://mvbalaw.com/wp-content/TaxUploads/1126_Bell.pdf": b"%PDF bell",
         "https://mvbalaw.com/wp-content/TaxUploads/RunnelsTrust.pdf": b"%PDF runnels",
         key(f"{V.MVBA_AUCTION_SITE}/api/auctions", {"filters[page]": "1", "past_sales": "false"}): json.dumps(AUCTIONS),
