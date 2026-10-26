@@ -197,10 +197,9 @@ def test_acquisition_unit_counts_after_the_sprint():
     for u in ACQ["status"]:
         by[u["status"]] = by.get(u["status"], 0) + 1
     # 2026-10-26: LRA (MO), Ramsey (MN) and Fayette (PA) processes read -> VERIFIED with records.
-    # 2026-10-26 (county-source sprint): 15 more AVAILABLE units carry a source id (FL Lake / DeSoto / Wakulla /
-    # Charlotte, TX county lists) - every one NOT_FOUND until its process is read. (Broward / Baker carried
-    # fl_laft_portals until that source was published; candidate rows carry no source id now.)
-    assert len(ACQ["status"]) == 87 and by == {"VERIFIED": 29, "NEEDS_REVIEW": 5, "UNAVAILABLE": 6, "NOT_FOUND": 47}
+    # 2026-10-26: + 55 PBFCM / MVBA AVAILABLE units (owner decision) and the county-source sprint's units (FL Lake /
+    # DeSoto / Wakulla / Charlotte, TX county lists), none with acquisition evidence yet.
+    assert len(ACQ["status"]) == 142 and by == {"VERIFIED": 29, "NEEDS_REVIEW": 8, "UNAVAILABLE": 6, "NOT_FOUND": 99}
 
 
 # ------------------------------------------------------------------ A2 county procedure rules
@@ -259,13 +258,12 @@ def test_gap_queue_is_generated_from_the_records_and_pinned():
     assert out.returncode == 0, out.stdout
     doc = json.loads((ROOT / "data/current_state/gap-queue.json").read_text(encoding="utf-8"))
     assert doc == GQ.build()
-    # 46 unresolved before the 2026-10-26 LRA / Ramsey / Fayette reads; +17 NOT_FOUND units from the county-source sprint.
-    assert doc["denominators"]["acquisition_units"] == 87 and doc["denominators"]["acquisition_unresolved"] == 58
+    # 46 before the 2026-10-26 LRA / Ramsey / Fayette reads; then the PBFCM / MVBA and county-source units of the same day.
+    assert doc["denominators"]["acquisition_units"] == 142 and doc["denominators"]["acquisition_unresolved"] == 113
     assert doc["denominators"]["state_ledger_units"] == 39
     assert set(doc["summary"]["by_category"]) <= set(GQ.CATEGORIES)
-    # 33 state-ledger units before the owner's 2026-10-26 publication decision cleared six APPROVAL_UNRESOLVED ones;
     # one queue entry per unresolved acquisition unit plus one per non-current state x ledger unit.
-    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 58 + 27
+    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 113 + 27
     for u in doc["units"]:
         assert u["category"] in GQ.CATEGORIES and u["next_action"] and u["source_accessible"] and "reason" in u
         assert u["completable_now"] == (u["category"] == "A")
@@ -279,7 +277,10 @@ def test_gap_queue_is_generated_from_the_records_and_pinned():
     assert by[("TN", "*", "", "AVAILABLE")]["category"] == "C"                            # published 2026-10-26; process not verified
     assert by[("LA", "*", "", "AVAILABLE")]["category"] == "A"                            # fix exists, awaiting deploy
     assert by[("FL", "*", "", "LIENS_CERTIFICATES")]["category"] == "D"                  # LienHub 403
-    assert by[("TX", "*", "", "AUCTIONS")]["category"] == "E"                             # manual-only by owner decision
+    # The coverage snapshot (2026-10-10) predates every source added 2026-10-26 (GovEase / PBFCM / MVBA, the county
+    # lists), so its stale Texas rows are still the manual-only LGBS / RealAuction ones
+    # (state_coverage._in_snapshot): E until a new snapshot is taken.
+    assert by[("TX", "*", "", "AUCTIONS")]["category"] == "E"
     assert ("MI", "Wayne", "mi_detroit_landbank_lots", "AVAILABLE") not in by             # closed this sprint
 
 

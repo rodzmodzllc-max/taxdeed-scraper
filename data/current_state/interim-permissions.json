@@ -3883,6 +3883,120 @@
    "dataset": "*",
    "effective_on": "2026-10-26",
    "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "discover",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_govease",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "display",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_govease",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_govease",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "link",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_govease",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_govease",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "store",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_govease",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
    "evidence_ref": "docs/county-sources-2026-10-26.md; OWNER DECISION 2026-10-26 ('find every property and every source, then we'll work on the legal shit')",
    "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
@@ -4509,6 +4623,120 @@
    "dataset": "*",
    "effective_on": "2026-10-26",
    "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "discover",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_mvba",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "display",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_mvba",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_mvba",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "link",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_mvba",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_mvba",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "store",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_mvba",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
    "evidence_ref": "docs/county-sources-2026-10-26.md; docs/publish-all-sources.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv tx_orange_trust_property restrictions",
    "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
@@ -4613,6 +4841,120 @@
    "reviewer": "product owner (internal risk acceptance 2026-10-26; ToS/licensing risk accepted pending legal review)",
    "source_id": "tx_orange_trust_property",
    "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "discover",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_pbfcm",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "display",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_pbfcm",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_pbfcm",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "link",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_pbfcm",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_pbfcm",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "owner decision 2026-10-26 (recorded in harvesters/governance/registry.py notes); docs/texas-vendor-sources.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "store",
+   "reviewer": "product owner (decision 2026-10-26: unblock vendors; terms risk accepted)",
+   "source_id": "tx_pbfcm",
+   "status": "LEGAL_REVIEW_REQUIRED"
   },
   {
    "call_sites": [
@@ -5185,12 +5527,12 @@
  "interim_max_days": 210,
  "summary": {
   "by_expiry": {
-   "2027-04-12": 250
+   "2027-04-12": 268
   },
   "by_finding": {
    "REVIEWER_IS_NOT_A_DECISION": 77
   },
-  "records": 250,
-  "sources": 68
+  "records": 268,
+  "sources": 71
  }
 }

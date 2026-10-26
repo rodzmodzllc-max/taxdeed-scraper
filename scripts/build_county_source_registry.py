@@ -419,14 +419,34 @@ TX_COUNTY_META = {
                                "'Current Properties on the struck off property list': Account Number, Legal Description, Address"),
 }
 
-# Counties whose only known publication is a BLOCKED vendor (PBFCM / MVBA).
-# No URL is recorded: a blocked vendor's document must never enter a
-# machine-readable registry a future adapter could pick up.
-TX_BLOCKED_VENDOR_ONLY = {
-    "tx_pbfcm": ["Austin", "Chambers", "Fort Bend", "Hidalgo", "Matagorda", "Maverick", "Milam",
-                 "Nacogdoches", "San Jacinto", "Uvalde", "Walker", "Zavala"],
-    "tx_mvba": ["Calhoun", "Runnels"],
+# 2026-10-26 (owner decision, verbatim: "Do not block vendors. Post their shit
+# and we'll figure out the legal shit afterwards."): PBFCM, MVBA and GovEase are
+# harvested (harvesters/texas_vendors.py). data/tx_vendor_counties.csv is the
+# county roster each one published when read live that day; the harvester
+# re-reads the vendors' own indexes every run, so a county the vendor adds
+# later is harvested before it appears here.
+TX_VENDOR_META = {
+    "tx_pbfcm": dict(
+        publishing_unit_name="Perdue Brandon Fielder Collins & Mott, LLP (delinquent-tax counsel to the taxing units; vendor listing)",
+        source_authority="VENDOR_COUNSEL",
+        source_terminology="PBFCM tax sale lists (taxsale.html, AUCTIONS) and resale lists of struck-off property "
+                           "(taxresale.html, AVAILABLE): cause, CAD account, legal description, adjudged value, "
+                           "'Minimum Bid' / 'Estimated Minimum' / judgment amount"),
+    "tx_mvba": dict(
+        publishing_unit_name="McCreary, Veselka, Bragg & Allen, P.C. (delinquent-tax counsel to the taxing units; vendor listing)",
+        source_authority="VENDOR_COUNSEL",
+        source_terminology="MVBA monthly sale bid sheets and online auctions (mvbataxsales.com) (AUCTIONS) and trust "
+                           "property lists (AVAILABLE): suit #, account #, property description, 'MIN BID'"),
+    "tx_govease": dict(
+        publishing_unit_name="GovEase online auction platform (sale conducted for the county's sheriff / constable)",
+        source_authority="VENDOR_AUCTION",
+        source_terminology="GovEase Texas online tax-deed auction: parcel #, cause number, minimum bid / face value, "
+                           "parcel address, legal description (AUCTIONS)"),
 }
+TX_VENDOR_LEDGERS = {"tx_pbfcm": f"{AUCTIONS}|{AVAILABLE}", "tx_mvba": f"{AUCTIONS}|{AVAILABLE}", "tx_govease": AUCTIONS}
+TX_VENDOR_OWNER_DECISION = (
+    "Owner decision 2026-10-26: vendor unblocked, terms-of-service / robots.txt risk accepted by the owner, legal "
+    "review pending (interim internal risk acceptance in data/source_permissions.csv, expires 2027-04-12)")
 
 
 def tx_rows() -> list[dict]:
@@ -466,13 +486,27 @@ def tx_rows() -> list[dict]:
                                       "after a COMPLETE / EMPTY read of this source.",
                          publishing_unit_name=unit_name, amount_kind=amount_kind, update_frequency=cadence,
                          source_terminology=terms))
-    for sid, counties in TX_BLOCKED_VENDOR_ONLY.items():
-        for county in counties:
-            rows.append(_row(state="TX", county=county, source_id=sid, harvester="", inventory_type="",
-                             source_authority="VENDOR_COUNSEL", canonical_url="", access_method="NONE", machine_format="PDF",
-                             verification_status="BLOCKED_VENDOR_ONLY", governance_status="BLOCKED", publication_status="BLOCKED",
-                             last_checked="2026-09-29", completeness_status="UNKNOWN", evidence_ref=f"{AUDIT} s5",
-                             notes="Only a BLOCKED vendor publishes this county's struck-off list; discovery-only, no URL recorded."))
+    for src in _read("tx_vendor_counties.csv"):
+        meta = TX_VENDOR_META[src["source_id"]]
+        fmt = src["machine_format"]
+        rows.append(_row(state="TX", county=src["county"], source_id=src["source_id"],
+                         harvester="harvesters/texas_harvester.py", inventory_type="",
+                         source_authority=meta["source_authority"], canonical_url=src["canonical_url"],
+                         access_method={"PDF": "HTTP_GET_PDF", "JSON": "JSON_ENDPOINT"}.get(fmt, "HTTP_GET_HTML"),
+                         machine_format=fmt, verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
+                         last_checked=src["observed_on"], completeness_status=src["observed_status"],
+                         # The source's full ledger set (as for tx_lgbs): a county's rows are
+                         # told apart by the document they came from, never by this row.
+                         ledgers=TX_VENDOR_LEDGERS[src["source_id"]], publication_status="APPROVED_GRANDFATHERED",
+                         restrictions=TX_VENDOR_OWNER_DECISION,
+                         evidence_ref=f"data/tx_vendor_counties.csv; harvesters/governance/registry.py {src['source_id']}",
+                         notes=f"Read live {src['observed_on']} by harvesters/texas_vendors.py: {src['observed_rows']} row(s) "
+                               f"(lists observed: {src['ledgers']}) "
+                               f"from {src['documents']} document(s), status {src['observed_status']}. Vendor listing, not the county.",
+                         publishing_unit_name=meta["publishing_unit_name"],
+                         amount_kind="PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+                         update_frequency="not published by the vendor; read daily by the texas job (07:37 ET)",
+                         source_terminology=meta["source_terminology"]))
     return rows
 
 

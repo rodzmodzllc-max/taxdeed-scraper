@@ -235,9 +235,10 @@ def test_permission_denied_exits_3(monkeypatch):
 
 
 def test_every_texas_source_holds_the_store_permission_the_closeout_needs():
-    """The two vendor feeds and the eight county-published lists (2026-10-26)."""
+    """LGBS, Texas RealAuction, the vendors the owner unblocked on 2026-10-26 and the eight
+    county-published lists of the same day."""
     assert TC.store_permitted() == set(TC.SOURCE_IDS)
-    assert ALL == set(TC.VENDOR_SOURCE_IDS)
+    assert set(TC.VENDOR_SOURCE_IDS) == ALL | {"tx_pbfcm", "tx_mvba", "tx_govease"}
 
 
 def test_closeout_reuses_the_shared_close_rule():

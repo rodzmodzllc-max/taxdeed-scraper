@@ -26,10 +26,10 @@ Mode is a *strategy* label, not a new field on `SourceRecord` — it is derived 
 | `tx_hctax` | `LEGAL_REVIEW_REQUIRED` | **C** (interim) | Fully technically ready (see `claude/harris-hctax-implementation-readiness.md`), but no permission established — treated as link-out only until a resolution exists. See [Harris County interim posture](#harris-county-interim-posture) below. |
 | `fl_dor_statewide` | `LEGAL_REVIEW_REQUIRED` | **C** (interim) | Free, official, no restriction found *and* no permission found — same interim treatment as Harris |
 | `tx_comptroller_directory` | `DISCOVERED` | **C** (interim) | Confirmed to exist; not reviewed for rights at all yet |
-| `tx_pbfcm` | `BLOCKED` | **E** | Explicit, affirmative anti-reproduction/redistribution clause (`disclosure.html`) |
-| `tx_mvba` | `BLOCKED` | **E** | Explicit non-commercial-use-only clause |
+| `tx_pbfcm` | `APPROVED` (owner decision 2026-10-26) | harvested | Explicit, affirmative anti-reproduction/redistribution clause (`disclosure.html`) on record; owner accepted the risk, legal review pending (`docs/texas-vendor-sources.md`) |
+| `tx_mvba` | `APPROVED` (owner decision 2026-10-26) | harvested | Explicit non-commercial-use-only clause on record; owner accepted the risk, legal review pending |
 | `tx_ctsa` | `BLOCKED` | **E** | Paywall + explicit anti-competitive-use clause |
-| `tx_govease` | `BLOCKED` | **E** | Blanket `robots.txt: Disallow: /`, no locatable Terms of Use |
+| `tx_govease` | `APPROVED` (owner decision 2026-10-26) | harvested | Blanket `robots.txt: Disallow: /`, no locatable Terms of Use; owner accepted the risk, legal review pending |
 
 No source in this registry is currently Mode D (license required) — none of the four BLOCKED vendors has been approached about licensing; that would be a business decision, not a reconnaissance finding, and none has been made.
 

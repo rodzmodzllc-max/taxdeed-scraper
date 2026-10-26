@@ -3762,6 +3762,16 @@
        ]
       },
       {
+       "county": "Archer",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
        "county": "Atascosa",
        "sources": [
         {
@@ -3772,8 +3782,83 @@
        ]
       },
       {
+       "county": "Austin",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Bandera",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Bastrop",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Bell",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Brazoria",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Brewster",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Brown",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
        "county": "Caldwell",
        "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        },
         {
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
@@ -3785,9 +3870,64 @@
        "county": "Cameron",
        "sources": [
         {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        },
+        {
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
+        }
+       ]
+      },
+      {
+       "county": "Chambers",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Cherokee",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Childress",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Clay",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Comal",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
         }
        ]
       },
@@ -3798,6 +3938,36 @@
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
+        }
+       ]
+      },
+      {
+       "county": "Denton",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_govease"
+        }
+       ]
+      },
+      {
+       "county": "Dickens",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Dimmit",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3822,6 +3992,26 @@
        ]
       },
       {
+       "county": "Foard",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Fort Bend",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
        "county": "Galveston",
        "procedures": [
         "acquisition_procedure_auctions_available"
@@ -3831,6 +4021,11 @@
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_lgbs"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         },
         {
          "authority": "VENDOR_AUCTION",
@@ -3850,12 +4045,37 @@
        ]
       },
       {
-       "county": "Gregg",
+       "county": "Grayson",
        "sources": [
         {
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_govease"
+        }
+       ]
+      },
+      {
+       "county": "Gregg",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        },
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
+        }
+       ]
+      },
+      {
+       "county": "Hardeman",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3879,6 +4099,31 @@
          "authority": "GOVERNMENT_DIRECT",
          "publication": "APPROVED",
          "source_id": "tx_hctax"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Hays",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Hill",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3893,12 +4138,52 @@
        ]
       },
       {
+       "county": "Houston",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Hunt",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Jack",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
        "county": "Jackson",
        "sources": [
         {
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
+        }
+       ]
+      },
+      {
+       "county": "Jasper",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3923,12 +4208,32 @@
        ]
       },
       {
+       "county": "Johnson",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
        "county": "Kaufman",
        "sources": [
         {
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
+        }
+       ]
+      },
+      {
+       "county": "Knox",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3949,6 +4254,11 @@
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_lgbs"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3966,6 +4276,11 @@
        "county": "Matagorda",
        "sources": [
         {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        },
+        {
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
@@ -3979,6 +4294,41 @@
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_lgbs"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "McLennan",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_govease"
+        }
+       ]
+      },
+      {
+       "county": "Milam",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Montague",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3986,9 +4336,34 @@
        "county": "Montgomery",
        "sources": [
         {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        },
+        {
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
+        }
+       ]
+      },
+      {
+       "county": "Nacogdoches",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Newton",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -4013,6 +4388,71 @@
        ]
       },
       {
+       "county": "Palo Pinto",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_govease"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Panola",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Parker",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_govease"
+        }
+       ]
+      },
+      {
+       "county": "Reeves",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Runnels",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "San Jacinto",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
        "county": "San Patricio",
        "sources": [
         {
@@ -4029,6 +4469,26 @@
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
+        }
+       ]
+      },
+      {
+       "county": "Tarrant",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Throckmorton",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -4053,6 +4513,26 @@
        ]
       },
       {
+       "county": "Uvalde",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Val Verde",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
        "county": "Van Zandt",
        "sources": [
         {
@@ -4073,12 +4553,87 @@
        ]
       },
       {
+       "county": "Walker",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Waller",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Washington",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Wichita",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_govease"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Wilbarger",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
        "county": "Wilson",
        "sources": [
         {
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
+        }
+       ]
+      },
+      {
+       "county": "Young",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Zavala",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       }
@@ -4095,12 +4650,202 @@
     "AVAILABLE": {
      "coverage": [
       {
+       "county": "Archer",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Austin",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Bandera",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Bastrop",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Bell",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
        "county": "Bexar",
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
          "publication": "APPROVED",
          "source_id": "tx_bexar_resale"
+        }
+       ]
+      },
+      {
+       "county": "Brazoria",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Brewster",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Brown",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Caldwell",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Cameron",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Chambers",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Cherokee",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Childress",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Clay",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Comal",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Dickens",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Dimmit",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Foard",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Fort Bend",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -4114,6 +4859,11 @@
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_lgbs"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -4128,12 +4878,62 @@
        ]
       },
       {
+       "county": "Gregg",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Hardeman",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
        "county": "Hardin",
        "sources": [
         {
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_lgbs"
+        }
+       ]
+      },
+      {
+       "county": "Harris",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Hays",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Hill",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -4148,12 +4948,72 @@
        ]
       },
       {
+       "county": "Houston",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Hunt",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Jack",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Jasper",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
        "county": "Jim Wells",
        "sources": [
         {
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_lgbs"
+        }
+       ]
+      },
+      {
+       "county": "Johnson",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Knox",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -4174,6 +5034,21 @@
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_lgbs"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Matagorda",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -4184,6 +5059,31 @@
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_lgbs"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Milam",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Montague",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -4194,6 +5094,31 @@
          "authority": "GOVERNMENT_DIRECT",
          "publication": "APPROVED",
          "source_id": "tx_montgomery_tax_trust"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Nacogdoches",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Newton",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -4208,12 +5133,82 @@
        ]
       },
       {
+       "county": "Palo Pinto",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Panola",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
        "county": "Randall",
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
          "publication": "APPROVED",
          "source_id": "tx_randall_trustee_property"
+        }
+       ]
+      },
+      {
+       "county": "Reeves",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Runnels",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "San Jacinto",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Tarrant",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Throckmorton",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -4228,12 +5223,102 @@
        ]
       },
       {
+       "county": "Uvalde",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Val Verde",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
        "county": "Van Zandt",
        "sources": [
         {
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_lgbs"
+        }
+       ]
+      },
+      {
+       "county": "Walker",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Waller",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Washington",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Wichita",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Wilbarger",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Young",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Zavala",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       }
@@ -6231,7 +7316,7 @@
     "FAIL": 0,
     "NOT_APPLICABLE": 1,
     "NOT_VERIFIED": 4,
-    "PASS": 24
+    "PASS": 27
    },
    "findings": [
     {
@@ -6248,42 +7333,42 @@
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 4 source(s) (tx_hctax, tx_jefferson_sheriff_sale, tx_lgbs, tx_realauction) read 2026-10-01",
+     "detail": "COUNTY_DEPENDENT: 7 source(s) (tx_govease, tx_hctax, tx_jefferson_sheriff_sale, tx_lgbs, tx_mvba, tx_pbfcm, tx_realauction) read 2026-10-01",
      "state": "TX",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "county_coverage",
-     "detail": "33 counties: Angelina, Aransas, Atascosa, Caldwell, Cameron, Dallas, El Paso, Ellis, Galveston, Goliad, Gregg, Hardin …",
+     "detail": "83 counties: Angelina, Aransas, Archer, Atascosa, Austin, Bandera, Bastrop, Bell, Brazoria, Brewster, Brown, Caldwell …",
      "state": "TX",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: tx_hctax, tx_jefferson_sheriff_sale, tx_lgbs, tx_realauction",
+     "detail": "TRACKED: tx_govease, tx_hctax, tx_jefferson_sheriff_sale, tx_lgbs, tx_mvba, tx_pbfcm, tx_realauction",
      "state": "TX",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 7 source(s) (tx_bexar_resale, tx_hood_cad_struck_off, tx_lgbs, tx_montgomery_tax_trust, tx_orange_trust_property, tx_randall_trustee_property, tx_trinity_cad_resale) read 2026-10-26",
+     "detail": "COUNTY_DEPENDENT: 9 source(s) (tx_bexar_resale, tx_hood_cad_struck_off, tx_lgbs, tx_montgomery_tax_trust, tx_mvba, tx_orange_trust_property, tx_pbfcm, tx_randall_trustee_property, tx_trinity_cad_resale) read 2026-10-26",
      "state": "TX",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "county_coverage",
-     "detail": "14 counties: Bexar, Galveston, Goliad, Hardin, Hood, Jim Wells, Leon, Liberty, Maverick, Montgomery, Orange, Randall …",
+     "detail": "65 counties: Archer, Austin, Bandera, Bastrop, Bell, Bexar, Brazoria, Brewster, Brown, Caldwell, Cameron, Chambers …",
      "state": "TX",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: tx_bexar_resale, tx_hood_cad_struck_off, tx_lgbs, tx_montgomery_tax_trust, tx_orange_trust_property, tx_randall_trustee_property, tx_trinity_cad_resale",
+     "detail": "TRACKED: tx_bexar_resale, tx_hood_cad_struck_off, tx_lgbs, tx_montgomery_tax_trust, tx_mvba, tx_orange_trust_property, tx_pbfcm, tx_randall_trustee_property, tx_trinity_cad_resale",
      "state": "TX",
      "status": "PASS",
      "subject": "AVAILABLE"
@@ -6327,6 +7412,13 @@
      "detail": "AUCTIONS",
      "state": "TX",
      "status": "PASS",
+     "subject": "tx_govease"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AUCTIONS",
+     "state": "TX",
+     "status": "PASS",
      "subject": "tx_hctax"
     },
     {
@@ -6359,10 +7451,24 @@
     },
     {
      "check": "source_classification",
+     "detail": "AUCTIONS/AVAILABLE",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_mvba"
+    },
+    {
+     "check": "source_classification",
      "detail": "AVAILABLE",
      "state": "TX",
      "status": "PASS",
      "subject": "tx_orange_trust_property"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AUCTIONS/AVAILABLE",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_pbfcm"
     },
     {
      "check": "source_classification",
@@ -6387,13 +7493,13 @@
     },
     {
      "check": "available_terms",
-     "detail": "every AVAILABLE source has a terms row (7)",
+     "detail": "every AVAILABLE source has a terms row (9)",
      "state": "TX",
      "status": "PASS"
     },
     {
      "check": "acquisition_path",
-     "detail": "1/14 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+     "detail": "1/69 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
      "state": "TX",
      "status": "NOT_VERIFIED"
     },

@@ -314,8 +314,9 @@ def test_21_vendor_candidates_that_are_blocked_sources_stay_blocked():
     placeholder entries must not imply anything more permissive."""
     for vendor_id, source_id in (("pbfcm", "tx_pbfcm"), ("mvba", "tx_mvba"), ("ctsa", "tx_ctsa"), ("govease", "tx_govease")):
         vendor = VENDOR_CANDIDATES[vendor_id]
+        # No vendor placeholder claims a written authorization; the registry decides ingestion.
         assert vendor.authorization_status == "BLOCKED"
-        assert SOURCE_REGISTRY[source_id].legal_status.value == "BLOCKED"
+    assert SOURCE_REGISTRY["tx_ctsa"].legal_status.value == "BLOCKED"  # tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner on 2026-10-26; tx_ctsa stays BLOCKED
 
 
 # ---------------------------------------------------------------------------

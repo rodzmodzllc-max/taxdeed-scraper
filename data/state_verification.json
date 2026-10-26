@@ -82,7 +82,7 @@
    "FAIL": 0,
    "NOT_APPLICABLE": 1,
    "NOT_VERIFIED": 4,
-   "PASS": 24
+   "PASS": 27
   },
   "WI": {
    "BLOCKED": 0,
@@ -1629,42 +1629,42 @@
   },
   {
    "check": "ledger_eligibility",
-   "detail": "COUNTY_DEPENDENT: 4 source(s) (tx_hctax, tx_jefferson_sheriff_sale, tx_lgbs, tx_realauction) read 2026-10-01",
+   "detail": "COUNTY_DEPENDENT: 7 source(s) (tx_govease, tx_hctax, tx_jefferson_sheriff_sale, tx_lgbs, tx_mvba, tx_pbfcm, tx_realauction) read 2026-10-01",
    "state": "TX",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "county_coverage",
-   "detail": "33 counties: Angelina, Aransas, Atascosa, Caldwell, Cameron, Dallas, El Paso, Ellis, Galveston, Goliad, Gregg, Hardin …",
+   "detail": "83 counties: Angelina, Aransas, Archer, Atascosa, Austin, Bandera, Bastrop, Bell, Brazoria, Brewster, Brown, Caldwell …",
    "state": "TX",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: tx_hctax, tx_jefferson_sheriff_sale, tx_lgbs, tx_realauction",
+   "detail": "TRACKED: tx_govease, tx_hctax, tx_jefferson_sheriff_sale, tx_lgbs, tx_mvba, tx_pbfcm, tx_realauction",
    "state": "TX",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "ledger_eligibility",
-   "detail": "COUNTY_DEPENDENT: 7 source(s) (tx_bexar_resale, tx_hood_cad_struck_off, tx_lgbs, tx_montgomery_tax_trust, tx_orange_trust_property, tx_randall_trustee_property, tx_trinity_cad_resale) read 2026-10-26",
+   "detail": "COUNTY_DEPENDENT: 9 source(s) (tx_bexar_resale, tx_hood_cad_struck_off, tx_lgbs, tx_montgomery_tax_trust, tx_mvba, tx_orange_trust_property, tx_pbfcm, tx_randall_trustee_property, tx_trinity_cad_resale) read 2026-10-26",
    "state": "TX",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "county_coverage",
-   "detail": "14 counties: Bexar, Galveston, Goliad, Hardin, Hood, Jim Wells, Leon, Liberty, Maverick, Montgomery, Orange, Randall …",
+   "detail": "65 counties: Archer, Austin, Bandera, Bastrop, Bell, Bexar, Brazoria, Brewster, Brown, Caldwell, Cameron, Chambers …",
    "state": "TX",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: tx_bexar_resale, tx_hood_cad_struck_off, tx_lgbs, tx_montgomery_tax_trust, tx_orange_trust_property, tx_randall_trustee_property, tx_trinity_cad_resale",
+   "detail": "TRACKED: tx_bexar_resale, tx_hood_cad_struck_off, tx_lgbs, tx_montgomery_tax_trust, tx_mvba, tx_orange_trust_property, tx_pbfcm, tx_randall_trustee_property, tx_trinity_cad_resale",
    "state": "TX",
    "status": "PASS",
    "subject": "AVAILABLE"
@@ -1708,6 +1708,13 @@
    "detail": "AUCTIONS",
    "state": "TX",
    "status": "PASS",
+   "subject": "tx_govease"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "TX",
+   "status": "PASS",
    "subject": "tx_hctax"
   },
   {
@@ -1740,10 +1747,24 @@
   },
   {
    "check": "source_classification",
+   "detail": "AUCTIONS/AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_mvba"
+  },
+  {
+   "check": "source_classification",
    "detail": "AVAILABLE",
    "state": "TX",
    "status": "PASS",
    "subject": "tx_orange_trust_property"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS/AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_pbfcm"
   },
   {
    "check": "source_classification",
@@ -1768,13 +1789,13 @@
   },
   {
    "check": "available_terms",
-   "detail": "every AVAILABLE source has a terms row (7)",
+   "detail": "every AVAILABLE source has a terms row (9)",
    "state": "TX",
    "status": "PASS"
   },
   {
    "check": "acquisition_path",
-   "detail": "1/14 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "detail": "1/69 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
    "state": "TX",
    "status": "NOT_VERIFIED"
   },
@@ -2140,6 +2161,6 @@
   "FAIL": 0,
   "NOT_APPLICABLE": 25,
   "NOT_VERIFIED": 48,
-  "PASS": 233
+  "PASS": 236
  }
 }

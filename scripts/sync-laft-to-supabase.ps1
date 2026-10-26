@@ -87,6 +87,38 @@ function Protect-StoredValues([string]$Source, $Rows) {
     }
 }
 # --- end stored-value guard ----------------------------------------------------
+# --- Write only what changed (2026-10-26) --------------------------------------
+# Every run used to upsert every harvested row again, changed or not: each
+# UPDATE bumps updated_at (properties_touch) and leaves a dead tuple, and one
+# run rewrote ~15,770 rows in ten minutes on 2026-10-26 (production overload).
+# scripts/write_diff_filter.py applies scripts/write_diff.py's one rule - a row
+# whose stored copy already holds the same values is not sent - never a second
+# copy of it here. Fail OPEN: if the filter cannot run or the stored rows cannot
+# be read, every row is sent, exactly as before. Only the upsert uses the result;
+# close-out decides on what was harvested, never on what was written.
+function Select-ChangedRows([string]$Source, $Rows) {
+    $all = @($Rows)
+    if ($all.Count -eq 0) { return }
+    $in = [System.IO.Path]::GetTempFileName()
+    $out = [System.IO.Path]::GetTempFileName()
+    try {
+        $json = $all | ConvertTo-Json -Depth 6
+        if ($all.Count -eq 1) { $json = "[$json]" }
+        [System.IO.File]::WriteAllText($in, $json, [System.Text.UTF8Encoding]::new($false))
+        & (Get-LedgerPython) (Join-Path $PSScriptRoot "write_diff_filter.py") --state FL --source $Source --in $in --out $out
+        if (0 -ne $LASTEXITCODE) {
+            Write-Warning "write_diff_filter.py exited $LASTEXITCODE - sending all $($all.Count) $Source row(s) (fail open)."
+            return $all
+        }
+        return @((Get-Content $out -Raw -Encoding utf8) | ConvertFrom-Json)
+    } catch {
+        Write-Warning "Unchanged-row filter failed ($($_.Exception.Message)) - sending all $($all.Count) $Source row(s) (fail open)."
+        return $all
+    } finally {
+        Remove-Item $in, $out -ErrorAction SilentlyContinue
+    }
+}
+# --- end write only what changed -----------------------------------------------
 
 
 # Pushes the Lands Available for Taxes harvest (harvest_laft.json, produced
@@ -336,6 +368,9 @@ if ($rows.Count -eq 0) { Write-Output "No row passed the AVAILABLE ledger contra
 Write-Output "Prepared $($rows.Count) LAFT properties ($skipped skipped for missing case_no/parcel)."
 # A blank cell or an address / 0-bid placeholder never erases a stored value.
 $rows = @(Protect-StoredValues "laft" $rows)
+# Only new / changed rows are upserted (scripts/laft_lifecycle.py reads the
+# harvest files, never this payload, for its close-out and last-seen stamp).
+$writeRows = @(Select-ChangedRows "laft" $rows)
 
 $headers = @{
     "apikey"        = $serviceRoleKey
@@ -354,8 +389,8 @@ $useFallback = $false
 
 $batchSize = 40
 $sent = 0
-for ($i = 0; $i -lt $rows.Count; $i += $batchSize) {
-    $batch = $rows[$i..([math]::Min($i + $batchSize - 1, $rows.Count - 1))]
+for ($i = 0; $i -lt $writeRows.Count; $i += $batchSize) {
+    $batch = @($writeRows[$i..([math]::Min($i + $batchSize - 1, $writeRows.Count - 1))])
     $json = $batch | ConvertTo-Json -Depth 5
     if ($batch.Count -eq 1) { $json = "[$json]" }
     $body = [System.Text.Encoding]::UTF8.GetBytes($json)
@@ -376,8 +411,8 @@ for ($i = 0; $i -lt $rows.Count; $i += $batchSize) {
         }
     }
     $sent += $batch.Count
-    Write-Output "  synced $sent / $($rows.Count)"
+    Write-Output "  synced $sent / $($writeRows.Count)"
 }
 
-Write-Output "Done. $sent LAFT properties upserted to Supabase (existing owner/lien research untouched)."
+Write-Output "Done. $sent of $($rows.Count) LAFT properties upserted to Supabase ($($rows.Count - $writeRows.Count) unchanged, not rewritten; existing owner/lien research untouched)."
 Write-Output "Counties covered: $((($rows | ForEach-Object { $_.county }) | Select-Object -Unique).Count)"

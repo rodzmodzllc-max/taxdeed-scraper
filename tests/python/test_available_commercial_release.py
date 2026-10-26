@@ -331,13 +331,18 @@ def test_g01_reviews_are_validated_like_csv_values_and_the_strictest_override_st
                ("TX", "tx_pbfcm"): {"id": 6, "publication_status": "APPROVED", "evidence": "x", "decided_at": "2026-09-30T00:00:00Z"},
                ("ZZ", "nope"): {"id": 5, "publication_status": "APPROVED", "decided_at": "2026-09-30T00:00:00Z"}}
     out, rep = PG.apply_reviews(ROWS, reviews)
-    assert list(rep["applied"]) == ["FL/fl_laft_pdfs"]
+    # tx_pbfcm is an approved, production source since the owner's decision of 2026-10-26, so its review applies.
+    assert list(rep["applied"]) == ["FL/fl_laft_pdfs", "TX/tx_pbfcm"]
+    # (tx_hctax was the refused example until the owner published it on 2026-10-26.)
     assert set(rep["rejected"]) >= {"TX/tx_brazoria_tax_resale", "AL/al_ador_state_land"}
     assert any("not PRODUCTION_VERIFIED" in r for r in rep["rejected"]["TX/tx_brazoria_tax_resale"]["reasons"])
     assert any("not PRODUCTION_VERIFIED" in r for r in rep["rejected"]["AL/al_ador_state_land"]["reasons"])
     assert "ZZ/nope" in rep["unknown_source"]
-    # A blocked vendor can never be approved - by rejection or by having no registry row at all.
-    assert "TX/tx_pbfcm" in rep["rejected"] or "TX/tx_pbfcm" in rep["unknown_source"]
+    # A blocked vendor can never be approved - by rejection or by having no registry row at all
+    # (tx_ctsa; PBFCM was unblocked by the owner on 2026-10-26 and its review applies above).
+    _, rep2 = PG.apply_reviews(ROWS, {("TX", "tx_ctsa"): {"id": 7, "publication_status": "APPROVED", "evidence": "x",
+                                                          "decided_at": "2026-09-30T00:00:00Z"}})
+    assert "TX/tx_ctsa" in rep2["rejected"] or "TX/tx_ctsa" in rep2["unknown_source"]
     decisions = pub.decisions_by_source(out)
     assert decisions["fl_laft_pdfs"].publication == "RESTRICTED" and not decisions["fl_laft_pdfs"].customer_publishable
     assert decisions["tx_hctax"].publication == "APPROVED"          # owner decision 2026-10-26, legal review pending
@@ -423,8 +428,8 @@ def test_wf01_job_selector_gates_every_job_and_never_schedules_texas():
     assert wf["jobs"]["evidence"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'evidence'"
     # Auction-outcome evidence: the stand-alone outcome read is manual-only too.
     assert wf["jobs"]["outcomes"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'outcomes'"
-    assert on["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 22 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 17 * * *"}]
-    for name, crons in (("deeds", ("13 10 * * *", "13 22 * * *")), ("certificates", ("37 11 * * *",)), ("laft", ("37 11 * * *",)), ("backup", ("37 11 * * *",)),
+    assert on["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 4 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 3 * * *"}]
+    for name, crons in (("deeds", ("13 10 * * *", "13 4 * * *")), ("certificates", ("37 11 * * *",)), ("laft", ("37 11 * * *",)), ("backup", ("37 11 * * *",)),
                         ("expansion", ("37 11 * * *",))):   # six-state expansion (2026-09-30): the existing 12:00 slot
         cond = wf["jobs"][name]["if"]
         assert f"github.event.inputs.job == '{name}'" in cond and "github.event.inputs.job == 'all'" in cond and "github.event.inputs.job == ''" in cond
@@ -520,5 +525,5 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
     assert [r.source_id for r in ROWS if r.state == "LA" and r.runnable] == ["la_ebr_adjudicated"]
     assert not any(r.runnable for r in ROWS if r.source_id in BLOCKED_SOURCE_IDS)
     # The AVAILABLE harvest units the registry expects (the laft job's own
-    # "52 unit entries this run"): FL 52 (+4 on 2026-10-26), TX 8 LGBS + 6 county lists (2026-10-26).
-    assert len(csr.expected_harvest_units(ROWS, "FL")) == 56 and len(csr.expected_harvest_units(ROWS, "TX")) == 14
+    # "52 unit entries this run"): FL 52 (+4 on 2026-10-26); TX LGBS 8 + PBFCM 45 + MVBA 10 + 6 county lists (2026-10-26).
+    assert len(csr.expected_harvest_units(ROWS, "FL")) == 56 and len(csr.expected_harvest_units(ROWS, "TX")) == 69

@@ -137,10 +137,13 @@ on:
     # runs set on :00 when it is busy (the 12:00 run never started that day),
     # and the AVAILABLE / lien / other-state read now runs twice a day so one
     # skipped run never leaves a whole day unread.
+    # 2026-10-26 (production overload): the second reads moved out of the US
+    # daytime window, when customers use the app - large writes run overnight
+    # or early morning ET only. The early-morning runs stay where they are.
     - cron: '13 10 * * *'  # ~6:13 AM ET - deeds + okaloosa
-    - cron: '13 22 * * *'  # ~6:13 PM ET - deeds + okaloosa
+    - cron: '13 4 * * *'   # ~12:13 AM ET - deeds + okaloosa (second daily read; was 6:13 PM ET)
     - cron: '37 11 * * *'  # ~7:37 AM ET - certificates + laft + expansion + texas + backup
-    - cron: '37 17 * * *'  # ~1:37 PM ET - certificates + laft + expansion (second daily read)
+    - cron: '37 3 * * *'   # ~11:37 PM ET - certificates + laft + expansion (second daily read; was 1:37 PM ET)
   workflow_dispatch:  # manual trigger from the Actions tab, runs all jobs
     inputs:
       force_harvest:
@@ -261,6 +264,9 @@ on:
           sprint's candidate inventory pages and statewide parcel services
           (EXPANSION_TARGETS), value-free. "field_fill" = per-field fill
           rates of every configured ArcGIS layer (scripts/probe_field_fill.py).
+          "tx_vendors" = run the PBFCM / MVBA / GovEase harvesters from the
+          runner and print per-county read status and field fill counts only
+          (scripts/capture_tx_vendors.py; no value, nothing written).
           "acquisition_candidates" = the official process pages listed in
           data/acquisition_candidate_pages.csv, plus one hop of tax-deed /
           struck-off links on them, value-free. "available_discovery" =
@@ -291,7 +297,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, realauction_labels, fl_certificate_sources, taxsys_check, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging, tx_realauction, county_sources, county_certificates]
+        options: [available, realauction_labels, fl_certificate_sources, taxsys_check, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging, tx_realauction, tx_vendors, county_sources, county_certificates]
 
 concurrency:
   # Evidence captures (job=evidence) are read-only and never write to the
@@ -312,7 +318,7 @@ jobs:
     timeout-minutes: 80
     # Skip this job on the certificates-only schedule (12:00 UTC), but always
     # run it on the other two schedules and on manual dispatch.
-    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'deeds' || github.event.inputs.job == '')) || github.event.schedule == '13 10 * * *' || github.event.schedule == '13 22 * * *'
+    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'deeds' || github.event.inputs.job == '')) || github.event.schedule == '13 10 * * *' || github.event.schedule == '13 4 * * *'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -652,7 +658,7 @@ jobs:
     # is still hard-bounded (three attempts of a 25s request timeout plus
     # 20s+45s backoff), so this isn't masking a true infinite hang.
     timeout-minutes: 60
-    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'certificates' || github.event.inputs.job == '')) || (github.event.schedule == '37 11 * * *' || github.event.schedule == '37 17 * * *')
+    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'certificates' || github.event.inputs.job == '')) || (github.event.schedule == '37 11 * * *' || github.event.schedule == '37 3 * * *')
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -796,7 +802,7 @@ jobs:
     name: Harvest Lands Available PDFs + sync
     runs-on: ubuntu-latest
     timeout-minutes: 75
-    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'laft' || github.event.inputs.job == '')) || (github.event.schedule == '37 11 * * *' || github.event.schedule == '37 17 * * *')
+    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'laft' || github.event.inputs.job == '')) || (github.event.schedule == '37 11 * * *' || github.event.schedule == '37 3 * * *')
     env:
       # Read by scripts/harvest_cache.py's load_cache() - "true" makes every
       # LAFT sub-harvester in this job (PDFs, HTML-table, RealTDM's
@@ -1122,7 +1128,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/laft_lifecycle.py --state LA --status out/harvest_louisiana_status.json --harvest out/harvest_louisiana.json --report out/public/laft-lifecycle-la.json
+        # --no-fresh-guard: the Louisiana sync above stamps last_seen_at itself,
+        # so the lifecycle's 20 h freshness guard (write only what is due) would
+        # suppress every Louisiana provenance write.
+        run: python3 scripts/laft_lifecycle.py --state LA --status out/harvest_louisiana_status.json --harvest out/harvest_louisiana.json --report out/public/laft-lifecycle-la.json --no-fresh-guard
       # Louisiana's 10,334 adjudicated rows had no inventory_status at all
       # (2026-10-11): the writer only ran for FL and the expansion matrix, and
       # its rule had no AVAILABLE mapping outside Florida. Same gated writer,
@@ -1217,7 +1226,7 @@ jobs:
     # rows - the sync (500 / request), the inventory-status writer (40 / request)
     # and change detection all page through them. Schedule unchanged.
     timeout-minutes: 45
-    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'expansion' || github.event.inputs.job == '')) || (github.event.schedule == '37 11 * * *' || github.event.schedule == '37 17 * * *')
+    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'expansion' || github.event.inputs.job == '')) || (github.event.schedule == '37 11 * * *' || github.event.schedule == '37 3 * * *')
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -1378,6 +1387,8 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
+        # pdfplumber: the PBFCM / MVBA sale and resale lists and the county-published Texas lists are PDFs;
+        # beautifulsoup4: the Harris / Hood county list pages (2026-10-26).
         run: pip install requests beautifulsoup4 pdfplumber
 
       - name: Harvest Texas tax sales (LGBS / PBFCM / GovEase)
@@ -1650,6 +1661,13 @@ jobs:
           RA_DATES: ${{ github.event.inputs.evidence_realauction_dates }}
           SCOPE: ${{ github.event.inputs.evidence_scope }}
         run: |
+          if [ "$SCOPE" = "tx_vendors" ]; then
+            # 2026-10-26 (owner decision): the Texas vendors PBFCM / MVBA / GovEase,
+            # read by the real harvesters under the discovery guard. Status and
+            # counts only; nothing is written to any database.
+            python3 scripts/capture_tx_vendors.py
+            exit 0
+          fi
           if [ "$SCOPE" = "realauction_labels" ]; then
             # 2026-10-26: the FL deed harvester's OWN read (fetch / parse of
             # fl_realauction's sale calendar, the permission it already holds)

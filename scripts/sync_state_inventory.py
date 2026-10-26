@@ -46,6 +46,7 @@ from source_publication import collectable  # noqa: E402
 sys.path.insert(0, str(HERE))
 import field_provenance as FP  # noqa: E402
 import rest_pages as RP  # noqa: E402
+import write_diff as WD  # noqa: E402
 
 REGISTRY = REPO / "data" / "county_source_registry.csv"
 OUT = REPO / "out"
@@ -432,16 +433,19 @@ def units_for(path: Path) -> dict:
 
 
 def stored_provenance(base: str, key: str, state: str, source_ids: set[str], first_seen: dict | None = None,
-                      rows_out: dict | None = None) -> dict:
+                      rows_out: dict | None = None, full_out: dict | None = None) -> dict:
     """identity -> the stored field_provenance of this state's rows from
     these sources (every status), so a sync merges into it. When
     `first_seen` is given it is filled with identity -> stored first_seen_at;
     when `rows_out` is given, with identity -> the stored harvester_source,
-    otc_provenance and acquisition path columns (merge_acquisition)."""
+    otc_provenance and acquisition path columns (merge_acquisition); when
+    `full_out` is given, with identity -> the whole stored row, so main()
+    writes only rows whose values changed (scripts/write_diff.py)."""
     out: dict = {}
+    select = "*" if full_out is not None else ("id,source,county,case_no,field_provenance,first_seen_at,harvester_source,otc_provenance,"
+                                               + ",".join(PATH_COLUMNS))
     rows = RP.read_all(base, "properties", _read_headers(key),
-                       {"select": "id,source,county,case_no,field_provenance,first_seen_at,harvester_source,otc_provenance,"
-                                  + ",".join(PATH_COLUMNS), "state": f"eq.{state}",
+                       {"select": select, "state": f"eq.{state}",
                         "harvester_source": f"in.({','.join(sorted(source_ids))})"})
     for r in rows:
         out[identity(r)] = r.get("field_provenance")
@@ -449,6 +453,8 @@ def stored_provenance(base: str, key: str, state: str, source_ids: set[str], fir
             first_seen[identity(r)] = r.get("first_seen_at")
         if rows_out is not None:
             rows_out[identity(r)] = {k: r.get(k) for k in ("harvester_source", "otc_provenance", *PATH_COLUMNS)}
+        if full_out is not None:
+            full_out[identity(r)] = r
     return out
 
 
@@ -537,10 +543,10 @@ def main(argv=None) -> int:
     url, key = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_SERVICE_KEY")
     import source_publication as SP  # noqa: PLC0415 - registry + latest valid admin review
     reg, _ = SP.registry_with_reviews(args.state) if (url and key and not args.dry_run) else SP.registry_with_reviews(args.state, reviews={})
-    stored, first_seen, stored_rows = {}, {}, {}
+    stored, first_seen, stored_rows, stored_full = {}, {}, {}, {}
     if url and key and not args.dry_run and states.is_activated(args.state):
         stored = stored_provenance(url, key, args.state, {sid for sid, r in reg.items() if r.is_production} or {"-"},
-                                   first_seen=first_seen, rows_out=stored_rows)
+                                   first_seen=first_seen, rows_out=stored_rows, full_out=stored_full)
     try:
         to_send, counts = plan(args.state, rows, reg, units_for(Path(args.status)), stored_provenance=stored,
                                stored_first_seen=first_seen, stored_rows=stored_rows,
@@ -549,6 +555,12 @@ def main(argv=None) -> int:
         print(f"::error title=sync_{args.state.lower()}::{exc} - 0 requests made")
         return 2
     print(f"{args.state} sync plan: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
+    if stored_full:
+        # Write only what changed (2026-10-26 production overload): an
+        # unchanged row is not re-upserted; it is re-stamped at most once per
+        # write_diff.FRESH_HOURS so its last_seen_at still records the read.
+        to_send, diff = WD.split(to_send, stored_full, identity)
+        print(f"{args.state} write plan: " + ", ".join(f"{k}={v}" for k, v in diff.items()))
     if args.dry_run or not (to_send or args.close_absent):
         return 0
     if not url or not key:

@@ -57,7 +57,10 @@ import rest_pages as RP  # noqa: E402
 import sync_state_inventory as SI  # noqa: E402
 
 STATE = "TX"
-VENDOR_SOURCE_IDS = frozenset({"tx_lgbs", "tx_realauction"})
+# The vendor feeds: LGBS, Texas RealAuction, and the vendors the owner unblocked on 2026-10-26
+# (harvesters/texas_vendors.py writes the same per-(source, county) entries; a county whose
+# index page was not read is never COMPLETE).
+VENDOR_SOURCE_IDS = frozenset({"tx_lgbs", "tx_realauction", "tx_pbfcm", "tx_mvba", "tx_govease"})
 # The county-published lists (scripts/harvest_tx_county_sales.py SOURCE_IDS -
 # a test pins the two equal; not imported, so this step needs no `requests`).
 COUNTY_LIST_SOURCE_IDS = frozenset({"tx_hctax", "tx_bexar_resale", "tx_jefferson_sheriff_sale", "tx_montgomery_tax_trust",

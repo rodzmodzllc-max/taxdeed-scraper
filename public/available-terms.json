@@ -366,6 +366,26 @@
    "quote": "portal field 'askingPrice' (display name 'Asking Price'); the Land Bank's Policies & Procedures page links the 'Offer to Purchase and Sales Agreement Packet'",
    "evidence": "tn_shelby evidence runs 37856189946 / 37856396525 (docs/tennessee-survey.md)",
    "observed_on": "2026-10-08"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "basis": "OFFER_NEGOTIATED",
+   "figure_label": "Listed amount (vendor resale list)",
+   "figure_note": "The delinquent-tax counsel's resale list figure (judgment amount / original minimum bid, by list) - not a purchase price. Offers go to the taxing unit in writing; post-judgment taxes are extra.",
+   "quote": "\"If you would like to purchase property, you must submit an offer in writing\" (PBFCM resale lists, e.g. Channelview ISD, read 2026-10-26)",
+   "evidence": "harvesters/texas_vendors.py (PBFCM taxresale.html PDFs); registry tx_pbfcm",
+   "observed_on": "2026-10-26"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "basis": "OFFER_NEGOTIATED",
+   "figure_label": "Original minimum bid (vendor trust list)",
+   "figure_note": "The delinquent-tax counsel's trust-property list figure ('ORIG. MIN BID') from the sale the property was struck off at - not a purchase price.",
+   "quote": "MVBA trust property lists column 'ORIG. MIN BID' (Brown County trust list, read 2026-10-26)",
+   "evidence": "harvesters/texas_vendors.py (MVBA trust-properties-for-sale PDFs); registry tx_mvba",
+   "observed_on": "2026-10-26"
   }
  ]
 }

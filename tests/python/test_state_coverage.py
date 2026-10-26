@@ -175,7 +175,8 @@ def test_classification_facts_from_the_2026_10_10_snapshots():
     assert DOC["states"]["TN"]["ledgers"]["AVAILABLE"]["withheld"]["source_not_approved"] == 0
     # Texas auctions are manual-only: the stale read names the last dispatch, not a scheduled failure.
     txa = DOC["states"]["TX"]["ledgers"]["AUCTIONS"]
-    assert txa["classification"] == "SOURCE_FAILED_OR_STALE" and any("manual-only" in r for r in txa["classification_reasons"])
+    # (Since 2026-10-26 the vendor sources are not manual-only, so the reason names the unstamped rows instead.)
+    assert txa["classification"] == "SOURCE_FAILED_OR_STALE" and txa["classification_reasons"]
     assert set(SC.MANUAL_ONLY_SOURCES) == set(UF.MANUAL_ONLY_SOURCES)
     # Nothing is PRODUCT_NOT_OFFERED: no ledger carries NOT_OFFERED evidence yet.
     assert DOC["summary"].get("PRODUCT_NOT_OFFERED", 0) == 0

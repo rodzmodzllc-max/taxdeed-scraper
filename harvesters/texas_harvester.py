@@ -407,6 +407,61 @@ FIELD_LINEAGE_MAP: dict[str, dict[str, str | None]] = {
         "sale_status": None,  # 'Sale Type' is read but observed blank and is not a status vocabulary (Phase 72)
         "sale_list_url": None,  # no sale-list document is published by this vendor
     },
+    # 2026-10-26 (owner decision): the three vendors unblocked that day.
+    # harvesters/texas_vendors.py + harvesters/tx_sale_tables.py.
+    "tx_pbfcm": {
+        "account_number": "the PDF table's account column ('Cad Account #', 'Geographic ID', 'Account Number', "
+                          "'Prop Id', 'PID#') or the document's own label ('Account #', 'GEO:', 'Parcel ID:')",
+        "county": "the county entry of taxsale.html / taxresale.html the document is listed under",
+        "auction_date": "the sale document's heading ('... SALES FOR NOVEMBER 3, 2026'); AUCTIONS only, else None",
+        "min_bid": "the 'Minimum Bid' / 'Estimated Minimum' / 'Judgment Amount' column",
+        "cad_market_value": "'Adjudged Value' / 'Appraised Value' / 'Market Value' column or label",
+        "legal_description": "'Legal Description' column",
+        "address": "a 'Property Address' column or the address the legal-description cell ends with",
+        "cause_number": "'Cause No.' / 'Suit #' / 'Case #' column or label",
+        "latitude": None,
+        "longitude": None,
+        "source": "the index page: taxsale.html -> 'auction', taxresale.html -> 'laft'",
+        "auction_url": None,
+        "auction_url_kind": None,
+        "sale_status": None,
+        "sale_list_url": "the PDF the row was read from (verbatim)",
+    },
+    "tx_mvba": {
+        "account_number": "PDF account column / 'Account #' label; online: 'Account No.' in the item description",
+        "county": "the link text on the month / trust page; online: '<County> County, Texas' in the item",
+        "auction_date": "sale document heading; online: the auction's own `starts` date",
+        "min_bid": "'MIN BID' column; online: item `minimum_bid`",
+        "cad_market_value": "'Market Value' column where published",
+        "legal_description": "'PROPERTY DESCRIPTION' column; online: the description before ':::::'",
+        "address": "'Approximate Property Address:' where published",
+        "cause_number": "'SUIT #' column; online: 'Suit No.'",
+        "latitude": None,
+        "longitude": None,
+        "source": "month-sales page and online auctions -> 'auction'; trust page -> 'laft'",
+        "auction_url": "online: the item's own `item_url` (mvbataxsales.com)",
+        "auction_url_kind": "constant 'property' when auction_url is set",
+        "sale_status": None,
+        "sale_list_url": "the PDF the row was read from (verbatim); None for online items",
+    },
+    "tx_govease": {
+        "account_number": "'Account Number:' / 'Account #' on the row or its parcel page, else the table's 'Parcel #' "
+                          "when it is not a suit number",
+        "county": "the Texas county picker entry ('TX - <County>')",
+        "auction_date": "the parcel page's 'scheduled to begin MM/DD/YYYY', else None",
+        "min_bid": "'Minimum Bid' / 'Face Value' / 'Starting Bid'",
+        "cad_market_value": "'Adjudged Value' in the property description",
+        "legal_description": "the parcel page's 'Legal Description'",
+        "address": "'Parcel Address' / 'Physical Address'",
+        "cause_number": "'Cause No.' / 'Cause Number' / 'Suit No.' label, else 'Parcel #' when an account is labelled",
+        "latitude": None,
+        "longitude": None,
+        "source": "constant 'auction' (online tax-deed auctions); HOA foreclosures are skipped",
+        "auction_url": "the parcel's own page (openparcel / openstandardparcel)",
+        "auction_url_kind": "constant 'property'",
+        "sale_status": None,
+        "sale_list_url": None,
+    },
 }
 
 
@@ -491,35 +546,34 @@ def build_row_provenance(harvester_source: str, *, retrieved_at: str):
     )
 
 
-def harvest_pbfcm(limit: int | None = None) -> list[TexasSaleRow]:
-    """Harvest PBFCM per-county struck-off resale PDFs.
+def _texas_vendors():
+    """harvesters/texas_vendors.py, imported either way this module is loaded."""
+    try:
+        from harvesters import texas_vendors  # noqa: PLC0415
+    except ImportError:  # pragma: no cover - loaded with harvesters/ on sys.path only
+        import texas_vendors  # noqa: PLC0415
+    return texas_vendors
 
-    STUB. Real implementation, once scoped, should follow
-    harvest_laft_pdfs.py's shape closely:
-      1. Read a data/tx_pbfcm_counties.csv source list (County, Url,
-         Notes) - NOT YET CREATED. Building it means visiting pbfcm.com's
-         resales index (if one exists) or testing the
-         <countyname>taxresale.pdf slug pattern against a real TX county
-         list, and recording in Notes exactly what was found (a real
-         table? zero properties? a text notice instead of a table, the
-         way harvest_laft_pdfs.py's own Notes column records for at least
-         one Florida county?).
-      2. For each county, fetch the PDF and extract its table (pdfplumber,
-         same as the Florida LAFT-PDF harvester) into rows.
-      3. Apply HEADER_MAP once it's populated for real.
-      4. Normalize into TexasSaleRow, leaving anything unpublished as None
-         rather than guessed.
 
-    Currently returns an empty list - wiring this up for real is the
-    concrete next step once the user confirms this scoping.
-    """
-    raise NotImplementedError(
-        "harvest_pbfcm() is an architectural stub - needs a real per-county "
-        "source list (data/tx_pbfcm_counties.csv, not yet created) and a "
-        "live-verification pass on at least a few counties' actual PDF "
-        "structure before this can safely run, following the same "
-        "confirm-before-trust discipline used for every Florida LAFT county."
-    )
+def _vendor_rows(rows: list[dict]) -> list[TexasSaleRow]:
+    return [TexasSaleRow(**r) for r in rows]
+
+
+def harvest_pbfcm(limit: int | None = None, stats: dict | None = None) -> list[TexasSaleRow]:
+    """Perdue Brandon Fielder Collins & Mott's public tax-sale and resale
+    PDFs (www.pbfcm.com taxsale.html -> AUCTIONS, taxresale.html ->
+    AVAILABLE), read with harvesters/tx_sale_tables.py. Implemented
+    2026-10-26 under the owner's decision of that date (terms risk accepted,
+    legal review pending). See harvesters/texas_vendors.py."""
+    return _vendor_rows(_texas_vendors().harvest_pbfcm(stats=stats, limit=limit))
+
+
+def harvest_mvba(limit: int | None = None, stats: dict | None = None) -> list[TexasSaleRow]:
+    """McCreary Veselka Bragg & Allen: the monthly sale PDFs and trust lists
+    on mvbalaw.com and the firm's own online auctions (mvbataxsales.com JSON
+    API). Implemented 2026-10-26 under the owner's decision of that date.
+    See harvesters/texas_vendors.py."""
+    return _vendor_rows(_texas_vendors().harvest_mvba(stats=stats, limit=limit))
 
 
 LGBS_API_URL = "https://taxsales.lgbs.com/api/property_sales/"
@@ -1321,30 +1375,15 @@ def harvest_realauction(limit: int | None = None, stats: dict | None = None) -> 
     return rows
 
 
-def harvest_govease(county_slugs: list[str] | None = None, limit: int | None = None) -> list[TexasSaleRow]:
-    """Harvest GovEase's per-county live Texas tax-deed auctions.
-
-    STUB. liveauctions.govease.com/tx/<countyslug>/<id>/browse was
-    confirmed as a real, live URL pattern this session (e.g.
-    liveauctions.govease.com/tx/txwichita/1429/browse), but:
-      - the full list of TX county slugs and their numeric IDs is not yet
-        enumerated (may require crawling a county-picker page rather than
-        guessing slugs),
-      - whether listings are server-rendered or fetched via XHR/JSON is
-        not yet checked (check read_network_requests first - if GovEase
-        exposes a JSON endpoint, that is a far more reliable integration
-        than scraping rendered auction cards, and this project has
-        precedent for preferring a confirmed API over DOM scraping
-        wherever one exists), and
-      - GovEase may gate listings behind a registration/bidder-account
-        wall for some counties, the way some FL RealAuction/RealTDM
-        counties required session handling - not yet checked.
-    """
-    raise NotImplementedError(
-        "harvest_govease() is an architectural stub - county slug/ID "
-        "enumeration and the rendered-HTML-vs-JSON-API question are both "
-        "still open."
-    )
+def harvest_govease(county_slugs: list[str] | None = None, limit: int | None = None,
+                    stats: dict | None = None) -> list[TexasSaleRow]:
+    """GovEase's Texas online tax-deed auctions (liveauctions.govease.com):
+    the county picker lists the Texas counties, each county's browse table
+    (server-rendered, 50 a page) lists the parcels, each parcel page carries
+    the cause, legal description and adjudged value. Implemented 2026-10-26
+    under the owner's decision of that date (robots.txt 'Disallow: /' risk
+    accepted). See harvesters/texas_vendors.py."""
+    return _vendor_rows(_texas_vendors().harvest_govease(stats=stats, limit=limit, county_slugs=county_slugs))
 
 
 # Vendors found during this session's research but not yet scoped into
@@ -1352,13 +1391,14 @@ def harvest_govease(county_slugs: list[str] | None = None, limit: int | None = N
 # Each would need the same live-reconnaissance pass as the three above
 # before a harvest_*() stub is even worth writing.
 UNSCOPED_CANDIDATE_VENDORS = {
-    "mvba": "mvbalaw.com - third major TX delinquent-tax law firm, monthly tax sale listings, not yet inspected",
-    "ctsa": "countytaxsaleapp.org - County Tax Sale App, not yet inspected",
+    "ctsa": "countytaxsaleapp.org - County Tax Sale App, paywalled; stays BLOCKED (never logged into or bypassed)",
+    "texascg": "texascg.com - Texas Capital Group property lists that PBFCM's resale page links to for some cities; not inspected",
 }
 
 
 SOURCES = {
     "tx_pbfcm": harvest_pbfcm,
+    "tx_mvba": harvest_mvba,
     "tx_lgbs": harvest_lgbs,
     "tx_realauction": harvest_realauction,
     "tx_govease": harvest_govease,

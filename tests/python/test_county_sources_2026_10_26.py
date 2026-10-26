@@ -280,7 +280,8 @@ def test_every_tx_county_source_is_permitted_to_read_collect_display_and_link_bu
 
 
 def test_new_interim_records_are_owner_risk_acceptances_expiring_2027_04_12():
-    recs = [r for r in PERM.Permissions.from_file().records if r.effective_on == "2026-10-26"]
+    ours = {"fl_laft_portals", "fl_laft_realtdm", "fl_laft_html"} | {s[1] for s in T.SOURCES}
+    recs = [r for r in PERM.Permissions.from_file().records if r.effective_on == "2026-10-26" and r.source_id in ours]
     assert recs and all(r.status == "OWNER_PERMISSION_REQUIRED" and r.evidence_type == "INTERNAL_RISK_ACCEPTANCE"
                         and r.expires_on == "2027-04-12" and "2026-10-26" in r.reason for r in recs)
     assert {"fl_laft_portals", "tx_hctax", "tx_bexar_resale"} <= {r.source_id for r in recs}

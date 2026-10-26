@@ -76,7 +76,7 @@ AMOUNT_KIND_LABELS = {
 # Sources whose `parcel` column is NOT the property's parcel: Texas tax-suit
 # vendors store the CAUSE number there and the CAD account in case_no
 # (public/app.js parcelOf(); one cause covers several parcels).
-CAUSE_IN_PARCEL_SOURCES = frozenset({"tx_lgbs", "tx_realauction"})
+CAUSE_IN_PARCEL_SOURCES = frozenset({"tx_lgbs", "tx_realauction", "tx_pbfcm", "tx_mvba", "tx_govease"})
 
 # Fields that belong to one ledger only. A row of another ledger carrying one
 # is a classification bug (it was built by the wrong path or merged across

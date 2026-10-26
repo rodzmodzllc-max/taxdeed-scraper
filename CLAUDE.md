@@ -2576,6 +2576,20 @@ Full description: `docs/three-ledgers.md` (last section). Stable facts:
   `customer_view()` (vectors `ledger_record_cases.json`); `publication_state` reason `LEDGER_CONTRACT`
   (customer-binding only once 031 is applied).
 
+## Texas vendors unblocked: PBFCM, MVBA, GovEase (2026-10-26, PR open, no migration)
+
+Full description: `docs/texas-vendor-sources.md`. Stable facts:
+- Owner decision 2026-10-26 ("Do not block vendors ..."): `tx_pbfcm`, `tx_mvba`, `tx_govease` are harvested daily in the
+  `texas` job (`harvesters/texas_vendors.py`, PDF tables via `harvesters/tx_sale_tables.py`). Permission is an interim
+  INTERNAL_RISK_ACCEPTANCE (expires 2027-04-12), never documented permission; `enrich` / `redistribute` stay BLOCKED.
+  `tx_ctsa` (paywall) is the only hard-blocked vendor left.
+- Plain HTTPS, `taxdeed-scraper/1.0`, >= 1 s between requests, no login / CAPTCHA / proxy; a 401/403 is a FAILED unit.
+- Rows: account = `case_no`, cause = `parcel` (`CAUSE_IN_PARCEL_SOURCES`); per-(source, county) `units` in
+  `out/harvest_texas_status.json`. County roster: `data/tx_vendor_counties.csv` -> registry rows (rebuild with
+  `scripts/build_county_source_registry.py`, then the generated JSON files).
+- Front-end follow-up (public/ not touched): app.js `parcelOf()` cause-in-parcel list and source labels name only LGBS /
+  RealAuction.
+
 ## Florida PowerShell syncs never erase a stored value (2026-10-26, PR open, no migration)
 
 - **Why:** PostgREST bulk upsert needs one key set per batch (PGRST102), so a column the list did not publish is sent

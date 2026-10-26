@@ -151,7 +151,8 @@ def test_zero_states_are_named_and_correct():
     for st in ("CO", "WY"):
         assert cov[st]["status"] == "NO_QUALIFYING_PROGRAM" and cov[st]["research"]["mechanism"] == "COUNTY_HELD_LIEN"
     assert cov["FL"]["status"] == "SOURCE_TRACKED" and cov["LA"]["status"] == "SOURCE_TRACKED"
-    # LGBS last read FAILED, but six county-published lists (2026-10-26) are production AVAILABLE sources too.
+    # 2026-10-26: PBFCM / MVBA resale and trust lists (owner decision) were read COMPLETE, and six county-published
+    # lists are production AVAILABLE sources too; LGBS still FAILED.
     assert cov["TX"]["status"] == "SOURCE_TRACKED"
     assert {c["status"] for c in cov.values()} <= set(AC.STATUSES)
 
