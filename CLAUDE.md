@@ -3546,6 +3546,22 @@ Full description: `docs/review/header-tiers.md`. Stable facts:
   (`window.__suiteKeepResearchClosed` reads the default).
 - Shell CSS must never override `[hidden]` (filter rows and fields each needed a guard).
 
+## Every collected source published (owner decision 2026-10-26, PR open, no migration)
+
+Full description: `docs/publish-all-sources.md`. Stable facts:
+- **The 13 implemented sources that were UNREVIEWED are now APPROVED** (`expansion.OWNER_APPROVED_2026_10_26_SOURCE_IDS`):
+  - the ten Available sources: Detroit lots + programs, Oceana, St. Louis LRA, Oklahoma County, Fayette, Ramsey, Horry,
+    Georgetown, Shelby;
+  - three auction lists, which are now collected: Morgan CO deed auctions, Dane WI, Oconee SC.
+
+  Registry `restrictions` begins "Owner approved customer publication 2026-10-26; legal review pending".
+- **The decision is an internal risk acceptance, never the source's permission.**
+  - `display` / `link` records in `data/source_permissions.csv` are INTERIM (`OWNER_PERMISSION_REQUIRED` +
+    `INTERNAL_RISK_ACCEPTANCE`, expiring 2027-04-12); `redistribute` is not granted.
+  - `available_coverage.problems()` accepts an APPROVED review without a grant only when the review cites the owner
+    decision and that INTERIM display record exists.
+- **Unchanged:** the Detroit customer subset, `availableGate: "off"`, the paid-beta set (5 sources), `tx_ctsa`'s block.
+
 ## Texas close-out (2026-10-26, PR open, no migration)
 
 - **`out/harvest_texas_status.json` now carries `counties`**: one entry per (source_id, county) read, read through

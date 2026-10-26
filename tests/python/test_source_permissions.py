@@ -32,9 +32,13 @@ from harvesters.governance.publication import PUBLISHABLE_STATUSES, effective_pu
 from permission_fixtures import install, permissions_with, record  # noqa: E402
 
 DAY = date(2026, 10, 12)  # the day these records were verified
-# A source added after DAY is checked on the day its records took effect
-# (Sarasota Tax Collector county-held certificates: owner decision 2026-10-26).
-ADDED_AFTER_DAY = {"fl_sarasota_tc_certificates": date(2026, 10, 26)}
+OWNER_DAY = date(2026, 10, 26)  # the owner's customer-publication decision (docs/publish-all-sources.md)
+from harvesters.otc.adapters.expansion import OWNER_APPROVED_2026_10_26_SOURCE_IDS as OWNER_IDS  # noqa: E402
+
+
+def _day(source_id: str) -> date:
+    # Sarasota Tax Collector county-held certificates: also the owner's 2026-10-26 decision.
+    return OWNER_DAY if source_id in OWNER_IDS or source_id == "fl_sarasota_tc_certificates" else DAY
 
 
 def perms(*rows, base=False, **kw):
@@ -259,8 +263,7 @@ def test_parity_every_currently_collected_registry_source_keeps_fetch_and_store(
         else:
             ds = None
         for op in ("fetch", "store"):
-            d = p.authorize(row.source_id, op, state=row.state, county=row.county, dataset=ds,
-                            today=ADDED_AFTER_DAY.get(row.source_id, DAY))
+            d = p.authorize(row.source_id, op, state=row.state, county=row.county, dataset=ds, today=_day(row.source_id))
             assert d.allowed, (row.source_id, row.county, op, d.reason_code)
 
 
@@ -268,22 +271,30 @@ def test_parity_every_currently_publishable_source_keeps_display():
     p = PERM.Permissions.from_file()
     for row in load_registry():
         if row.source_id and effective_publication(row) in PUBLISHABLE_STATUSES:
-            day = ADDED_AFTER_DAY.get(row.source_id, DAY)
-            d = p.authorize(row.source_id, "display", state=row.state, county=row.county, today=day)
+            d = p.authorize(row.source_id, "display", state=row.state, county=row.county, today=_day(row.source_id))
             ds_d = p.authorize(row.source_id, "display", state=row.state, county=row.county,
                                dataset={"fl_realauction": "sale_calendar", "fl_lienhub_certificates": "county_held_certificates",
                                         "fl_sarasota_tc_certificates": "county_held_certificates",
                                         "fl_bid4assets_okaloosa": "sale_calendar"}.get(row.source_id,
-                                        "lands_available" if row.source_id.startswith("fl_laft_") else None), today=day)
+                                        "lands_available" if row.source_id.startswith("fl_laft_") else None), today=_day(row.source_id))
             assert d.allowed or ds_d.allowed, (row.source_id, row.county)
 
 
-def test_admin_only_sources_have_no_display_permission():
+def test_owner_approved_sources_display_on_an_interim_record_only():
+    """Owner decision 2026-10-26: the sources that were admin-only now carry an
+    INTERIM display / link allowance (internal risk acceptance) - never
+    documented permission - expiring 2027-04-12; before the decision there
+    was no display record at all."""
     p = PERM.Permissions.from_file()
     for sid, st in (("mi_detroit_landbank_lots", "MI"), ("tn_shelby_landbank", "TN"), ("mo_stl_lra_inventory", "MO"),
                     ("ok_oklahoma_county_owned", "OK"), ("pa_fayette_repository", "PA")):
         assert p.authorize(sid, "fetch", state=st, today=DAY).basis == "INTERIM"
-        assert p.authorize(sid, "display", state=st, today=DAY).reason_code == "NO_RECORD"
+        assert p.authorize(sid, "display", state=st, today=DAY).reason_code == "NOT_YET_EFFECTIVE"
+        for op in ("display", "link"):
+            d = p.authorize(sid, op, state=st, today=OWNER_DAY)
+            assert d.allowed and d.basis == "INTERIM" and not d.documented and d.expires_on == "2027-04-12", (sid, op)
+        assert not p.authorize(sid, "display", state=st, today=date(2027, 4, 13)).allowed
+        assert not p.authorize(sid, "redistribute", state=st, today=OWNER_DAY).allowed
 
 
 def test_every_guarded_source_id_has_a_record():

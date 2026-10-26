@@ -127,13 +127,14 @@ def test_registry_no_downloadable_form_is_recorded_as_an_online_mode():
     assert (horry["purchase_url"], horry["purchase_url_kind"], horry["purchase_path_mode"]) == (HORRY_PDF, "bid_form", "application")
 
 
-def test_publication_status_of_the_five_sources_is_unchanged():
+def test_publication_status_of_the_five_sources_is_the_owner_decision():
     ids = ("mi_detroit_landbank_lots", "mi_detroit_landbank_programs", "mi_oceana_landbank",
            "sc_horry_forfeited_land", "sc_georgetown_forfeited_land")
     rows = {r["source_id"]: r for r in csv.DictReader((REPO / "data" / "county_source_registry.csv").open(encoding="utf-8"))}
     for sid in ids:
-        assert EX.PUBLICATION[sid][0] == "UNREVIEWED", sid
-        assert rows[sid]["publication_status"] == "UNREVIEWED", sid
+        # Owner decision 2026-10-26: published now, legal review pending (was UNREVIEWED).
+        assert EX.PUBLICATION[sid] == ("APPROVED", EX.OWNER_APPROVED_2026_10_26), sid
+        assert rows[sid]["publication_status"] == "APPROVED", sid
 
 
 def test_frontend_mirrors_the_offline_form_rule():

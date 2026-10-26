@@ -164,9 +164,10 @@ def test_classification_facts_from_the_2026_10_10_snapshots():
     # restrictions column records the owner's 2026-10-26 approval.
     assert liens["classification"] == "SOURCE_FAILED_OR_STALE" and liens["sources"]["restricted"] == 33
     assert liens["records"]["act_never_seen"] == liens["records"]["active"]
-    # Shelby's source is collected but UNREVIEWED: approval, not data, is the blocker.
-    assert DOC["states"]["TN"]["ledgers"]["AVAILABLE"]["classification"] == "APPROVAL_UNRESOLVED"
-    assert DOC["states"]["TN"]["ledgers"]["AVAILABLE"]["withheld"]["source_not_approved"] == DOC["states"]["TN"]["ledgers"]["AVAILABLE"]["records"]["active"]
+    # Shelby's source was collected but UNREVIEWED until the owner's 2026-10-26 decision
+    # published it: approval is resolved; the unverified acquisition path is what remains.
+    assert DOC["states"]["TN"]["ledgers"]["AVAILABLE"]["classification"] == "RECORDS_WITHHELD_NO_PATH"
+    assert DOC["states"]["TN"]["ledgers"]["AVAILABLE"]["withheld"]["source_not_approved"] == 0
     # Texas auctions are manual-only: the stale read names the last dispatch, not a scheduled failure.
     txa = DOC["states"]["TX"]["ledgers"]["AUCTIONS"]
     assert txa["classification"] == "SOURCE_FAILED_OR_STALE" and any("manual-only" in r for r in txa["classification_reasons"])

@@ -493,6 +493,9 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
         elif r.state in EXPANSION_STATES and r.source_id in EX.SIX_STATE_SOURCE_IDS:
             # Six-state expansion (2026-09-30): a reviewed owner decision, not grandfathered.
             assert eff == "APPROVED" and r.is_production and "owner on 2026-09-30" in r.restrictions, (r.state, r.source_id)
+        elif r.source_id in EX.OWNER_APPROVED_2026_10_26_SOURCE_IDS:
+            # Owner decision 2026-10-26 (docs/publish-all-sources.md): published now, legal review pending.
+            assert eff == "APPROVED" and r.is_production and "Owner approved customer publication 2026-10-26" in r.restrictions, (r.state, r.source_id)
         elif r.state in EXPANSION_STATES:
             # Five-state sprint (2026-10-01): APPROVED only on a licence the source states (quoted), else UNREVIEWED.
             if eff == "APPROVED":
