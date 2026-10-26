@@ -288,7 +288,10 @@ on:
         options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby]
 
 concurrency:
-  group: harvest-and-sync
+  # Evidence captures (job=evidence) are read-only and never write to the
+  # database, so each gets its own group: they can no longer queue behind,
+  # or knock out, a pending harvest in the single harvest slot.
+  group: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'evidence') && format('evidence-{0}', github.run_id) || 'harvest-and-sync' }}
   cancel-in-progress: false
 
 jobs:
