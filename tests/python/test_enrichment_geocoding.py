@@ -279,6 +279,22 @@ def test_apply_writes_and_isolates_a_failed_write():
     assert set(written[0][1]) == {"latitude", "longitude", "field_provenance"}
 
 
+def test_apply_writes_each_answer_before_the_next_lookup():
+    # A run stopped mid-way (job timeout) keeps every coordinate already found.
+    written = []
+
+    def fn(src, r):
+        if r["id"] == "auc":
+            raise KeyboardInterrupt("job stopped")
+        return G.Lookup("MATCHED", 30.2, -85.6, "X", "PARCEL_ID")
+    try:
+        GA.run(rows_fixture(), mode="apply", allow_upgrade=False, limit=None, ctx=PR.Context(), fl_lookup_fn=fn,
+               write=lambda rid, fields: written.append(rid))
+    except KeyboardInterrupt:
+        pass
+    assert written == ["avail"]
+
+
 def test_upgrade_is_counted_separately_and_only_on_request():
     fn, calls = fl_fake({"unrec": G.Lookup("MATCHED", 29.65, -82.32, "Z", "PARCEL_ID")})
     rep = GA.run(rows_fixture(), mode="dry-run", allow_upgrade=True, limit=None, ctx=PR.Context(), fl_lookup_fn=fn)
