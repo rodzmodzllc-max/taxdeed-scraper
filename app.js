@@ -5598,6 +5598,7 @@ function card(p, showCounty, ctx) {
       <div class="prop-address">${titleLine}</div>
       ${countyLineHtml(p, cx)}
       <div class="card-price">${ledger === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}"${bidPublished ? ` title="${esc(`Exact amount ${fmtMoney(p.bid)}. Cards round to whole dollars.`)}"` : ""}>${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
+      ${cardLotLineHtml(p)}
       <div class="pc-actions">${primary}${bidListBtnHtml(p, "card")}${secondary}</div>
       <details class="card-details"${cardDetailsOpenAttr(p)}>
         <summary>Record details</summary>
@@ -5740,6 +5741,15 @@ function cardPhotoOverlayHtml(p) {
 // it reads "Not published" rather than "0 sq ft".
 function cardLotSize(p) {
   return Number(p.lot_sqft) > 0 ? lotSize(p) : "";
+}
+
+// The lot size under the card's price (owner's request 2026-10-27): the
+// source's own acreage when it has one, otherwise the stored lot area. A row
+// with neither shows no line - nothing is estimated.
+function cardLotLineHtml(p) {
+  const ac = Number(p.acreage);
+  const size = ac > 0 ? `${ac < 10 ? ac.toFixed(2) : Math.round(ac).toLocaleString()} acres` : cardLotSize(p);
+  return size ? `<div class="card-lot" data-card-lot="1"><span class="card-lot-label">Lot size</span> <span class="card-lot-val">${esc(size)}</span></div>` : "";
 }
 
 // Four facts in the same order on every card. A fact the data does not hold
