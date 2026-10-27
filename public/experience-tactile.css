@@ -36,22 +36,11 @@ html[data-experience="tactile"] .xpt h1,html[data-experience="tactile"] .xpt h2,
 html[data-experience="tactile"] .xpt .xpt-caps{font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:10.5px;letter-spacing:.9px;text-transform:uppercase;line-height:14px;color:var(--gray)}
 html[data-experience="tactile"] .xpt .xpt-mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
 html[data-experience="tactile"] .xpt .xpt-mono-s{font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:16px;color:var(--gray);font-variant-numeric:tabular-nums}
-html[data-experience="tactile"] .xpt .xpt-dl{font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:28px;line-height:32px;letter-spacing:-.3px;margin-top:6px;color:var(--ink)}
 html[data-experience="tactile"] .xpt .xpt-dm{font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:20px;line-height:24px;color:var(--ink)}
-html[data-experience="tactile"] .xpt .xpt-sub{margin-top:6px;font-size:13px;line-height:18px;color:var(--gray)}
-html[data-experience="tactile"] .xpt .xpt-sub .xpt-mono{color:var(--ink);font-weight:500}
 html[data-experience="tactile"] .xpt .xpt-small{font-size:12.5px;line-height:17px;color:var(--gray)}
 html[data-experience="tactile"] .xpt .xpt-note{margin:14px 16px 0;font-size:12px;line-height:17px;color:var(--gray);text-align:center}
 html[data-experience="tactile"] .xpt .tr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;min-width:0}
 
-/* head */
-html[data-experience="tactile"] .xpt .xpt-head{position:relative;padding:20px 16px 4px}
-html[data-experience="tactile"] .xpt .xpt-eyebrow{display:block}
-html[data-experience="tactile"] .xpt.xpt-auction .xpt-eyebrow{color:var(--rust)}
-html[data-experience="tactile"] .xpt.xpt-laft .xpt-eyebrow{color:var(--sage)}
-html[data-experience="tactile"] .xpt .xpt-eyebrow.pill{display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 12px 0 8px;border-radius:999px;background:linear-gradient(180deg,#F4ECF3,#EDE4EC);border:1px solid #D3BBD2;color:#563A59;box-shadow:0 8px 16px -10px var(--plum-glow),inset 0 1px 0 #fff;font-weight:600;font-size:10.5px;letter-spacing:.9px;text-transform:uppercase}
-html[data-experience="tactile"] .xpt .eb-slip{width:16px;height:12px;border-radius:2px;background:var(--plum-mid);box-shadow:2px -2px 0 -.5px #fff,2px -2px 0 .5px #C9AFC8;transform:rotate(-6deg)}
-html[data-experience="tactile"] .xpt.xpt-certificate .xpt-head::before{content:"";position:absolute;right:-40px;top:-10px;width:240px;height:200px;border-radius:50%;background:radial-gradient(closest-side,rgba(211,187,210,.55),rgba(237,228,236,.25) 60%,transparent);pointer-events:none;z-index:-1}
 
 /* shared paper object */
 html[data-experience="tactile"] .xpt .xpt-obj{position:relative;background-color:var(--paper);background-image:var(--grain);border:1px solid var(--hair);box-shadow:var(--rest);transition:transform 520ms var(--spring-soft),box-shadow 120ms var(--ease-std)}
@@ -96,8 +85,6 @@ html[data-experience="tactile"] .xpt .xpt-day.on{transform:translateY(-4px);box-
 html[data-experience="tactile"] .xpt .xpt-day .dw{font-weight:600;font-size:10px;letter-spacing:.9px;line-height:12px}
 html[data-experience="tactile"] .xpt .xpt-day .dn{font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:22px;line-height:22px}
 html[data-experience="tactile"] .xpt .xpt-day .dm{font-weight:600;font-size:9.5px;letter-spacing:.9px;line-height:11px}
-html[data-experience="tactile"] .xpt .xpt-day .dots{display:flex;gap:3px;margin-top:3px;height:4px}
-html[data-experience="tactile"] .xpt .xpt-day .dots i{width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.85}
 html[data-experience="tactile"] .xpt .xpt-day .dc{position:absolute;right:-6px;top:-7px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--copper);color:var(--paper);font-size:10.5px;line-height:18px;font-weight:500;text-align:center;box-shadow:0 0 0 2px var(--stone)}
 html[data-experience="tactile"] .xpt .xpt-days{padding-top:16px}
 html[data-experience="tactile"] .xpt .s-soft{background-color:#F3E3D8;color:var(--copper-deep)}
@@ -109,6 +96,9 @@ html[data-experience="tactile"] .xpt .s-none{background-color:#F6F2EB;color:var(
 html[data-experience="tactile"] .xpt .xpt-day.s-past,html[data-experience="tactile"] .xpt .xpt-day.s-none{border-style:dashed}
 
 html[data-experience="tactile"] .xpt .xpt-auction-body{display:block}
+/* The rail label is the one place the number of sale days appears. */
+html[data-experience="tactile"] .xpt .xpt-rail-label{display:block;padding:12px 16px 0;color:var(--rust)}
+html[data-experience="tactile"] .xpt .xpt-rail-label .xpt-mono{font-weight:500;color:var(--ink);letter-spacing:0}
 html[data-experience="tactile"] .xpt .xpt-banner{padding:14px 16px 0}
 html[data-experience="tactile"] .xpt .xpt-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 html[data-experience="tactile"] .xpt .xpt-chip.cd{font-weight:600}
@@ -150,7 +140,6 @@ html[data-experience="tactile"] .xpt .flip-hint.static{position:static}
 html[data-experience="tactile"] .xpt .lotrow{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-top:2px;min-width:0}
 html[data-experience="tactile"] .xpt .lotnum{display:flex;align-items:flex-end;gap:6px;flex:0 0 auto}
 html[data-experience="tactile"] .xpt .lotnum .xpt-caps{padding-bottom:6px}
-html[data-experience="tactile"] .xpt .lotnum .of{font-size:13px;color:var(--gray);padding-bottom:6px}
 html[data-experience="tactile"] .xpt .lotrow .xpt-mono-s{padding-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 html[data-experience="tactile"] .xpt .numeral{font-family:'Source Serif 4',Georgia,serif;font-weight:700;font-size:44px;line-height:44px;color:var(--rust-bright);text-shadow:0 1px 0 #fff,0 -1px 0 rgba(126,59,28,.18)}
 html[data-experience="tactile"] .xpt .ctitle{display:block;margin-top:8px;font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:20px;line-height:24px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -228,6 +217,12 @@ html[data-experience="tactile"] .xpt .seg-btn .n{font-family:'IBM Plex Mono',mon
 
 html[data-experience="tactile"] .xpt .xpt-drawer{position:relative;margin:18px 8px 0;padding:40px 10px 24px;border-radius:22px;background:#ECE6DB;border:1px solid var(--hair);box-shadow:inset 0 10px 16px -10px rgba(36,34,31,.18),inset 0 -1px 0 rgba(255,255,255,.7)}
 html[data-experience="tactile"] .xpt .xpt-drawer::before{content:"";position:absolute;left:50%;top:10px;width:68px;height:14px;margin-left:-34px;border-radius:8px;background:linear-gradient(#F7F3EC,#E2DACC);border:1px solid #CFC6B6;box-shadow:inset 0 -2px 3px rgba(36,34,31,.12)}
+/* One drawer per county; the head is the county name only and is what the
+   shared "Now showing" bar observes ([data-county-head]). */
+html[data-experience="tactile"] .xpt .xpt-cgroup{margin-top:22px}
+html[data-experience="tactile"] .xpt .xpt-cgroup:first-of-type{margin-top:14px}
+html[data-experience="tactile"] .xpt .xpt-chead{margin:0 16px;font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:20px;line-height:24px;color:var(--ink);scroll-margin-top:var(--county-now-offset,140px)}
+html[data-experience="tactile"] .xpt .xpt-cgroup .xpt-drawer{margin-top:10px}
 html[data-experience="tactile"] .xpt .xpt-fold{position:relative;perspective:900px}
 html[data-experience="tactile"] .xpt .xpt-fold + .xpt-fold{margin-top:-86px}
 html[data-experience="tactile"] .xpt .xpt-fold.open{margin-top:6px}
@@ -242,7 +237,6 @@ html[data-experience="tactile"] .xpt .ftab{position:absolute;top:-26px;max-width
 html[data-experience="tactile"] .xpt .ftab.ok{background:var(--sage-mid)}
 html[data-experience="tactile"] .xpt .ftab.wait{background:#E4DFD3;border-color:#CFC6B6}
 html[data-experience="tactile"] .xpt .ftab.none{background:#EDE8E0;border-color:var(--hair);color:var(--gray)}
-html[data-experience="tactile"] .xpt .ftab-check{width:15px;height:15px;flex:0 0 15px;border-radius:50%;background:var(--paper);border:1px solid var(--verified);display:flex;align-items:center;justify-content:center;color:var(--verified)}
 html[data-experience="tactile"] .xpt .face-row{display:flex;align-items:center;gap:8px;min-height:26px}
 html[data-experience="tactile"] .xpt .face-title{flex:1;min-width:0;font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:19px;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
 html[data-experience="tactile"] .xpt .face-title.parcel{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:14px}
@@ -273,7 +267,6 @@ html[data-experience="tactile"] .xpt .inside .status i{width:8px;height:8px;bord
 html[data-experience="tactile"] .xpt .cover{position:absolute;inset:0;border-radius:4px 16px 16px 16px;background-color:#E5EEE3;background-image:var(--grain),repeating-linear-gradient(0deg,rgba(78,107,84,.05) 0 1px,transparent 1px 7px);border:1px solid #B9CDB7;transform-origin:0 50%;z-index:4;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:16px;box-shadow:0 10px 24px -14px var(--sage-glow);pointer-events:none;animation:xpt-hinge 450ms var(--ease-std) 120ms both}
 @keyframes xpt-hinge{0%{transform:rotateY(0)}80%{opacity:1}100%{transform:rotateY(-160deg);opacity:0}}
 html[data-experience="tactile"] .xpt .cover .xpt-caps{color:var(--sage)}
-html[data-experience="tactile"] .xpt .cover-title{font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:20px;line-height:24px;margin-top:4px}
 
 html[data-experience="tactile"] .xpt .xpt-sheet{position:relative;margin:12px 4px 0;padding:18px 14px 16px;border-radius:16px;background-color:var(--paper);background-image:var(--grain);border:1px solid var(--hair);box-shadow:0 18px 34px -18px var(--sage-glow),0 1px 2px rgba(36,34,31,.06);animation:xpt-slide 520ms var(--spring-soft) 300ms both}
 @keyframes xpt-slide{from{transform:translateY(-36px) scale(.96);opacity:0}}
@@ -329,7 +322,6 @@ html[data-experience="tactile"] .xpt .pile-right{display:flex;flex-direction:col
 html[data-experience="tactile"] .xpt .pile-right .xpt-caps{font-size:9.5px;letter-spacing:.6px;line-height:12px}
 html[data-experience="tactile"] .xpt .pile-right .f{font-size:14px}
 html[data-experience="tactile"] .xpt .stub{border-left:1.5px dashed var(--hair);display:flex;align-items:center;justify-content:center;overflow:hidden}
-html[data-experience="tactile"] .xpt .stub span{transform:rotate(-90deg);white-space:nowrap;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--plum)}
 
 html[data-experience="tactile"] .xpt .fan-wrap{position:relative;margin:0 -16px}
 html[data-experience="tactile"] .xpt .fan-stage{position:relative;height:300px;overflow:hidden;perspective:900px}
@@ -342,7 +334,6 @@ html[data-experience="tactile"] .xpt .fslip{--rot:calc(var(--off,0) * var(--fan-
 html[data-experience="tactile"] .xpt .fslip.lifted{--ly:-28px;--sc:1.05}
 html[data-experience="tactile"] .xpt .fslip .fb{position:absolute;left:0;top:0;bottom:0;right:43px;border-radius:10px 0 0 10px;border-right:0;padding:12px 6px 10px 16px;display:flex;flex-direction:column;gap:2px;min-width:0}
 html[data-experience="tactile"] .xpt .fslip .fs{position:absolute;right:0;top:0;bottom:0;width:44px;border-radius:0 10px 10px 0;border-left:1.5px dashed var(--hair);background-color:#FAF5F6;display:flex;align-items:center;justify-content:center;overflow:hidden;--glow:var(--plum-glow)}
-html[data-experience="tactile"] .xpt .fslip .fs span{transform:rotate(-90deg);white-space:nowrap;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--plum)}
 html[data-experience="tactile"] .xpt .fslip.lifted .fb,html[data-experience="tactile"] .xpt .fslip.lifted .fs{box-shadow:var(--lifted);border-color:#C9AFC8}
 html[data-experience="tactile"] .xpt .fslip.lifted .fb::before{opacity:.5}
 html[data-experience="tactile"] .xpt .fslip:active .fb,html[data-experience="tactile"] .xpt .fslip:active .fs{transform:scale(.985) rotate(-1deg)}
@@ -378,9 +369,6 @@ html[data-experience="tactile"] .xpt .fslip.xpt-opening{animation:xpt-tear 260ms
 @keyframes xpt-tear{to{transform:translateX(var(--part,0px)) translate(-8px,-90px) rotate(-6deg) scale(1.05);opacity:0}}
 
 /* entrance - only when the ledger or its rows change, never on a watch toggle */
-html[data-experience="tactile"] .xpt.xpt-enter .xpt-head > *{animation:xpt-rise 320ms var(--ease-out) both}
-html[data-experience="tactile"] .xpt.xpt-enter .xpt-head > :nth-child(2){animation-delay:40ms}
-html[data-experience="tactile"] .xpt.xpt-enter .xpt-head > :nth-child(3){animation-delay:80ms}
 html[data-experience="tactile"] .xpt.xpt-enter .xpt-day{animation:xpt-rise 320ms var(--ease-out) var(--rd) both}
 html[data-experience="tactile"] .xpt.xpt-enter .mile{animation:xpt-rise 260ms var(--ease-out) var(--md) both}
 html[data-experience="tactile"] .xpt.xpt-enter .mile .node{animation:xpt-node 480ms var(--spring-pop) var(--md) both}
@@ -417,8 +405,9 @@ html[data-experience="tactile"] .xpt.xpt-enter .xpt-bundle{animation:xpt-drop 52
 }
 @container xpt (min-width:760px){
   html[data-experience="tactile"] .xpt{padding-bottom:36px}
-  html[data-experience="tactile"] .xpt .xpt-head{padding:28px 28px 6px}
-  html[data-experience="tactile"] .xpt .xpt-dl{font-size:34px;line-height:40px}
+  html[data-experience="tactile"] .xpt .xpt-rail-label{padding:14px 28px 0}
+  html[data-experience="tactile"] .xpt .xpt-chead{margin:0 28px}
+  html[data-experience="tactile"] .xpt .xpt-auction-body.xpt-one-lot{grid-template-columns:minmax(340px,440px)}
   html[data-experience="tactile"] .xpt .xpt-days{padding:16px 28px 14px}
   html[data-experience="tactile"] .xpt .xpt-auction-body{display:grid;grid-template-columns:minmax(340px,392px) minmax(0,1fr);gap:28px;padding:0 28px 0 12px;align-items:start}
   html[data-experience="tactile"] .xpt .xpt-deck-col{position:sticky;top:104px}
@@ -452,3 +441,8 @@ html[data-experience-ready="tactile"] #xpStage{container:xpt / inline-size}
 /* The stage takes #main's place in the List grid while this look is drawn. */
 @media (min-width:1024px){html[data-experience-ready="tactile"] .auctions-body>#xpStage{grid-row:2;grid-column:1;min-width:0}}
 @media (min-width:1440px){html[data-experience-ready="tactile"] .auctions-body>#xpStage{grid-row:1;grid-column:2}}
+
+/* Certificates: the bundle switch (By tax year / By county) is this look's
+   sort; the toolbar's Sort select would be a second control for it. */
+html[data-experience-ready="tactile"][data-ledger="certificate"] .qc-sort,
+html[data-experience-ready="tactile"][data-ledger="certificate"] #sortBy{display:none}

@@ -40,6 +40,10 @@ sys.path.insert(0, str(REPO))
 
 from harvesters.enrichment import geocode as G  # noqa: E402
 from harvesters.enrichment import priority as PR  # noqa: E402
+try:
+    import rest_pages as RP  # noqa: E402
+except ImportError:  # imported as scripts.geocode_authoritative
+    from scripts import rest_pages as RP  # noqa: E402
 
 USER_AGENT = "taxdeed-scraper authoritative-geocoding (+https://github.com/rodzmodzllc-max/taxdeed-scraper)"
 READ_COLUMNS = ("id,state,county,ledger_type,source,status,publication_status,parcel,case_no,latitude,longitude,"
@@ -66,15 +70,11 @@ def read_rows(base: str, key: str, states: list[str]) -> list[dict]:
     hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
     rows: list[dict] = []
     for st in states:
-        offset = 0
-        while True:
-            q = urllib.parse.urlencode({"select": READ_COLUMNS, "state": f"eq.{st}", "status": "in.(active,available)",
-                                        "order": "id.asc", "limit": PAGE, "offset": offset})
-            page = http_json(f"{base}/rest/v1/properties?{q}", headers=hdr) or []
-            rows += page
-            if len(page) < PAGE:
-                break
-            offset += len(page)
+        # Keyset pages (scripts/rest_pages.py): an offset page sorts the whole
+        # state first and hit the statement timeout (HTTP 500) on Michigan's
+        # 33,000 rows (geocode plan, 2026-10-27).
+        rows += RP.read_all(base, "properties", hdr, {"select": READ_COLUMNS, "state": f"eq.{st}",
+                                                      "status": "in.(active,available)"}, page=PAGE)
     return rows
 
 
@@ -108,7 +108,10 @@ def fl_lookup(src: G.CoordinateSource, row: dict) -> G.Lookup:
     if src.lookup_kind == "santa_rosa":
         field = "PAR_NUM"
     ident = cand[len(EP.ALT_KEY_PREFIX):] if field == "ALT_KEY" else str(cand or "")
-    return G.classify_point(centroid.get("y"), centroid.get("x"), "FL", matched_identifier=ident, matched_field=field)
+    lk = G.classify_point(centroid.get("y"), centroid.get("x"), "FL", matched_identifier=ident, matched_field=field)
+    if src.lookup_kind == "fdor" and lk.status == "MATCHED":
+        lk.parcel_id = str(attrs.get("PARCEL_ID") or "").strip()
+    return lk
 
 
 def run(rows: list[dict], *, mode: str, allow_upgrade: bool, limit: int | None, ctx: PR.Context,

@@ -412,6 +412,16 @@ def stored_active(base: str, key: str, state: str, source_ids: set[str]) -> list
                         "status": "eq.active", "harvester_source": f"in.({','.join(sorted(source_ids))})"})
 
 
+def patch_query(base: str, key: str, query: str, body: dict) -> None:
+    """One PATCH of `properties` filtered by a ready PostgREST query string."""
+    req = urllib.request.Request(
+        f"{base.rstrip('/')}/rest/v1/properties?{query}", data=json.dumps(body).encode(), method="PATCH",
+        headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT,
+                 "Content-Type": "application/json", "Prefer": "return=minimal"})
+    with urllib.request.urlopen(req, timeout=60):
+        pass
+
+
 def close_rows(base: str, key: str, closes: list[dict]) -> None:
     for c in closes:
         req = urllib.request.Request(
@@ -607,15 +617,24 @@ def main(argv=None) -> int:
         # Write only what changed (2026-10-26 production overload): an
         # unchanged row is not re-upserted; it is re-stamped at most once per
         # write_diff.FRESH_HOURS so its last_seen_at still records the read.
-        to_send, diff = WD.split(to_send, stored_full, identity)
+        # 2026-10-27: a row due only its re-stamp is not re-upserted whole;
+        # its id goes to the paced last_seen_at PATCH below (write_diff).
+        observed_at = next((r["last_seen_at"] for r in to_send if r.get("last_seen_at")), None)
+        to_send, restamp_ids, diff = WD.split_restamps(to_send, stored_full, identity)
         print(f"{args.state} write plan: " + ", ".join(f"{k}={v}" for k, v in diff.items()))
-    if args.dry_run or not (to_send or args.close_absent):
+    else:
+        restamp_ids, observed_at = [], None
+    if args.dry_run or not (to_send or restamp_ids or args.close_absent):
         return 0
     if not url or not key:
         print(f"::error title=sync_{args.state.lower()}::SUPABASE_URL / SUPABASE_SERVICE_KEY not set - 0 requests made")
         return 2
     n = upsert(url, key, to_send) if to_send else 0
     print(f"{args.state}: upserted {len(to_send)} row(s) in {n} request(s)")
+    if restamp_ids:
+        sent, failed = WD.run_restamps(restamp_ids, observed_at or FP.now_iso(),lambda q, body: patch_query(url, key, q, body))
+        print(f"{args.state}: re-stamped last_seen_at on {len(restamp_ids)} unchanged row(s) in {sent} request(s), "
+              f"{failed} batch(es) failed")
     if args.close_absent:
         # Only sources this run may publish: a gated source's stored rows are never
         # 'closed' by another source's read of the same county.

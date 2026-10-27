@@ -962,6 +962,7 @@ def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, di
             counts[k] = 0
         by_key = {(str(r.get("county")), str(r.get("case_no"))): r for r in db_rows}
         now_dt = datetime.now(timezone.utc)
+        restamp_ids: list = []
         for county, case_no in plan.observe:
             row = observed[county][case_no]
             payload = provenance_payload(row, gates[county], retrieved_at, state=state, registry_paths=registry_paths,
@@ -974,9 +975,21 @@ def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, di
                 counts["provenance_unchanged_skipped"] += 1
                 continue
             counts[f"provenance_{why}"] += 1
+            if why == "restamp" and stored.get("id"):
+                # Only last_seen_at is due: batched by id with a pause
+                # between batches (write_diff.run_restamps, 2026-10-27).
+                restamp_ids.append(stored["id"])
+                continue
             # Scoped to this state's laft row by its identity, as before.
             api.patch(f"state=eq.{state}&source=eq.{SOURCE}&county=eq.{q(county)}&case_no=in.{q(in_list([case_no]))}", payload)
             counts["provenance_patches"] += 1
+        if restamp_ids:
+            sent, failed = WD.run_restamps(
+                restamp_ids, retrieved_at,
+                lambda query, body: api.patch(f"state=eq.{state}&source=eq.{SOURCE}&{query}", body),
+                pause=0 if getattr(api, "dry_run", False) else WD.RESTAMP_PAUSE_SECONDS)
+            counts["provenance_patches"] += sent
+            counts["provenance_restamp_failed_batches"] = failed
     elif have_017:
         fresh_filter = f"&or=(last_seen_at.is.null,last_seen_at.lt.{q(WD.stale_before())})" if fresh_guard else ""
         obs_by_county: dict[str, list[tuple[str, dict]]] = {}
