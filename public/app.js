@@ -7174,7 +7174,7 @@ window.__tdwOpenCountyPage = openCountyPage;
 // A customer's own research workspace: named lists ("October Florida
 // Auction", "Due Diligence", ...), the properties saved into them, the
 // customer's own workflow state for each, and a note. Stored in
-// research_lists / research_items (migration 029, written and NOT applied);
+// research_lists / research_items (migration 029, applied 2026-10-27);
 // until those tables exist the same workspace is kept in this browser only and
 // the page says so. The customer's workflow state is never a government or
 // source status: it is never written to a property, and every surface shows
@@ -7394,6 +7394,7 @@ async function researchAfterOpen(p) {
   await loadResearch();
   hydrateResearchPanels(p.id);
   if (typeof hydrateDiligence === "function") hydrateDiligence(p.id);
+  hydrateGuided(p.id);
 }
 // ==================== State rules page (#/rules, 2026-10-10) ====================
 // public/state-rules.json (scripts/build_state_rules.py) holds, per state:
@@ -9879,6 +9880,13 @@ function collapseSecondaryOnPhone(root) {
   root.querySelectorAll("details.detail-more").forEach(d => d.removeAttribute("open"));
 }
 function detailHtml(p) {
+  // Property page tiers (2026-10-27): the Free preview and the Guided view are
+  // their own pages; the full record continues below.
+  const tier = pageTier();
+  if (tier === "free" || tier === "beginner") {
+    return `<button class="detail-close" data-action="closedetail" type="button" aria-label="Close">✕</button>
+    ${detailCrumbsHtml(p, { anonymous: tier === "free" })}${tierSwitchHtml(tier)}${tier === "free" ? freeDetailHtml(p) : guidedDetailHtml(p)}`;
+  }
   const isCert = p.source === "certificate";
   const fav = FAVS.has(p.id);
   // The county/clerk auction listing (url_auction) used to sit in this same
@@ -10017,6 +10025,7 @@ function detailHtml(p) {
   const html = `
     <button class="detail-close" data-action="closedetail" type="button" aria-label="Close">✕</button>
     ${detailCrumbsHtml(p)}
+    ${tierSwitchHtml("pro")}
     <div class="prop-county-tag">${esc(p.county)} ${UNIT_WORD}, ${esc(regionOf(p))}${isCert ? " · Certificate" : (p.source === "laft" ? (isDatedList(p) ? " · Adjudicated (dated list)" : regionOf(p) === "TX" ? " · Struck-off inventory" : regionOf(p) === "FL" ? " · Lands Available" : " · " + esc(availableProgram(p))) : " · Auction")}</div>
     <h2 class="detail-address">${title}</h2>
     <div class="prop-top-actions" style="margin:.2rem 0 .5rem">
@@ -16087,7 +16096,8 @@ function syncAdminNav() {
 // property is open in that column - the full property page takes it over.
 
 // ---- property page: breadcrumb, "why am I seeing this", card acquisition badge ----
-function detailCrumbsHtml(p) {
+function detailCrumbsHtml(p, opts) {
+  if (opts && opts.anonymous) return `<nav class="detail-crumbs" aria-label="Breadcrumb"><button type="button" class="crumb" data-action="crumbhome">Home</button><span class="crumb-sep" aria-hidden="true">/</span><button type="button" class="crumb" data-action="crumbledger" data-ledger="${esc(p.source)}">${esc(ledgerNavName(p.source))}</button><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">${esc(`${p.county} ${UNIT_WORD}`)}</span></nav>`;
   const street = p.source === "certificate" ? "" : realAddress(p);
   const here = p.source === "certificate" ? `Certificate #${p.certificate_no || "not published"}` : (street || (hasParcel(p) ? `Parcel ${parcelOf(p)}` : (p.case_no ? `Case ${p.case_no}` : "Property")));
   return `<nav class="detail-crumbs" aria-label="Breadcrumb"><button type="button" class="crumb" data-action="crumbhome">Home</button><span class="crumb-sep" aria-hidden="true">/</span><button type="button" class="crumb" data-action="crumbledger" data-ledger="${esc(p.source)}">${esc(ledgerNavName(p.source))}</button><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">${esc(here)}</span></nav>`;
@@ -16625,3 +16635,320 @@ function installListToolbarV3() {
   });
 }
 installShellV3();
+
+// ==================== Property page tiers (2026-10-27) ====================
+// The owner's three views of one property page:
+//   free     - a blurred preview: what kind of property it is and where (the
+//              county, never the address), with the money and the way in
+//              blurred. The blurred cells are glyphs, never the real values -
+//              nothing hidden is in the page.
+//   beginner - "Guided": three things to know, then the six stages from
+//              listing to deed. Answers the records carry are confirmed (from
+//              the records, never from the buyer); everything else is a check
+//              the buyer ticks. Ticks are the buyer's own notes, kept on their
+//              research item (research_items.diligence.journey, migration 029)
+//              so they follow the account across devices; they never change
+//              what the records say.
+//   pro      - the full record (the page as it was).
+// No account carries a tier yet (billing ships off), so administrators and
+// testers pick the view with the switch at the top of the page; everyone else
+// sees the full record. `var` / function declarations only (TDZ).
+var PAGE_TIER_KEY = "tdw_page_tier_v1";
+var PAGE_TIERS = ["free", "beginner", "pro"];
+var PAGE_TIER_LABELS = { free: "Free preview", beginner: "Guided", pro: "Full record" };
+function canSwitchTier() { return !!IS_ADMIN || (ACCESS && (ACCESS.role === "tester" || ACCESS.role === "admin")); }
+function pageTier() {
+  let q = null;
+  try { q = new URLSearchParams(location.search).get("tier"); } catch { q = null; }
+  if (PAGE_TIERS.includes(q)) return q;
+  if (!canSwitchTier()) return "pro";
+  try { const s = localStorage.getItem(PAGE_TIER_KEY); if (PAGE_TIERS.includes(s)) return s; } catch { /* storage off */ }
+  return "pro";
+}
+function tierSwitchHtml(tier) {
+  if (!canSwitchTier()) return "";
+  return `<div class="tier-switch" role="group" aria-label="Page view"><span class="tier-switch-label">View</span>${PAGE_TIERS.map(t =>
+    `<button type="button" class="tier-btn${t === tier ? " on" : ""}" data-tier-set="${t}" aria-pressed="${t === tier}">${esc(PAGE_TIER_LABELS[t])}</button>`).join("")}<span class="tier-switch-note">testing - accounts carry no tier yet</span></div>`;
+}
+function tierLandUse(p) {
+  if (p.prop_type) return String(p.prop_type);
+  if (regionOf(p) === "TX" && p.tx_category && typeof txCategoryLabel === "function") return txCategoryLabel(p.tx_category) || "";
+  return p.dor_use_code ? (dorUseLabel(p.dor_use_code) || "") : "";
+}
+function tierSize(p) {
+  if (hasNum(p.acreage) && Number(p.acreage) > 0) return `${Number(p.acreage) < 10 ? Number(p.acreage).toFixed(2) : Math.round(Number(p.acreage))} acres`;
+  return lotSize(p);
+}
+function tierKind(p) {
+  if (p.source === "certificate") return "Tax lien certificate";
+  if (p.source === "auction") return "Tax-deed auction";
+  return availableProgram(p);
+}
+function tierTitle(p) {
+  if (p.source === "certificate") return `Certificate #${esc(p.certificate_no || "Unknown")}`;
+  const street = realAddress(p);
+  return street ? esc(street) : lotTitle(p);
+}
+
+// ---- Free preview ----
+var TIER_BLUR = { short: "██████", money: "$██,███", line: "████ ██████ ████████ ██", long: "████████ ███ ██████ ████ ████████ ███ █████" };
+function blurCell(kind) { return `<span class="tier-blur" aria-hidden="true">${TIER_BLUR[kind] || TIER_BLUR.line}</span><span class="sr-only">Hidden in the free preview</span>`; }
+function freeDetailHtml(p) {
+  const isCert = p.source === "certificate";
+  const facts = [tierLandUse(p), isCert ? "" : tierSize(p)].filter(Boolean);
+  const rows = [];
+  rows.push([isCert ? "Account" : "Address", blurCell("line")]);
+  if (p.source === "auction") {
+    rows.push(["Sale date", blurCell("short")]);
+    rows.push([auctionBidLabel(p, true), blurCell("money")]);
+  } else if (isCert) {
+    rows.push(["Certificate amount", blurCell("money")]);
+    rows.push(["Interest rate", blurCell("short")]);
+  } else {
+    rows.push([amountInfo(p).label || "Price", blurCell("money")]);
+  }
+  if (!isCert) rows.push(["County value on file", blurCell("money")]);
+  rows.push(["How to acquire", blurCell("long")]);
+  rows.push(["Who to contact", blurCell("line")]);
+  return `<div class="tier-free" data-tier-view="free" data-pid="${esc(p.id)}">
+    <div class="tier-free-visual"><span class="loc-thumb minimap minimap-county" data-county="${esc(p.county)}" data-frame="state" aria-hidden="true"></span></div>
+    <div class="tier-kicker">${esc(tierKind(p))} · ${esc(p.county)} ${esc(UNIT_WORD)}, ${esc(regionOf(p))}</div>
+    <h2 class="detail-address">${isCert ? "A tax lien certificate" : "A property"} in ${esc(p.county)} ${esc(UNIT_WORD)}</h2>
+    ${facts.length ? `<div class="tier-facts">${facts.map(f => `<span>${esc(f)}</span>`).join("")}</div>` : ""}
+    <dl class="tier-free-rows">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>
+    <div class="tier-unlock">
+      <b>See what you could buy</b>
+      <ul>
+        <li><b>Guided</b> - the address, the price and a step-by-step checklist from listing to deed.</li>
+        <li><b>Pro</b> - the full record: values, history, sources, documents and every open question.</li>
+      </ul>
+      <button type="button" class="detail-btn tier-unlock-btn" data-action="support" data-topic="support" data-pid="${esc(p.id)}">Ask about access</button>
+    </div>
+  </div>`;
+}
+
+// ---- Guided (beginner) ----
+// A stage: { key, title, facts: [{title, answer, href?, list?}], tasks: [{key, title, how, href?, hrefLabel?}] }.
+function guidedStages(p) {
+  const fema = "https://msc.fema.gov/portal/search";
+  const fl = floodShort(p);
+  const floodChecked = typeof p.flood_checked_at === "string" && !!p.flood_checked_at;
+  const coords = hasNum(p.latitude) && hasNum(p.longitude);
+  const risks = {
+    key: "risks", title: "Check the risks", facts: [], tasks: [
+      { key: "liens", title: "Look for other liens", how: "Search the clerk's records and ask code enforcement - some liens can survive a tax sale." },
+      { key: "title", title: "Plan a title search", how: "A title company can tell you what you would actually own." },
+      { key: "see", title: "See the property", how: coords ? "Study the aerial picture above, then drive by if you can." : "Drive by, or find it on the appraiser's map." }
+    ]
+  };
+  if (floodChecked) risks.facts.push({ title: "Flood zone", answer: fl.text + (p.flood_sfha === true ? " - a FEMA high-risk area" : "") });
+  else risks.tasks.splice(1, 0, { key: "flood", title: "Check the flood zone", how: "Look the address up on FEMA's flood map.", href: fema, hrefLabel: "FEMA flood map" });
+  const seen = p.last_seen_at ? dateOnly(p.last_seen_at) : "";
+  const value = hasNum(p.market) ? { title: valueLabel(p), answer: fmtMoney(Number(p.market)) } : null;
+
+  if (p.source === "certificate") {
+    const facts1 = [{ title: "On the county's certificate list", answer: seen ? `Read ${seen}` : "Listed by the county" }];
+    if (p.certificate_no) facts1.push({ title: "Certificate number", answer: String(p.certificate_no) });
+    const facts2 = [];
+    if (hasPublishedBid(p)) facts2.push({ title: "Certificate amount", answer: bidDisplay(p) });
+    if (hasNum(p.interest_rate)) facts2.push({ title: "Interest rate", answer: p.interest_rate + "%" });
+    const facts5 = [];
+    if (p.expiration_date) facts5.push({ title: "Expires", answer: fmtDate(p.expiration_date) });
+    const tda = tdaEligibleText(p);
+    return [
+      { key: "find", title: "Find it", facts: facts1, tasks: [] },
+      { key: "price", title: "Know the amount", facts: facts2, tasks: facts2.length < 2 ? [{ key: "amount", title: "Confirm the amount and rate", how: "The tax collector's certificate list states both." }] : [] },
+      Object.assign({}, risks, { title: "Check the property", tasks: [{ key: "parcel", title: "Look up the property", how: "The appraiser's record shows what the certificate is on.", href: p.url_appraiser || null, hrefLabel: "Appraiser record" }].concat(risks.tasks.filter(t => t.key !== "see")) }),
+      { key: "buy", title: "Buy the certificate", facts: [], tasks: [{ key: "buy", title: "Bid at the certificate sale", how: "The tax collector's sale site lists the rules and dates.", href: auctionLinkInfo(p).href, hrefLabel: "County sale site" }] },
+      { key: "wait", title: "Wait for redemption", facts: facts5, tasks: [{ key: "track", title: "Track whether it is repaid", how: "The owner repays the amount with interest; the tax collector pays you." }] },
+      { key: "deed", title: "Apply for a tax deed", facts: tda ? [{ title: "Tax deed application", answer: tda }] : [], tasks: [{ key: "tda", title: "Apply for a tax deed if it is not repaid", how: "Ask the tax collector when you may apply." }] }
+    ];
+  }
+
+  if (p.source === "auction") {
+    const link = auctionLinkInfo(p);
+    const facts1 = [];
+    if (seen) facts1.push({ title: "On the county's sale list", answer: `Read ${seen}` });
+    if (p.sale_date) facts1.push({ title: "Sale date", answer: fmtDate(String(p.sale_date).slice(0, 10)) });
+    const facts2 = [];
+    if (hasPublishedBid(p)) facts2.push({ title: auctionBidLabel(p, true), answer: fmtMoney(Number(p.bid)) });
+    if (value) facts2.push(value);
+    return [
+      { key: "find", title: "Find it", facts: facts1, tasks: facts1.length ? [] : [{ key: "find", title: "Find the sale date", how: "The county's auction calendar lists it.", href: link.href, hrefLabel: "County auction site" }] },
+      { key: "price", title: "Know the bid", facts: facts2, tasks: [{ key: "ceiling", title: "Set your highest bid", how: "Add fees, back taxes and the cost of clearing title before you decide." }] },
+      risks,
+      { key: "register", title: "Register", facts: [], tasks: [{ key: "register", title: "Register and follow the deposit rules", how: "Do it on the county's auction site before sale day.", href: link.href, hrefLabel: "County auction site" }] },
+      { key: "bid", title: "Bid", facts: [], tasks: [{ key: "bid", title: "Bid on sale day", how: p.sale_date ? `The sale is ${fmtDate(String(p.sale_date).slice(0, 10))}.` : "Watch the county's calendar for the date." }] },
+      { key: "deed", title: "Pay and get the deed", facts: [], tasks: [{ key: "pay", title: "Pay the balance and receive the deed", how: "Follow the auction site's payment deadline; ask the clerk when the deed is recorded." }] }
+    ];
+  }
+
+  // Available
+  const a = acquisitionOf(p);
+  const i = amountInfo(p);
+  const avail = availabilityLink(p);
+  const forms = acquisitionForms(p);
+  const form = forms.find(f => f.kind !== "purchase_instructions");
+  const office = a.verified && a.office ? a.office : `the ${p.county} ${UNIT_WORD} office`;
+  const facts1 = [];
+  if (isDatedList(p)) facts1.push({ title: "On a dated list", answer: p.list_as_of ? `Dated ${dateOnly(p.list_as_of)} - not confirmed as available today` : "List date not published" });
+  else if (seen) facts1.push({ title: "It is for sale", answer: `On the ${tierKind(p)} list, read ${seen}`, href: avail ? avail.href : null });
+  if (a.verified) facts1.push({ title: "How it is sold", answer: a.label });
+  if (a.verified && a.office) facts1.push({ title: "Who sells it", answer: a.office + (a.phone ? ` · ${a.phone.split(/\s+or\s+/)[0]}` : "") });
+  const tasks1 = [];
+  if (isDatedList(p)) tasks1.push({ key: "still", title: "Confirm it is still for sale", how: `Ask ${office} before you spend anything.` });
+  if (!a.verified) tasks1.push({ key: "who", title: "Find out who sells it and how", how: avail ? "Start with the official listing - it names the office." : "Ask the county tax office.", href: avail ? avail.href : null, hrefLabel: "Official listing" });
+  const facts2 = [];
+  const hasAmt = i.value !== null && i.value !== undefined;
+  if (hasAmt) facts2.push({ title: i.label, answer: fmtMoney(i.value) });
+  if (value) facts2.push(value);
+  const t = termsFor(p);
+  if (t && t.deposit) facts2.push({ title: "Deposit", answer: String(t.deposit) });
+  const tasks2 = [];
+  if (i.state !== "official_current") tasks2.push({ key: "price", title: "Get today's total price", how: `Ask ${office}: ${hasAmt ? "the listed figure is not the full amount due." : "the list does not publish a price."}` });
+  const b = acquisitionCostBreakdown(p);
+  if (b && b.additions.length) tasks2.push({ key: "costs", title: "Budget for added costs", how: b.additions.map(x => x.label).join(", ") + " are added on top." });
+  if (t && t.application_costs) tasks2.push({ key: "appcosts", title: "Budget for application costs", how: String(t.application_costs) });
+  const facts4 = [];
+  if (form) facts4.push({ title: "The form", answer: form.name, href: form.url });
+  if (a.steps.length) facts4.push({ title: "What the office says to do", list: a.steps });
+  const send = a.email ? `E-mail it to ${a.email}.` : a.address ? `Deliver it to ${a.address}.` : a.mailing ? `Mail it to ${a.mailing}.` : `Ask ${office} where to send it.`;
+  const tasks4 = form || a.steps.length ? [{ key: "apply", title: "Send your application", how: send }] : [{ key: "getform", title: "Get the application", how: `Ask ${office} for its application or offer form.` }];
+  return [
+    { key: "find", title: "Find it", facts: facts1, tasks: tasks1 },
+    { key: "price", title: "Learn the price", facts: facts2, tasks: tasks2 },
+    risks,
+    { key: "apply", title: "Apply", facts: facts4, tasks: tasks4 },
+    { key: "pay", title: "Pay", facts: a.payment ? [{ title: "How to pay", answer: a.payment }] : [], tasks: [{ key: "pay", title: "Pay the amount due", how: a.payment ? "Pay only after you have the office's written total." : `Ask ${office} which payment methods it accepts.` }] },
+    { key: "deed", title: "Get the deed", facts: [], tasks: [{ key: "deed", title: "Receive the recorded deed", how: `Ask ${office} how and when the deed is issued and recorded.` }] }
+  ];
+}
+function guidedThree(p) {
+  if (p.source === "certificate") {
+    return [
+      ["What it is", "A tax lien certificate: you pay the unpaid taxes, and the owner repays you with interest. It does not give you the property."],
+      ["What it costs", [hasPublishedBid(p) ? `Certificate amount ${bidDisplay(p)}` : "The certificate amount is not on file", hasNum(p.interest_rate) ? `interest rate ${p.interest_rate}%` : ""].filter(Boolean).join(", ") + "."],
+      ["How you buy it", "Bid at the county's certificate sale."]
+    ];
+  }
+  if (p.source === "auction") {
+    return [
+      ["What it is", `A property the county will sell at its tax-deed auction${p.sale_date ? ` on ${fmtDate(String(p.sale_date).slice(0, 10))}` : ""}.`],
+      ["What it costs", hasPublishedBid(p) ? `${auctionBidLabel(p, true)} ${fmtMoney(Number(p.bid))}. Bidding starts there and can go higher.${hasNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : ""}` : "The opening bid is not published yet."],
+      ["How you buy it", "Register on the county's auction site, follow its deposit rules and bid on sale day."]
+    ];
+  }
+  const a = acquisitionOf(p);
+  const i = amountInfo(p);
+  const hasAmt = i.value !== null && i.value !== undefined;
+  const cost = (hasAmt ? `${i.label} ${fmtMoney(i.value)}.` : `${i.display && i.display !== "Not published" ? i.display : "The list does not publish a price - ask the office"}.`) +
+    (hasNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : "");
+  const how = a.verified ? `${a.label}${a.office ? ` from ${a.office}` : ""}.${a.steps.length ? ` First: ${a.steps[0]}` : ""}` : "The county has not published how to buy it yet - the official listing names the office to ask.";
+  return [["What it is", availableWhy(p).text + "."], ["What it costs", cost], ["How you buy it", how]];
+}
+function journeyMarks(p) {
+  if (!RESEARCH || !RESEARCH.loaded) return {};
+  const it = researchSavedFor(p.id)[0];
+  const j = it && it.diligence && typeof it.diligence === "object" ? it.diligence.journey : null;
+  return j && typeof j === "object" ? j : {};
+}
+function guidedBodyHtml(p) {
+  const stages = guidedStages(p);
+  const marks = journeyMarks(p);
+  let total = 0, done = 0, next = null;
+  stages.forEach(s => {
+    total += s.facts.length + s.tasks.length;
+    done += s.facts.length;
+    s.tasks.forEach(t => { const k = s.key + "." + t.key; if (marks[k]) done++; else if (!next) next = Object.assign({ stage: s.title }, t); });
+  });
+  const pct = total ? Math.round(done / total * 100) : 0;
+  const left = total - done;
+  const ring = `<div class="g-ring" style="--pct:${pct}" role="img" aria-label="${done} of ${total} done"><span>${done}/${total}</span></div>`;
+  const headline = left ? `${left} ${left === 1 ? "check" : "checks"} left before you buy` : "You have checked everything";
+  const stageHtml = stages.map((s, idx) => {
+    const openTasks = s.tasks.filter(t => !marks[s.key + "." + t.key]).length;
+    const isNext = next && next.stage === s.title;
+    const chip = !s.tasks.length ? "Confirmed" : !openTasks ? "Done" : isNext ? "Your turn" : "Later";
+    const facts = s.facts.map(f => `<li class="g-fact"><span class="g-check" aria-hidden="true">✓</span><span><b>${esc(f.title)}</b>${f.list ? `<ol class="g-steps">${f.list.map(x => `<li>${esc(x)}</li>`).join("")}</ol>` : `<span>${f.href ? `<a href="${esc(f.href)}" target="_blank" rel="noopener">${esc(f.answer)} ↗</a>` : esc(f.answer)}</span>`}</span></li>`).join("");
+    const tasks = s.tasks.map(t => {
+      const k = s.key + "." + t.key;
+      const on = !!marks[k];
+      return `<li class="g-task${on ? " on" : ""}"><button type="button" class="g-tick" data-tier-task="${esc(k)}" data-pid="${esc(p.id)}" aria-pressed="${on}"><span class="g-box" aria-hidden="true">${on ? "✓" : ""}</span><span><b>${esc(t.title)}</b><span>${esc(t.how)}</span></span></button>${t.href ? `<a class="g-task-link" href="${esc(t.href)}" target="_blank" rel="noopener">${esc(t.hrefLabel || "Open")} ↗</a>` : ""}</li>`;
+    }).join("");
+    return `<li class="g-stage" data-stage="${esc(s.key)}" data-stage-state="${chip.toLowerCase().replace(/\s+/g, "-")}">
+      <details${isNext || (!next && idx === 0) ? " open" : ""}><summary><span class="g-dot">${!openTasks ? "✓" : idx + 1}</span><span class="g-stage-title">${esc(s.title)}</span><span class="g-chip">${esc(chip)}</span></summary>
+      <ul class="g-items">${facts}${tasks}</ul></details></li>`;
+  }).join("");
+  const storage = RESEARCH && RESEARCH.loaded && RESEARCH.mode === "server" ? "Your ticks are saved to your account and follow you to any device."
+    : RESEARCH && RESEARCH.loaded ? "Your ticks are kept in this browser only." : "Loading your saved ticks…";
+  return `<div class="g-progress">${ring}<div><span class="g-eyebrow">Your path to buy</span><b class="g-headline">${esc(headline)}</b></div></div>
+    ${next ? `<div class="g-next"><span class="g-eyebrow">Next step · ${esc(next.stage)}</span><b>${esc(next.title)}</b><span>${esc(next.how)}</span></div>` : ""}
+    <ol class="g-stages">${stageHtml}</ol>
+    <p class="g-note">Green ✓ items come from the county's own records. The boxes you tick are your own notes and never change what the records say. ${esc(storage)}</p>`;
+}
+function guidedDetailHtml(p) {
+  const facts = [tierLandUse(p), p.source === "certificate" ? "" : tierSize(p)].filter(Boolean);
+  const three = guidedThree(p).map(([k, v], n) => `<div class="g-know"><span class="g-num">${n + 1}</span><div><b>${esc(k)}</b><span>${esc(v)}</span></div></div>`).join("");
+  const a = p.source === "laft" ? acquisitionOf(p) : null;
+  const cta = a ? (acquisitionCta(a) || (availabilityLink(p) ? { label: "Open the official listing", href: availabilityLink(p).href } : null)) : null;
+  const ctaHtml = p.source === "laft" ? (cta ? `<a class="detail-cta" href="${esc(cta.href)}" ${/^(mailto|tel):/.test(cta.href) ? "" : 'target="_blank" rel="noopener"'}>${esc(cta.label)}</a>` : "") : auctionLinkHtml(p, "detail-cta");
+  return `<div class="tier-guided" data-tier-view="beginner">
+    ${p.source === "certificate" ? "" : propertyVisual(p, "detail-hero-photo")}
+    <div class="tier-kicker">${esc(tierKind(p))} · ${esc(p.county)} ${esc(UNIT_WORD)}, ${esc(regionOf(p))}</div>
+    <h2 class="detail-address">${tierTitle(p)}</h2>
+    ${facts.length ? `<div class="tier-facts">${facts.map(f => `<span>${esc(f)}</span>`).join("")}</div>` : ""}
+    <div class="prop-top-actions" style="margin:.2rem 0 .5rem">${bidListBtnHtml(p, false)}</div>
+    <section class="g-three" aria-label="Three things to know"><span class="g-eyebrow">Three things to know</span>${three}</section>
+    <div class="guided" data-guided-pid="${esc(p.id)}">${guidedBodyHtml(p)}</div>
+    ${ctaHtml}
+    <p class="g-locked">The full record - values, history, sources and documents - is part of Pro.</p>
+  </div>`;
+}
+function hydrateGuided(pid) {
+  const p = ALL.find(x => String(x.id) === String(pid));
+  if (!p) return;
+  document.querySelectorAll(`.guided[data-guided-pid="${CSS.escape(String(pid))}"]`).forEach(el => {
+    // Stages the buyer had open stay open after a tick redraws the list.
+    const open = new Set(Array.from(el.querySelectorAll(".g-stage details[open]")).map(d => d.closest(".g-stage").dataset.stage));
+    el.innerHTML = guidedBodyHtml(p);
+    el.querySelectorAll(".g-stage").forEach(li => { const d = li.querySelector("details"); if (d && open.has(li.dataset.stage)) d.open = true; });
+  });
+}
+async function toggleJourneyTask(p, key) {
+  await loadResearch();
+  let it = researchSavedFor(p.id)[0];
+  if (!it) {
+    const list = RESEARCH.lists[0] || await createResearchList("My properties");
+    if (!list) return;
+    it = await saveToResearch(p, list.id);
+    if (!it) return;
+  }
+  const next = Object.assign({}, it.diligence && typeof it.diligence === "object" ? it.diligence : {});
+  const j = Object.assign({}, next.journey && typeof next.journey === "object" ? next.journey : {});
+  if (j[key]) delete j[key]; else j[key] = { done: true, at: new Date().toISOString() };
+  next.journey = j;
+  await updateResearchItem(it.id, { diligence: next });
+  hydrateGuided(p.id);
+  if (typeof hydrateResearchPanels === "function") hydrateResearchPanels(p.id);
+}
+window.__tdwPageTier = () => pageTier();
+document.addEventListener("click", e => {
+  const set = e.target && e.target.closest && e.target.closest("[data-tier-set]");
+  if (set) {
+    e.preventDefault();
+    try { localStorage.setItem(PAGE_TIER_KEY, set.dataset.tierSet); } catch { /* storage off */ }
+    // A ?tier= in the address would otherwise outrank the choice just made.
+    try { const u = new URL(location.href); if (u.searchParams.has("tier")) { u.searchParams.delete("tier"); history.replaceState(history.state, "", u.pathname + u.search + u.hash); } } catch { /* file:// etc */ }
+    const host = set.closest("#detailModalInner, #detailPanel");
+    const pid = host && host.id === "detailModalInner" ? host.dataset.pid : selectedPid;
+    if (host && host.id === "detailModalInner") refreshOpenDetail(pid);
+    else if (pid != null) refreshDetailPanel(pid);
+    return;
+  }
+  const task = e.target && e.target.closest && e.target.closest("[data-tier-task]");
+  if (task) {
+    e.preventDefault();
+    const p = ALL.find(x => String(x.id) === String(task.dataset.pid));
+    if (p) toggleJourneyTask(p, task.dataset.tierTask);
+  }
+});
