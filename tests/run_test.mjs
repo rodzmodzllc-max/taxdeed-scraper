@@ -7522,10 +7522,13 @@ await big.press('#globalSearchInput', 'Enter');
   await ta.goto(tierUrl('beginner', '/auctions/p5'), { waitUntil: 'networkidle' });
   await ta.waitForTimeout(900);
   results.tierGuidedAuction = await ta.evaluate(() => ({ stages: [...document.querySelectorAll('#detailModalInner .g-stage')].map(li => li.dataset.stage), know: [...document.querySelectorAll('#detailModalInner .g-know b')].map(b => b.textContent) }));
-  await ta.goto(tierUrl('beginner', '/certificates/p4'), { waitUntil: 'networkidle' });
-  await ta.waitForTimeout(900);
-  results.tierGuidedCertificate = await ta.evaluate(() => [...document.querySelectorAll('#detailModalInner .g-stage')].map(li => li.dataset.stage));
   await ta.close();
+  // A fresh page: a hash-only goto is an in-page navigation and would keep the auction open.
+  const tc = await newPage({ viewport: { width: 390, height: 1400 } });
+  await tc.goto(tierUrl('beginner', '/certificates/p4'), { waitUntil: 'networkidle' });
+  await tc.waitForTimeout(900);
+  results.tierGuidedCertificate = await tc.evaluate(() => [...document.querySelectorAll('#detailModalInner .g-stage')].map(li => li.dataset.stage));
+  await tc.close();
 }
 
 
@@ -7548,7 +7551,14 @@ const EXPECTED = {
   countyNowBarOneCounty: {"hidden": true, "optionsNoCount": true},
   countyNowBarAuctionsHidden: true,
   // Property page tiers (2026-10-27).
-  tierDefault: null, tierGuided: null, tierGuidedTick: null, tierGuidedUntick: null, tierFree: null, tierSwitchToFull: null, tierGuidedAuction: null, tierGuidedCertificate: null,
+  tierDefault: {"tier": "pro", "switchShown": true, "pressed": ["pro"], "fullRecord": true},
+  tierGuided: {"view": "beginner", "know": 3, "stages": ["find:confirmed", "price:your-turn", "risks:later", "apply:later", "pay:later", "deed:later"], "ring": "7/15", "next": "Get today's total price", "fullRecord": false, "note": "Green ✓ items come from the county's own records. The boxes you tick are your own notes and never change what the records say. Your ticks are saved to your account and follow you to any device.", "overflow": 0},
+  tierGuidedTick: {"ring": "8/15", "next": "Look for other liens", "stillOpen": true, "saved": {"mode": "server", "lists": ["My properties"], "journey": [["price.price"]]}},
+  tierGuidedUntick: "7/15",
+  tierFree: {"view": "free", "crumb": "Citrus County", "heading": "A property in Citrus County", "blurred": 5, "noAddress": true, "noMoney": true, "noParcel": true, "noPhoto": true, "unlock": true},
+  tierSwitchToFull: {"stored": "pro", "tier": "pro", "fullRecord": true, "urlTier": false},
+  tierGuidedAuction: {"stages": ["find", "price", "risks", "register", "bid", "deed"], "know": ["What it is", "What it costs", "How you buy it"]},
+  tierGuidedCertificate: ["find", "price", "risks", "buy", "wait", "deed"],
   miEmptyOneReason: {"reasons": 1, "label": "Source restricted or pending review.", "noCurrentCountZero": true, "titleCount": "0"},
   cardOutlineLazy: {"below": true, "before": 0, "after": 1},
   mergedLookPerLedger: {"lands": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}, "auctions": {"look": "merged", "drawn": "tactile", "stage": "tactile", "button": "Merged", "mainHidden": true}, "certificates": {"look": "merged", "drawn": "merged", "stage": "merged", "button": "Merged", "mainHidden": true}, "landsAgain": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}},
