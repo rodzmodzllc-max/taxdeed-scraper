@@ -7124,8 +7124,11 @@ await big.press('#globalSearchInput', 'Enter');
   await r.pg.close();
   // Only the listed property's card asks, and its card draws the outline with
   // the short credit on the picture and the full credit in the photo bubble.
-  const cardOutlineState = pg => pg.evaluate(() => {
+  // Outlines load lazily (2026-10-26): a card asks only once it nears the
+  // screen, so the reader scrolls each outlined card into view first.
+  const cardOutlineState = pg => pg.evaluate(async () => {
     document.querySelectorAll('details').forEach(d => { d.open = true; });
+    for (const h of document.querySelectorAll('.prop-card [data-boundary-pid]')) { h.scrollIntoView({ block: 'center' }); await new Promise(r => setTimeout(r, 150)); }
     return new Promise(res => setTimeout(() => {
       const cards = [...document.querySelectorAll('.prop-card')];
       const withOutline = cards.filter(c => c.querySelector('.prop-card-photo .parcel-boundary .pb-line'));
@@ -7143,6 +7146,18 @@ await big.press('#globalSearchInput', 'Enter');
   });
   r = await boundaryPage('boundary=ok&boundaryids=p5', '#/auctions');
   results.cardOutlineOnlyListed = await cardOutlineState(r.pg);
+  await r.pg.close();
+  // Lazy: on a phone the outlined card starts below the screen, so the list
+  // asks for nothing until the reader scrolls to it.
+  r = await boundaryPage('boundary=ok&boundaryids=p5', '#/auctions', { width: 390, height: 844 });
+  results.cardOutlineLazy = await r.pg.evaluate(async () => {
+    const host = document.querySelector('.prop-card [data-boundary-pid="p5"]');
+    const below = !!host && host.getBoundingClientRect().top > window.innerHeight + 300;
+    const before = (window.__stubBoundaryCalls || []).length;
+    if (host) host.scrollIntoView({ block: 'center' });
+    await new Promise(r => setTimeout(r, 1200));
+    return { below, before, after: (window.__stubBoundaryCalls || []).length };
+  });
   await r.pg.close();
   // Phone: the photo bubble opens upward, unclipped, and carries the full credit.
   r = await boundaryPage('boundary=ok&boundaryids=p5', '#/auctions', { width: 390, height: 844 });
@@ -7290,6 +7305,7 @@ await browser.close();
 
 
 const EXPECTED = {
+  cardOutlineLazy: {"below": true, "before": 0, "after": 1},
   saleStrip_phone: {"head": {"strip": true, "first": true, "inFold": false, "calendarFold": false, "days": 9, "chips": 9, "selected": 1, "scrolls": "auto"}, "pickedSecond": true, "jumped": true, "question": true, "look": true, "price": {"insideCard": true, "insideScreen": true, "inFlow": true}, "noOverflow": true},
   saleStrip_desktop: {"head": {"strip": true, "first": true, "inFold": false, "calendarFold": false, "days": 9, "chips": 9, "selected": 1, "scrolls": "auto"}, "pickedSecond": true, "jumped": true, "question": true, "look": true, "price": {"insideCard": true, "insideScreen": true, "inFlow": true}, "noOverflow": true},
   researchGroup_phone: { closed: true, title: "Research", acquireOutside: true, moneyOutside: true, holds: true },
@@ -7450,7 +7466,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v143"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v144"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },

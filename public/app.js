@@ -2126,11 +2126,19 @@ function cardHasBoundary(p, cls) {
   return /(^|\s)prop-card-photo(\s|$)/.test(String(cls || "")) && !!BOUNDARY_IDS
     && p && p.id !== undefined && p.id !== null && BOUNDARY_IDS.has(String(p.id));
 }
+// A failed outline read (e.g. a database timeout under load) is not asked
+// again for a minute, so re-renders never turn one failure into a stream of
+// requests (2026-10-26). `var`: render() can run during module init (TDZ).
+var BOUNDARY_FAILED_AT = new Map();
+var BOUNDARY_RETRY_MS = 60000;
 function boundaryFor(pid, row) {
   const key = String(pid);
+  const failed = BOUNDARY_FAILED_AT.get(key);
+  if (failed && Date.now() - failed < BOUNDARY_RETRY_MS) return Promise.resolve({ status: "error", code: "RETRY_LATER" });
   if (!BOUNDARY_CACHE.has(key)) {
     const pending = fetchPropertyBoundary(sb, pid, row).then(res => {
-      if (res.status === "error") BOUNDARY_CACHE.delete(key);
+      if (res.status === "error") { BOUNDARY_CACHE.delete(key); BOUNDARY_FAILED_AT.set(key, Date.now()); }
+      else BOUNDARY_FAILED_AT.delete(key);
       return res;
     });
     BOUNDARY_CACHE.set(key, pending);
@@ -2140,11 +2148,40 @@ function boundaryFor(pid, row) {
 function naipExportUrlBox(box, w, h) {
   return `${NAIP_EXPORT_ENDPOINT}?bbox=${box.map(v => v.toFixed(6)).join(",")}&bboxSR=4326&size=${w},${h}&format=jpg&f=image`;
 }
+// Outlines load lazily (2026-10-26): a card asks for its outline only when it
+// comes within 300px of the screen, at most BOUNDARY_MAX_IN_FLIGHT at a time.
+// Drawing a list used to ask for every card's outline at once (359 requests
+// from one load on production), competing with the property pages
+// themselves. The property page and the map preview still ask at once.
+var BOUNDARY_MAX_IN_FLIGHT = 4;
+var BOUNDARY_IN_FLIGHT = 0;
+var BOUNDARY_QUEUE = [];
+var boundaryObserver = null;
+function pumpBoundaries() {
+  while (BOUNDARY_IN_FLIGHT < BOUNDARY_MAX_IN_FLIGHT && BOUNDARY_QUEUE.length) {
+    const host = BOUNDARY_QUEUE.shift();
+    if (!host.isConnected) continue;
+    BOUNDARY_IN_FLIGHT++;
+    applyBoundary(host).catch(() => {}).finally(() => { BOUNDARY_IN_FLIGHT--; pumpBoundaries(); });
+  }
+}
+function queueBoundary(host) { BOUNDARY_QUEUE.push(host); pumpBoundaries(); }
 function hydrateBoundaries(scope) {
   if (!scope || !scope.querySelectorAll) return;
+  if (!boundaryObserver && typeof IntersectionObserver === "function") {
+    boundaryObserver = new IntersectionObserver(entries => {
+      entries.forEach(en => {
+        if (!en.isIntersecting) return;
+        boundaryObserver.unobserve(en.target);
+        queueBoundary(en.target);
+      });
+    }, { rootMargin: "300px 0px" });
+  }
   scope.querySelectorAll(".naip-live[data-boundary-pid]:not([data-bnd]), .pb-upgrade[data-boundary-pid]:not([data-bnd])").forEach(host => {
     host.dataset.bnd = "1";
-    applyBoundary(host);
+    const immediate = host.classList.contains("detail-hero-photo") || host.classList.contains("pv-visual") || !boundaryObserver;
+    if (immediate) applyBoundary(host);
+    else boundaryObserver.observe(host);
   });
 }
 // A result applies only to the host it was asked for: still connected, same
@@ -2268,6 +2305,9 @@ document.addEventListener("click", e => {
   const host = b.closest(".naip-live");
   if (!host) return;
   BOUNDARY_CACHE.delete(host.dataset.boundaryPid);
+  // A reader's own Retry always asks again; the one-minute pause only stops
+  // automatic re-renders from repeating a failed read.
+  BOUNDARY_FAILED_AT.delete(String(host.dataset.boundaryPid));
   b.closest(".pb-state")?.remove();
   applyBoundary(host);
 });
