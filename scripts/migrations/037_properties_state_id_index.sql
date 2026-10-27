@@ -1,0 +1,17 @@
+-- 037: index properties (state, id) for per-state keyset reads.
+--
+-- APPLIED to production 2026-10-27 (~10:40 UTC) as a plain CREATE INDEX
+-- (the SQL tool runs inside a transaction, so CONCURRENTLY was not possible;
+-- nothing was writing at the time).
+--
+-- Why: every per-state batch job (geocoding plan, enrichment audit, state
+-- syncs, lifecycle, link checks) reads `properties` by keyset pages:
+--   where state = $1 [and status in (...)] order by id limit 1000
+-- With only the primary key, Postgres walked the whole table in id order and
+-- read past other states' rows: one Texas page scanned ~14,000 rows and took
+-- 9.5 s while the database's disk throughput was exhausted (2026-10-27,
+-- statement timeouts / HTTP 500 and 503 on the morning runs). With this
+-- index the same page reads only Texas rows: 0.36 s.
+--
+-- Idempotent. Not a security or RLS change.
+create index if not exists properties_state_id_idx on public.properties (state, id);
