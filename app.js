@@ -10747,6 +10747,7 @@ function render() {
   // reasoning as tdw:maprendered below).
   const rendered = { rows: shown, ledger: activeLedger, openDetail, api: experienceApi() };
   window.__tdwLastRender = rendered;
+  syncMergedEngine(activeLedger);
   window.dispatchEvent(new CustomEvent("tdw:rendered", { detail: rendered }));
 
   // Every call to render() means ALL[]/HIDDEN/BIDLIST could have changed
@@ -15838,23 +15839,52 @@ function loadExperience(name) {
     applyExperience("classic", false);
   });
 }
+// Merged (owner's request 2026-10-27): Available draws with Terrain's
+// layout, Auctions with Tactile's, Liens & Certificates with Merged's own
+// slips. The look the person picked stays in <html data-look>; the module
+// actually drawing the current ledger is <html data-experience> and
+// window.__tdwExperience.name, which render() keeps in step with the ledger.
+var EXPERIENCE_CHOICE = "classic";
+var MERGED_ENGINES = { laft: "terrain", auction: "tactile", certificate: "merged" };
+function engineFor(choice, ledger) {
+  return choice === "merged" ? (MERGED_ENGINES[ledger] || "merged") : choice;
+}
+function setExperienceEngine(engine) {
+  const root = document.documentElement;
+  root.dataset.experience = engine;
+  if (engine === "classic" || root.dataset.experienceReady !== engine) delete root.dataset.experienceReady;
+  const stage = ensureExperienceStage();
+  if (stage) stage.hidden = engine === "classic";
+  window.__tdwExperience = { name: engine, api: experienceApi() };
+  return loadExperience(engine);
+}
+// Called by render() just before tdw:rendered: under Merged, a ledger change
+// can change which module draws. The module is switched synchronously (so
+// the dispatch that follows reaches the right one); a module not loaded yet
+// draws from window.__tdwLastRender once its file arrives.
+function syncMergedEngine(ledger) {
+  if (EXPERIENCE_CHOICE !== "merged") return;
+  const engine = engineFor("merged", ledger);
+  if (window.__tdwExperience && window.__tdwExperience.name === engine) return;
+  setExperienceEngine(engine).then(() => {
+    if (window.__tdwLastRender) window.dispatchEvent(new CustomEvent("tdw:rendered", { detail: window.__tdwLastRender }));
+  });
+}
 function applyExperience(name, persist) {
   if (!EXPERIENCES[name]) name = "classic";
   if (persist) { try { localStorage.setItem(EXPERIENCE_KEY, name); } catch {} }
-  const root = document.documentElement;
-  root.dataset.experience = name;
-  if (name === "classic") delete root.dataset.experienceReady;
-  const stage = ensureExperienceStage();
-  if (stage) stage.hidden = name === "classic";
-  window.__tdwExperience = { name, api: experienceApi() };
+  EXPERIENCE_CHOICE = name;
+  document.documentElement.dataset.look = name;
+  const last = window.__tdwLastRender;
+  const engine = engineFor(name, last && last.ledger === "laft" || last && last.ledger === "certificate" ? last.ledger : "auction");
   syncLookButton();
-  loadExperience(name).then(() => {
+  setExperienceEngine(engine).then(() => {
     window.dispatchEvent(new CustomEvent("tdw:experience", { detail: window.__tdwExperience }));
     if (window.__tdwLastRender) window.dispatchEvent(new CustomEvent("tdw:rendered", { detail: window.__tdwLastRender }));
   });
 }
 function syncLookButton() {
-  const name = document.documentElement.dataset.experience || "classic";
+  const name = document.documentElement.dataset.look || "classic";
   const btn = document.getElementById("lookBtn");
   if (btn) { btn.querySelector(".look-name").textContent = EXPERIENCES[name]; btn.setAttribute("aria-label", "Look: " + EXPERIENCES[name]); }
   document.querySelectorAll("#lookMenu [data-look]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.look === name)));
@@ -15869,7 +15899,7 @@ function installLookSwitch() {
     `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"></path><path d="M3 13l9 5 9-5"></path></svg>` +
     `<span class="look-label">Look</span><span class="look-name">Classic</span></button>` +
     `<div id="lookMenu" class="look-menu" role="menu" hidden>` +
-    Object.keys(EXPERIENCES).map(k => `<button type="button" role="menuitemradio" aria-checked="false" data-look="${k}">${EXPERIENCES[k]}<span class="look-sub">${k === "classic" ? "The current card list" : k === "merged" ? "Tactile objects and stamps, with the sale-day calendar" : k === "tactile" ? "Cards you handle: placards, folders, slips" : "A living map: time, place and layers"}</span></button>`).join("") +
+    Object.keys(EXPERIENCES).map(k => `<button type="button" role="menuitemradio" aria-checked="false" data-look="${k}">${EXPERIENCES[k]}<span class="look-sub">${k === "classic" ? "The current card list" : k === "merged" ? "Available as Terrain, Auctions as Tactile, liens as slips" : k === "tactile" ? "Cards you handle: placards, folders, slips" : "A living map: time, place and layers"}</span></button>`).join("") +
     `</div>`;
   host.insertBefore(wrap, host.firstChild);
   const btn = wrap.querySelector("#lookBtn"), menu = wrap.querySelector("#lookMenu");

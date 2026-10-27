@@ -7293,6 +7293,28 @@ await big.press('#globalSearchInput', 'Enter');
   }
 }
 
+// Merged look (owner's request 2026-10-27): Available draws with Terrain,
+// Auctions with Tactile, Liens & Certificates with Merged's own slips; the
+// Look button keeps saying Merged, and only one module's stage shows.
+{
+  const pg = await newPage({ viewport: { width: 390, height: 844 } });
+  pg.on('pageerror', e => errors.push('merged look pageerror: ' + e.message));
+  await pg.goto(BASE_URL + '?look=merged#/lands', { waitUntil: 'networkidle' });
+  await pg.waitForTimeout(2500);
+  const snap = () => pg.evaluate(() => { const r = document.documentElement.dataset;
+    return { look: r.look, drawn: r.experienceReady, stage: document.getElementById('xpStage').dataset.xp || null,
+      button: document.querySelector('#lookBtn .look-name').textContent, mainHidden: getComputedStyle(document.getElementById('main')).display === 'none' }; });
+  const out = {};
+  for (const [k, hash] of [['lands', '#/lands'], ['auctions', '#/auctions'], ['certificates', '#/certificates'], ['landsAgain', '#/lands']]) {
+    await pg.evaluate(h => { location.hash = h; }, hash);
+    await pg.waitForTimeout(1200);
+    out[k] = await snap();
+  }
+  await pg.evaluate(() => localStorage.removeItem('tdw_experience_v1'));
+  results.mergedLookPerLedger = out;
+  await pg.close();
+}
+
 
 await browser.close();
 
@@ -7306,6 +7328,7 @@ await browser.close();
 
 const EXPECTED = {
   cardOutlineLazy: {"below": true, "before": 0, "after": 1},
+  mergedLookPerLedger: {"lands": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}, "auctions": {"look": "merged", "drawn": "tactile", "stage": "tactile", "button": "Merged", "mainHidden": true}, "certificates": {"look": "merged", "drawn": "merged", "stage": "merged", "button": "Merged", "mainHidden": true}, "landsAgain": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}},
   saleStrip_phone: {"head": {"strip": true, "first": true, "inFold": false, "calendarFold": false, "days": 9, "chips": 9, "selected": 1, "scrolls": "auto"}, "pickedSecond": true, "jumped": true, "question": true, "look": true, "price": {"insideCard": true, "insideScreen": true, "inFlow": true}, "noOverflow": true},
   saleStrip_desktop: {"head": {"strip": true, "first": true, "inFold": false, "calendarFold": false, "days": 9, "chips": 9, "selected": 1, "scrolls": "auto"}, "pickedSecond": true, "jumped": true, "question": true, "look": true, "price": {"insideCard": true, "insideScreen": true, "inFlow": true}, "noOverflow": true},
   researchGroup_phone: { closed: true, title: "Research", acquireOutside: true, moneyOutside: true, holds: true },
