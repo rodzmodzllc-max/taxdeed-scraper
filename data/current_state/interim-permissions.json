@@ -4313,6 +4313,46 @@
   },
   {
    "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-27",
+   "evidence_date": "2026-10-27",
+   "evidence_ref": "harvesters/enrichment/sources.py ok_okc_government_owned_parcels (fields read live 2026-10-27; no licence published on the layer); docs/enrich-thin-fields-2026-10-27.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "OK",
+   "operation": "enrich",
+   "reviewer": "Product owner (direction 2026-10-27: fill the measured gaps; decisions 2026-10-25 / 2026-10-26: collect every source, legal review to follow)",
+   "source_id": "ok_okc_government_owned_parcels",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-27",
+   "evidence_date": "2026-10-27",
+   "evidence_ref": "harvesters/enrichment/sources.py ok_okc_government_owned_parcels (fields read live 2026-10-27; no licence published on the layer); docs/enrich-thin-fields-2026-10-27.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "OK",
+   "operation": "fetch",
+   "reviewer": "Product owner (direction 2026-10-27: fill the measured gaps; decisions 2026-10-25 / 2026-10-26: collect every source, legal review to follow)",
+   "source_id": "ok_okc_government_owned_parcels",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
@@ -5122,6 +5162,46 @@
    "operation": "store",
    "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
    "source_id": "sc_horry_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-27",
+   "evidence_date": "2026-10-27",
+   "evidence_ref": "harvesters/enrichment/sources.py sc_oconee_county_parcels (fields read live 2026-10-27; no licence published on the layer); docs/enrich-thin-fields-2026-10-27.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "enrich",
+   "reviewer": "Product owner (direction 2026-10-27: fill the measured gaps; decisions 2026-10-25 / 2026-10-26: collect every source, legal review to follow)",
+   "source_id": "sc_oconee_county_parcels",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-27",
+   "evidence_date": "2026-10-27",
+   "evidence_ref": "harvesters/enrichment/sources.py sc_oconee_county_parcels (fields read live 2026-10-27; no licence published on the layer); docs/enrich-thin-fields-2026-10-27.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "fetch",
+   "reviewer": "Product owner (direction 2026-10-27: fill the measured gaps; decisions 2026-10-25 / 2026-10-26: collect every source, legal review to follow)",
+   "source_id": "sc_oconee_county_parcels",
    "status": "OWNER_PERMISSION_REQUIRED"
   },
   {
@@ -7402,12 +7482,12 @@
  "interim_max_days": 210,
  "summary": {
   "by_expiry": {
-   "2027-04-12": 365
+   "2027-04-12": 369
   },
   "by_finding": {
    "REVIEWER_IS_NOT_A_DECISION": 77
   },
-  "records": 365,
-  "sources": 93
+  "records": 369,
+  "sources": 95
  }
 }

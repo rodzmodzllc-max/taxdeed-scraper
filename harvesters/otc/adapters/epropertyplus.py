@@ -106,6 +106,16 @@ class EppConfig:
     # a property's details to /property/<parcelNumber>; each offered row gets
     # that page as its purchase URL (property scope). None = no per-row link.
     property_page: PropertyPage | None = None
+    # Thin-fields sprint (2026-10-27): the portal fields a tenant fills with
+    # the parcel's lot area / the structure's year built and square footage
+    # (read live per tenant: Kansas City and Pittsburgh fill
+    # parcelSquareFootage on every row, Saginaw on some, with yearBuilt /
+    # structureSquareFootage on its structures). Kept as published; None =
+    # the tenant leaves it empty and nothing is read. Never computed from
+    # parcelLength x parcelWidth.
+    lot_sqft_field: str | None = None
+    year_built_field: str | None = None
+    living_area_field: str | None = None
     notes: str = ""
 
 
@@ -157,6 +167,17 @@ def _positive(v: Any) -> float | None:
 
 
 _DATE_FORMATS = ("%Y-%m-%d", "%m/%d/%Y")
+
+
+def _whole(v: Any) -> int | None:
+    """A positive published figure as a whole number, else None."""
+    n = _positive(v)
+    return int(round(n)) if n is not None and round(n) > 0 else None
+
+
+def _year(v: Any) -> int | None:
+    n = _whole(v)
+    return n if n is not None and 1700 <= n <= 2100 else None
 
 
 def list_date(v: Any) -> date | None:
@@ -268,6 +289,9 @@ def parse_rows(cfg: EppConfig, rows: list[dict], *, retrieved_at: datetime) -> t
             tax_year=_text(row.get("assessmentYear")),
             source_status_text=_text(row.get(cfg.status_field)),
             list_as_of=as_of,
+            lot_sqft=_whole(row.get(cfg.lot_sqft_field)) if cfg.lot_sqft_field else None,
+            year_built=_year(row.get(cfg.year_built_field)) if cfg.year_built_field else None,
+            living_area=_whole(row.get(cfg.living_area_field)) if cfg.living_area_field else None,
             **coords,
         ))
     return out, counts

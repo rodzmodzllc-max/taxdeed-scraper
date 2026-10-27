@@ -535,6 +535,8 @@ MO_KC_LANDBANK = EppConfig(
     id_pattern=r"[A-Z]{2}\d{16,17}|\d{2}-\d{3}-\d{2}-\d{2}-\d{2}-\d-\d{2}-\d{3}",
     amount_field="askingPrice", amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, amount_label="Asking Price",
     columns_verified=True,
+    # 2026-10-27: parcelSquareFootage filled (positive) on 500 of 500 sampled rows.
+    lot_sqft_field="parcelSquareFootage",
     notes="Land Bank of Kansas City, Missouri - its ePropertyPlus public portal (public-kclb). Every published row is read "
           "(no availability flag is published; the row's comments, never mapped, say e.g. 'Property available to apply for'). "
           "parcelNumber = the Jackson County parcel id ('JA' + 17 digits). askingPrice kept as published, never called a price.")
@@ -550,6 +552,8 @@ PA_PITTSBURGH_CITY_PROPERTY = EppConfig(
     id_pattern=r"\d{4}[A-Z]\d{5}[0-9A-Z]{6}",
     amount_field="askingPrice", amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, amount_label="Asking Price",
     columns_verified=True,
+    # 2026-10-27: parcelSquareFootage filled (positive) on 500 of 500 sampled rows.
+    lot_sqft_field="parcelSquareFootage",
     notes="City of Pittsburgh city-owned property (eProperty Plus public portal public-pgh; inventoryType 'Public Sale' / "
           "'PLB Transfer' / 'URA Transfer' kept verbatim). Only rows whose s_custom_0010 reads 'Available for Sale' are read; "
           "'Sale Pending' and 'Not Available' are not. parcelNumber = the Allegheny County 16-character lot-and-block id.")
@@ -574,6 +578,9 @@ MI_SAGINAW_LANDBANK = EppConfig(
     offered=(), county_field="county", county_values=("Saginaw",),
     id_pattern=r"\d{2}-\d{2}-\d-\d{1,2}-\d[0-9A-Z]\d{2}-\d{3}",
     columns_verified=True,
+    # 2026-10-27, 500 sampled rows: parcelSquareFootage on 60, yearBuilt on 22
+    # and structureSquareFootage on 20 (its structures); kept as published.
+    lot_sqft_field="parcelSquareFootage", year_built_field="yearBuilt", living_area_field="structureSquareFootage",
     notes="Saginaw County Land Bank Authority ePropertyPlus public portal (public-sclb): every published row read on list "
           "presence (no availability flag published). No price published.")
 
@@ -586,6 +593,8 @@ MI_CALHOUN_LANDBANK = EppConfig(
     id_pattern=r"\d{2,4}-\d{2,3}-\d{3}-\d{1,2}",
     amount_field="askingPrice", amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, amount_label="Asking Price",
     columns_verified=True,
+    # 2026-10-27, all 219 rows: structureSquareFootage on 7 (its structures); kept as published.
+    living_area_field="structureSquareFootage",
     notes="Calhoun County Land Bank Authority (Michigan) ePropertyPlus public portal (public-cclb): every published row read "
           "on list presence; the program (s_custom_0003, e.g. 'Develop This Lot', 'Side Lot') is not mapped.")
 
@@ -724,7 +733,16 @@ MI_GENESEE_LANDBANK = PagedTableConfig(
     # unfiltered search (checked on every run).
     partition_field="FindTWP",
     partition_values=("01", "02", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17",
-                      "18", "40", "41", "46", "47", "51", "52", "53", "55", "56", "57", "58", "59", "60", "61"))
+                      "18", "40", "41", "46", "47", "51", "52", "53", "55", "56", "57", "58", "59", "60", "61"),
+    # Thin-fields sprint (2026-10-27), read live from the sandbox: every result
+    # page states the search's size ("10668 properties found."); the 31 parts
+    # added up to exactly the unfiltered 10,668 (the six filters answering HTTP
+    # 500 every time held none - the site errors on an empty filter, e.g. every
+    # empty FindPropclass x quadrant combination). "LRCpage=" re-renders the
+    # session's current page and "LRCpage=prev" steps back one, so a 500 on
+    # "next" is recovered in place instead of restarting a 111-page part.
+    total_pattern=r"(\d[\d,]*)\s+propert(?:y|ies)\s+found",
+    stay_data=(("LRCpage", ""),), prev_data=(("LRCpage", "prev"),))
 
 NEW_TABLE_SOURCES = (SC_HORRY_TAX_SALE, CO_SAGUACHE_TAX_SALE, MN_HUBBARD_TFL_OTC, MN_STPAUL_HRA, MN_WRIGHT_TAX_FORFEIT)
 # Wright County (MN) was configured and read live (38 'Open' rows, 2026-10-26)
@@ -740,6 +758,13 @@ NEW_TABLE_SOURCES = (SC_HORRY_TAX_SALE, CO_SAGUACHE_TAX_SALE, MN_HUBBARD_TFL_OTC
 # written, nothing closed), but each try costs ~15 minutes of requests. Next
 # step: split the big Flint quadrants further (FindPropclass within FindTWP),
 # then add it to SOURCES["MI"], ledgers, permissions and the terms table.
+# 2026-10-27 (thin-fields sprint): exact stated totals + in-place session
+# recovery; a full live read from the sandbox was COMPLETE (10,668 listings =
+# the stated total, 10,190 kept, two random 500s recovered in place, quadrant
+# 40 read whole - docs/enrich-thin-fields-2026-10-27.md). Still not scheduled:
+# adding it to SOURCES["MI"] lengthens the MI expansion leg by ~15-50 minutes
+# of requests (runner vs sandbox latency) and needs the workflow change (owner / workflow
+# session), plus ledgers, permissions and the terms table.
 HELD_SERVER_ERRORS = (MI_GENESEE_LANDBANK,)
 
 MI_TSI_SURPLUS = tuple(TSI.TaxSaleInfoConfig(
