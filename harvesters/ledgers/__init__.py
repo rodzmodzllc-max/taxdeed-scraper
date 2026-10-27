@@ -173,6 +173,7 @@ SOURCE_LEDGERS: dict[str, frozenset[Ledger]] = {
     "sc_horry_tax_sale": frozenset({Ledger.AUCTIONS}),
     "co_saguache_tax_sale": frozenset({Ledger.AUCTIONS}),
     "mn_hubbard_tfl_otc": frozenset({Ledger.AVAILABLE}),
+    "mn_wright_tax_forfeit": frozenset({Ledger.AUCTIONS}),
     "mn_stpaul_hra_properties": frozenset({Ledger.AVAILABLE}),
     # (new-sources sprint 2026-10-26 entries end here)
 }

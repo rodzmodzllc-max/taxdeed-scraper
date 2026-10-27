@@ -1158,9 +1158,9 @@ const LEDGERS = {
 const EXPANSION_LEDGER_COPY = {
   "auction": {
     "MI": {
-      "sub": "Parcels offered at the county treasurer's foreclosure / tax sale, from each county's own published list (Eaton, Lenawee).",
+      "sub": "Parcels offered at the county treasurer's foreclosure / tax sale, from each county's own published list (Eaton, Lenawee) and the upcoming county auction catalogs on Tax-Sale.info, the auction service Michigan treasurers use.",
       "how": "You bid at the county's sale. The figure shown is the minimum bid the county publishes, not the final price. Eaton marks parcels with its own 'Has Been Sold' flag; a flagged parcel is shown as sold per the county - no price or buyer is published or shown. Eaton holds its last 2026 auction in person (see a parcel's acquisition steps); Lenawee runs its sale online through a vendor site the county names (not linked here).",
-      "empty": "No Michigan sale parcels match. Michigan coverage is Eaton and Lenawee counties' published tax-sale lists."
+      "empty": "No Michigan sale parcels match. Michigan auction coverage is Eaton and Lenawee counties' published tax-sale lists and the upcoming Tax-Sale.info county catalogs."
     },
     "WY": {
       "sub": "Parcels on Albany County's published 2026 tax sale list. Wyoming's tax sale sells a tax lien certificate on each parcel, not the land.",
@@ -1168,9 +1168,9 @@ const EXPANSION_LEDGER_COPY = {
       "empty": "No Wyoming sale parcels match. Wyoming coverage is Albany County's published tax sale list."
     },
     "SC": {
-      "sub": "Parcels on York County's published tax sale list.",
-      "how": "You bid in person at the county's tax sale. York's fact sheet says the opening bid is all delinquent taxes, penalties and cost plus the current year's taxes, paid in full on the day; the list itself publishes no amount, so none is shown.",
-      "empty": "No South Carolina sale parcels match. South Carolina coverage is York County's published tax sale list."
+      "sub": "Parcels on York County's published tax sale list and Horry County's delinquent real-estate tax sale list.",
+      "how": "You bid in person at the county's tax sale. York's fact sheet says the opening bid is all delinquent taxes, penalties and cost plus the current year's taxes, paid in full on the day; York's list itself publishes no amount, so none is shown. Horry's list publishes the opening bid the delinquent tax collector makes for the Forfeited Land Commission (FLC Bid Amount), shown as the opening bid.",
+      "empty": "No South Carolina sale parcels match. South Carolina auction coverage is York County's published tax sale list and Horry County's delinquent tax sale list."
     },
     "CO": {
       "sub": "Accounts on Douglas County's advertised tax lien sale list, read only for the sale cycle the county has dated (the 2026 sale: November 5, 2026). Data: Douglas County, Colorado (CC BY-SA 4.0).",
@@ -1198,9 +1198,9 @@ const EXPANSION_LEDGER_COPY = {
       "empty": "No Pennsylvania auction records are tracked. Pennsylvania coverage is Fayette County Tax Claim Bureau's repository list (see Available)."
     },
     "MN": {
-      "sub": "No Minnesota auction source is tracked.",
-      "how": "Minnesota auction inventory is not harvested by this app.",
-      "empty": "No Minnesota auction records are tracked. Minnesota coverage is Ramsey County's tax-forfeited land layer (see Available)."
+      "sub": "Tax-forfeited parcels Wright County's own layer marks 'Open', which the county offers at its online auction.",
+      "how": "Bid at the county's online auction (its Public Surplus page). The figure shown is the layer's own Auction Starting Price - an opening bid, not the final price. Parcels the layer marks 'Closed' are not shown.",
+      "empty": "No Minnesota auction parcels match. Minnesota auction coverage is Wright County's tax-forfeited parcels layer."
     },
     "TN": {
       "sub": "No Tennessee auction source is tracked.",
@@ -1210,9 +1210,9 @@ const EXPANSION_LEDGER_COPY = {
   },
   "laft": {
     "MI": {
-      "sub": "Land bank inventory the Detroit Land Bank Authority and the Oceana County Land Bank publish themselves. Both sources await customer-publication review: collected, shown labelled to reviewers, not yet customer-published.",
-      "how": "Each land bank sells on its own published terms (Detroit: its published programs; Oceana: its own application). A figure shown is the land bank's own published price; see each parcel's acquisition section for what has been verified.",
-      "empty": "No Michigan land bank parcels match. Michigan Available coverage is the Detroit Land Bank Authority and Oceana County Land Bank inventories, which await customer-publication review."
+      "sub": "Land bank inventory the Detroit, Wayne County, Saginaw County, Calhoun County and Oceana County land banks publish themselves, and county surplus lots re-offered after a failed tax-foreclosure auction on Tax-Sale.info.",
+      "how": "Each land bank sells on its own published terms (Detroit: its published programs; Oceana: its own application; the ePropertyPlus land banks: their own portal). A figure shown is the amount the source publishes, named as it names it; see each parcel's acquisition section for what has been verified.",
+      "empty": "No Michigan land bank parcels match. Michigan Available coverage is the Detroit, Wayne County, Saginaw County, Calhoun County and Oceana County land bank inventories and the Tax-Sale.info surplus catalogs."
     },
     "WY": {
       "sub": "No Wyoming post-sale available source is tracked.",
@@ -1235,9 +1235,9 @@ const EXPANSION_LEDGER_COPY = {
       "empty": "No Wisconsin post-sale available records are tracked. Wisconsin coverage is Green County's tax deed sale page (see Auctions)."
     },
     "MO": {
-      "sub": "Parcels the St. Louis Land Reutilization Authority lists as Available in its own inventory (City of St. Louis open data). Only rows whose own status reads 'Available' are read.",
+      "sub": "Parcels the St. Louis Land Reutilization Authority lists as Available in its own inventory (City of St. Louis open data; only rows whose own status reads 'Available'), and the Land Bank of Kansas City, Missouri's published inventory.",
       "how": "The inventory publishes no price and no per-parcel purchase link. Ask the Land Reutilization Authority (St. Louis Development Corporation) how to apply for a parcel; no application process has been verified here yet.",
-      "empty": "No Missouri available parcels match. Missouri coverage is the City of St. Louis Land Reutilization Authority inventory."
+      "empty": "No Missouri available parcels match. Missouri coverage is the City of St. Louis Land Reutilization Authority inventory and the Land Bank of Kansas City's portal."
     },
     "OK": {
       "sub": "County-owned property the Oklahoma County Treasurer lists for sale: 'Once the County owns these properties, they can be purchased by the public through a bidding process.'",
@@ -1245,14 +1245,14 @@ const EXPANSION_LEDGER_COPY = {
       "empty": "No Oklahoma county-owned property matches. Oklahoma coverage is Oklahoma County's county-owned property list."
     },
     "PA": {
-      "sub": "Properties on the Fayette County Tax Claim Bureau's repository list, shown with the list's own date. Rows the list marks 'Bid Received' are not shown as available.",
+      "sub": "Properties on the Fayette County Tax Claim Bureau's repository list, shown with the list's own date (rows the list marks 'Bid Received' are not shown), and City of Pittsburgh city-owned property its portal marks 'Available for Sale'.",
       "how": "Repository properties are sold by sealed bid; the county opens bids on the first Tuesday of each month, and a sale needs the taxing bodies' consent. The figure shown is the list's 'Min. Bid'. Confirm with the Tax Claim Bureau that a property is still on the repository before bidding.",
-      "empty": "No Pennsylvania repository properties match. Pennsylvania coverage is Fayette County's repository list."
+      "empty": "No Pennsylvania available properties match. Pennsylvania coverage is Fayette County's repository list and the City of Pittsburgh's city-owned property portal."
     },
     "MN": {
-      "sub": "Tax-forfeited parcels Ramsey County's own layer marks 'Available for purchase' (over the counter). Parcels sold at auction or already purchased are not shown.",
-      "how": "Buy over the counter from Ramsey County's tax-forfeited land office. The figure shown is the layer's own Minimum Bid. The layer publishes no purchase link.",
-      "empty": "No Minnesota available parcels match. Minnesota coverage is Ramsey County's tax-forfeited land layer."
+      "sub": "Tax-forfeited parcels Ramsey County's own layer marks 'Available for purchase' and Hubbard County's marks 'OTC' (over the counter), and land the Saint Paul HRA marks available on the open market. Parcels sold at auction or already purchased are not shown.",
+      "how": "Ramsey and Hubbard: buy over the counter from the county's tax-forfeited land office; the figure shown is the layer's own Minimum Bid. Saint Paul HRA: the HRA sells under its disposition policy and publishes no price. No layer publishes a purchase link.",
+      "empty": "No Minnesota available parcels match. Minnesota Available coverage is Ramsey and Hubbard counties' tax-forfeited land layers and the Saint Paul HRA's land for sale."
     },
     "TN": {
       "sub": "County-owned parcels the Shelby County Land Bank's own portal marks 'FOR SALE' and available. Sold, pending, donation and redemption parcels are not shown.",
@@ -1304,7 +1304,7 @@ const EXPANSION_LEDGER_COPY = {
     "MN": {
       "sub": "No Minnesota certificate source is tracked.",
       "how": "Minnesota certificate inventory is not harvested by this app.",
-      "empty": "No Minnesota certificate records are tracked. Minnesota coverage is Ramsey County's tax-forfeited land layer (see Available)."
+      "empty": "No Minnesota certificate records are tracked. Minnesota coverage is Wright County's auction parcels (see Auctions) and tax-forfeited and HRA land (see Available)."
     },
     "TN": {
       "sub": "No Tennessee certificate source is tracked.",
@@ -1350,7 +1350,28 @@ var AVAILABLE_PROGRAMS = {
   mn_ramsey_tax_forfeit: "Tax-forfeited land",
   pa_fayette_repository: "Repository list (unsold at tax sale)",
   ok_oklahoma_county_owned: "County-owned property",
-  sc_horry_forfeited_land: "Forfeited Land Commission list", sc_georgetown_forfeited_land: "Forfeited Land Commission list"
+  sc_horry_forfeited_land: "Forfeited Land Commission list", sc_georgetown_forfeited_land: "Forfeited Land Commission list",
+  // 2026-10-27: the new-sources sprint's AVAILABLE sources, in each source's own terms
+  // (harvesters/otc/adapters/expansion.py notes; docs/new-sources-2026-10-26.md).
+  mo_kc_landbank: "Land bank inventory",
+  mi_wayne_county_landbank: "Land bank inventory", mi_saginaw_landbank: "Land bank inventory",
+  mi_calhoun_landbank: "Land bank inventory",
+  mi_tax_sale_info_surplus: "Surplus property (failed to sell at the county's tax-foreclosure auction)",
+  pa_pittsburgh_city_property: "City-owned property",
+  mn_hubbard_tfl_otc: "Tax-forfeited land (over the counter)",
+  mn_stpaul_hra_properties: "HRA land held for resale",
+  la_ebr_adjudicated: "Adjudicated property",
+  al_ador_state_land: "State-held tax land", ar_cosl_post_auction: "Post-auction state land",
+  // Texas: struck-off / resale / trust property, as each list names it.
+  tx_lgbs: "Struck-off / future-sale inventory (vendor listing)",
+  tx_pbfcm: "Resale list of struck-off property (vendor listing)",
+  tx_mvba: "Trust property for sale (vendor listing)",
+  tx_bexar_resale: "Resale property (struck off)",
+  tx_montgomery_tax_trust: "Tax trust property",
+  tx_orange_trust_property: "Trust property",
+  tx_trinity_cad_resale: "Resale property",
+  tx_randall_trustee_property: "Trustee property (struck off)",
+  tx_hood_cad_struck_off: "Struck-off property"
 };
 function availableProgram(p) {
   return AVAILABLE_PROGRAMS[(p && (p.source_id || p.harvester_source)) || ""] || "Government-held property";
@@ -1830,7 +1851,16 @@ var COORD_SOURCE_COORDINATES = {
   mi_detroit_landbank_lots: ["LAND_BANK_GIS", "POINT"],
   mi_detroit_landbank_programs: ["LAND_BANK_GIS", "POINT"],
   mn_ramsey_tax_forfeit: ["PARCEL_GIS", "POINT"],
-  tn_shelby_landbank: ["LAND_BANK_GIS", "POINT"]
+  tn_shelby_landbank: ["LAND_BANK_GIS", "POINT"],
+  mo_kc_landbank: ["LAND_BANK_GIS", "POINT"],
+  mi_wayne_county_landbank: ["LAND_BANK_GIS", "POINT"],
+  mi_saginaw_landbank: ["LAND_BANK_GIS", "POINT"],
+  mi_calhoun_landbank: ["LAND_BANK_GIS", "POINT"],
+  pa_pittsburgh_city_property: ["OTHER_REVIEWED", "POINT"],
+  mn_hubbard_tfl_otc: ["PARCEL_GIS", "PARCEL_CENTROID"],
+  mn_stpaul_hra_properties: ["PARCEL_GIS", "PARCEL_CENTROID"],
+  mn_wright_tax_forfeit: ["PARCEL_GIS", "PARCEL_CENTROID"],
+  co_saguache_tax_sale: ["PARCEL_GIS", "PARCEL_CENTROID"]
 };
 var COORD_PROVENANCE_COORDINATES = {
   fdor_nal: ["TAX_ROLL", "PARCEL_CENTROID"],
@@ -2619,15 +2649,20 @@ function realAddress(p) {
 // "Parcel #Unknown (Escambia County Lot)", which reads like a data error
 // because it is one - it says nothing except that two fields are empty.
 //
-// Texas vendor rows (tx_lgbs / tx_realauction) store the tax-suit CAUSE number
+// Texas vendor rows (tx_lgbs / tx_realauction / tx_pbfcm / tx_mvba / tx_govease) store the tax-suit CAUSE number
 // in `parcel` and the CAD parcel/account number in `case_no`
 // (harvesters/texas_harvester.py, TexasSaleRow). One cause covers several
 // parcels - production 2026-10-10: 32 LGBS causes each on 2-26 different
 // active Available rows, with different addresses and amounts - so a cause is
 // never shown as a "Parcel #" and never used to say two records are the same
 // parcel. parcelOf() is the per-parcel identifier; causeOf() the cause.
+// 2026-10-27: the unblocked vendors PBFCM / MVBA / GovEase store rows the same
+// way. The list mirrors harvesters/ledgers/records.py CAUSE_IN_PARCEL_SOURCES
+// (tests/python/test_frontend_source_followups.py pins them equal).
+// var: reached from render() during module init (TDZ).
+var CAUSE_IN_PARCEL_SOURCES = ["tx_lgbs", "tx_realauction", "tx_pbfcm", "tx_mvba", "tx_govease"];
 function causeInParcel(p) {
-  return !!p && ["tx_lgbs", "tx_realauction"].indexOf(p.harvester_source || p.source_id || "") >= 0;
+  return !!p && CAUSE_IN_PARCEL_SOURCES.indexOf(p.harvester_source || p.source_id || "") >= 0;
 }
 function parcelOf(p) { return p ? (causeInParcel(p) ? p.case_no : p.parcel) : null; }
 function causeOf(p) { return causeInParcel(p) ? (p.parcel || null) : null; }
@@ -2845,7 +2880,62 @@ const HARVESTER_SOURCE_NAMES = {
   co_douglas_tax_sale_list: "Douglas County, Colorado - Tax Sale List open data (CC BY-SA 4.0)",
   co_morgan_treasurer_deed_auctions: "Morgan County Treasurer - Treasurer's Deed Option Auctions",
   wi_dane_tax_deed_auction: "Dane County Treasurer - Tax Deed Auction",
-  sc_oconee_tax_sale_list: "Oconee County - Delinquent Tax Sale List"
+  sc_oconee_tax_sale_list: "Oconee County - Delinquent Tax Sale List",
+  // 2026-10-27: every source id that produces rows, named by its publisher
+  // (data/county_source_registry.csv publishing_unit_name / the adapter
+  // configuration). tests/python/test_frontend_source_followups.py pins that
+  // every collected source id has a label here.
+  fl_realauction: "County Clerk of the Circuit Court - tax deed sale calendar (RealAuction / RealTaxDeed)",
+  fl_bid4assets_okaloosa: "Okaloosa County Clerk of the Circuit Court - tax deed sales (Bid4Assets)",
+  fl_lienhub_certificates: "County Tax Collector - county-held tax certificates (LienHub)",
+  fl_sarasota_tc_certificates: "Sarasota County Tax Collector - County-Held Certificates for Purchase",
+  fl_laft_pdfs: "County Clerk of the Circuit Court - Lands Available for Taxes list (PDF)",
+  fl_laft_html: "County Clerk of the Circuit Court - Lands Available for Taxes list (web page)",
+  fl_laft_pioneer: "County Clerk of the Circuit Court - Lands Available for Taxes (Clerk's tax deed portal)",
+  fl_laft_realtdm: "County Clerk of the Circuit Court - Lands Available for Taxes (realTDM)",
+  fl_laft_portals: "County Clerk of the Circuit Court - Lands Available for Taxes (Clerk's tax deed portal)",
+  fl_laft_orange: "Orange County Comptroller - Land Available for Taxes",
+  fl_laft_stlucie: "St. Lucie County Clerk of the Circuit Court - Lands Available for Taxes",
+  fl_laft_osceola: "Osceola County Clerk of the Circuit Court - Lands Available for Taxes",
+  fl_laft_hillsborough: "Hillsborough County Clerk of the Circuit Court - Lands Available for Taxes",
+  fl_laft_leon: "Leon County Clerk of the Circuit Court - Lands Available for Taxes",
+  tx_pbfcm: "Perdue Brandon Fielder Collins & Mott (PBFCM) tax sale and resale lists",
+  tx_mvba: "McCreary, Veselka, Bragg & Allen (MVBA) tax sales and trust properties",
+  tx_govease: "GovEase Texas online tax-sale auctions",
+  tx_hctax: "Harris County Tax Assessor-Collector - Delinquent Tax Sale Property Listing",
+  tx_jefferson_sheriff_sale: "Jefferson County Tax Assessor-Collector - Notice of Sale",
+  tx_bexar_resale: "Bexar County - Resale Properties Distribution List",
+  tx_montgomery_tax_trust: "Montgomery County Tax Assessor-Collector - Tax Trust Listing",
+  tx_orange_trust_property: "Orange County (TX) Tax Assessor-Collector - Trust Property Tax Sales",
+  tx_trinity_cad_resale: "Trinity Central Appraisal District - Resale Property List",
+  tx_randall_trustee_property: "Randall County Tax Assessor-Collector - Trustee Property Listing",
+  tx_hood_cad_struck_off: "Hood Central Appraisal District - Struck Off Property List",
+  la_ebr_adjudicated: "East Baton Rouge Parish open data - Adjudicated Parcel",
+  al_ador_state_land: "Alabama Department of Revenue - state-held tax land",
+  ar_cosl_post_auction: "Arkansas Commissioner of State Lands - Post Auction Sales List",
+  az_maricopa_state_cp: "Maricopa County Treasurer - State CP liens",
+  mi_detroit_landbank_lots: "Detroit Land Bank Authority - lots (ArcGIS layer)",
+  mi_detroit_landbank_programs: "Detroit Land Bank Authority - property programs (ArcGIS layer)",
+  mi_oceana_landbank: "Oceana County Land Bank Authority",
+  mi_wayne_county_landbank: "Wayne County Land Bank Corporation (ePropertyPlus portal)",
+  mi_saginaw_landbank: "Saginaw County Land Bank Authority (ePropertyPlus portal)",
+  mi_calhoun_landbank: "Calhoun County Land Bank Authority (ePropertyPlus portal)",
+  mi_tax_sale_info_auction: "Tax-Sale.info (Title Check, LLC) - county tax-foreclosure auction catalogs",
+  mi_tax_sale_info_surplus: "Tax-Sale.info (Title Check, LLC) - county surplus property catalogs",
+  mo_stl_lra_inventory: "St. Louis Land Reutilization Authority inventory (City of St. Louis open data)",
+  mo_kc_landbank: "Land Bank of Kansas City, Missouri (ePropertyPlus portal)",
+  ok_oklahoma_county_owned: "Oklahoma County Treasurer - County Owned Property list",
+  pa_fayette_repository: "Fayette County Tax Claim Bureau - Repository Sale list",
+  pa_pittsburgh_city_property: "City of Pittsburgh - city-owned property (ePropertyPlus portal)",
+  mn_ramsey_tax_forfeit: "Ramsey County - tax-forfeited land (public data layer)",
+  mn_hubbard_tfl_otc: "Hubbard County - tax-forfeited land sales (TFL Sales layer)",
+  mn_stpaul_hra_properties: "Saint Paul Housing and Redevelopment Authority - HRA properties for sale",
+  mn_wright_tax_forfeit: "Wright County - Tax Forfeited Parcels (ArcGIS layer)",
+  sc_horry_forfeited_land: "Horry County Forfeited Land Commission - bid lists",
+  sc_georgetown_forfeited_land: "Georgetown County Forfeited Land Commission - property list (PDF)",
+  sc_horry_tax_sale: "Horry County Treasurer - Real Estate Delinquent tax sale list",
+  co_saguache_tax_sale: "Saguache County - 2026 Tax Sale (San Luis Valley GIS layer)",
+  tn_shelby_landbank: "Shelby County Land Bank (ePropertyPlus portal)"
 };
 // The source a row is attributed to, for display (remediation). harvester_source
 // is the harvester's display name; when a row has only its source_id (the
@@ -2855,6 +2945,7 @@ function sourceNameFor(p) {
   const named = harvesterSourceLabel(p);
   if (named) return named;
   if (!p || !p.source_id) return null;
+  if (HARVESTER_SOURCE_NAMES[p.source_id]) return HARVESTER_SOURCE_NAMES[p.source_id];
   return String(p.source_id).split("_").map((w, i) =>
     (i === 0 && w.length === 2) || w === "laft" ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
@@ -2862,6 +2953,7 @@ function harvesterSourceLabel(p) {
   if (!p || !p.harvester_source) return null;
   const raw = String(p.harvester_source);
   if (HARVESTER_SOURCE_NAMES[raw]) return HARVESTER_SOURCE_NAMES[raw];
+  if (p.source_id && HARVESTER_SOURCE_NAMES[p.source_id]) return HARVESTER_SOURCE_NAMES[p.source_id];
   return raw.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
@@ -12869,14 +12961,26 @@ function sourceHealthRowsHtml(rows, pageState) {
 const LEDGER_KEY_BY_NAME = { AUCTIONS: "auction", AVAILABLE: "laft", LIENS_CERTIFICATES: "certificate" };
 const SOURCE_ID_LEDGERS = {
   fl_realauction: ["auction"], fl_bid4assets_okaloosa: ["auction"], fl_lienhub_certificates: ["certificate"],
-  fl_laft_pdfs: ["laft"], fl_laft_html: ["laft"], fl_laft_pioneer: ["laft"], fl_laft_realtdm: ["laft"], fl_laft_orange: ["laft"],
-  fl_laft_stlucie: ["laft"], fl_laft_osceola: ["laft"], fl_laft_hillsborough: ["laft"], fl_laft_leon: ["laft"],
-  tx_realauction: ["auction"], tx_lgbs: ["auction", "laft"], tx_hctax: ["laft"],
-  al_ador_state_land: ["laft"], ar_cosl_post_auction: ["laft"], la_ebr_adjudicated: ["laft"], az_maricopa_state_cp: ["certificate"],
-  mi_eaton_treasurer_sale: ["auction"], mi_lenawee_tax_sale: ["auction"], wy_albany_tax_sale: ["auction"], sc_york_tax_sale: ["auction"],
+  fl_sarasota_tc_certificates: ["certificate"], fl_laft_pdfs: ["laft"], fl_laft_html: ["laft"], fl_laft_pioneer: ["laft"],
+  fl_laft_realtdm: ["laft"], fl_laft_orange: ["laft"], fl_laft_stlucie: ["laft"], fl_laft_osceola: ["laft"],
+  fl_laft_hillsborough: ["laft"], fl_laft_leon: ["laft"], fl_laft_portals: ["laft"], tx_realauction: ["auction"],
+  tx_lgbs: ["auction", "laft"], tx_hctax: ["auction"], tx_jefferson_sheriff_sale: ["auction"], tx_bexar_resale: ["laft"],
+  tx_montgomery_tax_trust: ["laft"], tx_orange_trust_property: ["laft"], tx_trinity_cad_resale: ["laft"],
+  tx_randall_trustee_property: ["laft"], tx_hood_cad_struck_off: ["laft"], tx_pbfcm: ["auction", "laft"],
+  tx_mvba: ["auction", "laft"], tx_govease: ["auction"], al_ador_state_land: ["laft"], ar_cosl_post_auction: ["laft"],
+  la_ebr_adjudicated: ["laft"], az_maricopa_state_cp: ["certificate"], mi_eaton_treasurer_sale: ["auction"],
+  mi_lenawee_tax_sale: ["auction"], wy_albany_tax_sale: ["auction"], sc_york_tax_sale: ["auction"],
   co_morgan_county_held_certificates: ["certificate"], wi_green_tax_deed_sales: ["auction"],
-  co_douglas_county_held_liens: ["certificate"], co_douglas_tax_sale_list: ["auction"], co_morgan_treasurer_deed_auctions: ["auction"],
-  wi_dane_tax_deed_auction: ["auction"], sc_oconee_tax_sale_list: ["auction"]
+  co_douglas_county_held_liens: ["certificate"], co_douglas_tax_sale_list: ["auction"],
+  co_morgan_treasurer_deed_auctions: ["auction"], wi_dane_tax_deed_auction: ["auction"], sc_oconee_tax_sale_list: ["auction"],
+  mi_detroit_landbank_lots: ["laft"], mi_detroit_landbank_programs: ["laft"], mi_oceana_landbank: ["laft"],
+  sc_horry_forfeited_land: ["laft"], sc_georgetown_forfeited_land: ["laft"], mo_stl_lra_inventory: ["laft"],
+  ok_oklahoma_county_owned: ["laft"], pa_fayette_repository: ["laft"], mn_ramsey_tax_forfeit: ["laft"],
+  tn_shelby_landbank: ["laft"], mo_kc_landbank: ["laft"], pa_pittsburgh_city_property: ["laft"],
+  mi_wayne_county_landbank: ["laft"], mi_saginaw_landbank: ["laft"], mi_calhoun_landbank: ["laft"],
+  mi_tax_sale_info_auction: ["auction"], mi_tax_sale_info_surplus: ["laft"], sc_horry_tax_sale: ["auction"],
+  co_saguache_tax_sale: ["auction"], mn_hubbard_tfl_otc: ["laft"], mn_wright_tax_forfeit: ["auction"],
+  mn_stpaul_hra_properties: ["laft"]
 };
 function unitLedgerKeys(u) {
   if (u && u.ledgers) {

@@ -21,9 +21,9 @@
    "OFFERED_SOURCE_NOT_IMPLEMENTED": 1,
    "OFFERED_VERIFIED_EMPTY": 1,
    "RECORDS_WITHHELD_NO_PATH": 1,
-   "RULES_NOT_VERIFIED": 19,
+   "RULES_NOT_VERIFIED": 18,
    "SOURCE_FAILED_OR_STALE": 4,
-   "SOURCE_IMPLEMENTED_NEVER_READ": 1
+   "SOURCE_IMPLEMENTED_NEVER_READ": 2
   },
   "state_ledger_units": 39
  },
@@ -453,22 +453,22 @@
    "status": "RULES_NOT_VERIFIED"
   },
   {
-   "approved_for_customers": false,
+   "approved_for_customers": true,
    "category": "C",
    "completable_now": false,
    "county": "*",
-   "eligibility": "NOT_VERIFIED",
+   "eligibility": "COUNTY_DEPENDENT",
    "kind": "state_ledger",
    "ledger": "AUCTIONS",
-   "next_action": "Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility",
+   "next_action": "The next scheduled read (or job=evidence) records the first read; nothing to change until it runs",
    "process_verified": false,
-   "reason": "eligibility NOT_VERIFIED; no production source",
+   "reason": "no row and no read recorded in the snapshot",
    "requires": "needs official evidence through the approved capture mechanism (job=evidence)",
    "rule_verified": false,
-   "source": "0 production source(s) of 0 known",
-   "source_accessible": "not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner",
+   "source": "1 production source(s) of 1 known",
+   "source_accessible": "yes",
    "state": "MN",
-   "status": "RULES_NOT_VERIFIED"
+   "status": "SOURCE_IMPLEMENTED_NEVER_READ"
   },
   {
    "approved_for_customers": false,

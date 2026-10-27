@@ -3649,6 +3649,9 @@ Full description: `docs/county-sources-2026-10-26.md`. Stable facts:
   Synced by `sync_state_inventory.py --keep-other-sources` (never takes over an LGBS / RealAuction row); closed
   per source by `texas_closeout.py --harvest/--status` (county files) after a COMPLETE / EMPTY read only.
   `registry.py` `_TX_HCTAX` stays LEGAL_REVIEW_REQUIRED (the legal record; the vendor sync path only).
+- **Vendor row wins (owner decision 2026-10-27):** when a Texas vendor listing (LGBS / PBFCM / MVBA / GovEase) and the
+  county's own list carry the same property, the vendor row is kept - the county-list sync never takes it over and runs
+  after the vendor sync (pinned by `test_vendor_row_wins_over_the_county_list_row`).
 
 ## New sources sprint: every property, every source (2026-10-26, PR open, no migration)
 
@@ -3661,10 +3664,11 @@ Full description: `docs/new-sources-2026-10-26.md`. Stable facts:
 - **Sources**: ePropertyPlus tenants KC MO (`public-kclb`), Pittsburgh PA (`public-pgh`), Wayne / Saginaw / Calhoun MI;
   Tax-Sale.info MI upcoming auction catalogs (one
   registry row per county, `tax_sale_info.py`) + surplus catalogs; Horry SC delinquent tax sale list (newest dated XLSX,
-  `document_sheet="*"`); Saguache CO 2026 tax sale layer; Hubbard MN OTC land; Saint Paul HRA land.
+  `document_sheet="*"`); Saguache CO 2026 tax sale layer; Hubbard MN OTC land; Saint Paul HRA land; Wright MN
+  tax-forfeited parcels (AUCTIONS, scheduled since 2026-10-27 once the MN auctions copy named it).
 - Registry rows are keyed `(source_id, county)` in `build_county_source_registry.expansion_rows()`.
-- Held, configured but not scheduled: Wright MN (app.js's MN auctions copy says none is tracked; state-rules
-  `ledger_copy`) and Genesee MI land bank (`paged_table.py`; the site's random HTTP 500s move its session cursor).
+- Held, configured but not scheduled: Genesee MI land bank (`paged_table.py`; the site's random HTTP 500s move its
+  session cursor).
 - Read-only validation: `job=evidence`, `evidence_scope=new_sources_validate` (MI MO PA SC CO MN, no DB credential).
 
 ## Data-enrichment sprint: county parcel layers for held records (2026-10-25, PR open, no migration)
