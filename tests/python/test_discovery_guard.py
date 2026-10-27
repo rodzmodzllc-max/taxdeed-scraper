@@ -30,7 +30,7 @@ from permission_fixtures import record  # noqa: E402
 
 SCRIPTS = ("capture_available_sources", "capture_pioneer_statements", "capture_purchase_evidence", "capture_sc_available",
            "capture_state_sources", "capture_tn_shelby", "capture_tx_vendors", "discover_sources", "probe_fdor_starvation",
-           "probe_field_fill")
+           "probe_field_fill", "probe_tx_parcels")
 
 IDX = [DG.Target("zz_ok", "ZZ", None, "ok.example.gov", "/list"),
        DG.Target("zz_other", "ZZ", None, "shared.example.gov", "/a"),

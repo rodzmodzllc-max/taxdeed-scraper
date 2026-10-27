@@ -303,7 +303,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, realauction_labels, fl_certificate_sources, taxsys_check, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging, tx_realauction, tx_vendors, county_sources, county_certificates, new_sources_validate]
+        options: [available, realauction_labels, fl_certificate_sources, taxsys_check, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging, tx_realauction, tx_vendors, county_sources, county_certificates, new_sources_validate, tx_parcels]
 
 concurrency:
   # Evidence captures (job=evidence) are read-only and never write to the
@@ -1671,6 +1671,17 @@ jobs:
           RA_DATES: ${{ github.event.inputs.evidence_realauction_dates }}
           SCOPE: ${{ github.event.inputs.evidence_scope }}
         run: |
+          if [ "$SCOPE" = "tx_parcels" ]; then
+            # 2026-10-27: reachability of the Texas parcel enrichment sources from a
+            # runner (TxGIO StratMap county shapefiles, the HCAD layer). Record
+            # counts and attribute names only; no database credential, no write.
+            pip install -q pyshp >/dev/null
+            cargs=""
+            IFS=',' read -ra cs <<< "$COUNTIES"
+            for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
+            eval python3 scripts/probe_tx_parcels.py $cargs
+            exit 0
+          fi
           if [ "$SCOPE" = "tx_vendors" ]; then
             # 2026-10-26 (owner decision): the Texas vendors PBFCM / MVBA / GovEase,
             # read by the real harvesters under the discovery guard. Status and
