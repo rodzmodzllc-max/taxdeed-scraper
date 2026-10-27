@@ -7584,7 +7584,10 @@ const EXPECTED = {
   countyNowBarOneCounty: {"hidden": true, "optionsNoCount": true},
   countyNowBarAuctionsHidden: true,
   // Property page tiers (2026-10-27).
-  fullRecordClean: null, fullRecordShowAll: null, fullRecordBackToClean: null, fullRecordCleanAuction: null,
+  fullRecordClean: {"questions": ["Today's total price", "Legal description", "Taxable value", "Flood zone", "Other liens, judgments, foreclosure or code cases", "Deposit", "Deadlines", "A picture of the property"], "leftovers": 0, "checklist": false, "decisionHow": false, "risk": true, "navQuestions": true, "showAll": true},
+  fullRecordShowAll: {"checklist": true, "questions": 0, "note": true, "stored": "1"},
+  fullRecordBackToClean: {"checklist": false, "questions": 8},
+  fullRecordCleanAuction: ["Flood zone", "Other liens, judgments, foreclosure or code cases", "How to register and pay the deposit", "A picture of the property", "Legal description", "Lot size", "Land use"],
   tierDefault: {"tier": "pro", "switchShown": true, "pressed": ["pro"], "fullRecord": true},
   tierGuided: {"view": "beginner", "know": 3, "stages": ["find:confirmed", "price:your-turn", "risks:later", "apply:later", "pay:later", "deed:later"], "ring": "7/15", "next": "Get today's total price", "fullRecord": false, "note": "Green ✓ items come from the county's own records. The boxes you tick are your own notes and never change what the records say. Your ticks are saved to your account and follow you to any device.", "overflow": 0},
   tierGuidedTick: {"ring": "8/15", "next": "Look for other liens", "stillOpen": true, "saved": {"mode": "server", "lists": ["My properties"], "journey": [["price.price"]]}},

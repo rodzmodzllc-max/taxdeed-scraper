@@ -16985,7 +16985,7 @@ var FILLER_VALUE_RX = /^(not verified|not yet verified|not published( by the sou
 // record does carry) are not a buyer's question: they leave the page section
 // but are not listed. Returns null for those.
 var OPEN_QUESTION_TOPICS = [
-  [/registration|register|deposit and payment/i, "How to register, pay the deposit and pay", "The county's auction site states its rules."],
+  [/registration|register|deposit and payment/i, "How to register and pay the deposit", "The county's auction site states its rules."],
   [/price|amount|cost|total|valid through|official total|fee/i, "Today's total price", "Ask the office that sells it - see How to acquire."],
   [/deposit/i, "Deposit", "Ask the office that sells it."],
   [/deadline/i, "Deadlines", "Ask the office that sells it."],
