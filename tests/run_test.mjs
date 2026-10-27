@@ -4488,7 +4488,7 @@ await navMap.close();
       const st = e && e.closest('.empty-state');
       const why = document.querySelector('.ls-why[data-zero-why]');
       return { ledger: e ? e.dataset.unconfirmedEmpty + '|' + e.textContent : null,
-        noNoneClaim: st ? !/No properties|nothing currently available/i.test(st.textContent) : null,
+        noNoneClaim: st ? !/No properties currently|No available properties|nothing currently available/.test(st.textContent) : null,
         zeroCase: why ? why.dataset.zeroWhy : null,
         whyNamesIt: why ? !!why.querySelector('[data-unconfirmed-withheld="2"]') : null,
         county: window.__tdwUnconfirmed().countyText('Bay'), otherCounty: window.__tdwUnconfirmed().countyText('Alachua') };
