@@ -35,13 +35,15 @@ runner is scripts/enrich_statewide_parcels.py).
 """
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable
 from urllib.parse import urlencode
 
 __all__ = ["ID_RULES", "ParcelSourceConfig", "MatchResult", "Coverage", "normalize_id", "enrichment_allowed",
-           "query_urls", "index_features", "match_rows", "plan_update", "polygon_centroid", "LAYER_URL_RE"]
+           "query_urls", "index_features", "match_rows", "plan_update", "polygon_centroid", "polygon_area_sqft",
+           "LAYER_URL_RE", "DERIVED_AREA_NOTE"]
 
 LAYER_URL_RE = re.compile(r"^https://[^?#\s]+/(FeatureServer|MapServer)/\d+$")
 # A Socrata (SODA) dataset resource: https://<host>/resource/<4x4>.json
@@ -74,7 +76,13 @@ COLUMN_TYPES = {
     "owner_name": "text", "address": "text", "legal_desc": "text", "land_use": "text", "prop_type": "text",
     "assessed": "num", "market": "num", "land_value": "num", "improvement_value": "num", "taxable_value": "num",
     "acreage": "num", "year_built": "int", "living_area": "int", "value_year": "int", "homestead": "bool",
+    "lot_sqft": "int",
 }
+# The provenance wording of a lot area computed from the matched parcel's own
+# polygon (thin-fields sprint, 2026-10-27). The app shows it as "Derived by our
+# system - <this>", so a reader never takes it for the deed / assessed area.
+DERIVED_AREA_NOTE = ("area of the matched parcel polygon, computed by us (spherical approximation, within about half a "
+                     "percent); a GIS area, not the deed or assessed lot size")
 SENTINEL_TEXT = {"", "N/A", "NA", "NONE", "NULL", "UNKNOWN", "0"}
 APPROVED_PUBLICATION = {"APPROVED", "APPROVED_GRANDFATHERED"}
 
@@ -178,6 +186,15 @@ class ParcelSourceConfig:
     # part means no value, and a blank FIRST part (the house number) means no
     # value at all. Only for text columns.
     composite_map: dict = field(default_factory=dict)
+    # Thin-fields sprint (2026-10-27). For a layer that publishes the parcel
+    # POLYGON but no defined area attribute: write lot_sqft as the area of the
+    # matched parcel's own polygon, provenance-labelled as derived
+    # (DERIVED_AREA_NOTE). Never replaces a value any source published (the
+    # shared precedence rule: equal rank never overwrites, a blank only).
+    derived_lot_area: bool = False
+    # socrata transport: the dataset column holding the parcel geometry
+    # (GeoJSON), read only for derived_lot_area.
+    geometry_field: str | None = None
 
     def __post_init__(self) -> None:
         if self.transport not in TRANSPORTS:
@@ -199,8 +216,14 @@ class ParcelSourceConfig:
                     raise ValueError(f"{self.source_id}: bad identifier rule for {c}")
         if self.transport == "socrata" and self.centroid:
             raise ValueError(f"{self.source_id}: a centroid needs polygon geometry (arcgis transport)")
-        if self.id_query not in ("string", "number"):
-            raise ValueError(f"{self.source_id}: id_query must be string or number")
+        if self.derived_lot_area and not (self.transport == "arcgis" or (self.transport == "socrata" and self.geometry_field)):
+            raise ValueError(f"{self.source_id}: a derived lot area needs the parcel polygon (arcgis, or socrata with geometry_field)")
+        if self.geometry_field and not (self.transport == "socrata" and self.derived_lot_area):
+            raise ValueError(f"{self.source_id}: geometry_field is read only for a socrata derived lot area")
+        if self.derived_lot_area and ("lot_sqft" in self.field_map or "lot_sqft" in self.conditional_map):
+            raise ValueError(f"{self.source_id}: lot_sqft is either published (mapped) or derived, never both")
+        if self.id_query not in ("string", "number", "normalized"):
+            raise ValueError(f"{self.source_id}: id_query must be string, number or normalized")
         if self.id_rule not in ID_RULES:
             raise ValueError(f"{self.source_id}: unknown id_rule {self.id_rule!r}")
         bad_cond = set(self.conditional_map) & set(self.field_map)
@@ -261,6 +284,8 @@ class ParcelSourceConfig:
             cols.add("value_year")
         if self.centroid:
             cols.update(("latitude", "longitude"))
+        if self.derived_lot_area:
+            cols.add("lot_sqft")
         return frozenset(cols)
 
     def out_fields(self) -> list[str]:
@@ -277,6 +302,8 @@ class ParcelSourceConfig:
             names.add(self.value_year_field)
         if self.latest_field:
             names.add(self.latest_field)
+        if self.geometry_field:
+            names.add(self.geometry_field)
         return sorted(names)
 
 
@@ -348,6 +375,10 @@ def query_urls(cfg: ParcelSourceConfig, county: str, raw_ids: Iterable[str]) -> 
         return [cfg.file_url(county)] if ids and county in cfg.county_id else []
     if cfg.id_query == "number":
         ids = sorted({k for k in (normalize_id(i, cfg.id_rule) for i in ids) if k and k.isdigit()}, key=int)
+    elif cfg.id_query == "normalized":
+        # The layer stores the identifier in its normalized spelling (e.g. a
+        # PIN written without its dashes): ask for exactly that string.
+        ids = sorted({k for k in (normalize_id(i, cfg.id_rule) for i in ids) if k})
     urls = []
     for i in range(0, len(ids), cfg.batch_size):
         chunk = ids[i:i + cfg.batch_size]
@@ -362,7 +393,8 @@ def query_urls(cfg: ParcelSourceConfig, county: str, raw_ids: Iterable[str]) -> 
             # Case-insensitive on the county NAME only (layers spell it "Morgan" or
             # "MORGAN"); the identifier stays an exact IN list.
             where = f"UPPER({cfg.county_field}) = {_sql_str(cfg.county_value(county).upper())} AND ({where})"
-        params = {"where": where, "outFields": ",".join(cfg.out_fields()), "returnGeometry": "true" if cfg.centroid else "false",
+        params = {"where": where, "outFields": ",".join(cfg.out_fields()),
+                  "returnGeometry": "true" if (cfg.centroid or cfg.derived_lot_area) else "false",
                   "outSR": "4326", "f": "json"}
         urls.append(cfg.layer_url + "/query?" + urlencode(params))
     return urls
@@ -495,6 +527,56 @@ def polygon_centroid(geometry: dict | None) -> tuple[float, float] | None:
     return round(lat, 7), round(lng, 7)
 
 
+def _rings(geometry) -> list:
+    """Polygon rings as lists of (lng, lat) from an Esri JSON polygon
+    ({"rings": ...}) or a GeoJSON Polygon / MultiPolygon. [] when neither."""
+    if not isinstance(geometry, dict):
+        return []
+    if geometry.get("rings"):
+        return [r for r in geometry["rings"] if isinstance(r, list)]
+    kind, coords = geometry.get("type"), geometry.get("coordinates") or []
+    if kind == "Polygon":
+        return [r for r in coords if isinstance(r, list)]
+    if kind == "MultiPolygon":
+        return [r for poly in coords if isinstance(poly, list) for r in poly if isinstance(r, list)]
+    return []
+
+
+# Authalic radius of the WGS 84 ellipsoid: a sphere of the same surface area.
+_AUTHALIC_R_M = 6371007.181
+_SQFT_PER_M2 = 10.763910417
+
+
+def _signed_ring_area_m2(ring) -> float:
+    pts = [(float(p[0]), float(p[1])) for p in ring if isinstance(p, (list, tuple)) and len(p) >= 2]
+    if len(pts) < 3:
+        return 0.0
+    s = 0.0
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:] + pts[:1]):
+        s += math.radians(x1 - x0) * (2 + math.sin(math.radians(y0)) + math.sin(math.radians(y1)))
+    return s * _AUTHALIC_R_M ** 2 / 2.0
+
+
+def polygon_area_sqft(geometry) -> int | None:
+    """Area of a WGS 84 polygon in square feet (spherical excess on the
+    authalic sphere; holes subtract). In one polygon the outer ring and its
+    holes run in opposite directions (Esri: outer clockwise; GeoJSON: outer
+    counter-clockwise), so the absolute sum of the signed ring areas is its
+    area; a GeoJSON MultiPolygon is summed part by part. An Esri polygon with
+    several outer rings is summed the same way (all its outer rings share one
+    direction). None for no / degenerate geometry."""
+    if isinstance(geometry, dict) and geometry.get("type") == "MultiPolygon":
+        total = sum(abs(sum(_signed_ring_area_m2(r) for r in poly if isinstance(r, list)))
+                    for poly in geometry.get("coordinates") or [] if isinstance(poly, list))
+    else:
+        rings = _rings(geometry)
+        if not rings:
+            return None
+        total = abs(sum(_signed_ring_area_m2(r) for r in rings))
+    sqft = total * _SQFT_PER_M2
+    return int(round(sqft)) if sqft >= 1 else None
+
+
 def _is_no_value(cfg: ParcelSourceConfig, column: str, value) -> bool:
     text = str(value).strip().upper()
     if text in {str(v).upper() for v in cfg.no_value.get(column, ())}:
@@ -564,6 +646,10 @@ def plan_update(cfg: ParcelSourceConfig, row: dict, match: MatchResult, *, recor
         c = polygon_centroid(match.feature.get("geometry"))
         if c:
             fields["latitude"], fields["longitude"] = c
+    if cfg.derived_lot_area and "lot_sqft" not in fields:
+        area = polygon_area_sqft(match.feature.get("geometry"))
+        if area:
+            fields["lot_sqft"] = area
     county_key = row.get("county") if cfg.county_id else None
     layer = cfg.file_url(county_key) if cfg.transport == "county_file" and county_key in cfg.county_fips else cfg.layer_url
     meta = {"source_id": cfg.source_id, "dataset": cfg.dataset, "agency": cfg.agency, "layer_url": layer,
@@ -583,6 +669,8 @@ def plan_update(cfg: ParcelSourceConfig, row: dict, match: MatchResult, *, recor
                                   f"later years leave it blank)")
         if column in ("latitude", "longitude"):
             entry["derived"] = "area-weighted centroid of the matched parcel polygon"
+        if column == "lot_sqft" and cfg.derived_lot_area:
+            entry["derived"] = DERIVED_AREA_NOTE
         prov[column] = entry
     return fields, prov
 

@@ -8129,9 +8129,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 543,   // 2026-10-27: + Wright MN scheduled (registry row); + the TX enrichment layers (StratMap, HCAD), county process candidates and evidence rows (#221); + 8 parcel layers (#220); + the #213 / #214 / #216 county sources; 366 - 14 blocked-vendor-only rows + 61 PBFCM / MVBA / GovEase county rows (owner decision 2026-10-26); + Sarasota Tax Collector certificates (2026-10-26); + the LRA, Ramsey and Fayette process evidence rows (2026-10-26) and the TX/LA candidates
+  adminSourcesRows: 545,   // 2026-10-27: + OKC government-owned parcels and Oconee SC parcels (#233); + Wright MN scheduled (registry row); + the TX enrichment layers (StratMap, HCAD), county process candidates and evidence rows (#221); + 8 parcel layers (#220); + the #213 / #214 / #216 county sources; 366 - 14 blocked-vendor-only rows + 61 PBFCM / MVBA / GovEase county rows (owner decision 2026-10-26); + Sarasota Tax Collector certificates (2026-10-26); + the LRA, Ramsey and Fayette process evidence rows (2026-10-26) and the TX/LA candidates
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: "543 source(s): 453 approved, 89 review required, 1 hard blocked.",
+  adminSourcesStatusText: "545 source(s): 455 approved, 89 review required, 1 hard blocked.",
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,

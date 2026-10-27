@@ -3730,6 +3730,21 @@ Full description, with the per-gap results: `docs/enrich-thin-states-2026-10-27.
 - **No source exists for:** PA Fayette (geometry only; the assessment site is click-through), TN Shelby lot
   size, MO acreage (columns undefined). FL mappings exist; its gap is identifier matching (PR #180).
 
+## Thin-fields enrichment: derived lot area, published portal facts, Genesee reader (2026-10-27, PR open, no migration)
+
+Full description: `docs/enrich-thin-fields-2026-10-27.md`. Stable facts:
+- **Derived lot area** (`ParcelSourceConfig.derived_lot_area`, socrata needs `geometry_field`): `lot_sqft` = the matched
+  parcel polygon's own area, provenance `derived` = `parcels.DERIVED_AREA_NOTE` ("not the deed or assessed lot size").
+  Only where no area attribute is DEFINED (St. Louis layer 11, EBR Tax Parcel `the_geom`); a published value always wins.
+- **Published portal facts:** `EppConfig.lot_sqft_field` / `year_built_field` / `living_area_field` -> `OtcRecord.lot_sqft`
+  / `year_built` / `living_area` (in `sync_state_inventory.LIST_FIELDS`). KC + Pittsburgh `parcelSquareFootage`,
+  Saginaw / Calhoun structures. Never `parcelLength` x `parcelWidth`.
+- **New layers:** `ok_okc_government_owned_parcels` (land use, `id_query="normalized"`), `sc_oconee_county_parcels`;
+  `co_oit_public_parcels` also matches `parcel_id` (Saguache's list parcel). ArcGIS GETs over ~2 KB answered 404:
+  keep `batch_size` small when the where clause names two attributes.
+- **Genesee paged reader:** exact stated totals (`total_pattern`) and in-place session recovery (`stay_data` /
+  `prev_data`); still HELD (not scheduled) pending the workflow change.
+
 ## Source link health + unconfirmed Available records (2026-10-27, PR open, migration 036 NOT applied)
 
 Report: `docs/review/source-links-2026-10-27.md`. Stable facts:
