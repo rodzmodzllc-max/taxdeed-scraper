@@ -319,7 +319,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, realauction_labels, fl_certificate_sources, taxsys_check, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging, tx_realauction, tx_vendors, county_sources, county_certificates, new_sources_validate]
+        options: [available, realauction_labels, fl_certificate_sources, taxsys_check, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging, tx_realauction, tx_vendors, county_sources, county_certificates, new_sources_validate, tx_parcels]
 
 concurrency:
   # Evidence captures (job=evidence) are read-only and never write to the
@@ -1200,7 +1200,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
-          python3 scripts/apply_acquisition_paths.py --state TX --source-id tx_lgbs --report out/public/acquisition-apply-tx.json
+          python3 scripts/apply_acquisition_paths.py --state TX --ledgers laft,auction --report out/public/acquisition-apply-tx.json
           python3 scripts/publication_gate.py --state TX --report out/public/publication-gate-tx.json
           python3 scripts/publication_state_writer.py --state TX || true
 
@@ -1690,6 +1690,17 @@ jobs:
           RA_DATES: ${{ github.event.inputs.evidence_realauction_dates }}
           SCOPE: ${{ github.event.inputs.evidence_scope }}
         run: |
+          if [ "$SCOPE" = "tx_parcels" ]; then
+            # 2026-10-27: reachability of the Texas parcel enrichment sources from a
+            # runner (TxGIO StratMap county shapefiles, the HCAD layer). Record
+            # counts and attribute names only; no database credential, no write.
+            pip install -q pyshp >/dev/null
+            cargs=""
+            IFS=',' read -ra cs <<< "$COUNTIES"
+            for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
+            eval python3 scripts/probe_tx_parcels.py $cargs
+            exit 0
+          fi
           if [ "$SCOPE" = "tx_vendors" ]; then
             # 2026-10-26 (owner decision): the Texas vendors PBFCM / MVBA / GovEase,
             # read by the real harvesters under the discovery guard. Status and
@@ -2000,7 +2011,8 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install requests pillow
+        # pyshp (2026-10-27): the TxGIO StratMap county files are shapefiles.
+        run: pip install requests pillow pyshp
 
       - name: Restore the parcel-layer batch checkpoint
         # scripts/enrich_statewide_parcels.py --limit resumes each layer after
@@ -2241,7 +2253,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install requests pillow pdfplumber beautifulsoup4
+        run: pip install requests pillow pdfplumber beautifulsoup4 pyshp   # pyshp: TxGIO StratMap county files (2026-10-27)
 
       - name: OCR for scanned documents (discover only)
         if: github.event.inputs.available_mode == 'discover'
@@ -2301,7 +2313,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           python3 scripts/apply_acquisition_paths.py --state LA --source-id la_ebr_adjudicated --report out/public/acquisition-apply-la.json
-          python3 scripts/apply_acquisition_paths.py --state TX --source-id tx_lgbs --report out/public/acquisition-apply-tx.json
+          python3 scripts/apply_acquisition_paths.py --state TX --ledgers laft,auction --report out/public/acquisition-apply-tx.json
 
       - name: Apply - Texas AVAILABLE rows observed on the LGBS feed (stamp + provenance; no close, no new field)
         # scripts/lgbs_available_refresh.py: reads ONLY the LGBS feed through the

@@ -2621,6 +2621,29 @@ Full description: `docs/texas-vendor-sources.md`. Stable facts:
   40384773704): stopped, never worked around.
 - Survey: `docs/review/fl-certificate-sources-2026-10-26.md`.
 
+## Texas enrichment: property facts + how to buy (2026-10-27, PR open, no migration)
+
+Full description: `docs/tx-enrichment-2026-10-27.md`. Stable facts:
+- **Property facts:** `tx_txgio_stratmap_parcels` (TxGIO StratMap 2026 county shapefiles) and `tx_hcad_parcels`
+  (Harris), both with interim permission records.
+  - They run through the parcel factory's new `county_file` transport (`harvesters/enrichment/county_file.py`), which
+    downloads one zip per county and keeps only the requested identifiers. The StratMap map service refuses every query.
+  - Each county's identifier column and rule is measured (`county_id`); a county without one is never read.
+  - Writes are `fill_blank_only` and cover only `row_source_ids` (the vendor listings, whose `case_no` is the CAD
+    account).
+  - `address`, `legal_desc` and `assessed` are never mapped: the Texas syncs write them, so mapping them would make the
+    two writers take turns.
+  - Two county layers may overlap only when one is fill-blank only.
+- **Ledger scope of evidence rows:** `data/acquisition_evidence_ledgers.csv` (`purchase_path_engine.load_ledger_scope`).
+  A row without an entry is AVAILABLE only.
+  - `apply_acquisition_paths.py --ledgers laft,auction` uses each row only for its own ledgers.
+  - `build_acquisition_evidence` keeps AVAILABLE-scoped rows only.
+  - Procedure rules take the scope as their ledger.
+- **Statewide listing fallback:** a source whose registry rows all name one listing (LGBS) gives counties off the
+  roster that listing.
+- **Evidence capture:** TX county process pages sit in `acquisition_candidate_pages.csv` under the discovery-only id
+  `tx_county_sale_process`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

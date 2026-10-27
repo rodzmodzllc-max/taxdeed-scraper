@@ -61,6 +61,13 @@ def test_e01_ten_path_types_and_the_db_constraint_agree():
         assert f"{t}:" in APP, t
 
 
+# Texas county offices whose own pages the evidence rows quote (Galveston: run 36858070184;
+# the rest: run 40430155571, TX enrichment 2026-10-27).
+TX_COUNTY_OFFICE_PAGES = ("https://sheriff.galvestoncountytx.gov/", "https://www.dallascounty.org/",
+                          "https://www.tarrantcountytx.gov/", "https://www.hctax.net/", "https://jeffcotax.com/",
+                          "https://www.co.orange.tx.us/", "https://www.bexar.org/", "https://www.fortbendcountytx.gov/")
+
+
 def test_e02_evidence_table_holds_only_verified_captured_rows_and_outcome_rules_ship_empty():
     # Customer Value / Evidence Acquisition sprint (2026-09-30): the evidence
     # table carries rows ONLY for counties whose own page/document was read by
@@ -78,13 +85,15 @@ def test_e02_evidence_table_holds_only_verified_captured_rows_and_outcome_rules_
         # third_party_permitted only where the listing is a vendor's (Texas: delinquent-tax
         # counsel) and the URL is the county's OWN office page the evidence was read from.
         assert not r.third_party_permitted or (r.state == "TX" and r.url == r.evidence_url
-                                               and r.url.startswith("https://sheriff.galvestoncountytx.gov/")), r.county
-        # No invented property URL: a URL appears only on an instructions-page row, and only as
-        # the same government site's own page the evidence was read from.
-        assert r.url == "" or (r.path_type == "county_instructions" and (
+                                               and r.url.startswith(TX_COUNTY_OFFICE_PAGES)), r.county
+        # No invented property URL: a URL appears only on an instructions-page row (or, in Texas,
+        # a county's own bid-form document), and only as the same government site's own page the
+        # evidence was read from.
+        assert r.url == "" or (r.path_type in ("county_instructions", "application_download") and (
             (r.url.startswith("https://www.brla.gov/") and r.evidence_url.startswith("https://www.brla.gov/"))
-            or (r.url.startswith("https://sheriff.galvestoncountytx.gov/") and r.url == r.evidence_url))), r.county
-        assert re.search(r"\brun[s]? 3669828546|\bruns 36717720575|\brun 36835470121|\brun 36858070184", r.notes), r.county  # traceable to the capture run(s)
+            or (r.url.startswith(TX_COUNTY_OFFICE_PAGES) and r.url == r.evidence_url))), r.county
+        assert re.search(r"\brun[s]? 3669828546|\bruns 36717720575|\brun 36835470121|\brun 36858070184|\brun 40430155571",
+                         r.notes), r.county  # traceable to the capture run(s)
     assert len({(r.state, r.source_id, r.county) for r in rows}) == len(rows)   # one row per source/county
     assert OI.load_rules() == []
     with open(PE.EVIDENCE_PATH, newline="", encoding="utf-8") as fh:

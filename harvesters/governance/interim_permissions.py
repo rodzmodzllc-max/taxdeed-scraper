@@ -57,12 +57,15 @@ def _class_gates(source_id: str, repo: Path) -> list[str]:
         if source_id in ids:
             gates += ["scripts/source_publication.py (collectable / publishable)",
                       "harvesters/governance/publication_state.py (display)"]
-    cand = repo / "data" / "county_source_candidates.csv"
-    if cand.is_file():
+    for name in ("county_source_candidates.csv", "acquisition_candidate_pages.csv"):
+        cand = repo / "data" / name
+        if not cand.is_file():
+            continue
         with cand.open(newline="", encoding="utf-8") as fh:
             if source_id in {r.get("source_id") for r in csv.DictReader(fh)}:
                 # discover-only candidates: every request is checked by URL against the record
                 gates.append("harvesters/governance/discovery_guard.py (discover, by URL)")
+                break
     if source_id.startswith("fl_laft_") or source_id == "la_ebr_adjudicated":
         gates.append("scripts/laft_lifecycle.py (apply_store_permission)")
     try:

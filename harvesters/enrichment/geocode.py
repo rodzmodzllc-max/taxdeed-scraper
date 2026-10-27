@@ -108,7 +108,10 @@ SANTA_ROSA_SOURCE = CoordinateSource(
 def _parcel_layer_sources() -> list[CoordinateSource]:
     out = []
     for cfg in all_sources():
-        if not cfg.centroid:
+        # A county_file source (one zipped shapefile per county) cannot be
+        # queried per identifier: its centroids come from the enrichment run
+        # itself (scripts/enrich_statewide_parcels.py), never from here.
+        if not cfg.centroid or cfg.transport == "county_file":
             continue
         out.append(CoordinateSource(
             source_id=cfg.source_id, state=cfg.state, method="PARCEL_GIS", geometry="PARCEL_CENTROID",

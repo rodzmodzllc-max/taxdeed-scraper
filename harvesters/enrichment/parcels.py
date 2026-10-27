@@ -46,7 +46,11 @@ __all__ = ["ID_RULES", "ParcelSourceConfig", "MatchResult", "Coverage", "normali
 LAYER_URL_RE = re.compile(r"^https://[^?#\s]+/(FeatureServer|MapServer)/\d+$")
 # A Socrata (SODA) dataset resource: https://<host>/resource/<4x4>.json
 SODA_URL_RE = re.compile(r"^https://[^/?#\s]+/resource/[a-z0-9]{4}-[a-z0-9]{4}\.json$")
-TRANSPORTS = ("arcgis", "socrata")
+# "county_file": one published file per county (a zipped shapefile); the
+# runner reads its attribute table and keeps only the requested identifiers.
+TRANSPORTS = ("arcgis", "socrata", "county_file")
+# A county file URL: https only, with a {fips} placeholder for the county.
+FILE_TEMPLATE_RE = re.compile(r"^https://[^?#\s]+\{fips\}[^?#\s]*\.zip$")
 
 # Deterministic identifier normalizations. Each is a pure function of the
 # string; none guesses, pads or re-derives an identifier.
@@ -140,6 +144,27 @@ class ParcelSourceConfig:
     # floor - one distinct value in that year or nothing - and its provenance
     # names that year. Only for an identifier that already matched exactly.
     column_year_floor: dict = field(default_factory=dict)
+    # county_file transport (TX enrichment 2026-10-27): the per-county file URL
+    # template ({fips}), each covered county's FIPS code, and - because each
+    # county's appraisal district fills a different identifier attribute - the
+    # identifier attribute(s) and rule MEASURED for that county:
+    # county -> ((attribute, ...), id_rule). A county without an entry is not
+    # covered (never matched on a guessed attribute).
+    file_url_template: str = ""
+    county_fips: dict = field(default_factory=dict)
+    county_id: dict = field(default_factory=dict)
+    # Only blank columns are ever written. A column a listing sync also writes
+    # is never mapped at all; this keeps a later sync and this source from
+    # taking turns overwriting each other.
+    fill_blank_only: bool = False
+    # Only rows of these sources (properties.source_id, else harvester_source)
+    # are matched - the sources whose row_id_column IS this layer's identifier
+    # (Texas: the vendor listings carry the appraisal-district account in
+    # case_no; a county list's case_no may be something else). Empty = every row.
+    row_source_ids: tuple = ()
+
+    def takes_row(self, row: dict) -> bool:
+        return not self.row_source_ids or (row.get("source_id") or row.get("harvester_source") or "") in self.row_source_ids
     # Thin-states sprint (2026-10-27). column -> regular expressions (matched
     # at the start of the upper-cased value) that mean "not published" for
     # that column - e.g. a county layer writing "0 UNKNOWN <city>" as the
@@ -161,6 +186,17 @@ class ParcelSourceConfig:
             raise ValueError(f"{self.source_id}: layer_url must be https://.../FeatureServer|MapServer/<n>")
         if self.transport == "socrata" and not SODA_URL_RE.match(self.layer_url):
             raise ValueError(f"{self.source_id}: a socrata source's layer_url must be https://<host>/resource/<id>.json")
+        if self.transport == "county_file":
+            if not FILE_TEMPLATE_RE.match(self.file_url_template):
+                raise ValueError(f"{self.source_id}: a county_file source needs an https .zip file_url_template with {{fips}}")
+            if not self.county_id or set(self.county_id) != set(self.counties):
+                raise ValueError(f"{self.source_id}: a county_file source's counties must be exactly the counties with a measured identifier rule")
+            missing = set(self.counties) - set(self.county_fips)
+            if missing:
+                raise ValueError(f"{self.source_id}: no FIPS code for {sorted(missing)}")
+            for c, (fields_, rule) in self.county_id.items():
+                if not fields_ or rule not in ID_RULES:
+                    raise ValueError(f"{self.source_id}: bad identifier rule for {c}")
         if self.transport == "socrata" and self.centroid:
             raise ValueError(f"{self.source_id}: a centroid needs polygon geometry (arcgis transport)")
         if self.id_query not in ("string", "number"):
@@ -205,8 +241,18 @@ class ParcelSourceConfig:
     def county_value(self, county: str) -> str:
         return self.county_values.get(county, county)
 
-    def id_fields(self) -> tuple:
+    def id_fields(self, county: str | None = None) -> tuple:
+        if county is not None and county in self.county_id:
+            return tuple(self.county_id[county][0])
         return (self.id_field, *self.alt_id_fields)
+
+    def id_rule_for(self, county: str | None = None) -> str:
+        if county is not None and county in self.county_id:
+            return self.county_id[county][1]
+        return self.id_rule
+
+    def file_url(self, county: str) -> str:
+        return self.file_url_template.format(fips=self.county_fips[county])
 
     def written_columns(self) -> frozenset:
         """Every properties column this layer can write."""
@@ -219,6 +265,8 @@ class ParcelSourceConfig:
 
     def out_fields(self) -> list[str]:
         names = {*self.id_fields(), *self.field_map.values(), *self.provenance_attrs}
+        for fields_, _rule in self.county_id.values():
+            names.update(fields_)
         for parts in self.composite_map.values():
             names.update(a for a, _ in parts)
         for attr, cond, _vals in self.conditional_map.values():
@@ -295,6 +343,9 @@ def query_urls(cfg: ParcelSourceConfig, county: str, raw_ids: Iterable[str]) -> 
     normalization on both sides). Batched; county-scoped when the layer is
     statewide."""
     ids = sorted({str(i).strip() for i in raw_ids if str(i or "").strip()})
+    if cfg.transport == "county_file":
+        # One file per county; the identifiers are filtered while it is read.
+        return [cfg.file_url(county)] if ids and county in cfg.county_id else []
     if cfg.id_query == "number":
         ids = sorted({k for k in (normalize_id(i, cfg.id_rule) for i in ids) if k and k.isdigit()}, key=int)
     urls = []
@@ -317,9 +368,11 @@ def query_urls(cfg: ParcelSourceConfig, county: str, raw_ids: Iterable[str]) -> 
     return urls
 
 
-def index_features(cfg: ParcelSourceConfig, features: Iterable[dict]) -> dict[tuple[str, str], list[dict]]:
+def index_features(cfg: ParcelSourceConfig, features: Iterable[dict], county: str | None = None) -> dict[tuple[str, str], list[dict]]:
     """(layer county value or '', normalized id) -> features. More than one
-    feature per key is kept so the match can call it ambiguous."""
+    feature per key is kept so the match can call it ambiguous. `county`
+    selects a county_file source's measured identifier attribute(s) and rule."""
+    id_fields, rule = cfg.id_fields(county), cfg.id_rule_for(county)
     idx: dict[tuple[str, str], list[dict]] = {}
     seen: dict[tuple[str, str], set] = {}
     for ident, ft in enumerate(features):
@@ -328,8 +381,8 @@ def index_features(cfg: ParcelSourceConfig, features: Iterable[dict]) -> dict[tu
         # One feature (its position in the response) reached through two of
         # its own identifier attributes is still ONE candidate; two different
         # features always stay two, even with identical attribute values.
-        for f in cfg.id_fields():
-            key = normalize_id(attrs.get(f), cfg.id_rule)
+        for f in id_fields:
+            key = normalize_id(attrs.get(f), rule)
             if key is None or ident in seen.setdefault((county, key), set()):
                 continue
             seen[(county, key)].add(ident)
@@ -377,7 +430,9 @@ class MatchResult:
 def match_rows(cfg: ParcelSourceConfig, rows: Iterable[dict], index: dict[tuple[str, str], list[dict]]) -> list[MatchResult]:
     out = []
     for r in rows:
-        key = normalize_id(r.get(cfg.row_id_column), cfg.id_rule)
+        county_key = r.get("county") if cfg.county_id else None
+        rule = cfg.id_rule_for(county_key)
+        key = normalize_id(r.get(cfg.row_id_column), rule)
         if key is None:
             out.append(MatchResult(r["id"], "NO_IDENTIFIER", reason="row carries no parcel/account identifier with a digit"))
             continue
@@ -386,7 +441,7 @@ def match_rows(cfg: ParcelSourceConfig, rows: Iterable[dict], index: dict[tuple[
         if len(hits) == 1:
             out.append(MatchResult(r["id"], "MATCHED", hits[0], key))
         elif not hits:
-            out.append(MatchResult(r["id"], "UNMATCHED", key=key, reason=f"no {cfg.id_field} equal to the row's identifier ({cfg.id_rule}) in {r.get('county')}"))
+            out.append(MatchResult(r["id"], "UNMATCHED", key=key, reason=f"no {'/'.join(cfg.id_fields(county_key))} equal to the row's identifier ({rule}) in {r.get('county')}"))
         else:
             out.append(MatchResult(r["id"], "AMBIGUOUS", key=key, reason=f"{len(hits)} features share the identifier - nothing attached"))
     return out
@@ -406,6 +461,8 @@ def _coerce(column: str, value: Any):
             return None
         if n <= 0:
             return None                  # zero / negative = not published, never a real value
+        if column == "year_built" and not 1700 <= n <= 2100:
+            return None                  # not a year (e.g. several years run together: "1990,2005")
         return int(round(n)) if kind == "int" else round(n, 4)
     if kind == "bool":
         s = str(value).strip().upper()
@@ -507,9 +564,11 @@ def plan_update(cfg: ParcelSourceConfig, row: dict, match: MatchResult, *, recor
         c = polygon_centroid(match.feature.get("geometry"))
         if c:
             fields["latitude"], fields["longitude"] = c
-    meta = {"source_id": cfg.source_id, "dataset": cfg.dataset, "agency": cfg.agency, "layer_url": cfg.layer_url,
+    county_key = row.get("county") if cfg.county_id else None
+    layer = cfg.file_url(county_key) if cfg.transport == "county_file" and county_key in cfg.county_fips else cfg.layer_url
+    meta = {"source_id": cfg.source_id, "dataset": cfg.dataset, "agency": cfg.agency, "layer_url": layer,
             "matched_id_field": match.feature.get("_matched_field") or cfg.id_field, "matched_row_column": cfg.row_id_column,
-            "matched_parcel_id": match.key, "id_rule": cfg.id_rule,
+            "matched_parcel_id": match.key, "id_rule": cfg.id_rule_for(county_key),
             "licence": cfg.licence, "value_year": year, "recorded_at": recorded_at}
     if cfg.latest_field and attrs.get(cfg.latest_field) not in (None, ""):
         meta["record_of"] = f"{cfg.latest_field}={attrs.get(cfg.latest_field)} (latest published)"

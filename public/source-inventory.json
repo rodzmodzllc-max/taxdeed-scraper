@@ -106,7 +106,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:CO:Douglas:27",
+   "source_id": "evidence:CO:Douglas:35",
    "source_type": "DOCUMENT",
    "state": "CO",
    "url": "https://www.douglasco.gov/documents/request-for-assignment-of-county-held.pdf/"
@@ -261,7 +261,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:CO:Morgan:22",
+   "source_id": "evidence:CO:Morgan:30",
    "source_type": "GOVERNMENT",
    "state": "CO",
    "url": "https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates"
@@ -283,7 +283,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:CO:Morgan:29",
+   "source_id": "evidence:CO:Morgan:37",
    "source_type": "GOVERNMENT",
    "state": "CO",
    "url": "https://morgancounty.colorado.gov/bidding-rules-and-information"
@@ -5566,7 +5566,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:MI:Eaton:24",
+   "source_id": "evidence:MI:Eaton:32",
    "source_type": "GOVERNMENT",
    "state": "MI",
    "url": "https://www.eatoncounty.org/1530/2026-Foreclosure-Sale"
@@ -6096,7 +6096,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:MI:Lenawee:25",
+   "source_id": "evidence:MI:Lenawee:33",
    "source_type": "GOVERNMENT",
    "state": "MI",
    "url": "https://www.lenawee.mi.us/712/Tax-Sale"
@@ -7016,7 +7016,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:MI:Wayne:30",
+   "source_id": "evidence:MI:Wayne:38",
    "source_type": "DOCUMENT",
    "state": "MI",
    "url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/Land-reuse/SECOND-AMENDED-AND-RESTATED-VACANT-LAND-POLICY.pdf"
@@ -7317,7 +7317,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:MN:Ramsey:32",
+   "source_id": "evidence:MN:Ramsey:40",
    "source_type": "GOVERNMENT",
    "state": "MN",
    "url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list"
@@ -7454,7 +7454,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:MO:St. Louis City:31",
+   "source_id": "evidence:MO:St. Louis City:39",
    "source_type": "GOVERNMENT",
    "state": "MO",
    "url": "https://www.lrastl.org/offer-to-purchase"
@@ -7745,7 +7745,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:PA:Fayette:33",
+   "source_id": "evidence:PA:Fayette:41",
    "source_type": "GOVERNMENT",
    "state": "PA",
    "url": "https://www.fayettecountypa.org/269/Tax-Claim-Bureau"
@@ -8084,7 +8084,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:SC:York:26",
+   "source_id": "evidence:SC:York:34",
    "source_type": "DOCUMENT",
    "state": "SC",
    "url": "https://www.yorkcountysc.gov/DocumentCenter/View/5241/Tax-Sale-Fact-Sheet"
@@ -8201,6 +8201,30 @@
    "source_type": "AUCTION_VENDOR",
    "state": "TX",
    "url": "https://angelina.texas.sheriffsaleauctions.com/index.cfm?zaction=USER&zmethod=CALENDAR"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "columns verified live; TX enrichment 2026-10-27: schema definitions read from the TxGIO Land Parcel Schema PDF; per-county identifier column and rule measured against a sample of the rows' accounts for every county with TX rows (counts only); the shapefiles' .prj is geographic WGS 84, so the centroid is the matched parcel polygon's own.",
+   "county": "Angelina,Aransas,Atascosa,Bee,Bexar,Bosque,Brooks,Caldwell,Cameron,Camp,Cass,Cherokee,Collin,Concho,Dallas,Delta,Duval,Ector,El Paso,Ellis,Falls,Fannin,Fort Bend,Frio,Galveston,Gonzales,Gregg,Hamilton,Harris,Hays,Henderson,Hidalgo,Hopkins,Houston,Jackson,Jasper,Jefferson,Jim Hogg,Jim Wells,Kaufman,Kerr,Kinney,Kleberg,La Salle,Lamar,Leon,Liberty,Limestone,Live Oak,Llano,Madison,Marion,Maverick,McLennan,Montague,Montgomery,Morris,Navarro,Nueces,Orange,Parker,Pecos,Polk,Reeves,Robertson,Rockwall,Rusk,Sabine,San Patricio,Shelby,Starr,Titus,Tom Green,Tyler,Upshur,Val Verde,Van Zandt,Victoria,Wilson,Wise,Wood,Zapata,Zavala",
+   "evidence": "TX enrichment 2026-10-27: schema definitions read from the TxGIO Land Parcel Schema PDF; per-county identifier column and rule measured against a sample of the rows' accounts for every county with TX rows (counts only); the shapefiles' .prj is geographic WGS 84, so the centroid is the matched parcel polygon's own.",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "APPROVED",
+   "name": "StratMap Land Parcels 2026 (TxGIO DataHub, one shapefile per county)",
+   "next_action": "",
+   "origin": "parcel_config",
+   "publisher": "Texas Geographic Information Office (TxGIO, Texas Water Development Board) - county appraisal district data",
+   "roles": [
+    "assessment",
+    "coordinates",
+    "identity",
+    "land_use"
+   ],
+   "source_id": "tx_txgio_stratmap_parcels",
+   "source_type": "GIS",
+   "state": "TX",
+   "url": "https://geographic.texas.gov/stratmap/land-parcels.html"
   },
   {
    "access": "ACCESSIBLE",
@@ -8437,6 +8461,50 @@
    "source_type": "DOCUMENT",
    "state": "TX",
    "url": "https://www.bexar.org/DocumentCenter/View/41852/Bexar-County-Resale-Properties-Distribution-List"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "verified capture, observed 2026-10-27",
+   "county": "Bexar",
+   "evidence": "Captured by scripts/capture_purchase_evidence.py --candidates --follow (harvest-and-sync job=evidence, evidence_scope=acquisition_candidates, run 40430155571, 2026-10-27) from an official page listed in data/acquisition_candidate_pages.csv ",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-27",
+   "legacy_status": "",
+   "name": "Bexar County - Tax Foreclosure Struck Off Properties General Information",
+   "next_action": "",
+   "origin": "evidence",
+   "publisher": "Bexar County Public Works - Asset Management Division",
+   "roles": [
+    "acquisition",
+    "source_date"
+   ],
+   "source_id": "evidence:TX:Bexar:28",
+   "source_type": "DOCUMENT",
+   "state": "TX",
+   "url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Bexar",
+   "evidence": "web search 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Bexar County - Tax Foreclosure Struck Off Properties General Information (PDF)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Bexar:69",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information"
   },
   {
    "access": "NOT_CHECKED",
@@ -8818,6 +8886,50 @@
   },
   {
    "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Dallas",
+   "evidence": "web search 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Dallas County Property Division - Tax Foreclosure Resales FAQ (sealed bids)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Dallas:57",
+   "source_type": "DOCUMENT",
+   "state": "TX",
+   "url": "https://www.dallascounty.org/Assets/uploads/docs/public-works/TaxFCResaleFAQ_2024_Bids.pdf"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "verified capture, observed 2026-10-27",
+   "county": "Dallas",
+   "evidence": "Captured by scripts/capture_purchase_evidence.py --candidates --follow (harvest-and-sync job=evidence, evidence_scope=acquisition_candidates, run 40430155571, 2026-10-27) from an official page listed in data/acquisition_candidate_pages.csv ",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-27",
+   "legacy_status": "",
+   "name": "Dallas County Property Division - Tax Foreclosure Resales FAQ (Sealed Bids)",
+   "next_action": "",
+   "origin": "evidence",
+   "publisher": "Dallas County Public Works - Property Division",
+   "roles": [
+    "acquisition",
+    "source_date"
+   ],
+   "source_id": "evidence:TX:Dallas:22",
+   "source_type": "DOCUMENT",
+   "state": "TX",
+   "url": "https://www.dallascounty.org/Assets/uploads/docs/public-works/TaxFCResaleFAQ_2024_Bids.pdf"
+  },
+  {
+   "access": "NOT_CHECKED",
    "access_note": "verification SEARCH_EVIDENCE_ONLY",
    "county": "Dallas",
    "evidence": "MASTER LAFT/OTC/STRUCK-OFF AUDIT 2026-09-29 s5; LIVE RE-CHECK 2026-10-26 (docs/county-sources-2026-10-26.md)",
@@ -8836,6 +8948,28 @@
     "source_date"
    ],
    "source_id": "TX:Dallas:unharvested_list",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://www.dallascounty.org/departments/pubworks/property-division.php"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Dallas",
+   "evidence": "web search 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Dallas County Public Works Property Division - Tax Foreclosure Resales (struck-off list and sealed-bid announcements)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Dallas:56",
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.dallascounty.org/departments/pubworks/property-division.php"
@@ -9001,6 +9135,50 @@
    "source_type": "THIRD_PARTY",
    "state": "TX",
    "url": "https://www.pbfcm.com/taxresale.html"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Fort Bend",
+   "evidence": "web search 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Fort Bend County Constable Precinct 2 - property sales (tax sale terms)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Fort Bend:70",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://www.fortbendcountytx.gov/government/departments/constables/constable-precinct-2/civil-and-writs-division/property-sales"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "verified capture, observed 2026-10-27",
+   "county": "Fort Bend",
+   "evidence": "Captured by scripts/capture_purchase_evidence.py --candidates --follow (harvest-and-sync job=evidence, evidence_scope=acquisition_candidates, run 40430155571, 2026-10-27) from an official page listed in data/acquisition_candidate_pages.csv ",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-27",
+   "legacy_status": "",
+   "name": "Fort Bend County Constable Precinct 2 - Property Sales",
+   "next_action": "",
+   "origin": "evidence",
+   "publisher": "Fort Bend County Constable Precinct 2",
+   "roles": [
+    "acquisition",
+    "source_date"
+   ],
+   "source_id": "evidence:TX:Fort Bend:29",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://www.fortbendcountytx.gov/government/departments/constables/constable-precinct-2/civil-and-writs-division/property-sales"
   },
   {
    "access": "ACCESSIBLE",
@@ -9488,6 +9666,75 @@
    "url": "https://taxsales.lgbs.com/"
   },
   {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Harris",
+   "evidence": "web search 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Harris County Tax Office - Tax Sale FAQs (PDF)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Harris:61",
+   "source_type": "DOCUMENT",
+   "state": "TX",
+   "url": "https://www.hctax.net/About/Announcements/Tax%20Sale%20FAQs.pdf"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Harris",
+   "evidence": "web search 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Harris County Tax Office - tax sale bidder registration form",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Harris:62",
+   "source_type": "DOCUMENT",
+   "state": "TX",
+   "url": "https://www.hctax.net/Forms/TaxSaleBidderRegistration.pdf"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "columns verified live; TX enrichment 2026-10-27: fields read live; 7 of 10 sampled Harris accounts matched HCAD_NUM exactly.",
+   "county": "Harris",
+   "evidence": "TX enrichment 2026-10-27: fields read live; 7 of 10 sampled Harris accounts matched HCAD_NUM exactly.",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "APPROVED",
+   "name": "HCAD Parcels (gis.hctx.net HCAD/Parcels MapServer layer 0)",
+   "next_action": "",
+   "origin": "parcel_config",
+   "publisher": "Harris Central Appraisal District (Harris County GIS)",
+   "roles": [
+    "acreage",
+    "assessment",
+    "coordinates",
+    "identity",
+    "land_use"
+   ],
+   "source_id": "tx_hcad_parcels",
+   "source_type": "GIS",
+   "state": "TX",
+   "url": "https://www.gis.hctx.net/arcgis/rest/services/HCAD/Parcels/MapServer"
+  },
+  {
    "access": "ACCESSIBLE",
    "access_note": "production harvester scripts/harvest_tx_county_sales.py; last completeness UNKNOWN",
    "county": "Harris",
@@ -9508,6 +9755,50 @@
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.hctax.net/Property/listings/taxsalelisting"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Harris",
+   "evidence": "web search 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Harris County Tax Assessor-Collector - Tax Sales (sales and resales)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Harris:60",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://www.hctax.net/Property/TaxSales"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "verified capture, observed 2026-10-27",
+   "county": "Harris",
+   "evidence": "Captured by scripts/capture_purchase_evidence.py --candidates --follow (harvest-and-sync job=evidence, evidence_scope=acquisition_candidates, run 40430155571, 2026-10-27) from an official page listed in data/acquisition_candidate_pages.csv ",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-27",
+   "legacy_status": "",
+   "name": "Harris County Tax Office - Harris County Tax Sales",
+   "next_action": "",
+   "origin": "evidence",
+   "publisher": "Harris County Tax Office - Special Tax Services",
+   "roles": [
+    "acquisition",
+    "source_date"
+   ],
+   "source_id": "evidence:TX:Harris:24",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://www.hctax.net/Property/TaxSales"
   },
   {
    "access": "ACCESSIBLE",
@@ -9788,6 +10079,50 @@
    ],
    "source_id": "TX:Jefferson:tx_jefferson_sheriff_sale",
    "source_type": "DOCUMENT",
+   "state": "TX",
+   "url": "https://jeffcotax.com/property-tax/delinquent-tax-sale/"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Jefferson",
+   "evidence": "registry tx_jefferson_sheriff_sale 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Jefferson County Tax Office - Delinquent Tax Sale guidelines (original sales and resales)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Jefferson:63",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://jeffcotax.com/property-tax/delinquent-tax-sale/"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "verified capture, observed 2026-10-27",
+   "county": "Jefferson",
+   "evidence": "Captured by scripts/capture_purchase_evidence.py --candidates --follow (harvest-and-sync job=evidence, evidence_scope=acquisition_candidates, run 40430155571, 2026-10-27) from an official page listed in data/acquisition_candidate_pages.csv ",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-27",
+   "legacy_status": "",
+   "name": "Jefferson County Tax Office - Delinquent Tax Sale",
+   "next_action": "",
+   "origin": "evidence",
+   "publisher": "Jefferson County Tax Office",
+   "roles": [
+    "acquisition",
+    "source_date"
+   ],
+   "source_id": "evidence:TX:Jefferson:25",
+   "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://jeffcotax.com/property-tax/delinquent-tax-sale/"
   },
@@ -10415,6 +10750,28 @@
    "url": "https://www.pbfcm.com/taxresale.html"
   },
   {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Montague",
+   "evidence": "web search 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Montague County Tax Assessor-Collector - Tax Sales",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Montague:72",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://newtools.cira.state.tx.us/page/montague.TAC.TaxSales"
+  },
+  {
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvesters/texas_harvester.py; last completeness COMPLETE",
    "county": "Montague",
@@ -10481,6 +10838,50 @@
    ],
    "source_id": "TX:Montgomery:tx_montgomery_tax_trust",
    "source_type": "DOCUMENT",
+   "state": "TX",
+   "url": "https://www.mctx.org/departments/departments_q_-_z/tax_office/tax_trust_property.php"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Montgomery",
+   "evidence": "linked from the Tax Trust Property page 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Montgomery County Tax Office - Tax Lien Foreclosure Sales And Resales (online through Real Auction)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Montgomery:67",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://www.mctx.org/departments/departments_q_-_z/tax_office/foreclosure_sales_and_resales.php"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Montgomery",
+   "evidence": "registry tx_montgomery_tax_trust 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Montgomery County Tax Office - Tax Trust Property listings",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Montgomery:68",
+   "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.mctx.org/departments/departments_q_-_z/tax_office/tax_trust_property.php"
   },
@@ -10623,6 +11024,116 @@
    "source_type": "DOCUMENT",
    "state": "TX",
    "url": "https://www.co.orange.tx.us/departments/TaxAssessor-Collector/PropertyTaxSales"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Orange",
+   "evidence": "linked from the Property Tax Sales page 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Orange County Tax Office - Submitting a Bid on Trust Property (bid process and forms)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Orange:65",
+   "source_type": "DOCUMENT",
+   "state": "TX",
+   "url": "https://www.co.orange.tx.us/media/TaxAssessorCollector/2025/TRUST_All%20forms%20combined%201.pdf"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "verified capture, observed 2026-10-27",
+   "county": "Orange",
+   "evidence": "Captured by scripts/capture_purchase_evidence.py --candidates --follow (harvest-and-sync job=evidence, evidence_scope=acquisition_candidates, run 40430155571, 2026-10-27) from an official page listed in data/acquisition_candidate_pages.csv ",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-27",
+   "legacy_status": "",
+   "name": "Orange County Tax Assessor-Collector - Submitting a Bid on Trust Property",
+   "next_action": "",
+   "origin": "evidence",
+   "publisher": "Orange County Tax Assessor-Collector",
+   "roles": [
+    "acquisition",
+    "source_date"
+   ],
+   "source_id": "evidence:TX:Orange:26",
+   "source_type": "DOCUMENT",
+   "state": "TX",
+   "url": "https://www.co.orange.tx.us/media/TaxAssessorCollector/2025/TRUST_All%20forms%20combined%201.pdf"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Orange",
+   "evidence": "registry tx_orange_trust_property 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Orange County Tax Assessor-Collector - Property Tax Sales (trust property bid forms)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Orange:64",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://www.co.orange.tx.us/departments/TaxAssessor-Collector/PropertyTaxSales"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Orange",
+   "evidence": "linked from the Property Tax Sales page 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Orange County Tax Office - Property Tax Sale FAQs",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Orange:66",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://www.co.orange.tx.us/departments/taxassessor-collector/property-tax-sale-faqs"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "verified capture, observed 2026-10-27",
+   "county": "Orange",
+   "evidence": "Captured by scripts/capture_purchase_evidence.py --candidates --follow (harvest-and-sync job=evidence, evidence_scope=acquisition_candidates, run 40430155571, 2026-10-27) from an official page listed in data/acquisition_candidate_pages.csv ",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-27",
+   "legacy_status": "",
+   "name": "Orange County Tax Assessor-Collector - Property Tax Sale FAQs",
+   "next_action": "",
+   "origin": "evidence",
+   "publisher": "Orange County Tax Assessor-Collector",
+   "roles": [
+    "acquisition",
+    "source_date"
+   ],
+   "source_id": "evidence:TX:Orange:27",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://www.co.orange.tx.us/departments/taxassessor-collector/property-tax-sale-faqs"
   },
   {
    "access": "ACCESSIBLE",
@@ -10952,6 +11463,72 @@
    "url": "https://smith.texas.sheriffsaleauctions.com/index.cfm?zaction=USER&zmethod=CALENDAR"
   },
   {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Tarrant",
+   "evidence": "web search 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Tarrant County Constable Precinct 3 - Delinquent Tax Sales",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Tarrant:58",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://www.tarrantcountytx.gov/en/constables/constable-3/delinquent-tax-sales.html"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Tarrant",
+   "evidence": "web search 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Tarrant County Constable Precinct 3 - tax sale FAQ (payment / struck off)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Tarrant:59",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://www.tarrantcountytx.gov/en/constables/constable-3/frequently-asked-questions.html"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "verified capture, observed 2026-10-27",
+   "county": "Tarrant",
+   "evidence": "Captured by scripts/capture_purchase_evidence.py --candidates --follow (harvest-and-sync job=evidence, evidence_scope=acquisition_candidates, run 40430155571, 2026-10-27) from an official page listed in data/acquisition_candidate_pages.csv ",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-27",
+   "legacy_status": "",
+   "name": "Tarrant County Constable Precinct 3 - Delinquent Tax Sales",
+   "next_action": "",
+   "origin": "evidence",
+   "publisher": "Tarrant County Constable Precinct 3",
+   "roles": [
+    "acquisition",
+    "source_date"
+   ],
+   "source_id": "evidence:TX:Tarrant:23",
+   "source_type": "GOVERNMENT",
+   "state": "TX",
+   "url": "https://www.tarrantcountytx.gov/en/constables/constable-3/delinquent-tax-sales.html"
+  },
+  {
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvesters/texas_harvester.py; last completeness COMPLETE",
    "county": "Tarrant",
@@ -11020,6 +11597,28 @@
    ],
    "source_id": "TX:Tom Green:unharvested_list",
    "source_type": "DOCUMENT",
+   "state": "TX",
+   "url": "https://www.tomgreencountytx.gov/page/cck.TrusteeTaxSales"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Tom Green",
+   "evidence": "web search 2026-10-27",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Tom Green County - Trustee (struck-off) tax property sales",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TX:Tom Green:71",
+   "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.tomgreencountytx.gov/page/cck.TrusteeTaxSales"
   },
@@ -11552,7 +12151,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:WI:Dane:28",
+   "source_id": "evidence:WI:Dane:36",
    "source_type": "GOVERNMENT",
    "state": "WI",
    "url": "https://treasurer.danecounty.gov/Tax-Deed-Details"
@@ -11596,7 +12195,7 @@
     "acquisition",
     "source_date"
    ],
-   "source_id": "evidence:WI:Green:23",
+   "source_id": "evidence:WI:Green:31",
    "source_type": "GOVERNMENT",
    "state": "WI",
    "url": "https://www.greencountywi.org/492/Current-Tax-Deed-Sales"
@@ -11910,19 +12509,19 @@
    "sources": 2
   },
   "TX": {
-   "APPROVED": 87,
+   "APPROVED": 114,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 54,
    "by_type": {
     "AUCTION_VENDOR": 30,
     "COURT_PUBLIC_RECORD": 1,
-    "DOCUMENT": 22,
-    "GIS": 5,
-    "GOVERNMENT": 18,
+    "DOCUMENT": 29,
+    "GIS": 7,
+    "GOVERNMENT": 36,
     "PUBLIC_NOTICE": 1,
     "THIRD_PARTY": 64
    },
-   "sources": 141
+   "sources": 168
   },
   "UT": {
    "APPROVED": 1,

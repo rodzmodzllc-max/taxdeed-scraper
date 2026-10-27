@@ -211,7 +211,7 @@ def test_every_applicable_evidence_row_has_its_procedure_rule_and_nothing_is_inv
     expected = PR.expected_rules(changed_on="2026-10-11")
     # 29 before this sprint + the DLBA policy row; Morgan CO: one county, two ledgers;
     # + the LRA, Ramsey and Fayette process rows (2026-10-26)
-    assert len(expected) == len(PR.applicable_evidence()) == 33
+    assert len(expected) == len(PR.applicable_evidence()) == 42   # + 9 Texas county processes (TX enrichment 2026-10-27, run 40430155571)
     by_key = {(r.state, r.county, r.topic): r for r in rules}
     for r in expected:
         cur = by_key[(r.state, r.county, r.topic)]

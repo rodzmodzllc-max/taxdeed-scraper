@@ -28,7 +28,8 @@ REASON = ("Owner decision 2026-10-26 ('find every property and every source, and
 DEFAULT_OPS = ("discover", "fetch", "parse", "store")
 
 
-def add(source_id: str, provider: str, state: str, ops=DEFAULT_OPS, path: Path = CSV_PATH) -> int:
+def add(source_id: str, provider: str, state: str, ops=DEFAULT_OPS, path: Path = CSV_PATH, *,
+        evidence_ref: str | None = None, reason: str | None = None, publisher: str | None = None) -> int:
     with path.open(newline="", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
         cols = reader.fieldnames
@@ -39,11 +40,11 @@ def add(source_id: str, provider: str, state: str, ops=DEFAULT_OPS, path: Path =
         if (source_id, "*", state, op) in have:
             continue
         new.append({
-            "source_id": source_id, "provider": provider, "dataset": "*", "publisher": provider, "jurisdiction": state,
+            "source_id": source_id, "provider": provider, "dataset": "*", "publisher": publisher or provider, "jurisdiction": state,
             "operation": op, "status": "OWNER_PERMISSION_REQUIRED", "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
-            "evidence_ref": f"data/county_source_registry.csv {source_id}; docs/new-sources-2026-10-26.md (owner decision {DECISION})",
+            "evidence_ref": evidence_ref or f"data/county_source_registry.csv {source_id}; docs/new-sources-2026-10-26.md (owner decision {DECISION})",
             "evidence_date": DECISION, "reviewer": REVIEWER, "effective_on": DECISION, "expires_on": EXPIRES,
-            "conditions": "", "attribution": "", "last_verified_on": DECISION, "reason": REASON,
+            "conditions": "", "attribution": "", "last_verified_on": DECISION, "reason": reason or REASON,
         })
     if new:
         with path.open("a", newline="", encoding="utf-8") as fh:

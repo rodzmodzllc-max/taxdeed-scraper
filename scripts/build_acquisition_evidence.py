@@ -56,8 +56,12 @@ def build() -> tuple[list[dict], dict[tuple, str]]:
     reg = {(r.state, r.source_id): r for r in reg_rows}
     out: dict[tuple, dict] = {}
     refused: dict[tuple, str] = {}
+    scope = PPE.load_ledger_scope()
     for table in TABLES:
-        evidence = PPE.load_evidence(table)
+        # The county records are AVAILABLE acquisition records: an evidence row
+        # scoped to another ledger only (data/acquisition_evidence_ledgers.csv,
+        # e.g. a constable's AUCTIONS sale terms) is not one.
+        evidence = PPE.evidence_for_ledger(PPE.load_evidence(table), "AVAILABLE", scope)
         for e in evidence:
             if not e.applicable:
                 continue
@@ -100,7 +104,7 @@ def status() -> list[dict]:
     VERIFIED only when build() made its record (records and status agree)."""
     reg_rows = load_registry()
     reg = {(r.state, r.source_id): r for r in reg_rows}
-    evidence = [e for t in TABLES for e in PPE.load_evidence(t)]
+    evidence = PPE.evidence_for_ledger([e for t in TABLES for e in PPE.load_evidence(t)], "AVAILABLE", PPE.load_ledger_scope())
     outcomes = AES.load_outcomes()
     candidates = AES.load_candidates()
     recs, refused = build()
