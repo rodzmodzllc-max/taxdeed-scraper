@@ -689,6 +689,8 @@ results.laftCardFaceParts = await page.locator('.prop-card').first().evaluate(el
   legacyPrimary: el.querySelectorAll('.prop-links').length,
 }));
 results.laftValueLabel = (await page.locator('.prop-card').first().locator('.card-price .card-stat-label').first().textContent() || '').trim();
+// Lot size sits right under the card's price (owner's request 2026-10-27): p3's own acreage (1.0).
+results.cardLotUnderPrice = await page.locator('.prop-card').first().evaluate(el => { const l = el.querySelector('.card-lot'); return l ? [l.previousElementSibling && l.previousElementSibling.classList.contains('card-price'), l.textContent.trim()] : null; });
 // Phase 65: a Lands Available row's first line names the ledger and says it
 // is a fixed-price listing, not a bidding event.
 results.laftKicker = await page.locator('.prop-card').first().locator('.prop-kicker').evaluate(el => Array.from(el.children).map(c => c.textContent.trim()).join(' '));
@@ -7754,7 +7756,7 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v150"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v151"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -8362,6 +8364,7 @@ const EXPECTED = {
   // A different roll year from p1's, so the label is genuinely per-row rather
   // than a constant with a year hardcoded into it.
   laftValueLabel: 'Opening bid',
+  cardLotUnderPrice: [true, 'Lot size 1.00 acres'],
   laftBareLandStat: 'None (bare land)',
   junkLandRowVisibleOnLaft: true,
   laftCountBeforeJunkFilters: 2,

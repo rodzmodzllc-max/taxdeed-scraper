@@ -1631,3 +1631,8 @@ html[data-shell="v3"] .hdr-nav .nav-item.on .nav-count[data-dup="1"]{display:non
 .open-q li span{font-size:.85rem;color:var(--ink-soft,#5E574E)}
 .open-q-all{margin-top:.6rem;min-height:44px}
 .full-fields-note{font-size:.82rem;color:var(--ink-soft,#5E574E);margin:.2rem 0 .6rem}
+
+/* Lot size under the card's price (2026-10-27). */
+.prop-card .card-lot{font-size:.8rem;color:var(--ink-soft);margin:-.05rem 0 .35rem}
+.prop-card .card-lot-label{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase}
+.prop-card .card-lot-val{color:var(--ink);font-weight:600}
