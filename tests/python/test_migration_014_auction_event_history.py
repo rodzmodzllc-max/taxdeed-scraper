@@ -288,7 +288,12 @@ def test_s13_existing_migrations_untouched_and_numbering_is_next():
     assert numbered[numbered.index("014_auction_event_history.sql") + 1] == "015_customer_write_privileges_and_account_deletion.sql"
     # 016 (source health), then 017/018 (OTC inventory + county source
     # registry, 2026-09-29) follow; each has its own test file.
-    assert numbered[numbered.index("015_customer_write_privileges_and_account_deletion.sql"):] == [
+    tail = numbered[numbered.index("015_customer_write_privileges_and_account_deletion.sql"):]
+    # Later migrations (036 link checks, 037 state/id index, ...) may follow;
+    # they must sort after 035 and are guarded by their own tests.
+    later = tail[tail.index("035_parcel_boundary_county_refresh.sql") + 1:]
+    assert later == sorted(later) and all(n[:3] > "035" for n in later)
+    assert tail[:len(tail) - len(later)] == [
         "015_customer_write_privileges_and_account_deletion.sql", "016_source_health.sql",
         "017_otc_inventory_provenance_lifecycle.sql", "018_county_source_registry.sql",
         "019_laft_list_dates.sql", "020_state_extensible_vocabulary.sql",
