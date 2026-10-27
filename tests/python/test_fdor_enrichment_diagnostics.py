@@ -118,9 +118,9 @@ def test_a01_escambia_account_number_maps_to_its_nine_digit_alt_key_and_nothing_
     # Other counties publish identifiers of this exact shape too (Bay, Santa
     # Rosa, Okaloosa account numbers) - none has a proven ALT_KEY rule, so
     # none is tried: the rule is county-scoped, never a shape heuristic.
-    for county in ("Bay", "Santa Rosa", "Okaloosa", "Indian River", "Hillsborough", "Citrus", "Marion"):
+    for county in ("Bay", "Santa Rosa", "Okaloosa", "Indian River", "Hillsborough", "Citrus", "Marion", "Monroe"):
         assert enrich.alt_key_candidate(county, "11-1856-000") is None, county
-    assert enrich.ALT_KEY_RULES.keys() == {"Escambia"}
+    assert enrich.ALT_KEY_RULES.keys() == {"Escambia", "Hillsborough", "Marion", "Monroe"}
 
 
 def test_a02_alt_key_is_tried_only_after_every_parcel_id_spelling_missed_and_is_county_scoped(enrich, monkeypatch):
