@@ -1483,3 +1483,61 @@ html[data-shell="v3"] .cert-card{display:flex;flex-direction:column;gap:6px;padd
 .sale-strip .cc-facts{grid-column:1 / -1}
 .sale-strip .cc-actions{padding-left:0!important}
 .date-divider{scroll-margin-top:84px}
+
+/* ==================== One fact in one place (2026-10-27) ====================
+   County "Now showing" bar (app.js installCountyNowBar, the owner's option B):
+   the one county navigator on the Available ledger in every look. Sticky
+   directly under the site header (--cnb-top is the header's measured height,
+   set by app.js), a dark ground, ‹ › steps and a list of every county with
+   its count. */
+.county-now{position:sticky;top:var(--cnb-top,0px);z-index:34;margin:0 0 .9rem;grid-column:1 / -1;flex:0 0 100%;width:100%;box-sizing:border-box;
+  background:#24221F;color:#FBF9F5;border-radius:var(--radius,4px);box-shadow:0 8px 18px -14px rgba(0,0,0,.6)}
+.county-now[hidden]{display:none!important}
+.county-now .cnb-row{display:flex;align-items:stretch;min-height:52px}
+.county-now button{font:inherit;color:inherit;background:transparent;border:0;cursor:pointer;margin:0}
+.county-now .cnb-step{flex:0 0 auto;min-width:48px;min-height:52px;font-size:1.35rem;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.county-now .cnb-mid{flex:1 1 auto;min-width:0;min-height:52px;display:flex;flex-direction:column;justify-content:center;gap:2px;text-align:left;padding:.3rem .2rem}
+.county-now .cnb-eyebrow{font:600 .68rem/1.2 var(--font-sans,system-ui);letter-spacing:.1em;text-transform:uppercase;color:#CFC6B8}
+.county-now .cnb-name{font-family:var(--font-display,Georgia,serif);font-weight:600;font-size:1.15rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.county-now button:hover{background:rgba(255,255,255,.06)}
+.county-now button:focus-visible{outline:2px solid var(--copper,#B5652E);outline-offset:-2px}
+.county-now .cnb-list{position:absolute;left:0;right:0;top:100%;max-height:min(360px,60vh);overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;
+  background:var(--paper-white,#FBF9F5);color:var(--ink,#24221F);border:1px solid var(--rule,#D9D2C6);border-top:0;box-shadow:0 14px 28px -18px rgba(0,0,0,.55)}
+.county-now .cnb-list[hidden]{display:none}
+.county-now .cnb-pick{min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:0 1rem;font-size:.95rem;text-align:left;border-bottom:1px solid color-mix(in srgb, var(--rule,#D9D2C6) 60%, transparent)}
+.county-now .cnb-pick:hover{background:color-mix(in srgb, var(--rule,#D9D2C6) 35%, transparent)}
+.county-now .cnb-pick[aria-current="true"]{font-weight:700;box-shadow:inset 3px 0 0 var(--sage,#4E6B54)}
+.county-now .cnb-n{font-family:var(--font-mono,monospace);font-size:.85rem;color:var(--ink-soft,#5E574E)}
+:root[data-theme="dark"] .county-now{background:#0F0E0D;border:1px solid #3A3733}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .county-now{background:#0F0E0D;border:1px solid #3A3733}}
+@media (prefers-reduced-motion:no-preference){.county-now .cnb-name{transition:opacity .15s ease}}
+
+/* County heads name the county only: the old program / date line is empty. */
+.county-group .county-meta:empty{display:none}
+/* The header's ledger tab hides its total while it equals the List title. */
+html[data-shell="v3"] .hdr-nav .nav-item.on .nav-count[data-dup="1"]{display:none!important}
+
+/* Location panel (2026-10-27): a record with no coordinates shows a compact
+   panel - a small state locator with its county tinted, what is not known,
+   and one official lookup link - instead of a picture-sized county outline. */
+.loc-panel{display:flex!important;align-items:center;gap:.85rem;padding:.75rem .9rem;min-height:0!important;height:auto!important;aspect-ratio:auto!important;background:var(--stone-2,#ECE6DC);box-sizing:border-box}
+.loc-panel .loc-thumb{flex:0 0 84px;width:84px;height:84px;display:block;position:relative;overflow:hidden;background:transparent}
+.loc-panel .loc-thumb svg{width:100%;height:100%;display:block}
+.loc-panel .loc-text{display:flex;flex-direction:column;gap:.2rem;min-width:0}
+.loc-panel .loc-main{font-weight:600;font-size:.92rem;color:var(--ink,#24221F)}
+.loc-panel .loc-county{font-size:.85rem;color:var(--ink-soft,#5E574E)}
+.loc-panel .loc-link{display:inline-flex;align-items:center;gap:.25rem;min-height:44px;font-size:.9rem;font-weight:600;color:var(--copper-ink,#8A3F1E);text-decoration:underline;text-underline-offset:2px}
+.loc-panel .loc-note{font-size:.75rem;color:var(--ink-soft,#5E574E)}
+.loc-panel .photo-caption{display:none}
+/* Classic cards force a 4:3 picture box; the panel is not a picture. */
+.prop-card .prop-card-photo.loc-panel,.county-group .prop-card>.prop-card-photo.loc-panel{aspect-ratio:auto!important;height:auto!important;min-height:0!important;max-height:none!important}
+/* A stamp (e.g. Verified path) rides on the picture's top edge: give it room. */
+.prop-card-photo.loc-panel:has(.pc-stamp){padding-top:2.6rem}
+.loc-panel .loc-thumb{flex-basis:96px;width:96px;height:96px}
+.loc-panel .loc-thumb .mm-neighbor{fill:#DCD5C8;stroke:#C8BFAF;stroke-width:.8}
+.loc-panel .loc-thumb .mm-county{fill:var(--copper,#B5652E);stroke:var(--copper-deep,#8A3F1E);stroke-width:1.2}
+:root[data-theme="dark"] .loc-panel{background:#2A2724}
+:root[data-theme="dark"] .loc-panel .loc-main{color:#F3EFE8}
+:root[data-theme="dark"] .loc-panel .loc-link{color:#E2A27A}
+/* The looks size picture-slot SVGs as small icons; the locator is a map. */
+.loc-panel .loc-thumb svg{position:static!important;inset:auto!important;width:100%!important;height:100%!important;max-width:none!important;opacity:1!important}

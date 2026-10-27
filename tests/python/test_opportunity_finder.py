@@ -38,7 +38,7 @@ def test_sort_key_cache_is_a_var_and_reset_per_sort():
 
 
 def test_badges_are_facts_with_no_score_or_weighting():
-    block = _block("// ==================== opportunity finder: record evidence", "function card(p, showCounty) {")
+    block = _block("// ==================== opportunity finder: record evidence", "function card(p, showCounty, ctx) {")
     keys = re.findall(r'key: "([a-z]+)"', block)
     assert keys == ["path", "official", "amount", "fresh", "dated"]
     code = re.sub(r"^\s*//.*$", "", block, flags=re.M)
