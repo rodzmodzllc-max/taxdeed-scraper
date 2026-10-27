@@ -208,6 +208,11 @@ class Lookup:
     matched_identifier: str = ""
     matched_field: str = ""
     reason: str = ""
+    # The FDOR layer's own PARCEL_ID of the one matched feature (Florida tax
+    # roll only). Recorded as `matched_parcel_id` so the DOR parcel-boundary
+    # join (harvesters/boundary/fl_dor.nal_parcel_id) can use a record that
+    # was located by its account / alternate key.
+    parcel_id: str = ""
 
 
 def classify_point(lat, lng, state: str, *, matched_identifier: str = "", matched_field: str = "") -> Lookup:
@@ -290,6 +295,7 @@ def provenance_entry(src: CoordinateSource, lk: Lookup, recorded_at: str) -> dic
         "method": src.method, "geometry": src.geometry,
         "match": "parcel_id", "matched_identifier": lk.matched_identifier,
         "matched_field": lk.matched_field or None,
+        "matched_parcel_id": (lk.parcel_id or None) if src.lookup_kind == "fdor" else None,
         "source_id": src.source_id, "agency": src.agency, "dataset": src.dataset,
         "layer_url": src.layer_url, "landing_url": src.landing_url,
         "derived": "centroid of the one parcel polygon whose identifier equals this record's",

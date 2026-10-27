@@ -108,7 +108,10 @@ def fl_lookup(src: G.CoordinateSource, row: dict) -> G.Lookup:
     if src.lookup_kind == "santa_rosa":
         field = "PAR_NUM"
     ident = cand[len(EP.ALT_KEY_PREFIX):] if field == "ALT_KEY" else str(cand or "")
-    return G.classify_point(centroid.get("y"), centroid.get("x"), "FL", matched_identifier=ident, matched_field=field)
+    lk = G.classify_point(centroid.get("y"), centroid.get("x"), "FL", matched_identifier=ident, matched_field=field)
+    if src.lookup_kind == "fdor" and lk.status == "MATCHED":
+        lk.parcel_id = str(attrs.get("PARCEL_ID") or "").strip()
+    return lk
 
 
 def run(rows: list[dict], *, mode: str, allow_upgrade: bool, limit: int | None, ctx: PR.Context,
