@@ -347,3 +347,52 @@ def test_the_path_groups_agree_and_the_workflow_drops_the_opt_out():
     wf = (REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8")
     line = next(l for l in wf.splitlines() if "laft_lifecycle.py --state LA" in l)
     assert "--no-fresh-guard" not in line
+
+
+# ------------------------------------------------------------ paced re-stamps (2026-10-27)
+
+def _log_writes(table: FakeTable, monkeypatch) -> list:
+    calls = []
+    real_post, real_patch = table.post, table.patch
+
+    def post(q, b):
+        calls.append(("POST", q, sorted(b[0]) if b else []))
+        real_post(q, b)
+
+    def patch(q, b):
+        calls.append(("PATCH", q, sorted(b)))
+        real_patch(q, b)
+
+    monkeypatch.setattr(table, "post", post)
+    monkeypatch.setattr(table, "patch", patch)
+    return calls
+
+
+def _without_stamps(r: dict) -> dict:
+    return {k: v for k, v in r.items() if k not in ("last_seen_at", "updated_at")}
+
+
+def test_a_sync_restamp_is_one_last_seen_at_patch_by_id_not_a_full_row_upsert(db, tmp_path, monkeypatch):
+    run_laft(db, tmp_path, monkeypatch, _csv())
+    _age(db, WD.FRESH_HOURS + 1)
+    snapshot = {r["id"]: _without_stamps(r) for r in db.rows}
+    calls = _log_writes(db, monkeypatch)
+    assert run_laft(db, tmp_path, monkeypatch, _csv()) == {"sync": 2, "lifecycle": 0}
+    assert [c[0] for c in calls] == ["PATCH"]                       # both rows, one request
+    _method, query, keys = calls[0]
+    assert keys == ["last_seen_at"] and "id=in." in query and "last_seen_at.lt." in query
+    for r in db.rows:
+        assert WD.fresh(r["last_seen_at"])
+        assert _without_stamps(r) == snapshot[r["id"]]
+
+
+def test_a_lifecycle_restamp_is_batched_by_id_too(db, tmp_path, monkeypatch):
+    run_laft(db, tmp_path, monkeypatch, _csv())
+    _age(db, WD.FRESH_HOURS + 1)
+    monkeypatch.setattr(SYNC, "main", lambda argv=None: 0)          # only the lifecycle sees the aged rows
+    calls = _log_writes(db, monkeypatch)
+    assert run_laft(db, tmp_path, monkeypatch, _csv()) == {"sync": 0, "lifecycle": 2}
+    patches = [c for c in calls if c[0] == "PATCH"]
+    assert len(patches) == 1 and patches[0][2] == ["last_seen_at"] and "id=in." in patches[0][1]
+    assert "state=eq.LA" in patches[0][1] and "source=eq.laft" in patches[0][1]
+    assert all(WD.fresh(r["last_seen_at"]) for r in _active(db))

@@ -1346,6 +1346,26 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/detect_property_changes.py --state ${{ matrix.state }}
 
+      - name: FEMA flood hazard - nightly slice for this state
+        # 2026-10-27: the flood backlog (MI ~28,000, MO ~10,700, SC ~2,300,
+        # CO ~760 active rows with coordinates and no check) fills a bounded
+        # slice per read instead of one long manual run that FEMA's NFHL
+        # answers with dropped connections. ENRICH_STATE keeps the leg on its
+        # own state; the script spreads the slice across counties and backs
+        # off after a failure. Stops cleanly at the budget (15 min) inside
+        # the step timeout; a leg with no backlog finishes in seconds.
+        if: always() && steps.sync.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 18
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ENRICH_STATE: ${{ matrix.state }}
+          FLOOD_BATCH_LIMIT: '1500'
+          FLOOD_PER_COUNTY_LIMIT: '400'
+          FLOOD_TIME_BUDGET_SECONDS: '900'
+        run: python3 scripts/enrich_flood_zone.py
+
       - name: Evidence-only artifact summary
         # Public repository -> public artifacts: counts, hashes and field names
         # only; raw files only OpenPGP-encrypted (scripts/artifact_evidence.py).
@@ -1572,6 +1592,21 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/inventory_status_writer.py --state TX
+      - name: FEMA flood hazard - daily Texas slice
+        # 2026-10-27: Texas's flood backlog (~2,000-3,300 active rows with
+        # coordinates and no check) fills a bounded slice per daily read.
+        # Stops cleanly at the 10-minute budget inside the step timeout.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 12
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ENRICH_STATE: TX
+          FLOOD_BATCH_LIMIT: '1500'
+          FLOOD_PER_COUNTY_LIMIT: '400'
+          FLOOD_TIME_BUDGET_SECONDS: '600'
+        run: python3 scripts/enrich_flood_zone.py
       - name: Report Phase B event recording failure
         if: ${{ !cancelled() && steps.phase_b_events_tx.outcome == 'failure' }}
         run: |
