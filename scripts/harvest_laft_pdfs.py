@@ -601,6 +601,7 @@ def successor_is_lands_available(url: str, content: bytes | None) -> bool:
 # sandbox (library.municode.com answers 403 here); the content check above
 # keeps a wrong document from ever being read as the list.
 MUNICODE_LIBRARY_HOST = "library.municode.com"
+MUNICODE_DOCUMENT_SELECTOR = "iframe[src*='munidoc'], embed[src*='munidoc'], a[href*='munidocDownload'], iframe[src$='.pdf']"
 
 
 def render_page_links(url: str, timeout_ms: int = 45_000) -> str:
@@ -615,7 +616,17 @@ def render_page_links(url: str, timeout_ms: int = 45_000) -> str:
             browser = p.chromium.launch()
             try:
                 page = browser.new_page(user_agent=UA)
-                page.goto(url, timeout=timeout_ms, wait_until="networkidle")
+                # Not "networkidle": the Municode application keeps polling, so
+                # the page never goes idle and every daily render timed out
+                # (laft job, 2026-10-27: 45 s TimeoutError, Hendry FAILED for a
+                # month). Load the document, then wait for the thing we read -
+                # a document frame or a munidocDownload link - and read what is
+                # there either way.
+                page.goto(url, timeout=timeout_ms, wait_until="domcontentloaded")
+                try:
+                    page.wait_for_selector(MUNICODE_DOCUMENT_SELECTOR, timeout=timeout_ms, state="attached")
+                except Exception:  # noqa: BLE001 - read whatever rendered
+                    pass
                 found = page.evaluate(
                     """() => {
                         const out = [];
