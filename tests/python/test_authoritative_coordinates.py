@@ -69,11 +69,14 @@ def test_geocode_entry_is_never_authoritative_and_ranks_lowest():
     assert not FP.may_write({"latitude": {"source": "statewide_parcel"}}, "latitude", "census_geocoder", 1.0)
 
 
-def test_parcel_coordinate_configs_are_inert_until_verified():
+def test_st_louis_parcel_layer_is_verified_and_cleared_by_the_owner():
+    # 2026-10-25: the Assessor's layer 11 was read live and the LRA ParcelId
+    # matched exactly; the owner's decision clears it (risk acceptance).
     from harvesters.enrichment import parcels as P, sources as S
     cfg = next(c for c in S.all_sources() if c.source_id == "mo_stl_parcels_coordinates")
-    assert cfg.centroid and cfg.field_map == {} and cfg.counties == ("St. Louis City",)
-    assert P.enrichment_allowed(cfg)[0] is False
+    assert cfg.centroid and cfg.counties == ("St. Louis City",) and cfg.id_field == "ParcelId"
+    assert cfg.columns_verified and "Assessor_Public_Parcels/MapServer/11" in cfg.layer_url
+    assert P.enrichment_allowed(cfg)[0] is True
 
 
 def test_coordinate_probe_targets_exist_for_every_coordinate_gap_state():
