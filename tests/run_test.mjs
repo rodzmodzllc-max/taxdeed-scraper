@@ -4470,6 +4470,85 @@ await navMap.close();
     results.offListDefault = await n.evaluate(() => window.__tdwOffList('p9'));
     await n.close();
   }
+  // ---- Unconfirmed Available records (2026-10-27) ----
+  // An Available row its own source has not confirmed (last_seen_at NULL, or
+  // older than 7 days) is withheld from customers with the reason named,
+  // shown to admins labelled; nothing is closed (production: Hendry).
+  {
+    const u = await newPage({ viewport: { width: 1440, height: 900 } });
+    u.on('pageerror', e => errors.push('unconfirmed pageerror: ' + e.message));
+    await u.goto(BASE_URL + '?unconfirmed=1' + '#/lands', { waitUntil: 'networkidle' });
+    await u.waitForTimeout(500);
+    results.unconfirmedCustomer = await u.evaluate(() => {
+      const ids = [...document.querySelectorAll('#main .prop-card[data-pid]')].map(c => c.dataset.pid);
+      return { p3: ids.includes('p3'), p15: ids.includes('p15'), p14: ids.includes('p14'),
+        total: window.__tdwUnconfirmed().total, byCounty: window.__tdwUnconfirmed().byCounty,
+        noStamp: !document.querySelector('.pc-stamp[data-stamp="unconfirmed"]') };
+    });
+    // The ledger (every Florida Available record here is unconfirmed or
+    // withheld) and a county never read as having no properties.
+    results.unconfirmedEmpty = await u.evaluate(() => {
+      const e = document.querySelector('#main .unconfirmed-empty');
+      const st = e && e.closest('.empty-state');
+      const why = document.querySelector('.ls-why[data-zero-why]');
+      return { ledger: e ? e.dataset.unconfirmedEmpty + '|' + e.textContent : null,
+        noNoneClaim: st ? !/No properties currently|No available properties|nothing currently available/.test(st.textContent) : null,
+        zeroCase: why ? why.dataset.zeroWhy : null,
+        whyNamesIt: why ? !!why.querySelector('[data-unconfirmed-withheld="2"]') : null,
+        county: window.__tdwUnconfirmed().countyText('Bay'), otherCounty: window.__tdwUnconfirmed().countyText('Alachua') };
+    });
+    await u.close();
+    const a = await newPage({ viewport: { width: 1440, height: 900 } });
+    a.on('pageerror', e => errors.push('unconfirmed admin pageerror: ' + e.message));
+    await a.goto(BASE_URL + '?unconfirmed=1&profile=admin' + '#/lands', { waitUntil: 'networkidle' });
+    await a.waitForTimeout(500);
+    results.unconfirmedAdmin = await a.evaluate(() => {
+      const stamp = id => { const e = document.querySelector(`#main .prop-card[data-pid="${id}"] .pc-stamp[data-stamp="unconfirmed"]`); return e ? e.textContent + '|' + /^(Never confirmed by the source - source unavailable|Not confirmed by the source since [A-Z][a-z]{2} \d{1,2}, \d{4} - source unavailable) · withheld from customers$/.test(e.title) : null; };
+      return { p3: stamp('p3'), p15: stamp('p15'), p14: stamp('p14'), withheldCount: window.__tdwUnconfirmed().total };
+    });
+    await a.close();
+    const ad = await newPage({ viewport: { width: 1440, height: 900 } });
+    await ad.goto(BASE_URL + '?unconfirmed=1&profile=admin' + '#/lands/p3', { waitUntil: 'networkidle' });
+    await ad.waitForTimeout(600);
+    results.unconfirmedAdminDetail = await ad.evaluate(() => {
+      const b = document.getElementById('unconfirmedBanner');
+      return b ? b.dataset.unconfirmed + '|' + /Never confirmed by the source - source unavailable\..*Nothing was closed\./.test(b.textContent) : null;
+    });
+    await ad.close();
+    const n = await newPage({ viewport: { width: 1440, height: 900 } });
+    await n.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
+    await n.waitForTimeout(300);
+    results.unconfirmedDefaultOff = await n.evaluate(() => ({ counted: window.__tdwUnconfirmed().total,
+      p3: !!document.querySelector('#main .prop-card[data-pid="p3"]') }));
+    await n.close();
+  }
+  // ---- Broken source links (2026-10-27, migration 036) ----
+  // A link BROKEN on 2+ separate daily checks renders its label with "Link
+  // broken at source (checked <date>)" and no href; once-broken and BLOCKED
+  // links stay links; without the table nothing changes.
+  {
+    const b = await newPage({ viewport: { width: 1440, height: 900 } });
+    b.on('pageerror', e => errors.push('brokenlinks pageerror: ' + e.message));
+    await b.goto(BASE_URL + '?brokenlinks=1' + '#/lands/p15', { waitUntil: 'networkidle' });
+    await b.waitForTimeout(600);
+    results.brokenLinks = await b.evaluate(() => {
+      const spans = [...document.querySelectorAll('[data-link-broken]')];
+      return { loaded: window.__tdwBrokenLinks(),
+        anchorsLeft: document.querySelectorAll('a[href="https://x/citrus-list"]').length,
+        spans: spans.length > 0,
+        note: spans.every(s => /· Link broken at source \(checked Oct 2[67], 2026\)$/.test(s.textContent) && !s.querySelector('a')),
+        onceBrokenStillLink: document.querySelectorAll('a[href="https://www.citrusclerk.example.gov/lands-available/how-to-purchase"]').length > 0,
+        blockedStillLink: document.querySelectorAll('a[href="https://x"]').length > 0 };
+    });
+    await b.close();
+    const o = await newPage({ viewport: { width: 1440, height: 900 } });
+    await o.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
+    await o.waitForTimeout(500);
+    results.brokenLinksTableAbsent = await o.evaluate(() => ({ loaded: window.__tdwBrokenLinks() ? window.__tdwBrokenLinks().length : null,
+      spans: document.querySelectorAll('[data-link-broken]').length,
+      anchors: document.querySelectorAll('a[href="https://x/citrus-list"]').length > 0, reads: window.__stubLinkCheckReads || 0 }));
+    await o.close();
+  }
   // ---- Card facts never show a stored zero as a size (2026-10-22) ----
   {
     const z = await newPage({ viewport: { width: 1440, height: 900 } });
@@ -7576,7 +7655,7 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v147"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v148"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -8738,6 +8817,14 @@ const EXPECTED = {
   offListCards: {"p9": false, "p8Upcoming": true, "p9Line": false, "p9Flag": true, "p8Flag": null, "neverReadCounty": null, "commandCenter": true},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
   offListDetail: true,
   offListDefault: null,
+  // Unconfirmed Available records + broken source links (2026-10-27).
+  unconfirmedCustomer: {"p3": false, "p15": false, "p14": false, "total": 2, "byCounty": {"Bay": 1, "Citrus": 1}, "noStamp": true},
+  unconfirmedEmpty: {"ledger": "ALL|2 Available records are withheld because their source could not be read to confirm they are still available. This is not a statement that there are no properties.", "noNoneClaim": true, "zeroCase": "SOURCE_FAILURE", "whyNamesIt": true, "county": "1 Available record in Bay withheld: the source could not be read to confirm it is still available. This is not a statement that Bay has no properties.", "otherCounty": ""},
+  unconfirmedAdmin: {"p3": "Never confirmed|true", "p15": "Not confirmed|true", "p14": null, "withheldCount": 0},
+  unconfirmedAdminDetail: "never|true",
+  unconfirmedDefaultOff: {"counted": 0, "p3": true},
+  brokenLinks: {"loaded": ["https://x/citrus-list"], "anchorsLeft": 0, "spans": true, "note": true, "onceBrokenStillLink": true, "blockedStillLink": true},
+  brokenLinksTableAbsent: {"loaded": 0, "spans": 0, "anchors": true, "reads": 1},
   cardZeroSizeStats: {"stats": ["Not trackedBeds", "Not trackedBaths", "Not publishedBuilding sq ft", "Not publishedAcres"], "sizeOverlay": false, "zero": false},
   taxacqBrand: { title: true, rail: 'TAXACQ', sub: 'Tax Acquisition Intelligence', topbar: 'TAXACQ', noOldText: true, aboutWhy: true },
   identityLogin: {"brand": "TAXACQ", "tagline": "Tax Acquisition Intelligence", "bg": "rgb(243, 239, 232)", "signupFields": 6},

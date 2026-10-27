@@ -1541,3 +1541,11 @@ html[data-shell="v3"] .hdr-nav .nav-item.on .nav-count[data-dup="1"]{display:non
 :root[data-theme="dark"] .loc-panel .loc-link{color:#E2A27A}
 /* The looks size picture-slot SVGs as small icons; the locator is a map. */
 .loc-panel .loc-thumb svg{position:static!important;inset:auto!important;width:100%!important;height:100%!important;max-width:none!important;opacity:1!important}
+
+/* Broken source links and unconfirmed Available records (2026-10-27, app.js) */
+.link-broken{display:inline;color:var(--ink-soft,inherit);cursor:not-allowed}
+.link-broken-label{text-decoration:line-through;text-decoration-thickness:1px}
+.link-broken-note{color:var(--bad);font-size:.85em}
+.unconfirmed-chip{display:inline-block;margin:.15rem .35rem .15rem 0;padding:.05rem .4rem;border:1px solid var(--bad);color:var(--bad);background:var(--bad-bg);font-size:.78rem}
+.unconfirmed-banner{border-color:var(--bad);background:var(--bad-bg)}
+.unconfirmed-empty{display:block;margin-top:.4rem}

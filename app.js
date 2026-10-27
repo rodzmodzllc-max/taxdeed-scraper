@@ -878,6 +878,9 @@ function isPublishable(p) {
   // carries another decision is never shown to one.
   if (PUBLICATION.enforced && p && p.publication_state && p.publication_state !== "CUSTOMER_PUBLISHED") return false;
   if (!inCustomerInventory(p)) return false;
+  // An Available record its own source has not confirmed in UNCONFIRMED_DAYS
+  // (or never) is not presented to customers as available (2026-10-27).
+  if (unconfirmedAvailable(p)) return false;
   // The acquisition-path gate (when enforced) applies to every non-admin,
   // the tester preview included: an unverified Available row is not an
   // actionable opportunity for anyone but an administrator.
@@ -904,6 +907,8 @@ function sourceLineHtml(p) {
   if (det && det !== "in_subset") bits.push(`<span class="source-subset-chip" data-subset="${det}" title="${esc(DETROIT_SUBSET_REASONS[det])}">Not included in current Detroit customer subset</span>`);
   // Administrators see the acquisition-path gate's finding on every
   // unverified Available row - what customers are (or would be) withheld.
+  const unc = IS_ADMIN && unconfirmedAvailable(p);
+  if (unc) bits.push(`<span class="unconfirmed-chip" data-unconfirmed="${unc.never ? "never" : "stale"}" title="Customers do not see this record until its source confirms it again">${esc(unconfirmedText(unc))} · withheld from customers</span>`);
   if (IS_ADMIN && p.source === "laft") {
     const v = acquisitionVerification(p);
     if (v && !v.verified) bits.push(`<span class="acq-gate-chip" data-acq-gate="${esc(v.classification)}" title="${esc(v.reasons.map(r => ACQ_GATE_REASONS[r] || r).join("; "))}">${ACQ_GATE_MODE === "enforce" ? "Withheld from customers" : "Not customer-actionable (gate off)"}: ${esc(ACQ_GATE_CLASS_LABELS[v.classification] || v.classification)}</span>`);
@@ -911,6 +916,44 @@ function sourceLineHtml(p) {
   return bits.length ? `<div class="prop-source-line">${bits.join("")}</div>` : "";
 }
 // Full property page: the source review status as its own fact, every row.
+// ==================== Unconfirmed Available records (2026-10-27) ====================
+// An Available (laft) record is a statement that the property can be bought
+// now. When its own source has not confirmed it - last_seen_at NULL (never
+// read back) or older than UNCONFIRMED_DAYS - that statement is not current:
+// e.g. Hendry County's list answered 404 for weeks, every read FAILED, and
+// the gated close-out (correctly) never closed the row. Display only: the
+// row stays exactly as stored (a failed read never closes anything).
+// Customers do not see such rows in the list, map, counts or exports; an
+// empty ledger or county says records are withheld because the source could
+// not be read. Admins see them labelled. Same idea as offCurrentSaleList()
+// for auctions. var / function declarations (TDZ).
+// Config: TDW_CONFIG.unconfirmedAvailableGate === false switches it off (the
+// test fixture's dated rows; ?unconfirmed=1 switches it back on there).
+var UNCONFIRMED_DAYS = 7;
+var UNCONFIRMED_WITHHELD = { total: 0, byCounty: {} };
+function unconfirmedAvailable(p) {
+  if (!p || p.source !== "laft" || (window.TDW_CONFIG || {}).unconfirmedAvailableGate === false) return null;
+  const st = String(p.status || "active");
+  if (st !== "active" && st !== "available") return null;
+  const seen = p.last_seen_at ? Date.parse(p.last_seen_at) : NaN;
+  if (!isNaN(seen) && Date.now() - seen <= UNCONFIRMED_DAYS * 86400000) return null;
+  return { never: isNaN(seen), since: isNaN(seen) ? null : String(p.last_seen_at) };
+}
+function unconfirmedText(u) {
+  return u.never ? "Never confirmed by the source - source unavailable"
+    : `Not confirmed by the source since ${fmtDate(u.since.slice(0, 10))} - source unavailable`;
+}
+function unconfirmedCountyText(county) {
+  const n = (UNCONFIRMED_WITHHELD.byCounty || {})[county] || 0;
+  if (!n) return "";
+  return `${n.toLocaleString("en-US")} Available record${n === 1 ? "" : "s"} in ${county} withheld: the source could not be read to confirm ${n === 1 ? "it is" : "they are"} still available. This is not a statement that ${county} has no properties.`;
+}
+function unconfirmedLedgerText() {
+  const n = UNCONFIRMED_WITHHELD.total;
+  return `${n.toLocaleString("en-US")} Available record${n === 1 ? " is" : "s are"} withheld because ${n === 1 ? "its" : "their"} source could not be read to confirm ${n === 1 ? "it is" : "they are"} still available. This is not a statement that there are no properties.`;
+}
+window.__tdwUnconfirmed = () => ({ total: UNCONFIRMED_WITHHELD.total, byCounty: Object.assign({}, UNCONFIRMED_WITHHELD.byCounty),
+  countyText: c => unconfirmedCountyText(c) });
 function sourceReviewHtml(p) {
   const customer = isCustomerPublishable(p);
   const ps = publicationStateOf(p);
@@ -928,8 +971,10 @@ function sourceReviewBannerHtml(p) {
   const gate = ps && ps !== "CUSTOMER_PUBLISHED"
     ? `<div class="source-review-banner pub-gate-banner" id="publicationGateBanner" data-pub-state="${esc(ps)}"><b>Not customer-published: ${esc(PUBLICATION_STATE_LABELS[ps] || ps)}.</b> ${esc(publicationReasonsText(p))} ${esc(reviewViewerReason().replace(/^shown/, "Shown"))}; customers do not see this record.${p.publication_remediation ? ` <span class="pub-remediation">To publish: ${esc(p.publication_remediation)}</span>` : ""}</div>`
     : "";
-  if (isCustomerPublishable(p)) return gate;
-  return gate + `<div class="source-review-banner" id="sourceReviewBanner"><b>Source review: ${esc(sourceReviewLabel(p))}.</b> This record comes from a source awaiting customer-publication review - ${esc(reviewViewerReason())}. It is not customer-published. Its availability below is the source's own statement and is a separate fact.</div>`;
+  const unc = unconfirmedAvailable(p);
+  const uncHtml = unc ? `<div class="source-review-banner unconfirmed-banner" id="unconfirmedBanner" data-unconfirmed="${unc.never ? "never" : "stale"}"><b>${esc(unconfirmedText(unc))}.</b> This record's source has not confirmed it in the last ${UNCONFIRMED_DAYS} days, so it is not presented as available. ${esc(reviewViewerReason().replace(/^shown/, "Shown"))}; customers do not see this record. Nothing was closed.</div>` : "";
+  if (isCustomerPublishable(p)) return uncHtml + gate;
+  return uncHtml + gate + `<div class="source-review-banner" id="sourceReviewBanner"><b>Source review: ${esc(sourceReviewLabel(p))}.</b> This record comes from a source awaiting customer-publication review - ${esc(reviewViewerReason())}. It is not customer-published. Its availability below is the source's own statement and is a separate fact.</div>`;
 }
 // The customer-publication decision on the full property page: the state,
 // the milestone reached, every reason, the structured path evidence and the
@@ -2192,6 +2237,72 @@ async function fetchBoundaryIds() {
   }
   return ids;
 }
+// ==================== Broken source links (2026-10-27) ====================
+// scripts/check_source_links.py checks every source URL daily and writes
+// public.source_link_checks (migration 036). A link that was BROKEN (404 /
+// 410 / no such host / an error page where a document should be) on two or
+// more separate daily checks is not offered as a working link: its label
+// stays, with "Link broken at source (checked <date>)" and no href. BLOCKED
+// (403 / challenge) is shown normally - it may work in a browser. One read
+// per load; without the table nothing changes. Applied to every <a> the
+// page renders through one observer, so no link-rendering site needs to know.
+// var / function declarations (TDZ).
+var BROKEN_LINKS = null, BROKEN_LINKS_LOADING = null, BROKEN_LINK_OBSERVER = null;
+async function fetchBrokenLinks() {
+  const out = new Map();
+  let after = null;
+  for (let i = 0; i < 50; i++) {
+    let q = sb.from("source_link_checks").select("url,checked_at,first_failed_at,consecutive_failures")
+      .eq("status", "BROKEN").gte("consecutive_failures", 2).order("url").limit(1000);
+    if (after !== null) q = q.gt("url", after);
+    const { data, error } = await q;
+    if (error) {
+      if (!/PGRST205|42P01/.test(String(error.code || ""))) console.warn("source link checks unavailable:", error.code || error.message);
+      return out;
+    }
+    (data || []).forEach(r => { if (r && r.url && Number(r.consecutive_failures) >= 2) out.set(String(r.url), r); });
+    if (!data || data.length < 1000) break;
+    after = data[data.length - 1].url;
+  }
+  return out;
+}
+function brokenLinkNote(rec) {
+  const d = rec && rec.checked_at ? new Date(rec.checked_at) : null;
+  const when = d && !isNaN(d) ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
+  return `Link broken at source${when ? ` (checked ${when})` : ""}`;
+}
+function decorateBrokenLinks(root) {
+  if (!BROKEN_LINKS || !BROKEN_LINKS.size || !root || !root.querySelectorAll) return;
+  const anchors = root.matches && root.matches("a[href]") ? [root] : Array.from(root.querySelectorAll("a[href]"));
+  anchors.forEach(a => {
+    const rec = BROKEN_LINKS.get(a.getAttribute("href"));
+    if (!rec) return;
+    const span = document.createElement("span");
+    span.className = "link-broken";
+    span.dataset.linkBroken = "1";
+    const note = brokenLinkNote(rec);
+    span.title = `${note}. The source no longer answers at this address; the record is unchanged.`;
+    const label = document.createElement("span");
+    label.className = "link-broken-label";
+    label.textContent = (a.textContent || "").replace(/\s*[→↗]\s*$/, "").trim() || "Source link";
+    const small = document.createElement("small");
+    small.className = "link-broken-note";
+    small.textContent = ` · ${note}`;
+    span.append(label, small);
+    a.replaceWith(span);
+  });
+}
+function installBrokenLinks(map) {
+  BROKEN_LINKS = map;
+  if (!map || !map.size || typeof MutationObserver === "undefined") return;
+  decorateBrokenLinks(document.body);
+  if (BROKEN_LINK_OBSERVER) return;
+  BROKEN_LINK_OBSERVER = new MutationObserver(muts => {
+    muts.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) decorateBrokenLinks(n); }));
+  });
+  BROKEN_LINK_OBSERVER.observe(document.body, { childList: true, subtree: true });
+}
+window.__tdwBrokenLinks = () => (BROKEN_LINKS ? Array.from(BROKEN_LINKS.keys()) : null);
 function cardHasBoundary(p, cls) {
   return /(^|\s)prop-card-photo(\s|$)/.test(String(cls || "")) && !!BOUNDARY_IDS
     && p && p.id !== undefined && p.id !== null && BOUNDARY_IDS.has(String(p.id));
@@ -4346,6 +4457,7 @@ function ledgerZeroState(kind) {
   else if (eligibility === "NOT_OFFERED") zeroCase = "NOT_OFFERED";
   else if (count > 0 || !settled) zeroCase = null;
   else if (healths.length && unhealthy && !readOk) zeroCase = "SOURCE_FAILURE";
+  else if (kind === "laft" && UNCONFIRMED_WITHHELD.total) zeroCase = "SOURCE_FAILURE";
   else if (!tracked) zeroCase = "NOT_IMPLEMENTED";
   else if (withheld || pending || eligibility === "SOURCE_RESTRICTED" || pubSourceOnly) zeroCase = "SOURCE_RESTRICTED";
   else if (pubWithheld) zeroCase = "WITHHELD";
@@ -4401,7 +4513,7 @@ function ledgerStatusHtml(kind, shown, opts) {
     ${countIsTitle ? "" : `<span class="ls-item"><b>${ok && !o.compact ? "Ledger total" : "Current count"}</b><span class="ls-val" data-ls-count="${ok ? z.count : ""}"${ok ? ` data-ls-total="${ledgerTotal}"` : ""}>${esc(ok && !o.compact ? ledgerNoun(kind, ledgerTotal) : countText)}</span></span>`}
     <span class="ls-item"><b>Source read</b><span class="ls-val" data-ls-read>${esc(freshness)}</span></span>
     ${z.pub ? `<span class="ls-item"><b>Withheld from customers</b><span class="ls-val${z.pubWithheld ? " warn" : ""}" data-ls-withheld="${z.pubWithheld}" title="Records collected but not customer-published until they pass the publication gate: source approval, verified state and county rules, record validation, a documented acquisition path and a current observation">${esc(z.pubWithheld ? publicationWithheldText(kind) : "None - every active record passed the publication gate")}</span>${z.pubWithheld && IS_ADMIN ? `<span class="ls-sub">Shown to you as an admin, each labelled; customers do not see them</span>` : ""}</span>` : ""}
-    ${why ? `<p class="ls-why" data-zero-why="${esc(z.zeroCase)}"><b>${esc(why.label)}.</b> ${esc(why.text)}${lastKnown ? ` ${esc(lastKnown)}.` : ""}${covText ? ` ${esc(covText)}.` : ""}${z.zeroCase === "WITHHELD" || (z.zeroCase === "SOURCE_RESTRICTED" && z.pubWithheld) ? ` ${esc(publicationWithheldText(kind))}.` : ""}</p>` : ""}
+    ${why ? `<p class="ls-why" data-zero-why="${esc(z.zeroCase)}"><b>${esc(why.label)}.</b> ${esc(why.text)}${lastKnown ? ` ${esc(lastKnown)}.` : ""}${covText ? ` ${esc(covText)}.` : ""}${z.zeroCase === "WITHHELD" || (z.zeroCase === "SOURCE_RESTRICTED" && z.pubWithheld) ? ` ${esc(publicationWithheldText(kind))}.` : ""}${kind === "laft" && UNCONFIRMED_WITHHELD.total ? ` <span data-unconfirmed-withheld="${UNCONFIRMED_WITHHELD.total}">${esc(unconfirmedLedgerText())}</span>` : ""}</p>` : ""}
     ${o.compact ? "" : `<p class="ls-links">${z.led && z.led.meaning ? `<span class="ls-meaning">${esc(z.led.meaning)}</span>` : ""}<button type="button" class="link-btn" data-action="staterules" data-ledger="${esc(LEDGER_NAME_FOR_KEY[kind])}">State rules and sources →</button>${z.led && z.led.eligibility_source_url ? `<a href="${esc(z.led.eligibility_source_url)}" target="_blank" rel="noopener">Official reference →</a>` : ""}</p>`}
   </div>`;
 }
@@ -4524,10 +4636,18 @@ function applyLedgerRows() {
     // writer decides active rows only): left unlabelled, never guessed.
   });
   GATE_WITHHELD = { total: 0, by: {} };
+  UNCONFIRMED_WITHHELD = { total: 0, byCounty: {} };
   ALL = rows.filter(p => {
     // Outside the Detroit customer subset: not customer inventory at all, so
     // not "withheld" either (DETROIT_SUMMARY names it on the ledger instead).
     if (!IS_ADMIN && !inCustomerInventory(p)) return false;
+    // Not confirmed by its own source: counted on its own (the zero case says
+    // the source could not be read), never folded into source review.
+    if (!IS_ADMIN && unconfirmedAvailable(p) && p.publication_status !== "BLOCKED") {
+      UNCONFIRMED_WITHHELD.total++;
+      UNCONFIRMED_WITHHELD.byCounty[p.county] = (UNCONFIRMED_WITHHELD.byCounty[p.county] || 0) + 1;
+      return false;
+    }
     if (isPublishable(p)) {
       if (!isCustomerPublishable(p) && p.source in REVIEW_PENDING_SHOWN) REVIEW_PENDING_SHOWN[p.source]++;
       return true;
@@ -4663,6 +4783,7 @@ async function loadAll(activeKey, opts) {
   // only those cards ask for their outline. Never gates the first paint.
   // Once per page load: the bootstrap can run loadAll() twice (getSession and
   // SIGNED_IN), and the outline ids do not change between the two.
+  if (!BROKEN_LINKS_LOADING) BROKEN_LINKS_LOADING = fetchBrokenLinks().then(installBrokenLinks).catch(() => { BROKEN_LINKS_LOADING = null; });
   if (!BOUNDARY_IDS_LOADING) BOUNDARY_IDS_LOADING = fetchBoundaryIds().then(ids => { BOUNDARY_IDS = ids; if (ids.size) scheduleLedgerUpdate(null); }).catch(() => { BOUNDARY_IDS_LOADING = null; });
   // The watchlist diff needs every ledger (a watched certificate must not
   // read as "removed" because Certificates had not loaded yet). Diff ONCE per
@@ -5563,6 +5684,9 @@ function cardStamp(p) {
   }
   if (p.source === "laft") {
     if (isGone(p)) return { key: "gone", cls: "stamp-closed", label: "No longer listed", title: GONE_STATUS_CAVEAT };
+    // Only an admin ever sees an unconfirmed record (customers are not shown it).
+    const unc = IS_ADMIN && unconfirmedAvailable(p);
+    if (unc) return { key: "unconfirmed", cls: "stamp-closed", label: unc.never ? "Never confirmed" : "Not confirmed", title: `${unconfirmedText(unc)} · withheld from customers` };
     const a = acquisitionOf(p);
     if (a.verified && a.mode !== "none") return { key: "verified", cls: "stamp-verified", label: "Verified path", title: "How to acquire was read from the source's own page or document" };
     if (isDatedList(p)) return { key: "dated", cls: "stamp-muted", label: "Dated list", title: datedListText(p) + " - not verified available now" };
@@ -11362,6 +11486,20 @@ function section(container, title, sub, rows, kind) {
       e.textContent = zeroNamed && head ? head.trim() : head + (cfg.empty || "Nothing found.");
       if (stateEmpty) e.dataset.stateEmpty = "1";
       if (ledgerEmpty) e.dataset.ledgerEmpty = "1";
+      // Available records withheld because their source could not confirm
+      // them: never let the county (or ledger) read as having no properties.
+      if (kind === "laft" && UNCONFIRMED_WITHHELD.total) {
+        const one = selectedCountyOrAll();
+        const txt = one !== "ALL" ? unconfirmedCountyText(one) : unconfirmedLedgerText();
+        if (txt) {
+          if (stateEmpty || ledgerEmpty) e.textContent = "";
+          const u = document.createElement("span");
+          u.className = "empty-hint unconfirmed-empty";
+          u.dataset.unconfirmedEmpty = one;
+          u.textContent = txt;
+          e.appendChild(u);
+        }
+      }
     }
     sec.appendChild(e); container.appendChild(sec);
     return { shown };

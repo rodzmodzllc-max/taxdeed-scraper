@@ -413,6 +413,29 @@ if (new URLSearchParams(location.search).get("offlist") === "1") {
   if (p8) p8.last_seen_at = new Date(Date.now() - 3600 * 1000).toISOString();
 }
 
+// ?unconfirmed=1 (2026-10-27 unconfirmed Available records): every Florida
+// Available row is read back an hour ago, except Bay's p3 (never confirmed:
+// last_seen_at NULL, like production's Hendry row) and Citrus' p15 (last
+// confirmed ten days ago). tests/config.js turns the gate on for this knob
+// only - the fixture's other rows carry historical dates.
+if (new URLSearchParams(location.search).get("unconfirmed") === "1") {
+  const fresh = new Date(Date.now() - 3600 * 1000).toISOString();
+  FIXTURE_PROPERTIES.forEach(r => { if (r.source === "laft") r.last_seen_at = fresh; });
+  const p3 = FIXTURE_PROPERTIES.find(r => r.id === "p3");
+  if (p3) { p3.last_seen_at = null; p3.first_seen_at = null; }
+  const p15 = FIXTURE_PROPERTIES.find(r => r.id === "p15");
+  if (p15) p15.last_seen_at = new Date(Date.now() - 10 * 86400 * 1000).toISOString();
+}
+// ?brokenlinks=1 (2026-10-27 source link checks, migration 036): the table
+// holds p15's list page BROKEN on two daily checks (hidden as a link), its
+// purchase page BROKEN once (still a link) and p3's list BLOCKED (still a
+// link). Absent = the table is not deployed (PGRST205).
+const LINK_CHECKS = new URLSearchParams(location.search).get("brokenlinks") === "1" ? [
+  { url: "https://x/citrus-list", status: "BROKEN", http_code: 404, checked_at: "2026-10-27T11:55:00Z", first_failed_at: "2026-10-26T11:55:00Z", consecutive_failures: 2 },
+  { url: "https://www.citrusclerk.example.gov/lands-available/how-to-purchase", status: "BROKEN", http_code: 404, checked_at: "2026-10-27T11:55:00Z", first_failed_at: "2026-10-27T11:55:00Z", consecutive_failures: 1 },
+  { url: "https://x", status: "BLOCKED", http_code: 403, checked_at: "2026-10-27T11:55:00Z", first_failed_at: null, consecutive_failures: 0 }
+] : null;
+
 // ?zerosize=1 (2026-10-22 card facts): p1 carries a stored living area and lot
 // size of zero. The card must read "Not published", never "0 sq ft".
 if (new URLSearchParams(location.search).get("zerosize") === "1") {
@@ -708,6 +731,7 @@ class MockQuery {
   // picker sends is understood (see the properties branch below).
   or(expr) { this._or = String(expr || ""); return this; }
   gte() { return this; }
+  gt() { return this; }
   maybeSingle() { this._single = true; return this; }
   insert(row) { this._op = "insert"; this._row = row; return this; }
   update(patch) { this._op = "update"; this._row = patch; return this; }
@@ -771,6 +795,11 @@ class MockQuery {
       // counted so a test can prove a state switch never removes anything.
       if (this._op === "select") result = { data: BIDLIST_SEED.map(id => ({ property_id: id })), error: null };
       else if (this._op === "delete") window.__stubBidListDeletes = (window.__stubBidListDeletes || 0) + 1;
+    } else if (this._op === "select" && this.table === "source_link_checks") {
+      // Like the server read: BROKEN on 2+ separate daily checks only.
+      window.__stubLinkCheckReads = (window.__stubLinkCheckReads || 0) + 1;
+      if (!LINK_CHECKS) result = { data: null, error: { message: "Could not find the table 'public.source_link_checks' in the schema cache", code: "PGRST205" } };
+      else result = { data: LINK_CHECKS.filter(r => r.status === "BROKEN" && r.consecutive_failures >= 2), error: null };
     } else if (this._op === "select" && this.table === "parcel_boundaries") {
       // Which properties carry an outline (cards ask only for those). Follows
       // ?boundary=: absent = table not deployed (PGRST205); none = no rows;
