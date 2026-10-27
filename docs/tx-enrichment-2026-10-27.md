@@ -1,0 +1,96 @@
+# Texas enrichment: property facts and how to buy (2026-10-27)
+
+Owner request 2026-10-27: enrich every property. Owner decision on record (2026-10-26): collect every
+source now, legal review later, recorded as INTERIM `INTERNAL_RISK_ACCEPTANCE` permission records.
+
+Production before this change (read-only, counts only, 2026-10-27): 4,184 active TX rows (tx_lgbs
+3,635 Available + 354 Auctions, tx_realauction 195 Auctions). Land use, lot size and year built were
+0% filled; a recorded acquisition path existed on 4% of Available rows (Galveston only) and 0% of
+Auction rows. PBFCM / MVBA / GovEase / county-list rows were not yet in production.
+
+## 1. Property facts
+
+### Sources
+
+| Source id | What | Counties | Permission |
+|---|---|---|---|
+| `tx_txgio_stratmap_parcels` | TxGIO StratMap Land Parcels 2026, one zipped shapefile per county (S3, `county_file` transport) | 83 | interim (discover, fetch, parse, store, enrich) |
+| `tx_hcad_parcels` | Harris Central Appraisal District parcel layer (gis.hctx.net, ArcGIS) | Harris | interim (same) |
+
+TxGIO StratMap was "unreachable from runners" in the 2026-10-01 sprint. On 2026-10-27 the map
+service answered but refused every query ("Requested operation is not supported by this service"),
+so the county shapefiles in TxGIO's public data warehouse are read instead. A first runner read
+happens on the first `job=enrich` dispatch.
+
+### Field definitions read
+
+The TxGIO Land Parcel Schema (Appendix A, `https://geographic.texas.gov/_uploads/TxGIO-land-parcel-schema.pdf`).
+Mapped (fill-blank only): `STAT_LAND_` (state land-use code) → `land_use`; `LEGAL_AREA` → `acreage`
+only when `LGL_AREA_U` is ACRE / ACRES / AC; `LAND_VALUE`, `IMP_VALUE`, `MKT_VALUE` → `land_value`,
+`improvement_value`, `market`; `TAX_YEAR` → `value_year`; `YEAR_BUILT` → `year_built` (a single year
+only); the polygon centroid → `latitude` / `longitude` (the files' `.prj` is geographic WGS 84).
+Never mapped: `SITUS_ADDR` and `LEGAL_DESC` (the Texas syncs write address / legal_desc themselves and
+would take turns with this source), owner and mailing columns, `LOC_LAND_USE` (no legend), `GIS_AREA`.
+The schema has no building-area column, so building area stays unfilled.
+
+HCAD's layer publishes no field definitions. Only self-describing columns are mapped: `state_class`,
+`land_value`, `impr_value`, `total_market_val`, `acreage_1`, `tax_year`.
+
+### Matching
+
+Exact CAD account only. `case_no` holds the account for the vendor listings (`tx_lgbs`,
+`tx_realauction`, `tx_pbfcm`, `tx_mvba`, `tx_govease`); rows of other sources are never matched.
+Each appraisal district fills a different identifier column, so the column and rule are measured per
+county: a sample of each county's accounts was matched against its 2026 file, and a county is
+configured only when at least half matched exactly one record. Two records for one key are AMBIGUOUS
+and nothing is written. A failed county read writes nothing.
+
+Excluded for no or too few matches: Tarrant (its StratMap `PROP_ID` is TAD's lot/block key; the
+county's TCProperty layer returns a small subset; TAD's own service carries no account), Hunt,
+Matagorda, Smith, Grayson, Hardin, Red River, Travis, Anderson, Erath, Franklin, Goliad, Panola.
+
+Expected: the 83 counties hold 3,608 of the 4,184 rows; from the measured sample rates, about 3,150
+rows should match. Harris: HCAD matched 7 of 10 sampled accounts (about 230 of 327 rows).
+
+## 2. How to buy
+
+Captured value-free by `job=evidence`, `evidence_scope=acquisition_candidates`, run 40430155571
+(2026-10-27), from official county pages added to `data/acquisition_candidate_pages.csv` under the
+discovery-only id `tx_county_sale_process`. Rows recorded in `data/purchase_path_evidence.csv` quote
+the digest.
+
+`data/acquisition_evidence_ledgers.csv` names the ledger each process applies to. A row without an
+entry is an AVAILABLE process, as before. `scripts/apply_acquisition_paths.py --ledgers laft,auction`
+applies each row only to its ledgers. A source whose single listing serves every county (LGBS) now
+reaches counties missing from the 8-county registry roster. A per-county source (RealAuction) never
+borrows another county's page.
+
+| County | Source | Ledgers | Office page | Active rows (2026-10-27) |
+|---|---|---|---|---|
+| Galveston | tx_lgbs / tx_realauction | Auctions + Available | Sheriff's procedures PDF (run 36858070184) | 200 |
+| Dallas | tx_lgbs | Available | Property Division resale FAQ (sealed bids) | 482 |
+| Harris | tx_lgbs | Auctions + Available | Tax Office "Harris County Tax Sales" | 327 |
+| Jefferson | tx_lgbs | Auctions + Available | Tax Office delinquent tax sale guidelines | 253 |
+| Orange | tx_lgbs (Available) / tx_realauction (Auctions) | split | Trust Property bid document / Tax Sale FAQs | 209 |
+| Bexar | tx_lgbs | Available | Struck Off Properties general information | 60 |
+| Tarrant | tx_lgbs | Auctions | Constable Precinct 3 delinquent tax sales | 40 |
+| Fort Bend | tx_lgbs | Auctions | Constable Precinct 2 property sales | 13 |
+
+About 1,584 rows in all: roughly 1,405 of 3,635 Available rows and about 179 of 549 Auction rows.
+
+Not recorded:
+- Montgomery: both Tax Office pages returned HTTP 403 to the runner.
+- Dallas: the Property Division page was refused by the discovery guard, because its host is also a
+  registry row without a source id. The FAQ PDF was read instead.
+- Tom Green: refused by the discovery guard for the same reason.
+- Montague: the page only points to the delinquent-tax attorney.
+- Every other county: no official process page was found.
+
+## Applying it (after merge)
+
+1. Property facts: run `job=enrich` with `enrich_states=TX`. Only the `parcels` matrix leg writes TX
+   facts; the flood and imagery legs use their usual budgets. For smaller overnight slices, run
+   `scripts/enrich_statewide_parcels.py --state TX --source-id tx_hcad_parcels,tx_txgio_stratmap_parcels
+   --ledgers laft,auction --max-counties N` (or `--counties`), with `--dry-run` for a read-only plan.
+2. How to buy: run `job=available` with `available_mode=acquisition`. The step runs with
+   `--ledgers laft,auction` and also runs inside the scheduled `laft` job.

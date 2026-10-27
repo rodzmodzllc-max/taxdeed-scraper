@@ -26,7 +26,10 @@ def register(cfg: ParcelSourceConfig) -> ParcelSourceConfig:
         PARCEL_SOURCES[cfg.state] = cfg
     else:
         for other in _ALL:
-            if other.state == cfg.state and set(other.counties) & set(cfg.counties):
+            # Two county layers may serve one county only when one of them is
+            # fill-blank only (it never replaces what the other wrote).
+            if other.state == cfg.state and set(other.counties) & set(cfg.counties) \
+                    and not (cfg.fill_blank_only or other.fill_blank_only):
                 raise ValueError(f"{cfg.source_id}: county scope overlaps {other.source_id}")
     _ALL.append(cfg)
     return cfg
@@ -276,4 +279,210 @@ MO_STL_PARCELS = register(ParcelSourceConfig(
     counties=("St. Louis City",),
     notes="Coordinates only: the area-weighted centroid of the one parcel whose HANDLE equals the row's parcel id. "
           "Search-index evidence only; inert until the layer's fields and the HANDLE / ParcelId match are measured live.",
+))
+
+
+# ---------------------------------------------------------------------------
+# Texas - TxGIO StratMap Land Parcels 2026 (TX enrichment, 2026-10-27).
+#
+# The Texas Geographic Information Office (Texas Water Development Board)
+# publishes the appraisal districts' parcel data, "translated into this common
+# schema" (BIS Consultants), as ONE zipped shapefile per county:
+#   https://tnris-data-warehouse.s3.us-east-1.amazonaws.com/LCD/collection/
+#     stratmap-2026-land-parcels/items/shp/stratmap-2026-land-parcels_<FIPS>_shp.zip
+# (253 counties; listed 2026-10-27). The statewide map service lists Query as a
+# capability but refuses every query ("Requested operation is not supported by
+# this service", read 2026-10-27) - hence the county_file transport.
+#
+# FIELD DEFINITIONS - the TxGIO Land Parcel Schema (Appendix A,
+# https://geographic.texas.gov/_uploads/TxGIO-land-parcel-schema.pdf, read
+# 2026-10-27), under the shapefile's 10-character names:
+#   PROP_ID / GEO_ID  "Source unique identifier that can be joined with other datasets"
+#   STAT_LAND_        STAT_LAND_USE "Legal land use utilizing State of Texas land use codes" -> land_use (raw)
+#   LEGAL_AREA        "Legal area per deed. The non-rounded value." -> acreage, ONLY when
+#   LGL_AREA_U        LGL_AREA_UNIT "Legal area units per deed" reads ACRE / ACRES / AC
+#   LAND_VALUE        "Current value of land"          -> land_value
+#   IMP_VALUE         "Current value of improvements"  -> improvement_value
+#   MKT_VALUE         "Current market value"           -> market
+#   TAX_YEAR          "The year of this dataset"       -> value_year
+#   YEAR_BUILT        "Year structure built"           -> year_built (a single year only;
+#                     several years joined with commas is not one year and is not stored)
+# NOT mapped: LOC_LAND_USE (local codes, no published legend), GIS_AREA (a GIS
+# computation, not the deed area), owner / mailing columns, and SITUS_ADDR /
+# LEGAL_DESC (the Texas listing syncs write address / legal_desc themselves -
+# mapping them would make the two writers take turns). The schema has no
+# building-area column.
+#
+# MATCH - each appraisal district fills a different identifier column, so the
+# column AND rule are MEASURED per county (county_id below): for every county
+# with TX rows, a sample of the rows' accounts (case_no, the CAD account the
+# vendor listings publish) was matched against that county's 2026 file
+# (2026-10-27, counts only). A county is listed only when at least half of its
+# sampled accounts matched exactly one record; 'numeric' (digits, leading
+# zeros dropped) is used only where the listing's sampled accounts share one
+# shape (e.g. every one written 'R' + digits) and the CAD file stores digits.
+# Excluded (no or too few matches): Tarrant (its PROP_ID is TAD's lot/block
+# key, not the 8-digit account), Hunt, Matagorda, Smith, Grayson, Hardin,
+# Red River, Travis, Anderson, Erath, Franklin, Goliad, Panola.
+#
+# PERMISSION - interim internal risk acceptance (owner decision 2026-10-26,
+# owner request 2026-10-27) in data/source_permissions.csv. TWDB's site
+# "freely grants permission to copy and distribute its materials", but the
+# parcel attributes are the appraisal districts' records, whose own reuse
+# terms were not read. Fill-blank only; the dataset is never redistributed.
+# ---------------------------------------------------------------------------
+TX_STRATMAP_COUNTY_ID = {
+    "Dallas": (("PROP_ID",), "alnum"),  # 12/12 sampled; 697171 parcels
+    "Harris": (("PROP_ID",), "alnum"),  # 5/10 sampled; 542330 parcels
+    "Jefferson": (("GEO_ID",), "alnum"),  # 8/8 sampled; 122325 parcels
+    "Orange": (("GEO_ID",), "alnum"),  # 7/8 sampled; 50691 parcels
+    "Galveston": (("GEO_ID",), "alnum"),  # 7/8 sampled; 190730 parcels
+    "Navarro": (("GEO_ID",), "alnum"),  # 8/10 sampled; 46146 parcels
+    "Jasper": (("GEO_ID",), "numeric"),  # 8/8 sampled; 34290 parcels
+    "Liberty": (("GEO_ID",), "alnum"),  # 4/8 sampled; 164598 parcels
+    "San Patricio": (("PROP_ID",), "alnum"),  # 5/8 sampled; 51392 parcels
+    "Cameron": (("GEO_ID",), "alnum"),  # 8/8 sampled; 185061 parcels
+    "Hidalgo": (("GEO_ID",), "alnum"),  # 8/8 sampled; 334039 parcels
+    "Leon": (("GEO_ID",), "numeric"),  # 8/8 sampled; 28254 parcels
+    "Bexar": (("GEO_ID",), "alnum"),  # 8/8 sampled; 721499 parcels
+    "Nueces": (("GEO_ID",), "alnum"),  # 7/8 sampled; 158832 parcels
+    "Atascosa": (("PROP_ID",), "alnum"),  # 7/8 sampled; 37147 parcels
+    "Victoria": (("GEO_ID",), "alnum"),  # 8/8 sampled; 43838 parcels
+    "Ector": (("PROP_ID",), "alnum"),  # 8/8 sampled; 88980 parcels
+    "El Paso": (("GEO_ID",), "alnum"),  # 8/8 sampled; 401228 parcels
+    "Montgomery": (("GEO_ID",), "numeric"),  # 7/8 sampled; 320910 parcels
+    "McLennan": (("GEO_ID",), "alnum"),  # 8/8 sampled; 116150 parcels
+    "Tyler": (("PROP_ID",), "numeric"),  # 4/8 sampled; 32913 parcels
+    "Live Oak": (("PROP_ID",), "alnum"),  # 8/8 sampled; 17256 parcels
+    "Starr": (("PROP_ID",), "numeric"),  # 8/8 sampled; 40525 parcels
+    "Angelina": (("PROP_ID",), "alnum"),  # 7/8 sampled; 60763 parcels
+    "Gregg": (("PROP_ID",), "alnum"),  # 5/8 sampled; 78015 parcels
+    "Val Verde": (("GEO_ID",), "alnum"),  # 7/8 sampled; 31660 parcels
+    "Lamar": (("PROP_ID",), "alnum"),  # 8/8 sampled; 36525 parcels
+    "Marion": (("PROP_ID",), "numeric"),  # 8/8 sampled; 19757 parcels
+    "Cass": (("GEO_ID",), "alnum"),  # 8/8 sampled; 35172 parcels
+    "Fort Bend": (("GEO_ID",), "alnum"),  # 8/8 sampled; 375108 parcels
+    "Jim Wells": (("GEO_ID",), "alnum"),  # 8/8 sampled; 27945 parcels
+    "Frio": (("PROP_ID",), "alnum"),  # 8/8 sampled; 13311 parcels
+    "Wood": (("PROP_ID",), "numeric"),  # 7/8 sampled; 45058 parcels
+    "Duval": (("GEO_ID",), "alnum"),  # 4/8 sampled; 15319 parcels
+    "Jackson": (("GEO_ID",), "alnum"),  # 7/8 sampled; 18437 parcels
+    "Maverick": (("PROP_ID",), "alnum"),  # 7/8 sampled; 26212 parcels
+    "Polk": (("GEO_ID",), "alnum"),  # 8/8 sampled; 59975 parcels
+    "Parker": (("PROP_ID",), "numeric"),  # 8/8 sampled; 102062 parcels
+    "Upshur": (("PROP_ID",), "alnum"),  # 8/8 sampled; 30544 parcels
+    "Zavala": (("GEO_ID",), "alnum"),  # 8/8 sampled; 9716 parcels
+    "Hays": (("GEO_ID",), "alnum"),  # 4/8 sampled; 121110 parcels
+    "Shelby": (("PROP_ID",), "numeric"),  # 8/8 sampled; 21455 parcels
+    "Henderson": (("PROP_ID",), "alnum"),  # 7/8 sampled; 106332 parcels
+    "Kaufman": (("PROP_ID",), "alnum"),  # 7/8 sampled; 99589 parcels
+    "Llano": (("PROP_ID",), "numeric"),  # 6/8 sampled; 38954 parcels
+    "Falls": (("GEO_ID",), "alnum"),  # 7/8 sampled; 18835 parcels
+    "Gonzales": (("GEO_ID",), "alnum"),  # 8/8 sampled; 20854 parcels
+    "Madison": (("PROP_ID",), "alnum"),  # 8/8 sampled; 10394 parcels
+    "Zapata": (("GEO_ID",), "alnum"),  # 8/8 sampled; 12664 parcels
+    "Cherokee": (("PROP_ID",), "numeric"),  # 8/8 sampled; 47020 parcels
+    "Jim Hogg": (("GEO_ID",), "alnum"),  # 8/8 sampled; 4446 parcels
+    "La Salle": (("GEO_ID",), "alnum"),  # 6/8 sampled; 9894 parcels
+    "Van Zandt": (("GEO_ID",), "alnum"),  # 8/8 sampled; 43840 parcels
+    "Bosque": (("PROP_ID",), "numeric"),  # 7/7 sampled; 20055 parcels
+    "Caldwell": (("PROP_ID",), "alnum"),  # 7/7 sampled; 28036 parcels
+    "Delta": (("GEO_ID",), "alnum"),  # 7/7 sampled; 6471 parcels
+    "Ellis": (("PROP_ID",), "alnum"),  # 7/7 sampled; 101497 parcels
+    "Kleberg": (("PROP_ID",), "alnum"),  # 7/7 sampled; 14909 parcels
+    "Montague": (("GEO_ID",), "alnum"),  # 6/7 sampled; 26548 parcels
+    "Aransas": (("PROP_ID",), "alnum"),  # 6/6 sampled; 27005 parcels
+    "Brooks": (("GEO_ID",), "alnum"),  # 6/6 sampled; 6029 parcels
+    "Morris": (("GEO_ID",), "alnum"),  # 5/6 sampled; 11972 parcels
+    "Tom Green": (("GEO_ID",), "alnum"),  # 6/6 sampled; 59030 parcels
+    "Wise": (("GEO_ID",), "alnum"),  # 5/6 sampled; 53011 parcels
+    "Concho": (("GEO_ID",), "alnum"),  # 5/5 sampled; 8035 parcels
+    "Kerr": (("GEO_ID",), "alnum"),  # 4/5 sampled; 36659 parcels
+    "Robertson": (("GEO_ID",), "alnum"),  # 5/5 sampled; 17237 parcels
+    "Bee": (("PROP_ID",), "alnum"),  # 2/4 sampled; 23063 parcels
+    "Fannin": (("GEO_ID",), "alnum"),  # 4/4 sampled; 29359 parcels
+    "Limestone": (("PROP_ID",), "numeric"),  # 4/4 sampled; 22175 parcels
+    "Titus": (("GEO_ID",), "alnum"),  # 4/4 sampled; 20955 parcels
+    "Wilson": (("GEO_ID",), "alnum"),  # 4/4 sampled; 29144 parcels
+    "Hamilton": (("PROP_ID",), "numeric"),  # 3/3 sampled; 14001 parcels
+    "Houston": (("PROP_ID",), "numeric"),  # 3/3 sampled; 26621 parcels
+    "Reeves": (("GEO_ID",), "alnum"),  # 2/2 sampled; 23494 parcels
+    "Sabine": (("PROP_ID",), "numeric"),  # 2/2 sampled; 23731 parcels
+    "Camp": (("PROP_ID",), "alnum"),  # 1/1 sampled; 11708 parcels
+    "Collin": (("GEO_ID",), "alnum"),  # 1/1 sampled; 387736 parcels
+    "Hopkins": (("GEO_ID",), "alnum"),  # 1/1 sampled; 25436 parcels
+    "Kinney": (("PROP_ID",), "alnum"),  # 1/1 sampled; 11071 parcels
+    "Pecos": (("GEO_ID",), "alnum"),  # 1/1 sampled; 17908 parcels
+    "Rockwall": (("GEO_ID",), "alnum"),  # 1/1 sampled; 55134 parcels
+    "Rusk": (("GEO_ID",), "alnum"),  # 1/1 sampled; 40321 parcels
+}
+
+
+def _tx_fips() -> dict:
+    """County -> FIPS from the app's own county table (public/county-centroids.json)."""
+    import json  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+    data = json.loads((Path(__file__).resolve().parents[2] / "public" / "county-centroids.json").read_text(encoding="utf-8"))
+    return {c: v["fips"] for c, v in data["TX"].items() if c in TX_STRATMAP_COUNTY_ID}
+
+
+# The Texas vendor listings whose case_no is the appraisal-district account
+# (harvesters/ledgers/records.py CAUSE_IN_PARCEL_SOURCES).
+TX_ACCOUNT_IN_CASE_NO_SOURCES = ("tx_lgbs", "tx_realauction", "tx_pbfcm", "tx_mvba", "tx_govease")
+
+TX_STRATMAP = register(ParcelSourceConfig(
+    source_id="tx_txgio_stratmap_parcels", state="TX",
+    agency="Texas Geographic Information Office (TxGIO, Texas Water Development Board) - county appraisal district data",
+    dataset="StratMap Land Parcels 2026 (TxGIO DataHub, one shapefile per county)",
+    landing_url="https://geographic.texas.gov/stratmap/land-parcels.html",
+    layer_url="https://tnris-data-warehouse.s3.us-east-1.amazonaws.com/LCD/collection/stratmap-2026-land-parcels/",
+    file_url_template=("https://tnris-data-warehouse.s3.us-east-1.amazonaws.com/LCD/collection/stratmap-2026-land-parcels/"
+                       "items/shp/stratmap-2026-land-parcels_{fips}_shp.zip"),
+    transport="county_file", id_field="PROP_ID", id_rule="alnum", row_id_column="case_no",
+    county_id=TX_STRATMAP_COUNTY_ID, county_fips=_tx_fips(), counties=tuple(sorted(TX_STRATMAP_COUNTY_ID)),
+    field_map={"land_use": "STAT_LAND_", "year_built": "YEAR_BUILT", "land_value": "LAND_VALUE",
+               "improvement_value": "IMP_VALUE", "market": "MKT_VALUE"},
+    conditional_map={"acreage": ("LEGAL_AREA", "LGL_AREA_U", ("ACRE", "ACRES", "AC"))},
+    value_year_field="TAX_YEAR", provenance_attrs=("SOURCE", "DATE_ACQ", "LGL_AREA_U"),
+    licence=("TxGIO StratMap Land Parcels: county appraisal district data compiled for TxGIO; TWDB Copyright Policy 'freely "
+             "grants permission to copy and distribute its materials' (read 2026-10-27); the appraisal districts' own reuse "
+             "terms were not read - interim internal risk acceptance (data/source_permissions.csv)."),
+    publication_status="APPROVED", centroid=True, columns_verified=True, fill_blank_only=True,
+    row_source_ids=TX_ACCOUNT_IN_CASE_NO_SOURCES,
+    notes=("TX enrichment 2026-10-27: schema definitions read from the TxGIO Land Parcel Schema PDF; per-county identifier "
+           "column and rule measured against a sample of the rows' accounts for every county with TX rows (counts only); "
+           "the shapefiles' .prj is geographic WGS 84, so the centroid is the matched parcel polygon's own."),
+))
+
+
+# ---------------------------------------------------------------------------
+# Texas - Harris Central Appraisal District parcel layer (www.gis.hctx.net
+# HCAD/Parcels MapServer layer 0, copyright "Harris County Appraisal
+# District"). Read live 2026-10-27: Query capability, 1,000 records a request;
+# HCAD_NUM is the 13-digit HCAD account - 7 of 10 sampled Harris accounts
+# matched exactly (StratMap's Harris file: 5 of 10, and it carries no values
+# or land use for Harris). The layer publishes NO field definitions (its
+# description reads "Parcel polygon is the delineation of the property
+# boundary"), so only self-describing columns whose sampled values have the
+# expected shape are mapped: state_class (the Comptroller's state property
+# category, e.g. 'A1'), land_value, impr_value, total_market_val, acreage_1
+# (numeric acres) and tax_year. Not mapped: the free-text 'Acreage', owner /
+# mailing columns, legal-description lines. Fill-blank only (StratMap fills
+# year_built for Harris; this layer has none). Interim permission records.
+# ---------------------------------------------------------------------------
+TX_HCAD = register(ParcelSourceConfig(
+    source_id="tx_hcad_parcels", state="TX",
+    agency="Harris Central Appraisal District (Harris County GIS)",
+    dataset="HCAD Parcels (gis.hctx.net HCAD/Parcels MapServer layer 0)",
+    landing_url="https://www.gis.hctx.net/arcgis/rest/services/HCAD/Parcels/MapServer",
+    layer_url="https://www.gis.hctx.net/arcgis/rest/services/HCAD/Parcels/MapServer/0",
+    id_field="HCAD_NUM", id_rule="alnum", row_id_column="case_no",
+    field_map={"land_use": "state_class", "land_value": "land_value", "improvement_value": "impr_value",
+               "market": "total_market_val", "acreage": "acreage_1"},
+    value_year_field="tax_year",
+    licence=("Harris Central Appraisal District parcel layer (copyright 'Harris County Appraisal District'); no licence or "
+             "terms stated on the layer - interim internal risk acceptance (data/source_permissions.csv)."),
+    publication_status="APPROVED", counties=("Harris",), centroid=True, columns_verified=True, fill_blank_only=True,
+    row_source_ids=TX_ACCOUNT_IN_CASE_NO_SOURCES, batch_size=50,
+    notes="TX enrichment 2026-10-27: fields read live; 7 of 10 sampled Harris accounts matched HCAD_NUM exactly.",
 ))

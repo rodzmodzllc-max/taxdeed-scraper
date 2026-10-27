@@ -29,6 +29,12 @@ closes that gap WITHOUT a source read:
   * never last_seen_at, status, amounts, owners or outcomes.
 
     python3 scripts/apply_acquisition_paths.py --state TX --source-id tx_lgbs [--dry-run]
+    python3 scripts/apply_acquisition_paths.py --state TX --ledgers laft,auction   # every TX source, both ledgers
+
+(2026-10-27) An evidence row's process applies only to the ledgers
+data/acquisition_evidence_ledgers.csv names for it (AVAILABLE when it names
+none): a constable's sale terms reach AUCTIONS rows, a struck-off resale
+procedure reaches AVAILABLE rows.
 
 Counts only are printed (public logs).
 """
@@ -70,6 +76,27 @@ def load_registry(path: Path, state: str) -> dict[tuple[str, str], dict]:
     return out
 
 
+def statewide_listing_row(registry: dict, source_id: str, county: str) -> dict | None:
+    """The registry row for (source_id, county), or - for a source whose ONE
+    listing serves every county (all its registry rows name the same canonical
+    page, e.g. LGBS's taxsales.lgbs.com) - that statewide listing, for a county
+    the registry roster does not name (TX enrichment 2026-10-27: tx_lgbs rows
+    in ~100 counties against an 8-county roster, so 3,489 of 3,635 Available
+    rows read 'no_registry_row'). A per-county source (RealAuction: one site
+    per county) never borrows another county's page."""
+    reg = registry.get((source_id, county))
+    if reg is not None or not source_id:
+        return reg
+    rows = [r for (sid, _c), r in registry.items() if sid == source_id]
+    urls = {(r.get("canonical_url") or "").strip() for r in rows}
+    if len(rows) < 2 or len(urls) != 1 or not next(iter(urls)).startswith("https://"):
+        return None
+    base = sorted(rows, key=lambda r: r.get("county") or "")[0]
+    # The listing is the same; nothing county-specific is carried over.
+    return {**base, "county": county, "purchase_url": "", "purchase_url_kind": "", "purchase_path_mode": "",
+            "purchase_path_evidence": ""}
+
+
 def source_match(row: dict, *, listing: str, read_on: str | None, harvester: str) -> dict | None:
     case_no, parcel = str(row.get("case_no") or "").strip(), str(row.get("parcel") or "").strip()
     if case_no:
@@ -88,13 +115,18 @@ def source_match(row: dict, *, listing: str, read_on: str | None, harvester: str
     return m
 
 
-def plan_row(row: dict, *, registry: dict, evidence: list, state: str, today: str) -> tuple[dict | None, str]:
-    """(PATCH payload or None, outcome label). Pure - tested directly."""
+def plan_row(row: dict, *, registry: dict, evidence: list, state: str, today: str, scope: dict | None = None) -> tuple[dict | None, str]:
+    """(PATCH payload or None, outcome label). Pure - tested directly. Only
+    the evidence rows whose process applies to the row's own ledger are used
+    (purchase_path_engine.evidence_for_ledger; `scope` is
+    data/acquisition_evidence_ledgers.csv - a row without an entry is an
+    AVAILABLE process)."""
+    evidence = PE.evidence_for_ledger(evidence, str(row.get("source") or "laft"), scope)
     if str(row.get("status") or "active").lower() in GONE:
         return None, "not_active"
     source_id = row.get("source_id") or row.get("harvester_source") or ""
     county = row.get("county") or ""
-    reg = registry.get((source_id, county))
+    reg = statewide_listing_row(registry, source_id, county)
     if reg is None:
         return None, "no_registry_row"
     stored = row.get("otc_provenance") if isinstance(row.get("otc_provenance"), dict) else {}
@@ -150,20 +182,19 @@ def _req(method: str, url: str, key: str, body: dict | None = None):
         return json.loads(raw) if raw else None
 
 
-def fetch_rows(base: str, key: str, state: str, source_id: str | None) -> list[dict]:
-    rows, offset = [], 0
-    while True:
-        q = {"select": SELECT, "state": f"eq.{state}", "source": "eq.laft", "order": "id", "limit": "1000", "offset": str(offset)}
-        if source_id:
-            # source_id OR the harvester's own harvester_source: a row a sync
-            # wrote without source_id (Texas, before 2026-10-26) is still that
-            # source's row, and plan_row() already resolves it the same way.
-            q["or"] = f"(source_id.eq.{source_id},harvester_source.eq.{source_id})"
-        page = _req("GET", f"{base.rstrip('/')}/rest/v1/properties?{urllib.parse.urlencode(q)}", key) or []
-        rows.extend(page)
-        if len(page) < 1000:
-            return rows
-        offset += 1000
+def fetch_rows(base: str, key: str, state: str, source_id: str | None, ledgers: tuple = ("laft",)) -> list[dict]:
+    """The state's rows of the given ledgers (properties.source; default the
+    AVAILABLE ledger), keyset-paged with a bounded retry (scripts/rest_pages.py)."""
+    import rest_pages  # noqa: PLC0415
+    q = {"select": SELECT, "state": f"eq.{state}",
+         "source": f"eq.{ledgers[0]}" if len(ledgers) == 1 else f"in.({','.join(ledgers)})"}
+    if source_id:
+        # source_id OR the harvester's own harvester_source: a row a sync
+        # wrote without source_id (Texas, before 2026-10-26) is still that
+        # source's row, and plan_row() already resolves it the same way.
+        q["or"] = f"(source_id.eq.{source_id},harvester_source.eq.{source_id})"
+    url = f"{base.rstrip('/')}/rest/v1/properties"
+    return rest_pages.read_all(base, "properties", {}, q, fetch=lambda qs: _req("GET", f"{url}?{qs}", key) or [])
 
 
 def store_permitted_for(state: str, *, decide=None):
@@ -193,7 +224,9 @@ def store_permitted_for(state: str, *, decide=None):
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--state", required=True)
-    ap.add_argument("--source-id", default=None)
+    ap.add_argument("--source-id", default=None, help="one source id, or several comma-separated")
+    ap.add_argument("--ledgers", default="laft",
+                    help="comma-separated properties.source values (default laft; 'laft,auction' adds the AUCTIONS rows)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--report", default="out/public/acquisition-apply.json")
     a = ap.parse_args(argv)
@@ -203,8 +236,11 @@ def main(argv=None) -> int:
         return 0
     registry = load_registry(REGISTRY, a.state)
     evidence = PE.load_evidence()
+    scope = PE.load_ledger_scope()
     today = date.today().isoformat()
-    rows = fetch_rows(base, key, a.state, a.source_id)
+    ledgers = tuple(x.strip() for x in a.ledgers.split(",") if x.strip()) or ("laft",)
+    source_ids = [s.strip() for s in (a.source_id or "").split(",") if s.strip()] or [None]
+    rows = [r for sid in source_ids for r in fetch_rows(base, key, a.state, sid, ledgers)]
     tally: Counter = Counter()
     by_county: dict[str, Counter] = {}
     patched = 0
@@ -214,14 +250,14 @@ def main(argv=None) -> int:
             tally["not_permitted"] += 1
             by_county.setdefault(r.get("county") or "?", Counter())["not_permitted"] += 1
             continue
-        payload, outcome = plan_row(r, registry=registry, evidence=evidence, state=a.state, today=today)
+        payload, outcome = plan_row(r, registry=registry, evidence=evidence, state=a.state, today=today, scope=scope)
         tally[outcome] += 1
         by_county.setdefault(r.get("county") or "?", Counter())[outcome] += 1
         if payload is None or a.dry_run:
             continue
         _req("PATCH", f"{base.rstrip('/')}/rest/v1/properties?id=eq.{urllib.parse.quote(str(r['id']))}", key, payload)
         patched += 1
-    report = {"state": a.state, "source_id": a.source_id, "dry_run": a.dry_run, "rows": len(rows), "patched": patched,
+    report = {"state": a.state, "source_id": a.source_id, "ledgers": list(ledgers), "dry_run": a.dry_run, "rows": len(rows), "patched": patched,
               "outcomes": dict(tally), "by_county": {c: dict(v) for c, v in sorted(by_county.items())}}
     Path(a.report).parent.mkdir(parents=True, exist_ok=True)
     Path(a.report).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")

@@ -1694,7 +1694,7 @@
   },
   {
    "check": "rules_valid",
-   "detail": "6 rule(s) recorded",
+   "detail": "15 rule(s) recorded",
    "state": "TX",
    "status": "PASS"
   },
@@ -1734,7 +1734,7 @@
   },
   {
    "check": "county_coverage",
-   "detail": "65 counties: Archer, Austin, Bandera, Bastrop, Bell, Bexar, Brazoria, Brewster, Brown, Caldwell, Cameron, Chambers …",
+   "detail": "67 counties: Archer, Austin, Bandera, Bastrop, Bell, Bexar, Brazoria, Brewster, Brown, Caldwell, Cameron, Chambers …",
    "state": "TX",
    "status": "PASS",
    "subject": "AVAILABLE"

@@ -406,6 +406,55 @@ def load_evidence(path: Path | str = EVIDENCE_PATH) -> list[EvidenceRow]:
 
 
 # ---------------------------------------------------------------------------
+# Ledger scope of an evidence row (TX enrichment, 2026-10-27)
+# ---------------------------------------------------------------------------
+# An evidence row is keyed (state, source_id, county), but one source can feed
+# two ledgers (LGBS lists both struck-off resale property - AVAILABLE - and
+# upcoming sheriff / constable sales - AUCTIONS) and a county's page may
+# describe only one of the two processes. data/acquisition_evidence_ledgers.csv
+# names the ledger(s) an evidence row's process applies to. A row without an
+# entry applies to AVAILABLE only - exactly what every evidence row meant
+# before this file existed (the engine was only ever applied to AVAILABLE rows).
+LEDGER_SCOPE_PATH = REPO / "data" / "acquisition_evidence_ledgers.csv"
+LEDGER_SCOPE_COLUMNS = ["state", "source_id", "county", "ledgers", "basis"]
+LEDGER_NAMES = ("AUCTIONS", "AVAILABLE", "LIENS_CERTIFICATES")
+# properties.source -> ledger name
+SOURCE_LEDGER = {"laft": "AVAILABLE", "auction": "AUCTIONS", "certificate": "LIENS_CERTIFICATES"}
+DEFAULT_LEDGERS = frozenset({"AVAILABLE"})
+
+
+def load_ledger_scope(path: Path | str = LEDGER_SCOPE_PATH) -> dict[tuple[str, str, str], frozenset]:
+    p = Path(path)
+    if not p.is_file():
+        return {}
+    out: dict[tuple[str, str, str], frozenset] = {}
+    with open(p, newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        if reader.fieldnames != LEDGER_SCOPE_COLUMNS:
+            raise ValueError(f"{p.name}: columns must be {LEDGER_SCOPE_COLUMNS}, got {reader.fieldnames}")
+        for i, r in enumerate(reader, 2):
+            key = ((r.get("state") or "").strip(), (r.get("source_id") or "").strip(), (r.get("county") or "").strip())
+            led = frozenset(x.strip() for x in (r.get("ledgers") or "").split("|") if x.strip())
+            if not all(key) or not led or not led <= set(LEDGER_NAMES) or not (r.get("basis") or "").strip():
+                raise ValueError(f"{p.name} line {i}: state, source_id, county, ledgers ({'|'.join(LEDGER_NAMES)}) and basis are required")
+            if key in out:
+                raise ValueError(f"{p.name} line {i}: duplicate entry {key}")
+            out[key] = led
+    return out
+
+
+def evidence_ledgers(e: "EvidenceRow", scope: dict | None) -> frozenset:
+    return (scope or {}).get((e.state, e.source_id, e.county), DEFAULT_LEDGERS)
+
+
+def evidence_for_ledger(evidence: list["EvidenceRow"], ledger: str, scope: dict | None) -> list["EvidenceRow"]:
+    """The evidence rows whose process applies to `ledger` (a LEDGER_NAMES
+    value, or a properties.source value)."""
+    ledger = SOURCE_LEDGER.get(ledger, ledger)
+    return [e for e in evidence if ledger in evidence_ledgers(e, scope)]
+
+
+# ---------------------------------------------------------------------------
 # Resolution
 # ---------------------------------------------------------------------------
 def _registry_fields(registry_row) -> dict:

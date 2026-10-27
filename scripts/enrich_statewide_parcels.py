@@ -35,7 +35,7 @@ from harvesters.governance import states  # noqa: E402
 from scripts import field_provenance as FP  # noqa: E402
 
 USER_AGENT = "taxdeed-scraper statewide-parcel-enrichment (+https://github.com/rodzmodzllc-max/taxdeed-scraper)"
-READ_COLUMNS = ["id", "county", "source", "parcel", "case_no", "field_provenance", "latitude", "longitude", *sorted(P.COLUMN_TYPES)]
+READ_COLUMNS = ["id", "county", "source", "source_id", "harvester_source", "parcel", "case_no", "field_provenance", "latitude", "longitude", *sorted(P.COLUMN_TYPES)]
 
 
 def http_json(url: str, *, headers: dict | None = None, method: str = "GET", body: bytes | None = None, timeout: int = 60):
@@ -135,6 +135,14 @@ def county_file_fetcher(cfg, county: str, keys: set):
     return fetch
 
 
+def _point_in_state(state: str, lat, lng) -> bool:
+    """True unless the state has known bounds and the point lies outside them."""
+    from harvesters.enrichment import geocode as GC  # noqa: PLC0415
+    if state not in GC.STATE_BOUNDS or lat is None or lng is None:
+        return True
+    return GC.in_state(float(lat), float(lng), state)
+
+
 def _row_blank(row: dict, column: str) -> bool:
     if column in ("latitude", "longitude"):
         return FP.is_blank(row.get("latitude")) and FP.is_blank(row.get("longitude"))
@@ -159,7 +167,8 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
     failure_kinds: dict = {}
     by_county = defaultdict(list)
     for r in rows:
-        by_county[r.get("county") or ""].append(r)
+        if cfg.takes_row(r):
+            by_county[r.get("county") or ""].append(r)
     for county, crow in sorted(by_county.items()):
         if not cfg.covers(county):
             continue
@@ -199,6 +208,9 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
             fields, prov = P.plan_update(cfg, row, m, recorded_at=recorded_at)
             if cfg.fill_blank_only:
                 fields = {k: v for k, v in fields.items() if _row_blank(row, k)}
+            if "latitude" in fields and not _point_in_state(state, fields.get("latitude"), fields.get("longitude")):
+                fields.pop("latitude", None)    # a centroid outside the row's state is not its location
+                fields.pop("longitude", None)
             fields = FP.filter_by_provenance(row, {k: v for k, v in fields.items() if blank_for(row, k) or k in (row.get("field_provenance") or {})}, "statewide_parcel")
             if not fields:
                 continue
@@ -248,34 +260,46 @@ def main(argv=None) -> int:
         print(f"skip: state {st} is not activated")
         return 0
     if a.source_id:
-        cfg = next((c for c in all_sources() if c.source_id == a.source_id and c.state == st), None)
+        # One layer or several (comma-separated, run in that order over the same
+        # rows - a later layer sees what an earlier one filled).
+        ids = [s.strip() for s in a.source_id.split(",") if s.strip()]
+        cfgs = [next((c for c in all_sources() if c.source_id == sid and c.state == st), None) for sid in ids]
     else:
-        cfg = for_state(st)
-    if cfg is None or not P.enrichment_allowed(cfg)[0]:
-        print(f"skip: {st} parcel source {a.source_id or '(statewide)'} not cleared ({P.enrichment_allowed(cfg)[1] if cfg else 'none configured'})")
+        ids, cfgs = ["(statewide)"], [for_state(st)]
+    cleared = []
+    for sid, cfg in zip(ids, cfgs):
+        if cfg is None or not P.enrichment_allowed(cfg)[0]:
+            what = "statewide parcel source" if sid == "(statewide)" else f"parcel source {sid}"
+            print(f"skip: {st} {what} not cleared ({P.enrichment_allowed(cfg)[1] if cfg else 'none configured'})")
+        else:
+            cleared.append(cfg)
+    if not cleared:
         return 0
     base, key = os.environ.get("SUPABASE_URL", "").rstrip("/"), os.environ.get("SUPABASE_SERVICE_KEY", "")
     if not base or not key:
         print("skip: SUPABASE_URL / SUPABASE_SERVICE_KEY not set")
         return 0
-    rows = fetch_rows(base, key, st, cfg.row_id_column)
-    rows = [r for r in rows if cfg.covers(r.get("county") or "")]
-    rows = select_rows(rows, counties=[c.strip() for c in a.counties.split(",") if c.strip()] or None,
-                       max_counties=a.max_counties or None,
-                       ledgers=[x.strip() for x in a.ledgers.split(",") if x.strip()] or None)
+    all_rows = fetch_rows(base, key, st, cleared[0].row_id_column)
+    all_rows = select_rows(all_rows, counties=[c.strip() for c in a.counties.split(",") if c.strip()] or None,
+                           max_counties=a.max_counties or None,
+                           ledgers=[x.strip() for x in a.ledgers.split(",") if x.strip()] or None)
 
     def fetch_json(url):
         time.sleep(0.3)
         return http_json(url)
 
-    report = run(st, rows, fetch_json, write=None if a.dry_run else (lambda i, f: patch(base, key, i, f)),
-                 recorded_at=FP.now_iso(), retries=2, cfg=cfg)
-    report["dry_run"] = a.dry_run
-    name = f"enrichment-{st.lower()}" + (f"-{cfg.source_id}" if a.source_id else "")
-    out = Path(a.out or REPO / "out" / "public" / f"{name}.json")
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({k: report.get(k) for k in ("state", "rows_considered", "matched", "unmatched", "ambiguous", "no_identifier", "failed_queries", "query_failures_by_cause", "rows_written", "skipped")}))
+    for cfg in cleared:
+        rows = [r for r in all_rows if cfg.covers(r.get("county") or "") and r.get(cfg.row_id_column) not in (None, "")]
+        report = run(st, rows, fetch_json, write=None if a.dry_run else (lambda i, f: patch(base, key, i, f)),
+                     recorded_at=FP.now_iso(), retries=2, cfg=cfg)
+        report["dry_run"] = a.dry_run
+        name = f"enrichment-{st.lower()}" + (f"-{cfg.source_id}" if a.source_id else "")
+        out = Path(a.out if a.out and len(cleared) == 1 else REPO / "out" / "public" / f"{name}.json")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        print(json.dumps({k: report.get(k) for k in ("state", "source_id", "rows_considered", "matched", "unmatched", "ambiguous",
+                                                       "no_identifier", "failed_queries", "query_failures_by_cause", "rows_written",
+                                                       "fields_written", "skipped", "dry_run")}))
     return 0
 
 

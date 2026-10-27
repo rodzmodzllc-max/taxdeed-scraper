@@ -10078,12 +10078,16 @@
      "rules": {
       "by_status": {
        "NOT_VERIFIED": 2,
-       "VERIFIED": 4
+       "VERIFIED": 10
       },
-      "count": 6,
+      "count": 12,
       "county_rules": [
+       "Fort Bend",
        "Galveston",
-       "Harris"
+       "Harris",
+       "Jefferson",
+       "Orange",
+       "Tarrant"
       ],
       "unresolved": [
        "redemption",
@@ -12112,11 +12116,16 @@
      },
      "rules": {
       "by_status": {
-       "VERIFIED": 3
+       "VERIFIED": 8
       },
-      "count": 3,
+      "count": 8,
       "county_rules": [
-       "Galveston"
+       "Bexar",
+       "Dallas",
+       "Galveston",
+       "Harris",
+       "Jefferson",
+       "Orange"
       ],
       "unresolved": [],
       "verified_law": []

@@ -38,7 +38,10 @@ def test_a01_v3_columns_and_every_committed_row_names_an_office_and_at_least_one
     assert PE.EVIDENCE_COLUMNS[-8:] == ["office", "address", "phone", "email", "mailing_address", "steps", "application_url", "payment"]
     # 16 Florida rows + East Baton Rouge LA (property-enrichment sprint, run 36835470121)
     # + Alachua, Duval, Highlands FL and Galveston TX (acquisition-path sprint, run 36858070184).
-    assert len(EVIDENCE) == 21 and [(e.state, e.county) for e in EVIDENCE if e.state != "FL"] == [("LA", "East Baton Rouge"), ("TX", "Galveston")]
+    # + eight Texas county processes and Galveston's RealAuction rows (TX enrichment, run 40430155571).
+    assert len(EVIDENCE) == 30 and [(e.state, e.county) for e in EVIDENCE if e.state != "FL"] == [
+        ("LA", "East Baton Rouge"), ("TX", "Galveston"), ("TX", "Dallas"), ("TX", "Tarrant"), ("TX", "Harris"),
+        ("TX", "Jefferson"), ("TX", "Orange"), ("TX", "Orange"), ("TX", "Bexar"), ("TX", "Fort Bend"), ("TX", "Galveston")]
     for e in EVIDENCE:
         assert e.office, e.county
         # Something a person can act on - or, when the page published no

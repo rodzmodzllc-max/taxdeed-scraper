@@ -66,10 +66,6 @@ ID_RULES: dict[str, Callable[[str], str]] = {
     # that stores the id as a number (a Socrata "number" column loses the
     # leading zeros the published form carries); applied to both sides.
     "numeric": lambda v: re.sub(r"\D", "", v).lstrip("0"),
-    # separators removed and leading zeros dropped, LETTERS KEPT: for a source
-    # that zero-pads an account the listing writes without padding (or the
-    # reverse). Never strips a letter, so "R02590" stays distinct from "2590".
-    "nolead": lambda v: re.sub(r"[^0-9A-Za-z]", "", v).upper().lstrip("0"),
 }
 
 # Columns this pipeline may write, and their type. Anything else in a field
@@ -161,6 +157,14 @@ class ParcelSourceConfig:
     # is never mapped at all; this keeps a later sync and this source from
     # taking turns overwriting each other.
     fill_blank_only: bool = False
+    # Only rows of these sources (properties.source_id, else harvester_source)
+    # are matched - the sources whose row_id_column IS this layer's identifier
+    # (Texas: the vendor listings carry the appraisal-district account in
+    # case_no; a county list's case_no may be something else). Empty = every row.
+    row_source_ids: tuple = ()
+
+    def takes_row(self, row: dict) -> bool:
+        return not self.row_source_ids or (row.get("source_id") or row.get("harvester_source") or "") in self.row_source_ids
 
     def __post_init__(self) -> None:
         if self.transport not in TRANSPORTS:

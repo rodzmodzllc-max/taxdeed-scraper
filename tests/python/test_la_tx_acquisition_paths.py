@@ -108,9 +108,11 @@ def test_texas_outcomes_record_the_2026_10_25_reads_and_never_verify():
         assert AES.outcome_problems(o) == [] and o.status == "NOT_FOUND" and o.basis == "document_read"
         assert o.attempted_on == "2026-10-25"
         assert o.document_url == ""     # a county page is not a policy document; the pages read are candidates
-    # Galveston keeps its verified evidence row; no other TX county gained one.
+    # Galveston keeps its verified evidence row; none of these seven counties gained one (the
+    # TX enrichment capture of 2026-10-27, run 40430155571, added other counties only).
     ev = [r for r in csv.DictReader(open(REPO / "data/purchase_path_evidence.csv", encoding="utf-8")) if r["state"] == "TX"]
-    assert [r["county"] for r in ev] == ["Galveston"]
+    assert ev[0]["county"] == "Galveston" and not {r["county"] for r in ev} & counties
+    assert {r["county"] for r in ev} == {"Galveston", "Dallas", "Tarrant", "Harris", "Jefferson", "Orange", "Bexar", "Fort Bend"}
 
 
 def test_lgbs_refresh_unseen_rows_in_a_truncated_walk_are_not_read():

@@ -210,7 +210,7 @@ def test_g11_coverage_report_separates_inventory_from_acquisition_enrichment():
 
 def test_g12_texas_step_makes_no_source_request_and_is_never_the_lgbs_harvest():
     step = WORKFLOW.split("Texas - acquisition paths from verified county evidence")[1].split("\n  expansion:")[0]
-    assert "apply_acquisition_paths.py --state TX --source-id tx_lgbs" in step and "continue-on-error: true" in step
+    assert "apply_acquisition_paths.py --state TX --ledgers laft,auction" in step and "continue-on-error: true" in step
     assert "texas_harvester" not in step and "lgbs.com" not in step
     src = (REPO / "scripts/apply_acquisition_paths.py").read_text(encoding="utf-8")
     assert "requests" not in src and "texas_harvester" not in src
@@ -230,7 +230,9 @@ def test_g13_candidate_pages_are_https_official_and_never_blocked_vendors():
 
 
 def test_g14_committed_evidence_from_the_candidate_capture():
-    by = {(e.state, e.county): e for e in PE.load_evidence()}
+    by: dict = {}
+    for e in PE.load_evidence():
+        by.setdefault((e.state, e.county), e)     # the first row per county (Galveston: tx_lgbs, then tx_realauction)
     exp = {("FL", "Alachua"): ("fl_laft_realtdm", "quoted_amount", "(352) 374-3615", "taxdeeds@alachuaclerk.org"),
            ("FL", "Duval"): ("fl_laft_pioneer", "phone_mail", "", "Ask.TaxDeeds@DuvalClerk.com"),
            ("FL", "Highlands"): ("fl_laft_realtdm", "quoted_amount", "(863) 402-6565", "clkbustd@hcclerk.org"),

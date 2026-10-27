@@ -885,6 +885,65 @@
   {
    "state": "TX",
    "source_id": "tx_lgbs",
+   "county": "Bexar",
+   "path_type": "county_instructions",
+   "process_url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information",
+   "purchase_evidence_url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information",
+   "purchase_evidence_type": "county_document",
+   "purchase_evidence_title": "Bexar County - Tax Foreclosure Struck Off Properties General Information",
+   "purchase_instructions": "Struck Off properties are available for Private Sale. Struck Off properties deeded to the County will either be sold as a Private Sale by the Asset Management Division of the Public Works Department or during the semi-annual Commissioners Court Resale auction. The purchase file will then be reviewed for preliminary approval and the purchaser will be asked to sign a Purchase Agreement form that will include all associated costs and conveyance information. The file will then be taken to Commissioners Court for formal approval and issuance of a Court Order authorizing the sale. Payment for Property: After formal approval by the Commissioner's Court, the purchaser will first make payment to Bexar County Tax Assessor/Collector's office, for the interim taxes due. The last payment is for the recording fee, of the Quitclaim Deed. The Auctions are conducted by the Bexar County Sheriff's Office. In order to participate in the Resale Auction you must be registered prior to the public auction.",
+   "purchase_path_observed_on": "2026-10-27",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "instructions",
+     "phone"
+    ],
+    "office": "Bexar County Public Works - Asset Management Division",
+    "phone": "210-335-6700",
+    "payment": "Interim taxes to the Bexar County Tax Office; the struck-off amount and liens by cashier's check; the Quitclaim Deed recording fee to the Bexar County Clerk",
+    "steps": [
+     "Contact the Bexar County Public Works Asset Management Division about a struck-off property (private sale), or register for the Commissioners Court Resale auction",
+     "Sign the Purchase Agreement form listing all associated costs after preliminary approval",
+     "The Commissioners Court formally approves the sale and issues a Court Order",
+     "Pay the interim taxes to the Tax Assessor-Collector, then the struck-off amount and any code-compliance liens, then the deed recording fee"
+    ],
+    "evidence_url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information",
+    "observed_on": "2026-10-27"
+   }
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_lgbs",
+   "county": "Dallas",
+   "path_type": "county_instructions",
+   "process_url": "https://www.dallascounty.org/Assets/uploads/docs/public-works/TaxFCResaleFAQ_2024_Bids.pdf",
+   "purchase_evidence_url": "https://www.dallascounty.org/Assets/uploads/docs/public-works/TaxFCResaleFAQ_2024_Bids.pdf",
+   "purchase_evidence_type": "county_document",
+   "purchase_evidence_title": "Dallas County Property Division - Tax Foreclosure Resales FAQ (Sealed Bids)",
+   "purchase_instructions": "Q: THE STRUCK-OFF LIST SHOWS THE PROPERTY STATUS AS 'HOLD FOR SEALED BIDS'. The properties listed on the website will be advertised for sale via sealed bid solicitation at a future date. Once the date has been determined, the website will be updated with an announcement of the pending bid solicitation and a link to instructions for submitting your bid. There is no regularly scheduled time to accept bids. All properties will be sold in compliance with the Dallas County Tax Foreclosure Resale Policy included in the County Code and Section 34.05 of Texas Tax Code. The Commissioners Court is briefed and the highest, qualified bids are recommended for approval. The Court approves the sale to the highest bidders and issues a Court Order. A Property Award Notification email is sent to the successful purchaser with instructions to pay the balance.",
+   "purchase_path_observed_on": "2026-10-27",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "instructions",
+     "phone"
+    ],
+    "office": "Dallas County Public Works - Property Division",
+    "phone": "214-653-6400",
+    "steps": [
+     "Watch the Dallas County Property Division's struck-off list - a property marked 'Hold for Sealed Bids' cannot be bid on yet",
+     "When the county announces a sealed bid solicitation, follow the bid instructions linked from that announcement",
+     "The highest, qualified bids are recommended to the Commissioners Court, which approves the sale and issues a Court Order",
+     "The successful purchaser receives a Property Award Notification email with instructions to pay the balance"
+    ],
+    "evidence_url": "https://www.dallascounty.org/Assets/uploads/docs/public-works/TaxFCResaleFAQ_2024_Bids.pdf",
+    "observed_on": "2026-10-27"
+   }
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_lgbs",
    "county": "Galveston",
    "path_type": "county_instructions",
    "process_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
@@ -913,6 +972,111 @@
     ],
     "evidence_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
     "observed_on": "2026-10-01"
+   }
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_lgbs",
+   "county": "Harris",
+   "path_type": "county_instructions",
+   "process_url": "https://www.hctax.net/Property/TaxSales",
+   "purchase_evidence_url": "https://www.hctax.net/Property/TaxSales",
+   "purchase_evidence_type": "county_page",
+   "purchase_evidence_title": "Harris County Tax Office - Harris County Tax Sales",
+   "purchase_instructions": "The Harris County Delinquent Tax Sale is the monthly public auction of real estate for past due property taxes. There are three types of sales: 1) Execution Sale, 2) Tax Sales, and 3) Tax Resales. Registration is required to participate in the Harris County Tax Sale and must be renewed annually. Bidders may pre-register online, by mail or in person at the Tax Sale. Bidders must have valid identification and must not owe any delinquent taxes on any property in Harris County. Property is sold to the highest bidder and full payment for the purchase is required immediately after the sale. Only cash and certified funds are accepted as payment. A receipt for the purchase payment is issued on the day of the sale and the deed is issued within 4-6 weeks.",
+   "purchase_path_observed_on": "2026-10-27",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "application",
+     "instructions",
+     "email",
+     "phone",
+     "mail",
+     "in_person"
+    ],
+    "office": "Harris County Tax Office - Special Tax Services",
+    "address": "1001 Preston, Houston, TX 77002",
+    "phone": "713-274-8120",
+    "email": "taxofficespecialtaxservices@hctx.net",
+    "mailing_address": "Box 3746, Houston, TX 77253",
+    "application_url": "https://www.hctax.net/Forms/TaxSaleBidderRegistration.pdf",
+    "payment": "Cash and certified funds only, in full immediately after the sale",
+    "steps": [
+     "Register as a bidder with the Harris County Tax Office (online, by mail or in person at the Tax Sale); registration is renewed annually",
+     "You must not owe delinquent taxes on any property in Harris County",
+     "Bid at the monthly Tax Sale (first Tuesday) - properties are offered as Executions, Tax Sales and Tax Resales",
+     "Pay in full immediately after the sale in cash or certified funds; the deed is issued within 4-6 weeks"
+    ],
+    "evidence_url": "https://www.hctax.net/Property/TaxSales",
+    "observed_on": "2026-10-27"
+   }
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_lgbs",
+   "county": "Jefferson",
+   "path_type": "county_instructions",
+   "process_url": "https://jeffcotax.com/property-tax/delinquent-tax-sale/",
+   "purchase_evidence_url": "https://jeffcotax.com/property-tax/delinquent-tax-sale/",
+   "purchase_evidence_type": "county_page",
+   "purchase_evidence_title": "Jefferson County Tax Office - Delinquent Tax Sale",
+   "purchase_instructions": "(1) A bidder must request a Statement of No Delinquent Taxes Owed from the Jefferson County Tax Office. (2) The property will be sold at public auction and will be sold for cash to the highest bidder, based on oral bids. Purchasers must pay for their property with cash or a cashier's check payable to the Jefferson County Sheriff's Department by 4:00 p.m. The amount of the opening bid is set out next to each tract, and the bidding must start at that figure or higher. The amount of the suggested opening bid is set out next to each tract or will be stated by the auctioneer at the time the property is offered for sale. Bids less than the suggested starting bid may be accepted at the discretion of the tax assessor-collector. (5) Purchasers at this tax foreclosure sale will receive an ordinary type of sheriff's deed, which is without warranty, express or implied.",
+   "purchase_path_observed_on": "2026-10-27",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "application",
+     "instructions",
+     "phone"
+    ],
+    "office": "Jefferson County Tax Office",
+    "phone": "(409) 835-8516",
+    "application_url": "https://jeffcotax.com/wp-content/uploads/2025/12/Request-statement-no-taxes-12.4.25.pdf",
+    "payment": "Cash or cashier's check payable to the Jefferson County Sheriff's Department by 4:00 p.m. on the day of the sale",
+    "steps": [
+     "Request a Statement of No Delinquent Taxes Owed from the Jefferson County Tax Office before the sale",
+     "When buying for a company, bring the Assumed Name Certificate or Franchise Tax Account Status (and a signed authorization letter if you are not an officer)",
+     "Bid at the public auction (original Sheriff sale or re-sale) - cash to the highest oral bidder",
+     "Pay with cash or a cashier's check payable to the Jefferson County Sheriff's Department by 4:00 p.m. on the sale day; a sheriff's deed without warranty is issued"
+    ],
+    "evidence_url": "https://jeffcotax.com/property-tax/delinquent-tax-sale/",
+    "observed_on": "2026-10-27"
+   }
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_lgbs",
+   "county": "Orange",
+   "path_type": "application_download",
+   "process_url": "https://www.co.orange.tx.us/media/TaxAssessorCollector/2025/TRUST_All%20forms%20combined%201.pdf",
+   "purchase_evidence_url": "https://www.co.orange.tx.us/media/TaxAssessorCollector/2025/TRUST_All%20forms%20combined%201.pdf",
+   "purchase_evidence_type": "county_document",
+   "purchase_evidence_title": "Orange County Tax Assessor-Collector - Submitting a Bid on Trust Property",
+   "purchase_instructions": "Trust Property refers to real estate that did not sell at a tax foreclosure auction. These properties are available for purchase through a written bid process. At this time, only minimum bid amounts are being accepted. To submit an open bid: Complete a Bid Submission Form (a separate form is required for each property you wish to bid on); obtain a Written Statement of Delinquent Taxes; submit your completed Bid Submission Form, Written Statement of Delinquent Taxes, and payment in person to the Orange County Tax Office. Payment must be made by cashier's check or money order payable to: Orange County Tax Office. All bids are processed on a first-come, first-served basis. Once a qualifying bid is approved and accepted, the sale is final.",
+   "purchase_path_observed_on": "2026-10-27",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "application",
+     "email",
+     "phone",
+     "mail"
+    ],
+    "office": "Orange County Tax Assessor-Collector",
+    "phone": "(409) 882-7971",
+    "email": "taxpc@co.orange.tx.us",
+    "mailing_address": "P.O. Box 1568, Orange, TX 77631",
+    "application_url": "https://www.co.orange.tx.us/media/TaxAssessorCollector/2025/TRUST_All%20forms%20combined%201.pdf",
+    "payment": "Cashier's check or money order payable to Orange County Tax Office",
+    "steps": [
+     "Complete a Bid Submission Form - a separate form for each property",
+     "Request a Written Statement of Delinquent Taxes (notarized request; notary available at the Tax Office)",
+     "Submit the Bid Submission Form, the Written Statement and payment in person at the Orange County Tax Office",
+     "Only bids at the trust list's minimum bid amount are accepted; bids are processed first-come, first-served and an approved bid is final"
+    ],
+    "evidence_url": "https://www.co.orange.tx.us/media/TaxAssessorCollector/2025/TRUST_All%20forms%20combined%201.pdf",
+    "observed_on": "2026-10-27"
    }
   },
   {
