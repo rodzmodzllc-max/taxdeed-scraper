@@ -30,12 +30,12 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 sys.path.insert(0, str(REPO))
 from harvesters.enrichment import parcels as P  # noqa: E402
-from harvesters.enrichment.sources import for_state  # noqa: E402
+from harvesters.enrichment.sources import all_sources, for_state  # noqa: E402
 from harvesters.governance import states  # noqa: E402
 from scripts import field_provenance as FP  # noqa: E402
 
 USER_AGENT = "taxdeed-scraper statewide-parcel-enrichment (+https://github.com/rodzmodzllc-max/taxdeed-scraper)"
-READ_COLUMNS = ["id", "county", "parcel", "case_no", "field_provenance", "latitude", "longitude", *sorted(P.COLUMN_TYPES)]
+READ_COLUMNS = ["id", "county", "source", "parcel", "case_no", "field_provenance", "latitude", "longitude", *sorted(P.COLUMN_TYPES)]
 
 
 def http_json(url: str, *, headers: dict | None = None, method: str = "GET", body: bytes | None = None, timeout: int = 60):
@@ -46,16 +46,13 @@ def http_json(url: str, *, headers: dict | None = None, method: str = "GET", bod
 
 
 def fetch_rows(base: str, key: str, state: str, id_column: str = "parcel") -> list[dict]:
-    rows, offset = [], 0
-    hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
-    while True:
-        q = urllib.parse.urlencode({"select": ",".join(READ_COLUMNS), "state": f"eq.{state}", "status": "eq.active",
-                                    id_column: "not.is.null", "order": "id", "limit": 1000, "offset": offset})
-        page = http_json(f"{base}/rest/v1/properties?{q}", headers=hdr) or []
-        rows += page
-        if len(page) < 1000:
-            return rows
-        offset += 1000
+    """Every active row of the state with an identifier - keyset pages with a
+    bounded retry (scripts/rest_pages.py), never offset paging."""
+    sys.path.insert(0, str(HERE))
+    import rest_pages  # noqa: PLC0415
+    hdr = {"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT}
+    return rest_pages.read_all(base, "properties", hdr, {"select": ",".join(READ_COLUMNS), "state": f"eq.{state}",
+                                                          "status": "eq.active", id_column: "not.is.null"})
 
 
 def patch(base: str, key: str, row_id: str, fields: dict) -> None:
@@ -112,8 +109,40 @@ def _fetch_with_retry(fetch_json, url, retries: int, sleep, kinds: dict):
     return None, False
 
 
+def download_county_file(url: str, dest_dir: str) -> str:
+    """Download one county file (county_file transport) to dest_dir; returns
+    the local path. Raises on any HTTP / transport error (a failed read)."""
+    path = os.path.join(dest_dir, "county.zip")
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=600) as resp, open(path, "wb") as fh:
+        while True:
+            chunk = resp.read(1 << 20)
+            if not chunk:
+                break
+            fh.write(chunk)
+    return path
+
+
+def county_file_fetcher(cfg, county: str, keys: set):
+    """fetch_json-shaped callable for one county of a county_file source:
+    url -> {"features": [...]} holding only the requested identifiers."""
+    import tempfile  # noqa: PLC0415
+    from harvesters.enrichment import county_file as CF  # noqa: PLC0415
+
+    def fetch(url):
+        with tempfile.TemporaryDirectory() as tmp:
+            return {"features": CF.read_county_zip(download_county_file(url, tmp), cfg, county, keys)}
+    return fetch
+
+
+def _row_blank(row: dict, column: str) -> bool:
+    if column in ("latitude", "longitude"):
+        return FP.is_blank(row.get("latitude")) and FP.is_blank(row.get("longitude"))
+    return blank_for(row, column)
+
+
 def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: str, cfg=None, outcomes=None,
-        retries: int = 0, sleep=time.sleep) -> dict:
+        retries: int = 0, sleep=time.sleep, county_fetcher=None) -> dict:
     """The whole pipeline for one state, I/O injected. Returns the coverage
     report (counts only). `cfg` names a specific layer (a county-scoped one);
     the default is the state's statewide layer. `outcomes`, when given, is a
@@ -132,9 +161,16 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
     for r in rows:
         by_county[r.get("county") or ""].append(r)
     for county, crow in sorted(by_county.items()):
+        if not cfg.covers(county):
+            continue
         features, failed = [], False
+        fetch = fetch_json
+        if cfg.transport == "county_file":
+            rule = cfg.id_rule_for(county)
+            keys = {P.normalize_id(r.get(cfg.row_id_column), rule) for r in crow} - {None}
+            fetch = (county_fetcher or county_file_fetcher)(cfg, county, keys)
         for url in P.query_urls(cfg, county, [r.get(cfg.row_id_column) for r in crow]):
-            data, ok_ = _fetch_with_retry(fetch_json, url, retries, sleep, failure_kinds)
+            data, ok_ = _fetch_with_retry(fetch, url, retries, sleep, failure_kinds)
             if not ok_:
                 failed = True
                 break
@@ -155,12 +191,14 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
             if outcomes is not None:
                 outcomes.update({r["id"]: "SOURCE_UNAVAILABLE" for r in crow})
             continue
-        idx = P.index_features(cfg, features)
+        idx = P.index_features(cfg, features, county if cfg.county_id else None)
         for m, row in zip(P.match_rows(cfg, crow, idx), crow):
             cov.add(m)
             if outcomes is not None:
                 outcomes[row["id"]] = m.status
             fields, prov = P.plan_update(cfg, row, m, recorded_at=recorded_at)
+            if cfg.fill_blank_only:
+                fields = {k: v for k, v in fields.items() if _row_blank(row, k)}
             fields = FP.filter_by_provenance(row, {k: v for k, v in fields.items() if blank_for(row, k) or k in (row.get("field_provenance") or {})}, "statewide_parcel")
             if not fields:
                 continue
@@ -178,9 +216,30 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
             "query_failures_by_cause": dict(sorted(failure_kinds.items()))}
 
 
+def select_rows(rows: list[dict], *, counties: list[str] | None = None, max_counties: int | None = None,
+                ledgers: list[str] | None = None) -> list[dict]:
+    """The rows of one batch: optionally only some ledgers (properties.source)
+    and counties, and at most `max_counties` counties (largest first, then by
+    name) - so an overnight run can be split into bounded slices."""
+    rows = [r for r in rows if not ledgers or (r.get("source") or "") in ledgers]
+    if counties:
+        rows = [r for r in rows if (r.get("county") or "") in counties]
+    if max_counties:
+        size: dict = defaultdict(int)
+        for r in rows:
+            size[r.get("county") or ""] += 1
+        keep = set(sorted(size, key=lambda c: (-size[c], c))[:max_counties])
+        rows = [r for r in rows if (r.get("county") or "") in keep]
+    return rows
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--state", required=True)
+    ap.add_argument("--source-id", default=None, help="a registered layer (county-scoped or statewide); default the state's statewide layer")
+    ap.add_argument("--ledgers", default="", help="comma-separated properties.source values (laft,auction,certificate); blank = all")
+    ap.add_argument("--counties", default="", help="comma-separated counties of this batch; blank = every covered county")
+    ap.add_argument("--max-counties", type=int, default=0, help="at most this many counties (largest first) in this batch")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--out", default=None)
     a = ap.parse_args(argv)
@@ -188,23 +247,32 @@ def main(argv=None) -> int:
     if not states.is_activated(st):
         print(f"skip: state {st} is not activated")
         return 0
-    cfg = for_state(st)
+    if a.source_id:
+        cfg = next((c for c in all_sources() if c.source_id == a.source_id and c.state == st), None)
+    else:
+        cfg = for_state(st)
     if cfg is None or not P.enrichment_allowed(cfg)[0]:
-        print(f"skip: {st} statewide parcel source not cleared ({P.enrichment_allowed(cfg)[1] if cfg else 'none configured'})")
+        print(f"skip: {st} parcel source {a.source_id or '(statewide)'} not cleared ({P.enrichment_allowed(cfg)[1] if cfg else 'none configured'})")
         return 0
     base, key = os.environ.get("SUPABASE_URL", "").rstrip("/"), os.environ.get("SUPABASE_SERVICE_KEY", "")
     if not base or not key:
         print("skip: SUPABASE_URL / SUPABASE_SERVICE_KEY not set")
         return 0
     rows = fetch_rows(base, key, st, cfg.row_id_column)
+    rows = [r for r in rows if cfg.covers(r.get("county") or "")]
+    rows = select_rows(rows, counties=[c.strip() for c in a.counties.split(",") if c.strip()] or None,
+                       max_counties=a.max_counties or None,
+                       ledgers=[x.strip() for x in a.ledgers.split(",") if x.strip()] or None)
 
     def fetch_json(url):
         time.sleep(0.3)
         return http_json(url)
 
     report = run(st, rows, fetch_json, write=None if a.dry_run else (lambda i, f: patch(base, key, i, f)),
-                 recorded_at=FP.now_iso(), retries=2)
-    out = Path(a.out or REPO / "out" / "public" / f"enrichment-{st.lower()}.json")
+                 recorded_at=FP.now_iso(), retries=2, cfg=cfg)
+    report["dry_run"] = a.dry_run
+    name = f"enrichment-{st.lower()}" + (f"-{cfg.source_id}" if a.source_id else "")
+    out = Path(a.out or REPO / "out" / "public" / f"{name}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({k: report.get(k) for k in ("state", "rows_considered", "matched", "unmatched", "ambiguous", "no_identifier", "failed_queries", "query_failures_by_cause", "rows_written", "skipped")}))
