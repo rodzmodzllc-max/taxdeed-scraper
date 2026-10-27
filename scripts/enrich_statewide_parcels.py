@@ -6,6 +6,15 @@ harvesters/enrichment/parcels.py.
     python3 scripts/enrich_statewide_parcels.py --state NC            # live
     python3 scripts/enrich_statewide_parcels.py --state NC --dry-run  # read + plan, no write
 
+    # 2026-10-27: every cleared layer of the state (county assessor layers
+    # first, then the statewide one) over every ACTIVE row of every ledger,
+    # at most N rows per layer a run, resuming after the previous run's row:
+    python3 scripts/enrich_statewide_parcels.py --state SC,CO --all-layers --limit 500 [--dry-run]
+
+With --all-layers a patch is sent only when it changes the row
+(scripts/write_diff.py), a "Parcel <id>" placeholder counts as a missing
+address, and the report is out/public/enrichment-<st>-layers.json.
+
 Refuses before any request unless the state is ACTIVATED and the state's
 ParcelSourceConfig passes `enrichment_allowed()` (columns verified live,
 publication APPROVED). Rows are matched on (county, normalized parcel id)
@@ -33,9 +42,11 @@ from harvesters.enrichment import parcels as P  # noqa: E402
 from harvesters.enrichment.sources import for_state  # noqa: E402
 from harvesters.governance import states  # noqa: E402
 from scripts import field_provenance as FP  # noqa: E402
+from scripts import write_diff as WD  # noqa: E402
+from scripts import enrichment_queue as EQ  # noqa: E402
 
 USER_AGENT = "taxdeed-scraper statewide-parcel-enrichment (+https://github.com/rodzmodzllc-max/taxdeed-scraper)"
-READ_COLUMNS = ["id", "county", "parcel", "case_no", "field_provenance", "latitude", "longitude", *sorted(P.COLUMN_TYPES)]
+READ_COLUMNS = ["id", "state", "source", "source_id", "harvester_source", "county", "parcel", "case_no", "field_provenance", "latitude", "longitude", *sorted(P.COLUMN_TYPES)]
 
 
 def http_json(url: str, *, headers: dict | None = None, method: str = "GET", body: bytes | None = None, timeout: int = 60):
@@ -45,17 +56,16 @@ def http_json(url: str, *, headers: dict | None = None, method: str = "GET", bod
     return json.loads(raw) if raw else None
 
 
-def fetch_rows(base: str, key: str, state: str, id_column: str = "parcel") -> list[dict]:
-    rows, offset = [], 0
-    hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
-    while True:
-        q = urllib.parse.urlencode({"select": ",".join(READ_COLUMNS), "state": f"eq.{state}", "status": "eq.active",
-                                    id_column: "not.is.null", "order": "id", "limit": 1000, "offset": offset})
-        page = http_json(f"{base}/rest/v1/properties?{q}", headers=hdr) or []
-        rows += page
-        if len(page) < 1000:
-            return rows
-        offset += 1000
+def fetch_rows(base: str, key: str, state: str, id_column: str | None = None) -> list[dict]:
+    """Every ACTIVE row of the state (every ledger), by keyset pages with a
+    bounded retry (scripts/rest_pages.py - offset pages crossed the statement
+    timeout under load). With `id_column`, only rows carrying it."""
+    from scripts import rest_pages as RP  # noqa: PLC0415
+    hdr = {"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT}
+    params = {"select": ",".join(READ_COLUMNS), "state": f"eq.{state}", "status": "eq.active"}
+    if id_column:
+        params[id_column] = "not.is.null"
+    return RP.read_all(base, "properties", hdr, params)
 
 
 def patch(base: str, key: str, row_id: str, fields: dict) -> None:
@@ -71,7 +81,7 @@ def blank_for(row: dict, column: str) -> bool:
     if FP.is_blank(v):
         return True
     if column == "address":
-        return str(v).strip() in (f"Parcel {row.get('parcel')}", f"Case {row.get('case_no')}")
+        return str(v).strip() in (f"Parcel {row.get('parcel')}", f"Case {row.get('case_no')}", f"Account {row.get('case_no')}")
     return False
 
 
@@ -127,6 +137,7 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
     if not ok:
         return {**report, "skipped": why}
     cov = P.Coverage()
+    unchanged = 0
     failure_kinds: dict = {}
     by_county = defaultdict(list)
     for r in rows:
@@ -161,10 +172,21 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
             if outcomes is not None:
                 outcomes[row["id"]] = m.status
             fields, prov = P.plan_update(cfg, row, m, recorded_at=recorded_at)
-            fields = FP.filter_by_provenance(row, {k: v for k, v in fields.items() if blank_for(row, k) or k in (row.get("field_provenance") or {})}, "statewide_parcel")
+            cand = {k: v for k, v in fields.items() if blank_for(row, k) or k in (row.get("field_provenance") or {})}
+            # A placeholder ("Parcel <id>") is no value: the precedence rule
+            # sees it as blank, so an address a sync once overwrote with its
+            # placeholder (Colorado, 2026-10-26) can be filled again.
+            seen = {**row, **{k: None for k in cand if blank_for(row, k)}}
+            fields = FP.filter_by_provenance(seen, cand, "statewide_parcel")
             if not fields:
                 continue
             fields["field_provenance"] = FP.merge_field_provenance(row.get("field_provenance"), {k: prov[k] for k in fields})
+            if WD.unchanged(fields, row):
+                # scripts/write_diff.py: a patch that would store what the row
+                # already holds (provenance compared without recorded_at) is
+                # never sent.
+                unchanged += 1
+                continue
             if write:
                 write(row["id"], fields)
             # Later layers in the same run see this write: a stale snapshot
@@ -175,15 +197,136 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
                 if k != "field_provenance":
                     cov.fields_written[k] = cov.fields_written.get(k, 0) + 1
     return {**report, "dataset": cfg.dataset, "layer_url": cfg.layer_url, **cov.as_dict(),
+            "unchanged_skipped": unchanged,
             "query_failures_by_cause": dict(sorted(failure_kinds.items()))}
+
+
+# ------------------------------------------------------------ every layer, batched
+
+# value_year only ever accompanies a value: it never makes a row a target.
+_NOT_A_GAP = frozenset({"value_year", "longitude"})
+DEFAULT_CHECKPOINT = REPO / "out" / ".harvest_cache" / "parcel_enrichment_checkpoint.json"
+
+
+def layers_for_state(state: str, source_ids=None) -> list:
+    """Every registered layer of the state, county-scoped first (the county's
+    own assessor is the closer source - sources.for_county's order), then the
+    statewide one; narrowed to `source_ids` when given."""
+    from harvesters.enrichment.sources import all_sources  # noqa: PLC0415
+    mine = [c for c in all_sources() if c.state == state and (not source_ids or c.source_id in source_ids)]
+    return [c for c in mine if c.counties] + [c for c in mine if not c.counties]
+
+
+def gap_columns(cfg) -> frozenset:
+    return cfg.written_columns() - _NOT_A_GAP
+
+
+def targets_for(cfg, rows: list[dict]) -> list[dict]:
+    """The rows this layer could fill: its counties, carrying the identifier
+    it is keyed on, missing at least one column it publishes (a placeholder
+    address is missing). Sorted by id - the batch order."""
+    cols = gap_columns(cfg)
+    out = [r for r in rows if cfg.covers(r.get("county") or "") and str(r.get(cfg.row_id_column) or "").strip()
+           and any(blank_for(r, c) for c in cols)]
+    return sorted(out, key=lambda r: str(r.get("id")))
+
+
+def take_batch(cfg, targets: list[dict], limit: int | None, checkpoint) -> list[dict]:
+    """At most `limit` targets, continuing after the row the layer's previous
+    run stopped at and wrapping once (enrichment_queue.take_after): a row a
+    layer cannot fill is retried after one full pass, never at the head of
+    every run. No limit = every target."""
+    if not limit or limit >= len(targets):
+        return list(targets)
+    by_id = {str(r.get("id")): r for r in targets}
+    keys = sorted(by_id)
+    cursor = checkpoint.cursor((cfg.source_id, "")) if checkpoint else None
+    return [by_id[k] for k in EQ.take_after(keys, cursor, limit)]
+
+
+def run_all_layers(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: str, limit: int | None = None,
+                   checkpoint=None, source_ids=None, retries: int = 2, sleep=time.sleep) -> list[dict]:
+    """Every cleared layer of the state over the state's active rows (every
+    ledger), one bounded batch per layer. A refused layer is reported and
+    makes no request. The checkpoint (never in a dry run: pass None) records
+    the last row each layer considered."""
+    reports = []
+    for cfg in layers_for_state(state, source_ids):
+        ok, why = P.enrichment_allowed(cfg)
+        if not ok:
+            reports.append({"state": state, "source_id": cfg.source_id, "skipped": why})
+            continue
+        targets = targets_for(cfg, rows)
+        batch = take_batch(cfg, targets, limit, checkpoint)
+        if not batch:
+            reports.append({"state": state, "source_id": cfg.source_id, "targets": 0, "rows_considered": 0,
+                            "skipped": "no row misses a column this layer publishes"})
+            continue
+        rep = run(state, batch, fetch_json, write=write, recorded_at=recorded_at, cfg=cfg, retries=retries, sleep=sleep)
+        rep["targets"] = len(targets)
+        reports.append(rep)
+        if checkpoint is not None:
+            checkpoint.advance((cfg.source_id, ""), max(str(r.get("id")) for r in batch))
+    return reports
+
+
+SUMMARY_KEYS = ("state", "source_id", "targets", "rows_considered", "matched", "unmatched", "ambiguous", "no_identifier",
+                "failed_queries", "query_failures_by_cause", "rows_written", "unchanged_skipped", "fields_written", "skipped")
+
+
+def _main_all_layers(a) -> int:
+    base, key = os.environ.get("SUPABASE_URL", "").rstrip("/"), os.environ.get("SUPABASE_SERVICE_KEY", "")
+    source_ids = {s.strip() for s in a.source_id.split(",") if s.strip()} or None
+    checkpoint = None if a.dry_run else EQ.Checkpoint(a.checkpoint)
+
+    def fetch_json(url):
+        time.sleep(0.3)
+        return http_json(url)
+
+    for st in [s.strip().upper() for s in a.state.split(",") if s.strip()]:
+        if not states.is_activated(st):
+            print(f"skip: state {st} is not activated")
+            continue
+        layers = layers_for_state(st, source_ids)
+        if not any(P.enrichment_allowed(c)[0] for c in layers):
+            print(f"skip: {st} has no cleared parcel layer" + (f" among {sorted(source_ids)}" if source_ids else ""))
+            continue
+        if not base or not key:
+            print("skip: SUPABASE_URL / SUPABASE_SERVICE_KEY not set")
+            return 0
+        rows = fetch_rows(base, key, st)
+        reports = run_all_layers(st, rows, fetch_json, write=None if a.dry_run else (lambda i, f: patch(base, key, i, f)),
+                                 recorded_at=FP.now_iso(), limit=a.limit, checkpoint=checkpoint, source_ids=source_ids)
+        out = Path(a.out or REPO / "out" / "public" / f"enrichment-{st.lower()}-layers.json")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps({"state": st, "mode": "dry-run" if a.dry_run else "apply", "limit": a.limit,
+                                   "active_rows": len(rows), "layers": reports}, indent=2, sort_keys=True) + "\n",
+                       encoding="utf-8")
+        # Counts only - never an identifier, address, owner or value.
+        print(f"{st}: {len(rows)} active row(s); mode {'dry-run (nothing written)' if a.dry_run else 'apply'}")
+        for rep in reports:
+            print(json.dumps({k: rep.get(k) for k in SUMMARY_KEYS if k in rep}, sort_keys=True))
+    return 0
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--state", required=True)
-    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--state", required=True, help="a postal code (several comma-separated with --all-layers)")
+    ap.add_argument("--dry-run", action="store_true", help="read and match, write nothing, advance no checkpoint")
+    ap.add_argument("--all-layers", action="store_true",
+                    help="every cleared layer of the state (county-scoped and statewide) over every active row of every "
+                         "ledger, not only the statewide layer")
+    ap.add_argument("--source-id", default="", help="(--all-layers) comma-separated layer ids; blank = every layer")
+    ap.add_argument("--limit", type=int, default=None,
+                    help="(--all-layers) at most N rows per layer this run, resuming after the previous run's last row")
+    ap.add_argument("--checkpoint", default=str(DEFAULT_CHECKPOINT))
     ap.add_argument("--out", default=None)
     a = ap.parse_args(argv)
+    if a.limit is not None and a.limit < 1:
+        print("::error::--limit must be a positive integer")
+        return 2
+    if a.all_layers:
+        return _main_all_layers(a)
     st = a.state.upper()
     if not states.is_activated(st):
         print(f"skip: state {st} is not activated")

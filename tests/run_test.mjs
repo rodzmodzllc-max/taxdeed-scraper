@@ -7902,9 +7902,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 507,   // 2026-10-27: + the #213 / #214 / #216 county sources; 366 - 14 blocked-vendor-only rows + 61 PBFCM / MVBA / GovEase county rows (owner decision 2026-10-26); + Sarasota Tax Collector certificates (2026-10-26); + the LRA, Ramsey and Fayette process evidence rows (2026-10-26) and the TX/LA candidates
+  adminSourcesRows: 515,   // 2026-10-27: + 8 parcel layers (#220); + the #213 / #214 / #216 county sources; 366 - 14 blocked-vendor-only rows + 61 PBFCM / MVBA / GovEase county rows (owner decision 2026-10-26); + Sarasota Tax Collector certificates (2026-10-26); + the LRA, Ramsey and Fayette process evidence rows (2026-10-26) and the TX/LA candidates
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: "507 source(s): 416 approved, 90 review required, 1 hard blocked.",
+  adminSourcesStatusText: "515 source(s): 425 approved, 89 review required, 1 hard blocked.",
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,
