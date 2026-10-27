@@ -140,6 +140,19 @@ class ParcelSourceConfig:
     # floor - one distinct value in that year or nothing - and its provenance
     # names that year. Only for an identifier that already matched exactly.
     column_year_floor: dict = field(default_factory=dict)
+    # Thin-states sprint (2026-10-27). column -> regular expressions (matched
+    # at the start of the upper-cased value) that mean "not published" for
+    # that column - e.g. a county layer writing "0 UNKNOWN <city>" as the
+    # situs of a parcel with no street address. Such a value is never stored.
+    no_value_patterns: dict = field(default_factory=dict)
+    # column -> ((attribute, prefix), ...): a TEXT column the source publishes
+    # in parts (house number, direction, street name, type, unit). The parts
+    # are joined with single spaces in the source's own order, a blank part
+    # is skipped, a part's prefix (e.g. "#" before a unit number) is written
+    # only with that part. Nothing is added that the parts do not say; no
+    # part means no value, and a blank FIRST part (the house number) means no
+    # value at all. Only for text columns.
+    composite_map: dict = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.transport not in TRANSPORTS:
@@ -157,7 +170,22 @@ class ParcelSourceConfig:
         bad_cond = set(self.conditional_map) & set(self.field_map)
         if bad_cond:
             raise ValueError(f"{self.source_id}: column(s) {sorted(bad_cond)} are both mapped and conditional")
-        unknown = (set(self.field_map) | set(self.conditional_map)) - set(COLUMN_TYPES)
+        clash = set(self.composite_map) & (set(self.field_map) | set(self.conditional_map))
+        if clash:
+            raise ValueError(f"{self.source_id}: column(s) {sorted(clash)} are both composite and mapped")
+        for column, parts in self.composite_map.items():
+            if COLUMN_TYPES.get(column) != "text":
+                raise ValueError(f"{self.source_id}: composite column {column!r} must be a text column")
+            if not parts or any(not (isinstance(p, tuple) and len(p) == 2 and p[0]) for p in parts):
+                raise ValueError(f"{self.source_id}: composite column {column!r} needs ((attribute, prefix), ...)")
+            if self.id_field in {a for a, _ in parts} and column in ("owner_name", "address"):
+                raise ValueError(f"{self.source_id}: the identifier attribute cannot also fill {column}")
+        for column, pats in self.no_value_patterns.items():
+            if column not in COLUMN_TYPES or not pats:
+                raise ValueError(f"{self.source_id}: no_value_patterns names {column!r} without patterns")
+            for p in pats:
+                re.compile(p)
+        unknown = (set(self.field_map) | set(self.conditional_map) | set(self.composite_map)) - set(COLUMN_TYPES)
         if unknown:
             raise ValueError(f"{self.source_id}: field_map names unknown column(s) {sorted(unknown)}")
         forbidden = {"owner_name", "address"} & {c for c, a in self.field_map.items() if a == self.id_field}
@@ -180,8 +208,19 @@ class ParcelSourceConfig:
     def id_fields(self) -> tuple:
         return (self.id_field, *self.alt_id_fields)
 
+    def written_columns(self) -> frozenset:
+        """Every properties column this layer can write."""
+        cols = set(self.field_map) | set(self.conditional_map) | set(self.composite_map)
+        if self.value_year_field:
+            cols.add("value_year")
+        if self.centroid:
+            cols.update(("latitude", "longitude"))
+        return frozenset(cols)
+
     def out_fields(self) -> list[str]:
         names = {*self.id_fields(), *self.field_map.values(), *self.provenance_attrs}
+        for parts in self.composite_map.values():
+            names.update(a for a, _ in parts)
         for attr, cond, _vals in self.conditional_map.values():
             names.update((attr, cond))
         if self.county_field:
@@ -400,7 +439,25 @@ def polygon_centroid(geometry: dict | None) -> tuple[float, float] | None:
 
 
 def _is_no_value(cfg: ParcelSourceConfig, column: str, value) -> bool:
-    return str(value).strip().upper() in {str(v).upper() for v in cfg.no_value.get(column, ())}
+    text = str(value).strip().upper()
+    if text in {str(v).upper() for v in cfg.no_value.get(column, ())}:
+        return True
+    return any(re.match(p, text) for p in cfg.no_value_patterns.get(column, ()))
+
+
+def composite_value(column: str, parts, attrs: dict):
+    """A text column published in parts, joined as the source orders them
+    (blank parts skipped, a prefix only beside its own part), or None. The
+    FIRST part is required: a street name without its house number is not a
+    situs address, so a record missing it yields no value at all."""
+    out = []
+    for i, (attr, prefix) in enumerate(parts):
+        v = _coerce(column, attrs.get(attr))
+        if v is None and i == 0:
+            return None
+        if v is not None:
+            out.append(f"{prefix}{v}" if prefix else v)
+    return " ".join(out) or None
 
 
 def plan_update(cfg: ParcelSourceConfig, row: dict, match: MatchResult, *, recorded_at: str) -> tuple[dict, dict]:
@@ -421,6 +478,10 @@ def plan_update(cfg: ParcelSourceConfig, row: dict, match: MatchResult, *, recor
         if str(attrs.get(cond) or "").strip().upper() not in {str(a).upper() for a in accepted}:
             continue
         v = _coerce(column, attrs.get(attr))
+        if v is not None and not _is_no_value(cfg, column, v):
+            fields[column] = v
+    for column, parts in cfg.composite_map.items():
+        v = composite_value(column, parts, attrs)
         if v is not None and not _is_no_value(cfg, column, v):
             fields[column] = v
     column_years: dict = {}

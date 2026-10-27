@@ -21,7 +21,11 @@ def test_la_tax_parcels_config_is_public_domain_socrata_exact_match():
     # only attributes measured populated live are mapped: the three sums (sample,
     # run 36835470121) and legal_description (~60% of the 10,157 matched AVAILABLE
     # rows, all-sources engine deep probe run 36922621158)
-    assert set(cfg.field_map.values()) == {"sum_land_value", "sum_fair_market_value", "sum_assessed_value", "legal_description"}
+    # 2026-10-27 (thin-states sprint): the parcel's own physical_address and
+    # sum_improvement_value, mapped from the dataset's column definitions.
+    assert set(cfg.field_map.values()) == {"sum_land_value", "sum_fair_market_value", "sum_assessed_value", "legal_description",
+                                           "physical_address", "sum_improvement_value"}
+    assert cfg.field_map["address"] == "physical_address"          # never owner_address (the mailing address)
     assert cfg.field_map["legal_desc"] == "legal_description"
     assert P.enrichment_allowed(cfg)[0]
     [url] = P.query_urls(cfg, "East Baton Rouge", ["123-4567-8", "123-4567-8"])

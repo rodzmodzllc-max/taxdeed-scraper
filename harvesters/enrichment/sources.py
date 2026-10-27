@@ -30,8 +30,12 @@ def register(cfg: ParcelSourceConfig) -> ParcelSourceConfig:
         PARCEL_SOURCES[cfg.state] = cfg
     else:
         for other in _ALL:
-            if other.state == cfg.state and set(other.counties) & set(cfg.counties):
-                raise ValueError(f"{cfg.source_id}: county scope overlaps {other.source_id}")
+            # Two county layers may serve one county only when they write
+            # DIFFERENT columns (2026-10-27: Horry's assessor layer, its address
+            # points and its open-data parcels): one column, one county source.
+            shared = other.written_columns() & cfg.written_columns()
+            if other.state == cfg.state and other.counties and set(other.counties) & set(cfg.counties) and shared:
+                raise ValueError(f"{cfg.source_id}: county scope overlaps {other.source_id} on {sorted(shared)}")
     _ALL.append(cfg)
     return cfg
 
@@ -165,7 +169,14 @@ LA_EBR_TAX_PARCELS = register(ParcelSourceConfig(
     layer_url="https://data.brla.gov/resource/ei2c-krsr.json",
     transport="socrata", id_field="assessment_num", id_rule="exact",
     field_map={"land_value": "sum_land_value", "market": "sum_fair_market_value", "assessed": "sum_assessed_value",
-               "legal_desc": "legal_description"},
+               "legal_desc": "legal_description",
+               # Thin-states sprint (2026-10-27), from the dataset's own column
+               # definitions (data.brla.gov/api/views/ei2c-krsr.json, read live):
+               # physical_address "Physical address of the tax parcel" (never the
+               # owner_address columns); sum_improvement_value "Improvement value
+               # sum of the tax parcel".
+               "address": "physical_address", "improvement_value": "sum_improvement_value"},
+    no_value_patterns={"address": (r"[^0-9]*$",)},
     licence="Public Domain (Open Data BR dataset metadata, licenseId PUBLIC_DOMAIN); attribution: EBR Parish Assessor.",
     publication_status="APPROVED", county_field=None, centroid=False, columns_verified=True, batch_size=100,
     notes="enrichment sprint evidence (2026-10-01): licence run 36832227666; field names and assessment_num shape run 36835470121. "
@@ -206,14 +217,25 @@ LA_EBR_TAX_ROLL = register(ParcelSourceConfig(
     landing_url="https://data.brla.gov/d/myfc-nh6n",
     layer_url="https://data.brla.gov/resource/myfc-nh6n.json",
     transport="socrata", id_field="assessment_no", id_rule="exact",
-    field_map={"land_use": "structure_use", "taxable_value": "taxpayer_val", "legal_desc": "legal_description"},
+    field_map={"land_use": "structure_use", "taxable_value": "taxpayer_val", "legal_desc": "legal_description",
+               # 2026-10-27: parcel_address "The physical or situs address of the
+               # tax parcel" (column definition read live); fill-blank, after the
+               # Tax Parcel dataset's physical_address. The taxpayer_addr_*
+               # columns are the MAILING address and are never mapped.
+               "address": "parcel_address"},
     no_value={"land_use": ("NOT DETERMINED",)},
+    # A situs with no house number at all ("<street> RD") is not an address.
+    no_value_patterns={"address": (r"[^0-9]*$",)},
     provenance_attrs=("tax_year", "vacant_lot_yn", "assessment_status"),
     latest_field="tax_year", latest_min=2024, value_year_field="tax_year",
     # STRUCTURE USE is filled on every matched record 2015-2023 and blank on
     # every 2024 / 2025 record (per-year fill, run 36942777361): land use comes
     # from tax year 2023, dated as such in its provenance.
-    column_year_floor={"land_use": 2023},
+    # PARCEL ADDRESS likewise (2026-10-27, per-year counts read live): 370,144
+    # of 370,144 roll records carry it in tax year 2023, 3 of 373,713 in 2024
+    # and 3 of 375,635 in 2025; among adjudicated records of 2023, 3,930 read
+    # "N/A" (no value - SENTINEL_TEXT) and the rest a situs address.
+    column_year_floor={"land_use": 2023, "address": 2023},
     licence="Public Domain (Open Data BR dataset metadata, licence read live in runs 36921157970 / 36940907360); attribution: EBR Parish Assessor.",
     publication_status="APPROVED", counties=("East Baton Rouge",), centroid=False, columns_verified=True, batch_size=100,
     notes="AVAILABLE sprint 2026-10-01: column definitions run 36940907360; identifier match run 36937077351 (10,318 of 10,334).",
@@ -312,7 +334,14 @@ OK_OKLAHOMA_COUNTY_PARCELS = register(ParcelSourceConfig(
     landing_url="https://services8.arcgis.com/euhkr1dAJeQBIjV0/arcgis/rest/services/TaxParcelsPublics_view/FeatureServer",
     layer_url="https://services8.arcgis.com/euhkr1dAJeQBIjV0/arcgis/rest/services/TaxParcelsPublics_view/FeatureServer/0",
     id_field="pin", id_rule="exact",
-    field_map={"acreage": "acres", "legal_desc": "legal"},
+    field_map={"acreage": "acres", "legal_desc": "legal",
+               # 2026-10-27: `location` is the parcel's situs (the layer keeps
+               # the owner's mailing address in mailingaddress1 / city / state,
+               # never mapped). Among county-owned parcels the layer writes
+               # "0 UNKNOWN <city>" where no street address exists (value-free
+               # shape count: 349 of 586 sampled) - that is no address.
+               "address": "location"},
+    no_value_patterns={"address": (r"0+\s+UNKNOWN\b",)},
     licence="Hub catalog licence field blank; no terms found. " + OWNER_2026_10_25,
     publication_status="APPROVED", centroid=True, columns_verified=True, batch_size=25,
     counties=("Oklahoma",),
@@ -354,4 +383,102 @@ SC_HORRY_PARCELS = register(ParcelSourceConfig(
     counties=("Horry",),
     notes="Fields read live 2026-10-25 (PIN, TMS, geometry). Sample of 20 FLC parcels: 12 matched; the rest are 998... "
           "mobile-home accounts with no polygon. Coordinates only.",
+))
+
+
+# ---------------------------------------------------------------------------
+# Thin-states sprint (2026-10-27; docs/enrich-thin-states-2026-10-27.md).
+# The owner's request "enrich every property" under the standing decisions of
+# 2026-10-25 / 2026-10-26 (collect every source now, legal review to follow).
+# Each layer below is the county's OWN assessor / GIS publication, matched on
+# the row's own identifier only (never an address, a name or a location),
+# with every column mapped from the layer's own field names / definitions; a
+# zero / blank / sentinel is never stored. Layers that publish no licence run
+# on an INTERNAL_RISK_ACCEPTANCE permission record (never permission);
+# Douglas County's layers carry the county's own CC BY-SA 4.0 licence.
+# ---------------------------------------------------------------------------
+OWNER_2026_10_27 = ("Owner's request 2026-10-27 ('enrich every property') under the standing decisions of 2026-10-25 / "
+                    "2026-10-26: a public-record layer collected to fill gaps on records the product already holds; legal "
+                    "review to follow; nothing sold until then.")
+
+# South Carolina - Horry County's public assessor parcel layer (horrycounty.org
+# gispublic, Public/HorryCountyGIS MapServer layer 24 "Parcels", 274,725
+# features): the Assessor's acreage, legal description and assessed / market /
+# taxable values on the parcel polygon, keyed on the same numeric PIN as the
+# open-data parcel layer above (which keeps the coordinates; the two layers
+# write different columns). LandUseCode is a bare numeric code with no decode
+# table published on the layer - not mapped. Owner / mailing fields never are.
+SC_HORRY_ASSESSOR = register(ParcelSourceConfig(
+    source_id="sc_horry_assessor_parcels", state="SC",
+    agency="Horry County, SC (Assessor parcel data on the county's public GIS)",
+    dataset="Public/HorryCountyGIS MapServer layer 24 (Parcels)",
+    landing_url="https://www.horrycounty.org/gispublic/rest/services/Public/HorryCountyGIS/MapServer",
+    layer_url="https://www.horrycounty.org/gispublic/rest/services/Public/HorryCountyGIS/MapServer/24",
+    id_field="PIN", id_rule="numeric", id_query="number",
+    field_map={"acreage": "Acreage", "legal_desc": "LegalDescr", "assessed": "AssessedProp", "market": "MarketProp",
+               "land_value": "MarketLand", "improvement_value": "MarketImprv", "taxable_value": "TaxableProp"},
+    licence="Layer copyright blank; no licence or terms published on the service. " + OWNER_2026_10_27,
+    publication_status="APPROVED", centroid=False, columns_verified=True, batch_size=100,
+    counties=("Horry",),
+    notes="Fields read live 2026-10-27 (maxRecordCount 2,000); sample of 300: Acreage 276, LegalDescr 299, AssessedProp 295, "
+          "MarketProp 298, MarketLand 298, MarketImprv 147, TaxableProp 298 filled; PIN 11 digits (as the FLC list's PIN).",
+))
+
+# South Carolina - Horry County open-data "AddressPoints" (246,621 points):
+# the county's situs address points, each carrying the PIN of its parcel.
+# address <- ADDRESS (house number + street). A PIN with two or more address
+# points (a multi-unit parcel) is AMBIGUOUS and gets no address.
+SC_HORRY_ADDRESSES = register(ParcelSourceConfig(
+    source_id="sc_horry_address_points", state="SC",
+    agency="Horry County, SC (GIS open data)",
+    dataset="OpenData AddressPoints FeatureServer layer 0",
+    landing_url="https://gisportal.horrycounty.org/server/rest/services/OpenData/AddressPoints/FeatureServer",
+    layer_url="https://gisportal.horrycounty.org/server/rest/services/OpenData/AddressPoints/FeatureServer/0",
+    id_field="PIN", id_rule="numeric", id_query="number",
+    field_map={"address": "ADDRESS"},
+    licence="Licence field and copyright blank; no terms found. " + OWNER_2026_10_27,
+    publication_status="APPROVED", centroid=False, columns_verified=True, batch_size=100,
+    counties=("Horry",),
+    notes="Fields read live 2026-10-27; sample of 300: PIN, ADDRESS, STREETNAME, StreetNum, CITY filled on 300, UNIT on 10.",
+))
+
+# Colorado - Douglas County open data (the same service and CC BY-SA 4.0
+# licence as the county-held liens list co_douglas_county_held_liens):
+# "Property Location Data" (layer 5, 169,711 records, "Full legal address
+# description of parcels within Douglas County") and "Property Improvements
+# Data" (layer 8, 151,462 records, "Property improvements data sourced from
+# Assessor records"). ACCOUNT_NO (A9999999) is the account the liens list
+# publishes as account_id. The situs address is published in parts (house
+# number, direction, street, type, unit) and joined as published - no house
+# number, no address. Improvements are per BUILDING: an account with two or
+# more buildings is AMBIGUOUS and gets no year built.
+DOUGLAS_CO_LICENCE = ("Douglas County, Colorado open data - CC BY-SA 4.0 (item licence: 'This data is licensed by Creative "
+                      "Commons 4.0 ... even commercially'); attribution: Douglas County, Colorado.")
+CO_DOUGLAS_LOCATIONS = register(ParcelSourceConfig(
+    source_id="co_douglas_property_locations", state="CO",
+    agency="Douglas County, Colorado (Assessor open data)",
+    dataset="Property Location Data (OpenData FeatureServer layer 5)",
+    landing_url="https://www.arcgis.com/home/item.html?id=b894617bf058491d9a3126204a0d435a",
+    layer_url="https://services.arcgis.com/seTexOicoRXDvRsJ/arcgis/rest/services/OpenData/FeatureServer/5",
+    id_field="ACCOUNT_NO", id_rule="alnum", field_map={"acreage": "TOTAL_NET_ACRES", "legal_desc": "LEGAL_DESCR"},
+    composite_map={"address": (("ADDRESS_NUMBER", ""), ("PRE_DIRECTION_CODE", ""), ("STREET_NAME", ""),
+                               ("STREET_TYPE_CODE", ""), ("UNIT_NO", "#"))},
+    licence=DOUGLAS_CO_LICENCE,
+    publication_status="APPROVED", centroid=False, columns_verified=True, batch_size=100,
+    counties=("Douglas",),
+    notes="Fields read live 2026-10-27; sample of 300: ACCOUNT_NO 300 (A9999999), ADDRESS_NUMBER 289, STREET_NAME 289, "
+          "STREET_TYPE_CODE 285, UNIT_NO 66, LEGAL_DESCR 300, TOTAL_NET_ACRES 171.",
+))
+CO_DOUGLAS_IMPROVEMENTS = register(ParcelSourceConfig(
+    source_id="co_douglas_property_improvements", state="CO",
+    agency="Douglas County, Colorado (Assessor open data)",
+    dataset="Property Improvements Data (OpenData FeatureServer layer 8)",
+    landing_url="https://www.arcgis.com/home/item.html?id=59223a6a14b24022a3831e4ea9913c5e",
+    layer_url="https://services.arcgis.com/seTexOicoRXDvRsJ/arcgis/rest/services/OpenData/FeatureServer/8",
+    id_field="ACCOUNT_NO", id_rule="alnum", field_map={"year_built": "BUILT_YEAR"},
+    licence=DOUGLAS_CO_LICENCE,
+    publication_status="APPROVED", centroid=False, columns_verified=True, batch_size=100,
+    counties=("Douglas",),
+    notes="Fields read live 2026-10-27; sample of 300: BUILT_YEAR 300 (9999). The square-footage columns (IMPROVEMENT_SF, "
+          "BUILT_AS_SF) carry no published definition and are not mapped.",
 ))

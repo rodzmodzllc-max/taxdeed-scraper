@@ -3659,3 +3659,28 @@ Stable facts:
 - **Permissions:** fetch + enrich only, `OWNER_PERMISSION_REQUIRED` on `INTERNAL_RISK_ACCEPTANCE`, condition
   `excluded_from_paid_tier`, expiring 2027-04-12 - never documented permission.
 - They run through `job=available` (`available_mode=apply`) and, for coordinates, `job=geocode`.
+
+## Thin-states enrichment: every layer, batched; sync keeps enriched values (2026-10-27, PR open, no migration)
+
+Full description, with the per-gap results: `docs/enrich-thin-states-2026-10-27.md`.
+
+- **New layers** (deterministic identifier match):
+  - `sc_horry_assessor_parcels` (values / acreage / legal, numeric PIN);
+  - `sc_horry_address_points` (address);
+  - `co_douglas_property_locations` (address from its published parts, acreage, legal; CC BY-SA 4.0);
+  - `co_douglas_property_improvements` (year built; a multi-building account is AMBIGUOUS).
+- **Extended:** OK `location` (situs; `0 UNKNOWN …` never stored), EBR `physical_address` /
+  `sum_improvement_value`, and the EBR roll's `parcel_address` from tax year 2023 (blank from 2024 on).
+- **Factory additions:** `composite_map` (parts joined; no house number, no value), `no_value_patterns`, and
+  `written_columns()`. Two county layers may share a county only on disjoint columns.
+- **Runner:** `enrich_statewide_parcels.py --all-layers [--limit N] [--dry-run]` runs every cleared layer
+  (county first) over every active row of every ledger.
+  - The checkpoint in `out/.harvest_cache` lets a run resume.
+  - `write_diff.unchanged` skips no-op patches.
+  - A placeholder address counts as missing.
+  - The expansion legs run it daily with `--limit 500`.
+  - `job=enrich` takes `enrich_kinds` (e.g. `parcels`) and `enrich_limit`.
+- **Sync guard:** `sync_state_inventory.keep_enriched_values` stops a list's blank or `Parcel <id>` from
+  overwriting a value another source filled. Before this, 55 CO addresses were erased on every sync.
+- **No source exists for:** PA Fayette (geometry only; the assessment site is click-through), TN Shelby lot
+  size, MO acreage (columns undefined). FL mappings exist; its gap is identifier matching (PR #180).

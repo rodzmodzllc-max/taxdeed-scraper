@@ -175,6 +175,22 @@ on:
           Blank = every production state.
         required: false
         default: ''
+      enrich_kinds:
+        description: >-
+          (job=enrich only) Comma-separated subset of flood, imagery, parcels
+          to run; blank = all three (the historical behaviour). "parcels"
+          alone fills property fields from the cleared parcel / assessor
+          layers without touching flood or imagery.
+        required: false
+        default: ''
+      enrich_limit:
+        description: >-
+          (job=enrich, parcels only) At most N rows per parcel layer this run,
+          resuming after the previous run's last row (a checkpoint in the job
+          cache), so a large backlog fills in bounded overnight batches.
+          Blank = every row that misses a column the layer publishes.
+        required: false
+        default: ''
       evidence_counties:
         description: >-
           (job=evidence only) Comma-separated county names to limit the
@@ -1287,7 +1303,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/enrich_statewide_parcels.py --state ${{ matrix.state }}
+        # Every cleared layer of the state (2026-10-27), at most 500 rows per
+        # layer a run, resuming after the last run's row (checkpoint in the
+        # cached out/.harvest_cache); only changed rows are written.
+        run: python3 scripts/enrich_statewide_parcels.py --state ${{ matrix.state }} --all-layers --limit 500
 
       - name: Inventory status + observation history
         # upcoming / active / unknown from the list and its published sale
@@ -1983,8 +2002,19 @@ jobs:
       - name: Install Python dependencies
         run: pip install requests pillow
 
+      - name: Restore the parcel-layer batch checkpoint
+        # scripts/enrich_statewide_parcels.py --limit resumes each layer after
+        # the row its previous run stopped at (out/.harvest_cache).
+        if: matrix.kind == 'parcels' && (github.event.inputs.enrich_kinds == '' || contains(github.event.inputs.enrich_kinds, 'parcels'))
+        uses: actions/cache@v4
+        with:
+          path: out/.harvest_cache
+          key: parcel-enrichment-checkpoint-${{ github.run_id }}
+          restore-keys: |
+            parcel-enrichment-checkpoint-
+
       - name: FEMA flood hazard backfill
-        if: matrix.kind == 'flood'
+        if: matrix.kind == 'flood' && (github.event.inputs.enrich_kinds == '' || contains(github.event.inputs.enrich_kinds, 'flood'))
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -1995,7 +2025,7 @@ jobs:
         run: python3 scripts/enrich_flood_zone.py
 
       - name: NAIP aerial imagery backfill
-        if: matrix.kind == 'imagery'
+        if: matrix.kind == 'imagery' && (github.event.inputs.enrich_kinds == '' || contains(github.event.inputs.enrich_kinds, 'imagery'))
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -2006,15 +2036,22 @@ jobs:
         run: python3 scripts/enrich_property_photos_naip.py
 
       - name: Statewide parcel layers (deterministic identifier match)
-        if: matrix.kind == 'parcels'
+        if: matrix.kind == 'parcels' && (github.event.inputs.enrich_kinds == '' || contains(github.event.inputs.enrich_kinds, 'parcels'))
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           ENRICH_STATES: ${{ github.event.inputs.enrich_states }}
+          ENRICH_LIMIT: ${{ github.event.inputs.enrich_limit }}
+        # Every cleared layer of the state - county-scoped assessor layers first,
+        # then the statewide one - over every ACTIVE row of every ledger
+        # (2026-10-27): only blank / placeholder columns are filled, a stronger
+        # provenanced value is never replaced, an unchanged patch is never sent.
         run: |
           STATES="${ENRICH_STATES:-$(python3 -c 'import sys; sys.path.insert(0, "."); from harvesters.governance import states; print(",".join(sorted(states.PRODUCTION_STATES)))')}"
+          LIMIT_ARG=""
+          if [ -n "$ENRICH_LIMIT" ]; then LIMIT_ARG="--limit $ENRICH_LIMIT"; fi
           for st in $(echo "$STATES" | tr ',' ' '); do
-            python3 scripts/enrich_statewide_parcels.py --state "$st" || echo "::warning::$st parcel enrichment failed"
+            python3 scripts/enrich_statewide_parcels.py --state "$st" --all-layers $LIMIT_ARG || echo "::warning::$st parcel enrichment failed"
           done
 
       - name: Prepare artifact (public evidence only)

@@ -113,6 +113,51 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "columns verified live; Fields read live 2026-10-27; sample of 300: BUILT_YEAR 300 (9999). The square-footage columns (IMPROVEMENT_SF, BUILT_AS_SF) carry no published definition and are not mapped.",
+   "county": "Douglas",
+   "evidence": "Fields read live 2026-10-27; sample of 300: BUILT_YEAR 300 (9999). The square-footage columns (IMPROVEMENT_SF, BUILT_AS_SF) carry no published definition and are not mapped.",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "APPROVED",
+   "name": "Property Improvements Data (OpenData FeatureServer layer 8)",
+   "next_action": "",
+   "origin": "parcel_config",
+   "publisher": "Douglas County, Colorado (Assessor open data)",
+   "roles": [
+    "assessment",
+    "identity"
+   ],
+   "source_id": "co_douglas_property_improvements",
+   "source_type": "GIS",
+   "state": "CO",
+   "url": "https://www.arcgis.com/home/item.html?id=59223a6a14b24022a3831e4ea9913c5e"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "columns verified live; Fields read live 2026-10-27; sample of 300: ACCOUNT_NO 300 (A9999999), ADDRESS_NUMBER 289, STREET_NAME 289, STREET_TYPE_CODE 285, UNIT_NO 66, LEGAL_DESCR 300, TOTAL_NET_ACRES 171.",
+   "county": "Douglas",
+   "evidence": "Fields read live 2026-10-27; sample of 300: ACCOUNT_NO 300 (A9999999), ADDRESS_NUMBER 289, STREET_NAME 289, STREET_TYPE_CODE 285, UNIT_NO 66, LEGAL_DESCR 300, TOTAL_NET_ACRES 171.",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "APPROVED",
+   "name": "Property Location Data (OpenData FeatureServer layer 5)",
+   "next_action": "",
+   "origin": "parcel_config",
+   "publisher": "Douglas County, Colorado (Assessor open data)",
+   "roles": [
+    "acreage",
+    "identity",
+    "legal"
+   ],
+   "source_id": "co_douglas_property_locations",
+   "source_type": "GIS",
+   "state": "CO",
+   "url": "https://www.arcgis.com/home/item.html?id=b894617bf058491d9a3126204a0d435a"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state CO; last completeness UNKNOWN",
    "county": "Douglas",
    "evidence": "LIVE CAPTURE 2026-10-01 (GitHub Actions runs 36793062673, 36793611223, 36793980491): Douglas County - co_douglas_county_held_liens; LICENCE STATED BY THE SOURCE (quoted in restrictions); docs/five-state-enrichment.md",
@@ -7335,7 +7380,7 @@
    "last_checked": "",
    "legacy_status": "APPROVED",
    "name": "Assessor_Public_Parcels MapServer layer 11 (Parcels)",
-   "next_action": "enrichment refused: no recorded fetch permission [NOT_PERMITTED]",
+   "next_action": "",
    "origin": "parcel_config",
    "publisher": "City of St. Louis Assessor (parcel GIS)",
    "roles": [
@@ -7818,6 +7863,51 @@
    "source_type": "DOCUMENT",
    "state": "SC",
    "url": "https://www.horrycountysc.gov/departments/treasurer/delinquent-tax/"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "columns verified live; Fields read live 2026-10-27; sample of 300: PIN, ADDRESS, STREETNAME, StreetNum, CITY filled on 300, UNIT on 10.",
+   "county": "Horry",
+   "evidence": "Fields read live 2026-10-27; sample of 300: PIN, ADDRESS, STREETNAME, StreetNum, CITY filled on 300, UNIT on 10.",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "APPROVED",
+   "name": "OpenData AddressPoints FeatureServer layer 0",
+   "next_action": "",
+   "origin": "parcel_config",
+   "publisher": "Horry County, SC (GIS open data)",
+   "roles": [
+    "identity"
+   ],
+   "source_id": "sc_horry_address_points",
+   "source_type": "GIS",
+   "state": "SC",
+   "url": "https://gisportal.horrycounty.org/server/rest/services/OpenData/AddressPoints/FeatureServer"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "columns verified live; Fields read live 2026-10-27 (maxRecordCount 2,000); sample of 300: Acreage 276, LegalDescr 299, AssessedProp 295, MarketProp 298, MarketLand 298, MarketImprv 147, TaxableProp 298 filled; PIN 11 digits (as the FLC list's PIN).",
+   "county": "Horry",
+   "evidence": "Fields read live 2026-10-27 (maxRecordCount 2,000); sample of 300: Acreage 276, LegalDescr 299, AssessedProp 295, MarketProp 298, MarketLand 298, MarketImprv 147, TaxableProp 298 filled; PIN 11 digits (as the FLC list's PIN).",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "APPROVED",
+   "name": "Public/HorryCountyGIS MapServer layer 24 (Parcels)",
+   "next_action": "",
+   "origin": "parcel_config",
+   "publisher": "Horry County, SC (Assessor parcel data on the county's public GIS)",
+   "roles": [
+    "acreage",
+    "assessment",
+    "identity",
+    "legal"
+   ],
+   "source_id": "sc_horry_assessor_parcels",
+   "source_type": "GIS",
+   "state": "SC",
+   "url": "https://www.horrycounty.org/gispublic/rest/services/Public/HorryCountyGIS/MapServer"
   },
   {
    "access": "ACCESSIBLE",
@@ -11700,15 +11790,15 @@
    "sources": 1
   },
   "CO": {
-   "APPROVED": 9,
+   "APPROVED": 11,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 0,
    "by_type": {
     "DOCUMENT": 1,
-    "GIS": 1,
+    "GIS": 3,
     "GOVERNMENT": 7
    },
-   "sources": 9
+   "sources": 11
   },
   "FL": {
    "APPROVED": 181,
@@ -11800,15 +11890,15 @@
    "sources": 7
   },
   "SC": {
-   "APPROVED": 7,
+   "APPROVED": 9,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 8,
    "by_type": {
     "DOCUMENT": 4,
-    "GIS": 1,
+    "GIS": 3,
     "GOVERNMENT": 10
    },
-   "sources": 15
+   "sources": 17
   },
   "TN": {
    "APPROVED": 2,

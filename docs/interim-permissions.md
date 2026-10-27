@@ -9,8 +9,8 @@ current practice continue until `expires_on`, and `permissions.authorize()` deni
 after (`EXPIRED`), with no fallback to a broader record. A window longer than
 210 days is a configuration error that denies every request.
 
-- Records: 342 across 86 sources
-- By expiry: 2027-04-12 (342)
+- Records: 348 across 89 sources
+- By expiry: 2027-04-12 (348)
 - Findings: REVIEWER_IS_NOT_A_DECISION (77)
 - Configuration: valid
 
@@ -217,6 +217,8 @@ found in the code for that source.
 | mo_stl_lra_inventory | MO | * | link | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mo_stl_lra_inventory | MO | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mo_stl_lra_inventory | MO | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| mo_stl_parcels_coordinates | MO | * | enrich | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
+| mo_stl_parcels_coordinates | MO | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
 | ok_oklahoma_county_owned | OK | * | display | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | ok_oklahoma_county_owned | OK | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | ok_oklahoma_county_owned | OK | * | link | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
@@ -242,6 +244,10 @@ found in the code for that source.
 | sc_georgetown_forfeited_land | SC | * | link | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | sc_georgetown_forfeited_land | SC | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | sc_georgetown_forfeited_land | SC | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| sc_horry_address_points | SC | * | enrich | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-27 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
+| sc_horry_address_points | SC | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-27 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
+| sc_horry_assessor_parcels | SC | * | enrich | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-27 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
+| sc_horry_assessor_parcels | SC | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-27 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
 | sc_horry_county_parcels | SC | * | enrich | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
 | sc_horry_county_parcels | SC | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
 | sc_horry_forfeited_land | SC | * | display | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
