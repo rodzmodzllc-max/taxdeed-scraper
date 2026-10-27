@@ -171,3 +171,81 @@ def split(rows: list[dict], stored_by_key: dict, key, now: datetime | None = Non
         counts[why] += 1
         out.append(r)
     return out, counts
+
+
+# ---------------------------------------------------------------------------
+# Paced re-stamps (2026-10-27).
+#
+# Measured: Michigan's sync re-stamped ~32,000 unchanged rows in ~15 minutes
+# (04:20-04:36 UTC) because a 'restamp' row went out as a FULL-ROW upsert -
+# every column of the row, 200 rows per INSERT ... ON CONFLICT DO UPDATE,
+# back to back. A re-stamp changes one column. It is now sent as one small
+# PATCH {"last_seen_at": <this read>} per RESTAMP_BATCH ids (`id=in.(...)`),
+# guarded so a row stamped at or after this read is never moved backwards,
+# with RESTAMP_PAUSE_SECONDS between batches so other writers and customer
+# reads get the database in between. No index covers last_seen_at or
+# updated_at, so the update can stay a HOT update.
+#
+# Why NOT spread re-stamps over the day by an id-hash bucket: the states are
+# read twice a day (03:37 / 11:37 UTC) and GitHub drops scheduled runs (it
+# dropped both early runs on 2026-10-27). A bucketed row would be re-stamped
+# only on some reads, so one dropped run pushes it past 24 h and toward the
+# 36 h rules (the frontend's "not on the county's current sale list", the
+# daily verification freshness). Every read that lists a row still re-stamps
+# it once FRESH_HOURS have passed; only the shape and pace of the write changed.
+
+RESTAMP_BATCH = 200          # ~7.5 KB of uuids per URL
+RESTAMP_PAUSE_SECONDS = 0.5
+
+
+def split_restamps(rows: list[dict], stored_by_key: dict, key, now: datetime | None = None,
+                   hours: float = FRESH_HOURS) -> tuple[list[dict], list, dict]:
+    """(rows to upsert, stored ids to re-stamp only, counts). Like `split`,
+    but a row whose only due write is the re-stamp is returned as its stored
+    id instead of a full row. A stored row without an id stays a full row."""
+    counts = {"new": 0, "changed": 0, "restamp": 0, "unchanged_skipped": 0}
+    out, ids = [], []
+    for r in rows:
+        stored = stored_by_key.get(key(r))
+        why = needs_write(r, stored, now, hours)
+        if why is None:
+            counts["unchanged_skipped"] += 1
+            continue
+        counts[why] += 1
+        if why == "restamp" and stored.get("id") not in (None, ""):
+            ids.append(stored["id"])
+        else:
+            out.append(r)
+    return out, ids, counts
+
+
+def restamp_queries(ids: list, seen_at: str, size: int = RESTAMP_BATCH) -> list[str]:
+    """One PostgREST query string per batch of ids: the ids, and only rows
+    whose last_seen_at is missing or older than `seen_at`."""
+    from urllib.parse import quote
+    if size < 1:
+        raise ValueError("size must be >= 1")
+    guard = f"or=(last_seen_at.is.null,last_seen_at.lt.{quote(str(seen_at), safe='')})"
+    unique = list(dict.fromkeys(str(i) for i in ids))
+    return [f"id=in.({','.join(unique[i:i + size])})&{guard}" for i in range(0, len(unique), size)]
+
+
+def run_restamps(ids: list, seen_at: str, patch, *, size: int = RESTAMP_BATCH,
+                 pause: float = RESTAMP_PAUSE_SECONDS, sleep=None) -> tuple[int, int]:
+    """(requests sent, batches failed). `patch(query, body)` sends one PATCH;
+    an exception fails that batch only (its rows keep their last_seen_at and
+    the next read re-stamps them). Pauses between batches."""
+    import time
+    sleep = sleep or time.sleep
+    body = {"last_seen_at": seen_at}
+    sent = failed = 0
+    for n, query in enumerate(restamp_queries(ids, seen_at, size)):
+        if n and pause > 0:
+            sleep(pause)
+        try:
+            patch(query, body)
+            sent += 1
+        except Exception as exc:  # noqa: BLE001 - one batch failing stamps nothing for it
+            failed += 1
+            print(f"::warning title=restamp::a re-stamp batch failed ({type(exc).__name__})")
+    return sent, failed
