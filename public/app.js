@@ -457,6 +457,7 @@ let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), M
 // that uses it, because render() runs during page init before the script
 // reaches that code (the same temporal-dead-zone trap as mapFilter / selectedPid).
 const LIST_PAGE = 50;            // cards built per county group, then "Show next"
+var LIST_CARD_CTX = { inGroup: true, singleLedger: true, singleState: true }; // card() context from the List's own county groups (2026-10-27)
 const GROUP_SHOWN = new Map();   // group key -> cards listed (survives re-render)
 const GROUP_PAGES = new Map();   // group key -> { rows, renderCard } of the current render
 const TABLE_PAGE = 200;          // desktop data-table rows, then "Show next"
@@ -1203,9 +1204,9 @@ const LEDGERS = {
 const EXPANSION_LEDGER_COPY = {
   "auction": {
     "MI": {
-      "sub": "Parcels offered at the county treasurer's foreclosure / tax sale, from each county's own published list (Eaton, Lenawee).",
+      "sub": "Parcels offered at the county treasurer's foreclosure / tax sale, from each county's own published list (Eaton, Lenawee) and the upcoming county auction catalogs on Tax-Sale.info, the auction service Michigan treasurers use.",
       "how": "You bid at the county's sale. The figure shown is the minimum bid the county publishes, not the final price. Eaton marks parcels with its own 'Has Been Sold' flag; a flagged parcel is shown as sold per the county - no price or buyer is published or shown. Eaton holds its last 2026 auction in person (see a parcel's acquisition steps); Lenawee runs its sale online through a vendor site the county names (not linked here).",
-      "empty": "No Michigan sale parcels match. Michigan coverage is Eaton and Lenawee counties' published tax-sale lists."
+      "empty": "No Michigan sale parcels match. Michigan auction coverage is Eaton and Lenawee counties' published tax-sale lists and the upcoming Tax-Sale.info county catalogs."
     },
     "WY": {
       "sub": "Parcels on Albany County's published 2026 tax sale list. Wyoming's tax sale sells a tax lien certificate on each parcel, not the land.",
@@ -1213,9 +1214,9 @@ const EXPANSION_LEDGER_COPY = {
       "empty": "No Wyoming sale parcels match. Wyoming coverage is Albany County's published tax sale list."
     },
     "SC": {
-      "sub": "Parcels on York County's published tax sale list.",
-      "how": "You bid in person at the county's tax sale. York's fact sheet says the opening bid is all delinquent taxes, penalties and cost plus the current year's taxes, paid in full on the day; the list itself publishes no amount, so none is shown.",
-      "empty": "No South Carolina sale parcels match. South Carolina coverage is York County's published tax sale list."
+      "sub": "Parcels on York County's published tax sale list and Horry County's delinquent real-estate tax sale list.",
+      "how": "You bid in person at the county's tax sale. York's fact sheet says the opening bid is all delinquent taxes, penalties and cost plus the current year's taxes, paid in full on the day; York's list itself publishes no amount, so none is shown. Horry's list publishes the opening bid the delinquent tax collector makes for the Forfeited Land Commission (FLC Bid Amount), shown as the opening bid.",
+      "empty": "No South Carolina sale parcels match. South Carolina auction coverage is York County's published tax sale list and Horry County's delinquent tax sale list."
     },
     "CO": {
       "sub": "Accounts on Douglas County's advertised tax lien sale list, read only for the sale cycle the county has dated (the 2026 sale: November 5, 2026). Data: Douglas County, Colorado (CC BY-SA 4.0).",
@@ -1243,9 +1244,9 @@ const EXPANSION_LEDGER_COPY = {
       "empty": "No Pennsylvania auction records are tracked. Pennsylvania coverage is Fayette County Tax Claim Bureau's repository list (see Available)."
     },
     "MN": {
-      "sub": "No Minnesota auction source is tracked.",
-      "how": "Minnesota auction inventory is not harvested by this app.",
-      "empty": "No Minnesota auction records are tracked. Minnesota coverage is Ramsey County's tax-forfeited land layer (see Available)."
+      "sub": "Tax-forfeited parcels Wright County's own layer marks 'Open', which the county offers at its online auction.",
+      "how": "Bid at the county's online auction (its Public Surplus page). The figure shown is the layer's own Auction Starting Price - an opening bid, not the final price. Parcels the layer marks 'Closed' are not shown.",
+      "empty": "No Minnesota auction parcels match. Minnesota auction coverage is Wright County's tax-forfeited parcels layer."
     },
     "TN": {
       "sub": "No Tennessee auction source is tracked.",
@@ -1255,9 +1256,9 @@ const EXPANSION_LEDGER_COPY = {
   },
   "laft": {
     "MI": {
-      "sub": "Land bank inventory the Detroit Land Bank Authority and the Oceana County Land Bank publish themselves. Both sources await customer-publication review: collected, shown labelled to reviewers, not yet customer-published.",
-      "how": "Each land bank sells on its own published terms (Detroit: its published programs; Oceana: its own application). A figure shown is the land bank's own published price; see each parcel's acquisition section for what has been verified.",
-      "empty": "No Michigan land bank parcels match. Michigan Available coverage is the Detroit Land Bank Authority and Oceana County Land Bank inventories, which await customer-publication review."
+      "sub": "Land bank inventory the Detroit, Wayne County, Saginaw County, Calhoun County and Oceana County land banks publish themselves, and county surplus lots re-offered after a failed tax-foreclosure auction on Tax-Sale.info.",
+      "how": "Each land bank sells on its own published terms (Detroit: its published programs; Oceana: its own application; the ePropertyPlus land banks: their own portal). A figure shown is the amount the source publishes, named as it names it; see each parcel's acquisition section for what has been verified.",
+      "empty": "No Michigan land bank parcels match. Michigan Available coverage is the Detroit, Wayne County, Saginaw County, Calhoun County and Oceana County land bank inventories and the Tax-Sale.info surplus catalogs."
     },
     "WY": {
       "sub": "No Wyoming post-sale available source is tracked.",
@@ -1280,9 +1281,9 @@ const EXPANSION_LEDGER_COPY = {
       "empty": "No Wisconsin post-sale available records are tracked. Wisconsin coverage is Green County's tax deed sale page (see Auctions)."
     },
     "MO": {
-      "sub": "Parcels the St. Louis Land Reutilization Authority lists as Available in its own inventory (City of St. Louis open data). Only rows whose own status reads 'Available' are read.",
+      "sub": "Parcels the St. Louis Land Reutilization Authority lists as Available in its own inventory (City of St. Louis open data; only rows whose own status reads 'Available'), and the Land Bank of Kansas City, Missouri's published inventory.",
       "how": "The inventory publishes no price and no per-parcel purchase link. Ask the Land Reutilization Authority (St. Louis Development Corporation) how to apply for a parcel; no application process has been verified here yet.",
-      "empty": "No Missouri available parcels match. Missouri coverage is the City of St. Louis Land Reutilization Authority inventory."
+      "empty": "No Missouri available parcels match. Missouri coverage is the City of St. Louis Land Reutilization Authority inventory and the Land Bank of Kansas City's portal."
     },
     "OK": {
       "sub": "County-owned property the Oklahoma County Treasurer lists for sale: 'Once the County owns these properties, they can be purchased by the public through a bidding process.'",
@@ -1290,14 +1291,14 @@ const EXPANSION_LEDGER_COPY = {
       "empty": "No Oklahoma county-owned property matches. Oklahoma coverage is Oklahoma County's county-owned property list."
     },
     "PA": {
-      "sub": "Properties on the Fayette County Tax Claim Bureau's repository list, shown with the list's own date. Rows the list marks 'Bid Received' are not shown as available.",
+      "sub": "Properties on the Fayette County Tax Claim Bureau's repository list, shown with the list's own date (rows the list marks 'Bid Received' are not shown), and City of Pittsburgh city-owned property its portal marks 'Available for Sale'.",
       "how": "Repository properties are sold by sealed bid; the county opens bids on the first Tuesday of each month, and a sale needs the taxing bodies' consent. The figure shown is the list's 'Min. Bid'. Confirm with the Tax Claim Bureau that a property is still on the repository before bidding.",
-      "empty": "No Pennsylvania repository properties match. Pennsylvania coverage is Fayette County's repository list."
+      "empty": "No Pennsylvania available properties match. Pennsylvania coverage is Fayette County's repository list and the City of Pittsburgh's city-owned property portal."
     },
     "MN": {
-      "sub": "Tax-forfeited parcels Ramsey County's own layer marks 'Available for purchase' (over the counter). Parcels sold at auction or already purchased are not shown.",
-      "how": "Buy over the counter from Ramsey County's tax-forfeited land office. The figure shown is the layer's own Minimum Bid. The layer publishes no purchase link.",
-      "empty": "No Minnesota available parcels match. Minnesota coverage is Ramsey County's tax-forfeited land layer."
+      "sub": "Tax-forfeited parcels Ramsey County's own layer marks 'Available for purchase' and Hubbard County's marks 'OTC' (over the counter), and land the Saint Paul HRA marks available on the open market. Parcels sold at auction or already purchased are not shown.",
+      "how": "Ramsey and Hubbard: buy over the counter from the county's tax-forfeited land office; the figure shown is the layer's own Minimum Bid. Saint Paul HRA: the HRA sells under its disposition policy and publishes no price. No layer publishes a purchase link.",
+      "empty": "No Minnesota available parcels match. Minnesota Available coverage is Ramsey and Hubbard counties' tax-forfeited land layers and the Saint Paul HRA's land for sale."
     },
     "TN": {
       "sub": "County-owned parcels the Shelby County Land Bank's own portal marks 'FOR SALE' and available. Sold, pending, donation and redemption parcels are not shown.",
@@ -1349,7 +1350,7 @@ const EXPANSION_LEDGER_COPY = {
     "MN": {
       "sub": "No Minnesota certificate source is tracked.",
       "how": "Minnesota certificate inventory is not harvested by this app.",
-      "empty": "No Minnesota certificate records are tracked. Minnesota coverage is Ramsey County's tax-forfeited land layer (see Available)."
+      "empty": "No Minnesota certificate records are tracked. Minnesota coverage is Wright County's auction parcels (see Auctions) and tax-forfeited and HRA land (see Available)."
     },
     "TN": {
       "sub": "No Tennessee certificate source is tracked.",
@@ -1395,7 +1396,28 @@ var AVAILABLE_PROGRAMS = {
   mn_ramsey_tax_forfeit: "Tax-forfeited land",
   pa_fayette_repository: "Repository list (unsold at tax sale)",
   ok_oklahoma_county_owned: "County-owned property",
-  sc_horry_forfeited_land: "Forfeited Land Commission list", sc_georgetown_forfeited_land: "Forfeited Land Commission list"
+  sc_horry_forfeited_land: "Forfeited Land Commission list", sc_georgetown_forfeited_land: "Forfeited Land Commission list",
+  // 2026-10-27: the new-sources sprint's AVAILABLE sources, in each source's own terms
+  // (harvesters/otc/adapters/expansion.py notes; docs/new-sources-2026-10-26.md).
+  mo_kc_landbank: "Land bank inventory",
+  mi_wayne_county_landbank: "Land bank inventory", mi_saginaw_landbank: "Land bank inventory",
+  mi_calhoun_landbank: "Land bank inventory",
+  mi_tax_sale_info_surplus: "Surplus property (failed to sell at the county's tax-foreclosure auction)",
+  pa_pittsburgh_city_property: "City-owned property",
+  mn_hubbard_tfl_otc: "Tax-forfeited land (over the counter)",
+  mn_stpaul_hra_properties: "HRA land held for resale",
+  la_ebr_adjudicated: "Adjudicated property",
+  al_ador_state_land: "State-held tax land", ar_cosl_post_auction: "Post-auction state land",
+  // Texas: struck-off / resale / trust property, as each list names it.
+  tx_lgbs: "Struck-off / future-sale inventory (vendor listing)",
+  tx_pbfcm: "Resale list of struck-off property (vendor listing)",
+  tx_mvba: "Trust property for sale (vendor listing)",
+  tx_bexar_resale: "Resale property (struck off)",
+  tx_montgomery_tax_trust: "Tax trust property",
+  tx_orange_trust_property: "Trust property",
+  tx_trinity_cad_resale: "Resale property",
+  tx_randall_trustee_property: "Trustee property (struck off)",
+  tx_hood_cad_struck_off: "Struck-off property"
 };
 function availableProgram(p) {
   return AVAILABLE_PROGRAMS[(p && (p.source_id || p.harvester_source)) || ""] || "Government-held property";
@@ -1875,7 +1897,16 @@ var COORD_SOURCE_COORDINATES = {
   mi_detroit_landbank_lots: ["LAND_BANK_GIS", "POINT"],
   mi_detroit_landbank_programs: ["LAND_BANK_GIS", "POINT"],
   mn_ramsey_tax_forfeit: ["PARCEL_GIS", "POINT"],
-  tn_shelby_landbank: ["LAND_BANK_GIS", "POINT"]
+  tn_shelby_landbank: ["LAND_BANK_GIS", "POINT"],
+  mo_kc_landbank: ["LAND_BANK_GIS", "POINT"],
+  mi_wayne_county_landbank: ["LAND_BANK_GIS", "POINT"],
+  mi_saginaw_landbank: ["LAND_BANK_GIS", "POINT"],
+  mi_calhoun_landbank: ["LAND_BANK_GIS", "POINT"],
+  pa_pittsburgh_city_property: ["OTHER_REVIEWED", "POINT"],
+  mn_hubbard_tfl_otc: ["PARCEL_GIS", "PARCEL_CENTROID"],
+  mn_stpaul_hra_properties: ["PARCEL_GIS", "PARCEL_CENTROID"],
+  mn_wright_tax_forfeit: ["PARCEL_GIS", "PARCEL_CENTROID"],
+  co_saguache_tax_sale: ["PARCEL_GIS", "PARCEL_CENTROID"]
 };
 var COORD_PROVENANCE_COORDINATES = {
   fdor_nal: ["TAX_ROLL", "PARCEL_CENTROID"],
@@ -1959,7 +1990,10 @@ function storedAerialOutlineHost(p, cls) {
     && imageryHasCoords(p) && naipLiveEnabled() && p.id !== undefined && p.id !== null
     && !naipFailedSet().has(naipKey(p.latitude, p.longitude));
 }
-function propertyVisual(p, cls) {
+// opts.omitCounty (2026-10-27): inside a county group the caption drops the
+// county name the group head already shows; the wording is otherwise the same.
+function propertyVisual(p, cls, opts) {
+  const omitCounty = !!(opts && opts.omitCounty);
   if (hasPhoto(p)) {
     const html = photoOrPlaceholder(p, cls);
     if (!storedAerialOutlineHost(p, cls)) return html;
@@ -1977,16 +2011,43 @@ function propertyVisual(p, cls) {
     // A live aerial image that was requested and did not load says so, rather
     // than reading as if no image was ever tried.
     const failed = naipLiveEnabled() && naipFailedFor(p);
-    return `<div class="${cls} minimap" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"${failed ? ' data-imagery="naip_failed"' : ""}><span class="photo-caption">${failed ? "Aerial image unavailable · " : ""}Location in ${esc(p.county)} ${UNIT_WORD}</span></div>`;
+    return `<div class="${cls} minimap" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"${failed ? ' data-imagery="naip_failed"' : ""}><span class="photo-caption">${failed ? "Aerial image unavailable · " : ""}${omitCounty ? "Location in this " + UNIT_WORD.toLowerCase() : `Location in ${esc(p.county)} ${UNIT_WORD}`}</span></div>`;
   }
   // No coordinates: the county in context, drawn from the app's own basemap
   // (no request leaves the site), captioned with what is and is not known.
   if (p.county && STATE_META[regionOf(p)] && STATE_META[regionOf(p)].basemap) {
     // Keeps rung 4's two honest lines (image state, location state) as the
     // caption, so nothing about the image or the location reads as known.
-    return `<div class="${cls} no-photo minimap minimap-county" data-county="${esc(p.county)}"><span class="photo-caption mm-county-caption"><span class="vis-main">${esc(photoStateText(p))}</span><span class="vis-sub">${esc(p.county)} ${UNIT_WORD} · exact location not yet geocoded</span></span></div>`;
+    // Location panel (2026-10-27, owner: "something better" than a whole
+    // county outline): a small state locator with the county tinted, what is
+    // not known, and one way to look the parcel up at its official source.
+    return locationPanelHtml(p, cls, omitCounty);
   }
   return `<div class="${cls} no-photo">${svgIcon(isBareLand(p) ? "layers" : "building")}<span class="vis-main">${esc(photoStateText(p))}</span><span class="vis-sub">Not yet geocoded</span></div>`;
+}
+
+// The way to look a record up when it has no coordinates, best first: the
+// record's own appraiser link, the hand-checked Florida county appraiser
+// site, then a map search of the listed address (labelled as a search - it
+// finds the address, never the parcel). Nothing when none exists.
+function locationLookupLink(p) {
+  const https = u => (u && /^https:\/\//i.test(String(u).trim()) ? String(u).trim() : "");
+  const own = https(p.url_appraiser);
+  if (own) return { url: own, label: "County property records", note: "" };
+  const fl = regionOf(p) === "FL" && typeof COUNTY_LINKS === "object" && COUNTY_LINKS[p.county] ? https(COUNTY_LINKS[p.county].appraiser) : "";
+  if (fl) return { url: fl, label: "County property appraiser", note: "" };
+  const addr = realAddress(p);
+  if (addr) return { url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr + ", " + p.county + " " + UNIT_WORD + ", " + regionOf(p))}`, label: "Search this address on a map", note: "A map search finds the address, not the parcel." };
+  return null;
+}
+function locationPanelHtml(p, cls, omitCounty) {
+  const link = locationLookupLink(p);
+  const where = omitCounty ? "" : `<span class="loc-county">${esc(p.county)} ${esc(UNIT_WORD)}</span>`;
+  return `<div class="${cls} no-photo loc-panel" data-imagery="location_panel">` +
+    `<span class="loc-thumb minimap minimap-county" data-county="${esc(p.county)}" data-frame="state" aria-hidden="true"></span>` +
+    `<span class="loc-text"><span class="loc-main">Exact location not yet mapped</span>${where}` +
+    (link ? `<a class="loc-link" href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.label)} <span aria-hidden="true">↗</span></a>${link.note ? `<span class="loc-note">${esc(link.note)}</span>` : ""}` : "") +
+    `</span></div>`;
 }
 
 // Rung 3 renders from the app's own basemap SVG (fl-counties.svg /
@@ -2067,15 +2128,24 @@ function renderMinimapInto(host) {
   // Frame: the county's box padded 25%, widened to a 2:1 landscape so it
   // fills the same banner the photo would. Neighbours inside that frame
   // are drawn quietly for context; the county itself is tinted.
-  const pad = Math.max(target.box.w, target.box.h) * 0.25;
-  let w = target.box.w + pad * 2, h = target.box.h + pad * 2;
-  if (w / h < 2) w = h * 2; else h = w / 2;
-  const vb = { x: target.box.x + target.box.w / 2 - w / 2, y: target.box.y + target.box.h / 2 - h / 2, w, h };
+  let vb;
+  if (host.dataset.frame === "state") {
+    // Locator: the whole state, the county tinted.
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    geom.counties.forEach(c => { x0 = Math.min(x0, c.box.x); y0 = Math.min(y0, c.box.y); x1 = Math.max(x1, c.box.x + c.box.w); y1 = Math.max(y1, c.box.y + c.box.h); });
+    const m = Math.max(x1 - x0, y1 - y0) * 0.04;
+    vb = { x: x0 - m, y: y0 - m, w: x1 - x0 + 2 * m, h: y1 - y0 + 2 * m };
+  } else {
+    const pad = Math.max(target.box.w, target.box.h) * 0.25;
+    let w = target.box.w + pad * 2, h = target.box.h + pad * 2;
+    if (w / h < 2) w = h * 2; else h = w / 2;
+    vb = { x: target.box.x + target.box.w / 2 - w / 2, y: target.box.y + target.box.h / 2 - h / 2, w, h };
+  }
   const inFrame = (b) => !(b.x + b.w < vb.x || b.x > vb.x + vb.w || b.y + b.h < vb.y || b.y > vb.y + vb.h);
   const NS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
-  svg.setAttribute("preserveAspectRatio", "xMidYMid slice");
+  svg.setAttribute("preserveAspectRatio", host.dataset.frame === "state" ? "xMidYMid meet" : "xMidYMid slice");
   svg.setAttribute("role", "img");
   svg.setAttribute("aria-label", countyOnly ? `${county} ${UNIT_WORD} - exact location not yet geocoded` : `Approximate location within ${county} ${UNIT_WORD}`);
   geom.counties.forEach((c, name) => {
@@ -2730,15 +2800,20 @@ function realAddress(p) {
 // "Parcel #Unknown (Escambia County Lot)", which reads like a data error
 // because it is one - it says nothing except that two fields are empty.
 //
-// Texas vendor rows (tx_lgbs / tx_realauction) store the tax-suit CAUSE number
+// Texas vendor rows (tx_lgbs / tx_realauction / tx_pbfcm / tx_mvba / tx_govease) store the tax-suit CAUSE number
 // in `parcel` and the CAD parcel/account number in `case_no`
 // (harvesters/texas_harvester.py, TexasSaleRow). One cause covers several
 // parcels - production 2026-10-10: 32 LGBS causes each on 2-26 different
 // active Available rows, with different addresses and amounts - so a cause is
 // never shown as a "Parcel #" and never used to say two records are the same
 // parcel. parcelOf() is the per-parcel identifier; causeOf() the cause.
+// 2026-10-27: the unblocked vendors PBFCM / MVBA / GovEase store rows the same
+// way. The list mirrors harvesters/ledgers/records.py CAUSE_IN_PARCEL_SOURCES
+// (tests/python/test_frontend_source_followups.py pins them equal).
+// var: reached from render() during module init (TDZ).
+var CAUSE_IN_PARCEL_SOURCES = ["tx_lgbs", "tx_realauction", "tx_pbfcm", "tx_mvba", "tx_govease"];
 function causeInParcel(p) {
-  return !!p && ["tx_lgbs", "tx_realauction"].indexOf(p.harvester_source || p.source_id || "") >= 0;
+  return !!p && CAUSE_IN_PARCEL_SOURCES.indexOf(p.harvester_source || p.source_id || "") >= 0;
 }
 function parcelOf(p) { return p ? (causeInParcel(p) ? p.case_no : p.parcel) : null; }
 function causeOf(p) { return causeInParcel(p) ? (p.parcel || null) : null; }
@@ -2956,7 +3031,62 @@ const HARVESTER_SOURCE_NAMES = {
   co_douglas_tax_sale_list: "Douglas County, Colorado - Tax Sale List open data (CC BY-SA 4.0)",
   co_morgan_treasurer_deed_auctions: "Morgan County Treasurer - Treasurer's Deed Option Auctions",
   wi_dane_tax_deed_auction: "Dane County Treasurer - Tax Deed Auction",
-  sc_oconee_tax_sale_list: "Oconee County - Delinquent Tax Sale List"
+  sc_oconee_tax_sale_list: "Oconee County - Delinquent Tax Sale List",
+  // 2026-10-27: every source id that produces rows, named by its publisher
+  // (data/county_source_registry.csv publishing_unit_name / the adapter
+  // configuration). tests/python/test_frontend_source_followups.py pins that
+  // every collected source id has a label here.
+  fl_realauction: "County Clerk of the Circuit Court - tax deed sale calendar (RealAuction / RealTaxDeed)",
+  fl_bid4assets_okaloosa: "Okaloosa County Clerk of the Circuit Court - tax deed sales (Bid4Assets)",
+  fl_lienhub_certificates: "County Tax Collector - county-held tax certificates (LienHub)",
+  fl_sarasota_tc_certificates: "Sarasota County Tax Collector - County-Held Certificates for Purchase",
+  fl_laft_pdfs: "County Clerk of the Circuit Court - Lands Available for Taxes list (PDF)",
+  fl_laft_html: "County Clerk of the Circuit Court - Lands Available for Taxes list (web page)",
+  fl_laft_pioneer: "County Clerk of the Circuit Court - Lands Available for Taxes (Clerk's tax deed portal)",
+  fl_laft_realtdm: "County Clerk of the Circuit Court - Lands Available for Taxes (realTDM)",
+  fl_laft_portals: "County Clerk of the Circuit Court - Lands Available for Taxes (Clerk's tax deed portal)",
+  fl_laft_orange: "Orange County Comptroller - Land Available for Taxes",
+  fl_laft_stlucie: "St. Lucie County Clerk of the Circuit Court - Lands Available for Taxes",
+  fl_laft_osceola: "Osceola County Clerk of the Circuit Court - Lands Available for Taxes",
+  fl_laft_hillsborough: "Hillsborough County Clerk of the Circuit Court - Lands Available for Taxes",
+  fl_laft_leon: "Leon County Clerk of the Circuit Court - Lands Available for Taxes",
+  tx_pbfcm: "Perdue Brandon Fielder Collins & Mott (PBFCM) tax sale and resale lists",
+  tx_mvba: "McCreary, Veselka, Bragg & Allen (MVBA) tax sales and trust properties",
+  tx_govease: "GovEase Texas online tax-sale auctions",
+  tx_hctax: "Harris County Tax Assessor-Collector - Delinquent Tax Sale Property Listing",
+  tx_jefferson_sheriff_sale: "Jefferson County Tax Assessor-Collector - Notice of Sale",
+  tx_bexar_resale: "Bexar County - Resale Properties Distribution List",
+  tx_montgomery_tax_trust: "Montgomery County Tax Assessor-Collector - Tax Trust Listing",
+  tx_orange_trust_property: "Orange County (TX) Tax Assessor-Collector - Trust Property Tax Sales",
+  tx_trinity_cad_resale: "Trinity Central Appraisal District - Resale Property List",
+  tx_randall_trustee_property: "Randall County Tax Assessor-Collector - Trustee Property Listing",
+  tx_hood_cad_struck_off: "Hood Central Appraisal District - Struck Off Property List",
+  la_ebr_adjudicated: "East Baton Rouge Parish open data - Adjudicated Parcel",
+  al_ador_state_land: "Alabama Department of Revenue - state-held tax land",
+  ar_cosl_post_auction: "Arkansas Commissioner of State Lands - Post Auction Sales List",
+  az_maricopa_state_cp: "Maricopa County Treasurer - State CP liens",
+  mi_detroit_landbank_lots: "Detroit Land Bank Authority - lots (ArcGIS layer)",
+  mi_detroit_landbank_programs: "Detroit Land Bank Authority - property programs (ArcGIS layer)",
+  mi_oceana_landbank: "Oceana County Land Bank Authority",
+  mi_wayne_county_landbank: "Wayne County Land Bank Corporation (ePropertyPlus portal)",
+  mi_saginaw_landbank: "Saginaw County Land Bank Authority (ePropertyPlus portal)",
+  mi_calhoun_landbank: "Calhoun County Land Bank Authority (ePropertyPlus portal)",
+  mi_tax_sale_info_auction: "Tax-Sale.info (Title Check, LLC) - county tax-foreclosure auction catalogs",
+  mi_tax_sale_info_surplus: "Tax-Sale.info (Title Check, LLC) - county surplus property catalogs",
+  mo_stl_lra_inventory: "St. Louis Land Reutilization Authority inventory (City of St. Louis open data)",
+  mo_kc_landbank: "Land Bank of Kansas City, Missouri (ePropertyPlus portal)",
+  ok_oklahoma_county_owned: "Oklahoma County Treasurer - County Owned Property list",
+  pa_fayette_repository: "Fayette County Tax Claim Bureau - Repository Sale list",
+  pa_pittsburgh_city_property: "City of Pittsburgh - city-owned property (ePropertyPlus portal)",
+  mn_ramsey_tax_forfeit: "Ramsey County - tax-forfeited land (public data layer)",
+  mn_hubbard_tfl_otc: "Hubbard County - tax-forfeited land sales (TFL Sales layer)",
+  mn_stpaul_hra_properties: "Saint Paul Housing and Redevelopment Authority - HRA properties for sale",
+  mn_wright_tax_forfeit: "Wright County - Tax Forfeited Parcels (ArcGIS layer)",
+  sc_horry_forfeited_land: "Horry County Forfeited Land Commission - bid lists",
+  sc_georgetown_forfeited_land: "Georgetown County Forfeited Land Commission - property list (PDF)",
+  sc_horry_tax_sale: "Horry County Treasurer - Real Estate Delinquent tax sale list",
+  co_saguache_tax_sale: "Saguache County - 2026 Tax Sale (San Luis Valley GIS layer)",
+  tn_shelby_landbank: "Shelby County Land Bank (ePropertyPlus portal)"
 };
 // The source a row is attributed to, for display (remediation). harvester_source
 // is the harvester's display name; when a row has only its source_id (the
@@ -2966,6 +3096,7 @@ function sourceNameFor(p) {
   const named = harvesterSourceLabel(p);
   if (named) return named;
   if (!p || !p.source_id) return null;
+  if (HARVESTER_SOURCE_NAMES[p.source_id]) return HARVESTER_SOURCE_NAMES[p.source_id];
   return String(p.source_id).split("_").map((w, i) =>
     (i === 0 && w.length === 2) || w === "laft" ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
@@ -2973,6 +3104,7 @@ function harvesterSourceLabel(p) {
   if (!p || !p.harvester_source) return null;
   const raw = String(p.harvester_source);
   if (HARVESTER_SOURCE_NAMES[raw]) return HARVESTER_SOURCE_NAMES[raw];
+  if (p.source_id && HARVESTER_SOURCE_NAMES[p.source_id]) return HARVESTER_SOURCE_NAMES[p.source_id];
   return raw.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
@@ -3019,8 +3151,11 @@ function auctionLinkInfo(p) {
   if (kind === "info") return { href, kind, label: "View county tax-sale information", note: null };
   return { href, kind: null, label: "View listing", note: "The scope of this link has not been recorded." };
 }
-function auctionLinkHtml(p, cls) {
-  const l = auctionLinkInfo(p);
+// opts.noDate (2026-10-27): on the List the sale date is the date divider
+// above the card, so the sale-listing button drops it.
+function auctionLinkHtml(p, cls, opts) {
+  const l = Object.assign({}, auctionLinkInfo(p));
+  if (opts && opts.noDate && l.kind === "sale" && /^View sale listing for /.test(l.label)) l.label = "View sale listing";
   if (!l.href) return `<span class="${cls}-none auction-link-none" data-auction-link="none">${esc(l.label)}</span>`;
   return `<a class="${cls}" href="${esc(l.href)}" target="_blank" rel="noopener" data-auction-link="${esc(l.kind || "unknown")}"${l.note ? ` title="${esc(l.note)}"` : ""}>${cls === "detail-cta" ? svgIcon("gavel") : ""}${esc(l.label)}</a>`;
 }
@@ -4355,7 +4490,13 @@ function ledgerStatusHtml(kind, shown, opts) {
   const eligLabel = (doc.eligibilities || {})[z.eligibility] || z.eligibility.replace(/_/g, " ").toLowerCase();
   const eligCls = z.eligibility === "OFFERED" || z.eligibility === "COUNTY_DEPENDENT" ? "ok" : z.eligibility === "NOT_OFFERED" ? "bad" : "muted";
   const countText = !z.settled ? "Loading…" : z.loadFailed ? (z.count ? `${ledgerNoun(kind, z.count)} loaded - load failed, may be incomplete` : "Count unavailable - load failed") : ledgerNoun(kind, z.count);
-  const filtered = z.settled && !z.loadFailed && Array.isArray(shown) && shown.length !== z.count ? ` · ${shown.length.toLocaleString("en-US")} match the current filters` : "";
+  // The List title already shows how many are in view (2026-10-27): the count
+  // item appears only when it says something else - the ledger total behind
+  // a filtered view, a load still running, or a failed load.
+  const ok = z.settled && !z.loadFailed;
+  // The ledger total as the header tab counts it (current listings).
+  const ledgerTotal = ok ? ALL.filter(p => p.source === kind && !isPastDue(p) && !HIDDEN.has(p.id) && !goneExpired(p) && isCurrentListing(p)).length : null;
+  const countIsTitle = !o.compact && ok && Array.isArray(shown) && (shown.length === z.count || shown.length === ledgerTotal);
   const units = z.units;
   const freshness = units === null ? "Read health not recorded on this deployment"
     : !units.length ? "No source read recorded for this ledger"
@@ -4368,8 +4509,8 @@ function ledgerStatusHtml(kind, shown, opts) {
   const verified = z.led && z.led.eligibility_verified_on ? `verified ${fmtDate(z.led.eligibility_verified_on)}` : "not verified";
   return `<div class="ledger-status" data-ledger-status="${esc(kind)}" data-eligibility="${esc(z.eligibility)}" data-zero-case="${esc(z.zeroCase || "")}" data-health="${esc(z.health)}" data-tracked="${z.tracked ? "1" : "0"}">
     <span class="ls-item"><b>Offered here</b><span class="ls-val ${eligCls}" data-ls-eligibility>${esc(eligLabel)}</span><span class="ls-sub">${esc(verified)}</span></span>
-    <span class="ls-item"><b>Tracked</b><span class="ls-val" data-ls-tracked>${esc(z.led ? ((doc.ledger_statuses || {})[z.led.status] || z.led.status) : "Not recorded")}</span></span>
-    <span class="ls-item"><b>Current count</b><span class="ls-val" data-ls-count="${z.settled && !z.loadFailed ? z.count : ""}">${esc(countText)}</span>${filtered ? `<span class="ls-sub">${esc(filtered)}</span>` : ""}</span>
+    <span class="ls-item"><b>In TAXACQ</b><span class="ls-val" data-ls-tracked>${esc(z.led ? ((doc.ledger_statuses || {})[z.led.status] || z.led.status) : "Not recorded")}</span></span>
+    ${countIsTitle ? "" : `<span class="ls-item"><b>${ok && !o.compact ? "Ledger total" : "Current count"}</b><span class="ls-val" data-ls-count="${ok ? z.count : ""}"${ok ? ` data-ls-total="${ledgerTotal}"` : ""}>${esc(ok && !o.compact ? ledgerNoun(kind, ledgerTotal) : countText)}</span></span>`}
     <span class="ls-item"><b>Source read</b><span class="ls-val" data-ls-read>${esc(freshness)}</span></span>
     ${z.pub ? `<span class="ls-item"><b>Withheld from customers</b><span class="ls-val${z.pubWithheld ? " warn" : ""}" data-ls-withheld="${z.pubWithheld}" title="Records collected but not customer-published until they pass the publication gate: source approval, verified state and county rules, record validation, a documented acquisition path and a current observation">${esc(z.pubWithheld ? publicationWithheldText(kind) : "None - every active record passed the publication gate")}</span>${z.pubWithheld && IS_ADMIN ? `<span class="ls-sub">Shown to you as an admin, each labelled; customers do not see them</span>` : ""}</span>` : ""}
     ${why ? `<p class="ls-why" data-zero-why="${esc(z.zeroCase)}"><b>${esc(why.label)}.</b> ${esc(why.text)}${lastKnown ? ` ${esc(lastKnown)}.` : ""}${covText ? ` ${esc(covText)}.` : ""}${z.zeroCase === "WITHHELD" || (z.zeroCase === "SOURCE_RESTRICTED" && z.pubWithheld) ? ` ${esc(publicationWithheldText(kind))}.` : ""}${kind === "laft" && UNCONFIRMED_WITHHELD.total ? ` <span data-unconfirmed-withheld="${UNCONFIRMED_WITHHELD.total}">${esc(unconfirmedLedgerText())}</span>` : ""}</p>` : ""}
@@ -4785,9 +4926,11 @@ function countyNamesByCount() {
 // county chosen, when the selection is narrower than the state's universe -
 // never a second, independent selection. A single-pick select cannot show an
 // arbitrary multi-county chip selection, so it reads "All" then.
+// counts === null (2026-10-27): names only - the List toolbar's select. Per-
+// county counts on the List live in the county bar's list (countyNowBarHtml).
 function countyPickerOptionsHtml(names, counts, allLabel) {
   return `<option value="ALL">${esc(allLabel)}</option>` +
-    names.map(v => `<option value="${esc(v)}">${esc(v)} (${counts.get(v) || 0})</option>`).join("");
+    names.map(v => `<option value="${esc(v)}">${esc(v)}${counts ? ` (${counts.get(v) || 0})` : ""}</option>`).join("");
 }
 function selectedCountyOrAll() {
   return state.counties.size === 1 && state.counties.size < ALL_COUNTIES.length ? Array.from(state.counties)[0] : "ALL";
@@ -4831,7 +4974,7 @@ function buildAllChips() {
   buildChips("typeChips", TYPE_ORDER, state.types);
   buildChips("lienChips", LIEN_ORDER, state.liens, v => LIEN_LABEL[v], v => "lien-" + v);
   const countyQuickEl = document.getElementById("countyQuick");
-  if (countyQuickEl) countyQuickEl.innerHTML = countyPickerOptionsHtml(names, counts, "All Counties");
+  if (countyQuickEl) countyQuickEl.innerHTML = countyPickerOptionsHtml(names, null, "All Counties");
   syncCountyPickers();
   // "N of M selected" badges on the Advanced Filters dropdown summaries.
   const typeCountEl = document.getElementById("typeCount");
@@ -5153,15 +5296,31 @@ function kickerParts(p) {
   }
   return { type, phase, cls };
 }
-function cardKickerHtml(p, showCounty) {
+// ctx (2026-10-27, one fact in one place) is optional and only ever passed
+// from a single-ledger, single-state List page: { inGroup } drops the county
+// (its group / story / folder head names it), { singleState } drops the state
+// (the page title names it), { singleLedger } drops the ledger word (the tab
+// and title name it). With no ctx the line is unchanged, so the Watchlist,
+// search results and the Map strip keep county, state and ledger. The phase
+// is never dropped: it carries "Sale not scheduled", "Past sale date", etc.
+// cardKickerHtml(p, ctx) is accepted as well as (p, showCounty, ctx).
+function cardKickerHtml(p, showCounty, ctx) {
+  if (showCounty && typeof showCounty === "object") { ctx = showCounty; showCounty = false; }
+  const c = ctx || {};
   const { type, phase, cls } = kickerParts(p);
   // Phase 66: county + state always lead the line, not only in flat lists -
   // the card has to stand on its own in the watchlist modal, in search
   // results and in a screenshot, where the county group header isn't there
   // to say where the parcel is. (`showCounty` still selects the fuller
   // wording the flat lists used.)
-  const where = showCounty ? `${esc(p.county)} ${UNIT_WORD}, ${esc(regionOf(p))}` : `${esc(p.county)}, ${esc(regionOf(p))}`;
-  return `<div class="prop-kicker"><span class="kicker-county">${where}</span><span class="kicker-sep">·</span><span class="kicker-type kicker-${esc(p.source)}">${type}</span><span class="kicker-sep">·</span><span class="kicker-phase ${cls}">${esc(phase)}</span></div>`;
+  const county = c.inGroup ? "" : (showCounty ? `${esc(p.county)} ${UNIT_WORD}` : esc(p.county));
+  const st = c.singleState ? "" : esc(regionOf(p));
+  const where = county && st ? `${county}, ${st}` : (county || st);
+  const parts = [];
+  if (where) parts.push(`<span class="kicker-county">${where}</span>`);
+  if (!c.singleLedger) parts.push(`<span class="kicker-type kicker-${esc(p.source)}">${type}</span>`);
+  parts.push(`<span class="kicker-phase ${cls}">${esc(phase)}</span>`);
+  return `<div class="prop-kicker">${parts.join(`<span class="kicker-sep">·</span>`)}</div>`;
 }
 
 // Phase 65: the compact card-level version of floodRowHtml() (full property
@@ -5372,7 +5531,11 @@ function recordBadgesHtml(p) {
 window.__tdwRecordBadges = id => { const p = ALL.find(x => String(x.id) === String(id)); return p ? recordBadges(p).map(b => b.key) : null; };
 window.__tdwEvidenceSort = (name, source) => { SORT_KEY_CACHE = new Map(); return ALL.filter(p => p.source === source).sort(SORT_COMPARATORS[name]).map(p => String(p.id)); };
 
-function card(p, showCounty) {
+// ctx (2026-10-27): { inGroup, singleLedger, singleState }, passed only from
+// the List's own county groups (section()); every other caller (Watchlist,
+// search, Home, test hooks) passes none and keeps the full card text.
+function card(p, showCounty, ctx) {
+  const cx = ctx && typeof ctx === "object" ? ctx : null;
   const el = document.createElement("div");
   const fav = FAVS.has(p.id), top = isTopPick(p);
   const isSelected = selectedPid != null && String(selectedPid) === String(p.id);
@@ -5384,7 +5547,7 @@ function card(p, showCounty) {
   let cd = "";
   if (d !== null && d >= 0) { const cls = d <= 3 ? "urgent" : d <= SOON_DAYS ? "soon" : ""; cd = `<span class="countdown ${cls}">${d === 0 ? "TODAY" : d + "d"}</span>`; }
   else if (d !== null && d < 0) { cd = `<span class="countdown past" title="Sale date ${esc(fmtDate(p.sale_date))}">${-d}d since sale</span>`; }
-  const tag = cardKickerHtml(p, showCounty);
+  const tag = cardKickerHtml(p, showCounty, cx);
 
   const street = realAddress(p);
   const hasAddress = !!street;
@@ -5425,15 +5588,15 @@ function card(p, showCounty) {
   const ledger = p.source;
   const primary = ledger === "laft"
     ? `<button class="detail-btn detail-btn-primary" data-action="viewdetails" data-pid="${p.id}" type="button">How to acquire →</button>`
-    : auctionLinkHtml(p, "cta-btn");
+    : auctionLinkHtml(p, "cta-btn", cx ? { noDate: true } : null);
   const secondary = ledger === "laft" ? "" : `<button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">Details →</button>`;
   const stamp = cardStamp(p);
   el.innerHTML = `
-    ${propertyVisual(p, "prop-card-photo")}
+    ${propertyVisual(p, "prop-card-photo", cx && cx.inGroup ? { omitCounty: true } : null)}
     <div class="prop-body">
       ${stamp ? `<div class="pc-stamp-inline">${cardStampHtml(stamp)}</div>` : ""}
       <div class="prop-address">${titleLine}</div>
-      <div class="prop-county-line">${esc(p.county || "")}${p.county ? ` ${esc(UNIT_WORD)}, ` : ""}${esc(regionOf(p))}</div>
+      ${countyLineHtml(p, cx)}
       <div class="card-price">${ledger === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}"${bidPublished ? ` title="${esc(`Exact amount ${fmtMoney(p.bid)}. Cards round to whole dollars.`)}"` : ""}>${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
       <div class="pc-actions">${primary}${bidListBtnHtml(p, "card")}${secondary}</div>
       <details class="card-details"${cardDetailsOpenAttr(p)}>
@@ -5442,7 +5605,7 @@ function card(p, showCounty) {
           ${tag}
           <div class="prop-ids">
             ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(parcelOf(p))}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
-            ${p.case_no ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
+            ${p.case_no && !(cx && hasAddress && hasParcel(p) && String(p.case_no) === String(parcelOf(p))) ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
           </div>
           ${cardStatsHtml(p)}
           ${offListNote}
@@ -5479,6 +5642,16 @@ function card(p, showCounty) {
   return el;
 }
 
+// The card's "where" line: the county and the state, minus whichever the List
+// page already shows (ctx.inGroup - the county head; ctx.singleState - the
+// title). Nothing is rendered when both are shown above the card.
+function countyLineHtml(p, cx) {
+  const c = cx || {};
+  const county = c.inGroup || !p.county ? "" : `${esc(p.county)} ${esc(UNIT_WORD)}`;
+  const st = c.singleState ? "" : esc(regionOf(p));
+  const text = county && st ? `${county}, ${st}` : (county || st);
+  return text ? `<div class="prop-county-line">${text}</div>` : "";
+}
 // ONE stamp per card (2026-10-25). Each states only what the record or a
 // verified source says - never "available" on a list of available property:
 //   Auctions  a source-published result (auctionOutcomeState().verified);
@@ -5789,7 +5962,8 @@ function parcelTimelineHtml(p) {
 // Certificates are liens, not property - no address/owner/assessed/lien
 // screening the way deed and LAFT rows have, but they do have a redemption
 // clock (expiration_date) that matters more than anything else on the card.
-function certCard(p, showCounty) {
+function certCard(p, showCounty, ctx) {
+  const cx = ctx && typeof ctx === "object" ? ctx : null;
   const el = document.createElement("div");
   const fav = FAVS.has(p.id);
   el.className = "prop-card cert-card " + cardStatus(p) + (fav ? " favorited" : "");
@@ -5811,7 +5985,7 @@ function certCard(p, showCounty) {
     ${stamp ? `<div class="pc-stamp-inline">${cardStampHtml(stamp)}</div>` : ""}
     ${sourceLineHtml(p)}
     <div class="prop-address">Certificate #${esc(p.certificate_no || "Unknown")}</div>
-    <div class="prop-county-line">${esc(p.county || "")}${p.county ? ` ${esc(UNIT_WORD)}, ` : ""}${esc(regionOf(p))}</div>
+    ${countyLineHtml(p, cx)}
     <div class="card-price" title="The amount for the certificate (a lien on the property) - not a price for the property"><div class="card-stat-label">Certificate amount</div><div class="card-stat-val bid${hasPublishedBid(p) ? "" : " unpublished"}">${bidDisplay(p)}</div></div>
     <div class="pc-actions">${auctionLinkHtml(p, "cta-btn")}${bidListBtnHtml(p, "card")}<button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">Details →</button></div>
     <details class="card-details"${cardDetailsOpenAttr(p)}>
@@ -7149,7 +7323,10 @@ async function removeResearchItem(id) {
 }
 // The OFFICIAL status of a property, from the property's own records - shown
 // beside the customer's research state, never replaced by it.
-function officialStatusText(p) {
+// opts.omitLedger (2026-10-27): on a single-ledger List the ledger name is
+// the page's title, so only the status after it is returned.
+function officialStatusText(p, opts) {
+  if (opts && opts.omitLedger && p) { const t = officialStatusText(p); const i = t.indexOf(" · "); if (i >= 0) { const r = t.slice(i + 3); return r.charAt(0).toUpperCase() + r.slice(1); } return t; }
   if (!p) return "Not on file in this state's loaded records";
   if (goneExpired(p) || isGone(p)) return `${ledgerNavName(p.source)} · no longer on the source's list`;
   if (p.source === "auction") {
@@ -10872,7 +11049,11 @@ function render() {
   const rendered = { rows: shown, ledger: activeLedger, openDetail, api: experienceApi() };
   window.__tdwLastRender = rendered;
   syncMergedEngine(activeLedger);
+  // The county "Now showing" bar is an Available-ledger control only.
+  if (activeLedger !== "laft") hideCountyNowBar();
   window.dispatchEvent(new CustomEvent("tdw:rendered", { detail: rendered }));
+  // Classic draws the list itself; a look installs the bar on its own stage.
+  if (activeLedger === "laft" && (document.documentElement.dataset.experience || "classic") === "classic") installCountyNowBar(main);
 
   // Every call to render() means ALL[]/HIDDEN/BIDLIST could have changed
   // (a filter, a data reload, a favorite or hide action) - the Map page's
@@ -10979,8 +11160,16 @@ function groupKeyOf(ledgerKey, county, date) {
 
 // Lands Available and certificates don't run on a single county-wide date,
 // so they get a static descriptor instead of a real date.
+// One fact in one place (2026-10-27): the county head names the county only.
+// The program wording moved to the List subtitle (listProgramLine), once per
+// page, and an auction group's date is its date divider ("Date not yet
+// scheduled" included). So every ledger returns "" here; the wording below is
+// kept as listProgramLine()'s source.
 function groupSecondaryLine(ledgerKey, date) {
-  if (ledgerKey === "auction") return date ? `Auction ${fmtDate(date)}` : "Date not yet scheduled";
+  return "";
+}
+function listProgramLine(ledgerKey) {
+  if (ledgerKey === "auction") return "";
   // A Texas "laft" row is LGBS struck-off or future-sale inventory (each
   // card's kicker carries the vendor's own status), never Florida's
   // statutory fixed-price list - same rule as kickerParts() and
@@ -11097,8 +11286,14 @@ function saleDays(rows) {
   });
   return Array.from(byDate.values());
 }
+// One fact in one place (2026-10-27): the day chip already shows the date and
+// the day's lot count, and each card carries its own sale-listing button, so
+// the panel names only how soon and how many counties, each county's sale
+// (its count only when the day has more than one county), its facts and the
+// county process.
 function saleDayEventsHtml(day) {
   if (!day) return "";
+  const many = day.events.length > 1;
   const word = (ledgerCopy("auction").nav || "Auction").replace(/s$/, "");
   const li = e => {
     const facts = [`${e.bids} of ${e.count} with a published bid`, e.process ? "Sale process verified" : "Sale process not yet verified"];
@@ -11106,13 +11301,12 @@ function saleDayEventsHtml(day) {
     return `<li class="cc-event${e.days <= 3 ? " cc-soon" : ""}"><button type="button" class="desk-event sales-event" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction">
       <span class="desk-event-where">${esc(e.county)} ${esc(UNIT_WORD)} · ${esc(PAGE_STATE)}</span>
       <span class="desk-event-what">${esc(word)} sale</span>
-      <span class="desk-event-n">${e.count} propert${e.count === 1 ? "y" : "ies"}</span>
+      ${many ? `<span class="desk-event-n">${e.count} propert${e.count === 1 ? "y" : "ies"}</span>` : ""}
       <span class="cc-facts">${facts.map(t => `<span>${esc(t)}</span>`).join("")}</span>
-    </button><span class="cc-actions">${e.link ? `<a class="cc-link" href="${esc(e.link.href)}" target="_blank" rel="noopener"${e.link.note ? ` title="${esc(e.link.note)}"` : ""}>${esc(e.link.kind === "sale" ? "Sale listing →" : "County auction site →")}</a>` : ""}
-<button type="button" class="cc-dossier" data-action="countyintel" data-county="${esc(e.county)}">County process</button></span></li>`;
+    </button><span class="cc-actions"><button type="button" class="cc-dossier" data-action="countyintel" data-county="${esc(e.county)}">County process</button></span></li>`;
   };
   const when = day.days === 0 ? "Today" : day.days === 1 ? "Tomorrow" : `In ${day.days} days`;
-  return `<div class="ss-panel-head"><b>${esc(fmtDateLong(day.date))}</b><span>${esc(when)} · ${day.events.length} count${day.events.length === 1 ? "y" : "ies"} · ${day.count} propert${day.count === 1 ? "y" : "ies"}</span></div>
+  return `<div class="ss-panel-head" title="${esc(fmtDateLong(day.date))}"><span>${esc(when)}${many ? ` · ${day.events.length} ${UNITS_WORD}` : ""}</span></div>
     <ol class="sales-timeline">${day.events.map(li).join("")}</ol>
     <button type="button" class="ss-go" data-action="saleday-go" data-date="${esc(day.date)}">Go to these properties ↓</button>`;
 }
@@ -11121,7 +11315,6 @@ function saleDayStripHtml(rows, questionHtml) {
   if (!days.length) return questionHtml ? `<div class="ss-q-only">${questionHtml}</div>` : "";
   if (!SALE_DAY || !days.some(d => d.date === SALE_DAY)) SALE_DAY = days[0].date;
   const sel = days.find(d => d.date === SALE_DAY);
-  const props = days.reduce((n, d) => n + d.count, 0);
   const chip = d => {
     const dt = new Date(d.date + "T12:00:00");
     const wd = isNaN(dt) ? "" : dt.toLocaleString("en-US", { weekday: "short" }).toUpperCase();
@@ -11132,7 +11325,7 @@ function saleDayStripHtml(rows, questionHtml) {
       <span class="ss-n">${d.count} lot${d.count === 1 ? "" : "s"}</span>${d.watched ? `<span class="ss-watch" aria-hidden="true"></span>` : ""}</button>`;
   };
   return `<div class="sale-strip" id="saleStrip" data-days="${days.length}">
-    <div class="ss-head"><span class="eyebrow">Sale days · next ${COMMAND_CENTER_DAYS} days</span><span class="ss-sum">${days.length} sale day${days.length === 1 ? "" : "s"} · ${props.toLocaleString("en-US")} propert${props === 1 ? "y" : "ies"}</span>${questionHtml || ""}</div>
+    <div class="ss-head"><span class="eyebrow">Sale days · next ${COMMAND_CENTER_DAYS} days</span><span class="ss-sum">${days.length} sale day${days.length === 1 ? "" : "s"}</span>${questionHtml || ""}</div>
     <div class="ss-scroll" role="tablist" aria-label="Sale days">${days.map(chip).join("")}</div>
     <div class="ss-panel upcoming-sales command-center" id="upcomingSales" role="tabpanel" data-events="${sel ? sel.events.length : 0}" data-date="${esc(SALE_DAY)}">${saleDayEventsHtml(sel)}</div>
   </div>`;
@@ -11237,7 +11430,9 @@ function section(container, title, sub, rows, kind) {
   // actually do on it, and one live fact - so arriving at Certificates from
   // Auctions reads as going somewhere else, rather than as the same page with
   // a different word at the top.
-  const questionHtml = cfg.question ? infoBubbleHtml(cfg.question, `<p class="mega-sub">${sub}</p>${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}`, { corner: true, dataAttr: `data-ledger-question="${esc(kind)}"` }) : "";
+  // The question itself is the List subtitle (renderListHead); the bubble is
+  // its explanation, so its label no longer repeats the question.
+  const questionHtml = cfg.question ? infoBubbleHtml("About this list", `<p class="mega-sub">${sub}</p>${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}`, { corner: true, dataAttr: `data-ledger-question="${esc(kind)}"` }) : "";
   // Auctions (2026-10-26): the sale-day strip is always open at the top and
   // carries the ledger's question; the source status is its own fold, the
   // same as on the other ledgers.
@@ -11282,7 +11477,13 @@ function section(container, title, sub, rows, kind) {
       }
       const head = stateEmpty ? "No properties currently available for this state. "
         : ledgerEmpty && !LOAD_ISSUES.some(i => LEDGER_FOR_TYPE[i.ledgerType] === kind) ? LEDGER_EMPTY_HEAD[kind] + " " : "";
-      e.textContent = head + (cfg.empty || "Nothing found.");
+      // One reason, once (2026-10-27): when the ledger status strip above
+      // names which zero this is (its .ls-why), the empty state carries only
+      // its head line - the ledger copy's generic sentence and the coverage
+      // hint used to restate (and could contradict) that reason. A ledger
+      // with rows that the filters exclude still gets the ledger's own text.
+      const zeroNamed = !!ledgerZeroState(kind).zeroCase;
+      e.textContent = zeroNamed && head ? head.trim() : head + (cfg.empty || "Nothing found.");
       if (stateEmpty) e.dataset.stateEmpty = "1";
       if (ledgerEmpty) e.dataset.ledgerEmpty = "1";
       // Available records withheld because their source could not confirm
@@ -11298,12 +11499,6 @@ function section(container, title, sub, rows, kind) {
           u.textContent = txt;
           e.appendChild(u);
         }
-      }
-      // AVAILABLE only, and only when the ledger itself holds no row for this
-      // state (filters cleared): name WHICH zero this is.
-      if (kind === "laft" && PROPERTIES_LOADED && !ALL.some(p => p.source === "laft") && !UNCONFIRMED_WITHHELD.total) {
-        const why = availableCoverageHtml(AVAILABLE_COVERAGE);
-        if (why) e.insertAdjacentHTML("beforeend", why);
       }
     }
     sec.appendChild(e); container.appendChild(sec);
@@ -11374,6 +11569,9 @@ function section(container, title, sub, rows, kind) {
     det.className = "county-group";
     det.dataset.county = county;
     det.dataset.groupKey = key;
+    // The shared county bar (installCountyNowBar) follows these heads on
+    // Available - one group per county there.
+    if (kind === "laft") det.dataset.countyHead = county;
     if (isOpen || openEveryCounty) det.open = true;
 
     const summary = document.createElement("summary");
@@ -11428,7 +11626,7 @@ function section(container, title, sub, rows, kind) {
     list.dataset.groupKey = key;
     GROUP_PAGES.set(key, { rows: countyRows, renderCard });
     const n = Math.min(countyRows.length, Math.max(LIST_PAGE, GROUP_SHOWN.get(key) || 0));
-    for (let i = 0; i < n; i++) list.appendChild(renderCard(countyRows[i], false));
+    for (let i = 0; i < n; i++) list.appendChild(renderCard(countyRows[i], false, LIST_CARD_CTX));
     list.dataset.listed = String(n);
     det.appendChild(list);
     if (n < countyRows.length) det.appendChild(groupMoreButton(key, n, countyRows.length));
@@ -11459,7 +11657,7 @@ document.addEventListener("click", e => {
   const from = Number(list.dataset.listed) || 0;
   const to = Math.min(page.rows.length, from + LIST_PAGE);
   const frag = document.createDocumentFragment();
-  for (let i = from; i < to; i++) frag.appendChild(page.renderCard(page.rows[i], false));
+  for (let i = from; i < to; i++) frag.appendChild(page.renderCard(page.rows[i], false, LIST_CARD_CTX));
   list.appendChild(frag);
   list.dataset.listed = String(to);
   GROUP_SHOWN.set(key, to);
@@ -13007,14 +13205,26 @@ function sourceHealthRowsHtml(rows, pageState) {
 const LEDGER_KEY_BY_NAME = { AUCTIONS: "auction", AVAILABLE: "laft", LIENS_CERTIFICATES: "certificate" };
 const SOURCE_ID_LEDGERS = {
   fl_realauction: ["auction"], fl_bid4assets_okaloosa: ["auction"], fl_lienhub_certificates: ["certificate"],
-  fl_laft_pdfs: ["laft"], fl_laft_html: ["laft"], fl_laft_pioneer: ["laft"], fl_laft_realtdm: ["laft"], fl_laft_orange: ["laft"],
-  fl_laft_stlucie: ["laft"], fl_laft_osceola: ["laft"], fl_laft_hillsborough: ["laft"], fl_laft_leon: ["laft"],
-  tx_realauction: ["auction"], tx_lgbs: ["auction", "laft"], tx_hctax: ["laft"],
-  al_ador_state_land: ["laft"], ar_cosl_post_auction: ["laft"], la_ebr_adjudicated: ["laft"], az_maricopa_state_cp: ["certificate"],
-  mi_eaton_treasurer_sale: ["auction"], mi_lenawee_tax_sale: ["auction"], wy_albany_tax_sale: ["auction"], sc_york_tax_sale: ["auction"],
+  fl_sarasota_tc_certificates: ["certificate"], fl_laft_pdfs: ["laft"], fl_laft_html: ["laft"], fl_laft_pioneer: ["laft"],
+  fl_laft_realtdm: ["laft"], fl_laft_orange: ["laft"], fl_laft_stlucie: ["laft"], fl_laft_osceola: ["laft"],
+  fl_laft_hillsborough: ["laft"], fl_laft_leon: ["laft"], fl_laft_portals: ["laft"], tx_realauction: ["auction"],
+  tx_lgbs: ["auction", "laft"], tx_hctax: ["auction"], tx_jefferson_sheriff_sale: ["auction"], tx_bexar_resale: ["laft"],
+  tx_montgomery_tax_trust: ["laft"], tx_orange_trust_property: ["laft"], tx_trinity_cad_resale: ["laft"],
+  tx_randall_trustee_property: ["laft"], tx_hood_cad_struck_off: ["laft"], tx_pbfcm: ["auction", "laft"],
+  tx_mvba: ["auction", "laft"], tx_govease: ["auction"], al_ador_state_land: ["laft"], ar_cosl_post_auction: ["laft"],
+  la_ebr_adjudicated: ["laft"], az_maricopa_state_cp: ["certificate"], mi_eaton_treasurer_sale: ["auction"],
+  mi_lenawee_tax_sale: ["auction"], wy_albany_tax_sale: ["auction"], sc_york_tax_sale: ["auction"],
   co_morgan_county_held_certificates: ["certificate"], wi_green_tax_deed_sales: ["auction"],
-  co_douglas_county_held_liens: ["certificate"], co_douglas_tax_sale_list: ["auction"], co_morgan_treasurer_deed_auctions: ["auction"],
-  wi_dane_tax_deed_auction: ["auction"], sc_oconee_tax_sale_list: ["auction"]
+  co_douglas_county_held_liens: ["certificate"], co_douglas_tax_sale_list: ["auction"],
+  co_morgan_treasurer_deed_auctions: ["auction"], wi_dane_tax_deed_auction: ["auction"], sc_oconee_tax_sale_list: ["auction"],
+  mi_detroit_landbank_lots: ["laft"], mi_detroit_landbank_programs: ["laft"], mi_oceana_landbank: ["laft"],
+  sc_horry_forfeited_land: ["laft"], sc_georgetown_forfeited_land: ["laft"], mo_stl_lra_inventory: ["laft"],
+  ok_oklahoma_county_owned: ["laft"], pa_fayette_repository: ["laft"], mn_ramsey_tax_forfeit: ["laft"],
+  tn_shelby_landbank: ["laft"], mo_kc_landbank: ["laft"], pa_pittsburgh_city_property: ["laft"],
+  mi_wayne_county_landbank: ["laft"], mi_saginaw_landbank: ["laft"], mi_calhoun_landbank: ["laft"],
+  mi_tax_sale_info_auction: ["auction"], mi_tax_sale_info_surplus: ["laft"], sc_horry_tax_sale: ["auction"],
+  co_saguache_tax_sale: ["auction"], mn_hubbard_tfl_otc: ["laft"], mn_wright_tax_forfeit: ["auction"],
+  mn_stpaul_hra_properties: ["laft"]
 };
 function unitLedgerKeys(u) {
   if (u && u.ledgers) {
@@ -15541,12 +15751,34 @@ function renderListHead(shown, k, tabCounts) {
   const count = !PROPERTIES_LOADED ? "" : !ledgerSettled(k) ? `${n.toLocaleString("en-US")}…` : n.toLocaleString("en-US");
   t.innerHTML = `${esc(name)} in ${esc(STATE_INFO.name)}${count ? ` <span class="list-count" id="listCount">${esc(count)}</span>` : ""}`;
   if (sub) {
-    sub.textContent = !PROPERTIES_LOADED ? `Loading ${STATE_INFO.name}…`
-      : !ledgerSettled(k) ? "Loading the rest…"
-      : n < total ? `${n.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} match your filters`
-      : "";
+    // One subtitle line (2026-10-27): the ledger's question, its program
+    // (listProgramLine - once per page, not on every county head) and how
+    // many counties are in view. The number of properties in view is the
+    // title count only; a filtered view names the ledger total it came from.
+    const parts = [];
+    if (!PROPERTIES_LOADED) parts.push(`Loading ${STATE_INFO.name}…`);
+    else {
+      const cfg = ledgerCopy(k) || {};
+      if (cfg.question) parts.push(cfg.question);
+      const prog = listProgramLine(k);
+      if (prog) parts.push(prog);
+      const counties = new Set(shown.map(p => p.county).filter(Boolean)).size;
+      if (counties) parts.push(`${counties.toLocaleString("en-US")} ${counties === 1 ? UNIT_WORD.toLowerCase() : UNITS_WORD}`);
+      if (!ledgerSettled(k)) parts.push("Loading the rest…");
+      else if (n < total) parts.push(`Filtered from ${total.toLocaleString("en-US")}`);
+    }
+    sub.textContent = parts.join(" · ");
     sub.hidden = !sub.textContent;
   }
+  // The header's ledger tab carries the ledger total; while it equals the
+  // title count it is the same number twice, so the active tab hides it.
+  LEDGER_ORDER.forEach(key => {
+    const el = document.getElementById("navCount" + key[0].toUpperCase() + key.slice(1));
+    if (!el) return;
+    const dup = key === k && PROPERTIES_LOADED && ledgerSettled(k) && ((tabCounts && tabCounts[key]) || 0) === n;
+    // CSS hides it only while that tab is the lit one (the List is on screen).
+    if (dup) el.dataset.dup = "1"; else delete el.dataset.dup;
+  });
 }
 // One chip per active filter, read from the controls themselves; removing a
 // chip resets that one control through its own existing handler, so the
@@ -15934,6 +16166,8 @@ function experienceApi() {
     caseIdentText, fmtDateLong, fmtMoney, bidDisplayCard, cardKickerHtml, offCurrentSaleList,
     availableProgram, acquisitionOf, officialStatusText, esc,
     auctionOutcomeState, isGone, isDatedList, cardStamp,
+    countyNowBarHtml, installCountyNowBar, hideCountyNowBar, countyLineHtml,
+    listCardCtx: () => LIST_CARD_CTX,
     isWatched: id => BIDLIST.has(id),
     isFavorite: id => FAVS.has(id),
     stateCode: () => PAGE_STATE,
@@ -15942,6 +16176,222 @@ function experienceApi() {
   };
   return XP_API;
 }
+// ==================== County "Now showing" bar (2026-10-27) ====================
+// The owner's option B: on the Available ledger, in every look, ONE bar sits
+// sticky under the site header and names the county the reader is in -
+// "NOW SHOWING · COUNTY i OF N ▾" over "<County> County" - with ‹ › to step
+// to the previous / next county head and the middle opening a list of every
+// county with its count (the ONLY place per-county counts appear on the
+// List). It replaces every county pill / chip row. A look marks its own
+// county heads with data-county-head="<name>" and calls
+// api.installCountyNowBar(scopeEl) after drawing; Classic calls it on #main.
+// It follows scrolling through an IntersectionObserver on those heads and is
+// hidden when the list has one county. Nothing here reads or writes data:
+// the counts are the rows of the last render.
+// var / function declarations: render() runs during module init (TDZ).
+var COUNTY_BAR = COUNTY_BAR || { el: null, io: null, scope: null, names: [], heads: new Map(), idx: 0, lockUntil: 0, raf: 0, bound: false };
+function countyNowWord() { return UNIT_WORD; }
+function countyBarState() {
+  if (!COUNTY_BAR) COUNTY_BAR = { el: null, io: null, scope: null, names: [], heads: new Map(), idx: 0, lockUntil: 0, raf: 0, bound: false };
+  return COUNTY_BAR;
+}
+function countyNowCounts() {
+  const last = window.__tdwLastRender;
+  if (!last || !Array.isArray(last.rows)) return null;
+  const counts = new Map();
+  last.rows.forEach(p => { if (p && p.county) counts.set(p.county, (counts.get(p.county) || 0) + 1); });
+  return counts;
+}
+// The bar's markup for the current state; installCountyNowBar keeps it current.
+function countyNowBarHtml() {
+  const b = countyBarState(), n = b.names.length, i = Math.min(Math.max(b.idx, 0), Math.max(n - 1, 0));
+  const word = countyNowWord(), lw = word.toLowerCase();
+  const name = n ? b.names[i] : "";
+  return `<div class="cnb-row">
+    <button type="button" class="cnb-step cnb-prev" data-cnb="prev" aria-label="Previous ${esc(lw)}">‹</button>
+    <button type="button" class="cnb-mid" data-cnb="toggle" aria-expanded="false" aria-controls="countyNowList">
+      <span class="cnb-eyebrow" data-cnb-eyebrow>Now showing · ${esc(word)} <span data-cnb-pos>${n ? i + 1 : 0}</span> of ${n} <span aria-hidden="true">▾</span></span>
+      <span class="cnb-name" data-cnb-name>${esc(name)} ${esc(word)}</span>
+    </button>
+    <button type="button" class="cnb-step cnb-next" data-cnb="next" aria-label="Next ${esc(lw)}">›</button>
+  </div>
+  <div class="cnb-list" id="countyNowList" role="list" aria-label="${esc(word === "Parish" ? "Parishes" : "Counties")} in this list" hidden></div>`;
+}
+function countyNowListHtml() {
+  const b = COUNTY_BAR, counts = countyNowCounts();
+  return b.names.map((nm, k) => `<button type="button" role="listitem" class="cnb-pick" data-cnb-pick="${esc(nm)}"${k === b.idx ? ' aria-current="true"' : ""}><span>${esc(nm)}</span>${counts && counts.has(nm) ? `<span class="cnb-n">${counts.get(nm).toLocaleString("en-US")}</span>` : ""}</button>`).join("");
+}
+function countyNowHeaderHeight() {
+  const tb = document.querySelector(".topbar");
+  if (!tb || !tb.getClientRects().length) return 0;
+  const pos = getComputedStyle(tb).position;
+  return pos === "sticky" || pos === "fixed" ? Math.round(tb.getBoundingClientRect().height) : 0;
+}
+function countyNowSyncTop() {
+  try {
+    const root = document.documentElement.style;
+    root.setProperty("--cnb-top", countyNowHeaderHeight() + "px");
+    // Where a county head lands when a look scrolls to it (scroll-margin-top in
+    // the looks' CSS): under the header and the bar.
+    root.setProperty("--county-now-offset", countyNowLine() + "px");
+  } catch {}
+}
+function countyNowLine() {
+  const bar = COUNTY_BAR.el;
+  const row = bar && !bar.hidden ? bar.querySelector(".cnb-row") : null;
+  return countyNowHeaderHeight() + (row ? Math.round(row.getBoundingClientRect().height) : 0) + 8;
+}
+// Docked: the bar still sits in its own place above the first county head
+// (not yet stuck under the header). The head right below it names the
+// county, so the bar does not repeat the name: it offers the jump list.
+function countyNowDocked() {
+  const bar = COUNTY_BAR.el;
+  if (!bar || !bar.isConnected || !bar.getClientRects().length) return false;
+  return bar.getBoundingClientRect().top > countyNowHeaderHeight() + 1;
+}
+function countyNowPaint() {
+  const b = COUNTY_BAR, bar = b.el;
+  if (!bar) return;
+  const word = countyNowWord(), docked = countyNowDocked();
+  b.docked = docked;
+  bar.dataset.docked = docked ? "1" : "0";
+  const eb = bar.querySelector("[data-cnb-eyebrow]"), nm = bar.querySelector("[data-cnb-name]");
+  if (eb) eb.innerHTML = docked
+    ? `${esc(word === "Parish" ? "Parishes" : "Counties")} in this list <span aria-hidden="true">▾</span>`
+    : `Now showing · ${esc(word)} <span data-cnb-pos>${b.idx + 1}</span> of ${b.names.length} <span aria-hidden="true">▾</span>`;
+  if (nm) nm.textContent = docked ? `Jump to a ${word.toLowerCase()}` : `${b.names[b.idx] || ""} ${word}`;
+  bar.dataset.county = b.names[b.idx] || "";
+  bar.querySelectorAll(".cnb-pick").forEach(x => { if (x.dataset.cnbPick === b.names[b.idx]) x.setAttribute("aria-current", "true"); else x.removeAttribute("aria-current"); });
+}
+// The county the reader is in: the last head whose top has passed under the
+// bar; at the very bottom of the page, the last head on screen.
+function countyNowUpdate() {
+  const b = COUNTY_BAR;
+  if (!b.el || !b.el.isConnected || b.names.length < 2 || Date.now() < b.lockUntil) return;
+  const line = countyNowLine();
+  let idx = 0;
+  b.names.forEach((nm, k) => { const h = b.heads.get(nm); if (h && h.isConnected && h.getClientRects().length && h.getBoundingClientRect().top <= line) idx = k; });
+  const doc = document.documentElement;
+  if (window.scrollY > 0 && window.scrollY + window.innerHeight >= doc.scrollHeight - 4) {
+    b.names.forEach((nm, k) => { const h = b.heads.get(nm); if (h && h.isConnected && h.getClientRects().length && h.getBoundingClientRect().top < window.innerHeight - 40) idx = Math.max(idx, k); });
+  }
+  if (idx !== b.idx || countyNowDocked() !== !!b.docked) { b.idx = idx; countyNowPaint(); }
+}
+function countyNowSetList(open) {
+  const bar = COUNTY_BAR.el;
+  if (!bar) return;
+  const list = bar.querySelector(".cnb-list"), mid = bar.querySelector(".cnb-mid");
+  if (!list) return;
+  if (open) list.innerHTML = countyNowListHtml();
+  list.hidden = !open;
+  if (mid) mid.setAttribute("aria-expanded", String(open));
+  bar.classList.toggle("open", open);
+  if (open) { const cur = list.querySelector('[aria-current="true"]'); if (cur) { try { cur.scrollIntoView({ block: "nearest" }); } catch {} } }
+}
+function countyNowGo(k) {
+  const b = COUNTY_BAR, n = b.names.length;
+  if (!n || k < -n) return;
+  const idx = ((k % n) + n) % n;
+  const h = b.heads.get(b.names[idx]);
+  b.idx = idx;
+  countyNowPaint();
+  countyNowSetList(false);
+  if (!h || !h.isConnected) return;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  b.lockUntil = Date.now() + (reduce ? 150 : 900);
+  // Scrolling only moves the page: a county the reader closed stays closed.
+  const y = h.getBoundingClientRect().top + window.scrollY - countyNowLine() + 4;
+  try { window.scrollTo({ top: Math.max(0, y), behavior: reduce ? "auto" : "smooth" }); } catch { window.scrollTo(0, Math.max(0, y)); }
+  setTimeout(() => { b.lockUntil = 0; countyNowUpdate(); }, reduce ? 160 : 950);
+}
+function countyNowBind() {
+  if (COUNTY_BAR.bound) return;
+  COUNTY_BAR.bound = true;
+  document.addEventListener("click", e => {
+    const bar = COUNTY_BAR.el;
+    if (!bar) return;
+    const t = e.target && e.target.closest ? e.target : null;
+    if (!t || !bar.contains(t)) { if (bar.classList.contains("open")) countyNowSetList(false); return; }
+    const pick = t.closest("[data-cnb-pick]");
+    if (pick) { const k = COUNTY_BAR.names.indexOf(pick.dataset.cnbPick); if (k >= 0) countyNowGo(k); return; }
+    const act = t.closest("[data-cnb]");
+    if (!act) return;
+    if (act.dataset.cnb === "prev") countyNowGo(COUNTY_BAR.idx - 1);
+    else if (act.dataset.cnb === "next") countyNowGo(COUNTY_BAR.idx + 1);
+    else countyNowSetList(!bar.classList.contains("open"));
+  });
+  document.addEventListener("keydown", e => {
+    const bar = COUNTY_BAR.el;
+    if (e.key === "Escape" && bar && bar.classList.contains("open")) { countyNowSetList(false); const m = bar.querySelector(".cnb-mid"); if (m) m.focus(); }
+  });
+  window.addEventListener("scroll", () => {
+    if (COUNTY_BAR.raf || !COUNTY_BAR.el) return;
+    COUNTY_BAR.raf = requestAnimationFrame(() => { COUNTY_BAR.raf = 0; countyNowUpdate(); });
+  }, { passive: true });
+  window.addEventListener("resize", () => { if (!COUNTY_BAR.el || !COUNTY_BAR.el.isConnected) return; countyNowSyncTop(); countyNowObserve(); countyNowUpdate(); });
+}
+function countyNowObserve() {
+  const b = COUNTY_BAR;
+  if (b.io) { b.io.disconnect(); b.io = null; }
+  if (!b.el || b.names.length < 2 || typeof IntersectionObserver !== "function") return;
+  b.io = new IntersectionObserver(() => countyNowUpdate(), { rootMargin: `-${countyNowLine()}px 0px 0px 0px`, threshold: [0, 1] });
+  b.heads.forEach(h => b.io.observe(h));
+}
+function hideCountyNowBar() {
+  const b = countyBarState();
+  if (b.io) { b.io.disconnect(); b.io = null; }
+  if (b.el) b.el.remove();
+  b.names = []; b.heads = new Map(); b.scope = null;
+}
+// Install (or refresh) the one bar for the county heads inside scopeEl. The
+// bar is inserted just before the first head, inside the closest element that
+// holds every head, so its sticky range covers the whole list.
+function installCountyNowBar(scopeEl) {
+  const b = countyBarState();
+  if (!scopeEl || !scopeEl.querySelectorAll) { hideCountyNowBar(); return null; }
+  const all = Array.from(scopeEl.querySelectorAll("[data-county-head]"));
+  const names = [], heads = new Map();
+  all.forEach(h => { const nm = h.dataset.countyHead; if (nm && !heads.has(nm)) { heads.set(nm, h); names.push(nm); } });
+  const prevName = b.names[b.idx];
+  if (b.io) { b.io.disconnect(); b.io = null; }
+  b.scope = scopeEl; b.names = names; b.heads = heads;
+  b.idx = Math.max(0, prevName ? names.indexOf(prevName) : 0);
+  if (!b.el) {
+    b.el = document.createElement("nav");
+    b.el.id = "countyNowBar";
+    b.el.className = "county-now";
+  }
+  b.el.setAttribute("aria-label", `${countyNowWord() === "Parish" ? "Parishes" : "Counties"} in this list`);
+  b.el.innerHTML = countyNowBarHtml();
+  b.el.classList.remove("open");
+  b.el.dataset.counties = String(names.length);
+  b.el.hidden = names.length < 2;
+  countyNowBind();
+  if (!names.length) { b.el.remove(); return b.el; }
+  const first = heads.get(names[0]);
+  let anc = first.parentElement;
+  while (anc && anc !== scopeEl && !all.every(h => anc.contains(h))) anc = anc.parentElement;
+  if (!anc) anc = scopeEl;
+  let child = first;
+  while (child.parentElement && child.parentElement !== anc) child = child.parentElement;
+  if (b.el.parentElement !== anc || b.el.nextElementSibling !== child) anc.insertBefore(b.el, child);
+  countyNowSyncTop();
+  countyNowPaint();
+  countyNowObserve();
+  countyNowUpdate();
+  return b.el;
+}
+// Classic draws Available into #main; a look draws into #xpStage and installs
+// the bar itself. When the look falls back to Classic (or the person picks
+// it), #main's heads take the bar again.
+window.addEventListener("tdw:experience", e => {
+  const name = e && e.detail && e.detail.name;
+  if (name !== "classic") return;
+  if (state.ledger === "laft") installCountyNowBar(document.getElementById("main"));
+  else hideCountyNowBar();
+});
+// Test hook: the bar's counties, its current index and whether it is shown.
+window.__tdwCountyNowBar = () => ({ names: COUNTY_BAR.names.slice(), idx: COUNTY_BAR.idx, county: COUNTY_BAR.names[COUNTY_BAR.idx] || null, hidden: !COUNTY_BAR.el || COUNTY_BAR.el.hidden || !COUNTY_BAR.el.isConnected });
 function currentExperience() {
   try {
     const q = new URLSearchParams(location.search).get("look");

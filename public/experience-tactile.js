@@ -21,6 +21,7 @@
 // No imports; no network requests of its own.
 
 const NAME = "tactile";
+const CPAGE = 8;            // Available folders per county drawer before its own "Show more"
 const PAGE = 48;            // objects built at a time; "Show more" adds PAGE more
 const FAN = 5;              // slips fanned out at once
 const OPEN_DELAY = 260;     // ms of opening animation before the property page
@@ -34,6 +35,7 @@ const S = {
   deckId: null,
   deckAnim: null,           // { id, cls } one-shot animation on the next draw
   folder: null,
+  cLim: new Map(),          // Available: folders shown per county drawer
   seg: "all",
   bundleBy: "year",
   fan: null,
@@ -82,6 +84,7 @@ function draw(detail) {
   if (ledger !== S.ledger) {
     S.ledger = ledger;
     S.limit[ledger] = PAGE;
+    S.cLim.clear();
   }
   const key = ledger + "|" + rows.length + "|" + idOf(rows[0]) + "|" + idOf(rows[rows.length - 1]);
   const enter = key !== S.key;
@@ -102,6 +105,10 @@ function draw(detail) {
   stage.dataset.xp = NAME;
   stage.innerHTML = `<div class="xpt xpt-${ledger}${enter ? " xpt-enter" : ""}" data-ledger="${ledger}">${html}</div>`;
   try { api.hydrateVisuals(stage); } catch {}
+  // The shared "Now showing" county bar (app.js). Called on every ledger so a
+  // bar left from Available is cleared: it hides itself with fewer than two
+  // [data-county-head] elements, which only the Available drawers carry.
+  if (typeof api.installCountyNowBar === "function") { try { api.installCountyNowBar(stage); } catch {} }
   document.documentElement.dataset.experienceReady = NAME;
 
   if (focusKey) {
@@ -189,8 +196,9 @@ function auctionsHtml(rows, api) {
   const lots = g.rows;
   let idx = lots.findIndex(p => idOf(p) === S.deckId);
   if (idx < 0) { idx = 0; S.deckId = idOf(lots[0]); }
-  const st = api.stateCode();
   const counties = new Set(lots.map(p => p.county));
+  // One county on the day: the banner chip names it and the placards do not.
+  const oneCounty = counties.size === 1 ? (Array.from(counties)[0] || "") : "";
   const days = g.day ? daysBetween(g.day) : null;
   const top = lots[idx];
   const topFacts = api.previewFacts(top);
@@ -211,19 +219,18 @@ function auctionsHtml(rows, api) {
     return `<button type="button" class="xpt-day s-${stepCls(dd)}${on ? " on" : ""}" data-xa="day" data-day="${x.day}" data-k="day-${x.day || "none"}" aria-pressed="${on}" style="--rd:${Math.min(i, 12) * 40 + 140}ms" ` +
       `aria-label="${api.esc((x.day ? api.fmtDateLong(x.day) : "Sale date not scheduled") + ", " + n + (n === 1 ? " lot" : " lots") + ", " + countdown(dd))}">` +
       `<span class="dw">${dow}</span><span class="dn">${num}</span><span class="dm">${mon}</span>` +
-      `<span class="dots" aria-hidden="true">${"<i></i>".repeat(Math.min(5, n))}</span><span class="dc xpt-mono">${n}</span></button>`;
+      `<span class="dc xpt-mono">${n}</span></button>`;
   }).join("");
 
   const banner = `<section class="xpt-banner" aria-label="Sale day">
     <h2 class="xpt-dm">${g.day ? api.esc(api.fmtDateLong(g.day)) : "Sale date not scheduled"}</h2>
     <div class="xpt-chips">
       <span class="xpt-chip cd s-${stepCls(days)}">${api.esc(countdown(days))}</span>
-      <span class="xpt-chip fmt">${counties.size === 1 ? api.esc(Array.from(counties)[0] + " " + api.unitWord()) : counties.size + " " + api.esc(api.unitWord().toLowerCase()) + (counties.size === 1 ? "" : "s")}</span>
-      <span class="xpt-chip fmt">${lots.length} ${lots.length === 1 ? "lot" : "lots"}</span>
+      ${oneCounty ? `<span class="xpt-chip fmt">${api.esc(oneCounty + " " + api.unitWord())}</span>` : ""}
     </div>
     <ol class="xpt-miles" aria-label="Sale milestones">
       <li class="mile ${proc ? "fill" : "hatch"}" style="--md:120ms"><span class="node" aria-hidden="true"></span><span class="xpt-caps">Sale process</span><span class="mv">${proc ? api.esc(proc) : "Not yet verified"}</span></li>
-      <li class="mile fill" style="--md:180ms"><span class="node" aria-hidden="true"></span><span class="xpt-caps">Sale day</span><span class="mv">${g.day ? api.esc(api.fmtDateLong(g.day)) : "Not scheduled"}</span></li>
+      <li class="mile fill" style="--md:180ms"><span class="node" aria-hidden="true"></span><span class="xpt-caps">Sale day</span><span class="mv">${g.day ? "Scheduled" : "Not scheduled"}</span></li>
       <li class="mile ${days !== null && days < 0 ? "hatch" : "outline"}" style="--md:240ms"><span class="node" aria-hidden="true"></span><span class="xpt-caps">Result</span><span class="mv">${days !== null && days < 0 ? "Sale date passed - see each lot" : "Sale not yet held"}</span></li>
       <li aria-hidden="true" class="miles-line"></li>
     </ol>
@@ -234,7 +241,7 @@ function auctionsHtml(rows, api) {
   for (let k = 1; k <= 2 && k < lots.length; k++) under.push(`<div class="xpt-under u${k}" aria-hidden="true"><span class="band"></span></div>`);
   const deck = `<div class="xpt-deck" role="group" aria-roledescription="deck" aria-label="Placard deck, ${lots.length} ${lots.length === 1 ? "lot" : "lots"}">
     ${under.reverse().join("")}
-    ${placardHtml(top, idx, lots.length, api, topFacts)}
+    ${placardHtml(top, idx, lots.length, api, topFacts, !!oneCounty)}
   </div>
   <div class="xpt-deck-ctl">
     <button type="button" class="xpt-round" data-xa="prev" data-k="deck-prev" aria-label="Previous lot"${lots.length < 2 ? " disabled" : ""}><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></span></button>
@@ -245,25 +252,23 @@ function auctionsHtml(rows, api) {
   const lim = Math.min(S.limit.auction, lots.length);
   const minis = lots.slice(0, lim).map((p, i) => miniPlacardHtml(p, i, api, i === idx)).join("");
 
-  return `<header class="xpt-head">
-      <span class="xpt-caps xpt-eyebrow">${api.esc(api.ledgerTitle("auction"))}</span>
-      <h1 class="xpt-dl">What is coming up for sale?</h1>
-      <p class="xpt-sub"><span class="xpt-mono">${rows.length}</span> ${rows.length === 1 ? "lot" : "lots"} · <span class="xpt-mono">${groups.length}</span> sale ${groups.length === 1 ? "day" : "days"} · ${api.esc(st)}</p>
-    </header>
-    <div class="xpt-rail"><div class="xpt-days" role="group" aria-label="Sale days">${rail}</div></div>
-    <div class="xpt-auction-body">
-      <div class="xpt-deck-col">${banner}${deck}
-        <p class="xpt-note">Tap a placard to flip it. Every figure sits under the source's own label.</p>
-      </div>
-      <section class="xpt-lots" aria-label="Every lot on this sale day">
+  // The List title carries the lot count; the rail label carries the number
+  // of sale days; each day badge carries that day's lots.
+  const lotsGrid = lots.length > 1 ? `<section class="xpt-lots" aria-label="Every lot on this sale day">
         <h3 class="xpt-caps xpt-lots-h">All lots this sale day</h3>
         <div class="xpt-lot-grid">${minis}</div>
         ${moreButton("auction", lim, lots.length)}
-      </section>
+      </section>` : "";
+  return `<div class="xpt-rail"><span class="xpt-caps xpt-rail-label"><span class="xpt-mono">${groups.length}</span> sale ${groups.length === 1 ? "day" : "days"}</span><div class="xpt-days" role="group" aria-label="Sale days">${rail}</div></div>
+    <div class="xpt-auction-body${lotsGrid ? "" : " xpt-one-lot"}">
+      <div class="xpt-deck-col">${banner}${deck}
+        <p class="xpt-note">Tap a placard to flip it. Every figure sits under the source's own label.</p>
+      </div>
+      ${lotsGrid}
     </div>`;
 }
 
-function placardHtml(p, idx, n, api, pf) {
+function placardHtml(p, idx, n, api, pf, countyInBanner) {
   const id = idOf(p);
   const flipped = S.flipped.has(id);
   const t = titleHtml(p, api);
@@ -272,11 +277,17 @@ function placardHtml(p, idx, n, api, pf) {
   const off = api.offCurrentSaleList(p);
   const foot = off
     ? `<span class="xpt-offlist">Not on the county's current sale list${p.sale_date ? " · was scheduled " + api.esc(api.fmtDateLong(saleDay(p))) : ""} · no result published</span>`
-    : `<span class="xpt-cfoot"><i aria-hidden="true"></i>${api.esc(api.officialStatusText(p))}</span>`;
-  const facts = (pf.more || []).filter(r => r[0] !== "Legal").slice(0, 7);
-  facts.push(["Flood", pf.flood ? pf.flood.text : "Not checked"]);
+    : placardFoot(p, api);
+  // "Sale process" is the banner's milestone; a flood gap goes to the
+  // "Not on file" line, never a second "Not checked" row.
+  const facts = (pf.more || []).filter(r => r[0] !== "Legal" && r[0] !== "Sale process").slice(0, 7);
+  const floodGap = !pf.flood || pf.flood.cls === "muted";
+  if (!floodGap) facts.push(["Flood", pf.flood.text]);
   const legalRow = (pf.more || []).find(r => r[0] === "Legal");
-  const gaps = api.dataGaps(p).slice(0, 4);
+  const allGaps = api.dataGaps(p);
+  const gaps = allGaps.slice(0, 4);
+  const fg = allGaps.find(t => /^Flood zone/.test(t)) || (floodGap ? "Flood zone not checked" : "");
+  if (fg && !gaps.includes(fg)) { if (gaps.length >= 4) gaps.pop(); gaps.push(fg); }
   const anim = S.deckAnim && S.deckAnim.id === id ? " " + S.deckAnim.cls : "";
   return `<div class="xpt-placard${flipped ? " flipped" : ""}${anim}" data-pid="${api.esc(id)}">
     <div class="xpt-flip">
@@ -284,11 +295,11 @@ function placardHtml(p, idx, n, api, pf) {
         aria-label="${api.esc(`Lot ${idx + 1} of ${n}. ${pf.bidLabel}: ${pf.bid || "Not published"}. Tap to flip and read the back.`)}">
         <span class="band" aria-hidden="true"></span><span class="punch l" aria-hidden="true"></span><span class="punch r" aria-hidden="true"></span>
         <span class="flip-hint" aria-hidden="true">${flipIcon()}Flip</span>
-        <span class="lotrow"><span class="lotnum"><span class="xpt-caps">Lot</span><span class="numeral">${idx + 1}</span><span class="of">of ${n}</span></span>
+        <span class="lotrow"><span class="lotnum"><span class="xpt-caps">Lot</span><span class="numeral">${idx + 1}</span></span>
           <span class="xpt-mono-s">${api.esc(caseText)}</span></span>
         <span class="ctitle${t.parcel ? " parcel" : ""}">${t.html}</span>
-        <span class="ids xpt-mono-s">${pf.parcel ? api.esc(pf.parcelLabel + " " + pf.parcel) : "Parcel # not published"} · ${api.esc(p.county + " " + api.unitWord())}</span>
-        <span class="plate"><span class="plate-in">${api.propertyVisual(p, "prop-card-photo xpt-vis")}</span></span>
+        <span class="ids xpt-mono-s">${pf.parcel ? api.esc(pf.parcelLabel + " " + pf.parcel) : "Parcel # not published"}${countyInBanner ? "" : " · " + api.esc(p.county + " " + api.unitWord())}</span>
+        <span class="plate"><span class="plate-in">${api.propertyVisual(p, "prop-card-photo xpt-vis", countyInBanner ? { omitCounty: true } : undefined)}</span></span>
         <span class="figs">
           <span class="figure"><span class="xpt-caps">${api.esc(pf.bidLabel)}</span>${pf.bid ? `<span class="fig-xl">${api.esc(pf.bid)}</span>` : missing("Not published", api)}</span>
           <span class="figure"><span class="xpt-caps">${api.esc(pf.valueLabel || "County value")}</span>${value}<span class="ctx">county value, not a price</span></span>
@@ -315,6 +326,16 @@ function placardHtml(p, idx, n, api, pf) {
       </div>
     </div>
   </div>`;
+}
+
+// The placard foot: the record's status without the ledger word, and only
+// when it says more than "sale scheduled" (the banner's milestone says that).
+// "no sale date on file", a passed date and a published result all show.
+function placardFoot(p, api) {
+  const t = String(api.officialStatusText(p, { omitLedger: true }) || "");
+  const plain = t.replace(/^[^·]*·\s*/, "");
+  if (/^sale scheduled\b/i.test(plain)) return "";
+  return `<span class="xpt-cfoot"><i aria-hidden="true"></i>${api.esc(plain.charAt(0).toUpperCase() + plain.slice(1))}</span>`;
 }
 
 // The back of an unflipped placard is out of the tab order.
@@ -354,20 +375,40 @@ function availableHtml(rows, api) {
   const list = S.seg === "all" ? rows : rows.filter(p => (S.seg === "verified") === acqOf(p, api).verified);
   const segs = [["all", "All"], ["verified", "Verified path"], ["unverified", "Not yet verified"]];
   const si = segs.findIndex(s => s[0] === S.seg);
-  const lim = Math.min(S.limit.laft, list.length);
-  if (S.folder && !list.slice(0, lim).some(p => idOf(p) === S.folder)) S.folder = null;
-  const folders = list.slice(0, lim).map((p, i) => folderHtml(p, i, api)).join("");
-  return `<header class="xpt-head">
-      <span class="xpt-caps xpt-eyebrow">${api.esc(api.ledgerTitle("laft"))}</span>
-      <h1 class="xpt-dl">What can I acquire now?</h1>
-      <p class="xpt-sub"><span class="xpt-mono">${rows.length}</span> ${rows.length === 1 ? "record" : "records"} on source lists · <span class="xpt-mono">${verified}</span> with a verified acquisition path</p>
-    </header>
-    <div class="xpt-seg" role="group" aria-label="Acquisition path" style="--si:${si}">
+  // One drawer per county, in the order the List sorted the rows. Every
+  // county gets its head at once (so the shared "Now showing" bar can reach
+  // any county); each drawer opens with CPAGE folders and its own "Show more
+  // in <County>". The county head carries the name only: the List title is
+  // the one count, and the bar's county list is the one place per-county
+  // counts appear.
+  const byCounty = new Map();
+  for (const p of list) {
+    const c = p.county || "";
+    let g = byCounty.get(c);
+    if (!g) { g = []; byCounty.set(c, g); }
+    g.push(p);
+  }
+  const shownIds = new Set();
+  byCounty.forEach((ps, c) => { ps.slice(0, S.cLim.get(c) || CPAGE).forEach(p => shownIds.add(idOf(p))); });
+  if (S.folder && !shownIds.has(S.folder)) S.folder = null;
+  let fi = 0;
+  const drawers = Array.from(byCounty, ([c, ps]) => {
+    const name = c ? c + " " + api.unitWord() : api.unitWord() + " not published";
+    const lim = Math.min(S.cLim.get(c) || CPAGE, ps.length);
+    const more = lim < ps.length
+      ? `<div class="xpt-more-wrap"><button type="button" class="xpt-more" data-xa="cmore" data-county="${api.esc(c)}" data-k="cmore-${api.esc(c)}">Show more in ${api.esc(name)}</button></div>`
+      : "";
+    return `<section class="xpt-cgroup" aria-label="${api.esc(name)}">
+      <h2 class="xpt-chead"${c ? ` data-county-head="${api.esc(c)}"` : ""}>${api.esc(name)}</h2>
+      <div class="xpt-drawer">${ps.slice(0, lim).map(p => folderHtml(p, fi++, api)).join("")}</div>
+      ${more}
+    </section>`;
+  }).join("");
+  return `<div class="xpt-seg" role="group" aria-label="Acquisition path" style="--si:${si}">
       <span class="seg-tile" aria-hidden="true"></span>
-      ${segs.map(s => `<button type="button" class="seg-btn${S.seg === s[0] ? " on" : ""}" data-xa="seg" data-seg="${s[0]}" data-k="seg-${s[0]}" aria-pressed="${S.seg === s[0]}"${s[0] !== "all" && !counts[s[0]] ? " disabled" : ""}>${s[1]} <span class="n">${counts[s[0]]}</span></button>`).join("")}
+      ${segs.map(s => `<button type="button" class="seg-btn${S.seg === s[0] ? " on" : ""}" data-xa="seg" data-seg="${s[0]}" data-k="seg-${s[0]}" aria-pressed="${S.seg === s[0]}"${s[0] !== "all" && !counts[s[0]] ? " disabled" : ""}>${s[1]}${s[0] === "all" ? "" : ` <span class="n">${counts[s[0]]}</span>`}</button>`).join("")}
     </div>
-    <div class="xpt-drawer" aria-label="Drawer of deed folders">${folders || `<p class="xpt-note">No folders match this switch.</p>`}</div>
-    ${moreButton("laft", lim, list.length)}
+    ${drawers || `<div class="xpt-drawer"><p class="xpt-note">No folders match this switch.</p></div>`}
     <p class="xpt-note">Tap a folder to open it. Being on a list is not a promise that a parcel is still offered.</p>`;
 }
 
@@ -383,17 +424,19 @@ function folderHtml(p, i, api) {
   const t = titleHtml(p, api);
   const pf = open ? api.previewFacts(p) : null;
   const tabCls = a.verified ? "ok" : a.mode === "none" ? "none" : "wait";
+  // The tab says the path state once; the chip under the figure says the
+  // verified method (or nothing - the tab already says it is not verified).
+  const tabText = a.verified ? "Verified path" : a.mode === "none" ? "No purchase path published" : "Path not yet verified";
   const chip = a.verified
     ? `<span class="xpt-chip vchip">${checkIcon()}${api.esc(a.label)}${a.steps.length ? ` · ${a.steps.length} step${a.steps.length === 1 ? "" : "s"}` : ""}</span>`
-    : missing(a.mode === "none" ? "No purchase path published" : "Acquisition path not yet verified", api);
-  const program = api.availableProgram(p);
-  const face = `<span class="ftab ${tabCls}" style="left:${TAB_X[i % 3]}">${api.esc(p.county)}${a.verified ? `<span class="ftab-check" aria-hidden="true">${checkIcon(9)}</span>` : ""}</span>
+    : "";
+  const face = `<span class="ftab ${tabCls}" style="left:${TAB_X[i % 3]}">${api.esc(tabText)}</span>
       <span class="face-row"><span class="face-title${t.parcel ? " parcel" : ""}">${t.html}</span>${api.isWatched(p.id) ? `<span class="rib" aria-label="On your watchlist"><svg width="14" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg></span>` : ""}</span>
       <span class="fline">${has ? `<span class="xpt-caps">${api.esc(amt.label)}</span><span class="val">${api.esc(fig)}</span>` : `<span class="xpt-caps">${api.esc(amt.label)}</span>${missing(fig, api)}`}</span>
-      <span class="face-chip">${chip}</span>
+      ${chip ? `<span class="face-chip">${chip}</span>` : ""}
       <span class="face-more">
-        <span class="xpt-mono-s">${api.esc(t.parcel ? (api.caseIdentText(p) || p.county + " " + api.unitWord()) : (api.parcelOf(p) ? "Parcel " + api.parcelOf(p) : "Parcel # not published"))}</span>
-        <span class="xpt-small">${api.esc(program ? program + " · " : "")}${api.esc(api.officialStatusText(p))}</span>
+        ${faceIdent(p, t, api)}
+        <span class="xpt-small">${api.esc(api.officialStatusText(p, { omitLedger: true }))}</span>
       </span>`;
   if (!open) {
     return `<div class="xpt-fold" style="--i:${Math.min(i, 14)};--r0:${(i % 3) - 1}deg">
@@ -406,19 +449,27 @@ function folderHtml(p, i, api) {
   return `<div class="xpt-fold open" style="--i:0">
     <div class="hinge">
       <div class="inside xpt-obj">
-        <span class="ftab ${tabCls}" style="left:16px">${api.esc(p.county)} ${api.esc(api.unitWord())}</span>
+        <span class="ftab ${tabCls}" style="left:16px">${api.esc(tabText)}</span>
         <button type="button" class="close-fold" data-xa="folder" data-pid="${api.esc(id)}" data-k="fold-${api.esc(id)}" aria-expanded="true" aria-label="Close folder and put it back">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-        <h2 class="in-title${t.parcel ? " parcel" : ""}">${t.html}</h2>
+        <h3 class="in-title${t.parcel ? " parcel" : ""}">${t.html}</h3>
         <div class="xpt-mono-s">${api.esc([pf.parcel ? pf.parcelLabel + " " + pf.parcel : "Parcel # not published", api.caseIdentText(p)].filter(Boolean).join(" · "))}</div>
         <div class="in-fig"><span class="xpt-caps">${api.esc(amt.label)}</span>${has ? `<span class="fig-xxl">${api.esc(api.fmtMoney(amt.value))}</span>` : missing(fig, api)}</div>
         ${amt.note ? `<p class="xpt-small">${api.esc(amt.note)}</p>` : ""}
-        <p class="xpt-small status"><i aria-hidden="true"></i>${api.esc(api.officialStatusText(p))}</p>
+        <p class="xpt-small status"><i aria-hidden="true"></i>${api.esc(api.officialStatusText(p, { omitLedger: true }))}</p>
       </div>
-      <div class="cover" aria-hidden="true"><span class="xpt-caps">Deed folder</span><span class="cover-title">${api.esc(p.county)} ${api.esc(api.unitWord())}</span></div>
+      <div class="cover" aria-hidden="true"><span class="xpt-caps">Deed folder</span></div>
     </div>
     ${acquireSheetHtml(p, a, pf, api)}
   </div>`;
+}
+
+// The folder face's identifier line: the parcel when the title is a street
+// address; the case when the title already is the parcel. Never the county
+// (the drawer's head names it).
+function faceIdent(p, t, api) {
+  const text = t.parcel ? api.caseIdentText(p) : (api.parcelOf(p) ? "Parcel " + api.parcelOf(p) : "Parcel # not published");
+  return text ? `<span class="xpt-mono-s">${api.esc(text)}</span>` : "";
 }
 
 function acquireSheetHtml(p, a, pf, api) {
@@ -486,12 +537,9 @@ function liensHtml(rows, api) {
   if (S.fan !== null && !keys.slice(0, lim).includes(S.fan)) S.fan = null;
   const bundles = keys.slice(0, lim).map((k, i) => (S.fan === k ? fanHtml(k, m.get(k), api) : pileHtml(k, m.get(k), i, api))).join("");
   const sorts = [["year", "By tax year"], ["county", "By " + api.unitWord().toLowerCase()]];
-  return `<header class="xpt-head">
-      <span class="xpt-eyebrow pill"><i class="eb-slip" aria-hidden="true"></i>${api.esc(api.ledgerTitle("certificate"))}</span>
-      <h1 class="xpt-dl">What tax lien or certificate am I buying?</h1>
-      <p class="xpt-sub"><span class="xpt-mono">${rows.length}</span> ${rows.length === 1 ? "certificate" : "certificates"} · <span class="xpt-mono">${keys.length}</span> ${keys.length === 1 ? "bundle" : "bundles"}</p>
-    </header>
-    <div class="xpt-sorts" role="group" aria-label="Bundle the slips">
+  // No module header: the List title carries the certificate count and the
+  // bundle labels carry the bundles.
+  return `<div class="xpt-sorts" role="group" aria-label="Bundle the slips">
       ${sorts.map(s => `<button type="button" class="sort${by === s[0] ? " on" : ""}" data-xa="bundleby" data-by="${s[0]}" data-k="by-${s[0]}" aria-pressed="${by === s[0]}"><span class="xpt-chip">${api.esc(s[1])}</span></button>`).join("")}
     </div>
     <section class="xpt-shelf" aria-label="Certificate bundles">${bundles}</section>
@@ -527,16 +575,15 @@ function pileHtml(k, list, i, api) {
       ${edgeHtml}
       <span class="pile-top xpt-slip xpt-obj">
         <span class="pile-left"><span><span class="xpt-caps">Top slip</span><span class="xpt-mono-s tr">${api.esc(certNo(top) || "Certificate # not published")}</span></span>
-          <span class="pile-county tr">${api.esc(top.county)}</span></span>
+          ${S.bundleBy === "county" ? "" : `<span class="pile-county tr">${api.esc(top.county)}</span>`}</span>
         <span class="band"><span class="xpt-caps">${api.esc(L.caps)}</span><span class="band-title">${api.esc(L.title)}</span><span class="band-count">${list.length} ${list.length === 1 ? "slip" : "slips"}</span><span class="band-sub">${api.esc(L.sub)}</span></span>
         <span class="pile-right"><span class="xpt-caps">${api.esc(a.label)}</span><span class="${a.state === "not_published" ? "nf" : "f"}">${api.esc(a.text)}</span></span>
-        <span class="stub" aria-hidden="true"><span>${api.esc(certNo(top) || p0Fallback(top))}</span></span>
+        <span class="stub" aria-hidden="true"></span>
       </span>
     </button>
   </div>`;
 }
 
-function p0Fallback(p) { return p.case_no ? String(p.case_no) : "—"; }
 
 function fanHtml(k, list, api) {
   const L = bundleLabels(k, list, api);
@@ -554,10 +601,10 @@ function fanHtml(k, list, api) {
         aria-label="${api.esc(`Certificate ${certNo(p) || "number not published"}, ${p.county} ${api.unitWord()}. ${a.label}: ${a.text}. Lift this slip.`)}">
       <span class="fb xpt-slip xpt-obj">
         <span class="xpt-caps">Cert</span><span class="xpt-mono-s ink tr">${api.esc(certNo(p) || "Not published")}</span>
-        <span class="slip-county tr">${api.esc(p.county)}</span>
+        ${S.bundleBy === "county" ? "" : `<span class="slip-county tr">${api.esc(p.county)}</span>`}
         <span class="xpt-caps lab">${api.esc(a.label)}</span><span class="${a.state === "not_published" ? "nf" : "f"}">${api.esc(a.text)}</span>
       </span>
-      <span class="fs xpt-obj" aria-hidden="true"><span>${api.esc(certNo(p) || p0Fallback(p))}</span></span>
+      <span class="fs xpt-obj" aria-hidden="true"></span>
     </button>`;
   }).join("");
   const sel = win.find(p => idOf(p) === S.slip) || win[0];
@@ -584,14 +631,16 @@ function trayHtml(p, api) {
   const pf = api.previewFacts(p);
   const a = api.amountShort(p);
   const more = new Map(pf.more || []);
-  const facts = [["Interest rate", more.get("Interest rate")], ["Tax year", more.get("Tax year")], ["Issued", more.get("Issued")]];
+  // The bundle label already names the tax year (by year) or the county (by
+  // county); the tray does not repeat it.
+  const facts = [["Interest rate", more.get("Interest rate")], ...(S.bundleBy === "year" ? [] : [["Tax year", more.get("Tax year")]]), ["Issued", more.get("Issued")]];
   const extra = [];
   if (pf.parcel) extra.push([pf.parcelLabel, pf.parcel]);
   if (more.get("Listing status")) extra.push(["Listing status", more.get("Listing status")]);
   const id = idOf(p);
   return `<div class="tray xpt-obj" aria-live="polite">
     <div class="tray-head"><div><div class="tray-cert xpt-mono">Cert ${api.esc(certNo(p) || "number not published")}</div>
-      <div class="xpt-small">${api.esc(p.county + " " + api.unitWord())} · ${api.esc(api.officialStatusText(p))}</div></div>
+      <div class="xpt-small">${api.esc((S.bundleBy === "county" ? "" : p.county + " " + api.unitWord() + " · ") + api.officialStatusText(p, { omitLedger: true }))}</div></div>
       ${watchBtn(p, api, "xpt-watch ribbon")}</div>
     <div class="tray-fig"><span class="xpt-caps">${api.esc(a.label)}</span><span class="${a.state === "not_published" ? "nf" : "fig-xl"}">${api.esc(a.text)}</span></div>
     <div class="facts3">${facts.map(([k, v]) => `<div class="fact"><span class="xpt-caps">${k}</span>${v ? `<span class="v xpt-mono">${api.esc(v)}</span>` : missing("Not published", api)}</div>`).join("")}</div>
@@ -655,6 +704,12 @@ function onClick(e) {
   if (!el || !stage.contains(el)) return;
   const xa = el.dataset.xa, pid = el.dataset.pid;
   switch (xa) {
+    case "cmore": {
+      const c = el.dataset.county || "";
+      S.cLim.set(c, (S.cLim.get(c) || CPAGE) + PAGE);
+      redraw();
+      break;
+    }
     case "more": {
       const k = el.dataset.ledger;
       if (S.limit[k]) S.limit[k] += PAGE;
@@ -698,7 +753,7 @@ function onClick(e) {
       break;
     case "open": openRecord(pid, el); break;
     case "seg":
-      if (S.seg !== el.dataset.seg) { S.seg = el.dataset.seg; S.limit.laft = PAGE; S.folder = null; redraw(); }
+      if (S.seg !== el.dataset.seg) { S.seg = el.dataset.seg; S.limit.laft = PAGE; S.cLim.clear(); S.folder = null; redraw(); }
       break;
     case "folder":
       S.folder = S.folder === pid ? null : pid;

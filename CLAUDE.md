@@ -3553,7 +3553,7 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   notice, disclaimer and metadata (on a card: short credit on the picture, the full line in the photo bubble); geometry
   never rides on a property row or in an export. Stub knobs `?boundary=ok|fl|multi|none|unauth|invalid|nolicencelink|
   error`, `?boundaryids=<id>,<id>` (outline ids the cards see).
-- `sw.js` -> `tdw-shell-v144` (2026-10-26: card outlines load lazily, 4 in flight; v143: sale-day strip at the top of Auctions, popups kept inside the screen; v142 was 2026-10-25: header and filter cleanup, path-first customer view, essentials-first cards and the Merged look; v141 was the header Look switch and the trial Tactile / Terrain List experiences - see "Look switch" below; v138-v140 are held by the redesign PRs. v137 was 2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
+- `sw.js` -> `tdw-shell-v145` (2026-10-27: one fact one place, sticky "Now showing" county bar on Available; v144 was 2026-10-26: card outlines load lazily, 4 in flight; v143: sale-day strip at the top of Auctions, popups kept inside the screen; v142 was 2026-10-25: header and filter cleanup, path-first customer view, essentials-first cards and the Merged look; v141 was the header Look switch and the trial Tactile / Terrain List experiences - see "Look switch" below; v138-v140 are held by the redesign PRs. v137 was 2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
 
 
 ## Look switch: Classic / Tactile / Terrain (2026-10-25, PR open, frontend only)
@@ -3649,6 +3649,9 @@ Full description: `docs/county-sources-2026-10-26.md`. Stable facts:
   Synced by `sync_state_inventory.py --keep-other-sources` (never takes over an LGBS / RealAuction row); closed
   per source by `texas_closeout.py --harvest/--status` (county files) after a COMPLETE / EMPTY read only.
   `registry.py` `_TX_HCTAX` stays LEGAL_REVIEW_REQUIRED (the legal record; the vendor sync path only).
+- **Vendor row wins (owner decision 2026-10-27):** when a Texas vendor listing (LGBS / PBFCM / MVBA / GovEase) and the
+  county's own list carry the same property, the vendor row is kept - the county-list sync never takes it over and runs
+  after the vendor sync (pinned by `test_vendor_row_wins_over_the_county_list_row`).
 
 ## New sources sprint: every property, every source (2026-10-26, PR open, no migration)
 
@@ -3661,10 +3664,11 @@ Full description: `docs/new-sources-2026-10-26.md`. Stable facts:
 - **Sources**: ePropertyPlus tenants KC MO (`public-kclb`), Pittsburgh PA (`public-pgh`), Wayne / Saginaw / Calhoun MI;
   Tax-Sale.info MI upcoming auction catalogs (one
   registry row per county, `tax_sale_info.py`) + surplus catalogs; Horry SC delinquent tax sale list (newest dated XLSX,
-  `document_sheet="*"`); Saguache CO 2026 tax sale layer; Hubbard MN OTC land; Saint Paul HRA land.
+  `document_sheet="*"`); Saguache CO 2026 tax sale layer; Hubbard MN OTC land; Saint Paul HRA land; Wright MN
+  tax-forfeited parcels (AUCTIONS, scheduled since 2026-10-27 once the MN auctions copy named it).
 - Registry rows are keyed `(source_id, county)` in `build_county_source_registry.expansion_rows()`.
-- Held, configured but not scheduled: Wright MN (app.js's MN auctions copy says none is tracked; state-rules
-  `ledger_copy`) and Genesee MI land bank (`paged_table.py`; the site's random HTTP 500s move its session cursor).
+- Held, configured but not scheduled: Genesee MI land bank (`paged_table.py`; the site's random HTTP 500s move its
+  session cursor).
 - Read-only validation: `job=evidence`, `evidence_scope=new_sources_validate` (MI MO PA SC CO MN, no DB credential).
 
 ## Data-enrichment sprint: county parcel layers for held records (2026-10-25, PR open, no migration)

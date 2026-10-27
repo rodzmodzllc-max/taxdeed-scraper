@@ -542,6 +542,18 @@
    "reason": "Registered, not collected."
   },
   {
+   "source_id": "mn_wright_tax_forfeit",
+   "state": "MN",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "mo_kc_landbank",
    "state": "MO",
    "publication_status": "APPROVED",

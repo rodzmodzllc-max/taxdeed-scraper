@@ -297,7 +297,8 @@ def test_texas_vendor_rows_store_the_cause_in_parcel_and_the_frontend_knows_it()
     assert "cause_number: str | None = None  # legal tax-suit cause/case number - maps to DB `parcel`" in th
     assert '"parcel": raw.get("cause_nbr")' in (ROOT / "scripts/lgbs_available_refresh.py").read_text(encoding="utf-8")
     app = (ROOT / "public/app.js").read_text(encoding="utf-8")
-    assert '["tx_lgbs", "tx_realauction"].indexOf(p.harvester_source || p.source_id || "")' in app
+    # 2026-10-27: the list is CAUSE_IN_PARCEL_SOURCES (all five vendors; test_frontend_source_followups pins it).
+    assert 'CAUSE_IN_PARCEL_SOURCES.indexOf(p.harvester_source || p.source_id || "")' in app
     assert "const raw = p && parcelOf(p) ? String(parcelOf(p)) : \"\";" in app        # parcelKey
     assert 'prop.push(row("Tax suit cause #", esc(causeOf(p)), "mono"));' in app
     assert app == (ROOT / "app.js").read_text(encoding="utf-8")                      # root mirror

@@ -7324,6 +7324,28 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_expansion.py --state MN; last completeness UNKNOWN",
+   "county": "Wright",
+   "evidence": "LIVE CAPTURE 2026-10-26 (live structure read 2026-10-26): Wright County - mn_wright_tax_forfeit; OWNER DECISION 2026-10-26 (collect and publish every source; legal review pending; INTERIM permission); docs/new-sources-2026-10-26.md",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-26",
+   "legacy_status": "APPROVED",
+   "name": "parcels on the county's published tax / tax-deed sale list (AUCTIONS)",
+   "next_action": "",
+   "origin": "registry",
+   "publisher": "Wright County",
+   "roles": [
+    "identity",
+    "lifecycle"
+   ],
+   "source_id": "MN:Wright:mn_wright_tax_forfeit",
+   "source_type": "GOVERNMENT",
+   "state": "MN",
+   "url": "https://services2.arcgis.com/CiQCvRGImIxsaFnM/arcgis/rest/services/Tax_Forfeited_Parcels/FeatureServer/0"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state MO; last completeness UNKNOWN",
    "county": "Jackson",
    "evidence": "LIVE CAPTURE 2026-10-26 (live structure read 2026-10-26): Jackson County - mo_kc_landbank; OWNER DECISION 2026-10-26 (collect and publish every source; legal review pending; INTERIM permission); docs/new-sources-2026-10-26.md",
@@ -12438,13 +12460,13 @@
    "sources": 99
   },
   "MN": {
-   "APPROVED": 6,
+   "APPROVED": 7,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 0,
    "by_type": {
-    "GOVERNMENT": 6
+    "GOVERNMENT": 7
    },
-   "sources": 6
+   "sources": 7
   },
   "MO": {
    "APPROVED": 6,

@@ -601,6 +601,7 @@ def successor_is_lands_available(url: str, content: bytes | None) -> bool:
 # sandbox (library.municode.com answers 403 here); the content check above
 # keeps a wrong document from ever being read as the list.
 MUNICODE_LIBRARY_HOST = "library.municode.com"
+MUNICODE_DOCUMENT_SELECTOR = "iframe[src*='munidoc'], embed[src*='munidoc'], a[href*='munidocDownload'], iframe[src$='.pdf']"
 
 
 def render_page_links(url: str, timeout_ms: int = 45_000) -> str:
@@ -615,7 +616,17 @@ def render_page_links(url: str, timeout_ms: int = 45_000) -> str:
             browser = p.chromium.launch()
             try:
                 page = browser.new_page(user_agent=UA)
-                page.goto(url, timeout=timeout_ms, wait_until="networkidle")
+                # Not "networkidle": the Municode application keeps polling, so
+                # the page never goes idle and every daily render timed out
+                # (laft job, 2026-10-27: 45 s TimeoutError, Hendry FAILED for a
+                # month). Load the document, then wait for the thing we read -
+                # a document frame or a munidocDownload link - and read what is
+                # there either way.
+                page.goto(url, timeout=timeout_ms, wait_until="domcontentloaded")
+                try:
+                    page.wait_for_selector(MUNICODE_DOCUMENT_SELECTOR, timeout=timeout_ms, state="attached")
+                except Exception:  # noqa: BLE001 - read whatever rendered
+                    pass
                 found = page.evaluate(
                     """() => {
                         const out = [];
@@ -635,6 +646,23 @@ def render_page_links(url: str, timeout_ms: int = 45_000) -> str:
     parts = [f'<a href="{_html.escape(h, quote=True)}">{_html.escape(t or "")}</a>' for h, t in (found or []) if h]
     parts += [f'<iframe src="{_html.escape(s, quote=True)}"></iframe>' for s in srcs]
     return "\n".join(parts)
+
+
+def rendered_outline(rendered_html: str, limit: int = 20) -> str:
+    """A value-free outline of what render_page_links() saw - frame / link
+    hosts and link texts with every digit masked - so a run that cannot find
+    the current document says where to look (job logs are public)."""
+    from urllib.parse import urlparse  # noqa: PLC0415
+    frames = re.findall(r'<iframe src="([^"]*)"', rendered_html or "")
+    links = _ANCHOR_RE.findall(rendered_html or "")
+    hosts = sorted({urlparse(h).hostname or "?" for h in frames + [a for a, _ in links]})
+    texts = []
+    for _, t in links:
+        t = re.sub(r"\d", "#", re.sub(r"<[^>]+>|\s+", " ", t)).strip()
+        if t and t not in texts:
+            texts.append(t[:60])
+    return (f"{len(frames)} frame(s), {len(links)} link(s); hosts {hosts[:10]}; "
+            f"link texts {texts[:limit]}")
 
 
 def _fetch_with_successor(url: str, source_page: str | None, entry: dict | None, *, render=None):
@@ -671,6 +699,8 @@ def _fetch_with_successor(url: str, source_page: str | None, entry: dict | None,
             print("      the source page is a Municode application - rendering it to read the current document link", flush=True)
             rendered = render(page_url)
             candidates = discover_successor_pdfs(rendered, url, page_url=page_url)
+            if not candidates:
+                print(f"      rendered page: {rendered_outline(rendered)}", flush=True)
             if not candidates:
                 # One hop inside the same Municode library: a child node whose
                 # own link text says Lands Available.
