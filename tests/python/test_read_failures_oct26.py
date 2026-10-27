@@ -262,3 +262,34 @@ def test_run_default_does_not_retry_so_existing_callers_keep_their_behaviour():
     rows = [{"id": "r1", "county": "Douglas", cfg.row_id_column: "R0000001", "field_provenance": {}}]
     rep = ESP.run("CO", rows, boom, write=None, recorded_at="t", cfg=cfg)
     assert rep["failed_queries"] == 1 and calls["n"] == 1
+
+
+def test_one_failed_batch_costs_only_its_own_rows():
+    """Run 405 (2026-10-27): one Detroit batch answered HTTP 404 and every
+    Wayne row (31,348) was given up. A failed batch now marks only the rows
+    it asked about; the county's other batches still match."""
+    import dataclasses
+    import urllib.error
+    from urllib.parse import parse_qs, urlparse
+    from scripts import enrich_statewide_parcels as ESP
+    from harvesters.enrichment import sources as S
+    cfg = next(v for v in vars(S).values() if getattr(v, "source_id", None) == "mi_detroit_assessor_parcels")
+    cfg = dataclasses.replace(cfg, batch_size=2)
+    ids = ["01000001.", "01000002.", "01000003.", "01000004."]
+
+    def fetch(url):
+        where = parse_qs(urlparse(url).query)["where"][0]
+        if "01000001." in where:
+            raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
+        asked = [i for i in ids if f"'{i}'" in where]
+        return {"features": [{"attributes": {cfg.id_field: i, "year_built": 1925}} for i in asked]}
+
+    rows = [{"id": f"r{n}", "county": "Wayne", cfg.row_id_column: i, "field_provenance": {}} for n, i in enumerate(ids)]
+    outcomes, written = {}, {}
+    rep = ESP.run("MI", rows, fetch, write=lambda rid, f: written.update({rid: f}), recorded_at="t",
+                  cfg=cfg, outcomes=outcomes, sleep=lambda s: None)
+    assert rep["failed_queries"] == 1 and rep["matched"] == 2
+    assert outcomes["r0"] == outcomes["r1"] == "SOURCE_UNAVAILABLE"
+    assert outcomes["r2"] == outcomes["r3"] == "MATCHED"
+    assert set(written) == {"r2", "r3"} and written["r2"]["year_built"] == 1925
+    assert rep["query_failures_by_cause"] == {"http_404": 1}

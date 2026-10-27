@@ -192,27 +192,34 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
             rule = cfg.id_rule_for(county)
             keys = {P.normalize_id(r.get(cfg.row_id_column), rule) for r in crow} - {None}
             fetch = (county_fetcher or county_file_fetcher)(cfg, county, keys)
-        for url in P.query_urls(cfg, county, [r.get(cfg.row_id_column) for r in crow]):
+        lost: list[dict] = []
+        for batch_rows, url in _batches(cfg, county, crow):
             data, ok_ = _fetch_with_retry(fetch, url, retries, sleep, failure_kinds)
-            if not ok_:
-                failed = True
-                break
-            if cfg.transport == "socrata":
+            if ok_ and cfg.transport == "socrata":
                 # A SODA resource answers with a list of records (or an error object).
-                if not isinstance(data, list):
+                ok_ = isinstance(data, list)
+                if ok_:
+                    features += [{"attributes": rec} for rec in data if isinstance(rec, dict)]
+            elif ok_:
+                ok_ = isinstance(data, dict) and "error" not in data
+                if ok_:
+                    features += data.get("features") or []
+            if not ok_:
+                # A failed batch attaches nothing to ITS rows only (run 405,
+                # 2026-10-27: one Detroit batch of ~314 answered 404 three times
+                # and the whole county - 31,348 rows - was given up).
+                cov.failed_queries += 1
+                lost += batch_rows
+                if batch_rows is crow:
                     failed = True
                     break
-                features += [{"attributes": rec} for rec in data if isinstance(rec, dict)]
-                continue
-            if not isinstance(data, dict) or "error" in data:
-                failed = True
-                break
-            features += data.get("features") or []
-        if failed:
-            cov.failed_queries += 1
-            cov.rows_considered += len(crow)
+        if lost:
+            cov.rows_considered += len(lost)
             if outcomes is not None:
-                outcomes.update({r["id"]: "SOURCE_UNAVAILABLE" for r in crow})
+                outcomes.update({r["id"]: "SOURCE_UNAVAILABLE" for r in lost})
+            lost_ids = {id(r) for r in lost}
+            crow = [r for r in crow if id(r) not in lost_ids]
+        if failed or not crow:
             continue
         idx = P.index_features(cfg, features, county if cfg.county_id else None)
         for m, row in zip(P.match_rows(cfg, crow, idx), crow):
@@ -252,6 +259,27 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
     return {**report, "dataset": cfg.dataset, "layer_url": cfg.layer_url, **cov.as_dict(),
             "unchanged_skipped": unchanged,
             "query_failures_by_cause": dict(sorted(failure_kinds.items()))}
+
+
+def _batches(cfg, county: str, crow: list[dict]):
+    """(rows, url) per query. A county file is one request for every row; an
+    ArcGIS / Socrata layer is asked one batch of identifiers at a time, and
+    each batch carries exactly the rows whose identifier it asks for, so a
+    failed batch costs only those rows."""
+    if cfg.transport == "county_file":
+        for url in P.query_urls(cfg, county, [r.get(cfg.row_id_column) for r in crow]):
+            yield crow, url
+        return
+    by_id = defaultdict(list)
+    for r in crow:
+        key = str(r.get(cfg.row_id_column) or "").strip()
+        if key:
+            by_id[key].append(r)
+    ids = sorted(by_id)
+    for i in range(0, len(ids), cfg.batch_size):
+        chunk = ids[i:i + cfg.batch_size]
+        for url in P.query_urls(cfg, county, chunk):
+            yield [r for k in chunk for r in by_id[k]], url
 
 
 def select_rows(rows: list[dict], *, counties: list[str] | None = None, max_counties: int | None = None,
