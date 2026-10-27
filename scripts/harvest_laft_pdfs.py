@@ -648,6 +648,23 @@ def render_page_links(url: str, timeout_ms: int = 45_000) -> str:
     return "\n".join(parts)
 
 
+def rendered_outline(rendered_html: str, limit: int = 20) -> str:
+    """A value-free outline of what render_page_links() saw - frame / link
+    hosts and link texts with every digit masked - so a run that cannot find
+    the current document says where to look (job logs are public)."""
+    from urllib.parse import urlparse  # noqa: PLC0415
+    frames = re.findall(r'<iframe src="([^"]*)"', rendered_html or "")
+    links = _ANCHOR_RE.findall(rendered_html or "")
+    hosts = sorted({urlparse(h).hostname or "?" for h in frames + [a for a, _ in links]})
+    texts = []
+    for _, t in links:
+        t = re.sub(r"\d", "#", re.sub(r"<[^>]+>|\s+", " ", t)).strip()
+        if t and t not in texts:
+            texts.append(t[:60])
+    return (f"{len(frames)} frame(s), {len(links)} link(s); hosts {hosts[:10]}; "
+            f"link texts {texts[:limit]}")
+
+
 def _fetch_with_successor(url: str, source_page: str | None, entry: dict | None, *, render=None):
     """conditional_get(), plus the successor-link discovery on a dead
     registered link (404 / 410 - see discover_successor_pdf). Returns
@@ -682,6 +699,8 @@ def _fetch_with_successor(url: str, source_page: str | None, entry: dict | None,
             print("      the source page is a Municode application - rendering it to read the current document link", flush=True)
             rendered = render(page_url)
             candidates = discover_successor_pdfs(rendered, url, page_url=page_url)
+            if not candidates:
+                print(f"      rendered page: {rendered_outline(rendered)}", flush=True)
             if not candidates:
                 # One hop inside the same Municode library: a child node whose
                 # own link text says Lands Available.

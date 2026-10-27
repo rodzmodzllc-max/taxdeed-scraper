@@ -123,19 +123,12 @@ def main(argv=None) -> int:
 
 
 def read(base: str, key: str, state: str) -> list[dict]:
-    import urllib.parse
+    """Every active / available row of one state, by keyset pages (an offset
+    page timed out on Michigan, 2026-10-27)."""
     from scripts import geocode_authoritative as GA
     hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
-    rows, offset = [], 0
-    while True:
-        q = urllib.parse.urlencode({"select": READ_COLUMNS, "state": f"eq.{state}", "status": "in.(active,available)",
-                                    "order": "id.asc", "limit": GA.PAGE, "offset": offset})
-        page = GA.http_json(f"{base}/rest/v1/properties?{q}", headers=hdr) or []
-        rows += page
-        if len(page) < GA.PAGE:
-            return rows
-        offset += len(page)
-
+    return GA.RP.read_all(base, "properties", hdr, {"select": READ_COLUMNS, "state": f"eq.{state}",
+                                                    "status": "in.(active,available)"}, page=GA.PAGE)
 
 if __name__ == "__main__":
     raise SystemExit(main())
