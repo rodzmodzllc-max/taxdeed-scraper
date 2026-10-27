@@ -8,8 +8,9 @@
 //                  decorative plat and as cards. A pin is placed only from a
 //                  row's own latitude / longitude; a lot without them says
 //                  "Not yet geocoded" and gets no pin.
-//   AVAILABLE    - about PLACE: one story per county (its count, its cards
-//                  in a snapping rail), each card with the app's own imagery
+//   AVAILABLE    - about PLACE: one story per county (its name as the head,
+//                  its cards in a snapping rail; per-county counts live only
+//                  in the app's shared "Now showing" bar), each card with the app's own imagery
 //                  ladder and the acquisition path as a trail of waypoints
 //                  (verified steps only; otherwise "Not yet verified").
 //   LIENS        - no map (a certificate is not land): tax years as strata;
@@ -23,7 +24,7 @@
 
 const NAME = "terrain";
 const PAGE = 48;            // auction lots per day, first draw / per "Show more"
-const STORY_PAGE = 6;       // county stories per draw step
+const STORY_PAGE = 6;       // county stories whose cards draw at once (later ones fill in on scroll)
 const STORY_CARDS = 8;      // cards per story at first (6 x 8 = 48)
 const STORY_MORE = 16;
 const TAG_PAGE = 24;        // certificate tags per open stratum
@@ -32,7 +33,7 @@ const WINDOW_DAYS = 45;
 const S = {
   scene: "",
   auction: { day: null, sel: null, limit: {}, dayKey: "" },
-  laft: { storyLimit: STORY_PAGE, cards: {} },
+  laft: { cards: {}, groups: null },
   certificate: { open: new Set(), flipped: new Set(), limit: {}, justOpened: null, inited: false }
 };
 let LAST = null;            // last payload drawn
@@ -68,6 +69,7 @@ function stageEl() { return document.getElementById("xpStage"); }
 function active() { const x = window.__tdwExperience; return !!(x && x.name === NAME); }
 function teardown() {
   const stage = stageEl();
+  if (STORY_IO) { STORY_IO.disconnect(); STORY_IO = null; }
   if (stage && stage.dataset.xp === NAME) { stage.innerHTML = ""; delete stage.dataset.xp; }
   if (document.documentElement.dataset.experienceReady === NAME) delete document.documentElement.dataset.experienceReady;
 }
@@ -110,6 +112,11 @@ function draw(detail, opts) {
   if (ledger === "auction" && (enter || (opts && opts.centerDay))) centerSelectedDay(stage);
   try { api.hydrateVisuals(stage); } catch {}
   bind(stage);
+  if (ledger === "laft") watchLazyStories(stage);
+  else if (STORY_IO) { STORY_IO.disconnect(); STORY_IO = null; }
+  // The app's shared "Now showing" county bar follows the data-county-head
+  // marks; called on every ledger so it hides where there are none.
+  if (typeof api.installCountyNowBar === "function") { try { api.installCountyNowBar(stage); } catch {} }
   document.documentElement.dataset.experienceReady = NAME;
 }
 
@@ -138,10 +145,10 @@ function idRow(p, api) {
   if (c) parts.push(api.esc(c));
   return parts.join(" · ");
 }
+// The ledger name, the state and the view count live in the List's own title
+// (#listCount); a stage head carries only what that title does not.
 function heads(api, ledger, title, sub, extra) {
-  const st = api.stateCode ? api.stateCode() : "";
   return `<header class="xt-head xt-glass">
-    <div class="xt-head-k"><span class="xt-ledger-dot"></span>${api.esc(api.ledgerTitle(ledger))}${st ? ` · ${api.esc(st)}` : ""}</div>
     <h2 class="xt-h1">${title}</h2>
     ${sub ? `<p class="xt-sub">${sub}</p>` : ""}
     ${extra || ""}
@@ -223,8 +230,9 @@ function auctionView(rows, api, enter, opts) {
   const cols = [];
   const endCol = (k, label, sub) => {
     const c = (buckets.get(k) || []).length;
+    if (!c) return "";
     const on = A.day === k;
-    return `<button type="button" class="xt-col xt-col-end${on ? " on" : ""}${c ? "" : " empty"}" data-xt="day" data-day="${k}" aria-pressed="${on}" aria-label="${api.esc(label + ", " + c + (c === 1 ? " lot" : " lots"))}"${c ? "" : " disabled"}>
+    return `<button type="button" class="xt-col xt-col-end${on ? " on" : ""}" data-xt="day" data-day="${k}" aria-pressed="${on}" aria-label="${api.esc(label + ", " + c + (c === 1 ? " lot" : " lots"))}">
       ${on ? `<span class="xt-handle"></span>${stakeSvg()}` : ""}<span class="xt-end-n">${n(c)}</span><span class="xt-colwk">${api.esc(label)}</span><span class="xt-end-sub">${api.esc(sub)}</span></button>`;
   };
   cols.push(endCol("past", "Earlier", "past dates"));
@@ -285,9 +293,9 @@ function auctionView(rows, api, enter, opts) {
     }).join("");
   }
   const noGeo = shown.length - geo.length;
-  const platNote = geo.length
-    ? `${n(geo.length)} of ${n(shown.length)} lot${shown.length === 1 ? "" : "s"} pinned from ${geo.length === 1 ? "its" : "their"} published coordinates${noGeo ? ` · ${n(noGeo)} not yet geocoded, no pin drawn` : ""}. The plat underneath is decoration, not a map.`
-    : `None of these lots is geocoded yet, so no pins are drawn. The plat is decoration, not a map.`;
+  // Only the absence is worth a line; with no pin at all the plat's own
+  // overlay already says "Not yet geocoded".
+  const platNote = geo.length && noGeo ? `${n(noGeo)} not yet geocoded` : "";
 
   const cards = shown.map((p, i) => auctionCard(p, api, i)).join("");
   const more = list.length > shown.length
@@ -297,7 +305,7 @@ function auctionView(rows, api, enter, opts) {
     <div class="xt-grain" aria-hidden="true"></div>
     ${heads(api, "auction", `<span class="xt-banner${dayEnter ? " xt-swap" : ""}"><span class="xt-date">${api.esc(big)}</span><span class="xt-date-sub">${api.esc(sub)}</span></span>`, "", `<div class="xt-count${dayEnter ? " xt-swap" : ""}"><span class="xt-count-n">${n(list.length)}</span><span class="xt-count-l">${list.length === 1 ? "lot" : "lots"}</span></div>`)}
     <section class="xt-scrub xt-glass" aria-label="Sale days">
-      <div class="xt-scrub-top"><span class="xt-scrub-k">${stakeSvg()}Next 45 days</span><span class="xt-scrub-total">${n(inWindow)} of ${n(rows.length)} in window</span></div>
+      <div class="xt-scrub-top"><span class="xt-scrub-k">${stakeSvg()}Next 45 days</span>${inWindow !== rows.length ? `<span class="xt-scrub-total">${n(inWindow)} in window</span>` : ""}</div>
       <div class="xt-ruler" data-xt-keep="ruler" role="group" aria-label="Pick a sale day">${cols.join("")}</div>
     </section>
     <div class="xt-day${dayEnter ? " xt-day-enter" : ""}">
@@ -305,7 +313,7 @@ function auctionView(rows, api, enter, opts) {
         <div class="xt-plat" style="--ar:${ar}">${platSvg()}<div class="xt-pins">${pins}</div>
           ${geo.length ? "" : `<div class="xt-plat-empty"><span>Not yet geocoded</span></div>`}
         </div>
-        <p class="xt-plat-note">${api.esc(platNote)}</p>
+        ${platNote ? `<p class="xt-plat-note">${api.esc(platNote)}</p>` : ""}
       </div>
       <div class="xt-lots-col">
         <ol class="xt-lots" aria-label="Lots on this day">${cards}</ol>
@@ -320,9 +328,12 @@ function auctionCard(p, api, i) {
   const amt = api.amountShort(p);
   const sel = S.auction.sel === String(p.id);
   const gaps = (api.dataGaps(p) || []).slice(0, 3);
-  const flood = pf.flood ? pf.flood.text : null;
+  // A gap listed under "Not on file" is not repeated as a chip.
+  const floodGap = gaps.some(g => /flood/i.test(g));
+  const geoGap = gaps.some(g => /geocod/i.test(g));
+  const flood = pf.flood && !floodGap ? pf.flood.text : null;
   return `<li class="xt-lot${sel ? " sel" : ""}" data-xt="lot" data-pid="${api.esc(p.id)}" data-xt-ping style="--r:${Math.min(i, 10)}">
-    <div class="xt-lot-k">${api.cardKickerHtml(p)}</div>
+    <div class="xt-lot-k">${api.cardKickerHtml(p, { singleLedger: true, singleState: true })}</div>
     <h3 class="xt-lot-t">${titleHtml(p, api)}</h3>
     <div class="xt-ids">${idRow(p, api)}</div>
     <div class="xt-figs">
@@ -330,7 +341,7 @@ function auctionCard(p, api, i) {
       <div class="xt-fig"><span class="xt-lbl">${api.esc(pf.valueLabel || "County value")}</span><span class="xt-num xt-num-s${pf.value ? "" : " np"}">${api.esc(pf.value || "Not published")}</span>${pf.value ? `<span class="xt-fig-note">Not a sale price</span>` : ""}</div>
     </div>
     <div class="xt-facts">
-      <span class="xt-fact${hasCoords(p) ? " on" : ""}"><i></i>${hasCoords(p) ? "Pinned on the plat" : "Not yet geocoded"}</span>
+      ${hasCoords(p) || !geoGap ? `<span class="xt-fact${hasCoords(p) ? " on" : ""}"><i></i>${hasCoords(p) ? "Pinned on the plat" : "Not yet geocoded"}</span>` : ""}
       ${flood ? `<span class="xt-fact"><b>Flood</b> ${api.esc(flood)}</span>` : ""}
     </div>
     ${gaps.length ? `<p class="xt-gaps"><b>Not on file:</b> ${gaps.map(g => api.esc(g)).join(" · ")}</p>` : ""}
@@ -349,8 +360,47 @@ function centerSelectedDay(stage) {
 }
 
 // ---------- AVAILABLE: place ----------
-function availableView(rows, api, enter) {
+// One story per county. The county's name is the story head (marked
+// data-county-head for the app's shared "Now showing" bar, which is the one
+// place a per-county count appears); the ledger, the state, the program and
+// the view count live in the List's own title, so nothing here repeats them.
+// Every county head is drawn at once so the bar can reach any county; a
+// story's cards are drawn eagerly for the first STORY_PAGE counties and
+// filled in as each later story nears the viewport.
+const LIST_CTX = { inGroup: true, singleLedger: true, singleState: true };
+let STORY_IO = null;
+
+function storyLimit(g, si) {
   const L = S.laft;
+  if (L.cards[g.county] !== undefined) return L.cards[g.county];
+  return si < STORY_PAGE ? STORY_CARDS : 0;
+}
+
+// A county-wide way in shared by every drawn card moves up to the story head
+// (once), unless it is a path published for one parcel.
+function storyTrail(g, api) {
+  if (g.rows.length < 2) return "";
+  let html = null;
+  for (const p of g.rows.slice(0, STORY_CARDS)) {
+    const t = trailInfo(p, api);
+    if (!t.hoistable) return "";
+    if (html === null) html = t.html;
+    else if (t.html !== html) return "";
+  }
+  return html || "";
+}
+
+function storyCardsHtml(g, api, lim) {
+  const shown = g.rows.slice(0, lim);
+  shown.forEach(p => BY_ID.set(String(p.id), p));
+  const cards = shown.map((p, i) => availableCard(p, api, i, g.headTrail)).join("");
+  const left = g.rows.length - shown.length;
+  const more = left > 0 && lim > 0
+    ? `<button type="button" class="xt-rail-more" data-xt="more-story" data-county="${api.esc(g.county)}"><span class="xt-rail-more-n">+${n(Math.min(STORY_MORE, left))}</span><span>Show more in ${api.esc(g.county)}</span></button>` : "";
+  return cards + more;
+}
+
+function availableView(rows, api, enter) {
   const groups = [];
   const index = new Map();
   for (const p of rows) {
@@ -359,57 +409,77 @@ function availableView(rows, api, enter) {
     if (!g) { g = { county: key, rows: [] }; index.set(key, g); groups.push(g); }
     g.rows.push(p);
   }
+  S.laft.groups = index;
   const unit = api.unitWord ? api.unitWord() : "County";
-  const st = api.stateCode ? api.stateCode() : "";
-  const storyCount = Math.min(groups.length, L.storyLimit);
-  const chips = groups.slice(0, 120).map((g, i) =>
-    `<button type="button" class="xt-chip" data-xt="jump" data-story="${i}"><span>${api.esc(g.county)}</span><b>${n(g.rows.length)}</b></button>`).join("");
 
-  const stories = groups.slice(0, storyCount).map((g, si) => {
-    const lim = L.cards[g.county] || STORY_CARDS;
-    const shown = g.rows.slice(0, lim);
-    shown.forEach(p => BY_ID.set(String(p.id), p));
-    const cards = shown.map((p, i) => availableCard(p, api, i)).join("");
-    const left = g.rows.length - shown.length;
-    const more = left > 0 ? `<button type="button" class="xt-rail-more" data-xt="more-story" data-county="${api.esc(g.county)}"><span class="xt-rail-more-n">+${n(Math.min(STORY_MORE, left))}</span><span>Show more in ${api.esc(g.county)}</span><span class="xt-rail-more-s">${n(left)} not drawn yet</span></button>` : "";
-    return `<section class="xt-story" id="xtStory${si}" style="--s:${Math.min(si, 6)}" aria-label="${api.esc(g.county + " " + unit + ", " + g.rows.length + " properties")}">
-      <div class="xt-story-head xt-glass">
+  const stories = groups.map((g, si) => {
+    g.headTrail = storyTrail(g, api);
+    const lim = storyLimit(g, si);
+    const name = `${g.county} ${unit}`;
+    const rail = lim > 0
+      ? `<div class="xt-rail" data-xt-keep="rail-${api.esc(g.county)}" role="list">${storyCardsHtml(g, api, lim)}</div>`
+      : `<div class="xt-rail xt-rail-lazy" data-xt-keep="rail-${api.esc(g.county)}" data-xt-lazy="${api.esc(g.county)}" role="list" aria-busy="true"></div>`;
+    return `<section class="xt-story" id="xtStory${si}" style="--s:${Math.min(si, 6)}" aria-label="${api.esc(name)}">
+      <div class="xt-story-head xt-glass" data-county-head="${api.esc(g.county)}">
         <svg class="xt-story-contour" viewBox="0 0 400 160" preserveAspectRatio="none" aria-hidden="true">
           <path class="xt-draw" pathLength="1" d="M-10 130 C 80 90, 160 150, 260 100 S 380 40, 420 70"/>
           <path class="xt-draw" pathLength="1" d="M-10 100 C 90 60, 170 120, 270 70 S 380 10, 420 40" style="--dl:120ms"/>
           <path class="xt-draw" pathLength="1" d="M-10 70 C 100 30, 180 90, 280 40 S 380 -10, 420 10" style="--dl:240ms"/>
         </svg>
         <span class="xt-flag" aria-hidden="true"><i class="pole"></i><i class="pf"></i><i class="base"></i></span>
-        <div class="xt-story-k">${api.esc(unit)} story${st ? ` · ${api.esc(st)}` : ""}</div>
-        <h3 class="xt-story-t">${api.esc(g.county)} ${api.esc(unit)}</h3>
-        <div class="xt-story-cnt"><span class="xt-story-n">${n(g.rows.length)}</span><span class="xt-story-l">${g.rows.length === 1 ? "property" : "properties"} on the source's list${shown.length < g.rows.length ? ` · ${n(shown.length)} drawn` : ""}</span></div>
+        <h3 class="xt-story-t">${api.esc(name)}</h3>
+        ${g.headTrail ? `<div class="xt-story-trail">${g.headTrail}</div>` : ""}
       </div>
-      <div class="xt-rail" data-xt-keep="rail-${api.esc(g.county)}" role="list">${cards}${more}</div>
+      ${rail}
     </section>`;
   }).join("");
-  const moreStories = groups.length > storyCount
-    ? `<button type="button" class="xt-more" data-xt="more-stories">Show ${n(Math.min(STORY_PAGE, groups.length - storyCount))} more ${api.esc(unit === "Parish" ? "parishes" : "counties")} · ${n(groups.length - storyCount)} left</button>` : "";
 
   return `<div class="xp-terrain xt-laft${enter ? " xt-enter" : ""}" data-ledger="laft">
     <div class="xt-grain" aria-hidden="true"></div>
-    ${heads(api, "laft", `${n(rows.length)} ${rows.length === 1 ? "property" : "properties"} across ${n(groups.length)} ${api.esc(groups.length === 1 ? unit.toLowerCase() : (unit === "Parish" ? "parishes" : "counties"))}`,
-      "Each story is a place. Swipe its cards; each card lays out how to acquire it as a trail - verified steps only.")}
-    <nav class="xt-chips" data-xt-keep="chips" aria-label="Jump to a ${api.esc(unit.toLowerCase())}">${chips}</nav>
     <div class="xt-stories">${stories}</div>
-    ${moreStories}
   </div>`;
 }
 
-function availableCard(p, api, i) {
+// Fill a lazily drawn story in place (no full redraw, so nothing above moves).
+function fillStory(stage, rail) {
+  const county = rail.dataset.xtLazy;
+  const g = S.laft.groups && S.laft.groups.get(county);
+  const api = (LAST && LAST.api) || (window.__tdwExperience && window.__tdwExperience.api);
+  if (!g || !api) return;
+  S.laft.cards[county] = STORY_CARDS;
+  rail.innerHTML = storyCardsHtml(g, api, STORY_CARDS);
+  rail.classList.remove("xt-rail-lazy");
+  rail.removeAttribute("data-xt-lazy");
+  rail.removeAttribute("aria-busy");
+  try { api.hydrateVisuals(rail); } catch {}
+}
+
+function watchLazyStories(stage) {
+  if (STORY_IO) { STORY_IO.disconnect(); STORY_IO = null; }
+  const lazy = stage.querySelectorAll(".xt-rail-lazy[data-xt-lazy]");
+  if (!lazy.length) return;
+  if (typeof IntersectionObserver !== "function") { lazy.forEach(r => fillStory(stage, r)); return; }
+  STORY_IO = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (!en.isIntersecting) return;
+      STORY_IO.unobserve(en.target);
+      fillStory(stage, en.target);
+    });
+  }, { rootMargin: "600px 0px" });
+  lazy.forEach(r => STORY_IO.observe(r));
+}
+
+function availableCard(p, api, i, headTrail) {
   const pf = api.previewFacts(p);
   const amt = api.amountShort(p);
   let note = "";
   try { note = api.amountInfo(p).note || ""; } catch {}
-  const visual = api.propertyVisual(p, "prop-card-photo xt-visual");
+  const visual = api.propertyVisual(p, "prop-card-photo xt-visual", { omitCounty: true });
+  const trail = trailInfo(p, api).html;
   return `<article class="xt-acard" role="listitem" data-xt="acard" data-pid="${api.esc(p.id)}" data-xt-ping style="--r:${Math.min(i, 8)}">
     <div class="xt-acard-vis">${visual}</div>
     <div class="xt-acard-body">
-      <div class="xt-lot-k">${api.cardKickerHtml(p)}</div>
+      <div class="xt-lot-k">${api.cardKickerHtml(p, LIST_CTX)}</div>
       <h4 class="xt-lot-t">${titleHtml(p, api)}</h4>
       <div class="xt-ids">${idRow(p, api)}</div>
       <div class="xt-figs">
@@ -417,23 +487,23 @@ function availableCard(p, api, i) {
         <div class="xt-fig"><span class="xt-lbl">${api.esc(pf.valueLabel || "County value")}</span><span class="xt-num xt-num-s${pf.value ? "" : " np"}">${api.esc(pf.value || "Not published")}</span></div>
       </div>
       ${note ? `<p class="xt-amt-note">${api.esc(note)}</p>` : ""}
-      ${trailHtml(p, api)}
+      ${headTrail && trail === headTrail ? "" : trail}
       <div class="xt-actions">${openBtn(p, api, "xt-btn-primary xt-sage")}${watchBtn(p, api)}</div>
     </div>
   </article>`;
 }
 
-function trailHtml(p, api) {
+function trailInfo(p, api) {
   const a = api.acquisitionOf(p) || { verified: false, label: "Not yet verified", steps: [] };
   if (!a.verified) {
     const none = a.mode === "none";
-    return `<div class="xt-trail unverified" aria-label="How to acquire: ${api.esc(none ? "no purchase path stated by the source" : "not yet verified")}">
+    return { hoistable: true, html: `<div class="xt-trail unverified" aria-label="How to acquire: ${api.esc(none ? "no purchase path stated by the source" : "not yet verified")}">
       <div class="xt-trail-k">How to acquire</div>
       <ol>
         <li class="wp done"><span class="wp-n">1</span><span class="wp-t">On the source's list</span></li>
         <li class="wp q"><span class="wp-n">?</span><span class="wp-t">${api.esc(none ? "No purchase path (stated by the source)" : "Not yet verified")}</span></li>
       </ol>
-    </div>`;
+    </div>` };
   }
   const steps = (a.steps || []).filter(Boolean);
   const nodes = [];
@@ -447,11 +517,11 @@ function trailHtml(p, api) {
   const obs = a.observedOn && /^\d{4}-\d{2}-\d{2}/.test(String(a.observedOn)) ? String(a.observedOn).slice(0, 10) : "";
   let obsText = "";
   if (obs) { try { obsText = api.fmtDateLong(obs); } catch { obsText = obs; } }
-  return `<div class="xt-trail verified">
+  return { hoistable: a.scope !== "property", html: `<div class="xt-trail verified">
     <div class="xt-trail-k">How to acquire · <span>${api.esc(a.label || "")}</span></div>
     <ol>${nodes.join("")}</ol>
     <div class="xt-trail-f">${a.scope === "property" ? "Published for this parcel" : "County process, not an approval for this parcel"}${obsText ? ` · last verified ${api.esc(obsText)}` : ""}</div>
-  </div>`;
+  </div>` };
 }
 
 // ---------- LIENS: strata ----------
@@ -470,7 +540,6 @@ function liensView(rows, api, enter) {
   const bands = [...groups.values()].sort((a, b) => b.sort - a.sort);
   if (!C.inited && bands.length) { C.open.add(bands[0].key); C.inited = true; }
   const justOpened = C.justOpened; C.justOpened = null;
-  const unit = api.unitWord ? api.unitWord() : "County";
 
   const html = bands.map((b, bi) => {
     const open = C.open.has(b.key);
@@ -494,7 +563,7 @@ function liensView(rows, api, enter) {
       <svg class="xt-wave" viewBox="0 0 400 16" preserveAspectRatio="none" aria-hidden="true"><path class="xt-draw" pathLength="1" d="M0 9 C 40 2, 80 14, 130 8 S 220 1, 270 8 S 360 15, 400 6" style="--dl:${200 + Math.min(bi, 8) * 70}ms"/></svg>
       <button type="button" class="xt-band-hd" data-xt="band" data-band="${api.esc(b.key)}" aria-expanded="${open}">
         <span class="xt-band-txt"><span class="xt-yr${b.key === "none" ? " ital" : ""}">${api.esc(b.title)}</span>
-          <span class="xt-band-lbl">${api.esc(b.label)} · ${n(b.rows.length)} certificate${b.rows.length === 1 ? "" : "s"}${countiesTxt ? ` · ${api.esc(countiesTxt)}` : ""}</span></span>
+          <span class="xt-band-lbl">${api.esc(b.label)}${bands.length > 1 ? ` · ${n(b.rows.length)} certificate${b.rows.length === 1 ? "" : "s"}` : ""}${countiesTxt ? ` · ${api.esc(countiesTxt)}` : ""}</span></span>
         <span class="xt-sil" aria-hidden="true">${"<i></i>".repeat(sil)}<span class="xt-chev">⌄</span></span>
       </button>
       ${body}
@@ -503,8 +572,7 @@ function liensView(rows, api, enter) {
 
   return `<div class="xp-terrain xt-liens${enter ? " xt-enter" : ""}" data-ledger="certificate">
     <div class="xt-grain" aria-hidden="true"></div>
-    ${heads(api, "certificate", `${n(rows.length)} certificate${rows.length === 1 ? "" : "s"} in ${n(bands.length)} layer${bands.length === 1 ? "" : "s"}`,
-      `A certificate is a lien, not land - so no map here. Layers are tax years, newest on top; ${api.esc(unit.toLowerCase())} is on each tag.`)}
+    ${bands.length > 1 ? heads(api, "certificate", `${n(bands.length)} layers`, "") : ""}
     <div class="xt-strata">${html}</div>
     <section class="xt-bedrock" aria-label="About these records">
       <div class="xt-ruleline"></div>
@@ -528,8 +596,9 @@ function tagHtml(p, api, i) {
   // (fmtMoney); amountShort() rounds to whole dollars, which a lien amount
   // must not be. Its label stays amountShort()'s.
   const amtText = pf.bid || amt.text;
+  // The tax year is the band this tag hangs in; it is not repeated here.
   const facts = [[pf.parcelLabel || "Account", pf.parcel || "Not published"]]
-    .concat(Array.isArray(pf.more) ? pf.more : []);
+    .concat((Array.isArray(pf.more) ? pf.more : []).filter(([k]) => !(k === "Tax year" && isNum(p.tax_year))));
   const srcName = pf.source || api.sourceNameFor(p);
   if (srcName) facts.push(["Source", srcName]); // an unnamed source is not "not published" by the source
   facts.push(["Status", api.officialStatusText(p)]);
@@ -624,19 +693,10 @@ function bind(stage) {
     } else if (kind === "more-day") {
       S.auction.limit[S.auction.day] = (S.auction.limit[S.auction.day] || PAGE) + PAGE;
       draw(LAST);
-    } else if (kind === "jump") {
-      const i = Number(t.dataset.story);
-      const go = () => {
-        const el = document.getElementById("xtStory" + i);
-        if (el) el.scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "start" });
-      };
-      if (i >= S.laft.storyLimit) { S.laft.storyLimit = i + 1; draw(LAST); requestAnimationFrame(go); } else go();
     } else if (kind === "more-story") {
       const c = t.dataset.county;
-      S.laft.cards[c] = (S.laft.cards[c] || STORY_CARDS) + STORY_MORE;
-      draw(LAST);
-    } else if (kind === "more-stories") {
-      S.laft.storyLimit += STORY_PAGE;
+      const cur = S.laft.cards[c] !== undefined ? S.laft.cards[c] : STORY_CARDS;
+      S.laft.cards[c] = cur + STORY_MORE;
       draw(LAST);
     } else if (kind === "band") {
       const k = t.dataset.band;

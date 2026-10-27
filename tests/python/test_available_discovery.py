@@ -202,8 +202,12 @@ def test_generated_files_are_current_and_value_free():
 def test_frontend_labels_every_status_and_only_names_an_empty_available_ledger():
     m = re.search(r"const AVAILABLE_COVERAGE_LABELS = \{(.*?)\n\};", APP, re.S)
     assert m and set(re.findall(r"^\s+(\w+):", m.group(1), re.M)) == set(AC.STATUSES)
-    body = APP[APP.index("// AVAILABLE only, and only when the ledger itself holds no row"):][:400]
-    assert 'kind === "laft"' in body and '!ALL.some(p => p.source === "laft")' in body
+    # 2026-10-27: one fact one place - an empty ledger prints its reason once,
+    # in the status strip's .ls-why; the coverage hint under the empty state
+    # (which could contradict it) is no longer rendered.
+    assert "function availableCoverageHtml(" in APP
+    assert "availableCoverageHtml(AVAILABLE_COVERAGE)" not in APP
+    assert "ls-why" in APP
 
 
 def test_available_discovery_capture_scope_is_value_free_and_database_free():
