@@ -7373,12 +7373,15 @@ const EXPECTED = {
   zeroOfferedNoInventory: { eligibility: 'OFFERED', zeroCase: 'NO_CURRENT_INVENTORY', tracked: '1', count: '0 instruments', whyLabel: 'No current inventory.', read: 'Last complete read N ago · 1 source read', saysExists: true, links: ['State rules and sources →', 'Official reference →'] },
   zeroNoneWhenRows: { zeroCase: '', eligibility: 'OFFERED', whyLabel: null, countEndsWith: 'instrument' },
   zeroLoadFailure: { zeroCase: 'SOURCE_FAILURE', eligibility: 'OFFERED', count: 'Count unavailable - load failed', whyLabel: 'Source read failed or incomplete.', lastKnown: true, bareZero: false },
-  zeroPartialRead: { zeroCase: 'SOURCE_FAILURE', eligibility: 'NOT_VERIFIED', health: 'DEGRADED', lastKnown: true, count: '0 properties' },
-  zeroNotVerified: { zeroCase: 'NOT_VERIFIED', eligibility: 'NOT_VERIFIED', health: 'MANUAL', whyLabel: 'Not verified.', notAuthoritative: true, read: 'Last complete read N ago · 1 source read' },
+  zeroPartialRead: {"zeroCase": "SOURCE_FAILURE", "eligibility": "COUNTY_DEPENDENT", "health": "DEGRADED", "lastKnown": true, "count": "0 properties"},
+  // 2026-10-27: #213 made Texas Available COUNTY_DEPENDENT, and no tracked ledger
+  // in data/state_ledgers.csv is NOT_VERIFIED any more, so this case now reads
+  // the county-dependent zero (the NOT_VERIFIED copy stays pinned in Python).
+  zeroNotVerified: {"zeroCase": "COUNTY_DEPENDENT", "eligibility": "COUNTY_DEPENDENT", "health": "MANUAL", "whyLabel": "County by county.", "notAuthoritative": false, "read": "Last complete read N ago · 1 source read"},
   zeroNotImplemented: { zeroCase: 'NOT_IMPLEMENTED', eligibility: 'NOT_VERIFIED', tracked: '0', whyLabel: 'No source implemented.', notProof: true },
   zeroEligibleButUntracked: { zeroCase: 'NOT_IMPLEMENTED', eligibility: 'COUNTY_DEPENDENT', tracked: '0', coverage: true },
   zeroPendingReview: { customer: { zeroCase: 'SOURCE_RESTRICTED', eligibility: 'COUNTY_DEPENDENT', count: '0 properties', whyLabel: 'Source restricted or pending review.' }, admin: { zeroCase: '', count: '1 property' } },
-  zeroCountyDependent: { zeroCase: 'COUNTY_DEPENDENT', eligibility: 'COUNTY_DEPENDENT', whyLabel: 'County by county.', counties: 'Eaton, Lenawee' },
+  zeroCountyDependent: {"zeroCase": "COUNTY_DEPENDENT", "eligibility": "COUNTY_DEPENDENT", "whyLabel": "County by county.", "counties": "Alcona, Alger, Allegan, Alpena, Antrim, Arenac, Baraga, Barry, Bay, Benzie, Berrien, Branch, Calhoun, Cass, Charlevoix, Cheboygan, Chippewa, Clare, Clinton, Crawford, Delta, Dickinson, Eaton, Emmet, Genesee, Gladwin, Gogebic, Grand Traverse, Gratiot, Hillsdale, Houghton, Huron, Ionia, Iosco, Iron, Isabella, Jackson, Kalamazoo, Kalkaska, Kent, Keweenaw, Lake, Lapeer, Leelanau, Lenawee, Livingston, Luce, Mackinac, Manistee, Marquette, Mason, Mecosta, Menominee, Missaukee, Monroe, Montcalm, Montmorency, Muskegon, Oakland, Oceana, Ogemaw, Ontonagon, Osceola, Oscoda, Otsego, Ottawa, Presque Isle, Roscommon, Saginaw, Sanilac, Schoolcraft, Shiawassee, St"},
   zeroNotOfferedUnclaimed: { notOffered: false, offered: 'OFFERED' },
   zeroStripToRules: { hash: '#/rules', block: true, blocks: [['AUCTIONS', 'OFFERED', 'TRACKED'], ['AVAILABLE', 'OFFERED', 'TRACKED'], ['LIENS_CERTIFICATES', 'OFFERED', 'TRACKED']], strips: 3, noScores: true },
   gateCustomer: {"auction": {"cards": ["p1", "p10", "p12", "p5", "p6", "p7", "p8", "p9"], "zero": "", "count": "8 properties", "withheld": "2 records withheld pending verification (1 no verified acquisition path, 1 stale observation or sale date)", "withheldN": "2", "chips": [], "para": null}, "laft": {"cards": ["p15"], "zero": "", "count": "1 property", "withheld": "2 records withheld pending verification (1 no verified acquisition path, 1 source or rules under review)", "withheldN": "2", "chips": [], "para": null}, "certificate": {"cards": [], "zero": "WITHHELD", "count": "0 instruments", "withheld": "1 record withheld pending verification (1 stale observation or sale date)", "withheldN": "1", "chips": [], "para": null}, "searchHits": 0, "map": {"head": "Where these are 1 shown across 1 county", "pins": 1}, "tile": {"val": "1", "sub": "properties across 1 county · 2 withheld pending verification"}, "csvRows": 1},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
@@ -7388,10 +7391,8 @@ const EXPECTED = {
   gatePageCustomerPublished: { open: true, hash: '#/lands/p15', gate: 'CUSTOMER_PUBLISHED', reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: true },
   gatePageCustomerWithheldDeepLink: { open: false, hash: '#/lands', gate: null, reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: false },
   gatePageOff: { open: true, hash: '#/lands/p15', gate: '', reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: false },
-  rulesCoverage: { AUCTIONS: { cov: ['Oconee published', 'York published'], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' },
-    AVAILABLE: { cov: ['Georgetown published', 'Horry published'], here: 'Georgetown County: covered - published.', covered: '1' },
-    LIENS_CERTIFICATES: { cov: [], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' } },
-  rulesHistory: { entries: [['tax_sale_model', '1']], versions: 1, notFixedPrice: true },
+  rulesCoverage: {"AUCTIONS": {"cov": ["Horry published", "Oconee published", "York published"], "here": "Georgetown County: not covered by a tracked source or verified procedure.", "covered": "0"}, "AVAILABLE": {"cov": ["Georgetown published", "Horry published"], "here": "Georgetown County: covered - published.", "covered": "1"}, "LIENS_CERTIFICATES": {"cov": [], "here": "Georgetown County: not covered by a tracked source or verified procedure.", "covered": "0"}},
+  rulesHistory: {"entries": [["tax_sale_model", "1"], ["tax_sale_list_source", "1"]], "versions": 2, "notFixedPrice": true},
   rulesTn: { title: 'Tennessee tax-sale rules', ledgers: { AUCTIONS: 'NOT_TRACKED', AVAILABLE: 'TRACKED', LIENS_CERTIFICATES: 'NOT_TRACKED' },
     verifiedWithoutStatus: 0, unverifiedLabelled: true, noScores: true, hash: '#/rules', visible: true, hasItems: true },
   // Georgetown's own rules appear for Georgetown and never for Horry.
@@ -7901,9 +7902,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 413,   // 366 - 14 blocked-vendor-only rows + 61 PBFCM / MVBA / GovEase county rows (owner decision 2026-10-26); + Sarasota Tax Collector certificates (2026-10-26); + the LRA, Ramsey and Fayette process evidence rows (2026-10-26) and the TX/LA candidates
+  adminSourcesRows: 507,   // 2026-10-27: + the #213 / #214 / #216 county sources; 366 - 14 blocked-vendor-only rows + 61 PBFCM / MVBA / GovEase county rows (owner decision 2026-10-26); + Sarasota Tax Collector certificates (2026-10-26); + the LRA, Ramsey and Fayette process evidence rows (2026-10-26) and the TX/LA candidates
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: '413 source(s): 312 approved, 100 review required, 1 hard blocked.',
+  adminSourcesStatusText: "507 source(s): 416 approved, 90 review required, 1 hard blocked.",
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,
