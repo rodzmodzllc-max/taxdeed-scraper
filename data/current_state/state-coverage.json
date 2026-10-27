@@ -7813,16 +7813,16 @@
       "units": 0,
       "verified_units": []
      },
-     "classification": "RULES_NOT_VERIFIED",
+     "classification": "SOURCE_IMPLEMENTED_NEVER_READ",
      "classification_reasons": [
-      "eligibility NOT_VERIFIED; no production source"
+      "no row and no read recorded in the snapshot"
      ],
      "counties": [],
-     "eligibility": "NOT_VERIFIED",
-     "eligibility_basis": "No Minnesota auction source is tracked and no statute has been read.",
-     "eligibility_verified_on": "",
+     "eligibility": "COUNTY_DEPENDENT",
+     "eligibility_basis": "Wright County's own Tax Forfeited Parcels layer lists parcels with Status 'Open' and an Auction Starting Price (read live 2026-10-26; owner-approved publication, legal review pending). No statute has been read.",
+     "eligibility_verified_on": "2026-10-26",
      "fields": {},
-     "next_action": "Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built.",
+     "next_action": "Dispatch the source's job once (owner decision) and read its status file; a failure is a source problem, not an empty list.",
      "records": null,
      "rules": {
       "by_status": {},
@@ -7832,15 +7832,35 @@
       "verified_law": []
      },
      "sources": {
-      "approved_for_customers": 0,
-      "counties": [],
-      "implemented": 0,
-      "known": 0,
-      "restricted": 0,
-      "rows": [],
-      "with_evidence": 0
+      "approved_for_customers": 1,
+      "counties": [
+       "Wright"
+      ],
+      "implemented": 1,
+      "known": 1,
+      "restricted": 1,
+      "rows": [
+       {
+        "amount_kind": "OPENING_BID",
+        "approved_for_customers": true,
+        "canonical_url": "https://services2.arcgis.com/CiQCvRGImIxsaFnM/arcgis/rest/services/Tax_Forfeited_Parcels/FeatureServer/0",
+        "county": "Wright",
+        "governance_status": "APPROVED",
+        "harvester": "harvest_expansion.py --state MN",
+        "has_evidence": true,
+        "implemented": true,
+        "last_checked": "2026-10-26",
+        "publication_status": "APPROVED",
+        "publishing_unit_name": "Wright County",
+        "restrictions": "Owner approved customer publication 2026-10-26; legal review pending. The source publishes no explicit reuse licence; this is the owner's internal risk acceptance, not the source's permission. Show only what the source publishes; no inferred results.",
+        "source_id": "mn_wright_tax_forfeit",
+        "update_frequency": "not published by the source (read on each run)",
+        "verification_status": "PRODUCTION_VERIFIED"
+       }
+      ],
+      "with_evidence": 1
      },
-     "tracked": "NOT_TRACKED",
+     "tracked": "TRACKED",
      "withheld": null
     },
     "AVAILABLE": {
@@ -14102,8 +14122,8 @@
   "OFFERED_SOURCE_NOT_IMPLEMENTED": 1,
   "OFFERED_VERIFIED_EMPTY": 1,
   "RECORDS_WITHHELD_NO_PATH": 1,
-  "RULES_NOT_VERIFIED": 19,
+  "RULES_NOT_VERIFIED": 18,
   "SOURCE_FAILED_OR_STALE": 4,
-  "SOURCE_IMPLEMENTED_NEVER_READ": 1
+  "SOURCE_IMPLEMENTED_NEVER_READ": 2
  }
 }

@@ -744,13 +744,12 @@ MI_GENESEE_LANDBANK = PagedTableConfig(
     total_pattern=r"(\d[\d,]*)\s+propert(?:y|ies)\s+found",
     stay_data=(("LRCpage", ""),), prev_data=(("LRCpage", "prev"),))
 
-NEW_TABLE_SOURCES = (SC_HORRY_TAX_SALE, CO_SAGUACHE_TAX_SALE, MN_HUBBARD_TFL_OTC, MN_STPAUL_HRA)
-# Configured and read live (38 'Open' rows, 2026-10-26) but NOT scheduled: the
-# Minnesota page's customer copy (app.js EXPANSION_LEDGER_COPY, owned by the
-# front-end session) still says "No Minnesota auction source is tracked", and
-# the state-rules engine fails a tracked ledger whose copy denies it. Add it to
-# SOURCES["MN"] (and NEW_TABLE_SOURCES) once that copy is updated.
-HELD_FOR_FRONTEND_COPY = (MN_WRIGHT_TAX_FORFEIT,)
+NEW_TABLE_SOURCES = (SC_HORRY_TAX_SALE, CO_SAGUACHE_TAX_SALE, MN_HUBBARD_TFL_OTC, MN_STPAUL_HRA, MN_WRIGHT_TAX_FORFEIT)
+# Wright County (MN) was configured and read live (38 'Open' rows, 2026-10-26)
+# but held until the Minnesota page's customer copy (app.js
+# EXPANSION_LEDGER_COPY) named it - the state-rules engine fails a tracked
+# ledger whose copy denies it. The copy was updated 2026-10-27 (owner
+# approval), so it is scheduled with the other new sources.
 # Genesee (MI) is configured and its reader tested, but HELD (not scheduled):
 # read from the sandbox 2026-10-26, the site answers HTTP 500 at random about
 # every 50-60 pages and on six township filters every time; a 500 mid-session
@@ -848,7 +847,8 @@ SOURCES: dict[str, tuple[ExpansionSource, ...]] = {
            ExpansionSource("epropertyplus", PA_PITTSBURGH_CITY_PROPERTY, PA_PITTSBURGH_CITY_PROPERTY.portal)),
     "MN": (ExpansionSource("arcgis", MN_RAMSEY_TAX_FORFEIT, MN_RAMSEY_TAX_FORFEIT.layer_url),
            ExpansionSource("arcgis", MN_HUBBARD_TFL_OTC, MN_HUBBARD_TFL_OTC.layer_url),
-           ExpansionSource("arcgis", MN_STPAUL_HRA, MN_STPAUL_HRA.layer_url)),
+           ExpansionSource("arcgis", MN_STPAUL_HRA, MN_STPAUL_HRA.layer_url),
+           ExpansionSource("arcgis", MN_WRIGHT_TAX_FORFEIT, MN_WRIGHT_TAX_FORFEIT.layer_url)),
     "TN": (ExpansionSource("epropertyplus", TN_SHELBY_LANDBANK, TN_SHELBY_LANDBANK.portal),),
 }
 

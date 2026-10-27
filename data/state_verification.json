@@ -38,9 +38,9 @@
   "MN": {
    "BLOCKED": 0,
    "FAIL": 0,
-   "NOT_APPLICABLE": 2,
-   "NOT_VERIFIED": 5,
-   "PASS": 16
+   "NOT_APPLICABLE": 1,
+   "NOT_VERIFIED": 4,
+   "PASS": 19
   },
   "MO": {
    "BLOCKED": 0,
@@ -816,21 +816,21 @@
   },
   {
    "check": "ledger_eligibility",
-   "detail": "No Minnesota auction source is tracked and no statute has been read.",
+   "detail": "COUNTY_DEPENDENT: 1 source(s) (mn_wright_tax_forfeit) read 2026-10-26",
    "state": "MN",
-   "status": "NOT_VERIFIED",
+   "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "county_coverage",
-   "detail": "no county source feeds this ledger",
+   "detail": "1 county: Wright",
    "state": "MN",
-   "status": "NOT_APPLICABLE",
+   "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "ledger_tracking",
-   "detail": "NOT_TRACKED",
+   "detail": "TRACKED: mn_wright_tax_forfeit",
    "state": "MN",
    "status": "PASS",
    "subject": "AUCTIONS"
@@ -924,6 +924,13 @@
    "state": "MN",
    "status": "PASS",
    "subject": "mn_stpaul_hra_properties"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "MN",
+   "status": "PASS",
+   "subject": "mn_wright_tax_forfeit"
   },
   {
    "check": "available_terms",
@@ -2236,8 +2243,8 @@
  "summary": {
   "BLOCKED": 0,
   "FAIL": 0,
-  "NOT_APPLICABLE": 25,
-  "NOT_VERIFIED": 51,
-  "PASS": 244
+  "NOT_APPLICABLE": 24,
+  "NOT_VERIFIED": 50,
+  "PASS": 247
  }
 }

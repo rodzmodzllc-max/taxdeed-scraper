@@ -3825,12 +3825,26 @@
    "history": [],
    "ledgers": {
     "AUCTIONS": {
-     "coverage": [],
-     "eligibility": "NOT_VERIFIED",
-     "eligibility_basis": "No Minnesota auction source is tracked and no statute has been read.",
-     "meaning": "A county or city tax sale of the property (not tracked).",
-     "note": "No Minnesota auction source is tracked.",
-     "status": "NOT_TRACKED"
+     "coverage": [
+      {
+       "county": "Wright",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "mn_wright_tax_forfeit"
+        }
+       ]
+      }
+     ],
+     "eligibility": "COUNTY_DEPENDENT",
+     "eligibility_basis": "Wright County's own Tax Forfeited Parcels layer lists parcels with Status 'Open' and an Auction Starting Price (read live 2026-10-26; owner-approved publication, legal review pending). No statute has been read.",
+     "eligibility_source_url": "https://services2.arcgis.com/CiQCvRGImIxsaFnM/arcgis/rest/services/Tax_Forfeited_Parcels/FeatureServer/0",
+     "eligibility_verified_on": "2026-10-26",
+     "meaning": "An online auction of tax-forfeited land the county holds (Wright County).",
+     "note": "Wright County's tax-forfeited parcels offered at the county's online auction (collected since 2026-10-27).",
+     "office": "Wright County (tax-forfeited land)",
+     "status": "TRACKED"
     },
     "AVAILABLE": {
      "coverage": [
@@ -7674,9 +7688,9 @@
    "by_status": {
     "BLOCKED": 0,
     "FAIL": 0,
-    "NOT_APPLICABLE": 2,
-    "NOT_VERIFIED": 5,
-    "PASS": 16
+    "NOT_APPLICABLE": 1,
+    "NOT_VERIFIED": 4,
+    "PASS": 19
    },
    "findings": [
     {
@@ -7693,21 +7707,21 @@
     },
     {
      "check": "ledger_eligibility",
-     "detail": "No Minnesota auction source is tracked and no statute has been read.",
+     "detail": "COUNTY_DEPENDENT: 1 source(s) (mn_wright_tax_forfeit) read 2026-10-26",
      "state": "MN",
-     "status": "NOT_VERIFIED",
+     "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "county_coverage",
-     "detail": "no county source feeds this ledger",
+     "detail": "1 county: Wright",
      "state": "MN",
-     "status": "NOT_APPLICABLE",
+     "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "ledger_tracking",
-     "detail": "NOT_TRACKED",
+     "detail": "TRACKED: mn_wright_tax_forfeit",
      "state": "MN",
      "status": "PASS",
      "subject": "AUCTIONS"
@@ -7801,6 +7815,13 @@
      "state": "MN",
      "status": "PASS",
      "subject": "mn_stpaul_hra_properties"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AUCTIONS",
+     "state": "MN",
+     "status": "PASS",
+     "subject": "mn_wright_tax_forfeit"
     },
     {
      "check": "available_terms",

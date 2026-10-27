@@ -9,8 +9,8 @@ current practice continue until `expires_on`, and `permissions.authorize()` deni
 after (`EXPIRED`), with no fallback to a broader record. A window longer than
 210 days is a configuration error that denies every request.
 
-- Records: 363 across 94 sources
-- By expiry: 2027-04-12 (363)
+- Records: 369 across 95 sources
+- By expiry: 2027-04-12 (369)
 - Findings: REVIEWER_IS_NOT_A_DECISION (77)
 - Configuration: valid
 
@@ -206,6 +206,12 @@ found in the code for that source.
 | mn_stpaul_hra_properties | MN | * | link | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mn_stpaul_hra_properties | MN | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mn_stpaul_hra_properties | MN | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| mn_wright_tax_forfeit | MN | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| mn_wright_tax_forfeit | MN | * | display | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| mn_wright_tax_forfeit | MN | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| mn_wright_tax_forfeit | MN | * | link | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| mn_wright_tax_forfeit | MN | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| mn_wright_tax_forfeit | MN | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mo_kc_landbank | MO | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mo_kc_landbank | MO | * | display | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mo_kc_landbank | MO | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
