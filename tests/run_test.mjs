@@ -110,6 +110,10 @@ async function newPage(opts) {
   // sections read them as a reader would after opening it, so the harness
   // opens it as it appears - unless a check sets window.__suiteKeepResearchClosed
   // to read the default state (the "Research group" block below).
+  // Full record cleanup (2026-10-27): the checks written against the record's
+  // sections read the complete record ("Show every field"); the cleaned
+  // default is checked with ?fields=clean in the "Property page tiers" block.
+  await raw.addInitScript(() => { window.__tdwFullFieldsDefault = true; });
   await raw.addInitScript(() => {
     const openAll = () => { if (window.__suiteKeepResearchClosed) return; document.querySelectorAll('details.detail-more:not([open])').forEach(d => { d.open = true; }); };
     new MutationObserver(openAll).observe(document, { childList: true, subtree: true });
@@ -7523,6 +7527,35 @@ await big.press('#globalSearchInput', 'Enter');
   await ta.waitForTimeout(900);
   results.tierGuidedAuction = await ta.evaluate(() => ({ stages: [...document.querySelectorAll('#detailModalInner .g-stage')].map(li => li.dataset.stage), know: [...document.querySelectorAll('#detailModalInner .g-know b')].map(b => b.textContent) }));
   await ta.close();
+  // Full record cleanup: the default full record answers once and lists the rest in Open questions.
+  const tf = await newPage({ viewport: { width: 390, height: 1400 } });
+  const cleanUrl = hash => { const u = new URL(BASE_URL); u.searchParams.set('tier', 'pro'); u.searchParams.set('fields', 'clean'); u.hash = hash; return u.toString(); };
+  const cleanRead = () => tf.evaluate(() => {
+    const m = document.getElementById('detailModalInner');
+    const FILL = /^(not verified|not yet verified|not published( by the source)?|not tracked|not recorded|not on file|not checked)$/i;
+    const leftovers = [...m.querySelectorAll('.kv-val, .ck-val, .dd-state, .detail-stat-val, dd')].filter(el => !el.closest('.open-q-card') && FILL.test(el.textContent.trim())).length;
+    return { questions: [...m.querySelectorAll('.open-q li b')].map(b => b.textContent), leftovers,
+      checklist: !!m.querySelector('.acq-checklist'), decisionHow: !!m.querySelector('[data-section="decision"] .dec-row[data-q="how"]'),
+      risk: !!m.querySelector('[data-section="risk"]'), navQuestions: !!m.querySelector('.detail-nav button[data-target="questions"]'),
+      showAll: !!m.querySelector('[data-full-fields="1"]') };
+  });
+  await tf.goto(cleanUrl('/lands/p15'), { waitUntil: 'networkidle' });
+  await tf.waitForTimeout(900);
+  results.fullRecordClean = await cleanRead();
+  await tf.click('#detailModalInner [data-full-fields="1"]');
+  await tf.waitForTimeout(700);
+  results.fullRecordShowAll = await tf.evaluate(() => ({ checklist: !!document.querySelector('#detailModalInner .acq-checklist'), questions: document.querySelectorAll('#detailModalInner .open-q li').length,
+    note: !!document.querySelector('#detailModalInner .full-fields-note'), stored: sessionStorage.getItem('tdw_full_fields_v1') }));
+  await tf.click('#detailModalInner [data-full-fields="0"]');
+  await tf.waitForTimeout(700);
+  results.fullRecordBackToClean = await tf.evaluate(() => ({ checklist: !!document.querySelector('#detailModalInner .acq-checklist'), questions: document.querySelectorAll('#detailModalInner .open-q li').length }));
+  await tf.goto(cleanUrl('/auctions/p5'), { waitUntil: 'networkidle' });
+  await tf.close();
+  const tfa = await newPage({ viewport: { width: 390, height: 1400 } });
+  await tfa.goto(cleanUrl('/auctions/p5'), { waitUntil: 'networkidle' });
+  await tfa.waitForTimeout(900);
+  results.fullRecordCleanAuction = await tfa.evaluate(() => [...document.querySelectorAll('#detailModalInner .open-q li b')].map(b => b.textContent));
+  await tfa.close();
   // A fresh page: a hash-only goto is an in-page navigation and would keep the auction open.
   const tc = await newPage({ viewport: { width: 390, height: 1400 } });
   await tc.goto(tierUrl('beginner', '/certificates/p4'), { waitUntil: 'networkidle' });
@@ -7551,6 +7584,10 @@ const EXPECTED = {
   countyNowBarOneCounty: {"hidden": true, "optionsNoCount": true},
   countyNowBarAuctionsHidden: true,
   // Property page tiers (2026-10-27).
+  fullRecordClean: {"questions": ["Today's total price", "Legal description", "Taxable value", "Flood zone", "Other liens, judgments, foreclosure or code cases", "Deposit", "Deadlines", "A picture of the property"], "leftovers": 0, "checklist": false, "decisionHow": false, "risk": true, "navQuestions": true, "showAll": true},
+  fullRecordShowAll: {"checklist": true, "questions": 0, "note": true, "stored": "1"},
+  fullRecordBackToClean: {"checklist": false, "questions": 8},
+  fullRecordCleanAuction: ["Flood zone", "Other liens, judgments, foreclosure or code cases", "How to register and pay the deposit", "A picture of the property", "Legal description", "Lot size", "Land use"],
   tierDefault: {"tier": "pro", "switchShown": true, "pressed": ["pro"], "fullRecord": true},
   tierGuided: {"view": "beginner", "know": 3, "stages": ["find:confirmed", "price:your-turn", "risks:later", "apply:later", "pay:later", "deed:later"], "ring": "7/15", "next": "Get today's total price", "fullRecord": false, "note": "Green ✓ items come from the county's own records. The boxes you tick are your own notes and never change what the records say. Your ticks are saved to your account and follow you to any device.", "overflow": 0},
   tierGuidedTick: {"ring": "8/15", "next": "Look for other liens", "stillOpen": true, "saved": {"mode": "server", "lists": ["My properties"], "journey": [["price.price"]]}},
@@ -7717,7 +7754,7 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v149"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v150"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
