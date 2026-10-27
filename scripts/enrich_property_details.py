@@ -937,11 +937,54 @@ def _sql_str(value):
     return str(value).replace("'", "''")
 
 
+# Transient layer errors (2026-10-27). The FDOR layer answers a share of
+# perfectly valid queries with an ArcGIS error payload - measured from a
+# sandbox on 2026-10-27 against Hillsborough ALT_KEY queries: the SAME
+# where-clause returned `{"error": {"code": 400, "message": "Cannot perform
+# query. Invalid query parameters."}}` on one request and exactly one feature
+# on the next (roughly 4 of 10 first attempts). Before this, one such answer
+# raised FdorUnavailable and abandoned the county's whole slice for the run -
+# and a certificate row asks the layer up to four questions (each PARCEL_ID
+# spelling, then ALT_KEY), so Hillsborough's 82 LienHub certificates, whose
+# folios DO match ALT_KEY (13 of 14 sampled; 1 ambiguous), almost never got
+# a full row through. The geocoding pipeline (scripts/geocode_authoritative.py)
+# calls the same lookups and counted 123 SOURCE_UNAVAILABLE on 2026-10-27.
+#
+# The same query is re-asked, unchanged, a bounded number of times with a
+# short back-off. A retry never changes the question, so it can never turn a
+# miss into a match: an error payload is not an answer, and only a real
+# feature list is ever returned. A layer that keeps erroring still raises
+# FdorUnavailable after the last attempt, exactly as before.
+FDOR_LAYER_ATTEMPTS = max(1, int(os.environ.get("FDOR_LAYER_ATTEMPTS", "4")))
+FDOR_RETRY_BACKOFF_SECONDS = 2.0
+# Count of queries that errored at least once and then answered (logged as a
+# count only).
+LAYER_RETRY_STATS = {"recovered": 0, "exhausted": 0}
+
+
 def _query_layer(where):
-    """One `/query` against the FDOR layer -> the feature list. Raises
-    FdorUnavailable for an ArcGIS error payload or a body without a
-    `features` list, FdorParserRejection for a non-JSON body, and lets
-    requests' own exceptions (HTTP errors, transport) propagate."""
+    """One `/query` against the FDOR layer -> the feature list. An ArcGIS
+    error payload or a body without a `features` list is re-asked up to
+    FDOR_LAYER_ATTEMPTS times (see above) and then raises FdorUnavailable;
+    a non-JSON body raises FdorParserRejection at once, and requests' own
+    exceptions (HTTP errors, transport) propagate."""
+    last = None
+    for attempt in range(FDOR_LAYER_ATTEMPTS):
+        if attempt:
+            time.sleep(FDOR_RETRY_BACKOFF_SECONDS * attempt)
+        try:
+            features = _query_layer_once(where)
+        except FdorUnavailable as exc:
+            last = exc
+            continue
+        if attempt:
+            LAYER_RETRY_STATS["recovered"] += 1
+        return features
+    LAYER_RETRY_STATS["exhausted"] += 1
+    raise last
+
+
+def _query_layer_once(where):
     params = {
         "where": where,
         "outFields": FDOR_OUT_FIELDS,
@@ -1021,6 +1064,8 @@ def lookup_santa_rosa_gis(parcel):
             "returnCentroid": "true",
             "outSR": "4326",
             "f": "json",
+            # Two are enough to tell "exactly one" from "more than one".
+            "resultRecordCount": "2",
         }
         resp = requests.get(SANTA_ROSA_GIS_ENDPOINT, params=params, timeout=20)
         resp.raise_for_status()
@@ -1028,6 +1073,11 @@ def lookup_santa_rosa_gis(parcel):
         features = data.get("features", [])
         if not features:
             continue
+        # Same rule as lookup_fdor(): two features sharing one PAR_NUM are
+        # never resolved by taking the first (2026-10-27; before, the first
+        # feature's owner, address and centroid were written).
+        if len(features) > 1:
+            return None, None, AMBIGUOUS_MATCH
         raw = features[0].get("attributes", {})
         addr1 = next(
             (v for v in (raw.get("Addr1"), raw.get("Addr2"), raw.get("Addr3"))
@@ -1666,6 +1716,12 @@ def main():
                 except requests.RequestException as e:
                     print(f"  [{county}] ERROR looking up row {row.get('id')} via Flagler GIS: {type(e).__name__}", file=sys.stderr)
 
+            if attrs is None and matched_candidate == AMBIGUOUS_MATCH:
+                # A county fallback layer held two features for the number:
+                # nothing written, counted as ambiguous, not as a miss.
+                total_ambiguous += 1
+                time.sleep(REQUEST_DELAY_SECONDS)
+                continue
             if attrs is None:
                 # Left unmarked on purpose - retried on a later run, so a
                 # county whose format gets cracked later picks up its backlog.
@@ -1738,7 +1794,8 @@ def main():
     print(
         f"Outcomes: already populated (matched, nothing new to write) {total_already_populated}, "
         f"matched by alternate key {total_alt_key_matches}, malformed identifier (no request) {total_malformed}, "
-        f"source unavailable {total_source_unavailable}, parser rejection {total_parser_rejection}."
+        f"source unavailable {total_source_unavailable}, parser rejection {total_parser_rejection}, "
+        f"layer errors recovered by a retry {LAYER_RETRY_STATS['recovered']}."
     )
     if unmatched_shapes:
         print("Unmatched identifier shapes (county / ledger: shape x rows) - a shape is value-free; a persistent one needs a rule or live verification:")
@@ -1754,6 +1811,7 @@ def main():
         "source_unavailable": total_source_unavailable, "parser_rejection": total_parser_rejection,
         "error": total_errored, "withheld_by_provenance": total_skipped_provenance,
         "unmapped_county": total_unmapped_county, "alt_key_matches": total_alt_key_matches,
+        "layer_retries_recovered": LAYER_RETRY_STATS["recovered"],
         "fields_populated": dict(sorted(filled_counts.items())),
         "per_county": {c: {"matched": m, "attempted": a} for c, (m, a) in sorted(per_county_matches.items())},
         "unmatched_shapes": {c: {s: dict(sorted(sh.items())) for s, sh in sorted(src.items())} for c, src in sorted(unmatched_shapes.items())},

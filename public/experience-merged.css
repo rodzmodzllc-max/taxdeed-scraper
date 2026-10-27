@@ -1,7 +1,7 @@
-/* Merged List experience - 2026-10-25. Tactile's objects and motion, Terrain's
-   sale-day calendar, essentials first. Every rule is scoped under
-   html[data-experience="merged"] so nothing reaches Classic, Tactile or
-   Terrain. Light theme only. */
+/* Merged List experience - 2026-10-25. Since 2026-10-27 this file styles only
+   Liens & Certificates (Merged draws Available with Terrain and Auctions with
+   Tactile). Every rule is scoped under html[data-experience="merged"] so
+   nothing reaches Classic, Tactile or Terrain. Light theme only. */
 
 html[data-experience-ready="merged"] #main{display:none}
 html[data-experience="merged"] #xpStage{display:block}
@@ -30,7 +30,6 @@ html[data-experience="merged"] .xpm{
   color:var(--ink);font-family:'IBM Plex Sans',-apple-system,'Segoe UI',sans-serif;font-size:15px;line-height:22px;
   -webkit-tap-highlight-color:transparent;overflow-x:clip
 }
-html[data-experience="merged"] .xpm.xpm-laft{--acc:var(--sage);--acc-deep:var(--sage-deep);--acc-bright:var(--sage-bright);--acc-mid:var(--sage-mid);--acc-soft:var(--sage-soft);--glow:var(--sage-glow)}
 html[data-experience="merged"] .xpm.xpm-certificate{--acc:var(--plum);--acc-deep:var(--plum-deep);--acc-bright:var(--plum-bright);--acc-mid:var(--plum-mid);--acc-soft:var(--plum-soft);--glow:var(--plum-glow)}
 html[data-experience="merged"] .xpm *,html[data-experience="merged"] .xpm *::before,html[data-experience="merged"] .xpm *::after{box-sizing:border-box}
 html[data-experience="merged"] .xpm button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;text-align:left}
@@ -105,152 +104,6 @@ html[data-experience="merged"] .xpm .xpm-stamp.press::after{content:"";position:
 @keyframes xpm-ink{0%{opacity:.28}100%{opacity:0}}
 html[data-experience="merged"] .xpm .seal{display:inline-flex;align-items:center;gap:4px;margin-left:8px;color:var(--verified);font-weight:600;font-size:11px;letter-spacing:.3px}
 
-/* =============================== AUCTIONS ================================ */
-html[data-experience="merged"] .xpm .xpm-scrub{position:sticky;top:var(--xpm-top,0px);z-index:8;padding:8px 0 4px;background:rgba(243,239,232,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-bottom:1px solid rgba(217,209,195,.8);border-radius:20px 20px 0 0}
-html[data-experience="merged"] .xpm .scrub-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:0 16px 2px}
-html[data-experience="merged"] .xpm .scrub-k{color:var(--copper-deep);white-space:nowrap}
-html[data-experience="merged"] .xpm .scrub-total{font-size:11px;line-height:15px;color:var(--gray);text-align:right}
-html[data-experience="merged"] .xpm .ruler{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:4px 10px 4px;overscroll-behavior-x:contain}
-html[data-experience="merged"] .xpm .ruler::-webkit-scrollbar{display:none}
-html[data-experience="merged"] .xpm .col{position:relative;flex:0 0 46px;width:46px;height:84px;scroll-snap-align:center;display:block;text-align:center;border-radius:16px;transition:transform 520ms var(--spring-soft)}
-html[data-experience="merged"] .xpm .col:disabled{opacity:.55}
-html[data-experience="merged"] .xpm .col:not(:disabled):active{transform:scale(.94)}
-html[data-experience="merged"] .xpm .col.end{flex-basis:70px;width:70px;margin:0 4px;border-radius:16px;background:rgba(255,253,249,.7);border:1px dashed var(--hair)}
-html[data-experience="merged"] .xpm .col.on{background:var(--rust);box-shadow:0 10px 18px -8px rgba(200,97,47,.7),inset 0 1px 0 rgba(255,255,255,.25);transform:translateY(-2px)}
-html[data-experience="merged"] .xpm .col.end.on{border-color:var(--rust)}
-html[data-experience="merged"] .xpm .month{position:absolute;left:2px;top:0;font-weight:600;font-size:9px;line-height:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--copper-deep);white-space:nowrap}
-html[data-experience="merged"] .xpm .col.on .month{color:var(--paper)}
-html[data-experience="merged"] .xpm .ring{position:absolute;left:50%;top:30px;width:var(--s);height:var(--s);margin:calc(var(--s) / -2) 0 0 calc(var(--s) / -2);border-radius:50%;border:2px solid var(--rust);background:rgba(243,227,216,.7);display:flex;align-items:center;justify-content:center;transition:transform 320ms var(--spring-soft)}
-html[data-experience="merged"] .xpm .ring b{font-weight:600;font-size:10px;line-height:10px;color:var(--copper-deep)}
-html[data-experience="merged"] .xpm .ring.hollow{border-style:dashed;border-color:#B9AE9C;background:repeating-linear-gradient(135deg,#EFEAE1 0 3px,#F6F2EB 3px 6px)}
-html[data-experience="merged"] .xpm .u-near .ring,html[data-experience="merged"] .xpm .u-today .ring{border-color:var(--rust-bright);background:rgba(233,162,124,.5)}
-html[data-experience="merged"] .xpm .col.on .ring{border-color:var(--paper);background:rgba(255,253,249,.18)}
-html[data-experience="merged"] .xpm .col.on .ring b{color:var(--paper)}
-html[data-experience="merged"] .xpm .tick{position:absolute;left:50%;top:28px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--hair)}
-html[data-experience="merged"] .xpm .col .num{position:absolute;left:0;right:0;top:52px;font-size:12px;line-height:14px;font-weight:500;color:var(--ink)}
-html[data-experience="merged"] .xpm .col .wk{position:absolute;left:0;right:0;top:67px;font-weight:600;font-size:9px;line-height:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--gray)}
-html[data-experience="merged"] .xpm .col.on .num,html[data-experience="merged"] .xpm .col.on .wk,html[data-experience="merged"] .xpm .col.on .end-n,html[data-experience="merged"] .xpm .col.on .end-sub{color:var(--paper)}
-html[data-experience="merged"] .xpm .col.end .end-n{position:absolute;left:0;right:0;top:14px;font-size:19px;line-height:22px;font-weight:500;color:var(--copper-deep)}
-html[data-experience="merged"] .xpm .col.end .wk{top:42px}
-html[data-experience="merged"] .xpm .end-sub{position:absolute;left:3px;right:3px;top:56px;font-size:9.5px;line-height:12px;color:var(--gray)}
-html[data-experience="merged"] .xpm .wdot{position:absolute;right:6px;top:4px;width:7px;height:7px;border-radius:50%;background:var(--copper);box-shadow:0 0 0 2px var(--stone)}
-html[data-experience="merged"] .xpm .col.on .wdot{background:var(--paper);box-shadow:none}
-html[data-experience="merged"] .xpm .col:not(.on):not(:disabled):hover .ring{transform:scale(1.08)}
-
-html[data-experience="merged"] .xpm .xpm-dayhead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:14px 16px 2px}
-html[data-experience="merged"] .xpm .xpm-dayhead .dh-text{min-width:0}
-html[data-experience="merged"] .xpm .xpm-dayhead .xpm-small{margin-top:2px}
-html[data-experience="merged"] .xpm .dh-count{display:flex;flex-direction:column;align-items:flex-end;flex:0 0 auto}
-html[data-experience="merged"] .xpm .dh-count .xpm-mono{font-weight:500;font-size:24px;line-height:28px;color:var(--copper-deep)}
-html[data-experience="merged"] .xpm .xpm-dayhead.swap{animation:xpm-rise 300ms var(--ease-out) both}
-
-html[data-experience="merged"] .xpm .xpm-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;padding:12px 16px 0}
-html[data-experience="merged"] .xpm .xpm-offgroup{margin:22px 16px 0;padding:14px 0 0;border-top:1px dashed #CBBFAC}
-html[data-experience="merged"] .xpm .xpm-offgroup .xpm-small{margin-top:4px}
-html[data-experience="merged"] .xpm .xpm-offgroup .xpm-grid{padding:12px 0 0}
-html[data-experience="merged"] .xpm .xpm-offgroup .xpm-plac{filter:saturate(.55)}
-
-/* the placard: essentials on the face, everything else on the back */
-html[data-experience="merged"] .xpm .xpm-plac{position:relative;height:404px;perspective:1100px}
-html[data-experience="merged"] .xpm .xpm-plac .flip{position:absolute;inset:0;transform-style:preserve-3d;transition:transform 620ms var(--spring-soft)}
-html[data-experience="merged"] .xpm .xpm-plac.flipped .flip{transform:rotateY(180deg)}
-html[data-experience="merged"] .xpm .xpm-plac.lift-a,html[data-experience="merged"] .xpm .xpm-plac.lift-b{animation:xpm-lift 620ms var(--ease-std)}
-@keyframes xpm-lift{45%{transform:translateY(-14px) scale(1.03)}}
-html[data-experience="merged"] .xpm .xpm-plac .face{position:absolute;inset:0;border-radius:18px;-webkit-backface-visibility:hidden;backface-visibility:hidden;overflow:hidden;display:flex;flex-direction:column;padding:12px 12px 12px;box-shadow:0 1px 2px rgba(36,34,31,.06),0 18px 34px -16px var(--glow),0 34px 50px -32px var(--glow)}
-html[data-experience="merged"] .xpm .xpm-plac .face.back{transform:rotateY(180deg);padding-top:10px}
-html[data-experience="merged"] .xpm .xpm-plac .band,html[data-experience="merged"] .xpm .xpm-fold .face .band{position:absolute;left:0;right:0;top:0;height:5px;background:var(--acc-mid);z-index:2}
-html[data-experience="merged"] .xpm .xpm-plac .hit{display:flex;flex-direction:column;flex:1;min-height:0;width:100%;position:relative;border-radius:12px;transition:transform 140ms var(--ease-std)}
-html[data-experience="merged"] .xpm .xpm-plac .hit:active{transform:scale(.98) rotateX(2deg) rotateY(-2deg)}
-html[data-experience="merged"] .xpm .plate{position:relative;display:block;height:168px;flex:0 0 168px;margin-top:4px;border-radius:12px;padding:4px;background:var(--paper);border:1px solid var(--hair);box-shadow:inset 0 1px 3px rgba(36,34,31,.08)}
-html[data-experience="merged"] .xpm .plate-in{position:relative;display:block;width:100%;height:100%;border-radius:9px;overflow:hidden;background:linear-gradient(160deg,#E7E1D3 0%,#D8E1CF 55%,#C9D7C0 100%)}
-html[data-experience="merged"] .xpm .xpm-vis{margin:0!important;width:100%!important;height:100%!important;max-height:none!important;aspect-ratio:auto!important;border-radius:9px!important;box-shadow:none!important}
-html[data-experience="merged"] .xpm .xpm-vis img,html[data-experience="merged"] .xpm .xpm-vis > svg{width:100%;height:100%;object-fit:cover}
-html[data-experience="merged"] .xpm .xpm-vis.no-photo{height:100%!important;background:transparent!important;border:0!important;color:var(--gray);font-size:12px;flex-wrap:wrap;padding:8px;text-align:center}
-html[data-experience="merged"] .xpm .xpm-vis .photo-caption{font-size:10px!important}
-html[data-experience="merged"] .xpm .ctitle{display:block;margin-top:10px;font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:19px;line-height:24px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-html[data-experience="merged"] .xpm .ctitle.parcel{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:15px}
-html[data-experience="merged"] .xpm .where{display:flex;align-items:center;flex-wrap:wrap;margin-top:2px;font-size:13px;line-height:18px;color:var(--gray)}
-html[data-experience="merged"] .xpm .fig{display:flex;flex-direction:column;align-items:flex-start;gap:1px;margin-top:8px;min-width:0}
-html[data-experience="merged"] .xpm .flip-hint{position:absolute;right:2px;bottom:4px;display:flex;align-items:center;gap:4px;font-size:10px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;color:var(--acc-deep)}
-html[data-experience="merged"] .xpm .flip-hint.static{position:static}
-html[data-experience="merged"] .xpm .acts{display:flex;gap:8px;padding-top:10px;flex:0 0 auto}
-html[data-experience="merged"] .xpm .back-head{display:flex;align-items:center;justify-content:space-between;min-height:44px;width:100%;gap:8px;flex:0 0 auto}
-html[data-experience="merged"] .xpm .back-head .xpm-caps{color:var(--acc-deep)}
-html[data-experience="merged"] .xpm .back-scroll{flex:1;min-height:0;overflow-y:auto;margin:0 -6px;padding:0 6px;scrollbar-width:thin}
-html[data-experience="merged"] .xpm .facts{display:flex;flex-direction:column}
-html[data-experience="merged"] .xpm .fact{display:flex;align-items:baseline;justify-content:space-between;gap:10px;min-height:28px;padding:4px 0;border-bottom:1px dashed #E6DFD2;font-size:13px;line-height:17px}
-html[data-experience="merged"] .xpm .fact .k{color:var(--gray);flex:0 0 auto;max-width:42%}
-html[data-experience="merged"] .xpm .fact .v{color:var(--ink);font-weight:500;text-align:right;min-width:0;overflow-wrap:anywhere}
-html[data-experience="merged"] .xpm .legal{margin-top:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;color:#4E483F}
-html[data-experience="merged"] .xpm .gaps{margin-top:8px;padding:6px 10px;border-radius:10px;background:#F3EFE8;font-size:12px;line-height:16px;color:var(--gray)}
-html[data-experience="merged"] .xpm .gaps .xpm-caps{display:block}
-
-/* =============================== AVAILABLE =============================== */
-html[data-experience="merged"] .xpm .xpm-seg{position:relative;margin:12px 16px 0;height:50px;padding:2px;border-radius:14px;background:#ECE6DB;border:1px solid var(--hair);box-shadow:inset 0 2px 5px rgba(36,34,31,.10);display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
-html[data-experience="merged"] .xpm .seg-tile{position:absolute;top:2px;bottom:2px;left:2px;width:calc((100% - 4px) / 3);border-radius:12px;background-color:var(--sage-soft);background-image:var(--grain);border:1px solid #C9D9C7;box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 6px 12px -6px var(--sage-glow);transform:translateX(calc(var(--si) * 100%));transition:transform 520ms var(--spring-soft)}
-html[data-experience="merged"] .xpm .seg-btn{position:relative;z-index:1;height:44px;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:12px;font-weight:600;font-size:12.5px;line-height:15px;color:#5C564D;text-align:center;padding:0 4px}
-html[data-experience="merged"] .xpm .seg-btn.on{color:var(--ink)}
-html[data-experience="merged"] .xpm .seg-btn:disabled{color:#8A8278}
-html[data-experience="merged"] .xpm .seg-btn .n{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:12px;color:var(--sage)}
-
-html[data-experience="merged"] .xpm .xpm-drawer{position:relative;display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin:14px 8px 0;padding:14px 8px 20px;border-radius:22px;background:#ECE6DB;border:1px solid var(--hair);box-shadow:inset 0 10px 16px -10px rgba(36,34,31,.18),inset 0 -1px 0 rgba(255,255,255,.7)}
-html[data-experience="merged"] .xpm .xpm-fold{position:relative;padding-top:26px;perspective:900px;display:flex;flex-direction:column}
-html[data-experience="merged"] .xpm .xpm-fold .face{flex:1;display:flex;flex-direction:column;border-radius:4px 16px 16px 16px;padding:10px 12px 12px;transform-origin:50% 100%}
-html[data-experience="merged"] .xpm .xpm-fold .face.tab-ok{background-image:var(--grain),linear-gradient(180deg,rgba(227,235,226,.85),rgba(255,253,249,0) 46%);border-color:#C3D5C1;box-shadow:inset 4px 0 0 -1px var(--sage-mid),var(--rest)}
-html[data-experience="merged"] .xpm .xpm-fold .face.tab-none{background-color:#FAF8F3}
-html[data-experience="merged"] .xpm .xpm-fold .face .acts{margin-top:auto}
-html[data-experience="merged"] .xpm .xpm-fold .hit{display:flex;flex-direction:column;width:100%;border-radius:12px;transition:transform 140ms var(--ease-std)}
-html[data-experience="merged"] .xpm .xpm-fold .hit:active{transform:translateY(-6px) rotateX(3deg) rotateY(-2deg)}
-html[data-experience="merged"] .xpm .ftab{position:absolute;top:0;left:14px;max-width:60%;min-width:86px;height:27px;padding:0 12px;border-radius:10px 10px 0 0;border:1px solid #A6C1A5;border-bottom:0;display:flex;align-items:center;justify-content:center;gap:5px;font-weight:600;font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 -1px 0 rgba(255,255,255,.6) inset;z-index:1}
-html[data-experience="merged"] .xpm .ftab.ok{background:var(--sage-mid)}
-html[data-experience="merged"] .xpm .ftab.wait{background:#E4DFD3;border-color:#CFC6B6}
-html[data-experience="merged"] .xpm .ftab.none{background:#EDE8E0;border-color:var(--hair);color:var(--gray)}
-html[data-experience="merged"] .xpm .ftab-check{width:15px;height:15px;flex:0 0 15px;border-radius:50%;background:var(--paper);border:1px solid var(--verified);display:flex;align-items:center;justify-content:center;color:var(--verified)}
-html[data-experience="merged"] .xpm .nopath.review{color:var(--copper-deep)}
-html[data-experience="merged"] .xpm .nopath{display:block;margin-top:8px;padding:4px 10px;border-radius:10px;font-size:12px;line-height:16px;color:var(--gray-2);background:repeating-linear-gradient(135deg,#EFEAE1 0 6px,#F6F2EB 6px 12px);border:1px dashed #CBBFAC}
-
-html[data-experience="merged"] .xpm .xpm-fold.open.anim{animation:xpm-pull 450ms var(--spring-soft) both}
-@keyframes xpm-pull{from{transform:translateY(24px) scale(.97);opacity:.6}}
-html[data-experience="merged"] .xpm .hinge{position:relative;perspective:1200px}
-html[data-experience="merged"] .xpm .inside{border-radius:4px 16px 16px 16px;background-color:#FBF8F2;padding:16px 16px 16px;box-shadow:inset 0 2px 6px rgba(36,34,31,.06),0 18px 34px -18px var(--sage-glow)}
-html[data-experience="merged"] .xpm .inside .ftab{top:-27px;left:16px}
-html[data-experience="merged"] .xpm .close-fold{position:absolute;right:6px;top:6px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:22px;z-index:5}
-html[data-experience="merged"] .xpm .in-stamp{min-height:4px;padding-right:44px}
-html[data-experience="merged"] .xpm .in-stamp .xpm-stamp{margin:2px 0 8px}
-html[data-experience="merged"] .xpm .in-title{font-family:'Source Serif 4',Georgia,serif;font-weight:700;font-size:24px;line-height:28px;letter-spacing:-.3px;padding-right:40px;overflow-wrap:anywhere}
-html[data-experience="merged"] .xpm .in-title.parcel{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:18px;line-height:24px}
-html[data-experience="merged"] .xpm .inside .xpm-mono-s{margin-top:6px;overflow-wrap:anywhere}
-html[data-experience="merged"] .xpm .in-fig{display:flex;flex-direction:column;align-items:flex-start;gap:2px;margin-top:14px}
-html[data-experience="merged"] .xpm .inside .xpm-small{margin-top:8px}
-html[data-experience="merged"] .xpm .cover{position:absolute;inset:0;border-radius:4px 16px 16px 16px;background-color:#E5EEE3;background-image:var(--grain),repeating-linear-gradient(0deg,rgba(78,107,84,.05) 0 1px,transparent 1px 7px);border:1px solid #B9CDB7;transform-origin:0 50%;z-index:4;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:16px;box-shadow:0 10px 24px -14px var(--sage-glow);pointer-events:none;display:none}
-html[data-experience="merged"] .xpm .xpm-fold.open.anim .cover{display:flex;animation:xpm-hinge 450ms var(--ease-std) 120ms both}
-@keyframes xpm-hinge{0%{transform:rotateY(0)}80%{opacity:1}100%{transform:rotateY(-160deg);opacity:0}}
-html[data-experience="merged"] .xpm .cover .xpm-caps{color:var(--sage)}
-html[data-experience="merged"] .xpm .cover-title{font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:20px;line-height:24px;margin-top:4px}
-html[data-experience="merged"] .xpm .xpm-sheet{position:relative;margin:12px 0 0;padding:18px 14px 16px;border-radius:16px;background-color:var(--paper);background-image:var(--grain);border:1px solid var(--hair);box-shadow:0 18px 34px -18px var(--sage-glow),0 1px 2px rgba(36,34,31,.06)}
-html[data-experience="merged"] .xpm .xpm-fold.open.anim .xpm-sheet{animation:xpm-slide 520ms var(--spring-soft) 300ms both}
-@keyframes xpm-slide{from{transform:translateY(-36px) scale(.96);opacity:0}}
-html[data-experience="merged"] .xpm .sec-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap}
-html[data-experience="merged"] .xpm .xpm-chip.mode{background:var(--sage-soft);color:var(--ink);border:1px solid #C9D9C7;min-height:28px;white-space:normal}
-html[data-experience="merged"] .xpm .vwrap{position:relative;padding-top:28px}
-html[data-experience="merged"] .xpm .vstamp{position:absolute;right:6px;top:-2px;z-index:5;display:flex;align-items:center;gap:5px;padding:4px 8px 3px;border:2px solid var(--verified);border-radius:5px;color:var(--verified);background:rgba(255,253,249,.86);font-weight:700;font-size:10px;letter-spacing:1.1px;text-transform:uppercase;transform:rotate(-6deg);pointer-events:none}
-html[data-experience="merged"] .xpm .xpm-fold.open.anim .vstamp{animation:xpm-press 560ms var(--spring-pop) 760ms both}
-html[data-experience="merged"] .xpm .insert{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:10px;margin-bottom:8px;background-color:#FFFEFB;font-size:14px;line-height:20px}
-html[data-experience="merged"] .xpm .xpm-fold.open.anim .insert{animation:xpm-slide-x 320ms var(--ease-out) var(--id) both}
-@keyframes xpm-slide-x{from{opacity:0;transform:translateX(24px)}}
-html[data-experience="merged"] .xpm .insert .num{font-family:'Source Serif 4',Georgia,serif;font-weight:700;font-size:20px;line-height:22px;color:var(--sage);min-width:16px}
-html[data-experience="merged"] .xpm .insert-blank{display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:10px;border:1px dashed #CFC6B6;background:repeating-linear-gradient(135deg,#EFEAE1 0 6px,#F6F2EB 6px 12px);color:var(--ink)}
-html[data-experience="merged"] .xpm .kvs{margin-top:8px}
-html[data-experience="merged"] .xpm .kv{display:grid;grid-template-columns:118px minmax(0,1fr);gap:10px;align-items:center;min-height:36px;padding:6px 0;border-bottom:1px solid #ECE6DB;font-size:14px;line-height:19px;overflow-wrap:anywhere}
-html[data-experience="merged"] .xpm .kv:last-child{border-bottom:0}
-html[data-experience="merged"] .xpm .link-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;margin-top:8px;padding:0 12px;border-radius:12px;border:1px solid var(--hair);background:var(--paper);text-decoration:none;font-weight:500;font-size:14px;color:var(--sage)}
-html[data-experience="merged"] .xpm .xpm-sheet > .xpm-small{margin-top:8px}
-html[data-experience="merged"] .xpm .sec2{margin-top:20px;margin-bottom:10px}
-html[data-experience="merged"] .xpm .facts3{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-html[data-experience="merged"] .xpm .facts3 .fact{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:4px;min-height:0;padding:10px;border:1px solid #ECE6DB;border-radius:12px;background:#F7F3EC;min-width:0}
-html[data-experience="merged"] .xpm .facts3 .fact .v{font-size:13px;font-weight:500;line-height:17px;color:var(--ink);text-align:left;overflow-wrap:anywhere}
-html[data-experience="merged"] .xpm .sheet-acts{position:sticky;bottom:8px;display:flex;gap:10px;margin-top:16px;padding:8px;margin-left:-8px;margin-right:-8px;border-radius:16px;background:rgba(255,253,249,.92);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
-
 /* ================================= LIENS ================================= */
 html[data-experience="merged"] .xpm .xpm-lienhead{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:0 16px 0 0}
 html[data-experience="merged"] .xpm .xpm-sorts{display:flex;gap:6px;padding:8px 0 0 16px}
@@ -286,6 +139,8 @@ html[data-experience="merged"] .xpm .fslip .fb{position:absolute;left:0;top:0;bo
 html[data-experience="merged"] .xpm .fslip .fs{position:absolute;right:0;top:0;bottom:0;width:44px;border-radius:0 10px 10px 0;border-left:1.5px dashed var(--hair);background-color:#FAF5F6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;overflow:hidden;color:var(--plum)}
 html[data-experience="merged"] .xpm .fslip .fs.on{background:var(--plum-soft);color:var(--plum-deep)}
 html[data-experience="merged"] .xpm .fs-t{writing-mode:vertical-rl;transform:rotate(180deg);font-weight:600;font-size:10.5px;letter-spacing:.8px;text-transform:uppercase}
+html[data-experience="merged"] .xpm .fslip .slip-hl{right:0;border-radius:10px;border-right:1px solid #C9AFC8;background-color:var(--plum-soft);align-items:center;justify-content:center;padding:0}
+html[data-experience="merged"] .xpm .fslip .slip-hl .hl-mark{display:block;width:44px;height:6px;border-radius:999px;background:var(--plum);opacity:.55}
 html[data-experience="merged"] .xpm .fslip.lifted .fb,html[data-experience="merged"] .xpm .fslip.lifted .fs{box-shadow:var(--lifted);border-color:#C9AFC8}
 html[data-experience="merged"] .xpm .fslip .fb:active{transform:scale(.985) rotate(-1deg)}
 html[data-experience="merged"] .xpm .fslip .xpm-caps{font-size:9.5px;letter-spacing:.6px;line-height:12px}
@@ -294,6 +149,10 @@ html[data-experience="merged"] .xpm .slip-county{font-family:'Source Serif 4',Ge
 html[data-experience="merged"] .xpm .fslip .lab{margin-top:auto}
 html[data-experience="merged"] .xpm .fslip .f{font-size:14px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 html[data-experience="merged"] .xpm .fan-pager{display:flex;align-items:center;justify-content:center;gap:10px;padding:4px 16px 0}
+html[data-experience="merged"] .xpm .facts{display:flex;flex-direction:column}
+html[data-experience="merged"] .xpm .fact{display:flex;align-items:baseline;justify-content:space-between;gap:10px;min-height:28px;padding:4px 0;border-bottom:1px dashed #E6DFD2;font-size:13px;line-height:17px}
+html[data-experience="merged"] .xpm .fact .k{color:var(--gray);flex:0 0 auto;max-width:42%}
+html[data-experience="merged"] .xpm .fact .v{color:var(--ink);font-weight:500;text-align:right;min-width:0;overflow-wrap:anywhere}
 html[data-experience="merged"] .xpm .tray{margin:8px 16px 0;padding:14px 14px 12px;border-radius:16px}
 html[data-experience="merged"] .xpm .tray.anim{animation:xpm-tray 480ms var(--spring-pop) 200ms both}
 @keyframes xpm-tray{from{transform:translateY(10px) scale(.98);opacity:0}}
@@ -309,32 +168,20 @@ html[data-experience="merged"] .xpm .opening{animation:xpm-open 260ms var(--ease
 @keyframes xpm-open{to{transform:translateY(-14px) scale(1.03);opacity:.85}}
 
 /* entrance - once per ledger, never while rows stream in or on a local tap */
-html[data-experience="merged"] .xpm.xpm-enter .xpm-scrub .col{animation:xpm-rise 320ms var(--ease-out) calc(80ms + var(--i,0) * 14ms) backwards}
-html[data-experience="merged"] .xpm.xpm-enter .ring{animation:xpm-node 520ms var(--spring-pop) calc(260ms + var(--i,0) * 14ms) backwards}
-html[data-experience="merged"] .xpm.xpm-enter .xpm-plac,html[data-experience="merged"] .xpm.xpm-enter .xpm-fold,html[data-experience="merged"] .xpm.xpm-enter .xpm-bundle,html[data-experience="merged"] .xpm .day-enter .xpm-plac{animation:xpm-drop 520ms var(--spring-soft) calc(120ms + var(--i,0) * 45ms) backwards}
-html[data-experience="merged"] .xpm.xpm-enter .xpm-line,html[data-experience="merged"] .xpm.xpm-enter .xpm-seg,html[data-experience="merged"] .xpm.xpm-enter .xpm-sorts,html[data-experience="merged"] .xpm.xpm-enter .xpm-dayhead{animation:xpm-rise 320ms var(--ease-out) both}
+html[data-experience="merged"] .xpm.xpm-enter .xpm-bundle{animation:xpm-drop 520ms var(--spring-soft) calc(120ms + var(--i,0) * 45ms) backwards}
+html[data-experience="merged"] .xpm.xpm-enter .xpm-line,html[data-experience="merged"] .xpm.xpm-enter .xpm-sorts{animation:xpm-rise 320ms var(--ease-out) both}
 @keyframes xpm-rise{from{opacity:0;transform:translateY(12px)}}
 @keyframes xpm-drop{from{opacity:0;transform:translateY(-26px) rotate(var(--r0,-2deg)) scale(1.03)}60%{opacity:1}}
-@keyframes xpm-node{from{transform:scale(.3);opacity:0}}
 @keyframes xpm-ribbon{from{transform:translateY(-12px);opacity:0}}
 
 /* ================================ wider ================================== */
 @container xpm (min-width:600px){
-  html[data-experience="merged"] .xpm .xpm-grid,html[data-experience="merged"] .xpm .xpm-drawer{grid-template-columns:repeat(2,minmax(0,1fr))}
-  html[data-experience="merged"] .xpm .xpm-fold.open{grid-column:1 / -1;display:block}
   html[data-experience="merged"] .xpm .xpm-shelf{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 20px}
   html[data-experience="merged"] .xpm .xpm-bundle.fanned{grid-column:1 / -1}
   html[data-experience="merged"] .xpm .fan-stage{--fan-r:9deg;--fan-x:14px}
 }
 @container xpm (min-width:760px){
-  html[data-experience="merged"] .xpm .xpm-grid{padding:14px 24px 0}
-  html[data-experience="merged"] .xpm .xpm-dayhead{padding:16px 24px 2px}
-  html[data-experience="merged"] .xpm .scrub-top{padding:0 24px 2px}
   html[data-experience="merged"] .xpm .xpm-line{padding:16px 24px 0}
-  html[data-experience="merged"] .xpm .xpm-drawer{margin:16px 20px 0;padding:16px 14px 22px}
-  html[data-experience="merged"] .xpm .xpm-offgroup{margin:24px 24px 0}
-  html[data-experience="merged"] .xpm .xpm-fold.open{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:18px;align-items:start}
-  html[data-experience="merged"] .xpm .xpm-fold.open .xpm-sheet{margin:0}
   html[data-experience="merged"] .xpm .xpm-bundle.fanned .fan-wrap{margin:0;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);grid-template-areas:"stage tray" "pager tray" "back tray";align-items:start;column-gap:18px}
   html[data-experience="merged"] .xpm .fan-stage{grid-area:stage}
   html[data-experience="merged"] .xpm .fan-pager{grid-area:pager}
@@ -343,18 +190,11 @@ html[data-experience="merged"] .xpm.xpm-enter .xpm-line,html[data-experience="me
   html[data-experience="merged"] .xpm .xpm-shelf{padding:14px 24px 8px}
 }
 @container xpm (min-width:980px){
-  html[data-experience="merged"] .xpm .xpm-grid,html[data-experience="merged"] .xpm .xpm-drawer{grid-template-columns:repeat(3,minmax(0,1fr))}
   html[data-experience="merged"] .xpm .xpm-shelf{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 
 @media (prefers-reduced-motion:reduce){
   html[data-experience="merged"] .xpm *,html[data-experience="merged"] .xpm *::before,html[data-experience="merged"] .xpm *::after{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}
-  html[data-experience="merged"] .xpm .xpm-plac .flip,html[data-experience="merged"] .xpm .xpm-plac.flipped .flip{transform:none!important}
-  html[data-experience="merged"] .xpm .xpm-plac .face{transition:opacity 150ms linear!important}
-  html[data-experience="merged"] .xpm .xpm-plac .face.back{transform:none}
-  html[data-experience="merged"] .xpm .xpm-plac.flipped .face.front{opacity:0;pointer-events:none}
-  html[data-experience="merged"] .xpm .xpm-plac:not(.flipped) .face.back{opacity:0;pointer-events:none}
-  html[data-experience="merged"] .xpm .cover{display:none}
   html[data-experience="merged"] .xpm .xpm-stamp.pending{opacity:1}
-  html[data-experience="merged"] .xpm .hit:active,html[data-experience="merged"] .xpm .pile:active .pile-top,html[data-experience="merged"] .xpm .col.on{transform:none!important}
+  html[data-experience="merged"] .xpm .pile:active .pile-top{transform:none!important}
 }

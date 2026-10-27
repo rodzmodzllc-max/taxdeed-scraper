@@ -205,7 +205,9 @@ def test_g02_an_arcgis_error_payload_is_source_unavailable_not_a_miss_and_abando
     h = Harness(enrich, monkeypatch, "Marion", rows, layer=layer)
     enrich.main()
     assert h.patches == []
-    assert len(h.lookups) == 1                      # the first answer already said the layer is broken
+    # The same question is re-asked FDOR_LAYER_ATTEMPTS times (a transient
+    # error payload, 2026-10-27), then the layer counts as broken.
+    assert len(h.lookups) == enrich.FDOR_LAYER_ATTEMPTS and len(set(h.lookups)) == 1
     out = capsys.readouterr()
     assert "source unavailable 1" in out.out and "unmatched 0" in out.out
     assert "FDOR layer unavailable (layer error 500)" in out.err and "abandoning this county's slice" in out.err

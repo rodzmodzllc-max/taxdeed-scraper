@@ -44,7 +44,6 @@ html[data-experience="terrain"] #xpStage[hidden]{display:none}
 .xp-terrain .xt-head{display:grid;grid-template-columns:1fr auto;align-items:end;gap:4px 12px;padding:14px 16px 14px;border-radius:20px;overflow:hidden;
   background-image:radial-gradient(circle at 12% 0%,var(--acc-wash),rgba(255,253,249,0) 62%)}
 .xp-terrain .xt-head::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:3px;border-radius:3px 3px 0 0;background:linear-gradient(90deg,var(--acc),var(--acc-pop) 45%,var(--acc-glow));transform-origin:left}
-.xp-terrain .xt-head-k{grid-column:1 / -1;display:flex;align-items:center;gap:7px;font:600 11px/14px 'IBM Plex Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--acc-deep)}
 .xp-terrain .xt-ledger-dot{width:8px;height:8px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 3px var(--acc-soft)}
 .xp-terrain .xt-h1{font:600 26px/31px 'Source Serif 4',Georgia,serif;letter-spacing:-.015em;color:var(--ink);min-width:0}
 .xp-terrain .xt-sub{grid-column:1 / -1;font-size:13px;line-height:18px;color:var(--gray);max-width:60ch}
@@ -203,15 +202,15 @@ html[data-experience="terrain"] #xpStage[hidden]{display:none}
 .xp-terrain .xt-opening{transform:scale(1.015);box-shadow:0 0 0 3px var(--acc-glow),var(--sh)!important}
 
 /* ==================== AVAILABLE ==================== */
-.xp-terrain .xt-chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:10px -12px 0;padding:2px 12px 4px}
-.xp-terrain .xt-chips::-webkit-scrollbar{display:none}
-.xp-terrain .xt-chip{flex:0 0 auto;min-height:44px;display:inline-flex;align-items:center}
-.xp-terrain .xt-chip span{display:inline-flex;align-items:center;height:32px;padding:0 4px 0 12px;border-radius:999px 0 0 999px;background:rgba(255,253,249,.9);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid rgba(217,209,195,.9);border-right:0;font:600 12px/1 'IBM Plex Sans',sans-serif;color:var(--ink)}
-.xp-terrain .xt-chip b{display:inline-flex;align-items:center;height:32px;padding:0 11px 0 6px;border-radius:0 999px 999px 0;background:rgba(255,253,249,.9);border:1px solid rgba(217,209,195,.9);border-left:0;font:500 11px/1 'IBM Plex Mono',monospace;color:var(--sage-deep)}
-.xp-terrain .xt-chip:hover span,.xp-terrain .xt-chip:hover b{background:var(--sage-soft)}
-.xp-terrain .xt-chip:active{transform:scale(.97)}
 .xp-terrain .xt-stories{display:flex;flex-direction:column;gap:18px;margin-top:10px}
 .xp-terrain .xt-story{scroll-margin-top:80px}
+/* The app's shared "Now showing" bar sits sticky under the header; a county
+   head scrolled to must clear both. */
+.xp-terrain .xt-story-head{scroll-margin-top:var(--county-now-offset,132px)}
+.xp-terrain .xt-story-trail{position:relative;margin-top:10px;max-width:46ch}
+.xp-terrain .xt-story-trail .xt-trail{margin-top:0}
+.xp-terrain .xt-rail-lazy{min-height:220px}
+.xp-terrain .xt-facts:empty{display:none}
 .xp-terrain .xt-story-head{position:relative;border-radius:22px;padding:16px 18px 14px;overflow:hidden;background-image:radial-gradient(120% 90% at 15% 0%,rgba(241,246,240,.95) 0,rgba(241,246,240,0) 62%)}
 .xp-terrain .xt-story-head::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,#4E6B54,#5F8A66 45%,#9DBFA0)}
 .xp-terrain .xt-story-head::after{content:"";position:absolute;right:-40px;top:-40px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(157,191,160,.35),rgba(157,191,160,0) 70%);pointer-events:none}
@@ -222,11 +221,7 @@ html[data-experience="terrain"] #xpStage[hidden]{display:none}
 .xp-terrain .xt-flag .pole{left:-1px;top:-34px;width:2.5px;height:34px;border-radius:2px;background:var(--sage-deep)}
 .xp-terrain .xt-flag .pf{left:1px;top:-34px;width:0;height:0;border-top:7px solid transparent;border-bottom:7px solid transparent;border-left:16px solid var(--sage-pop);filter:drop-shadow(0 3px 4px rgba(78,107,84,.35))}
 .xp-terrain .xt-flag .base{left:-6px;top:-4px;width:12px;height:8px;border-radius:50%;background:var(--sage);box-shadow:0 0 0 2px #FFFDF9}
-.xp-terrain .xt-story-k{font:600 10.5px/13px 'IBM Plex Sans',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--sage-deep)}
 .xp-terrain .xt-story-t{margin-top:4px;font:600 24px/28px 'Source Serif 4',Georgia,serif;letter-spacing:-.01em;padding-right:44px}
-.xp-terrain .xt-story-cnt{display:flex;align-items:flex-end;gap:10px;margin-top:8px}
-.xp-terrain .xt-story-n{font:500 40px/40px 'IBM Plex Mono',monospace;letter-spacing:-.02em;color:var(--sage-deep);font-variant-numeric:tabular-nums}
-.xp-terrain .xt-story-l{font:600 13px/17px 'IBM Plex Sans',sans-serif;color:var(--ink);padding-bottom:3px}
 .xp-terrain.xt-enter .xt-story{animation:xtRise 520ms var(--ease-out) calc(var(--s,0) * 90ms) backwards}
 .xp-terrain.xt-enter .xt-flag{animation:xtFlag 560ms var(--spring) calc(500ms + var(--s,0) * 90ms) backwards}
 @keyframes xtFlag{from{opacity:0;transform:translateY(-18px) scale(.55)}to{opacity:1;transform:none}}
@@ -334,6 +329,15 @@ html[data-experience="terrain"] #xpStage[hidden]{display:none}
 .xp-terrain .xt-ruleline{height:1px;background:repeating-linear-gradient(90deg,#CFC4B2 0 4px,transparent 4px 7px);margin-bottom:12px}
 .xp-terrain .xt-bedrock p{margin-top:6px;font-size:13px;line-height:18px;color:var(--gray-2);max-width:70ch}
 
+/* ==================== phones: the card rail stacks ==================== */
+@container xt (max-width:699.98px){
+  .xp-terrain .xt-rail{flex-direction:column;overflow-x:visible;scroll-snap-type:none;margin:0;padding:12px 0 14px}
+  .xp-terrain .xt-acard{flex:0 0 auto;width:100%}
+  .xp-terrain .xt-rail-more{flex:0 0 auto;min-height:56px;flex-direction:row;gap:10px}
+  .xp-terrain .xt-rail-more-n{font-size:20px;line-height:24px}
+  .xp-terrain .xt-rail-lazy{min-height:420px}
+}
+
 /* ==================== wider screens ==================== */
 @container xt (min-width:700px){
   .xp-terrain{padding:18px 18px 26px}
@@ -344,7 +348,6 @@ html[data-experience="terrain"] #xpStage[hidden]{display:none}
   .xp-terrain .xt-day{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);align-items:start;gap:16px}
   .xp-terrain .xt-plat-wrap{position:sticky;top:76px}
   .xp-terrain .xt-tagrow{flex-wrap:wrap;overflow-x:visible;scroll-snap-type:none;row-gap:30px}
-  .xp-terrain .xt-chips{flex-wrap:wrap;overflow:visible}
 }
 @container xt (min-width:1100px){
   .xp-terrain .xt-lots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
