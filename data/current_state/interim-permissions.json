@@ -2679,6 +2679,46 @@
   },
   {
    "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "harvesters/enrichment/sources.py mi_detroit_assessor_parcels (fields read live and sample matched 2026-10-25; no licence published on the layer); docs/data-enrichment-2026-10-25.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "enrich",
+   "reviewer": "Product owner (decision 2026-10-25: collect public records to fill gaps; not sold until legal review)",
+   "source_id": "mi_detroit_assessor_parcels",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "harvesters/enrichment/sources.py mi_detroit_assessor_parcels (fields read live and sample matched 2026-10-25; no licence published on the layer); docs/data-enrichment-2026-10-25.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "fetch",
+   "reviewer": "Product owner (decision 2026-10-25: collect public records to fill gaps; not sold until legal review)",
+   "source_id": "mi_detroit_assessor_parcels",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
     "harvesters/governance/discovery_guard.py (discover, by URL)"
@@ -4119,6 +4159,46 @@
   },
   {
    "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "harvesters/enrichment/sources.py mo_stl_parcels_coordinates (fields read live and sample matched 2026-10-25; no licence published on the layer); docs/data-enrichment-2026-10-25.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MO",
+   "operation": "enrich",
+   "reviewer": "Product owner (decision 2026-10-25: collect public records to fill gaps; not sold until legal review)",
+   "source_id": "mo_stl_parcels_coordinates",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "harvesters/enrichment/sources.py mo_stl_parcels_coordinates (fields read live and sample matched 2026-10-25; no licence published on the layer); docs/data-enrichment-2026-10-25.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MO",
+   "operation": "fetch",
+   "reviewer": "Product owner (decision 2026-10-25: collect public records to fill gaps; not sold until legal review)",
+   "source_id": "mo_stl_parcels_coordinates",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
@@ -4210,6 +4290,86 @@
    "operation": "store",
    "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
    "source_id": "ok_oklahoma_county_owned",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "harvesters/enrichment/sources.py ok_oklahoma_county_parcels (fields read live and sample matched 2026-10-25; no licence published on the layer); docs/data-enrichment-2026-10-25.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "OK",
+   "operation": "enrich",
+   "reviewer": "Product owner (decision 2026-10-25: collect public records to fill gaps; not sold until legal review)",
+   "source_id": "ok_oklahoma_county_parcels",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "harvesters/enrichment/sources.py ok_oklahoma_county_parcels (fields read live and sample matched 2026-10-25; no licence published on the layer); docs/data-enrichment-2026-10-25.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "OK",
+   "operation": "fetch",
+   "reviewer": "Product owner (decision 2026-10-25: collect public records to fill gaps; not sold until legal review)",
+   "source_id": "ok_oklahoma_county_parcels",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "harvesters/enrichment/sources.py pa_fayette_pasda_parcels (fields read live and sample matched 2026-10-25; no licence published on the layer); docs/data-enrichment-2026-10-25.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "PA",
+   "operation": "enrich",
+   "reviewer": "Product owner (decision 2026-10-25: collect public records to fill gaps; not sold until legal review)",
+   "source_id": "pa_fayette_pasda_parcels",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "harvesters/enrichment/sources.py pa_fayette_pasda_parcels (fields read live and sample matched 2026-10-25; no licence published on the layer); docs/data-enrichment-2026-10-25.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "PA",
+   "operation": "fetch",
+   "reviewer": "Product owner (decision 2026-10-25: collect public records to fill gaps; not sold until legal review)",
+   "source_id": "pa_fayette_pasda_parcels",
    "status": "OWNER_PERMISSION_REQUIRED"
   },
   {
@@ -4519,6 +4679,126 @@
    "operation": "store",
    "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
    "source_id": "sc_georgetown_forfeited_land",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-27",
+   "evidence_date": "2026-10-27",
+   "evidence_ref": "harvesters/enrichment/sources.py sc_horry_address_points (fields read live 2026-10-27; no licence published on the layer); docs/enrich-thin-states-2026-10-27.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "enrich",
+   "reviewer": "Product owner (request 2026-10-27: enrich every property; decisions 2026-10-25 / 2026-10-26: collect every source, legal review to follow)",
+   "source_id": "sc_horry_address_points",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-27",
+   "evidence_date": "2026-10-27",
+   "evidence_ref": "harvesters/enrichment/sources.py sc_horry_address_points (fields read live 2026-10-27; no licence published on the layer); docs/enrich-thin-states-2026-10-27.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "fetch",
+   "reviewer": "Product owner (request 2026-10-27: enrich every property; decisions 2026-10-25 / 2026-10-26: collect every source, legal review to follow)",
+   "source_id": "sc_horry_address_points",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-27",
+   "evidence_date": "2026-10-27",
+   "evidence_ref": "harvesters/enrichment/sources.py sc_horry_assessor_parcels (fields read live 2026-10-27; no licence published on the layer); docs/enrich-thin-states-2026-10-27.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "enrich",
+   "reviewer": "Product owner (request 2026-10-27: enrich every property; decisions 2026-10-25 / 2026-10-26: collect every source, legal review to follow)",
+   "source_id": "sc_horry_assessor_parcels",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-27",
+   "evidence_date": "2026-10-27",
+   "evidence_ref": "harvesters/enrichment/sources.py sc_horry_assessor_parcels (fields read live 2026-10-27; no licence published on the layer); docs/enrich-thin-states-2026-10-27.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "fetch",
+   "reviewer": "Product owner (request 2026-10-27: enrich every property; decisions 2026-10-25 / 2026-10-26: collect every source, legal review to follow)",
+   "source_id": "sc_horry_assessor_parcels",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "harvesters/enrichment/sources.py sc_horry_county_parcels (fields read live and sample matched 2026-10-25; no licence published on the layer); docs/data-enrichment-2026-10-25.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "enrich",
+   "reviewer": "Product owner (decision 2026-10-25: collect public records to fill gaps; not sold until legal review)",
+   "source_id": "sc_horry_county_parcels",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-25",
+   "evidence_date": "2026-10-25",
+   "evidence_ref": "harvesters/enrichment/sources.py sc_horry_county_parcels (fields read live and sample matched 2026-10-25; no licence published on the layer); docs/data-enrichment-2026-10-25.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "fetch",
+   "reviewer": "Product owner (decision 2026-10-25: collect public records to fill gaps; not sold until legal review)",
+   "source_id": "sc_horry_county_parcels",
    "status": "OWNER_PERMISSION_REQUIRED"
   },
   {
@@ -7008,12 +7288,12 @@
  "interim_max_days": 210,
  "summary": {
   "by_expiry": {
-   "2027-04-12": 345
+   "2027-04-12": 359
   },
   "by_finding": {
    "REVIEWER_IS_NOT_A_DECISION": 77
   },
-  "records": 345,
-  "sources": 85
+  "records": 359,
+  "sources": 92
  }
 }

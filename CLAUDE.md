@@ -3553,7 +3553,7 @@ Full description: `docs/parcel-boundaries.md`. Stable facts:
   notice, disclaimer and metadata (on a card: short credit on the picture, the full line in the photo bubble); geometry
   never rides on a property row or in an export. Stub knobs `?boundary=ok|fl|multi|none|unauth|invalid|nolicencelink|
   error`, `?boundaryids=<id>,<id>` (outline ids the cards see).
-- `sw.js` -> `tdw-shell-v143` (2026-10-26: sale-day strip at the top of Auctions, popups kept inside the screen; v142 was 2026-10-25: header and filter cleanup, path-first customer view, essentials-first cards and the Merged look; v141 was the header Look switch and the trial Tactile / Terrain List experiences - see "Look switch" below; v138-v140 are held by the redesign PRs. v137 was 2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
+- `sw.js` -> `tdw-shell-v144` (2026-10-26: card outlines load lazily, 4 in flight; v143: sale-day strip at the top of Auctions, popups kept inside the screen; v142 was 2026-10-25: header and filter cleanup, path-first customer view, essentials-first cards and the Merged look; v141 was the header Look switch and the trial Tactile / Terrain List experiences - see "Look switch" below; v138-v140 are held by the redesign PRs. v137 was 2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
 
 
 ## Look switch: Classic / Tactile / Terrain (2026-10-25, PR open, frontend only)
@@ -3666,3 +3666,44 @@ Full description: `docs/new-sources-2026-10-26.md`. Stable facts:
 - Held, configured but not scheduled: Wright MN (app.js's MN auctions copy says none is tracked; state-rules
   `ledger_copy`) and Genesee MI land bank (`paged_table.py`; the site's random HTTP 500s move its session cursor).
 - Read-only validation: `job=evidence`, `evidence_scope=new_sources_validate` (MI MO PA SC CO MN, no DB credential).
+
+## Data-enrichment sprint: county parcel layers for held records (2026-10-25, PR open, no migration)
+
+Full description: `docs/data-enrichment-2026-10-25.md` (also the research agents' source findings for the next batches).
+Stable facts:
+- **Owner's direction:** collect public records to fill gaps and demonstrate coverage; nothing sold until legal review.
+  Never log in, bypass a CAPTCHA / block / click-through, or use the hard-blocked vendors.
+- **Five county-scoped parcel layers** in `harvesters/enrichment/sources.py`, fields read live and a sample of held
+  parcel numbers matched on 2026-10-25: `mo_stl_parcels_coordinates` (St. Louis Assessor layer 11, ParcelId),
+  `mi_detroit_assessor_parcels` (Detroit parcel_file_current, parcel_id with its trailing dot),
+  `ok_oklahoma_county_parcels` (pin), `pa_fayette_pasda_parcels` (TAXIDNUM), `sc_horry_county_parcels` (numeric PIN).
+  Exempt parcels carry $0 values; zeros are never stored (`_coerce`), so assessed / taxable are not mapped on
+  land-bank / county-owned layers. Batch 25 for OK / PA (larger geometry batches fail).
+- **Permissions:** fetch + enrich only, `OWNER_PERMISSION_REQUIRED` on `INTERNAL_RISK_ACCEPTANCE`, condition
+  `excluded_from_paid_tier`, expiring 2027-04-12 - never documented permission.
+- They run through `job=available` (`available_mode=apply`) and, for coordinates, `job=geocode`.
+
+## Thin-states enrichment: every layer, batched; sync keeps enriched values (2026-10-27, PR open, no migration)
+
+Full description, with the per-gap results: `docs/enrich-thin-states-2026-10-27.md`.
+
+- **New layers** (deterministic identifier match):
+  - `sc_horry_assessor_parcels` (values / acreage / legal, numeric PIN);
+  - `sc_horry_address_points` (address);
+  - `co_douglas_property_locations` (address from its published parts, acreage, legal; CC BY-SA 4.0);
+  - `co_douglas_property_improvements` (year built; a multi-building account is AMBIGUOUS).
+- **Extended:** OK `location` (situs; `0 UNKNOWN …` never stored), EBR `physical_address` /
+  `sum_improvement_value`, and the EBR roll's `parcel_address` from tax year 2023 (blank from 2024 on).
+- **Factory additions:** `composite_map` (parts joined; no house number, no value), `no_value_patterns`, and
+  `written_columns()`. Two county layers may share a county only on disjoint columns.
+- **Runner:** `enrich_statewide_parcels.py --all-layers [--limit N] [--dry-run]` runs every cleared layer
+  (county first) over every active row of every ledger.
+  - The checkpoint in `out/.harvest_cache` lets a run resume.
+  - `write_diff.unchanged` skips no-op patches.
+  - A placeholder address counts as missing.
+  - The expansion legs run it daily with `--limit 500`.
+  - `job=enrich` takes `enrich_kinds` (e.g. `parcels`) and `enrich_limit`.
+- **Sync guard:** `sync_state_inventory.keep_enriched_values` stops a list's blank or `Parcel <id>` from
+  overwriting a value another source filled. Before this, 55 CO addresses were erased on every sync.
+- **No source exists for:** PA Fayette (geometry only; the assessment site is click-through), TN Shelby lot
+  size, MO acreage (columns undefined). FL mappings exist; its gap is identifier matching (PR #180).

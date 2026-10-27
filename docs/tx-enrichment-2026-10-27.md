@@ -88,9 +88,14 @@ Not recorded:
 
 ## Applying it (after merge)
 
-1. Property facts: run `job=enrich` with `enrich_states=TX`. Only the `parcels` matrix leg writes TX
-   facts; the flood and imagery legs use their usual budgets. For smaller overnight slices, run
-   `scripts/enrich_statewide_parcels.py --state TX --source-id tx_hcad_parcels,tx_txgio_stratmap_parcels
-   --ledgers laft,auction --max-counties N` (or `--counties`), with `--dry-run` for a read-only plan.
+1. Property facts: run `job=enrich` with `enrich_states=TX` and `enrich_kinds=parcels`. Optionally add
+   `enrich_limit=N` to cap the rows per layer; the checkpoint resumes where the last run stopped.
+   - That leg runs `enrich_statewide_parcels.py --all-layers` (#220). For TX, every cleared layer means
+     `tx_txgio_stratmap_parcels` and `tx_hcad_parcels`. Jim Wells' CAD layer stays UNREVIEWED and is refused.
+   - `--limit` bounds the rows per layer. A county_file layer downloads only the county files of the rows in that
+     batch.
+   - Without a limit, all 83 county files are read, roughly 3-4 GB, which fits the leg's 150-minute budget.
+   - By hand, the same script also takes `--source-id a,b`, `--ledgers laft,auction`, `--counties` and
+     `--max-counties`. Add `--dry-run` for a read-only plan.
 2. How to buy: run `job=available` with `available_mode=acquisition`. The step runs with
    `--ledgers laft,auction` and also runs inside the scheduled `laft` job.

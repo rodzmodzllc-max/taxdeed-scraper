@@ -250,6 +250,20 @@ def test_a_failed_county_read_writes_nothing(allow_permissions):
     assert writes == {} and rep["failed_queries"] == 1
 
 
+def test_all_layers_runs_county_files_bounded_and_only_for_their_sources(tmp_path, allow_permissions, monkeypatch):
+    c = cfg()
+    z = make_zip(tmp_path, [{"GEO_ID": str(1000 + i), "LAND_VALUE": "5"} for i in range(6)])
+    monkeypatch.setattr(ESP, "layers_for_state", lambda state, source_ids=None: [c])
+    monkeypatch.setattr(ESP, "county_file_fetcher",
+                        lambda cfg_, county_, keys: (lambda url: {"features": CF.read_county_zip(z, cfg_, county_, keys)}))
+    rows = [row(i, str(1000 + i)) for i in range(5)] + [row(9, "1005", source_id="tx_jefferson_sheriff_sale")]
+    writes = {}
+    reps = ESP.run_all_layers("TX", rows, None, write=lambda i, f: writes.__setitem__(i, f), recorded_at="x", limit=3,
+                              checkpoint=None, sleep=lambda s: None)
+    assert reps[0]["targets"] == 5 and reps[0]["rows_considered"] == 3 and len(writes) == 3
+    assert "9" not in writes
+
+
 def test_select_rows_batches_by_county_and_ledger():
     rows = [row(i, str(i), county=c) | {"source": s} for i, (c, s) in enumerate(
         [("A", "laft"), ("A", "auction"), ("B", "laft"), ("C", "certificate"), ("C", "laft"), ("C", "laft")])]
@@ -359,6 +373,10 @@ def test_available_records_leave_out_auction_only_processes():
 
 def test_workflow_applies_texas_enrichment_and_paths_to_both_ledgers():
     wf = (REPO / ".github" / "workflows" / "harvest-and-sync.yml").read_text(encoding="utf-8")
-    assert "--source-id tx_hcad_parcels,tx_txgio_stratmap_parcels --ledgers laft,auction" in wf
+    # job=enrich, enrich_kinds=parcels runs every cleared layer of the state (--all-layers): for
+    # TX that is the HCAD layer and the StratMap county files.
+    assert 'enrich_statewide_parcels.py --state "$st" --all-layers $LIMIT_ARG' in wf
+    assert {c.source_id for c in ESP.layers_for_state("TX") if P.enrichment_allowed(c)[0]} == {
+        "tx_txgio_stratmap_parcels", "tx_hcad_parcels"}
     assert wf.count("apply_acquisition_paths.py --state TX --ledgers laft,auction") == 2
     assert "--source-id tx_lgbs --report out/public/acquisition-apply-tx.json" not in wf

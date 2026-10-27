@@ -219,9 +219,45 @@ def registry_rows(state: str, path: Path = REGISTRY) -> dict[str, object]:
     return {r.source_id: r for r in load_registry(path) if r.state == state}
 
 
+def _placeholder(col: str, value) -> bool:
+    return col == "address" and str(value or "").startswith(PLACEHOLDER_PREFIXES)
+
+
+def keep_enriched_values(row: dict, stored: dict | None) -> int:
+    """Never let a list's blank (or its "Parcel <id>" address placeholder)
+    erase a value another source filled (2026-10-27). PostgREST bulk upserts
+    send one key set per source, so a list column the list leaves blank on
+    this row is sent as NULL - or as the placeholder - and merge-duplicates
+    wrote that over the enrichment factory's address: 55 active Colorado
+    rows on 2026-10-27 carried a statewide_parcel provenance entry for an
+    address that had become "Parcel <id>" again, and the enricher put it
+    back the next run (a write loop). For each list column this row leaves
+    blank / placeholder whose STORED value is real and whose stored
+    provenance names a source other than the list itself, the stored value
+    is sent back unchanged. The list's own values always win. Returns how
+    many columns were kept."""
+    if not stored:
+        return 0
+    prov = FP.load_provenance(stored.get("field_provenance"))
+    kept = 0
+    for col in LIST_FIELDS:
+        if col not in row or not (FP.is_blank(row[col]) or _placeholder(col, row[col])):
+            continue
+        value = stored.get(col)
+        entry = prov.get(col)
+        if FP.is_blank(value) or _placeholder(col, value) or not isinstance(entry, dict):
+            continue
+        if entry.get("source") in (None, "county_list"):
+            continue
+        row[col] = value
+        kept += 1
+    return kept
+
+
 def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, str], *, observed_at: str | None = None,
          stored_provenance: dict | None = None, stored_first_seen: dict | None = None,
-         stored_rows: dict | None = None, keep_other_sources: bool = False) -> tuple[list[dict], dict]:
+         stored_rows: dict | None = None, keep_other_sources: bool = False,
+         stored_values: dict | None = None) -> tuple[list[dict], dict]:
     """(rows to upsert, counts). Pure - no I/O. Raises ValueError when the
     state or a row's source may not be synced at all.
 
@@ -298,6 +334,9 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
         first = stored_first_seen.get(identity(row)) if identity(row) in stored_first_seen else observed_at
         row["first_seen_at"] = first if first is None or FP_ts(first) <= FP_ts(observed_at) else observed_at
         row["field_provenance"] = list_provenance(row, stored_provenance.get(identity(row)), observed_at)
+        kept = keep_enriched_values(row, (stored_values or {}).get(identity(row)))
+        if kept:
+            counts["enriched_values_kept"] = counts.get("enriched_values_kept", 0) + kept
         prior = stored_rows.get(identity(row))
         if prior is not None and prior.get("harvester_source") not in (None, reg.source_id):
             if keep_other_sources:
@@ -557,7 +596,7 @@ def main(argv=None) -> int:
     try:
         to_send, counts = plan(args.state, rows, reg, units_for(Path(args.status)), stored_provenance=stored,
                                stored_first_seen=first_seen, stored_rows=stored_rows,
-                               keep_other_sources=args.keep_other_sources)
+                               keep_other_sources=args.keep_other_sources, stored_values=stored_full)
     except ValueError as exc:
         print(f"::error title=sync_{args.state.lower()}::{exc} - 0 requests made")
         return 2
