@@ -134,29 +134,15 @@ def run(rows: list[dict], *, mode: str, allow_upgrade: bool, limit: int | None, 
     if mode == "plan":
         return rep.as_dict()
 
-    # Parcel layers are queried in batches per source; Florida row by row.
-    results: dict[str, G.Lookup] = {}
-    by_src: dict[str, list] = {}
-    for r, src in plan:
-        by_src.setdefault(src.source_id, []).append((r, src))
-    for sid, items in by_src.items():
-        src = items[0][1]
-        if src.lookup_kind == "parcel_layer":
-            results.update(G.lookup_parcel_layer(src, [r for r, _ in items], fetch_json))
-        else:
-            for r, _ in items:
-                results[r["id"]] = fl_lookup_fn(src, r)
-                if pace:
-                    time.sleep(pace)
-    for r, src in plan:
-        lk = results.get(r["id"]) or G.Lookup("SOURCE_UNAVAILABLE", reason="no answer")
+    def settle(r: dict, src, lk: G.Lookup | None) -> None:
+        lk = lk or G.Lookup("SOURCE_UNAVAILABLE", reason="no answer")
         rep.looked_up += 1
         rep.add_outcome(lk.status)
         action, payload = G.decide(r, src, lk, allow_upgrade=allow_upgrade, recorded_at=recorded_at)
         if action == "skip":
             if lk.status == "MATCHED":
                 rep.skip(payload)
-            continue
+            return
         rep.would_write += 1
         if mode == "apply":
             try:
@@ -164,6 +150,25 @@ def run(rows: list[dict], *, mode: str, allow_upgrade: bool, limit: int | None, 
                 rep.written += 1
             except Exception:  # noqa: BLE001 - one failed write never stops the run
                 rep.write_errors += 1
+
+    # Parcel layers are queried in batches per source; Florida row by row.
+    # Each answer is written as soon as it arrives, so a run stopped by the job
+    # timeout keeps every coordinate it already found (Florida's ~1,000 single
+    # lookups can outlast the job).
+    by_src: dict[str, list] = {}
+    for r, src in plan:
+        by_src.setdefault(src.source_id, []).append((r, src))
+    for sid, items in by_src.items():
+        src = items[0][1]
+        if src.lookup_kind == "parcel_layer":
+            results = G.lookup_parcel_layer(src, [r for r, _ in items], fetch_json)
+            for r, _ in items:
+                settle(r, src, results.get(r["id"]))
+        else:
+            for r, _ in items:
+                settle(r, src, fl_lookup_fn(src, r))
+                if pace:
+                    time.sleep(pace)
     return rep.as_dict()
 
 
