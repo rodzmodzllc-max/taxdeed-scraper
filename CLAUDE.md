@@ -2644,6 +2644,24 @@ Full description: `docs/tx-enrichment-2026-10-27.md`. Stable facts:
 - **Evidence capture:** TX county process pages sit in `acquisition_candidate_pages.csv` under the discovery-only id
   `tx_county_sale_process`.
 
+## Property page tiers: Free preview / Guided / Full record (2026-10-27, PR open, migration 029 APPLIED)
+
+- **Migration 029 is APPLIED** (2026-10-27): `research_lists`, `research_items` exist in production with
+  the own-row PERMISSIVE + RESTRICTIVE `is_approved()` policies and grants to `authenticated` only. The
+  research workspace and the Guided ticks now save per account (`RESEARCH.mode === "server"`).
+- `pageTier()` in app.js: `?tier=` else `localStorage` `tdw_page_tier_v1` (admins / testers only) else
+  `"pro"`. No account carries a tier yet (billing off); `tierSwitchHtml()` shows the switch to admins /
+  testers on every property page. `detailHtml()` returns `freeDetailHtml()` / `guidedDetailHtml()` for
+  those tiers; the full record is unchanged.
+- **Free** never puts a hidden value in the page: blurred cells are glyphs (`TIER_BLUR`), the crumb names
+  the county (`detailCrumbsHtml(p, {anonymous})`), no picture (the county locator only). It is a display
+  tier, not a server gate - approved accounts still receive full rows through RLS.
+- **Guided**: `guidedThree()` (what it is / what it costs / how you buy it), `guidedStages()` (six stages
+  per ledger; facts only from the records, everything else a buyer task). Ticks live in
+  `research_items.diligence.journey` (`"<stage>.<task>": {done, at}`); a first tick saves the property to
+  the first list or a new "My properties". Ticks never change a record or a diligence state.
+- `sw.js` -> `tdw-shell-v149`. Pro cleanup (one "Open questions" box, no filler rows) is the next PR.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
@@ -3052,7 +3070,7 @@ Full description: `docs/research-workspace.md`. Stable facts:
   ACQUISITION_READY / PASSED / ACQUIRED, `RESEARCH_STATES`) is NEVER a source
   status: shown beside `officialStatusText(p)`, refused outside the six
   values before any request, never written to `properties`.
-- Migration 029 (`research_lists`, `research_items`; own-row PERMISSIVE +
+- Migration 029 (APPLIED 2026-10-27; `research_lists`, `research_items`; own-row PERMISSIVE +
   RESTRICTIVE `is_approved()`, InitPlans, grants revoked first) is written and
   live-tested, NOT applied. Without it the workspace lives in localStorage
   (`tdw_research_v1:<user>`), labelled "Kept in this browser only".

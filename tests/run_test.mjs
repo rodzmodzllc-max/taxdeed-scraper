@@ -7478,6 +7478,56 @@ await big.press('#globalSearchInput', 'Enter');
   await mi.close();
 }
 
+// ---- Property page tiers (2026-10-27): Free preview / Guided / Full record ----
+{
+  const tierUrl = (tier, hash) => { const u = new URL(BASE_URL); if (tier) u.searchParams.set('tier', tier); u.hash = hash; return u.toString(); };
+  const tp = await newPage({ viewport: { width: 390, height: 1400 } });
+  await tp.goto(tierUrl(null, '/lands/p15'), { waitUntil: 'networkidle' });
+  await tp.waitForTimeout(900);
+  results.tierDefault = await tp.evaluate(() => ({ tier: window.__tdwPageTier(), switchShown: !!document.querySelector('#detailModalInner .tier-switch'),
+    pressed: [...document.querySelectorAll('#detailModalInner [data-tier-set][aria-pressed="true"]')].map(b => b.dataset.tierSet),
+    fullRecord: !!document.querySelector('#detailModalInner [data-section="acquire"]') }));
+  await tp.goto(tierUrl('beginner', '/lands/p15'), { waitUntil: 'networkidle' });
+  await tp.waitForTimeout(900);
+  const guided = () => tp.evaluate(() => {
+    const m = document.getElementById('detailModalInner');
+    return { view: (m.querySelector('[data-tier-view]') || {}).dataset?.tierView || null, know: m.querySelectorAll('.g-know').length,
+      stages: [...m.querySelectorAll('.g-stage')].map(li => li.dataset.stage + ':' + li.dataset.stageState), ring: (m.querySelector('.g-ring span') || {}).textContent || null,
+      next: (m.querySelector('.g-next b') || {}).textContent || null, fullRecord: !!m.querySelector('[data-section="acquire"]'),
+      note: (m.querySelector('.g-note') || {}).textContent || null, overflow: document.documentElement.scrollWidth - innerWidth };
+  });
+  results.tierGuided = await guided();
+  await tp.click('[data-tier-task="price.price"]');
+  await tp.waitForTimeout(700);
+  const g2 = await guided();
+  results.tierGuidedTick = { ring: g2.ring, next: g2.next, stillOpen: await tp.evaluate(() => !!document.querySelector('.g-stage[data-stage="price"] details[open]')),
+    saved: await tp.evaluate(() => { const r = window.__tdwResearch(); return { mode: r.mode, lists: r.lists.map(l => l.name), journey: r.items.map(i => Object.keys((i.diligence || {}).journey || {})) }; }) };
+  await tp.click('[data-tier-task="price.price"]');
+  await tp.waitForTimeout(700);
+  results.tierGuidedUntick = (await guided()).ring;
+  await tp.goto(tierUrl('free', '/lands/p15'), { waitUntil: 'networkidle' });
+  await tp.waitForTimeout(900);
+  results.tierFree = await tp.evaluate(() => {
+    const m = document.getElementById('detailModalInner');
+    const t = m.innerText, h = m.innerHTML;
+    return { view: (m.querySelector('[data-tier-view]') || {}).dataset?.tierView || null, crumb: (m.querySelector('.crumb-here') || {}).textContent || null,
+      heading: (m.querySelector('.detail-address') || {}).textContent || null, blurred: m.querySelectorAll('.tier-blur').length,
+      noAddress: !/Manatee/i.test(h), noMoney: !/\$\d/.test(t), noParcel: !/1515/.test(h), noPhoto: !m.querySelector('img'), unlock: !!m.querySelector('.tier-unlock') };
+  });
+  await tp.click('[data-tier-set="pro"]');
+  await tp.waitForTimeout(900);
+  results.tierSwitchToFull = await tp.evaluate(() => ({ stored: localStorage.getItem('tdw_page_tier_v1'), tier: window.__tdwPageTier(), fullRecord: !!document.querySelector('#detailModalInner [data-section="acquire"]'), urlTier: new URL(location.href).searchParams.has('tier') }));
+  await tp.close();
+  const ta = await newPage({ viewport: { width: 390, height: 1400 } });
+  await ta.goto(tierUrl('beginner', '/auctions/p5'), { waitUntil: 'networkidle' });
+  await ta.waitForTimeout(900);
+  results.tierGuidedAuction = await ta.evaluate(() => ({ stages: [...document.querySelectorAll('#detailModalInner .g-stage')].map(li => li.dataset.stage), know: [...document.querySelectorAll('#detailModalInner .g-know b')].map(b => b.textContent) }));
+  await ta.goto(tierUrl('beginner', '/certificates/p4'), { waitUntil: 'networkidle' });
+  await ta.waitForTimeout(900);
+  results.tierGuidedCertificate = await ta.evaluate(() => [...document.querySelectorAll('#detailModalInner .g-stage')].map(li => li.dataset.stage));
+  await ta.close();
+}
+
 
 await browser.close();
 
@@ -7497,6 +7547,8 @@ const EXPECTED = {
   countyNowBar_merged_desktop: {"visible": true, "inScope": true, "eyebrow": "Counties in this list ▾", "name": "Jump to a county", "heads": ["Bay County", "Citrus County"], "headsNoDigits": true, "noSidewaysPills": true, "stepTargets": true, "noRepeatViewCount": true, "noOverflow": true, "next": {"county": "Citrus", "headUnderBar": true, "barStuck": true}, "list": [["Bay", "1"], ["Citrus", "1"]], "picked": {"county": "Bay", "listHidden": true}},  // 2026-10-27: docked county bar / location panel
   countyNowBarOneCounty: {"hidden": true, "optionsNoCount": true},
   countyNowBarAuctionsHidden: true,
+  // Property page tiers (2026-10-27).
+  tierDefault: null, tierGuided: null, tierGuidedTick: null, tierGuidedUntick: null, tierFree: null, tierSwitchToFull: null, tierGuidedAuction: null, tierGuidedCertificate: null,
   miEmptyOneReason: {"reasons": 1, "label": "Source restricted or pending review.", "noCurrentCountZero": true, "titleCount": "0"},
   cardOutlineLazy: {"below": true, "before": 0, "after": 1},
   mergedLookPerLedger: {"lands": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}, "auctions": {"look": "merged", "drawn": "tactile", "stage": "tactile", "button": "Merged", "mainHidden": true}, "certificates": {"look": "merged", "drawn": "merged", "stage": "merged", "button": "Merged", "mainHidden": true}, "landsAgain": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}},
@@ -7655,7 +7707,7 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v148"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v149"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
