@@ -81,11 +81,22 @@ CO_OIT_PARCELS = register(ParcelSourceConfig(
     landing_url="https://gis.colorado.gov/public/rest/services/Address_and_Parcel/Colorado_Public_Parcels/FeatureServer",
     layer_url="https://gis.colorado.gov/public/rest/services/Address_and_Parcel/Colorado_Public_Parcels/FeatureServer/0",
     id_field="account", id_rule="alnum",
+    # Thin-fields sprint (2026-10-27): Saguache's 2026 Tax Sale list keeps the
+    # assessor ACCOUNT in case_no and the 12-digit PARCEL number in parcel (the
+    # column this layer is matched on), so the account-only match found none of
+    # its 900 rows - the "64 of 994" the 2026-10-27 run reported were Morgan and
+    # Douglas only. The layer publishes that parcel number as `parcel_id`
+    # (Saguache, read live: 200 of 200 sampled list parcels equal exactly one
+    # parcel_id, 0 ambiguous). An account (a letter + digits) and a parcel_id
+    # (12 digits) can never normalize to the same key, and a key reaching two
+    # different features is AMBIGUOUS (nothing written).
+    alt_id_fields=("parcel_id",),
     field_map={"owner_name": "owner", "address": "situsAdd", "legal_desc": "legalDesc", "acreage": "landAcres",
                "land_use": "landUseDsc", "market": "apprValTot", "taxable_value": "asedValTot"},
     licence="State of Colorado (OIT GIS): data modified from its original source; no warranty; resale of the data "
             "is forbidden by the source. Displayed per the owner's publication decision of 2026-09-30.",
-    publication_status="APPROVED", county_field="countyName", centroid=True, columns_verified=True, batch_size=50,
+    publication_status="APPROVED", county_field="countyName", centroid=True, columns_verified=True,
+    batch_size=25,   # 2026-10-27: two identifier attributes double the where clause; a GET past ~2 KB answers 404
     notes="evidence pass 4 (2026-09-30): layer 0 fields and count read live; apprValTot alias 'Parcel Total Value', "
           "asedValTot alias 'Taxable Value'.",
 ))
@@ -180,6 +191,13 @@ LA_EBR_TAX_PARCELS = register(ParcelSourceConfig(
                # sum of the tax parcel".
                "address": "physical_address", "improvement_value": "sum_improvement_value"},
     no_value_patterns={"address": (r"[^0-9]*$",)},
+    # 2026-10-27: no EBR dataset publishes a parcel area (the Lot / Lot Profile
+    # / Property Information datasets' area_meas_acres is keyed on a planning
+    # lot_id, never the assessment number; the roll's `units` counts
+    # structures). This dataset's the_geom is "Shape geometry of the tax
+    # parcel" (column definition, read live): the lot size is that polygon's
+    # own area, labelled as derived (parcels.DERIVED_AREA_NOTE).
+    derived_lot_area=True, geometry_field="the_geom",
     licence="Public Domain (Open Data BR dataset metadata, licenseId PUBLIC_DOMAIN); attribution: EBR Parish Assessor.",
     publication_status="APPROVED", county_field=None, centroid=False, columns_verified=True, batch_size=100,
     notes="enrichment sprint evidence (2026-10-01): licence run 36832227666; field names and assessment_num shape run 36835470121. "
@@ -297,6 +315,12 @@ MO_STL_PARCELS = register(ParcelSourceConfig(
     field_map={"assessed": "AsdTotal", "land_value": "AprLand", "year_built": "FirstYearBuilt"},
     licence="No licence or terms published on the layer (copyright and description blank). " + OWNER_2026_10_25,
     publication_status="APPROVED", centroid=True, columns_verified=True, batch_size=100,
+    # 2026-10-27: LandArea / SQFT carry no published definition (layer
+    # description blank; the Parcels.shp.xml metadata of the city's own
+    # PARCELS.zip has empty attribute definitions for both - read live), so no
+    # area attribute is mapped. The lot size is the matched parcel polygon's own
+    # area, labelled as derived (parcels.DERIVED_AREA_NOTE).
+    derived_lot_area=True,
     counties=("St. Louis City",),
     notes="Fields read live 2026-10-25 (maxRecordCount 2,000). Sample of 20 LRA parcels: 20 matched exactly on ParcelId; "
           "AsdTotal / AprLand filled on 16, FirstYearBuilt on 6. Coordinates are the area-weighted centroid of the matched "
@@ -484,6 +508,73 @@ CO_DOUGLAS_IMPROVEMENTS = register(ParcelSourceConfig(
     counties=("Douglas",),
     notes="Fields read live 2026-10-27; sample of 300: BUILT_YEAR 300 (9999). The square-footage columns (IMPROVEMENT_SF, "
           "BUILT_AS_SF) carry no published definition and are not mapped.",
+))
+
+
+# ---------------------------------------------------------------------------
+# Thin-fields sprint (2026-10-27; docs/enrich-thin-fields-2026-10-27.md).
+# Same footing as the thin-states layers above: the county's / city's own
+# publication, matched on the row's own identifier only, interim
+# INTERNAL_RISK_ACCEPTANCE permission records (never permission).
+# ---------------------------------------------------------------------------
+OWNER_2026_10_27_FIELDS = ("Owner's direction 2026-10-27 ('fill the measured gaps') under the standing decisions of "
+                           "2026-10-25 / 2026-10-26: a public-record layer collected to fill gaps on records the product "
+                           "already holds; legal review to follow; nothing sold until then.")
+
+# Oklahoma - City of Oklahoma City "Oklahoma Government Owned Properties"
+# (City of OKC GIS on ArcGIS Online, item 45bc4f81e0de464e99ed1ab41a7b0467,
+# "Parcels in the Tri-County area owned by the city, the county, and the
+# state", 6,100 parcels, data last edited 2023-12-01). `Pin` is the county
+# assessor's 13-digit PIN written without its dashes - the county-owned list's
+# parcel (dddd-dd-ddd-dddd) under the 'digits' rule: 155 of 195 list parcels
+# matched exactly one feature, 3 AMBIGUOUS (read live 2026-10-27). CLUCat is
+# the city's land-use category for the parcel ('Undeveloped' on 163 of the 164
+# matched features, 'Unspecified' on 1 - never stored). The city's address is
+# the county's "0 UNKNOWN ..." situs on all but one matched parcel and is not
+# mapped (the county layer already maps the situs); Gross_SqFt reads the
+# placeholder 1000 on 74 of 164 vacant parcels and is not mapped; values are
+# 0 (exempt). A 2023 snapshot: fill-blank only, the category dated by the
+# layer's own edit date in `notes`.
+OK_OKC_GOV_OWNED = register(ParcelSourceConfig(
+    source_id="ok_okc_government_owned_parcels", state="OK",
+    agency="City of Oklahoma City (GIS)",
+    dataset="Oklahoma Government Owned Properties (Government_Owned_Properties FeatureServer layer 0)",
+    landing_url="https://www.arcgis.com/home/item.html?id=45bc4f81e0de464e99ed1ab41a7b0467",
+    layer_url="https://services5.arcgis.com/2mOVdIcRtNH2JsSF/arcgis/rest/services/Government_Owned_Properties/FeatureServer/0",
+    id_field="Pin", id_rule="digits", id_query="normalized",
+    field_map={"land_use": "CLUCat"},
+    no_value={"land_use": ("Unspecified",)},
+    provenance_attrs=("CLUCat", "Account_Type"),
+    licence="Item licenseInfo and accessInformation blank; no terms found. " + OWNER_2026_10_27_FIELDS,
+    publication_status="APPROVED", centroid=False, columns_verified=True, fill_blank_only=True, batch_size=50,
+    counties=("Oklahoma",),
+    notes="Fields read live 2026-10-27 (maxRecordCount 2,000; editingInfo dataLastEditDate 2023-12-01). Match of the 195 "
+          "county-owned list parcels: 155 exactly one feature, 3 ambiguous, 37 absent.",
+))
+
+# South Carolina - Oconee County GIS "OconeeCounty_Parcel_Jan2026" (the
+# county's parcel layer on ArcGIS Online, owner OCSCGIS, data edited
+# 2026-01-14, maxRecordCount 2,000). TMS_NUMBER is written 999-99-99-999(9),
+# exactly as the county's delinquent tax sale list publishes the parcel: all
+# 560 list parcels matched one feature each (read live 2026-10-27).
+# TMS_ACRES (the tax map's acreage; filled on 272 of the 560) -> acreage.
+# GIS_ACRES (a GIS computation) and the text TMS_ACREAG are not mapped;
+# PROP_CLASS reads 0 on every sampled feature and is not mapped. No address,
+# owner or value attributes are published on the layer. Coordinates: the
+# matched parcel polygon's own centroid.
+SC_OCONEE_PARCELS = register(ParcelSourceConfig(
+    source_id="sc_oconee_county_parcels", state="SC",
+    agency="Oconee County, SC (GIS)",
+    dataset="OconeeCounty_Parcel_Jan2026 FeatureServer layer 0",
+    landing_url="https://services1.arcgis.com/UOvRn2Rvzysthh3i/arcgis/rest/services/OconeeCounty_Parcel_Jan2026/FeatureServer",
+    layer_url="https://services1.arcgis.com/UOvRn2Rvzysthh3i/arcgis/rest/services/OconeeCounty_Parcel_Jan2026/FeatureServer/0",
+    id_field="TMS_NUMBER", id_rule="exact",
+    field_map={"acreage": "TMS_ACRES"},
+    licence="Layer copyright and description blank; no licence or terms found. " + OWNER_2026_10_27_FIELDS,
+    publication_status="APPROVED", centroid=True, columns_verified=True, batch_size=50,   # 100 ids: a ~2.4 KB GET answers 404
+    counties=("Oconee",),
+    notes="Fields read live 2026-10-27 (data edited 2026-01-14). All 560 Oconee tax sale parcels matched exactly one "
+          "feature; TMS_ACRES filled on 272.",
 ))
 
 

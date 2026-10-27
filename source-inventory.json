@@ -7545,6 +7545,28 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "columns verified live; Fields read live 2026-10-27 (maxRecordCount 2,000; editingInfo dataLastEditDate 2023-12-01). Match of the 195 county-owned list parcels: 155 exactly one feature, 3 ambiguous, 37 absent.",
+   "county": "Oklahoma",
+   "evidence": "Fields read live 2026-10-27 (maxRecordCount 2,000; editingInfo dataLastEditDate 2023-12-01). Match of the 195 county-owned list parcels: 155 exactly one feature, 3 ambiguous, 37 absent.",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "APPROVED",
+   "name": "Oklahoma Government Owned Properties (Government_Owned_Properties FeatureServer layer 0)",
+   "next_action": "",
+   "origin": "parcel_config",
+   "publisher": "City of Oklahoma City (GIS)",
+   "roles": [
+    "identity",
+    "land_use"
+   ],
+   "source_id": "ok_okc_government_owned_parcels",
+   "source_type": "GIS",
+   "state": "OK",
+   "url": "https://www.arcgis.com/home/item.html?id=45bc4f81e0de464e99ed1ab41a7b0467"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "columns verified live; Fields read live 2026-10-25. Sample of 20 county-owned parcels: 20 matched on pin (21 features: one pin twice); acres filled on 20, legal on 21; market / assessed / taxable are 0 on county-owned parcels and are not mapped.",
    "county": "Oklahoma",
    "evidence": "Fields read live 2026-10-25. Sample of 20 county-owned parcels: 20 matched on pin (21 features: one pin twice); acres filled on 20, legal on 21; market / assessed / taxable are 0 on county-owned parcels and are not mapped.",
@@ -7976,6 +7998,29 @@
    "source_type": "GOVERNMENT",
    "state": "SC",
    "url": "https://www.lex-co.sc.gov/departments/treasurer/forfeited-land-commission"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "columns verified live; Fields read live 2026-10-27 (data edited 2026-01-14). All 560 Oconee tax sale parcels matched exactly one feature; TMS_ACRES filled on 272.",
+   "county": "Oconee",
+   "evidence": "Fields read live 2026-10-27 (data edited 2026-01-14). All 560 Oconee tax sale parcels matched exactly one feature; TMS_ACRES filled on 272.",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "APPROVED",
+   "name": "OconeeCounty_Parcel_Jan2026 FeatureServer layer 0",
+   "next_action": "",
+   "origin": "parcel_config",
+   "publisher": "Oconee County, SC (GIS)",
+   "roles": [
+    "acreage",
+    "coordinates",
+    "identity"
+   ],
+   "source_id": "sc_oconee_county_parcels",
+   "source_type": "GIS",
+   "state": "SC",
+   "url": "https://services1.arcgis.com/UOvRn2Rvzysthh3i/arcgis/rest/services/OconeeCounty_Parcel_Jan2026/FeatureServer"
   },
   {
    "access": "ACCESSIBLE",
@@ -12468,14 +12513,14 @@
    "sources": 4
   },
   "OK": {
-   "APPROVED": 2,
+   "APPROVED": 3,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 0,
    "by_type": {
-    "GIS": 1,
+    "GIS": 2,
     "GOVERNMENT": 1
    },
-   "sources": 2
+   "sources": 3
   },
   "PA": {
    "APPROVED": 7,
@@ -12489,15 +12534,15 @@
    "sources": 7
   },
   "SC": {
-   "APPROVED": 9,
+   "APPROVED": 10,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 8,
    "by_type": {
     "DOCUMENT": 4,
-    "GIS": 3,
+    "GIS": 4,
     "GOVERNMENT": 10
    },
-   "sources": 17
+   "sources": 18
   },
   "TN": {
    "APPROVED": 2,

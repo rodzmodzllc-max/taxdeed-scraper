@@ -199,7 +199,9 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
                 # A SODA resource answers with a list of records (or an error object).
                 ok_ = isinstance(data, list)
                 if ok_:
-                    features += [{"attributes": rec} for rec in data if isinstance(rec, dict)]
+                    gf = cfg.geometry_field
+                    features += [{"attributes": {k: v for k, v in rec.items() if k != gf}, **({"geometry": rec.get(gf)} if gf else {})}
+                                 for rec in data if isinstance(rec, dict)]
             elif ok_:
                 ok_ = isinstance(data, dict) and "error" not in data
                 if ok_:

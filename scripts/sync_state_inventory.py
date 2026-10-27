@@ -66,7 +66,9 @@ def _read_headers(key: str) -> dict:
 # overwrites them and a reader can tell list values from enriched ones.
 LIST_FIELDS = ("parcel", "owner_name", "address", "legal_desc", "assessed", "market", "taxable_value", "land_value",
                "improvement_value", "acreage", "land_use", "tax_year", "latitude", "longitude", "certificate_no",
-               "min_bid", "purchase_amount", "sale_date", "result_amount", "result_date")
+               "min_bid", "purchase_amount", "sale_date", "result_amount", "result_date",
+               # 2026-10-27: published lot / building facts (ePropertyPlus tenants)
+               "lot_sqft", "year_built", "living_area")
 PLACEHOLDER_PREFIXES = ("Parcel ", "Case ")
 
 

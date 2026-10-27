@@ -9,8 +9,8 @@ current practice continue until `expires_on`, and `permissions.authorize()` deni
 after (`EXPIRED`), with no fallback to a broader record. A window longer than
 210 days is a configuration error that denies every request.
 
-- Records: 359 across 92 sources
-- By expiry: 2027-04-12 (359)
+- Records: 363 across 94 sources
+- By expiry: 2027-04-12 (363)
 - Findings: REVIEWER_IS_NOT_A_DECISION (77)
 - Configuration: valid
 
@@ -219,6 +219,8 @@ found in the code for that source.
 | mo_stl_lra_inventory | MO | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display)<br>harvesters/governance/discovery_guard.py (discover, by URL) | - |
 | mo_stl_parcels_coordinates | MO | * | enrich | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
 | mo_stl_parcels_coordinates | MO | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-25 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
+| ok_okc_government_owned_parcels | OK | * | enrich | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-27 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
+| ok_okc_government_owned_parcels | OK | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-27 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
 | ok_oklahoma_county_owned | OK | * | display | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | ok_oklahoma_county_owned | OK | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-02 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | ok_oklahoma_county_owned | OK | * | link | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
@@ -261,6 +263,8 @@ found in the code for that source.
 | sc_horry_tax_sale | SC | * | link | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | sc_horry_tax_sale | SC | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | sc_horry_tax_sale | SC | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| sc_oconee_county_parcels | SC | * | enrich | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-27 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
+| sc_oconee_county_parcels | SC | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-27 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
 | sc_oconee_tax_sale_list | SC | * | display | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | sc_oconee_tax_sale_list | SC | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | sc_oconee_tax_sale_list | SC | * | link | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
