@@ -72,6 +72,7 @@ NEW_SOURCE_HOSTS = {   # new-sources sprint 2026-10-26 (owner decision; docs/new
     "co_saguache_tax_sale": "https://services1.arcgis.com/zH7gQ37AKcpvTX6d/",
     "mn_hubbard_tfl_otc": "https://services.arcgis.com/auNjCUvKlkSqV04X/",
     "mn_stpaul_hra_properties": "https://services1.arcgis.com/9meaaHE3uiba0zr8/",
+    "mn_wright_tax_forfeit": "https://services2.arcgis.com/CiQCvRGImIxsaFnM/",
     "mi_tax_sale_info_auction": "https://www.tax-sale.info/",
     "mi_tax_sale_info_surplus": "https://www.tax-sale.info/",
 }

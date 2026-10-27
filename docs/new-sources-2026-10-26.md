@@ -52,11 +52,10 @@ COMPLETE, the rest EMPTY `no_catalog_listed`; surplus: 7 COMPLETE, Presque Isle 
   Runner run 40387071809 also FAILED it (HTTPError). Next: split the Flint quadrants further (FindPropclass within
   FindTWP), then schedule it.
 
-- **Wright County MN tax-forfeited parcels** (38 'Open', auction starting price) - configured as
-  `expansion.MN_WRIGHT_TAX_FORFEIT` but **held**: the Minnesota page's customer copy in `app.js`
-  (`EXPANSION_LEDGER_COPY`, "No Minnesota auction source is tracked.") is owned by the front-end session, and the
-  state-rules engine fails a tracked ledger whose copy denies it. Front-end follow-up: change that string, then add the
-  config to `SOURCES["MN"]`, ledgers and permissions.
+- **Wright County MN tax-forfeited parcels** (38 'Open', auction starting price) - `expansion.MN_WRIGHT_TAX_FORFEIT`,
+  held until 2026-10-27 because the Minnesota page's customer copy said no auction source was tracked. That copy now
+  names Wright County (owner approval 2026-10-27); the config is in `SOURCES["MN"]` / `NEW_TABLE_SOURCES`, the ledger
+  map, `data/state_ledgers.csv` (MN AUCTIONS TRACKED) and the INTERIM permission records, and runs in the MN expansion leg.
 - **CivicSource (Louisiana adjudicated / tax sales: Orleans, Jefferson and other parishes)** - the site's TLS chain
   fails verification from the sandbox; not probed from a runner yet.
 - **South Carolina county tax sale lists** (Greenville, Charleston, Richland, Lexington, Berkeley, Spartanburg ...):

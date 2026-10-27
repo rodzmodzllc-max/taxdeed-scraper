@@ -8,9 +8,9 @@ Built by `scripts/build_state_coverage.py` from the registry, the rules, the led
 | OFFERED_SOURCE_NOT_IMPLEMENTED | 1 |
 | OFFERED_VERIFIED_EMPTY | 1 |
 | RECORDS_WITHHELD_NO_PATH | 1 |
-| RULES_NOT_VERIFIED | 19 |
+| RULES_NOT_VERIFIED | 18 |
 | SOURCE_FAILED_OR_STALE | 4 |
-| SOURCE_IMPLEMENTED_NEVER_READ | 1 |
+| SOURCE_IMPLEMENTED_NEVER_READ | 2 |
 
 ## CO
 
@@ -74,10 +74,10 @@ MI - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
-| AUCTIONS | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
+| AUCTIONS | COUNTY_DEPENDENT | SOURCE_IMPLEMENTED_NEVER_READ | 1 / 1 / 1 | - | - | - | 0 of 0 | Dispatch the source's job once (owner decision) and read its status file; a failure is a source problem, not an empty list. |
 | AVAILABLE | COUNTY_DEPENDENT | CURRENT | 3 / 3 / 3 | 2 | 0 | 0 | 1 of 3 | Keep reading; raise field population where a verified official layer exists (see fields). |
 | LIENS_CERTIFICATES | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
-MN - AUCTIONS: eligibility NOT_VERIFIED; no production source
+MN - AUCTIONS: no row and no read recorded in the snapshot
 
 MN - AVAILABLE field population (active rows, snapshot): amount 2/2; bid_amount_mismatch 0/2; coords 2/2; dup_parcel 0/2; flood_checked 2/2; laft_bid_without_amount 0/2; link_not_https 0/2; list_as_of 0/2; list_as_of_future 0/2; never_seen 0/2; parcel 2/2; parcel_no_digit 0/2; past_sale 0/2; path_typed 0/2; provenance 2/2; seen_gt36h 0/2; seen_order_bad 0/2; source_link 2/2
 MN - AVAILABLE: 2 active rows; 0 never stamped, 0 older than 36 h at the snapshot

@@ -3952,6 +3952,120 @@
    "dataset": "*",
    "effective_on": "2026-10-26",
    "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mn_wright_tax_forfeit; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "discover",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mn_wright_tax_forfeit",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mn_wright_tax_forfeit restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "display",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mn_wright_tax_forfeit",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mn_wright_tax_forfeit; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "fetch",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mn_wright_tax_forfeit",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "docs/new-sources-2026-10-26.md (owner decision 2026-10-26, quoted); data/county_source_registry.csv mn_wright_tax_forfeit restrictions",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "link",
+   "reviewer": "product owner (customer-publication decision 2026-10-26, docs/new-sources-2026-10-26.md)",
+   "source_id": "mn_wright_tax_forfeit",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mn_wright_tax_forfeit; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "parse",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mn_wright_tax_forfeit",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
+   "evidence_ref": "data/county_source_registry.csv mn_wright_tax_forfeit; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "store",
+   "reviewer": "product owner (decision 2026-10-26: collect every property from every source; legal review to follow)",
+   "source_id": "mn_wright_tax_forfeit",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-26",
+   "evidence_date": "2026-10-26",
    "evidence_ref": "data/county_source_registry.csv mo_kc_landbank; docs/new-sources-2026-10-26.md (owner decision 2026-10-26)",
    "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
    "expires_on": "2027-04-12",
@@ -7288,12 +7402,12 @@
  "interim_max_days": 210,
  "summary": {
   "by_expiry": {
-   "2027-04-12": 359
+   "2027-04-12": 365
   },
   "by_finding": {
    "REVIEWER_IS_NOT_A_DECISION": 77
   },
-  "records": 359,
-  "sources": 92
+  "records": 365,
+  "sources": 93
  }
 }

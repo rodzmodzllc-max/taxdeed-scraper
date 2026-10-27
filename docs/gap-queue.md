@@ -3,7 +3,7 @@
 Generated from public/acquisition-evidence.json, data/current_state/state-coverage.json, data/acquisition_candidate_pages.csv and the registry. Counts only.
 
 - Acquisition-path units: 157 total, 128 unresolved (NEEDS_REVIEW 9, NOT_FOUND 113, UNAVAILABLE 6, VERIFIED 29).
-- State x ledger units: 39 total (CURRENT 12, OFFERED_SOURCE_NOT_IMPLEMENTED 1, OFFERED_VERIFIED_EMPTY 1, RECORDS_WITHHELD_NO_PATH 1, RULES_NOT_VERIFIED 19, SOURCE_FAILED_OR_STALE 4, SOURCE_IMPLEMENTED_NEVER_READ 1).
+- State x ledger units: 39 total (CURRENT 12, OFFERED_SOURCE_NOT_IMPLEMENTED 1, OFFERED_VERIFIED_EMPTY 1, RECORDS_WITHHELD_NO_PATH 1, RULES_NOT_VERIFIED 18, SOURCE_FAILED_OR_STALE 4, SOURCE_IMPLEMENTED_NEVER_READ 2).
 - Queue: 155 entries - by category A 2, B 4, C 31, D 7, E 2, F 109; completable now from the repository: 2.
 
 ## A. implementable now from repository data or an accessible official source (2)
@@ -41,7 +41,7 @@ Generated from public/acquisition-evidence.json, data/current_state/state-covera
 | LA * | AUCTIONS | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |
 | LA * | LIENS_CERTIFICATES | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |
 | MI * | LIENS_CERTIFICATES | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |
-| MN * | AUCTIONS | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |
+| MN * | AUCTIONS | SOURCE_IMPLEMENTED_NEVER_READ | yes | yes | no | no | The next scheduled read (or job=evidence) records the first read; nothing to change until it runs |
 | MN * | LIENS_CERTIFICATES | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |
 | MO * | AUCTIONS | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |
 | MO * | LIENS_CERTIFICATES | RULES_NOT_VERIFIED | not from the sandbox (statute hosts are DNS-blocked); unverified from the GitHub runner | no | no | no | Read the state's enabling statute / sale-authority page through the approved capture job, record a VERIFIED LAW rule and the ledger's eligibility |

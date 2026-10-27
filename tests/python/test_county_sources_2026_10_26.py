@@ -466,3 +466,31 @@ def test_county_auction_rows_get_a_feed_status_and_available_rows_a_presence_sta
     bex, _ = T.parse_bexar_text(BEXAR_TEXT, T.BEXAR_URL)
     p = T.to_properties_row(bex[0], RETRIEVED)
     assert IS.status_for_row(dict(p, harvester_source="tx_bexar_resale"), today=today).status == "active"
+
+
+# Owner decision 2026-10-27: when a Texas vendor listing (LGBS, PBFCM, MVBA,
+# GovEase) and the county's own list carry the same property, the VENDOR row
+# wins - the county-list sync (--keep-other-sources) never takes it over, and
+# the vendor sync runs first in the texas job.
+@pytest.mark.parametrize("vendor", sorted(LR.CAUSE_IN_PARCEL_SOURCES - {"tx_realauction"}))
+def test_vendor_row_wins_over_the_county_list_row(tmp_path, vendor):
+    reg = SI.registry_rows("TX")
+    rows = [T.to_properties_row(r, RETRIEVED) for r in _harris_rows()]
+    units = SI.units_for(_status(tmp_path, [{"source_id": "tx_hctax", "county": "Harris", "status": "COMPLETE", "row_count": 2,
+                                              "transport_ok": True, "parse_ok": True}]))
+    stored = {("auction", "Harris", "0000000000001"): {"harvester_source": vendor, "otc_provenance": {}}}
+    out, counts = SI.plan("TX", rows, reg, units, stored_rows=stored, keep_other_sources=True)
+    assert counts["skipped_row_of_other_source"] == 1
+    assert "0000000000001" not in [r["case_no"] for r in out]
+
+
+def test_vendor_sync_runs_before_the_county_list_sync_with_keep_other_sources():
+    wf = (REPO / ".github" / "workflows" / "harvest-and-sync.yml").read_text(encoding="utf-8")
+    vendor = wf.index("python3 scripts/sync-texas-to-supabase.py")
+    marker = "python3 scripts/sync_state_inventory.py --state TX"
+    county, i = [], wf.find(marker)
+    while i >= 0:
+        county.append(i)
+        i = wf.find(marker, i + 1)
+    assert county and all(vendor < i for i in county)
+    assert all("--keep-other-sources" in wf[i:wf.index("\n", i)] for i in county)
