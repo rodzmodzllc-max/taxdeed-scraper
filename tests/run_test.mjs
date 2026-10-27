@@ -7124,8 +7124,11 @@ await big.press('#globalSearchInput', 'Enter');
   await r.pg.close();
   // Only the listed property's card asks, and its card draws the outline with
   // the short credit on the picture and the full credit in the photo bubble.
-  const cardOutlineState = pg => pg.evaluate(() => {
+  // Outlines load lazily (2026-10-26): a card asks only once it nears the
+  // screen, so the reader scrolls each outlined card into view first.
+  const cardOutlineState = pg => pg.evaluate(async () => {
     document.querySelectorAll('details').forEach(d => { d.open = true; });
+    for (const h of document.querySelectorAll('.prop-card [data-boundary-pid]')) { h.scrollIntoView({ block: 'center' }); await new Promise(r => setTimeout(r, 150)); }
     return new Promise(res => setTimeout(() => {
       const cards = [...document.querySelectorAll('.prop-card')];
       const withOutline = cards.filter(c => c.querySelector('.prop-card-photo .parcel-boundary .pb-line'));
@@ -7143,6 +7146,18 @@ await big.press('#globalSearchInput', 'Enter');
   });
   r = await boundaryPage('boundary=ok&boundaryids=p5', '#/auctions');
   results.cardOutlineOnlyListed = await cardOutlineState(r.pg);
+  await r.pg.close();
+  // Lazy: on a phone the outlined card starts below the screen, so the list
+  // asks for nothing until the reader scrolls to it.
+  r = await boundaryPage('boundary=ok&boundaryids=p5', '#/auctions', { width: 390, height: 844 });
+  results.cardOutlineLazy = await r.pg.evaluate(async () => {
+    const host = document.querySelector('.prop-card [data-boundary-pid="p5"]');
+    const below = !!host && host.getBoundingClientRect().top > window.innerHeight + 300;
+    const before = (window.__stubBoundaryCalls || []).length;
+    if (host) host.scrollIntoView({ block: 'center' });
+    await new Promise(r => setTimeout(r, 1200));
+    return { below, before, after: (window.__stubBoundaryCalls || []).length };
+  });
   await r.pg.close();
   // Phone: the photo bubble opens upward, unclipped, and carries the full credit.
   r = await boundaryPage('boundary=ok&boundaryids=p5', '#/auctions', { width: 390, height: 844 });
@@ -7278,6 +7293,28 @@ await big.press('#globalSearchInput', 'Enter');
   }
 }
 
+// Merged look (owner's request 2026-10-27): Available draws with Terrain,
+// Auctions with Tactile, Liens & Certificates with Merged's own slips; the
+// Look button keeps saying Merged, and only one module's stage shows.
+{
+  const pg = await newPage({ viewport: { width: 390, height: 844 } });
+  pg.on('pageerror', e => errors.push('merged look pageerror: ' + e.message));
+  await pg.goto(BASE_URL + '?look=merged#/lands', { waitUntil: 'networkidle' });
+  await pg.waitForTimeout(2500);
+  const snap = () => pg.evaluate(() => { const r = document.documentElement.dataset;
+    return { look: r.look, drawn: r.experienceReady, stage: document.getElementById('xpStage').dataset.xp || null,
+      button: document.querySelector('#lookBtn .look-name').textContent, mainHidden: getComputedStyle(document.getElementById('main')).display === 'none' }; });
+  const out = {};
+  for (const [k, hash] of [['lands', '#/lands'], ['auctions', '#/auctions'], ['certificates', '#/certificates'], ['landsAgain', '#/lands']]) {
+    await pg.evaluate(h => { location.hash = h; }, hash);
+    await pg.waitForTimeout(1200);
+    out[k] = await snap();
+  }
+  await pg.evaluate(() => localStorage.removeItem('tdw_experience_v1'));
+  results.mergedLookPerLedger = out;
+  await pg.close();
+}
+
 
 await browser.close();
 
@@ -7290,6 +7327,8 @@ await browser.close();
 
 
 const EXPECTED = {
+  cardOutlineLazy: {"below": true, "before": 0, "after": 1},
+  mergedLookPerLedger: {"lands": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}, "auctions": {"look": "merged", "drawn": "tactile", "stage": "tactile", "button": "Merged", "mainHidden": true}, "certificates": {"look": "merged", "drawn": "merged", "stage": "merged", "button": "Merged", "mainHidden": true}, "landsAgain": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}},
   saleStrip_phone: {"head": {"strip": true, "first": true, "inFold": false, "calendarFold": false, "days": 9, "chips": 9, "selected": 1, "scrolls": "auto"}, "pickedSecond": true, "jumped": true, "question": true, "look": true, "price": {"insideCard": true, "insideScreen": true, "inFlow": true}, "noOverflow": true},
   saleStrip_desktop: {"head": {"strip": true, "first": true, "inFold": false, "calendarFold": false, "days": 9, "chips": 9, "selected": 1, "scrolls": "auto"}, "pickedSecond": true, "jumped": true, "question": true, "look": true, "price": {"insideCard": true, "insideScreen": true, "inFlow": true}, "noOverflow": true},
   researchGroup_phone: { closed: true, title: "Research", acquireOutside: true, moneyOutside: true, holds: true },
@@ -7334,12 +7373,15 @@ const EXPECTED = {
   zeroOfferedNoInventory: { eligibility: 'OFFERED', zeroCase: 'NO_CURRENT_INVENTORY', tracked: '1', count: '0 instruments', whyLabel: 'No current inventory.', read: 'Last complete read N ago · 1 source read', saysExists: true, links: ['State rules and sources →', 'Official reference →'] },
   zeroNoneWhenRows: { zeroCase: '', eligibility: 'OFFERED', whyLabel: null, countEndsWith: 'instrument' },
   zeroLoadFailure: { zeroCase: 'SOURCE_FAILURE', eligibility: 'OFFERED', count: 'Count unavailable - load failed', whyLabel: 'Source read failed or incomplete.', lastKnown: true, bareZero: false },
-  zeroPartialRead: { zeroCase: 'SOURCE_FAILURE', eligibility: 'NOT_VERIFIED', health: 'DEGRADED', lastKnown: true, count: '0 properties' },
-  zeroNotVerified: { zeroCase: 'NOT_VERIFIED', eligibility: 'NOT_VERIFIED', health: 'MANUAL', whyLabel: 'Not verified.', notAuthoritative: true, read: 'Last complete read N ago · 1 source read' },
+  zeroPartialRead: {"zeroCase": "SOURCE_FAILURE", "eligibility": "COUNTY_DEPENDENT", "health": "DEGRADED", "lastKnown": true, "count": "0 properties"},
+  // 2026-10-27: #213 made Texas Available COUNTY_DEPENDENT, and no tracked ledger
+  // in data/state_ledgers.csv is NOT_VERIFIED any more, so this case now reads
+  // the county-dependent zero (the NOT_VERIFIED copy stays pinned in Python).
+  zeroNotVerified: {"zeroCase": "COUNTY_DEPENDENT", "eligibility": "COUNTY_DEPENDENT", "health": "MANUAL", "whyLabel": "County by county.", "notAuthoritative": false, "read": "Last complete read N ago · 1 source read"},
   zeroNotImplemented: { zeroCase: 'NOT_IMPLEMENTED', eligibility: 'NOT_VERIFIED', tracked: '0', whyLabel: 'No source implemented.', notProof: true },
   zeroEligibleButUntracked: { zeroCase: 'NOT_IMPLEMENTED', eligibility: 'COUNTY_DEPENDENT', tracked: '0', coverage: true },
   zeroPendingReview: { customer: { zeroCase: 'SOURCE_RESTRICTED', eligibility: 'COUNTY_DEPENDENT', count: '0 properties', whyLabel: 'Source restricted or pending review.' }, admin: { zeroCase: '', count: '1 property' } },
-  zeroCountyDependent: { zeroCase: 'COUNTY_DEPENDENT', eligibility: 'COUNTY_DEPENDENT', whyLabel: 'County by county.', counties: 'Eaton, Lenawee' },
+  zeroCountyDependent: {"zeroCase": "COUNTY_DEPENDENT", "eligibility": "COUNTY_DEPENDENT", "whyLabel": "County by county.", "counties": "Alcona, Alger, Allegan, Alpena, Antrim, Arenac, Baraga, Barry, Bay, Benzie, Berrien, Branch, Calhoun, Cass, Charlevoix, Cheboygan, Chippewa, Clare, Clinton, Crawford, Delta, Dickinson, Eaton, Emmet, Genesee, Gladwin, Gogebic, Grand Traverse, Gratiot, Hillsdale, Houghton, Huron, Ionia, Iosco, Iron, Isabella, Jackson, Kalamazoo, Kalkaska, Kent, Keweenaw, Lake, Lapeer, Leelanau, Lenawee, Livingston, Luce, Mackinac, Manistee, Marquette, Mason, Mecosta, Menominee, Missaukee, Monroe, Montcalm, Montmorency, Muskegon, Oakland, Oceana, Ogemaw, Ontonagon, Osceola, Oscoda, Otsego, Ottawa, Presque Isle, Roscommon, Saginaw, Sanilac, Schoolcraft, Shiawassee, St"},
   zeroNotOfferedUnclaimed: { notOffered: false, offered: 'OFFERED' },
   zeroStripToRules: { hash: '#/rules', block: true, blocks: [['AUCTIONS', 'OFFERED', 'TRACKED'], ['AVAILABLE', 'OFFERED', 'TRACKED'], ['LIENS_CERTIFICATES', 'OFFERED', 'TRACKED']], strips: 3, noScores: true },
   gateCustomer: {"auction": {"cards": ["p1", "p10", "p12", "p5", "p6", "p7", "p8", "p9"], "zero": "", "count": "8 properties", "withheld": "2 records withheld pending verification (1 no verified acquisition path, 1 stale observation or sale date)", "withheldN": "2", "chips": [], "para": null}, "laft": {"cards": ["p15"], "zero": "", "count": "1 property", "withheld": "2 records withheld pending verification (1 no verified acquisition path, 1 source or rules under review)", "withheldN": "2", "chips": [], "para": null}, "certificate": {"cards": [], "zero": "WITHHELD", "count": "0 instruments", "withheld": "1 record withheld pending verification (1 stale observation or sale date)", "withheldN": "1", "chips": [], "para": null}, "searchHits": 0, "map": {"head": "Where these are 1 shown across 1 county", "pins": 1}, "tile": {"val": "1", "sub": "properties across 1 county · 2 withheld pending verification"}, "csvRows": 1},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
@@ -7349,10 +7391,8 @@ const EXPECTED = {
   gatePageCustomerPublished: { open: true, hash: '#/lands/p15', gate: 'CUSTOMER_PUBLISHED', reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: true },
   gatePageCustomerWithheldDeepLink: { open: false, hash: '#/lands', gate: null, reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: false },
   gatePageOff: { open: true, hash: '#/lands/p15', gate: '', reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: false },
-  rulesCoverage: { AUCTIONS: { cov: ['Oconee published', 'York published'], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' },
-    AVAILABLE: { cov: ['Georgetown published', 'Horry published'], here: 'Georgetown County: covered - published.', covered: '1' },
-    LIENS_CERTIFICATES: { cov: [], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' } },
-  rulesHistory: { entries: [['tax_sale_model', '1']], versions: 1, notFixedPrice: true },
+  rulesCoverage: {"AUCTIONS": {"cov": ["Horry published", "Oconee published", "York published"], "here": "Georgetown County: not covered by a tracked source or verified procedure.", "covered": "0"}, "AVAILABLE": {"cov": ["Georgetown published", "Horry published"], "here": "Georgetown County: covered - published.", "covered": "1"}, "LIENS_CERTIFICATES": {"cov": [], "here": "Georgetown County: not covered by a tracked source or verified procedure.", "covered": "0"}},
+  rulesHistory: {"entries": [["tax_sale_model", "1"], ["tax_sale_list_source", "1"]], "versions": 2, "notFixedPrice": true},
   rulesTn: { title: 'Tennessee tax-sale rules', ledgers: { AUCTIONS: 'NOT_TRACKED', AVAILABLE: 'TRACKED', LIENS_CERTIFICATES: 'NOT_TRACKED' },
     verifiedWithoutStatus: 0, unverifiedLabelled: true, noScores: true, hash: '#/rules', visible: true, hasItems: true },
   // Georgetown's own rules appear for Georgetown and never for Horry.
@@ -7450,7 +7490,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v143"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v144"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -7862,9 +7902,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 413,   // 366 - 14 blocked-vendor-only rows + 61 PBFCM / MVBA / GovEase county rows (owner decision 2026-10-26); + Sarasota Tax Collector certificates (2026-10-26); + the LRA, Ramsey and Fayette process evidence rows (2026-10-26) and the TX/LA candidates
+  adminSourcesRows: 507,   // 2026-10-27: + the #213 / #214 / #216 county sources; 366 - 14 blocked-vendor-only rows + 61 PBFCM / MVBA / GovEase county rows (owner decision 2026-10-26); + Sarasota Tax Collector certificates (2026-10-26); + the LRA, Ramsey and Fayette process evidence rows (2026-10-26) and the TX/LA candidates
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: '413 source(s): 312 approved, 100 review required, 1 hard blocked.',
+  adminSourcesStatusText: "507 source(s): 416 approved, 90 review required, 1 hard blocked.",
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,
