@@ -46,8 +46,12 @@ class FakeSupabase:
     """Records every request; GET /properties answers with `active_rows`
     filtered by the query's county=in.(...) list."""
 
-    def __init__(self, active_rows=(), stored_rows=()):
+    def __init__(self, active_rows=(), stored_rows=(), diff_rows=()):
         self.active_rows = list(active_rows)
+        # Rows the unchanged-row filter (scripts/write_diff_filter.py) reads
+        # back: its GET selects last_seen_at and filters county=in.("...").
+        self.diff_rows = list(diff_rows)
+        self.fail_diff = False
         # Rows the stored-value guard (scripts/sync_value_guard.py) reads back:
         # its GET selects field_provenance and filters county=eq.<name>.
         self.stored_rows = list(stored_rows)
@@ -84,12 +88,23 @@ class FakeSupabase:
                 self._record("GET")
                 path = unquote(self.path)
                 rows = fake.active_rows
-                if "field_provenance" in path and fake.fail_guard:
+                if FakeSupabase._is_diff_read({"method": "GET", "path": path}):
+                    if fake.fail_diff:
+                        self.send_response(400)   # not retried (rest_pages): the test stays fast
+                        self.send_header("Content-Length", "0")
+                        self.end_headers()
+                        return
+                    allowed = {c.strip('"') for c in
+                               path.split("county=in.(", 1)[1].split(")", 1)[0].replace("+", " ").split(",")}
+                    rows = [r for r in fake.diff_rows if r["county"] in allowed and "id=gt." not in path]
+                elif "field_provenance" in path and fake.fail_guard:
                     self.send_response(400)
                     self.send_header("Content-Length", "0")
                     self.end_headers()
                     return
-                if "field_provenance" in path:
+                if FakeSupabase._is_diff_read({"method": "GET", "path": path}):
+                    pass
+                elif "field_provenance" in path:
                     county = path.split("county=eq.", 1)[1].split("&", 1)[0].replace("+", " ")
                     rows = [r for r in fake.stored_rows if r["county"] == county and "id=gt." not in path]
                 elif "county=in.(" in path:
@@ -111,11 +126,19 @@ class FakeSupabase:
 
     def of(self, method):
         """Requests of `method`; the stored-value guard's reads are listed by guard_reads()."""
-        return [r for r in self.requests if r["method"] == method and not self._is_guard(r)]
+        return [r for r in self.requests
+                if r["method"] == method and not self._is_guard(r) and not self._is_diff_read(r)]
+
+    @staticmethod
+    def _is_diff_read(r):
+        return r["method"] == "GET" and "last_seen_at" in r["path"].split("&", 1)[0]
 
     @staticmethod
     def _is_guard(r):
-        return r["method"] == "GET" and "field_provenance" in r["path"]
+        return r["method"] == "GET" and "field_provenance" in r["path"] and not FakeSupabase._is_diff_read(r)
+
+    def diff_reads(self):
+        return [r for r in self.requests if self._is_diff_read(r)]
 
     def guard_reads(self):
         return [r for r in self.requests if self._is_guard(r)]

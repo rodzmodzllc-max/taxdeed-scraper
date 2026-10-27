@@ -433,7 +433,7 @@ def test_x01_workflow_steps_are_non_blocking_and_after_the_sync():
         if fresh:
             assert fresh[0]["continue-on-error"] is True and fresh[0]["if"] == "always()" and "unit_freshness.py --status" in fresh[0]["run"]
     # Schedules untouched.
-    assert (wf.get("on") or wf.get(True))["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 22 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 17 * * *"}]
+    assert (wf.get("on") or wf.get(True))["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 4 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 3 * * *"}]
 
 
 def test_x02_docs_and_service_worker():

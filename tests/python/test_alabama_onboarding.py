@@ -144,11 +144,13 @@ def test_g01_committed_registry_has_exactly_one_alabama_candidate_that_is_not_pr
     # 2026-10-11: the production rows now name their publisher, amount kind, cadence and terminology
     # (tests/python/test_state_coverage.py); candidate rows that were never read stay blank.
     others = [r for r in ROWS if r.state in ("FL", "TX") and not (r.ledger_set and "AVAILABLE" not in r.ledger_set)]
-    assert len(others) == 109 and all(r.publishing_unit == "COUNTY" for r in others)
+    # 150 since 2026-10-26: the 14 'blocked vendor only' rows became 55 PBFCM / MVBA vendor rows (owner decision).
+    assert len(others) == 150 and all(r.publishing_unit == "COUNTY" for r in others)
     for r in others:
         filled = (r.publishing_unit_name != "", r.amount_kind != "", r.update_frequency != "", r.source_terminology != "")
         assert all(filled) if r.is_production else not any(filled), (r.state, r.county, r.source_id)
-    assert len(csr.expected_harvest_units(ROWS, "FL")) == 52 and len(csr.expected_harvest_units(ROWS, "TX")) == 8 and csr.production_rows(ROWS, "AL") == []
+    # TX AVAILABLE units: LGBS 8 + PBFCM 45 + MVBA 10 + 6 county lists since the owner's decisions of 2026-10-26.
+    assert len(csr.expected_harvest_units(ROWS, "FL")) == 56 and len(csr.expected_harvest_units(ROWS, "TX")) == 69 and csr.production_rows(ROWS, "AL") == []
     with open(csr.REGISTRY_PATH, newline="", encoding="utf-8") as fh:
         assert csv.DictReader(fh).fieldnames == csr.EXTENDED_COLUMNS
 
@@ -174,7 +176,7 @@ def test_g02_registry_validation_for_the_new_columns(monkeypatch):
 def test_g03_to_db_rows_keeps_the_live_shape_for_fl_tx_and_needs_020_for_alabama():
     fl_tx = [r for r in ROWS if r.state in ("FL", "TX")]
     live = csr.to_db_rows(fl_tx)
-    assert len(live) == len(fl_tx) == 213 and all(set(d) == set(csr.COLUMNS) for d in live)
+    assert len(live) == len(fl_tx) == 262 and all(set(d) == set(csr.COLUMNS) for d in live)  # + PBFCM / MVBA / GovEase and the county sources (2026-10-26)
     with pytest.raises(ValueError, match="migration 018"):
         csr.to_db_rows([AL_ROW])
     ext = csr.to_db_rows(ROWS, schema="020")

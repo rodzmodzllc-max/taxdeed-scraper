@@ -43,17 +43,20 @@ class HarvesterDomain:
 
 AUCTION_HARVESTER = HarvesterDomain(
     ledger=Ledger.AUCTIONS, name="AuctionHarvester",
-    harvesters=("scripts/harvest_all_counties.ps1", "scripts/harvest_okaloosa_bid4assets.ps1", "harvesters/texas_harvester.py"),
-    status_files=("harvest_all_status.json", "harvest_texas_status.json"),
-    harvest_files=("harvest_all.json", "harvest_texas.json"),
-    sync_scripts=("scripts/sync-harvest-to-supabase.ps1", "scripts/sync-texas-to-supabase.py"),
+    harvesters=("scripts/harvest_all_counties.ps1", "scripts/harvest_okaloosa_bid4assets.ps1", "harvesters/texas_harvester.py",
+                "scripts/harvest_tx_county_sales.py"),
+    status_files=("harvest_all_status.json", "harvest_texas_status.json", "harvest_tx_county_auctions_status.json"),
+    harvest_files=("harvest_all.json", "harvest_texas.json", "harvest_tx_county_auctions.json",
+                   "tx_county_auctions_properties_rows.json"),
+    sync_scripts=("scripts/sync-harvest-to-supabase.ps1", "scripts/sync-texas-to-supabase.py", "scripts/sync_state_inventory.py"),
     lifecycle="scripts/auction_events_writer.py records every sighting as an auction event + observation; "
               "scripts/inventory_status_writer.py sets upcoming / unknown (date passed, no result) / closed; "
               "a result (sold, redeemed, withdrawn, cancelled, struck_off) only from a source-published status",
     closeout_gate="sync-harvest-to-supabase.ps1: an active FL auction row whose sale date has passed is closed only when "
-                  "harvest_all_status.json marks its county COMPLETE this run; Texas rows are never closed by absence",
+                  "harvest_all_status.json marks its county COMPLETE this run; scripts/texas_closeout.py closes a Texas row "
+                  "only after a COMPLETE / EMPTY read of its own source (vendor feeds and county lists alike)",
     history="auction_events + auction_event_observations (migration 014); inventory_status_observations (021)",
-    source_ids=("fl_realauction", "fl_bid4assets_okaloosa", "tx_realauction", "tx_lgbs"),
+    source_ids=("fl_realauction", "fl_bid4assets_okaloosa", "tx_realauction", "tx_lgbs", "tx_hctax", "tx_jefferson_sheriff_sale"),
     states=("FL", "TX"),
 )
 
@@ -62,13 +65,16 @@ AVAILABLE_HARVESTER = HarvesterDomain(
     harvesters=("scripts/harvest_laft_pdfs.py", "scripts/harvest_laft_html.py", "scripts/harvest_laft_realtdm.py",
                 "scripts/harvest_laft_pioneer.py", "scripts/harvest_laft_orange.py", "scripts/harvest_laft_stlucie.py",
                 "scripts/harvest_laft_osceola.py", "scripts/harvest_laft_hillsborough.py", "scripts/harvest_laft_leon.py",
-                "harvesters/texas_harvester.py", "scripts/harvest_alabama_state_land.py", "scripts/harvest_state_inventory.py"),
-    status_files=("harvest_laft_status.json", "harvest_alabama_status.json", "harvest_arkansas_status.json", "harvest_louisiana_status.json"),
+                "scripts/harvest_laft_portals.py", "harvesters/texas_harvester.py", "scripts/harvest_tx_county_sales.py",
+                "scripts/harvest_alabama_state_land.py", "scripts/harvest_state_inventory.py"),
+    status_files=("harvest_laft_status.json", "harvest_alabama_status.json", "harvest_arkansas_status.json", "harvest_louisiana_status.json",
+                  "harvest_tx_county_available_status.json"),
     harvest_files=("harvest_laft.json", "harvest_laft_html.json", "harvest_laft_realtdm.json", "harvest_laft_pioneer.json",
                    "harvest_laft_orange.json", "harvest_laft_stlucie.json", "harvest_laft_osceola.json",
-                   "harvest_laft_hillsborough.json", "harvest_laft_leon.json", "harvest_alabama.json", "harvest_arkansas.json",
-                   "harvest_louisiana.json"),
-    sync_scripts=("scripts/sync-laft-to-supabase.ps1", "scripts/sync-texas-to-supabase.py"),
+                   "harvest_laft_hillsborough.json", "harvest_laft_leon.json", "harvest_laft_portals.json", "harvest_alabama.json",
+                   "harvest_arkansas.json", "harvest_louisiana.json", "harvest_tx_county_available.json",
+                   "tx_county_available_properties_rows.json"),
+    sync_scripts=("scripts/sync-laft-to-supabase.ps1", "scripts/sync-texas-to-supabase.py", "scripts/sync_state_inventory.py"),
     lifecycle="scripts/laft_lifecycle.py: last_seen_at + provenance for rows a COMPLETE/INCOMPLETE county read, reactivation, "
               "gated close-out; scripts/inventory_status_writer.py sets available_otc / state_held / resale_inventory / struck_off / "
               "closed, and sold only from the list's own 'Sold To' column",
@@ -76,7 +82,9 @@ AVAILABLE_HARVESTER = HarvesterDomain(
                   "FAILED, INCOMPLETE, SOURCE_UNAVAILABLE, STALE and NOT_RUN close nothing",
     history="inventory_status_observations (021); field_provenance / otc_provenance per row",
     source_ids=("fl_laft_pdfs", "fl_laft_html", "fl_laft_pioneer", "fl_laft_realtdm", "fl_laft_orange", "fl_laft_stlucie",
-                "fl_laft_osceola", "fl_laft_hillsborough", "fl_laft_leon", "tx_lgbs", "tx_hctax",
+                "fl_laft_osceola", "fl_laft_hillsborough", "fl_laft_leon", "fl_laft_portals", "tx_lgbs",
+                "tx_bexar_resale", "tx_montgomery_tax_trust", "tx_orange_trust_property", "tx_trinity_cad_resale",
+                "tx_randall_trustee_property", "tx_hood_cad_struck_off",
                 "al_ador_state_land", "ar_cosl_post_auction", "la_ebr_adjudicated"),
     states=("FL", "TX", "AL", "AR", "LA"),
 )

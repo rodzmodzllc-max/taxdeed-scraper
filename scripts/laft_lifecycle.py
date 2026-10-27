@@ -77,6 +77,7 @@ from laft_status import (DB_AMOUNT_KINDS, CLOSEOUT_ELIGIBLE, load_status,  # noq
                          plausible_identifier, statuses_by_county)
 import laft_source_fields as SF  # noqa: E402
 import rest_pages as RP  # noqa: E402
+import write_diff as WD  # noqa: E402
 import purchase_path_engine as PE  # noqa: E402
 from harvesters.governance import states  # noqa: E402
 from harvesters.governance.county_source_registry import DB_SUPPORTED_INVENTORY_TYPES, PurchaseUrlKind  # noqa: E402
@@ -90,7 +91,7 @@ DEFAULT_REGISTRY = REPO / "data/county_source_registry.csv"
 DEFAULT_HARVEST_FILES = [REPO / "out" / n for n in (
     "harvest_laft.json", "harvest_laft_html.json", "harvest_laft_realtdm.json", "harvest_laft_pioneer.json",
     "harvest_laft_orange.json", "harvest_laft_stlucie.json", "harvest_laft_osceola.json",
-    "harvest_laft_hillsborough.json", "harvest_laft_leon.json",
+    "harvest_laft_hillsborough.json", "harvest_laft_leon.json", "harvest_laft_portals.json",
 )]
 
 USER_AGENT = "taxdeed-scraper/1.0 (+https://github.com/rodzmodzllc-max/taxdeed-scraper; GitHub Actions)"
@@ -629,6 +630,42 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str =
     return payload
 
 
+# otc_provenance keys provenance_payload() itself writes (outside the
+# purchase-path group below). A state sync that also writes otc_provenance
+# (scripts/sync_state_inventory.py - Louisiana) leaves these keys to the
+# lifecycle once the lifecycle has stamped a row (its "harvester" key is
+# there), so the two writers converge on one stable dict instead of each
+# rewriting the other's values every run (2026-10-26).
+LIFECYCLE_OTC_KEYS = ("harvester", "source_id", "retrieved_at", "list_url", "document_url", "inventory_type",
+                      "purchase_amount", "list_as_of", "source_published_at", "purchase_url", "purchase_path_mode",
+                      "status_terminology", "source_match")
+# PurchasePath.provenance()'s keys: verified acquisition evidence, which
+# moves as ONE unit (same group as sync_state_inventory.ACQUISITION_KEYS).
+PATH_PROVENANCE_KEYS = ("acquisition", "purchase_evidence_url", "purchase_evidence_type", "purchase_evidence_title",
+                        "purchase_instructions", "purchase_path_observed_on")
+# Every column provenance_payload() can write - read with the state's rows so
+# each observed row's payload is compared with what is stored.
+PAYLOAD_COLUMNS = ("last_seen_at", "list_as_of", "source_published_at", "inventory_type", "source_authority", "source_id",
+                   "list_url", "document_url", "purchase_amount", "purchase_amount_kind", "source_document_sha256",
+                   "source_etag", "source_last_modified", "otc_provenance", "purchase_url", "purchase_url_kind")
+
+
+def merge_otc(stored, payload_otc: dict) -> dict:
+    """The otc_provenance to write for an observed row: the STORED dict with
+    this read's keys laid over it (never a wholesale replacement - keys
+    another writer owns, e.g. the Louisiana adapter's column notes, are kept).
+    The verified purchase-path group moves as a unit: this read's group when
+    it resolved a path, else the stored group untouched (verified evidence is
+    never erased by a read that did not establish it). Pure."""
+    base = dict(stored) if isinstance(stored, dict) else {}
+    new = dict(payload_otc or {})
+    if any(k in new for k in PATH_PROVENANCE_KEYS):
+        for k in PATH_PROVENANCE_KEYS:
+            base.pop(k, None)
+    base.update(new)
+    return base
+
+
 def source_match_of(row: dict, *, list_url, document_url, read_at: str) -> dict | None:
     """otc_provenance.source_match: which published identifier ties the row
     to the list it was read from. None when the row carries neither a case
@@ -870,7 +907,7 @@ def fetch_state_rows(api: Api, state: str, counties: list[str], extra_columns=()
     """The state's laft rows for these counties: identity + status for the
     lifecycle plan, plus the source-field columns (and field_provenance) the
     fill-blank step needs to know what is already there."""
-    select = ["id", "county", "case_no", "status", "field_provenance", *SF.BASE_COLUMNS, *extra_columns]
+    select = list(dict.fromkeys(["id", "county", "case_no", "status", "field_provenance", *SF.BASE_COLUMNS, *extra_columns]))
     rows: list[dict] = []
     for i in range(0, len(counties), 25):
         chunk = counties[i:i + 25]
@@ -892,7 +929,8 @@ def run_source_fields(observed: dict[str, dict[str, dict]], gates: dict[str, dic
 
 def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, dict]], api: Api,
             *, state: str, have_017: bool, retrieved_at: str, registry_paths: dict | None = None,
-            registry_modes: dict | None = None, path_ctx: "PathContext | None" = None, db_rows: list[dict] | None = None) -> dict:
+            registry_modes: dict | None = None, path_ctx: "PathContext | None" = None, db_rows: list[dict] | None = None,
+            fresh_guard: bool = True) -> dict:
     counts = {"observed": len(plan.observe), "reactivated": 0, "closed": 0, "provenance_patches": 0}
     # 1. Reactivation (status column exists today).
     by_county: dict[str, list[str]] = {}
@@ -905,8 +943,42 @@ def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, di
             api.patch(f"state=eq.{state}&source=eq.{SOURCE}&county=eq.{q(county)}&case_no=in.{q(in_list(keys[i:i + BATCH]))}",
                       {"status": "active", "delisted_at": None} if have_017 else {"status": "active"})
             counts["reactivated"] += len(keys[i:i + BATCH])
-    # 2. last_seen_at + provenance (migration 017 only).
-    if have_017:
+    # 2. last_seen_at + provenance (migration 017 only). Write only what is due
+    # (2026-10-26, scripts/write_diff.py) - every PATCH bumps updated_at and
+    # leaves a dead tuple. With the stored rows in hand (main() always passes
+    # db_rows) each row is compared with what is stored (below); reactivation
+    # (1) and close-out (4) are not gated by this. Without them (a caller that
+    # passes no db_rows) the older guard applies: a row whose stored
+    # last_seen_at is newer than FRESH_HOURS is not patched (`fresh_guard`).
+    if have_017 and db_rows is not None:
+        # 2026-10-26: per row, against what is stored (scripts/write_diff.py):
+        # the payload's otc_provenance is MERGED onto the stored dict, and the
+        # row is patched only when a value changed (read-time stamps aside) or
+        # its last_seen_at is due a re-stamp. A row a state sync stamped
+        # moments ago is still written when its lifecycle provenance is new or
+        # changed (so Louisiana needs no --no-fresh-guard any more), and a
+        # second read of an unchanged list writes nothing.
+        for k in ("provenance_new", "provenance_changed", "provenance_restamp", "provenance_unchanged_skipped"):
+            counts[k] = 0
+        by_key = {(str(r.get("county")), str(r.get("case_no"))): r for r in db_rows}
+        now_dt = datetime.now(timezone.utc)
+        for county, case_no in plan.observe:
+            row = observed[county][case_no]
+            payload = provenance_payload(row, gates[county], retrieved_at, state=state, registry_paths=registry_paths,
+                                         registry_modes=registry_modes, path_ctx=path_ctx)
+            stored = by_key.get((county, case_no))
+            if stored is not None:
+                payload["otc_provenance"] = merge_otc(stored.get("otc_provenance"), payload["otc_provenance"])
+            why = WD.needs_write(payload, stored, now_dt)
+            if why is None:
+                counts["provenance_unchanged_skipped"] += 1
+                continue
+            counts[f"provenance_{why}"] += 1
+            # Scoped to this state's laft row by its identity, as before.
+            api.patch(f"state=eq.{state}&source=eq.{SOURCE}&county=eq.{q(county)}&case_no=in.{q(in_list([case_no]))}", payload)
+            counts["provenance_patches"] += 1
+    elif have_017:
+        fresh_filter = f"&or=(last_seen_at.is.null,last_seen_at.lt.{q(WD.stale_before())})" if fresh_guard else ""
         obs_by_county: dict[str, list[tuple[str, dict]]] = {}
         for county, case_no in plan.observe:
             obs_by_county.setdefault(county, []).append((case_no, observed[county][case_no]))
@@ -914,8 +986,8 @@ def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, di
             for payload, keys in group_provenance(rows, gates[county], retrieved_at, state=state, registry_paths=registry_paths,
                                                   registry_modes=registry_modes, path_ctx=path_ctx):
                 for i in range(0, len(keys), BATCH):
-                    api.patch(f"state=eq.{state}&source=eq.{SOURCE}&county=eq.{q(county)}&case_no=in.{q(in_list(keys[i:i + BATCH]))}",
-                              payload)
+                    api.patch(f"state=eq.{state}&source=eq.{SOURCE}&county=eq.{q(county)}&case_no=in.{q(in_list(keys[i:i + BATCH]))}"
+                              + fresh_filter, payload)
                     counts["provenance_patches"] += 1
     # 3. Carry verified evidence onto rows this run did not read (never erases).
     counts["carried"] = 0
@@ -966,6 +1038,10 @@ def main(argv=None) -> int:
     ap.add_argument("--max-age-hours", type=float, default=36.0)
     ap.add_argument("--dry-run", action="store_true", help="plan and report; write nothing")
     ap.add_argument("--report", default="out/public/laft-lifecycle.json", help="counts-only report (no row values)")
+    ap.add_argument("--no-fresh-guard", dest="fresh_guard", action="store_false",
+                    help="obsolete (2026-10-26): provenance writes are now decided per row against the stored "
+                         "values (changed, or last_seen_at older than "
+                         f"{WD.FRESH_HOURS} h); accepted and ignored")
     args = ap.parse_args(argv)
 
     state = args.state
@@ -1014,6 +1090,10 @@ def main(argv=None) -> int:
     have_023 = have_017 and api.has_migration_023()
     path_ctx = PathContext(Path(args.registry), state, have_023=have_023, evidence_path=Path(args.path_evidence))
     extra = (tuple(SF.OPTIONAL_COLUMNS) if have_019 else ()) + (CARRY_COLUMNS if have_023 else CARRY_017_COLUMNS if have_017 else ())
+    if have_017:
+        # Every column a provenance payload can write, so each observed row is
+        # compared with its stored values (execute(): write only what changed).
+        extra = tuple(dict.fromkeys(extra + PAYLOAD_COLUMNS))
     # Every county on record, not only this run's: a county missing from the
     # status file entirely (NOT_RUN) still keeps and receives its evidence.
     counties_all = sorted(set(counties) | {str(r.get("county")) for r in api.get_all(f"state=eq.{state}&source=eq.{SOURCE}&status=eq.active&select=county")})
@@ -1027,7 +1107,8 @@ def main(argv=None) -> int:
         print("::notice title=laft_lifecycle::migration 023 not applied - purchase_path_type / _scope / _evidence / _observed_on are not written")
     retrieved_at = now_iso()
     counts = execute(plan, gates, observed, api, state=state, have_017=have_017, retrieved_at=retrieved_at,
-                     registry_paths=registry_paths, registry_modes=registry_modes, path_ctx=path_ctx, db_rows=db_rows)
+                     registry_paths=registry_paths, registry_modes=registry_modes, path_ctx=path_ctx, db_rows=db_rows,
+                     fresh_guard=args.fresh_guard)
     # Observed rows only: the same COMPLETE/INCOMPLETE gate as last_seen_at.
     observed_gated = {c: rows for c, rows in observed.items() if gates.get(c, {}).get("status") in OBSERVED_STATUSES}
     sf_counts, sf_columns = run_source_fields(observed_gated, gates, db_rows, api, have_019=have_019, retrieved_at=retrieved_at)

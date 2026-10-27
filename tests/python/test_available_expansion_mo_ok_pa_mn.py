@@ -37,7 +37,7 @@ NEW = set(FIXTURE)
 
 
 def _src(st):
-    (src,) = EX.SOURCES[st]
+    (src,) = [s for s in EX.SOURCES[st] if s.config.source_id == FIXTURE[st][0]]
     return src
 
 
@@ -86,7 +86,7 @@ def test_every_source_is_available_ledger_collected_and_owner_published():
         assert SP.collectable(row, "laft") and SP.publishable(row)
         assert HE.gate(st, reg=_reg(st)) == []
         run, gated = HE.runnable_sources(st, _reg(st))
-        assert [s.config.source_id for s in run] == [cfg.source_id] and gated == []
+        assert [s.config.source_id for s in run if s.config.source_id not in EX.NEW_SOURCE_IDS] == [cfg.source_id] and gated == []
 
 
 def test_a_blocked_review_makes_zero_requests():
@@ -95,7 +95,7 @@ def test_a_blocked_review_makes_zero_requests():
         reg = dict(_reg(st))
         reg[sid] = dataclasses.replace(reg[sid], publication_status="BLOCKED")
         run, gated = HE.runnable_sources(st, reg)
-        assert run == [] and gated == [(sid, "BLOCKED")]
+        assert [s for s in run if s.config.source_id not in EX.NEW_SOURCE_IDS] == [] and gated == [(sid, "BLOCKED")]
 
 
 def test_registry_rows_carry_the_source_urls_and_formats():
@@ -290,7 +290,7 @@ def test_one_failing_source_does_not_stop_another_state(tmp_path, monkeypatch):
 
 
 def test_existing_states_sources_are_unchanged():
-    assert [s.config.source_id for s in EX.SOURCES["MI"]] == [
+    assert [s.config.source_id for s in EX.SOURCES["MI"] if s.config.source_id not in EX.NEW_SOURCE_IDS] == [
         "mi_eaton_treasurer_sale", "mi_lenawee_tax_sale", "mi_detroit_landbank_lots", "mi_detroit_landbank_programs",
         "mi_oceana_landbank"]                                                     # no Michigan inventory added
     assert EX.AVAILABLE_FIVE_SOURCE_IDS.isdisjoint(EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.SIX_STATE_SOURCE_IDS)

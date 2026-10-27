@@ -197,7 +197,10 @@ def test_acquisition_unit_counts_after_the_sprint():
     for u in ACQ["status"]:
         by[u["status"]] = by.get(u["status"], 0) + 1
     # 2026-10-26: LRA (MO), Ramsey (MN) and Fayette (PA) processes read -> VERIFIED with records.
-    assert len(ACQ["status"]) == 72 and by == {"VERIFIED": 29, "NEEDS_REVIEW": 5, "UNAVAILABLE": 6, "NOT_FOUND": 32}
+    # 2026-10-26: + 55 PBFCM / MVBA AVAILABLE units (owner decision) and the county-source sprint's units (FL Lake /
+    # DeSoto / Wakulla / Charlotte, TX county lists), none with acquisition evidence yet.
+    # + 15 new-sources sprint units (5 ePropertyPlus land banks, 8 Tax-Sale.info surplus counties, Hubbard, Saint Paul HRA).
+    assert len(ACQ["status"]) == 157 and by == {"VERIFIED": 29, "NEEDS_REVIEW": 9, "UNAVAILABLE": 6, "NOT_FOUND": 113}
 
 
 # ------------------------------------------------------------------ A2 county procedure rules
@@ -256,23 +259,29 @@ def test_gap_queue_is_generated_from_the_records_and_pinned():
     assert out.returncode == 0, out.stdout
     doc = json.loads((ROOT / "data/current_state/gap-queue.json").read_text(encoding="utf-8"))
     assert doc == GQ.build()
-    assert doc["denominators"]["acquisition_units"] == 72 and doc["denominators"]["acquisition_unresolved"] == 43   # 46 before the 2026-10-26 LRA / Ramsey / Fayette reads
+    # 46 before the 2026-10-26 LRA / Ramsey / Fayette reads; then the PBFCM / MVBA and county-source units of the same day.
+    assert doc["denominators"]["acquisition_units"] == 157 and doc["denominators"]["acquisition_unresolved"] == 128   # + 15 new-sources units
     assert doc["denominators"]["state_ledger_units"] == 39
     assert set(doc["summary"]["by_category"]) <= set(GQ.CATEGORIES)
-    # 33 state-ledger units before the owner's 2026-10-26 publication decision cleared six APPROVAL_UNRESOLVED ones
-    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 43 + 27
+    # one queue entry per unresolved acquisition unit plus one per non-current state x ledger unit.
+    assert sum(doc["summary"]["by_category"].values()) == len(doc["units"]) == 128 + 27
     for u in doc["units"]:
         assert u["category"] in GQ.CATEGORIES and u["next_action"] and u["source_accessible"] and "reason" in u
         assert u["completable_now"] == (u["category"] == "A")
     by = {(u["state"], u["county"], u.get("source_id", ""), u["ledger"]): u for u in doc["units"]}
     assert by[("FL", "Escambia", "fl_laft_html", "AVAILABLE")]["category"] == "D"          # HTTP 403 to the runner
-    assert by[("TX", "Harris", "tx_hctax", "AVAILABLE")]["category"] == "E"               # legal review
+    # 2026-10-26: the Harris listing is the next constable SALE (AUCTIONS), no longer an AVAILABLE acquisition unit.
+    assert ("TX", "Harris", "tx_hctax", "AVAILABLE") not in by
+    assert by[("TX", "Bexar", "tx_bexar_resale", "AVAILABLE")]["category"] == "F"         # resale list read, process not yet
     assert by[("TX", "Liberty", "tx_lgbs", "AVAILABLE")]["category"] == "F"               # no official resale process
     assert by[("FL", "Indian River", "fl_laft_html", "AVAILABLE")]["category"] == "B"     # script-rendered page
     assert by[("TN", "*", "", "AVAILABLE")]["category"] == "C"                            # published 2026-10-26; process not verified
     assert by[("LA", "*", "", "AVAILABLE")]["category"] == "A"                            # fix exists, awaiting deploy
     assert by[("FL", "*", "", "LIENS_CERTIFICATES")]["category"] == "D"                  # LienHub 403
-    assert by[("TX", "*", "", "AUCTIONS")]["category"] == "E"                             # manual-only by owner decision
+    # The coverage snapshot (2026-10-10) predates every source added 2026-10-26 (GovEase / PBFCM / MVBA, the county
+    # lists), so its stale Texas rows are still the manual-only LGBS / RealAuction ones
+    # (state_coverage._in_snapshot): E until a new snapshot is taken.
+    assert by[("TX", "*", "", "AUCTIONS")]["category"] == "E"
     assert ("MI", "Wayne", "mi_detroit_landbank_lots", "AVAILABLE") not in by             # closed this sprint
 
 

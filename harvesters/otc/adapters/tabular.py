@@ -424,7 +424,14 @@ def workbook_sheet_rows(data: bytes, sheet: str | None) -> list[list[str]]:
     import openpyxl  # noqa: PLC0415 - only the XLSX sources need it
     wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
     names = {re.sub(r"\s+", " ", n).strip().lower(): n for n in wb.sheetnames}
-    name = names.get(re.sub(r"\s+", " ", sheet).strip().lower())
+    # "*" (2026-10-26, Horry SC): the workbook's ONLY sheet - a workbook with
+    # several sheets is not the configured one (KeyError), never a guess.
+    if sheet == "*":
+        if len(wb.sheetnames) != 1:
+            raise KeyError("workbook has more than one sheet; the source's single list sheet is expected")
+        name = wb.sheetnames[0]
+    else:
+        name = names.get(re.sub(r"\s+", " ", sheet).strip().lower())
     if name is None:
         raise KeyError(f"workbook has no {sheet!r} sheet")
     rows: list[list[str]] = []
@@ -461,23 +468,20 @@ def latest_dated_link(html: str | bytes, base_url: str, cfg: TabularConfig) -> t
 # The Texas government-direct lists the audit found, and why each is a
 # candidate rather than a configured adapter. `blocker` is what a human
 # must do before a TabularConfig can exist. None of these is fetched by
-# anything in this repository.
+# anything in this repository. (Bexar, Hood, Montgomery, Orange and Trinity
+# left this list on 2026-10-26: scripts/harvest_tx_county_sales.py reads
+# their lists in production.)
 TX_CANDIDATES: tuple[tuple[str, str, str, str], ...] = (
     # county, expected format, adapter family, blocker
     ("Travis", "XLSX", "tabular (needs an XLSX reader - openpyxl not a dependency yet)", "fetch ResaleList.xlsx; read columns; terms"),
     ("Grayson", "PORTAL", "tabular (HTML) if the portal renders a table server-side", "fetch; confirm rendering; terms"),
     ("Camp", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
-    ("Hood", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
     ("Fayette", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
-    ("Montgomery", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
     ("Collin", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
     ("Brazoria", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
     ("Dallas", "HTML_TABLE", "tabular (HTML) or a downloadable list", "fetch; locate the list file; terms"),
     ("Jefferson", "PDF", "PDF header-map (scripts/harvest_laft_pdfs.py pattern)", "fetch dated PDFs; distinguish resale list from sale notice; terms"),
     ("Gregg", "PDF", "PDF header-map", "fetch; read columns; terms"),
-    ("Orange", "PDF", "PDF header-map", "fetch 04.09.25 listing; confirm currency; terms"),
     ("Jim Wells", "PDF", "PDF header-map", "fetch; read columns; terms; reconcile with the LGBS rows"),
     ("Tom Green", "HTML_TABLE", "tabular (HTML) + procedures PDF", "fetch; read columns; terms"),
-    ("Trinity", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
-    ("Bexar", "UNKNOWN", "unknown until the DocumentCenter container is opened", "open DocumentCenter View/41852; terms"),
 )

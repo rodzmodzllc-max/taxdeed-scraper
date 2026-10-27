@@ -207,6 +207,9 @@ AVAILABLE_OFFERED_WORDINGS: dict[str, tuple[str, ...]] = {
     "mo_stl_lra_inventory": ("Available",),
     "mn_ramsey_tax_forfeit": ("Available for purchase",),
     "tn_shelby_landbank": ("FOR SALE",),
+    "pa_pittsburgh_city_property": ("Available for Sale",),
+    "mn_hubbard_tfl_otc": ("OTC",),
+    "mn_stpaul_hra_properties": ("5 - Available on the open market, subject to disposition policy",),
 }
 
 
@@ -308,6 +311,10 @@ def adapter_record_status(row: dict, *, today: date) -> StatusObservation | None
                              note=f"sale date {sale.isoformat()} has passed; the list publishes no result")
 
 
+# Texas county-published AUCTIONS lists (scripts/harvest_tx_county_sales.py).
+TX_COUNTY_AUCTION_SOURCE_IDS = frozenset({"tx_hctax", "tx_jefferson_sheriff_sale"})
+
+
 def status_for_row(row: dict, *, today: date, sold_column_present: bool = False) -> StatusObservation | None:
     """Dispatch on the row's state / source / harvester. None = this row
     kind has no mapping (certificates; unknown vendors) - nothing is written."""
@@ -324,6 +331,10 @@ def status_for_row(row: dict, *, today: date, sold_column_present: bool = False)
         return tx_lgbs_status(row)
     if sid == "tx_realauction" and source == "auction":
         return feed_auction_status(row, today=today, feed="the county's RealAuction sale calendar")
+    if sid in TX_COUNTY_AUCTION_SOURCE_IDS and source == "auction":
+        # Texas county-published sale lists (scripts/harvest_tx_county_sales.py,
+        # 2026-10-26): a scheduled date and presence, no result.
+        return feed_auction_status(row, today=today, feed="the county's published tax-sale list")
     if state == "AL" and source == "laft":
         prov = row.get("otc_provenance") if isinstance(row.get("otc_provenance"), dict) else {}
         return alabama_status(str(prov.get("normalized_status") or "UNKNOWN"),

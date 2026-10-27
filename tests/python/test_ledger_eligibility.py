@@ -48,7 +48,8 @@ def test_every_state_ledger_carries_an_eligibility_apart_from_tracking():
     # and a tracked ledger can still be unverified as a product.
     by = {(l.state, l.ledger): l for l in ledgers}
     assert (by[("WY", "LIENS_CERTIFICATES")].eligibility, by[("WY", "LIENS_CERTIFICATES")].status) == ("COUNTY_DEPENDENT", "NOT_TRACKED")
-    assert (by[("TX", "AVAILABLE")].eligibility, by[("TX", "AVAILABLE")].status) == ("NOT_VERIFIED", "TRACKED")
+    # 2026-10-26: six county offices publish their own struck-off resale lists (read daily).
+    assert (by[("TX", "AVAILABLE")].eligibility, by[("TX", "AVAILABLE")].status) == ("COUNTY_DEPENDENT", "TRACKED")
 
 
 def test_offered_is_claimed_only_where_a_statute_was_read_and_nothing_is_not_offered():
@@ -135,8 +136,10 @@ def test_source_restricted_and_not_verified_are_refused_when_the_record_says_mor
 
 def test_county_coverage_comes_from_the_registry_and_verified_procedures_never_from_rows():
     tx = SV.county_coverage("TX", "AUCTIONS", rules=_rules("TX"))
-    assert len(tx) == 31 and tx[0]["county"] == "Angelina" and all(c["sources"] for c in tx)
-    assert all(s["source_id"] in ("tx_realauction", "tx_lgbs") for c in tx for s in c["sources"])
+    # 2026-10-26: PBFCM / MVBA / GovEase counties and the Harris / Jefferson county lists joined RealAuction + LGBS.
+    assert len(tx) == 83 and tx[0]["county"] == "Angelina" and all(c["sources"] for c in tx)
+    assert all(s["source_id"] in ("tx_realauction", "tx_lgbs", "tx_pbfcm", "tx_mvba", "tx_govease", "tx_hctax",
+                                  "tx_jefferson_sheriff_sale") for c in tx for s in c["sources"])
     wy = SV.county_coverage("WY", "LIENS_CERTIFICATES", rules=_rules("WY"))
     assert wy == [{"county": "Albany", "sources": [], "procedures": ["tax_sale_model"]}]
     assert SV.county_coverage("TN", "AUCTIONS", rules=_rules("TN")) == []
@@ -200,7 +203,7 @@ def test_the_texas_sale_model_rule_is_at_version_two_with_its_prior_text_kept():
     assert "not automatically for sale" in r.statement and "34.05" in r.statement
     assert h[0].prior_statement and h[0].prior_statement != r.statement and h[0].affects
     page = PAGE["states"]["TX"]
-    assert [(x["topic"], x["version"]) for x in page["history"]] == [("tax_sale_model", "1")]
+    assert [(x["topic"], x["version"]) for x in page["history"]] == [("tax_sale_model", "1"), ("tax_sale_list_source", "1")]
 
 
 def test_rules_name_their_ledger_office_dependents_and_tests():
@@ -229,7 +232,9 @@ def test_page_data_carries_eligibility_coverage_and_meaning_per_ledger():
             else:
                 assert "eligibility_verified_on" not in l
     assert PAGE["states"]["FL"]["ledgers"]["LIENS_CERTIFICATES"]["eligibility"] == "OFFERED"
-    assert [c["county"] for c in PAGE["states"]["MI"]["ledgers"]["AUCTIONS"]["coverage"]] == ["Eaton", "Lenawee"]
+    # 2026-10-26: + the Tax-Sale.info county auction catalogs (one registry row per county of the 2026 season).
+    mi = [c["county"] for c in PAGE["states"]["MI"]["ledgers"]["AUCTIONS"]["coverage"]]
+    assert {"Eaton", "Lenawee", "Saginaw", "St. Clair"} <= set(mi) and len(mi) == len(set(mi)) == 77
     assert PAGE == json.loads((ROOT / "state-rules.json").read_text(encoding="utf-8"))
 
 

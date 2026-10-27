@@ -79,6 +79,18 @@
     {
      "access": "NOT_CHECKED",
      "availability": "NOT_READ",
+     "county": "Baker",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "county list",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "FL:Baker:unharvested_list",
+     "url": "https://www.bakerclerk.com"
+    },
+    {
+     "access": "NOT_CHECKED",
+     "availability": "NOT_READ",
      "county": "Broward",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
@@ -91,54 +103,6 @@
     {
      "access": "NOT_CHECKED",
      "availability": "NOT_READ",
-     "county": "Charlotte",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Charlotte:unharvested_list",
-     "url": "https://www.charlotteclerk.com/departments/taxdeed/"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Collier",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Collier:unharvested_list",
-     "url": "https://www.collierclerk.com/accessing-tax-deed-sales-in-collier-county/"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "DeSoto",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:DeSoto:unharvested_list",
-     "url": "https://www.desotoclerk.com/public-sales/tax-deeds/"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Gilchrist",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Gilchrist:unharvested_list",
-     "url": "https://www.gilchristclerk.com/tax-deeds/"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
      "county": "Jefferson",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
@@ -146,85 +110,13 @@
      "publication_review": "",
      "read_at": "",
      "source_id": "FL:Jefferson:unharvested_list",
-     "url": "https://www.jeffersonclerk.com"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Lake",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Lake:unharvested_list",
-     "url": "https://taxdeeds.lakecountyclerk.org"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Monroe",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Monroe:unharvested_list",
-     "url": "https://www.monroe-clerk.com"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Nassau",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Nassau:unharvested_list",
-     "url": "https://www.nassauclerk.com/view-tax-deeds-1"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Okaloosa",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Okaloosa:unharvested_list",
-     "url": "https://www.okaloosaclerk.com/board-services/tax-deed-sales/lands-available-for-taxes/"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Suwannee",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Suwannee:unharvested_list",
-     "url": "https://www.suwgov.org/tax-deed-sales/"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Wakulla",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Wakulla:unharvested_list",
-     "url": "https://www.wakullaclerk.org/official_records/tax_deed_sales.php"
+     "url": "https://www.jeffersonclerk.com/clerk-services/property-sales/tax-deed-sales/"
     }
    ],
    "last_reads": {
     "COMPLETE": 24,
     "FAILED": 3,
-    "UNKNOWN": 25
+    "UNKNOWN": 29
    },
    "production_counties": [
     "Alachua",
@@ -232,9 +124,11 @@
     "Bradford",
     "Brevard",
     "Calhoun",
+    "Charlotte",
     "Citrus",
     "Clay",
     "Columbia",
+    "DeSoto",
     "Dixie",
     "Duval",
     "Escambia",
@@ -252,6 +146,7 @@
     "Holmes",
     "Indian River",
     "Lafayette",
+    "Lake",
     "Lee",
     "Leon",
     "Levy",
@@ -277,10 +172,11 @@
     "Taylor",
     "Union",
     "Volusia",
+    "Wakulla",
     "Walton",
     "Washington"
    ],
-   "production_sources": 52,
+   "production_sources": 56,
    "rejected": [],
    "research": {},
    "state": "FL",
@@ -316,13 +212,22 @@
     }
    ],
    "last_reads": {
-    "UNKNOWN": 3
+    "UNKNOWN": 14
    },
    "production_counties": [
+    "Arenac",
+    "Bay",
+    "Calhoun",
+    "Jackson",
+    "Monroe",
+    "Montcalm",
     "Oceana",
+    "Otsego",
+    "Presque Isle",
+    "Saginaw",
     "Wayne"
    ],
-   "production_sources": 3,
+   "production_sources": 14,
    "rejected": [],
    "research": {
     "checked_on": "2026-10-02",
@@ -338,12 +243,13 @@
   {
    "candidates": [],
    "last_reads": {
-    "UNKNOWN": 1
+    "UNKNOWN": 3
    },
    "production_counties": [
+    "Hubbard",
     "Ramsey"
    ],
-   "production_sources": 1,
+   "production_sources": 3,
    "rejected": [],
    "research": {},
    "state": "MN",
@@ -352,12 +258,13 @@
   {
    "candidates": [],
    "last_reads": {
-    "UNKNOWN": 1
+    "UNKNOWN": 2
    },
    "production_counties": [
+    "Jackson",
     "St. Louis City"
    ],
-   "production_sources": 1,
+   "production_sources": 2,
    "rejected": [],
    "research": {},
    "state": "MO",
@@ -380,12 +287,13 @@
   {
    "candidates": [],
    "last_reads": {
-    "UNKNOWN": 1
+    "UNKNOWN": 2
    },
    "production_counties": [
+    "Allegheny",
     "Fayette"
    ],
-   "production_sources": 1,
+   "production_sources": 2,
    "rejected": [],
    "research": {},
    "state": "PA",
@@ -536,25 +444,13 @@
     {
      "access": "NOT_CHECKED",
      "availability": "NOT_READ",
-     "county": "Bexar",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "TX:Bexar:unharvested_list",
-     "url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
      "county": "Brazoria",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
-     "name": "county list",
+     "name": "tx_brazoria_tax_resale",
      "publication_review": "",
      "read_at": "",
-     "source_id": "TX:Brazoria:unharvested_list",
+     "source_id": "TX:Brazoria:tx_brazoria_tax_resale",
      "url": "https://www.brazoriacountytx.gov/departments/tax-office/property-taxes/sheriff-sale-tax-resales"
     },
     {
@@ -567,7 +463,7 @@
      "publication_review": "",
      "read_at": "",
      "source_id": "TX:Camp:unharvested_list",
-     "url": "https://www.campcad.org/struck-off-list/"
+     "url": "https://campcad.org/struck-off-list/"
     },
     {
      "access": "NOT_CHECKED",
@@ -575,11 +471,11 @@
      "county": "Collin",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
-     "name": "county list",
+     "name": "tx_collin_constable_sale",
      "publication_review": "",
      "read_at": "",
-     "source_id": "TX:Collin:unharvested_list",
-     "url": "https://www.collincountytx.gov/Tax-Assessor/properties-for-sale"
+     "source_id": "TX:Collin:tx_collin_constable_sale",
+     "url": "https://www.collincountytx.gov/courts/constables/constable-sales"
     },
     {
      "access": "NOT_CHECKED",
@@ -603,7 +499,7 @@
      "publication_review": "",
      "read_at": "",
      "source_id": "TX:Fayette:unharvested_list",
-     "url": "https://www.fayettecad.org/trust-properties-offered-for-sale"
+     "url": "https://fayettecad.org/trust-properties-offered-for-sale"
     },
     {
      "access": "NOT_CHECKED",
@@ -611,10 +507,10 @@
      "county": "Grayson",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
-     "name": "county list",
+     "name": "tx_grayson_struck_off",
      "publication_review": "",
      "read_at": "",
-     "source_id": "TX:Grayson:unharvested_list",
+     "source_id": "TX:Grayson:tx_grayson_struck_off",
      "url": "https://taxsearch.co.grayson.tx.us:8443/Sales/Struck-Off-Properties"
     },
     {
@@ -623,35 +519,11 @@
      "county": "Gregg",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
-     "name": "county list",
+     "name": "tx_gregg_tax_resale",
      "publication_review": "",
      "read_at": "",
-     "source_id": "TX:Gregg:unharvested_list",
+     "source_id": "TX:Gregg:tx_gregg_tax_resale",
      "url": "https://www.greggcounty.texas.gov/assets/main/tax-assessor-collector/tax-resale-property.pdf"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Harris",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "tx_hctax",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "TX:Harris:tx_hctax",
-     "url": "https://www.hctax.net/Property/listings/taxsalelisting"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Hood",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "TX:Hood:unharvested_list",
-     "url": "https://www.hoodcad.net/struck-off-property-list/"
     },
     {
      "access": "NOT_CHECKED",
@@ -659,10 +531,10 @@
      "county": "Jefferson",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
-     "name": "county list",
+     "name": "tx_jefferson_county_resale",
      "publication_review": "",
      "read_at": "",
-     "source_id": "TX:Jefferson:unharvested_list",
+     "source_id": "TX:Jefferson:tx_jefferson_county_resale",
      "url": "https://www.jeffersoncountytx.gov"
     },
     {
@@ -680,38 +552,14 @@
     {
      "access": "NOT_CHECKED",
      "availability": "NOT_READ",
-     "county": "Montgomery",
+     "county": "Johnson",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
-     "name": "county list",
+     "name": "tx_johnson_constable_sale",
      "publication_review": "",
      "read_at": "",
-     "source_id": "TX:Montgomery:unharvested_list",
-     "url": "https://www.mctx.org/departments/departments_q_-_z/tax_office/tax_trust_property.php"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Orange",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "TX:Orange:unharvested_list",
-     "url": "https://www.co.orange.tx.us/departments/TaxAssessor-Collector/PropertyTaxSales"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Randall",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "TX:Randall:unharvested_list",
-     "url": "https://www.randallcounty.gov/293/Sheriff-Sale"
+     "source_id": "TX:Johnson:tx_johnson_constable_sale",
+     "url": "https://www.johnsoncountytx.org/public-safety/constables/constable-sale"
     },
     {
      "access": "ACCESSIBLE",
@@ -748,38 +596,87 @@
      "read_at": "",
      "source_id": "TX:Travis:unharvested_list",
      "url": "https://tax-office.traviscountytx.gov/properties/foreclosed"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Trinity",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "TX:Trinity:unharvested_list",
-     "url": "https://www.trinitycad.net/resale-property-information/"
     }
    ],
    "last_reads": {
-    "FAILED": 8
+    "COMPLETE": 38,
+    "EMPTY": 8,
+    "FAILED": 8,
+    "INCOMPLETE": 9,
+    "UNKNOWN": 6
    },
    "production_counties": [
+    "Archer",
+    "Austin",
+    "Bandera",
+    "Bastrop",
+    "Bell",
+    "Bexar",
+    "Brazoria",
+    "Brewster",
+    "Brown",
+    "Caldwell",
+    "Cameron",
+    "Chambers",
+    "Cherokee",
+    "Childress",
+    "Clay",
+    "Comal",
+    "Dickens",
+    "Dimmit",
+    "Foard",
+    "Fort Bend",
     "Galveston",
     "Goliad",
+    "Gregg",
+    "Hardeman",
     "Hardin",
+    "Harris",
+    "Hays",
+    "Hill",
+    "Hood",
+    "Houston",
+    "Hunt",
+    "Jack",
+    "Jasper",
     "Jim Wells",
+    "Johnson",
+    "Knox",
     "Leon",
     "Liberty",
+    "Matagorda",
     "Maverick",
-    "Van Zandt"
+    "Milam",
+    "Montague",
+    "Montgomery",
+    "Nacogdoches",
+    "Newton",
+    "Orange",
+    "Palo Pinto",
+    "Panola",
+    "Randall",
+    "Reeves",
+    "Runnels",
+    "San Jacinto",
+    "Tarrant",
+    "Throckmorton",
+    "Trinity",
+    "Uvalde",
+    "Val Verde",
+    "Van Zandt",
+    "Walker",
+    "Waller",
+    "Washington",
+    "Wichita",
+    "Wilbarger",
+    "Young",
+    "Zavala"
    ],
-   "production_sources": 8,
+   "production_sources": 69,
    "rejected": [],
    "research": {},
    "state": "TX",
-   "status": "SOURCE_UNAVAILABLE"
+   "status": "SOURCE_TRACKED"
   },
   {
    "candidates": [],

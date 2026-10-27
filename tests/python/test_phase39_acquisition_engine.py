@@ -547,7 +547,7 @@ def test_adv_03_legal_review_source_cannot_become_customer_visible():
 
 def test_adv_04_blocked_source_cannot_be_used_as_a_fallback():
     decision = check_fallback_allowed(
-        "tx_lgbs", "tx_pbfcm", explicitly_configured=True, county="Harris", state="TX"
+        "tx_lgbs", "tx_ctsa", explicitly_configured=True, county="Harris", state="TX"
     )
     assert decision.allowed is False
 

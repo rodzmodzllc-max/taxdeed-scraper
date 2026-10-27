@@ -153,14 +153,21 @@ def test_t03_adapter_package_never_fetches():
 
 def test_g01_every_texas_candidate_is_refused_and_florida_production_is_allowed():
     for county, fmt, family, blocker in TX_CANDIDATES:
-        row = lookup(ROWS, "TX", county, "tx_hctax" if county == "Harris" else "")
+        # 2026-10-26: candidate rows carry the source id their probe / reader uses.
+        row = next((r for r in ROWS if r.state == "TX" and r.county == county and not r.is_production
+                    and r.verification_status != "BLOCKED_VENDOR_ONLY"), None)
         assert row is not None, county
         d = evaluate_source(row)
         assert d.allowed is False and d.layer in ("verification", "vendor_registry"), (county, d)
         assert blocker
-    for county, sid in (("Chambers", "tx_pbfcm"), ("Calhoun", "tx_mvba")):
-        d = evaluate_source(lookup(ROWS, "TX", county, sid))
-        assert d.allowed is False and d.layer == "blocked_vendor"
+    # The owner unblocked PBFCM / MVBA on 2026-10-26; a row for the one vendor still blocked is refused by name.
+    import dataclasses
+    ctsa = dataclasses.replace(lookup(ROWS, "TX", "Chambers", "tx_pbfcm"), source_id="tx_ctsa")
+    d = evaluate_source(ctsa)
+    assert d.allowed is False and d.layer == "blocked_vendor"
+    # Harris: the Phase 9.5 legal record (harvesters/governance/registry.py) still says LEGAL_REVIEW_REQUIRED, so
+    # this OTC gate refuses it; the county list is synced through scripts/sync_state_inventory.py instead
+    # (production registry row, owner publication decision 2026-10-26, legal review pending).
     d = evaluate_source(lookup(ROWS, "TX", "Harris", "tx_hctax"))
     assert d.allowed is False and d.layer == "vendor_registry" and "LEGAL_REVIEW_REQUIRED" in d.reason
     assert evaluate_source(lookup(ROWS, "FL", "Marion")).allowed is True

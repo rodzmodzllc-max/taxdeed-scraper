@@ -62,6 +62,19 @@ AVAILABLE_FIVE_HOSTS = {   # AVAILABLE expansion 2026-10-04 (docs/available-expa
     "mn_ramsey_tax_forfeit": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/",
     "tn_shelby_landbank": "https://public-sctn.epropertyplus.com",     # Tennessee 2026-10-08 (docs/tennessee-survey.md)
 }
+NEW_SOURCE_HOSTS = {   # new-sources sprint 2026-10-26 (owner decision; docs/new-sources-2026-10-26.md)
+    "mo_kc_landbank": "https://public-kclb.epropertyplus.com",
+    "pa_pittsburgh_city_property": "https://public-pgh.epropertyplus.com",
+    "mi_wayne_county_landbank": "https://public-wclb.epropertyplus.com",
+    "mi_saginaw_landbank": "https://public-sclb.epropertyplus.com",
+    "mi_calhoun_landbank": "https://public-cclb.epropertyplus.com",
+    "sc_horry_tax_sale": "https://www.horrycountysc.gov/departments/treasurer/delinquent-tax/",
+    "co_saguache_tax_sale": "https://services1.arcgis.com/zH7gQ37AKcpvTX6d/",
+    "mn_hubbard_tfl_otc": "https://services.arcgis.com/auNjCUvKlkSqV04X/",
+    "mn_stpaul_hra_properties": "https://services1.arcgis.com/9meaaHE3uiba0zr8/",
+    "mi_tax_sale_info_auction": "https://www.tax-sale.info/",
+    "mi_tax_sale_info_surplus": "https://www.tax-sale.info/",
+}
 FIVE_STATE_HOSTS = {
     "co_douglas_county_held_liens": "https://services.arcgis.com/seTexOicoRXDvRsJ/",
     "co_douglas_tax_sale_list": "https://services.arcgis.com/seTexOicoRXDvRsJ/",
@@ -129,7 +142,7 @@ def test_r02_every_config_is_column_verified_and_pinned_to_its_host():
             cfg = src.config
             assert cfg.columns_verified and cfg.state == st
             url = getattr(cfg, "layer_url", None) or src.url
-            assert url.startswith({**HOSTS, **FIVE_STATE_HOSTS, **AVAILABLE_HOSTS, **AVAILABLE_FIVE_HOSTS}[cfg.source_id]), (cfg.source_id, url)
+            assert url.startswith({**HOSTS, **FIVE_STATE_HOSTS, **AVAILABLE_HOSTS, **AVAILABLE_FIVE_HOSTS, **NEW_SOURCE_HOSTS}[cfg.source_id]), (cfg.source_id, url)
     # Certificates only where the county itself publishes certificates.
     kinds = {src.config.source_id: src.config.record_source for srcs in EX.SOURCES.values() for src in srcs}
     certs = {"co_morgan_county_held_certificates", "co_douglas_county_held_liens"}
@@ -137,7 +150,8 @@ def test_r02_every_config_is_column_verified_and_pinned_to_its_host():
     # AVAILABLE only where the source itself offers government-held property (the AVAILABLE sprint's sources).
     available = EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS
     assert {kinds[k] for k in available} == {"laft"}
-    assert {v for k, v in kinds.items() if k not in certs | available} == {"auction"}
+    assert {v for k, v in kinds.items() if k not in certs | available | EX.NEW_SOURCE_IDS} == {"auction"}
+    assert set(NEW_SOURCE_HOSTS) == set(EX.NEW_SOURCE_IDS)
 
 
 # ==================== 3. adapters through the runner ====================
@@ -401,7 +415,7 @@ def test_w01_expansion_job_is_a_matrix_in_the_existing_slot_and_touches_no_sched
     assert "harvest_expansion.py" in runs and "--close-absent" in runs and "enrich_statewide_parcels.py" in runs
     assert "texas" not in runs.lower() and "lgbs" not in runs.lower()
     on = wf.get("on") or wf.get(True)
-    assert on["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 22 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 17 * * *"}]
+    assert on["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 4 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 3 * * *"}]
     assert "expansion" in on["workflow_dispatch"]["inputs"]["job"]["options"]
 
 

@@ -79,18 +79,23 @@ def test_partially_verified_never_passes_an_engine_check_that_needs_verified():
     assert "PARTIALLY_VERIFIED" not in src.replace("READ_STATUSES", "")
 
 
-def test_harris_tax_sale_list_is_source_restricted_and_cites_the_registry_refusal():
+def test_harris_tax_sale_list_is_published_by_the_owner_decision_and_keeps_its_history():
+    """2026-10-26: the owner published the Harris County list (legal review pending). The rule moved from
+    SOURCE_RESTRICTED (version 1, kept in the history file) to a VERIFIED SOURCE rule naming the reader, the
+    production registry row and the still-open legal record."""
     r = next(x for x in SR.load_rules() if x.state == "TX" and x.county == "Harris" and x.topic == "tax_sale_list_source")
-    assert r.kind == "SOURCE" and r.status == "SOURCE_RESTRICTED" and r.verified_on == ""
+    assert r.kind == "SOURCE" and r.status == "VERIFIED" and r.verified_on == "2026-10-26" and r.version == "2"
     assert r.source_url.startswith("https://www.hctax.net/") and "tx_hctax" in r.evidence and "LEGAL_REVIEW_REQUIRED" in r.evidence
+    assert "legal review pending" in r.statement and r.ambiguity
     assert r.ledgers == ("AUCTIONS",) and "tx_hctax" in r.related_sources
     reg = next(x for x in REGISTRY if x["state"] == "TX" and x["county"] == "Harris" and x["source_id"] == "tx_hctax")
-    assert reg["verification_status"] != "PRODUCTION_VERIFIED" and reg["governance_status"] == "LEGAL_REVIEW_REQUIRED"
+    assert reg["verification_status"] == "PRODUCTION_VERIFIED" and reg["governance_status"] == "APPROVED"
+    assert reg["publication_status"] == "APPROVED" and reg["restrictions"].startswith("Owner approved customer publication 2026-10-26")
     assert (ROOT / r.test_ref).is_file() and r.implementation_status == "IMPLEMENTED"
     page = json.loads((ROOT / "public/state-rules.json").read_text(encoding="utf-8"))
     tx = page["states"]["TX"]
     hit = [x for x in tx["county_rules"] if x.get("county") == "Harris" and x["topic"] == "tax_sale_list_source"]
-    assert len(hit) == 1 and hit[0]["status"] == "SOURCE_RESTRICTED"
+    assert len(hit) == 1 and hit[0]["status"] == "VERIFIED"
     assert page == json.loads((ROOT / "state-rules.json").read_text(encoding="utf-8"))
 
 
@@ -170,7 +175,8 @@ def test_classification_facts_from_the_2026_10_10_snapshots():
     assert DOC["states"]["TN"]["ledgers"]["AVAILABLE"]["withheld"]["source_not_approved"] == 0
     # Texas auctions are manual-only: the stale read names the last dispatch, not a scheduled failure.
     txa = DOC["states"]["TX"]["ledgers"]["AUCTIONS"]
-    assert txa["classification"] == "SOURCE_FAILED_OR_STALE" and any("manual-only" in r for r in txa["classification_reasons"])
+    # (Since 2026-10-26 the vendor sources are not manual-only, so the reason names the unstamped rows instead.)
+    assert txa["classification"] == "SOURCE_FAILED_OR_STALE" and txa["classification_reasons"]
     assert set(SC.MANUAL_ONLY_SOURCES) == set(UF.MANUAL_ONLY_SOURCES)
     # Nothing is PRODUCT_NOT_OFFERED: no ledger carries NOT_OFFERED evidence yet.
     assert DOC["summary"].get("PRODUCT_NOT_OFFERED", 0) == 0

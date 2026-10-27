@@ -154,17 +154,22 @@ def test_3_to_6_non_approved_statuses_are_rejected(monkeypatch, status):
     assert decision.status == status
 
 
-def test_3_real_pbfcm_is_blocked_and_rejected():
+def test_3_real_pbfcm_is_approved_on_the_owner_decision_of_2026_10_26():
     decision = check_ingestion_gate("tx_pbfcm")
-    assert decision.status == SourceStatus.BLOCKED
-    assert decision.allowed is False
+    assert decision.status == SourceStatus.APPROVED
+    assert decision.allowed is True
+    assert "OWNER DECISION 2026-10-26" in SOURCE_REGISTRY["tx_pbfcm"].notes
 
 
-def test_govease_mvba_ctsa_all_blocked_and_rejected():
-    for source_id in ("tx_govease", "tx_mvba", "tx_ctsa"):
+def test_govease_mvba_approved_and_ctsa_still_blocked():
+    # 2026-10-26: the owner unblocked GovEase / MVBA / PBFCM (terms risk accepted, legal review pending).
+    for source_id in ("tx_govease", "tx_mvba"):
         decision = check_ingestion_gate(source_id)
-        assert decision.status == SourceStatus.BLOCKED, source_id
-        assert decision.allowed is False, source_id
+        assert decision.status == SourceStatus.APPROVED, source_id
+        assert decision.allowed is True, source_id
+        assert SOURCE_REGISTRY[source_id].restrictions == (), source_id
+    decision = check_ingestion_gate("tx_ctsa")
+    assert decision.status == SourceStatus.BLOCKED and decision.allowed is False
 
 
 # ---------------------------------------------------------------------------
@@ -381,7 +386,9 @@ def test_14_lgbs_and_realauction_unchanged_and_approved():
 
     # SOURCES dict still has exactly the same 4 keys, mapped to functions
     # of the same names, as before Phase 10A.
-    assert set(texas_harvester.SOURCES.keys()) == {"tx_pbfcm", "tx_lgbs", "tx_realauction", "tx_govease"}
+    # tx_mvba joined on 2026-10-26 (owner decision).
+    assert set(texas_harvester.SOURCES.keys()) == {"tx_pbfcm", "tx_mvba", "tx_lgbs", "tx_realauction", "tx_govease"}
+    assert texas_harvester.SOURCES["tx_mvba"].__name__ == "harvest_mvba"
     assert texas_harvester.SOURCES["tx_lgbs"].__name__ == "harvest_lgbs"
     assert texas_harvester.SOURCES["tx_realauction"].__name__ == "harvest_realauction"
     assert texas_harvester.SOURCES["tx_pbfcm"].__name__ == "harvest_pbfcm"
@@ -492,8 +499,8 @@ def test_every_registered_source_has_a_legal_status_that_is_a_real_enum_member()
 def test_blocked_vendors_are_all_representable_in_the_registry():
     for source_id in ("tx_pbfcm", "tx_mvba", "tx_ctsa", "tx_govease"):
         record = SOURCE_REGISTRY[source_id]
-        assert record.legal_status == SourceStatus.BLOCKED
-        assert record.doc_refs, f"{source_id} should cite the doc(s) its BLOCKED status came from"
+        assert record.legal_status == (SourceStatus.BLOCKED if source_id == "tx_ctsa" else SourceStatus.APPROVED)
+        assert record.doc_refs, f"{source_id} should cite the doc(s) its earlier BLOCKED status came from"
 
 
 # ---------------------------------------------------------------------------

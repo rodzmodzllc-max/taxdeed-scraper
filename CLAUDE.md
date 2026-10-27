@@ -2576,6 +2576,20 @@ Full description: `docs/three-ledgers.md` (last section). Stable facts:
   `customer_view()` (vectors `ledger_record_cases.json`); `publication_state` reason `LEDGER_CONTRACT`
   (customer-binding only once 031 is applied).
 
+## Texas vendors unblocked: PBFCM, MVBA, GovEase (2026-10-26, PR open, no migration)
+
+Full description: `docs/texas-vendor-sources.md`. Stable facts:
+- Owner decision 2026-10-26 ("Do not block vendors ..."): `tx_pbfcm`, `tx_mvba`, `tx_govease` are harvested daily in the
+  `texas` job (`harvesters/texas_vendors.py`, PDF tables via `harvesters/tx_sale_tables.py`). Permission is an interim
+  INTERNAL_RISK_ACCEPTANCE (expires 2027-04-12), never documented permission; `enrich` / `redistribute` stay BLOCKED.
+  `tx_ctsa` (paywall) is the only hard-blocked vendor left.
+- Plain HTTPS, `taxdeed-scraper/1.0`, >= 1 s between requests, no login / CAPTCHA / proxy; a 401/403 is a FAILED unit.
+- Rows: account = `case_no`, cause = `parcel` (`CAUSE_IN_PARCEL_SOURCES`); per-(source, county) `units` in
+  `out/harvest_texas_status.json`. County roster: `data/tx_vendor_counties.csv` -> registry rows (rebuild with
+  `scripts/build_county_source_registry.py`, then the generated JSON files).
+- Front-end follow-up (public/ not touched): app.js `parcelOf()` cause-in-parcel list and source labels name only LGBS /
+  RealAuction.
+
 ## Florida PowerShell syncs never erase a stored value (2026-10-26, PR open, no migration)
 
 - **Why:** PostgREST bulk upsert needs one key set per batch (PGRST102), so a column the list did not publish is sent
@@ -3578,3 +3592,54 @@ Full description: `docs/publish-all-sources.md`. Stable facts:
   a result) stored active tx_lgbs / tx_realauction rows absent from a COMPLETE / EMPTY read of their own (source,
   county), through `sync_state_inventory.plan_close()`; reopens 'closed' rows the harvest lists again (never 'sold');
   refuses a source that would lose >50% of its active, not-yet-past-sale rows in one run (`--allow-large-close`).
+
+## Louisiana: no sync / lifecycle rewrite loop (2026-10-26, PR open, no migration)
+
+- Every Louisiana `laft` run used to rewrite each active row TWICE: the sync wrote the adapter's otc_provenance /
+  list_url / document_url, then the lifecycle (`--no-fresh-guard`) PATCHed its own values back (always with a new
+  retrieved_at). Now:
+  - `write_diff.VOLATILE_PATHS` (otc_provenance.retrieved_at, .source_match.read_at) never make a row "changed";
+  - `laft_lifecycle.execute()` (with db_rows, as main() passes) MERGES its otc_provenance onto the stored dict
+    (`merge_otc`; the purchase-path group moves as a unit, kept when this read resolved none) and patches a row only
+    when `write_diff.needs_write` says new / changed / restamp; `--no-fresh-guard` is obsolete (accepted, ignored);
+  - the sync leaves `laft_lifecycle.LIFECYCLE_OTC_KEYS` to the lifecycle once the stored dict has its "harvester" key;
+  - the LA status entry names the list page as `source_url` and the CSV as `document_url` (as the records do).
+- `rest_pages.read_all` accepts `select=*` (PR #217's sync read refused it). Proof: `tests/python/test_la_no_pingpong.py`
+  runs harvest -> sync -> lifecycle against an in-memory PostgREST table: a second run writes 0 rows.
+
+## FL / TX county sources (2026-10-26, PR open, no migration)
+
+Full description: `docs/county-sources-2026-10-26.md`. Stable facts:
+- **Owner decision 2026-10-26:** collect every county source now; legal review afterwards. New sources carry
+  `OWNER_PERMISSION_REQUIRED` / `INTERNAL_RISK_ACCEPTANCE` records (effective 2026-10-26, expiring 2027-04-12),
+  including `discover` records - so `test_discovery_guard` now allows exactly those. No challenge, login,
+  paywall or IP block is bypassed; a block reads FAILED / ACCESS_DENIED.
+- **FL:** Lake joined realTDM, DeSoto and Wakulla the static-HTML list (both pages state an empty list);
+  `scripts/harvest_laft_portals.py` (`fl_laft_portals`, `data/laft_portal_sources.csv`) reads Charlotte's Kendo
+  grid JSON - 403 from Actions runners. Publication is per SOURCE: Lake / DeSoto / Wakulla carry their platform's
+  decision; `fl_laft_portals` is APPROVED by the owner's publication decision (`OWNER_APPROVED_2026_10_26`).
+  `FL_ADDED_2026_10_26` in the registry builder names the additions (migration 017's backfill covers only the earlier 52).
+- **TX:** `scripts/harvest_tx_county_sales.py` (texas job) reads Harris (`tx_hctax`, AUCTIONS), Jefferson,
+  Bexar, Montgomery, Orange, Trinity, Randall, Hood; one harvest + status + properties-rows file per ledger.
+  Published (owner, 2026-10-26, legal review pending): registry `PRODUCTION_VERIFIED` / `APPROVED`
+  (`TX_COUNTY_SOURCES` + `TX_COUNTY_META`), INTERIM state-level fetch/parse/store/display/link records.
+  Synced by `sync_state_inventory.py --keep-other-sources` (never takes over an LGBS / RealAuction row); closed
+  per source by `texas_closeout.py --harvest/--status` (county files) after a COMPLETE / EMPTY read only.
+  `registry.py` `_TX_HCTAX` stays LEGAL_REVIEW_REQUIRED (the legal record; the vendor sync path only).
+
+## New sources sprint: every property, every source (2026-10-26, PR open, no migration)
+
+Full description: `docs/new-sources-2026-10-26.md`. Stable facts:
+- **Owner decision 2026-10-26**: collect every source; terms risk accepted. Each new source holds INTERIM
+  `discover`/`fetch`/`parse`/`store` records (`scripts/add_owner_interim_permissions.py`, `INTERNAL_RISK_ACCEPTANCE`,
+  expiring 2027-04-12) plus INTERIM `display` / `link`, and is APPROVED ("Owner approved customer publication
+  2026-10-26; legal review pending", the owner's "Do not block vendors" decision). `expansion.NEW_SOURCE_IDS` +
+  `source_publication.owner_collection()` let these sources be collected for AUCTIONS too (not only AVAILABLE).
+- **Sources**: ePropertyPlus tenants KC MO (`public-kclb`), Pittsburgh PA (`public-pgh`), Wayne / Saginaw / Calhoun MI;
+  Tax-Sale.info MI upcoming auction catalogs (one
+  registry row per county, `tax_sale_info.py`) + surplus catalogs; Horry SC delinquent tax sale list (newest dated XLSX,
+  `document_sheet="*"`); Saguache CO 2026 tax sale layer; Hubbard MN OTC land; Saint Paul HRA land.
+- Registry rows are keyed `(source_id, county)` in `build_county_source_registry.expansion_rows()`.
+- Held, configured but not scheduled: Wright MN (app.js's MN auctions copy says none is tracked; state-rules
+  `ledger_copy`) and Genesee MI land bank (`paged_table.py`; the site's random HTTP 500s move its session cursor).
+- Read-only validation: `job=evidence`, `evidence_scope=new_sources_validate` (MI MO PA SC CO MN, no DB credential).

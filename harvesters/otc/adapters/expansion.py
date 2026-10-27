@@ -26,6 +26,8 @@ from .epropertyplus import EppConfig
 from .property_page import PropertyPage
 from .sc_flc import GEORGETOWN as SC_GEORGETOWN_FLC   # Georgetown SC FLC list (PR #69)
 from .tabular import ColumnMap, TabularConfig
+from . import tax_sale_info as TSI
+from .paged_table import PagedTableConfig
 
 EVIDENCE_RUNS = ("36778382226", "36779189506", "36780071129", "pass-4 2026-09-30")
 APPROVAL = "owner publication approval 2026-09-30 (no explicit reuse licence published by the source)"
@@ -497,6 +499,260 @@ TN_SHELBY_LANDBANK = EppConfig(
           "portal's own property page (its 'Apply For this Property' action needs a portal account) as its purchase URL.")
 
 
+# ---- New-sources sprint (2026-10-26): every property, every source ----------
+# Owner decision 2026-10-26: "You need to find every fucking property and every
+# source, and then we'll work on the legal shit." Terms-of-service / licensing
+# risk is accepted by the owner; every source below carries owner-accepted
+# INTERIM permission records (data/source_permissions.csv, expiring 2027-04-12)
+# and stays UNREVIEWED for customer publication. Hard limits kept: no login, no
+# CAPTCHA, no paywall, no IP evasion; honest User-Agent; a polite rate.
+# Structure read live 2026-10-26 (field names, counts, status vocabularies -
+# docs/new-sources-2026-10-26.md); evidence run ids in NEW_SOURCES_EVIDENCE_RUNS.
+NEW_SOURCES_EVIDENCE_RUNS: tuple[str, ...] = ("live structure read 2026-10-26",)
+OWNER_INTERIM_2026_10_26 = ("Owner decision 2026-10-26 (collect every property from every source; terms / licensing risk "
+                            "accepted, legal review to follow): collected and synced under INTERIM permission records expiring "
+                            "2027-04-12, labelled UNREVIEWED; not customer-published until an admin review approves it.")
+
+# ePropertyPlus land-bank tenants (the same public getPublishedProperties
+# endpoint as Shelby TN). These tenants publish no currentStatus / available
+# flags (every row null) - except Wayne County MI (`available` Y/N) and the
+# City of Pittsburgh (custom field s_custom_0010: 'Available for Sale' /
+# 'Sale Pending' / 'Not Available'). A tenant without a flag is read on list
+# presence: the land bank's published inventory IS its offered list (each
+# portal's public landing page is the land bank's "properties for sale").
+_EPP_LIST = "/landmgmtpub/app/base/landing"
+
+# Kansas City (MO) Land Bank - 2,577 published rows (2026-10-26), state MO,
+# county Jackson (1 row Clay, counted, never re-labelled); inventoryType
+# 'Land Bank' / 'KCMHA' (the Homesteading Authority's lots the Land Bank
+# sells) kept verbatim; one 'ePP TEST' row is the vendor's test record and is
+# excluded. askingPrice filled on every row: a published amount of
+# UNSPECIFIED kind (applications / offers to the Land Bank).
+MO_KC_LANDBANK = EppConfig(
+    source_id="mo_kc_landbank", state="MO", county="Jackson",
+    portal="https://public-kclb.epropertyplus.com", list_url="https://public-kclb.epropertyplus.com" + _EPP_LIST,
+    offered=(), excluded=(("inventoryType", "ePP TEST"),), county_field="county", county_values=("Jackson",),
+    id_pattern=r"[A-Z]{2}\d{16,17}|\d{2}-\d{3}-\d{2}-\d{2}-\d{2}-\d-\d{2}-\d{3}",
+    amount_field="askingPrice", amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, amount_label="Asking Price",
+    columns_verified=True,
+    notes="Land Bank of Kansas City, Missouri - its ePropertyPlus public portal (public-kclb). Every published row is read "
+          "(no availability flag is published; the row's comments, never mapped, say e.g. 'Property available to apply for'). "
+          "parcelNumber = the Jackson County parcel id ('JA' + 17 digits). askingPrice kept as published, never called a price.")
+
+# City of Pittsburgh (PA) - city-owned property portal (public-pgh), the
+# eProperty Plus database behind the City's 'City-Owned Properties' open data
+# (WPRDC). 2,933 rows, all Allegheny; s_custom_0010 'Available for Sale'
+# (1,590) is the only offered value read.
+PA_PITTSBURGH_CITY_PROPERTY = EppConfig(
+    source_id="pa_pittsburgh_city_property", state="PA", county="Allegheny",
+    portal="https://public-pgh.epropertyplus.com", list_url="https://public-pgh.epropertyplus.com" + _EPP_LIST,
+    offered=(("s_custom_0010", "Available for Sale"),), status_field="s_custom_0010",
+    id_pattern=r"\d{4}[A-Z]\d{5}[0-9A-Z]{6}",
+    amount_field="askingPrice", amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, amount_label="Asking Price",
+    columns_verified=True,
+    notes="City of Pittsburgh city-owned property (eProperty Plus public portal public-pgh; inventoryType 'Public Sale' / "
+          "'PLB Transfer' / 'URA Transfer' kept verbatim). Only rows whose s_custom_0010 reads 'Available for Sale' are read; "
+          "'Sale Pending' and 'Not Available' are not. parcelNumber = the Allegheny County 16-character lot-and-block id.")
+
+# Wayne County (MI) Land Bank - public-wclb: 841 rows, its own `available`
+# flag Y (810) / N (31); county 'WAYNE'. Only available = 'Y' is read.
+MI_WAYNE_COUNTY_LANDBANK = EppConfig(
+    source_id="mi_wayne_county_landbank", state="MI", county="Wayne",
+    portal="https://public-wclb.epropertyplus.com", list_url="https://public-wclb.epropertyplus.com" + _EPP_LIST,
+    offered=(("available", "Y"),), county_field="county", county_values=("Wayne",),
+    id_pattern=r"\d{8}(?:\d{6}|\.|-\d)?",
+    amount_field="askingPrice", amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, amount_label="Asking Price",
+    columns_verified=True,
+    notes="Wayne County Land Bank Corporation (Michigan) ePropertyPlus public portal (public-wclb); outside Detroit (Highland "
+          "Park, Romulus, Redford, ...). Offered = the portal's own available 'Y'. askingPrice kept as published.")
+
+# Saginaw County (MI) Land Bank Authority - public-sclb: 712 rows, all
+# 'Residential Vacant', no availability flag, no price on any row.
+MI_SAGINAW_LANDBANK = EppConfig(
+    source_id="mi_saginaw_landbank", state="MI", county="Saginaw",
+    portal="https://public-sclb.epropertyplus.com", list_url="https://public-sclb.epropertyplus.com" + _EPP_LIST,
+    offered=(), county_field="county", county_values=("Saginaw",),
+    id_pattern=r"\d{2}-\d{2}-\d-\d{1,2}-\d[0-9A-Z]\d{2}-\d{3}",
+    columns_verified=True,
+    notes="Saginaw County Land Bank Authority ePropertyPlus public portal (public-sclb): every published row read on list "
+          "presence (no availability flag published). No price published.")
+
+# Calhoun County (MI) Land Bank Authority - public-cclb: 219 rows (Battle
+# Creek / Albion), no availability flag; askingPrice on 215.
+MI_CALHOUN_LANDBANK = EppConfig(
+    source_id="mi_calhoun_landbank", state="MI", county="Calhoun",
+    portal="https://public-cclb.epropertyplus.com", list_url="https://public-cclb.epropertyplus.com" + _EPP_LIST,
+    offered=(), county_field="county", county_values=("Calhoun",),
+    id_pattern=r"\d{2,4}-\d{2,3}-\d{3}-\d{1,2}",
+    amount_field="askingPrice", amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, amount_label="Asking Price",
+    columns_verified=True,
+    notes="Calhoun County Land Bank Authority (Michigan) ePropertyPlus public portal (public-cclb): every published row read "
+          "on list presence; the program (s_custom_0003, e.g. 'Develop This Lot', 'Side Lot') is not mapped.")
+
+NEW_EPP_SOURCES = (MO_KC_LANDBANK, PA_PITTSBURGH_CITY_PROPERTY, MI_WAYNE_COUNTY_LANDBANK, MI_SAGINAW_LANDBANK,
+                   MI_CALHOUN_LANDBANK)
+
+# Tax-Sale.info (Title Check, LLC - the auction service Michigan county
+# treasurers use for their tax-foreclosure auctions; harvesters/otc/adapters/
+# tax_sale_info.py). One configuration per county Tax-Sale.info listed in its
+# 2026 season, for each of its two lists:
+#  * mi_tax_sale_info_auction - the UPCOMING auction catalogs (AUCTIONS):
+#    2026-10-26 the 'No Reserve Auction' of October 30, 2026 listed 46
+#    county catalogs, 755 lots; a county with no upcoming catalog reads EMPTY
+#    (closed, never sold);
+#  * mi_tax_sale_info_surplus - the counties' surplus offers (AVAILABLE):
+#    "properties that have gone through the auction process already and failed
+#    to sell ... sold on a first come first serve basis" (8 counties, 57 lots).
+MI_TSI_AUCTIONS = tuple(TSI.TaxSaleInfoConfig(
+    source_id="mi_tax_sale_info_auction", state="MI", county=c, kind="auction", list_url=TSI.AUCTIONS_URL,
+    amount_kind=AmountKind.OPENING_BID, columns_verified=True,
+    notes="Tax-Sale.info (Title Check, LLC) upcoming Michigan tax-foreclosure auction catalogs: each county catalog's own "
+          "'Catalog Spreadsheet' (CSV). Minimum Bid kept as the published opening bid; sale date = the auction entry's date. "
+          "Past auction catalogs are never read.") for c in TSI.SEASON_COUNTIES)
+# Horry County (SC) Treasurer - Delinquent Tax: "2026 Real Estate Delinquent
+# list <M.D.YY>" workbook linked from the Delinquent Tax page (updated as
+# taxes are paid; the 2026-10-23 file read 2026-10-26: one sheet, title row
+# "2026 REAL ESTATE DELINQUENT TAX SALE LIST AS OF 10/23/2026", columns Item
+# Number | PIN | Owner Name | New Owner Name | Description | FLC Bid Amount,
+# 2,343 rows). The county's own Tax Sale Information document: the sale is
+# December 1, 2026; "The delinquent tax collector will present the opening
+# bid, which is made on behalf of the Forfeited Land Commission" = the FLC
+# Bid Amount (OPENING_BID). Owner names are never mapped. The mobile-home list
+# (personal property) is never read. The harvester follows the newest dated
+# 'real-estate-delinquent-list-<MMDDYY>' file on every run.
+SC_HORRY_DELINQUENT_PAGE = "https://www.horrycountysc.gov/departments/treasurer/delinquent-tax/"
+SC_HORRY_LATEST_READ = ("2026-10-26", "https://www.horrycountysc.gov/media/urdazygf/2026-real-estate-delinquent-list-102326.xlsx")
+SC_HORRY_TAX_SALE = TabularConfig(
+    source_id="sc_horry_tax_sale", state="SC", county="Horry",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=None, record_source="auction",
+    columns=ColumnMap(case_no=("PIN",), parcel=("PIN",), legal_desc=("Description",), amount=("FLC Bid Amount",)),
+    amount_kind=AmountKind.OPENING_BID, id_pattern=r"\d{9,11}", header_required=("PIN", "FLC Bid Amount"),
+    list_as_of_pattern=r"real-estate-delinquent-list-(\d{6})", list_as_of_formats=("%m%d%y",),
+    document_sheet="*", list_url=SC_HORRY_DELINQUENT_PAGE, document_url=SC_HORRY_DELINQUENT_PAGE, columns_verified=True,
+    notes="Horry County delinquent real-estate tax sale list (the Treasurer's newest dated workbook). The sale is the "
+          "county's December 1, 2026 open-bid tax sale (2026 Tax Sale Information document); 'Not all properties advertised "
+          "will be sold' (redeemed parcels drop off the updated lists). FLC Bid Amount = the opening bid made for the "
+          "Forfeited Land Commission (delinquent taxes, penalties, costs and the current year's taxes).")
+
+# Saguache County (CO) - "2026 Tax Sale" layer (San Luis Valley GIS, item
+# beee3cca0e0e4c2382cdcf56166531c7; 900 parcels, edited 2026-09-22): the
+# county's 2026 tax lien sale list - TaxSale_Number, TaxSale_Parcel,
+# TaxSale_Account, Legal_Description, Total_Due, Deeded_Acres. Owner columns
+# and the owner's mailing address (City / State / Zip) are never mapped.
+CO_SAGUACHE_TAX_SALE = ArcGisLayerConfig(
+    source_id="co_saguache_tax_sale", state="CO", county="Saguache",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=None, record_source="auction",
+    layer_url="https://services1.arcgis.com/zH7gQ37AKcpvTX6d/arcgis/rest/services/2026_Tax_Sale/FeatureServer/204",
+    fields=ArcGisFieldMap(case_no="TaxSale_Account", parcel="TaxSale_Parcel", legal_desc="Legal_Description",
+                          amount="Total_Due", acreage="Deeded_Acres"),
+    amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, list_url=_item("beee3cca0e0e4c2382cdcf56166531c7"),
+    columns_verified=True, centroid=True,
+    notes="Saguache County 2026 tax lien sale list (layer '2026 Tax Sale'). Total_Due is the advertised amount; the opening "
+          "bid is not stated on the layer - kept as a published amount of unspecified kind. No sale date on the layer.")
+
+# Wright County (MN) - "Tax Forfeited Parcels" layer (80 parcels, edited
+# 2026-07-08): Status 'Open' (38) / 'Closed' (42), 'Auction Starting Price',
+# 'Public Surplus Page' (the county's online auctions on PublicSurplus). Only
+# Status 'Open' is read; an AUCTIONS record (the county auctions the parcels
+# online), amount = the auction starting price (OPENING_BID).
+MN_WRIGHT_TAX_FORFEIT = ArcGisLayerConfig(
+    source_id="mn_wright_tax_forfeit", state="MN", county="Wright",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=None, record_source="auction",
+    layer_url="https://services2.arcgis.com/CiQCvRGImIxsaFnM/arcgis/rest/services/Tax_Forfeited_Parcels/FeatureServer/0",
+    fields=ArcGisFieldMap(case_no="PID", parcel="PID", legal_desc="LEGAL", amount="Auction_Starting_Price", status="Status",
+                          market="EMV__Assessment_2025_", acreage="CalculatedArea"),
+    where="Status = 'Open'", require=(("Status", "Open"),), amount_kind=AmountKind.OPENING_BID, centroid=True,
+    list_url="https://services2.arcgis.com/CiQCvRGImIxsaFnM/arcgis/rest/services/Tax_Forfeited_Parcels/FeatureServer/0",
+    columns_verified=True,
+    notes="Wright County tax-forfeited parcels: Status 'Open' rows only (the county's own status; 'Closed' is not read). "
+          "Auction Starting Price kept as the opening bid; sales run on the county's PublicSurplus page. EMV = the 2025 "
+          "estimated market value.")
+
+# Hubbard County (MN) - "TFL Sales" (tax-forfeited land sales; 16 rows, all
+# Sales_Status 'OTC' = over the counter). Notes (free text) never mapped.
+MN_HUBBARD_TFL_OTC = ArcGisLayerConfig(
+    source_id="mn_hubbard_tfl_otc", state="MN", county="Hubbard",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
+    layer_url="https://services.arcgis.com/auNjCUvKlkSqV04X/arcgis/rest/services/TFL_Sales_view/FeatureServer/0",
+    fields=ArcGisFieldMap(case_no="Parcel_Number", parcel="Parcel_Number", amount="Minimum_Bid", status="Sales_Status"),
+    where="Sales_Status = 'OTC'", require=(("Sales_Status", "OTC"),), amount_kind=AmountKind.OPENING_BID, centroid=True,
+    list_url="https://services.arcgis.com/auNjCUvKlkSqV04X/arcgis/rest/services/TFL_Sales_view/FeatureServer/0",
+    columns_verified=True,
+    notes="Hubbard County tax-forfeited land offered over the counter (Sales_Status 'OTC'). Minimum_Bid when filled.")
+
+# City of Saint Paul (MN) HRA - "HRA Properties" layer (HRA-owned parcels;
+# 160 rows): Marketing Status '5 - Available on the open market, subject to
+# disposition policy' (32) is read; 'Future marketing' and 'Under
+# review/pending sale' are not. Ramsey County.
+MN_STPAUL_HRA = ArcGisLayerConfig(
+    source_id="mn_stpaul_hra_properties", state="MN", county="Ramsey",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
+    layer_url="https://services1.arcgis.com/9meaaHE3uiba0zr8/arcgis/rest/services/HRA_Owned_Parcels_for_Sale/FeatureServer/0",
+    fields=ArcGisFieldMap(case_no="ParcelID", parcel="ParcelID", address="SiteAddress", legal_desc="Legal_Description",
+                          status="Marketing_Status", market="LandHeldForResale_ActVa_EMVTotal"),
+    where="Marketing_Status LIKE '5 -%'",
+    require=(("Marketing_Status", "5 - Available on the open market, subject to disposition policy"),), centroid=True,
+    list_url="https://services1.arcgis.com/9meaaHE3uiba0zr8/arcgis/rest/services/HRA_Owned_Parcels_for_Sale/FeatureServer/0",
+    columns_verified=True,
+    notes="Saint Paul Housing and Redevelopment Authority land held for resale: Marketing Status '5 - Available on the "
+          "open market, subject to disposition policy' only. No price on the layer.")
+
+# Genesee County (MI) Land Bank Authority (Flint) - "Search All Properties"
+# (thelandbank.org/find_properties.asp): the Land Bank's inventory as one
+# server-side paged table, 25 per page (427 pages, ~10,670 listings,
+# 2026-10-26), columns Parcel ID | Address | City | ZIP | Class | Sale Type.
+# Sale Type is the Land Bank's own word for how the parcel is sold ('Vacant
+# Land', 'Commercial/Industrial', 'Featured Lot for Development', 'Listed with
+# Realtor', ...) and is kept verbatim; 'Demolition Program' (a structure in the
+# demolition program) is not read as offered.
+MI_GENESEE_LANDBANK = PagedTableConfig(
+    table=TabularConfig(
+        source_id="mi_genesee_landbank", state="MI", county="Genesee",
+        source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
+        columns=ColumnMap(case_no=("Parcel ID",), parcel=("Parcel ID",), address=("Address",), land_use=("Class",),
+                          status=("Sale Type",)),
+        status_exclude=("Demolition Program",), id_pattern=r"\d{2}-\d{2}-\d{3}-\d{3}", header_required=("Parcel ID", "Sale Type"),
+        list_url="https://www.thelandbank.org/find_properties.asp", columns_verified=True,
+        notes="Genesee County Land Bank Authority inventory ('Search All Properties'), every page of the site's own paged "
+              "table read in one session. Sale Type kept verbatim; 'Demolition Program' rows are not read. No price per row; "
+              "buyers apply on the Land Bank's applications (Lots Available / Residential / Commercial interest forms)."),
+    first_url="https://www.thelandbank.org/find_properties.asp?LRCsearch=do",
+    next_url="https://www.thelandbank.org/find_properties.asp?LRCsearch=redo",
+    # The search form's own Township / City filter (FindTWP), read 2026-10-26: every
+    # township and city, with the City of Flint as its four quadrants ('4' = the
+    # entire city would overlap them and is not used). The parts must add up to the
+    # unfiltered search (checked on every run).
+    partition_field="FindTWP",
+    partition_values=("01", "02", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17",
+                      "18", "40", "41", "46", "47", "51", "52", "53", "55", "56", "57", "58", "59", "60", "61"))
+
+NEW_TABLE_SOURCES = (SC_HORRY_TAX_SALE, CO_SAGUACHE_TAX_SALE, MN_HUBBARD_TFL_OTC, MN_STPAUL_HRA)
+# Configured and read live (38 'Open' rows, 2026-10-26) but NOT scheduled: the
+# Minnesota page's customer copy (app.js EXPANSION_LEDGER_COPY, owned by the
+# front-end session) still says "No Minnesota auction source is tracked", and
+# the state-rules engine fails a tracked ledger whose copy denies it. Add it to
+# SOURCES["MN"] (and NEW_TABLE_SOURCES) once that copy is updated.
+HELD_FOR_FRONTEND_COPY = (MN_WRIGHT_TAX_FORFEIT,)
+# Genesee (MI) is configured and its reader tested, but HELD (not scheduled):
+# read from the sandbox 2026-10-26, the site answers HTTP 500 at random about
+# every 50-60 pages and on six township filters every time; a 500 mid-session
+# moves its server-side page cursor, so the largest part (Flint quadrant 40,
+# 123 pages) failed on all three attempts. Every failed read is FAILED (nothing
+# written, nothing closed), but each try costs ~15 minutes of requests. Next
+# step: split the big Flint quadrants further (FindPropclass within FindTWP),
+# then add it to SOURCES["MI"], ledgers, permissions and the terms table.
+HELD_SERVER_ERRORS = (MI_GENESEE_LANDBANK,)
+
+MI_TSI_SURPLUS = tuple(TSI.TaxSaleInfoConfig(
+    source_id="mi_tax_sale_info_surplus", state="MI", county=c, kind="surplus", list_url=TSI.SURPLUS_URL,
+    inventory_type=InventoryType.POST_SALE, amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, columns_verified=True,
+    notes="Tax-Sale.info surplus property catalogs: lots that failed to sell at the county's tax-foreclosure auction, "
+          "re-offered first come first served through the site's surplus lot request form. The catalog's 'Minimum Bid' is "
+          "kept as a published amount of unspecified kind.") for c in TSI.SURPLUS_COUNTIES)
+# Owner decision 2026-10-26: every new source of the new-sources sprint (collected and customer-published).
+NEW_SOURCE_IDS = frozenset(c.source_id for c in NEW_EPP_SOURCES + NEW_TABLE_SOURCES + MI_TSI_AUCTIONS + MI_TSI_SURPLUS)
+
+
 HELD_AVAILABLE = ("AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for "
                   "development, labelled UNREVIEWED; not customer-published until an admin review approves it.")
 # Owner decision, 2026-10-26 (quoted in docs/publish-all-sources.md): every
@@ -522,7 +778,10 @@ PUBLICATION = {
     "wi_green_tax_deed_sales": ("APPROVED", OWNER_APPROVED_2026_09_30),
     "co_douglas_county_held_liens": ("APPROVED", DOUGLAS_CC_BY_SA),
     "co_douglas_tax_sale_list": ("APPROVED", DOUGLAS_CC_BY_SA),
-} | {sid: ("APPROVED", OWNER_APPROVED_2026_10_26) for sid in sorted(OWNER_APPROVED_2026_10_26_SOURCE_IDS)}
+} | {sid: ("APPROVED", OWNER_APPROVED_2026_10_26) for sid in sorted(OWNER_APPROVED_2026_10_26_SOURCE_IDS)
+     # New-sources sprint (owner decision 2026-10-26, "Do not block vendors. Post their shit"): published to
+     # customers on the same internal risk acceptance - INTERIM display / link records, legal review pending.
+     } | {sid: ("APPROVED", OWNER_APPROVED_2026_10_26) for sid in sorted(NEW_SOURCE_IDS)}
 
 
 @dataclass(frozen=True)
@@ -537,24 +796,34 @@ SOURCES: dict[str, tuple[ExpansionSource, ...]] = {
     "MI": (ExpansionSource("arcgis", MI_EATON, MI_EATON.layer_url), ExpansionSource("arcgis", MI_LENAWEE, MI_LENAWEE.layer_url),
            ExpansionSource("arcgis", MI_DETROIT_LANDBANK_LOTS, MI_DETROIT_LANDBANK_LOTS.layer_url),
            ExpansionSource("arcgis", MI_DETROIT_LANDBANK_PROGRAMS, MI_DETROIT_LANDBANK_PROGRAMS.layer_url),
-           ExpansionSource("html_table", MI_OCEANA_LANDBANK, MI_OCEANA_LANDBANK.list_url)),
+           ExpansionSource("html_table", MI_OCEANA_LANDBANK, MI_OCEANA_LANDBANK.list_url),
+           ExpansionSource("epropertyplus", MI_WAYNE_COUNTY_LANDBANK, MI_WAYNE_COUNTY_LANDBANK.portal),
+           ExpansionSource("epropertyplus", MI_SAGINAW_LANDBANK, MI_SAGINAW_LANDBANK.portal),
+           ExpansionSource("epropertyplus", MI_CALHOUN_LANDBANK, MI_CALHOUN_LANDBANK.portal),
+           *(ExpansionSource("tax_sale_info", c, c.list_url) for c in MI_TSI_AUCTIONS + MI_TSI_SURPLUS)),
     "WY": (ExpansionSource("arcgis", WY_ALBANY, WY_ALBANY.layer_url),),
     "SC": (ExpansionSource("arcgis", SC_YORK, SC_YORK.layer_url),
            ExpansionSource("html_table", SC_OCONEE, SC_OCONEE.list_url),
            ExpansionSource("xlsx_flc_lists", SC_HORRY_FLC, SC_HORRY_FLC.list_url),
-           ExpansionSource("sc_flc_pdf", SC_GEORGETOWN_FLC, SC_GEORGETOWN_FLC.document_url)),
+           ExpansionSource("sc_flc_pdf", SC_GEORGETOWN_FLC, SC_GEORGETOWN_FLC.document_url),
+           ExpansionSource("latest_dated_document", SC_HORRY_TAX_SALE, SC_HORRY_DELINQUENT_PAGE)),
     "CO": (ExpansionSource("html_table", CO_MORGAN, CO_MORGAN.list_url),
            ExpansionSource("arcgis", CO_DOUGLAS_COUNTY_HELD_LIENS, CO_DOUGLAS_COUNTY_HELD_LIENS.layer_url),
            ExpansionSource("arcgis", CO_DOUGLAS_TAX_SALE_LIST, CO_DOUGLAS_TAX_SALE_LIST.layer_url),
-           ExpansionSource("html_table", CO_MORGAN_DEED_AUCTIONS, CO_MORGAN_DEED_AUCTIONS.list_url)),
+           ExpansionSource("html_table", CO_MORGAN_DEED_AUCTIONS, CO_MORGAN_DEED_AUCTIONS.list_url),
+           ExpansionSource("arcgis", CO_SAGUACHE_TAX_SALE, CO_SAGUACHE_TAX_SALE.layer_url)),
     "WI": (ExpansionSource("html_table", WI_GREEN_CURRENT, WI_GREEN_CURRENT.list_url),
            ExpansionSource("html_table", WI_GREEN_PREVIOUS, WI_GREEN_PREVIOUS.list_url),
            ExpansionSource("html_table", WI_DANE_AVAILABLE, WI_DANE_AVAILABLE.list_url),
            ExpansionSource("html_table", WI_DANE_SOLD, WI_DANE_SOLD.list_url)),
-    "MO": (ExpansionSource("csv", MO_STL_LRA, MO_STL_LRA.document_url),),
+    "MO": (ExpansionSource("csv", MO_STL_LRA, MO_STL_LRA.document_url),
+           ExpansionSource("epropertyplus", MO_KC_LANDBANK, MO_KC_LANDBANK.portal)),
     "OK": (ExpansionSource("html_table", OK_OKLAHOMA_COUNTY_OWNED, OK_OKLAHOMA_COUNTY_OWNED.list_url),),
-    "PA": (ExpansionSource("latest_dated_document", PA_FAYETTE_REPOSITORY, PA_FAYETTE_PAGE),),
-    "MN": (ExpansionSource("arcgis", MN_RAMSEY_TAX_FORFEIT, MN_RAMSEY_TAX_FORFEIT.layer_url),),
+    "PA": (ExpansionSource("latest_dated_document", PA_FAYETTE_REPOSITORY, PA_FAYETTE_PAGE),
+           ExpansionSource("epropertyplus", PA_PITTSBURGH_CITY_PROPERTY, PA_PITTSBURGH_CITY_PROPERTY.portal)),
+    "MN": (ExpansionSource("arcgis", MN_RAMSEY_TAX_FORFEIT, MN_RAMSEY_TAX_FORFEIT.layer_url),
+           ExpansionSource("arcgis", MN_HUBBARD_TFL_OTC, MN_HUBBARD_TFL_OTC.layer_url),
+           ExpansionSource("arcgis", MN_STPAUL_HRA, MN_STPAUL_HRA.layer_url)),
     "TN": (ExpansionSource("epropertyplus", TN_SHELBY_LANDBANK, TN_SHELBY_LANDBANK.portal),),
 }
 
@@ -564,3 +833,4 @@ AVAILABLE_SPRINT_SOURCE_IDS = frozenset({"mi_detroit_landbank_lots", "mi_detroit
 AVAILABLE_FIVE_SOURCE_IDS = frozenset({"mo_stl_lra_inventory", "ok_oklahoma_county_owned", "pa_fayette_repository",
                                        "mn_ramsey_tax_forfeit"})
 TN_SOURCE_IDS = frozenset({"tn_shelby_landbank"})
+

@@ -12,14 +12,14 @@
    "FAIL": 0,
    "NOT_APPLICABLE": 3,
    "NOT_VERIFIED": 3,
-   "PASS": 18
+   "PASS": 19
   },
   "FL": {
    "BLOCKED": 0,
    "FAIL": 0,
    "NOT_APPLICABLE": 0,
    "NOT_VERIFIED": 2,
-   "PASS": 29
+   "PASS": 30
   },
   "LA": {
    "BLOCKED": 0,
@@ -33,20 +33,20 @@
    "FAIL": 0,
    "NOT_APPLICABLE": 1,
    "NOT_VERIFIED": 4,
-   "PASS": 20
+   "PASS": 25
   },
   "MN": {
    "BLOCKED": 0,
    "FAIL": 0,
    "NOT_APPLICABLE": 2,
-   "NOT_VERIFIED": 4,
-   "PASS": 15
+   "NOT_VERIFIED": 5,
+   "PASS": 16
   },
   "MO": {
    "BLOCKED": 0,
    "FAIL": 0,
    "NOT_APPLICABLE": 2,
-   "NOT_VERIFIED": 4,
+   "NOT_VERIFIED": 5,
    "PASS": 15
   },
   "OK": {
@@ -60,7 +60,7 @@
    "BLOCKED": 0,
    "FAIL": 0,
    "NOT_APPLICABLE": 2,
-   "NOT_VERIFIED": 4,
+   "NOT_VERIFIED": 5,
    "PASS": 15
   },
   "SC": {
@@ -68,7 +68,7 @@
    "FAIL": 0,
    "NOT_APPLICABLE": 1,
    "NOT_VERIFIED": 3,
-   "PASS": 20
+   "PASS": 21
   },
   "TN": {
    "BLOCKED": 0,
@@ -81,8 +81,8 @@
    "BLOCKED": 0,
    "FAIL": 0,
    "NOT_APPLICABLE": 1,
-   "NOT_VERIFIED": 5,
-   "PASS": 15
+   "NOT_VERIFIED": 4,
+   "PASS": 27
   },
   "WI": {
    "BLOCKED": 0,
@@ -114,21 +114,21 @@
   },
   {
    "check": "ledger_eligibility",
-   "detail": "COUNTY_DEPENDENT: 2 source(s) (co_douglas_tax_sale_list, co_morgan_treasurer_deed_auctions) read 2026-10-01",
+   "detail": "COUNTY_DEPENDENT: 3 source(s) (co_douglas_tax_sale_list, co_morgan_treasurer_deed_auctions, co_saguache_tax_sale) read 2026-10-01",
    "state": "CO",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "county_coverage",
-   "detail": "2 counties: Douglas, Morgan",
+   "detail": "3 counties: Douglas, Morgan, Saguache",
    "state": "CO",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: co_douglas_tax_sale_list, co_morgan_treasurer_deed_auctions",
+   "detail": "TRACKED: co_douglas_tax_sale_list, co_morgan_treasurer_deed_auctions, co_saguache_tax_sale",
    "state": "CO",
    "status": "PASS",
    "subject": "AUCTIONS"
@@ -231,6 +231,13 @@
    "subject": "co_morgan_treasurer_deed_auctions"
   },
   {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "CO",
+   "status": "PASS",
+   "subject": "co_saguache_tax_sale"
+  },
+  {
    "check": "available_terms",
    "detail": "no AVAILABLE source tracked",
    "state": "CO",
@@ -302,14 +309,14 @@
   },
   {
    "check": "county_coverage",
-   "detail": "52 counties fed; eligibility is OFFERED",
+   "detail": "56 counties fed; eligibility is OFFERED",
    "state": "FL",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: fl_laft_hillsborough, fl_laft_html, fl_laft_leon, fl_laft_orange, fl_laft_osceola, fl_laft_pdfs, fl_laft_pioneer, fl_laft_realtdm, fl_laft_stlucie",
+   "detail": "TRACKED: fl_laft_hillsborough, fl_laft_html, fl_laft_leon, fl_laft_orange, fl_laft_osceola, fl_laft_pdfs, fl_laft_pioneer, fl_laft_portals, fl_laft_realtdm, fl_laft_stlucie",
    "state": "FL",
    "status": "PASS",
    "subject": "AVAILABLE"
@@ -402,6 +409,13 @@
    "detail": "AVAILABLE",
    "state": "FL",
    "status": "PASS",
+   "subject": "fl_laft_portals"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "FL",
+   "status": "PASS",
    "subject": "fl_laft_realtdm"
   },
   {
@@ -434,13 +448,13 @@
   },
   {
    "check": "available_terms",
-   "detail": "every AVAILABLE source has a terms row (9)",
+   "detail": "every AVAILABLE source has a terms row (10)",
    "state": "FL",
    "status": "PASS"
   },
   {
    "check": "acquisition_path",
-   "detail": "19/52 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "detail": "19/56 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
    "state": "FL",
    "status": "NOT_VERIFIED"
   },
@@ -600,21 +614,21 @@
   },
   {
    "check": "ledger_eligibility",
-   "detail": "COUNTY_DEPENDENT: 2 source(s) (mi_eaton_treasurer_sale, mi_lenawee_tax_sale) read 2026-10-01",
+   "detail": "COUNTY_DEPENDENT: 3 source(s) (mi_eaton_treasurer_sale, mi_lenawee_tax_sale, mi_tax_sale_info_auction) read 2026-10-01",
    "state": "MI",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "county_coverage",
-   "detail": "2 counties: Eaton, Lenawee",
+   "detail": "77 counties: Alcona, Alger, Allegan, Alpena, Antrim, Arenac, Baraga, Barry, Bay, Benzie, Berrien, Branch …",
    "state": "MI",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: mi_eaton_treasurer_sale, mi_lenawee_tax_sale",
+   "detail": "TRACKED: mi_eaton_treasurer_sale, mi_lenawee_tax_sale, mi_tax_sale_info_auction",
    "state": "MI",
    "status": "PASS",
    "subject": "AUCTIONS"
@@ -628,21 +642,21 @@
   },
   {
    "check": "ledger_eligibility",
-   "detail": "COUNTY_DEPENDENT: 3 source(s) (mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank) read 2026-10-02",
+   "detail": "COUNTY_DEPENDENT: 7 source(s) (mi_calhoun_landbank, mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank, mi_saginaw_landbank, mi_tax_sale_info_surplus, mi_wayne_county_landbank) read 2026-10-02",
    "state": "MI",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "county_coverage",
-   "detail": "2 counties: Oceana, Wayne",
+   "detail": "11 counties: Arenac, Bay, Calhoun, Jackson, Monroe, Montcalm, Oceana, Otsego, Presque Isle, Saginaw, Wayne",
    "state": "MI",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank",
+   "detail": "TRACKED: mi_calhoun_landbank, mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank, mi_saginaw_landbank, mi_tax_sale_info_surplus, mi_wayne_county_landbank",
    "state": "MI",
    "status": "PASS",
    "subject": "AVAILABLE"
@@ -693,6 +707,13 @@
    "detail": "AVAILABLE",
    "state": "MI",
    "status": "PASS",
+   "subject": "mi_calhoun_landbank"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "MI",
+   "status": "PASS",
    "subject": "mi_detroit_landbank_lots"
   },
   {
@@ -724,14 +745,42 @@
    "subject": "mi_oceana_landbank"
   },
   {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "mi_saginaw_landbank"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "mi_tax_sale_info_auction"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "mi_tax_sale_info_surplus"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "mi_wayne_county_landbank"
+  },
+  {
    "check": "available_terms",
-   "detail": "every AVAILABLE source has a terms row (3)",
+   "detail": "every AVAILABLE source has a terms row (7)",
    "state": "MI",
    "status": "PASS"
   },
   {
    "check": "acquisition_path",
-   "detail": "2/3 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "detail": "2/14 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
    "state": "MI",
    "status": "NOT_VERIFIED"
   },
@@ -795,21 +844,21 @@
   },
   {
    "check": "ledger_eligibility",
-   "detail": "COUNTY_DEPENDENT: 1 source(s) (mn_ramsey_tax_forfeit) read 2026-10-04",
+   "detail": "COUNTY_DEPENDENT: 3 source(s) (mn_hubbard_tfl_otc, mn_ramsey_tax_forfeit, mn_stpaul_hra_properties) read 2026-10-04",
    "state": "MN",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "county_coverage",
-   "detail": "1 county: Ramsey",
+   "detail": "2 counties: Hubbard, Ramsey",
    "state": "MN",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: mn_ramsey_tax_forfeit",
+   "detail": "TRACKED: mn_hubbard_tfl_otc, mn_ramsey_tax_forfeit, mn_stpaul_hra_properties",
    "state": "MN",
    "status": "PASS",
    "subject": "AVAILABLE"
@@ -860,19 +909,33 @@
    "detail": "AVAILABLE",
    "state": "MN",
    "status": "PASS",
+   "subject": "mn_hubbard_tfl_otc"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "MN",
+   "status": "PASS",
    "subject": "mn_ramsey_tax_forfeit"
   },
   {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "MN",
+   "status": "PASS",
+   "subject": "mn_stpaul_hra_properties"
+  },
+  {
    "check": "available_terms",
-   "detail": "every AVAILABLE source has a terms row (1)",
+   "detail": "every AVAILABLE source has a terms row (3)",
    "state": "MN",
    "status": "PASS"
   },
   {
    "check": "acquisition_path",
-   "detail": "1/1 AVAILABLE unit(s) with a verified official process",
+   "detail": "1/3 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
    "state": "MN",
-   "status": "PASS"
+   "status": "NOT_VERIFIED"
   },
   {
    "check": "state_page",
@@ -934,21 +997,21 @@
   },
   {
    "check": "ledger_eligibility",
-   "detail": "COUNTY_DEPENDENT: 1 source(s) (mo_stl_lra_inventory) read 2026-10-04",
+   "detail": "COUNTY_DEPENDENT: 2 source(s) (mo_kc_landbank, mo_stl_lra_inventory) read 2026-10-04",
    "state": "MO",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "county_coverage",
-   "detail": "1 county: St. Louis City",
+   "detail": "2 counties: Jackson, St. Louis City",
    "state": "MO",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: mo_stl_lra_inventory",
+   "detail": "TRACKED: mo_kc_landbank, mo_stl_lra_inventory",
    "state": "MO",
    "status": "PASS",
    "subject": "AVAILABLE"
@@ -999,19 +1062,26 @@
    "detail": "AVAILABLE",
    "state": "MO",
    "status": "PASS",
+   "subject": "mo_kc_landbank"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "MO",
+   "status": "PASS",
    "subject": "mo_stl_lra_inventory"
   },
   {
    "check": "available_terms",
-   "detail": "every AVAILABLE source has a terms row (1)",
+   "detail": "every AVAILABLE source has a terms row (2)",
    "state": "MO",
    "status": "PASS"
   },
   {
    "check": "acquisition_path",
-   "detail": "1/1 AVAILABLE unit(s) with a verified official process",
+   "detail": "1/2 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
    "state": "MO",
-   "status": "PASS"
+   "status": "NOT_VERIFIED"
   },
   {
    "check": "state_page",
@@ -1212,21 +1282,21 @@
   },
   {
    "check": "ledger_eligibility",
-   "detail": "COUNTY_DEPENDENT: 1 source(s) (pa_fayette_repository) read 2026-10-04",
+   "detail": "COUNTY_DEPENDENT: 2 source(s) (pa_fayette_repository, pa_pittsburgh_city_property) read 2026-10-04",
    "state": "PA",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "county_coverage",
-   "detail": "1 county: Fayette",
+   "detail": "2 counties: Allegheny, Fayette",
    "state": "PA",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: pa_fayette_repository",
+   "detail": "TRACKED: pa_fayette_repository, pa_pittsburgh_city_property",
    "state": "PA",
    "status": "PASS",
    "subject": "AVAILABLE"
@@ -1280,16 +1350,23 @@
    "subject": "pa_fayette_repository"
   },
   {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "PA",
+   "status": "PASS",
+   "subject": "pa_pittsburgh_city_property"
+  },
+  {
    "check": "available_terms",
-   "detail": "every AVAILABLE source has a terms row (1)",
+   "detail": "every AVAILABLE source has a terms row (2)",
    "state": "PA",
    "status": "PASS"
   },
   {
    "check": "acquisition_path",
-   "detail": "1/1 AVAILABLE unit(s) with a verified official process",
+   "detail": "1/2 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
    "state": "PA",
-   "status": "PASS"
+   "status": "NOT_VERIFIED"
   },
   {
    "check": "state_page",
@@ -1323,21 +1400,21 @@
   },
   {
    "check": "ledger_eligibility",
-   "detail": "COUNTY_DEPENDENT: 2 source(s) (sc_oconee_tax_sale_list, sc_york_tax_sale) read 2026-10-01",
+   "detail": "COUNTY_DEPENDENT: 3 source(s) (sc_horry_tax_sale, sc_oconee_tax_sale_list, sc_york_tax_sale) read 2026-10-01",
    "state": "SC",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "county_coverage",
-   "detail": "2 counties: Oconee, York",
+   "detail": "3 counties: Horry, Oconee, York",
    "state": "SC",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: sc_oconee_tax_sale_list, sc_york_tax_sale",
+   "detail": "TRACKED: sc_horry_tax_sale, sc_oconee_tax_sale_list, sc_york_tax_sale",
    "state": "SC",
    "status": "PASS",
    "subject": "AUCTIONS"
@@ -1424,6 +1501,13 @@
    "state": "SC",
    "status": "PASS",
    "subject": "sc_horry_forfeited_land"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "SC",
+   "status": "PASS",
+   "subject": "sc_horry_tax_sale"
   },
   {
    "check": "source_classification",
@@ -1616,48 +1700,48 @@
   },
   {
    "check": "state_law_recorded",
-   "detail": "no statute has been read and recorded for this state; unresolved: redemption, tax_sale_list_source, tax_sale_model",
+   "detail": "no statute has been read and recorded for this state; unresolved: redemption, tax_sale_model",
    "state": "TX",
    "status": "NOT_VERIFIED"
   },
   {
    "check": "ledger_eligibility",
-   "detail": "COUNTY_DEPENDENT: 2 source(s) (tx_lgbs, tx_realauction) read 2026-10-01",
+   "detail": "COUNTY_DEPENDENT: 7 source(s) (tx_govease, tx_hctax, tx_jefferson_sheriff_sale, tx_lgbs, tx_mvba, tx_pbfcm, tx_realauction) read 2026-10-01",
    "state": "TX",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "county_coverage",
-   "detail": "31 counties: Angelina, Aransas, Atascosa, Caldwell, Cameron, Dallas, El Paso, Ellis, Galveston, Goliad, Gregg, Hardin …",
+   "detail": "83 counties: Angelina, Aransas, Archer, Atascosa, Austin, Bandera, Bastrop, Bell, Brazoria, Brewster, Brown, Caldwell …",
    "state": "TX",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: tx_lgbs, tx_realauction",
+   "detail": "TRACKED: tx_govease, tx_hctax, tx_jefferson_sheriff_sale, tx_lgbs, tx_mvba, tx_pbfcm, tx_realauction",
    "state": "TX",
    "status": "PASS",
    "subject": "AUCTIONS"
   },
   {
    "check": "ledger_eligibility",
-   "detail": "LGBS lists property struck off to taxing units, but whether, when and how a taxing unit resells it (Tex. Tax Code 34.05, lead only) is set per taxing unit and h",
+   "detail": "COUNTY_DEPENDENT: 9 source(s) (tx_bexar_resale, tx_hood_cad_struck_off, tx_lgbs, tx_montgomery_tax_trust, tx_mvba, tx_orange_trust_property, tx_pbfcm, tx_randall_trustee_property, tx_trinity_cad_resale) read 2026-10-26",
    "state": "TX",
-   "status": "NOT_VERIFIED",
+   "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "county_coverage",
-   "detail": "8 counties fed; eligibility is NOT_VERIFIED",
+   "detail": "65 counties: Archer, Austin, Bandera, Bastrop, Bell, Bexar, Brazoria, Brewster, Brown, Caldwell, Cameron, Chambers …",
    "state": "TX",
    "status": "PASS",
    "subject": "AVAILABLE"
   },
   {
    "check": "ledger_tracking",
-   "detail": "TRACKED: tx_lgbs",
+   "detail": "TRACKED: tx_bexar_resale, tx_hood_cad_struck_off, tx_lgbs, tx_montgomery_tax_trust, tx_mvba, tx_orange_trust_property, tx_pbfcm, tx_randall_trustee_property, tx_trinity_cad_resale",
    "state": "TX",
    "status": "PASS",
    "subject": "AVAILABLE"
@@ -1685,9 +1769,44 @@
   },
   {
    "check": "rule_history",
-   "detail": "1 rule(s) with a recorded prior version",
+   "detail": "2 rule(s) with a recorded prior version",
    "state": "TX",
    "status": "PASS"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_bexar_resale"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_govease"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_hctax"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_hood_cad_struck_off"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_jefferson_sheriff_sale"
   },
   {
    "check": "source_classification",
@@ -1698,20 +1817,62 @@
   },
   {
    "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_montgomery_tax_trust"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS/AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_mvba"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_orange_trust_property"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS/AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_pbfcm"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_randall_trustee_property"
+  },
+  {
+   "check": "source_classification",
    "detail": "AUCTIONS",
    "state": "TX",
    "status": "PASS",
    "subject": "tx_realauction"
   },
   {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_trinity_cad_resale"
+  },
+  {
    "check": "available_terms",
-   "detail": "every AVAILABLE source has a terms row (1)",
+   "detail": "every AVAILABLE source has a terms row (9)",
    "state": "TX",
    "status": "PASS"
   },
   {
    "check": "acquisition_path",
-   "detail": "1/8 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "detail": "1/69 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
    "state": "TX",
    "status": "NOT_VERIFIED"
   },
@@ -2076,7 +2237,7 @@
   "BLOCKED": 0,
   "FAIL": 0,
   "NOT_APPLICABLE": 25,
-  "NOT_VERIFIED": 49,
-  "PASS": 223
+  "NOT_VERIFIED": 51,
+  "PASS": 244
  }
 }
