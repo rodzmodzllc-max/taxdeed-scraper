@@ -3707,3 +3707,25 @@ Full description, with the per-gap results: `docs/enrich-thin-states-2026-10-27.
   overwriting a value another source filled. Before this, 55 CO addresses were erased on every sync.
 - **No source exists for:** PA Fayette (geometry only; the assessment site is click-through), TN Shelby lot
   size, MO acreage (columns undefined). FL mappings exist; its gap is identifier matching (PR #180).
+
+## Source link health + unconfirmed Available records (2026-10-27, PR open, migration 036 NOT applied)
+
+Report: `docs/review/source-links-2026-10-27.md`. Stable facts:
+- **`scripts/check_source_links.py`** (own workflow `source-link-check.yml`, cron `50 11 * * *`, own concurrency group,
+  `continue-on-error`) checks every distinct URL a customer can click once: active / available `properties`
+  url_auction / list_url / document_url / purchase_url + the rendered otc_provenance links (keyset paging), the
+  registry's canonical / document / purchase URLs, every URL in `acquisition-evidence.json`. HEAD, GET (64 KB) on
+  405 / 403 / 501 / 400 or an HTML answer; one request at a time per host; at most 1,500 per host per run (last
+  failures first). OK / BROKEN (404, 410, DNS, soft 404) / BLOCKED (401 / 403 / 429 / challenge - never broken) /
+  ERROR. `consecutive_failures` counts BROKEN on separate UTC days. Logs: counts per status and host only.
+- **Migration 036** (`source_link_checks`, PK url): approved accounts read (InitPlan `is_approved()`), service_role
+  writes, grants revoked first. Without it the checker prints counts only.
+- **app.js**: one read per load of BROKEN rows with `consecutive_failures >= 2` (`fetchBrokenLinks`), applied to
+  every rendered `<a href>` by one MutationObserver (`decorateBrokenLinks`): label + "Link broken at source
+  (checked <date>)", no href. Stub knob `?brokenlinks=1`.
+- **Unconfirmed Available** (`unconfirmedAvailable(p)`): a laft row with `last_seen_at` NULL or older than 7 days is
+  withheld from customers (list / map / counts / exports via `isPublishable` + `applyLedgerRows`), counted in
+  `UNCONFIRMED_WITHHELD`; the zero case is SOURCE_FAILURE and empty county / ledger text says the source could not be
+  read. Admins see `.unconfirmed-chip` / `#unconfirmedBanner`. Display only - nothing is closed.
+  `TDW_CONFIG.unconfirmedAvailableGate === false` switches it off (tests/config.js does, except under `?unconfirmed=1`).
+- `sw.js` -> `tdw-shell-v146` (v145 left to a parallel app.js PR).
