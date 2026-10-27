@@ -7878,7 +7878,13 @@ function hydrateDiligence(pid) {
   document.querySelectorAll(`.dd[data-pid="${CSS.escape(String(pid))}"]`).forEach(el => {
     const p = ALL.find(x => String(x.id) === String(pid));
     const sec = el.closest('[data-section="diligence"]');
-    if (p && sec) sec.outerHTML = diligenceSectionHtml(p);
+    if (p && sec) {
+      const host = sec.parentElement;
+      sec.outerHTML = diligenceSectionHtml(p);
+      // The full record lists unanswered items once, in Open questions.
+      const fresh = host && host.querySelector('[data-section="diligence"]');
+      if (fresh && pageTier() === "pro" && !fullFieldsOn()) proCleanupInto(fresh, []);
+    }
   });
 }
 async function setDiligenceMark(itemId, key, patch) {
@@ -8533,7 +8539,7 @@ async function hydrateInventoryHistory(container, p) {
 // Shell redesign (2026-10-04): the section nav reads as the page's tabs -
 // Overview / Acquisition / Tax & Value / ... / Map / Source - each a jump to a
 // section that actually rendered (never an empty tab).
-const DETAIL_NAV_LABELS = { acquire: "How to acquire", money: "Financial position", research: "My research", diligence: "Due diligence", documents: "Documents", truth: "Source truth", summary: "Overview", decision: "Decision", inventory: "Inventory", financial: "Tax & Value", property: "Property", history: "History", timeline: "Timeline", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Source", provenance: "Provenance" };
+const DETAIL_NAV_LABELS = { acquire: "How to acquire", money: "Financial position", questions: "Open questions", research: "My research", diligence: "Due diligence", documents: "Documents", truth: "Source truth", summary: "Overview", decision: "Decision", inventory: "Inventory", financial: "Tax & Value", property: "Property", history: "History", timeline: "Timeline", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Source", provenance: "Provenance" };
 function detailNavHtml(bodyHtml) {
   const ids = [];
   bodyHtml.replace(/data-section="([a-z]+)"/g, (m, id) => { if (DETAIL_NAV_LABELS[id] && !ids.includes(id)) ids.push(id); return m; });
@@ -10114,7 +10120,9 @@ function detailHtml(p) {
   // jump into it opens it.
   const grouped = html.replace("<!--RESEARCH-->", `<details class="detail-more detail-research" data-research-group="1"><summary class="detail-more-summary"><span class="detail-more-title">Research</span><span class="detail-more-sub">Flood, liens, owner, values, property facts, history, location and sources</span></summary>`)
     .replace("<!--/RESEARCH-->", "</details>");
-  return grouped.replace("<!--NAV-->", detailNavHtml(grouped));
+  // Full record cleanup (2026-10-27): unanswered rows move to one Open questions box.
+  const cleaned = proCleanupHtml(grouped);
+  return cleaned.replace("<!--NAV-->", detailNavHtml(cleaned));
 }
 
 // The detail modal and the hidden-properties modal are fixed-position
@@ -16945,6 +16953,17 @@ document.addEventListener("click", e => {
     else if (pid != null) refreshDetailPanel(pid);
     return;
   }
+  const ff = e.target && e.target.closest && e.target.closest("[data-full-fields]");
+  if (ff) {
+    e.preventDefault();
+    try { if (ff.dataset.fullFields === "1") sessionStorage.setItem(FULL_FIELDS_KEY, "1"); else sessionStorage.removeItem(FULL_FIELDS_KEY); } catch { /* storage off */ }
+    try { const u = new URL(location.href); if (u.searchParams.has("fields")) { u.searchParams.delete("fields"); history.replaceState(history.state, "", u.pathname + u.search + u.hash); } } catch { /* file:// etc */ }
+    if (ff.dataset.fullFields === "0") window.__tdwFullFieldsDefault = false;
+    const host = ff.closest("#detailModalInner, #detailPanel");
+    if (host && host.id === "detailModalInner") refreshOpenDetail(host.dataset.pid);
+    else if (selectedPid != null) refreshDetailPanel(selectedPid);
+    return;
+  }
   const task = e.target && e.target.closest && e.target.closest("[data-tier-task]");
   if (task) {
     e.preventDefault();
@@ -16952,3 +16971,142 @@ document.addEventListener("click", e => {
     if (p) toggleJourneyTask(p, task.dataset.tierTask);
   }
 });
+
+// ---- Full record cleanup (2026-10-27) ----
+// The owner: "if we can't answer the question, let's not display it". On the
+// full record a row whose only answer is "Not published / Not tracked / Not
+// verified / Not on file ..." leaves its section and is listed ONCE in "Open
+// questions", with where the answer can be found. Rows with a real answer,
+// and their sources, are untouched. Nothing is hidden from the record: the
+// question is still on the page, in one place instead of fifty.
+var FILLER_VALUE_RX = /^(not verified|not yet verified|not published( by the source)?|not tracked|not recorded( for this record)?|not on file|not checked|n\/a|unknown|none published( by the source)?|none published beyond the form|origin not recorded|currency not established.*|none stated by the source|source terms not yet read|no listing link on file|cannot be calculated|not yet confirmed by a read of the source|dataset name not recorded)\.?$/i;
+// One buyer question per topic, however many rows asked it. Rows about our
+// own record-keeping (provenance, last read, source health, identifiers the
+// record does carry) are not a buyer's question: they leave the page section
+// but are not listed. Returns null for those.
+var OPEN_QUESTION_TOPICS = [
+  [/registration|register|deposit and payment/i, "How to register, pay the deposit and pay", "The county's auction site states its rules."],
+  [/price|amount|cost|total|valid through|official total|fee/i, "Today's total price", "Ask the office that sells it - see How to acquire."],
+  [/deposit/i, "Deposit", "Ask the office that sells it."],
+  [/deadline/i, "Deadlines", "Ask the office that sells it."],
+  [/flood/i, "Flood zone", "Look the address up on FEMA's flood map."],
+  [/lien|judgment|foreclos|code violation/i, "Other liens, judgments, foreclosure or code cases", "Search the clerk's records and ask code enforcement."],
+  [/coordinat|exact location/i, "Exact location", "The county appraiser's map shows the parcel."],
+  [/image|imagery|photo|picture/i, "A picture of the property", "Look at the aerial view or drive by."],
+  [/taxable/i, "Taxable value", "The county appraiser's record."],
+  [/assessed/i, "Assessed value", "The county appraiser's record."],
+  [/legal description/i, "Legal description", "The county appraiser's record or the deed."],
+  [/acre|lot size/i, "Lot size", "The county appraiser's record."],
+  [/land use/i, "Land use", "The county appraiser's record."],
+  [/result|outcome/i, "The sale result", "The county's auction site publishes results after the sale."],
+  [/redemption/i, "Whether it has been redeemed", "Ask the tax collector."],
+  [/form|instruction|contact|seller|method|document|steps|path/i, "How to apply", "Ask the office, or check its website."]
+];
+function openQuestionTopic(label) {
+  const l = String(label || "");
+  if (/last read|provenance|source (record|date|health)|dataset|parcel \/ account|^county$|sale date|sale process|origin|coordinate source/i.test(l)) return null;
+  for (const [rx, q, where] of OPEN_QUESTION_TOPICS) if (rx.test(l)) return { label: q, where };
+  return null;
+}
+function proCleanupInto(root, questions) {
+  const add = (label, section) => {
+    const topic = openQuestionTopic(String(label || "").replace(/\s+/g, " ").trim());
+    if (!topic) return;
+    const key = topic.label.toLowerCase();
+    if (!questions.some(q => q.key === key)) questions.push({ key, label: topic.label, where: topic.where, section });
+  };
+  const secOf = el => { const s = el.closest("[data-section]"); return s ? s.dataset.section : ""; };
+  const valueText = el => { if (!el) return ""; const c = el.cloneNode(true); c.querySelectorAll(".dec-sub, .kv-sub, .ck-sub, .acq-sub, .info-tip, button").forEach(x => x.remove()); return c.textContent.replace(/\s+/g, " ").trim(); };
+  // Label / value rows.
+  root.querySelectorAll(".kv-row").forEach(r => { if (FILLER_VALUE_RX.test(valueText(r.querySelector(".kv-val")))) { add((r.querySelector(".kv-label") || {}).textContent, secOf(r)); r.remove(); } });
+  root.querySelectorAll(".detail-stat").forEach(r => { if (FILLER_VALUE_RX.test(valueText(r.querySelector(".detail-stat-val")))) { add(valueText(r.querySelector(".detail-stat-label")), secOf(r)); r.remove(); } });
+  root.querySelectorAll(".acq-checklist li").forEach(r => {
+    if (r.dataset.checkState === "known") return;
+    if (r.dataset.checkState !== "summary") add((r.querySelector(".ck-label") || {}).textContent, secOf(r));
+    r.remove();
+  });
+  root.querySelectorAll(".dec-row").forEach(r => {
+    const a = r.querySelector(".dec-a");
+    if (r.querySelector(".dec-gaps")) { r.querySelectorAll(".dec-gaps li").forEach(li => add(li.textContent, secOf(r))); r.remove(); return; }
+    if (FILLER_VALUE_RX.test(valueText(a))) { add((r.querySelector(".dec-q") || {}).textContent, secOf(r)); r.remove(); }
+  });
+  root.querySelectorAll("dl").forEach(dl => {
+    if (dl.closest(".open-q-card, .dd-key")) return;
+    dl.querySelectorAll("dt").forEach(dt => {
+      const dd = dt.nextElementSibling;
+      if (!dd || dd.tagName !== "DD") return;
+      if (FILLER_VALUE_RX.test(valueText(dd))) { add(dt.textContent, secOf(dt)); dd.remove(); dt.remove(); }
+    });
+  });
+  // Due diligence: the evidence-backed items stay; the rest are open questions.
+  root.querySelectorAll(".dd-item").forEach(li => {
+    if (li.dataset.ddState === "VERIFIED" || li.querySelector(".dd-reviewed:checked, .dd-note")) return;
+    // Only a value the record does not have is a buyer's question; a value
+    // shown elsewhere whose origin is unrecorded is not.
+    if (li.dataset.ddState === "NOT_PUBLISHED") add((li.querySelector(".dd-label") || {}).textContent, secOf(li));
+    li.remove();
+  });
+  root.querySelectorAll(".dd-group").forEach(g => { if (!g.querySelector(".dd-item")) g.remove(); });
+  root.querySelectorAll(".dd-key").forEach(k => k.remove());
+  root.querySelectorAll(".dd-head").forEach(h => { const n = root.querySelectorAll('.dd-item[data-dd-state="VERIFIED"]').length; h.textContent = `${n} ${n === 1 ? "item" : "items"} verified from the records`; });
+  root.querySelectorAll(".dd-rule:not(.dd-save-hint)").forEach(r => { r.textContent = "Only items the records carry evidence for are listed here. Everything else is under Open questions."; });
+  // Answers once: How to acquire carries the method, steps, contact, source
+  // and cost, so the checklist and the decision block do not repeat them.
+  if (root.querySelector('[data-section="acquire"]')) {
+    root.querySelectorAll(".acq-checklist-wrap").forEach(w => w.remove());
+    root.querySelectorAll('[data-section="decision"] .dec-row').forEach(r => { if (["how", "contact", "proof", "cost"].includes(r.dataset.q)) r.remove(); });
+  }
+  // Financial position: items with no amount on file fold into one line that
+  // still names them (they are real costs, only their amounts are unknown).
+  root.querySelectorAll(".fp-lines").forEach(ul => {
+    const none = Array.from(ul.querySelectorAll(":scope > li")).filter(li => li.querySelector(".fp-line-amt .muted"));
+    if (!none.length) return;
+    const names = none.map(li => (li.querySelector(".fp-line-label") || {}).textContent || "").filter(Boolean);
+    none.forEach(li => li.remove());
+    const li = document.createElement("li");
+    li.dataset.fpStatus = "amounts_not_on_file";
+    li.innerHTML = `<span class="fp-line-label">${esc(names.join(", "))}</span><span class="fp-line-note">Added on top - amounts not on file</span>`;
+    ul.appendChild(li);
+  });
+  root.querySelectorAll(".fp-group").forEach(g => { if (g.querySelector(".fp-empty") && !g.querySelector("li")) g.remove(); });
+  root.querySelectorAll('[data-section="money"]').forEach(sec => {
+    const acqNone = sec.querySelector(".fp-acq .fp-acq-val.muted"), tot = sec.querySelector(".fp-total");
+    if (acqNone && tot && tot.querySelector(".fp-acq-val.muted")) { add("Total price today", "money"); tot.remove(); }
+  });
+  // A list, checklist or section left with nothing to say goes too.
+  root.querySelectorAll(".kv-list, .acq-checklist-wrap, .detail-grid, .dec-list").forEach(l => {
+    if (!l.querySelector(".kv-row, .acq-checklist li, .detail-stat, .dec-row")) l.remove();
+  });
+  root.querySelectorAll('[data-section="financial"]').forEach(s => { if (!s.querySelector(".kv-row, .detail-stat, .lien-banner")) s.remove(); });
+}
+function openQuestionsHtml(questions) {
+  if (!questions.length) return "";
+  const items = questions.map(q => `<li data-q-section="${esc(q.section)}"><b>${esc(q.label)}</b><span>${esc(q.where)}</span></li>`).join("");
+  return detailSectionHtml(`Open questions · ${questions.length}`, `<p class="open-q-lede">Nothing on file answers these yet. Each one says where to look.</p><ul class="open-q">${items}</ul><button type="button" class="link-btn open-q-all" data-full-fields="1">Show every field, including the unanswered ones</button>`, "open-q-card", "questions");
+}
+// "Show every field" (2026-10-27): the complete record, unanswered rows
+// included, for anyone auditing it. Kept for this browser session only.
+var FULL_FIELDS_KEY = "tdw_full_fields_v1";
+function fullFieldsOn() {
+  let q = null;
+  try { q = new URLSearchParams(location.search).get("fields"); } catch { q = null; }
+  if (q === "all") return true;
+  if (q === "clean") return false;
+  try { if (sessionStorage.getItem(FULL_FIELDS_KEY) === "1") return true; } catch { /* storage off */ }
+  return !!window.__tdwFullFieldsDefault;
+}
+function proCleanupHtml(html) {
+  const explicit = (() => { try { return new URLSearchParams(location.search).get("fields") === "all" || sessionStorage.getItem(FULL_FIELDS_KEY) === "1"; } catch { return false; } })();
+  if (fullFieldsOn() && !explicit) return html;
+  if (fullFieldsOn()) return html.replace("<!--NAV-->", '<!--NAV--><p class="full-fields-note">Showing every field, including the unanswered ones. <button type="button" class="link-btn" data-full-fields="0">Show answers only</button></p>');
+  const tpl = document.createElement("template");
+  tpl.innerHTML = html;
+  const questions = [];
+  proCleanupInto(tpl.content, questions);
+  let out = tpl.innerHTML;
+  const box = openQuestionsHtml(questions);
+  // Placed after the answers a buyer acts on and before the research group.
+  if (box) out = out.includes('<details class="detail-more detail-research"') ? out.replace('<details class="detail-more detail-research"', box + '<details class="detail-more detail-research"') : out + box;
+  return out;
+}
+window.__tdwOpenQuestions = () => Array.from(document.querySelectorAll('#detailModalInner .open-q li, #detailPanel .open-q li')).map(li => li.querySelector("b").textContent);

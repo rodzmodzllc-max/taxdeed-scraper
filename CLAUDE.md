@@ -2662,6 +2662,21 @@ Full description: `docs/tx-enrichment-2026-10-27.md`. Stable facts:
   the first list or a new "My properties". Ticks never change a record or a diligence state.
 - `sw.js` -> `tdw-shell-v149`. Pro cleanup (one "Open questions" box, no filler rows) is the next PR.
 
+## Full record cleanup: answers once, one Open questions box (2026-10-27, PR open, frontend only)
+
+- `proCleanupHtml()` (end of app.js) runs on the full record (`pageTier() === "pro"`) after `detailHtml()` builds it:
+  a row whose only answer is filler (`FILLER_VALUE_RX`: Not published / Not tracked / Not verified / Not on file ...)
+  leaves its section; the acquisition checklist and the decision rows how / contact / proof / cost go when "How to
+  acquire" is on the page (answers once); due-diligence items keep VERIFIED only; financial items with no amount fold
+  into one line that still names them.
+- **Open questions** (`openQuestionsHtml`, `data-section="questions"`): one entry per buyer topic
+  (`OPEN_QUESTION_TOPICS`, with where to look). Record-keeping rows (provenance, last read, source health, identifiers
+  the record carries) and values shown elsewhere with an unrecorded origin are never listed.
+- **Show every field** (`fullFieldsOn()`: `?fields=all|clean`, sessionStorage `tdw_full_fields_v1`) restores the
+  complete record. The Playwright harness sets `window.__tdwFullFieldsDefault` so the section checks read the
+  complete record; the cleaned default is pinned by `fullRecord*` checks (`?fields=clean`).
+- `sw.js` -> `tdw-shell-v150`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
