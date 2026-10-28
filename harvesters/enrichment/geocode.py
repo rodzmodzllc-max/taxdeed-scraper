@@ -24,6 +24,7 @@ Standard library only; network I/O is injected by scripts/geocode_authoritative.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from harvesters.enrichment import parcels as P
@@ -153,9 +154,45 @@ def in_state(lat: float, lng: float, state: str) -> bool:
     return b[0] <= lat <= b[1] and b[2] <= lng <= b[3]
 
 
+# --- identifiers that name no land parcel --------------------------------------
+# A few county account numbers say, in their own published form, that they are
+# not a land parcel. Such an account has no parcel polygon in any layer, so no
+# exact identifier match - and no coordinate - can exist; looking it up only
+# spends a request per row per run and reads as an unknown format. Listed per
+# (state, county), only for a shape the county itself uses for the non-parcel
+# interest, verified live (2026-10-28, read-only, values never logged):
+#
+#   FL Walton  "SS-TR-RR-MINR<d>-ddd-dddd": the county's mineral-rights
+#              accounts (the "MINR" block replaces the subdivision block).
+#              The statewide roll holds no PARCEL_ID with that block: prefix
+#              queries for sampled section / township / range blocks, written
+#              as listed and with the range as the roll's digits ("A9" = 19,
+#              "B0" = 20), returned no MINR id, while the same digit blocks
+#              hold ordinary parcels; Walton's land-parcel certificates (same
+#              dashes, a numeric subdivision block) match FDOR alnum-only.
+#
+# Deliberately NOT listed (no rule, no skip): accounts whose shape is shared
+# with real parcels - Santa Rosa "...M" (74 such certificate rows DID match
+# PAR_NUM with the M removed), Volusia 12-digit numbers and Alachua
+# "ddddd ddd ddd" numbers - stay ordinary lookups that report NO_MATCH.
+NON_PARCEL_IDENTIFIERS = {
+    ("FL", "Walton"): (re.compile(r"^\d{2}-\d{1,2}[NS]-[0-9A-Z]{2}-MINR\d-\d{3}-\d{4}$", re.I),
+                       "mineral-rights account (MINR block), not a land parcel"),
+}
+
+
+def non_parcel_reason(state: str, county: str, identifier) -> str | None:
+    """Why `identifier` names no land parcel in (state, county), or None."""
+    rule = NON_PARCEL_IDENTIFIERS.get((str(state or ""), str(county or "")))
+    if rule is None or identifier is None:
+        return None
+    pattern, reason = rule
+    return reason if pattern.match(str(identifier).strip()) else None
+
+
 # --- planning ---------------------------------------------------------------
 PLAN_CLASSES = ("MISSING", "UPGRADE", "UPGRADE_NOT_REQUESTED", "ALREADY_AUTHORITATIVE",
-                "NO_IDENTIFIER", "NO_SOURCE", "SOURCE_NOT_APPROVED", "SOURCE_UNVERIFIED")
+                "NO_IDENTIFIER", "NOT_A_PARCEL", "NO_SOURCE", "SOURCE_NOT_APPROVED", "SOURCE_UNVERIFIED")
 LOOKUP_CLASSES = ("MISSING", "UPGRADE")
 
 
@@ -182,15 +219,19 @@ def plan_row(row: dict, *, allow_upgrade: bool = False) -> tuple[str, Coordinate
             continue
         if existing != "NONE" and not C.should_replace(existing, src.method):
             return "ALREADY_AUTHORITATIVE", src
-        if _identifier(row, src) is None:
+        ident = _identifier(row, src)
+        if ident is None:
             reasons.append("NO_IDENTIFIER")
+            continue
+        if non_parcel_reason(state, county, ident):
+            reasons.append("NOT_A_PARCEL")
             continue
         if existing == "NONE":
             return "MISSING", src
         return ("UPGRADE" if allow_upgrade else "UPGRADE_NOT_REQUESTED"), src
     if existing in C.AUTHORITATIVE:
         return "ALREADY_AUTHORITATIVE", None
-    for why in ("NO_IDENTIFIER", "SOURCE_UNVERIFIED", "SOURCE_NOT_APPROVED"):
+    for why in ("NOT_A_PARCEL", "NO_IDENTIFIER", "SOURCE_UNVERIFIED", "SOURCE_NOT_APPROVED"):
         if why in reasons:
             return why, None
     return "NO_SOURCE", None
