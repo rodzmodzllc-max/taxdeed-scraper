@@ -68,6 +68,14 @@ ID_RULES: dict[str, Callable[[str], str]] = {
     # that stores the id as a number (a Socrata "number" column loses the
     # leading zeros the published form carries); applied to both sides.
     "numeric": lambda v: re.sub(r"\D", "", v).lstrip("0"),
+    # A Texas appraisal district's REAL-PROPERTY account: digits, optionally
+    # written with the district's 'R' (real property) prefix, leading zeros
+    # dropped. Any other shape - another prefix ('N' mineral interest, 'P'
+    # personal property), a separator, a second letter - is not a real-
+    # property account and yields no identifier, so it can never meet a
+    # parcel polygon through the bare number (TX enrichment, 2026-10-28:
+    # Waller's PBFCM list carries both 'R' parcels and 'N' mineral leases).
+    "r_account": lambda v: (lambda m: m.group(1).lstrip("0") if m else "")(re.fullmatch(r"R?(\d+)", v.strip().upper())),
 }
 
 # Columns this pipeline may write, and their type. Anything else in a field

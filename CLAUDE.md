@@ -2639,6 +2639,11 @@ Full description: `docs/tx-enrichment-2026-10-27.md`. Stable facts:
   - `apply_acquisition_paths.py --ledgers laft,auction` uses each row only for its own ledgers.
   - `build_acquisition_evidence` keeps AVAILABLE-scoped rows only.
   - Procedure rules take the scope as their ledger.
+- **2026-10-28 (coordinates for later listings):** StratMap covers 106 counties. ID rule `r_account` (digits, optional
+  real-property `R` prefix; `N` mineral / `P` personal never match). One county may serve two columns
+  (Val Verde, Reeves: GEO_ID + PROP_ID, measured disjoint). `TX_CAD_ACCOUNT_ROW_SOURCES` adds the county lists whose
+  `case_no` is the CAD account (Harris, Bexar, Jefferson, Orange, Trinity, Randall). Matagorda's file has no account
+  column - no fix. Details: `docs/tx-enrichment-2026-10-27.md` section 3.
 - **Statewide listing fallback:** a source whose registry rows all name one listing (LGBS) gives counties off the
   roster that listing.
 - **Evidence capture:** TX county process pages sit in `acquisition_candidate_pages.csv` under the discovery-only id
