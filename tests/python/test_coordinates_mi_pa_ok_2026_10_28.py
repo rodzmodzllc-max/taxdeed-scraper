@@ -60,9 +60,10 @@ def test_other_sources_rows_are_never_looked_up_on_a_scoped_layer():
                field_provenance={"latitude": {"source": "county_list", "method": "LAND_BANK_GIS"}})
     src = G.plan_row(dlba, allow_upgrade=True)[1]
     assert src is None or src.source_id != "mi_wayne_county_parcels"
-    # Same rule for every scoped layer (Harris CAD: only the vendor listings
-    # carry the CAD account in case_no).
-    harris = row(state="TX", county="Harris", source_id="tx_hctax", parcel="", case_no="0000000000001")
+    # Same rule for every scoped layer (Harris CAD: only sources whose case_no is
+    # the CAD account - the vendor listings and the county lists named in
+    # TX_ACCOUNT_IN_CASE_NO_SOURCES - are matched; any other source is not).
+    harris = row(state="TX", county="Harris", source_id="tx_some_other_list", parcel="", case_no="0000000000001")
     src = G.plan_row(harris)[1]
     assert src is None or src.source_id != "tx_hcad_parcels"
     vendor = dict(harris, source_id="tx_lgbs")
