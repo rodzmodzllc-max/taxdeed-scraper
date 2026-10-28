@@ -7049,6 +7049,28 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "columns verified live; Fields read live 2026-10-28 (maxRecordCount 2,000; data edited 2026-10-26). The 153 Wayne County Land Bank rows without a point: 146 matched exactly one polygon on pnum, 2 ambiguous, 5 absent. Coordinates only.",
+   "county": "Wayne",
+   "evidence": "Fields read live 2026-10-28 (maxRecordCount 2,000; data edited 2026-10-26). The 153 Wayne County Land Bank rows without a point: 146 matched exactly one polygon on pnum, 2 ambiguous, 5 absent. Coordinates only.",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "APPROVED",
+   "name": "Parcels_AssessmentData FeatureServer layer 0 (ParcelsFINAL5)",
+   "next_action": "",
+   "origin": "parcel_config",
+   "publisher": "Wayne County, Michigan (County GIS)",
+   "roles": [
+    "coordinates",
+    "identity"
+   ],
+   "source_id": "mi_wayne_county_parcels",
+   "source_type": "GIS",
+   "state": "MI",
+   "url": "https://services1.arcgis.com/b6rkZNtCd6Mx2gvB/ArcGIS/rest/services/Parcels_AssessmentData/FeatureServer"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state MI; last completeness UNKNOWN",
    "county": "Wayne",
    "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37038385659): Wayne County - mi_detroit_landbank_lots; OWNER PUBLICATION DECISION 2026-10-26 (legal review pending); docs/available-inventory.md",
@@ -12494,16 +12516,16 @@
    "sources": 11
   },
   "MI": {
-   "APPROVED": 97,
+   "APPROVED": 98,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 2,
    "by_type": {
     "AUCTION_VENDOR": 83,
     "DOCUMENT": 1,
-    "GIS": 2,
+    "GIS": 3,
     "GOVERNMENT": 13
    },
-   "sources": 99
+   "sources": 100
   },
   "MN": {
    "APPROVED": 7,

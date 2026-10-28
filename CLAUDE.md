@@ -3792,3 +3792,15 @@ Report: `docs/review/source-links-2026-10-27.md`. Stable facts:
   read. Admins see `.unconfirmed-chip` / `#unconfirmedBanner`. Display only - nothing is closed.
   `TDW_CONFIG.unconfirmedAvailableGate === false` switches it off (tests/config.js does, except under `?unconfirmed=1`).
 - `sw.js` -> `tdw-shell-v146` (v145 left to a parallel app.js PR).
+
+## Coordinates for MI / PA / OK records without a point (2026-10-28, PR open, no migration)
+
+Full description: `docs/coordinates-mi-pa-ok-2026-10-28.md`. Stable facts:
+- **`mi_wayne_county_parcels`**: Wayne County GIS's own `Parcels_AssessmentData` (ArcGIS Online org `wayne`), `pnum`
+  exact (Detroit's trailing dot kept), centroid only, scoped to `mi_wayne_county_landbank` rows (`row_source_ids`);
+  INTERIM fetch / enrich. Measured: 146 of 153 point-less land-bank rows match one polygon, 2 AMBIGUOUS, 5 absent.
+- **`geocode.plan_row()` honours `row_source_ids`** (`takes_row`), as the enrichment runner does: a scoped layer
+  (also `tx_hcad_parcels`) is never asked for another source's row.
+- **PA Fayette (80) and OK Oklahoma County (27) have no deterministic fix**: the identifiers are not on the
+  county layers (Fayette sub-accounts / undrawn map sections; Oklahoma PINs absent or stacked). Never trim a
+  suffix to its base parcel.
