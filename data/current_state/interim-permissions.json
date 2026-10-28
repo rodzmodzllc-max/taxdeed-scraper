@@ -3617,6 +3617,46 @@
   },
   {
    "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-28",
+   "evidence_date": "2026-10-28",
+   "evidence_ref": "harvesters/enrichment/sources.py mi_wayne_county_parcels (fields read live 2026-10-28; no licence published on the layer); docs/coordinates-mi-pa-ok-2026-10-28.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "enrich",
+   "reviewer": "Product owner (direction 2026-10-27: fill the measured gaps; decisions 2026-10-25 / 2026-10-26: collect every source, legal review to follow)",
+   "source_id": "mi_wayne_county_parcels",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-10-28",
+   "evidence_date": "2026-10-28",
+   "evidence_ref": "harvesters/enrichment/sources.py mi_wayne_county_parcels (fields read live 2026-10-28; no licence published on the layer); docs/coordinates-mi-pa-ok-2026-10-28.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "fetch",
+   "reviewer": "Product owner (direction 2026-10-27: fill the measured gaps; decisions 2026-10-25 / 2026-10-26: collect every source, legal review to follow)",
+   "source_id": "mi_wayne_county_parcels",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)"
    ],
@@ -7482,12 +7522,12 @@
  "interim_max_days": 210,
  "summary": {
   "by_expiry": {
-   "2027-04-12": 369
+   "2027-04-12": 371
   },
   "by_finding": {
    "REVIEWER_IS_NOT_A_DECISION": 77
   },
-  "records": 369,
-  "sources": 95
+  "records": 371,
+  "sources": 96
  }
 }

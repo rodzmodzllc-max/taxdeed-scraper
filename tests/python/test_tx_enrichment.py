@@ -101,19 +101,21 @@ def test_stratmap_config_is_the_measured_one():
     c = S.TX_STRATMAP
     assert c.transport == "county_file" and c.row_id_column == "case_no" and c.fill_blank_only and c.centroid
     assert set(c.counties) == set(c.county_id) == set(c.county_fips)
-    assert len(c.counties) == 83
+    assert len(c.counties) == 106
     # Counties whose sampled accounts did not match are never covered.
     for county in ("Tarrant", "Hunt", "Matagorda", "Smith", "Grayson", "Hardin", "Red River", "Travis"):
         assert not c.covers(county)
     assert c.county_fips["Dallas"] == "48113" and c.county_fips["Harris"] == "48201"
     assert c.file_url("Dallas").endswith("/items/shp/stratmap-2026-land-parcels_48113_shp.zip")
     for county, (fields_, rule) in c.county_id.items():
-        assert set(fields_) <= {"PROP_ID", "GEO_ID"} and rule in ("alnum", "numeric"), county
+        assert set(fields_) <= {"PROP_ID", "GEO_ID"} and rule in ("alnum", "numeric", "r_account"), county
     # Never the columns the Texas listing syncs write themselves, never owners.
     mapped = set(c.field_map) | set(c.conditional_map)
     assert not mapped & {"address", "legal_desc", "owner_name", "assessed"}
     assert c.conditional_map["acreage"] == ("LEGAL_AREA", "LGL_AREA_U", ("ACRE", "ACRES", "AC"))
-    assert c.row_source_ids == ("tx_lgbs", "tx_realauction", "tx_pbfcm", "tx_mvba", "tx_govease")
+    assert c.row_source_ids == ("tx_lgbs", "tx_realauction", "tx_pbfcm", "tx_mvba", "tx_govease", "tx_hctax",
+                                "tx_bexar_resale", "tx_jefferson_sheriff_sale", "tx_orange_trust_property",
+                                "tx_trinity_cad_resale", "tx_randall_trustee_property")
 
 
 def test_hcad_config_and_overlap_rule():
@@ -219,7 +221,7 @@ def test_never_overwrites_and_never_guesses(tmp_path, allow_permissions):
     rows = [row(1, "1001", land_use="A1", market=99.0),          # filled columns stay as they are
             row(2, "2002"),                                       # no feature -> nothing
             row(3, "3003"),                                       # two features -> ambiguous, nothing
-            row(4, "4004", source_id="tx_jefferson_sheriff_sale"),  # a source whose case_no is not the account
+            row(4, "4004", source_id="tx_jefferson_sheriff_sale"),  # a source this layer does not serve
             row(5, "5005")]
     records = [{"GEO_ID": "1001", "STAT_LAND_": "C1", "MKT_VALUE": "5", "LAND_VALUE": "7"},
                {"GEO_ID": "3003", "LAND_VALUE": "1"}, {"GEO_ID": "3003", "LAND_VALUE": "2"},
@@ -238,6 +240,66 @@ def test_numeric_rule_only_where_measured(tmp_path, allow_permissions):
     rep, writes, _ = _run(tmp_path, [row(1, "R0042")], [{"GEO_ID": "42", "LAND_VALUE": "10"}])     # Alpha: alnum
     assert writes == {} and rep["unmatched"] == 1
 
+
+# ------------------------------------------- 2026-10-28: R-prefixed accounts, two columns, county lists
+
+def test_r_account_rule_accepts_only_real_property_accounts():
+    rule = P.ID_RULES["r_account"]
+    assert rule("R0042") == "42" and rule("r42 ") == "42" and rule("0042") == "42" and rule("42") == "42"
+    for other in ("N42", "P42", "RR42", "R-42", "42-1", "R42A"):          # mineral / personal / any other shape
+        assert P.normalize_id(other, "r_account") is None, other
+
+
+def test_r_account_county_never_reaches_a_parcel_through_a_mineral_lease(tmp_path, allow_permissions):
+    c = cfg(county_id={"Alpha": (("PROP_ID",), "r_account"), "Beta": (("PROP_ID",), "numeric")}, row_source_ids=("tx_pbfcm",))
+    rows = [row(1, "R0101", source_id="tx_pbfcm"), row(2, "N0202", source_id="tx_pbfcm"), row(3, "0303", source_id="tx_pbfcm")]
+    records = [{"PROP_ID": "101", "LAND_VALUE": "5"}, {"PROP_ID": "202", "LAND_VALUE": "6"},
+               {"PROP_ID": "R00303", "LAND_VALUE": "7"}]                  # a file writing the prefix and padding
+    rep, writes, seen = _run(tmp_path, rows, records, c=c)
+    assert seen == [("Alpha", ["101", "303"])]                             # the 'N' row asks for nothing
+    assert set(writes) == {"1", "3"} and writes["1"]["land_value"] == 5.0 and writes["3"]["land_value"] == 7.0
+    assert writes["1"]["field_provenance"]["latitude"]["id_rule"] == "r_account"
+
+
+def test_two_identifier_columns_match_each_listing_and_stay_unambiguous(tmp_path, allow_permissions):
+    c = cfg(county_id={"Alpha": (("GEO_ID", "PROP_ID"), "alnum"), "Beta": (("PROP_ID",), "numeric")},
+            row_source_ids=("tx_lgbs", "tx_mvba"))
+    rows = [row(1, "1111-2222-3333", source_id="tx_lgbs"), row(2, "45678", source_id="tx_mvba"),
+            row(3, "77777", source_id="tx_mvba")]
+    records = [{"GEO_ID": "1111-2222-3333", "PROP_ID": "10001", "LAND_VALUE": "1"},
+               {"GEO_ID": "9999-0000-1111", "PROP_ID": "45678", "LAND_VALUE": "2"},
+               {"GEO_ID": "77777", "PROP_ID": "20002", "LAND_VALUE": "3"},     # one key, two different records
+               {"GEO_ID": "8888-0000-1111", "PROP_ID": "77777", "LAND_VALUE": "4"}]
+    rep, writes, _ = _run(tmp_path, rows, records, c=c)
+    assert writes["1"]["land_value"] == 1.0 and writes["1"]["field_provenance"]["land_value"]["matched_id_field"] == "GEO_ID"
+    assert writes["2"]["land_value"] == 2.0 and writes["2"]["field_provenance"]["land_value"]["matched_id_field"] == "PROP_ID"
+    assert "3" not in writes and rep["ambiguous"] == 1
+
+
+def test_county_list_rows_whose_case_no_is_the_account_are_matched(tmp_path, allow_permissions):
+    c = cfg(row_source_ids=S.TX_CAD_ACCOUNT_ROW_SOURCES)
+    rows = [row(1, "1001", source_id="tx_trinity_cad_resale"), row(2, "1002", source_id="tx_bexar_resale"),
+            row(3, "1003", source_id="tx_montgomery_tax_trust"),              # not measured - never matched
+            row(4, "1004", source_id="tx_trinity_cad_resale", latitude=30.1, longitude=-95.1)]
+    records = [{"GEO_ID": str(1000 + i), "LAND_VALUE": "5"} for i in range(1, 5)]
+    rep, writes, _ = _run(tmp_path, rows, records, c=c)
+    assert set(writes) == {"1", "2", "4"} and 31.9 < writes["1"]["latitude"] < 32.1
+    assert "latitude" not in writes["4"] and "longitude" not in writes["4"]  # stored coordinates are never replaced
+
+
+def test_stratmap_covers_the_2026_10_28_counties_with_their_measured_rule():
+    c = S.TX_STRATMAP
+    expected = {"Trinity": "alnum", "San Jacinto": "r_account", "Bell": "alnum", "Dimmit": "alnum", "Hill": "alnum",
+                "Bastrop": "alnum", "Waller": "r_account", "Uvalde": "alnum", "Brown": "alnum", "Brewster": "r_account",
+                "Chambers": "alnum", "Walker": "alnum", "Palo Pinto": "alnum", "Panola": "alnum", "Knox": "r_account",
+                "Newton": "alnum", "Wichita": "alnum", "Randall": "alnum", "Nacogdoches": "alnum", "Milam": "alnum",
+                "Washington": "alnum", "Throckmorton": "alnum", "Runnels": "r_account"}
+    for county, rule in expected.items():
+        assert c.covers(county) and c.id_rule_for(county) == rule, county
+    assert c.id_fields("Val Verde") == ("GEO_ID", "PROP_ID") and c.id_fields("Reeves") == ("GEO_ID", "PROP_ID")
+    assert not c.covers("Matagorda")                       # its file publishes no account column
+    assert c.takes_row({"source_id": "tx_trinity_cad_resale"}) and not c.takes_row({"source_id": "tx_hood_cad_struck_off"})
+    assert S.TX_HCAD.row_source_ids == c.row_source_ids
 
 def test_a_failed_county_read_writes_nothing(allow_permissions):
     def fetcher(cfg_, county_, keys):

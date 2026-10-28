@@ -9,8 +9,8 @@ current practice continue until `expires_on`, and `permissions.authorize()` deni
 after (`EXPIRED`), with no fallback to a broader record. A window longer than
 210 days is a configuration error that denies every request.
 
-- Records: 369 across 95 sources
-- By expiry: 2027-04-12 (369)
+- Records: 371 across 96 sources
+- By expiry: 2027-04-12 (371)
 - Findings: REVIEWER_IS_NOT_A_DECISION (77)
 - Configuration: valid
 
@@ -189,6 +189,8 @@ found in the code for that source.
 | mi_wayne_county_landbank | MI | * | link | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mi_wayne_county_landbank | MI | * | parse | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mi_wayne_county_landbank | MI | * | store | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
+| mi_wayne_county_parcels | MI | * | enrich | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-28 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
+| mi_wayne_county_parcels | MI | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-28 | 2027-04-12 | excluded_from_paid_tier | harvesters/enrichment/parcels.py (enrichment_allowed) | - |
 | mn_hubbard_tfl_otc | MN | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mn_hubbard_tfl_otc | MN | * | display | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |
 | mn_hubbard_tfl_otc | MN | * | fetch | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-26 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |

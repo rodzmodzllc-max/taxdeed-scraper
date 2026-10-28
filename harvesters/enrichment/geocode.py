@@ -208,7 +208,10 @@ def plan_row(row: dict, *, allow_upgrade: bool = False) -> tuple[str, Coordinate
     """(plan class, the source to query or None). Never touches the network."""
     state, county = str(row.get("state") or ""), str(row.get("county") or "")
     existing = C.coordinate_provenance(row)["method"]
-    candidates = sources_for(state, county)
+    # A layer scoped to some sources' rows (row_source_ids - the sources whose
+    # identifier column IS that layer's identifier) never looks up another
+    # source's row: the column would hold a different kind of identifier.
+    candidates = [s for s in sources_for(state, county) if s.parcel_cfg is None or s.parcel_cfg.takes_row(row)]
     if not candidates:
         return ("ALREADY_AUTHORITATIVE" if existing in C.AUTHORITATIVE else "NO_SOURCE"), None
     reasons = []

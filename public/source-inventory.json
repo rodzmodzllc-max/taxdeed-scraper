@@ -7049,6 +7049,28 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "columns verified live; Fields read live 2026-10-28 (maxRecordCount 2,000; data edited 2026-10-26). The 153 Wayne County Land Bank rows without a point: 146 matched exactly one polygon on pnum, 2 ambiguous, 5 absent. Coordinates only.",
+   "county": "Wayne",
+   "evidence": "Fields read live 2026-10-28 (maxRecordCount 2,000; data edited 2026-10-26). The 153 Wayne County Land Bank rows without a point: 146 matched exactly one polygon on pnum, 2 ambiguous, 5 absent. Coordinates only.",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "APPROVED",
+   "name": "Parcels_AssessmentData FeatureServer layer 0 (ParcelsFINAL5)",
+   "next_action": "",
+   "origin": "parcel_config",
+   "publisher": "Wayne County, Michigan (County GIS)",
+   "roles": [
+    "coordinates",
+    "identity"
+   ],
+   "source_id": "mi_wayne_county_parcels",
+   "source_type": "GIS",
+   "state": "MI",
+   "url": "https://services1.arcgis.com/b6rkZNtCd6Mx2gvB/ArcGIS/rest/services/Parcels_AssessmentData/FeatureServer"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state MI; last completeness UNKNOWN",
    "county": "Wayne",
    "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37038385659): Wayne County - mi_detroit_landbank_lots; OWNER PUBLICATION DECISION 2026-10-26 (legal review pending); docs/available-inventory.md",
@@ -8272,9 +8294,9 @@
   },
   {
    "access": "ACCESSIBLE",
-   "access_note": "columns verified live; TX enrichment 2026-10-27: schema definitions read from the TxGIO Land Parcel Schema PDF; per-county identifier column and rule measured against a sample of the rows' accounts for every county with TX rows (counts only); the shapefiles' .prj is geographic WGS 84, so the centroid is the matched parcel polygon's own.",
-   "county": "Angelina,Aransas,Atascosa,Bee,Bexar,Bosque,Brooks,Caldwell,Cameron,Camp,Cass,Cherokee,Collin,Concho,Dallas,Delta,Duval,Ector,El Paso,Ellis,Falls,Fannin,Fort Bend,Frio,Galveston,Gonzales,Gregg,Hamilton,Harris,Hays,Henderson,Hidalgo,Hopkins,Houston,Jackson,Jasper,Jefferson,Jim Hogg,Jim Wells,Kaufman,Kerr,Kinney,Kleberg,La Salle,Lamar,Leon,Liberty,Limestone,Live Oak,Llano,Madison,Marion,Maverick,McLennan,Montague,Montgomery,Morris,Navarro,Nueces,Orange,Parker,Pecos,Polk,Reeves,Robertson,Rockwall,Rusk,Sabine,San Patricio,Shelby,Starr,Titus,Tom Green,Tyler,Upshur,Val Verde,Van Zandt,Victoria,Wilson,Wise,Wood,Zapata,Zavala",
-   "evidence": "TX enrichment 2026-10-27: schema definitions read from the TxGIO Land Parcel Schema PDF; per-county identifier column and rule measured against a sample of the rows' accounts for every county with TX rows (counts only); the shapefiles' .prj is geographic WGS 84, so the centroid is the matched parcel polygon's own.",
+   "access_note": "columns verified live; TX enrichment 2026-10-27: schema definitions read from the TxGIO Land Parcel Schema PDF; per-county identifier column and rule measured against a sample of the rows' accounts for every county with TX rows (counts only); the shapefiles' .prj is geographic WGS 84, so the centroid is the matched parcel polygon's own. 2026-10-28: 23 counties added for the PBFCM / MVBA / GovEase listings and the county lists (Trinity, Randall), and the county lists whose case_no is the CAD account joined the matched sources.",
+   "county": "Angelina,Aransas,Atascosa,Bastrop,Bee,Bell,Bexar,Bosque,Brewster,Brooks,Brown,Caldwell,Cameron,Camp,Cass,Chambers,Cherokee,Collin,Concho,Dallas,Delta,Dimmit,Duval,Ector,El Paso,Ellis,Falls,Fannin,Fort Bend,Frio,Galveston,Gonzales,Gregg,Hamilton,Harris,Hays,Henderson,Hidalgo,Hill,Hopkins,Houston,Jackson,Jasper,Jefferson,Jim Hogg,Jim Wells,Kaufman,Kerr,Kinney,Kleberg,Knox,La Salle,Lamar,Leon,Liberty,Limestone,Live Oak,Llano,Madison,Marion,Maverick,McLennan,Milam,Montague,Montgomery,Morris,Nacogdoches,Navarro,Newton,Nueces,Orange,Palo Pinto,Panola,Parker,Pecos,Polk,Randall,Reeves,Robertson,Rockwall,Runnels,Rusk,Sabine,San Jacinto,San Patricio,Shelby,Starr,Throckmorton,Titus,Tom Green,Trinity,Tyler,Upshur,Uvalde,Val Verde,Van Zandt,Victoria,Walker,Waller,Washington,Wichita,Wilson,Wise,Wood,Zapata,Zavala",
+   "evidence": "TX enrichment 2026-10-27: schema definitions read from the TxGIO Land Parcel Schema PDF; per-county identifier column and rule measured against a sample of the rows' accounts for every county with TX rows (counts only); the shapefiles' .prj is geographic WGS 84, so the centroid is the matched parcel polygon's own. 2026-10-28: 23 counties added for the PBFCM / MVBA / GovEase listings and the county lists (Trinity, Randall), and the county lists whose case_no is the CAD account joined the matched sources.",
    "governance": "APPROVED",
    "governance_reason": "",
    "last_checked": "",
@@ -12494,16 +12516,16 @@
    "sources": 11
   },
   "MI": {
-   "APPROVED": 97,
+   "APPROVED": 98,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 2,
    "by_type": {
     "AUCTION_VENDOR": 83,
     "DOCUMENT": 1,
-    "GIS": 2,
+    "GIS": 3,
     "GOVERNMENT": 13
    },
-   "sources": 99
+   "sources": 100
   },
   "MN": {
    "APPROVED": 7,

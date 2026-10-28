@@ -585,6 +585,43 @@ SC_OCONEE_PARCELS = register(ParcelSourceConfig(
 
 
 # ---------------------------------------------------------------------------
+# Coordinates for MI / PA / OK records left without a point (2026-10-28,
+# docs/coordinates-mi-pa-ok-2026-10-28.md). Measured live, read-only.
+#
+# Michigan - Wayne County GIS (ArcGIS Online organization "Wayne County",
+# urlKey "wayne", the county's own GIS program) "Parcels_AssessmentData"
+# (layer ParcelsFINAL5, 812,735 parcel polygons, public, data edited
+# 2026-10-26). `pnum` is the parcel number exactly as the Wayne County Land
+# Bank list publishes it: 14 digits for the out-county municipalities
+# (Romulus, Redford, Inkster, Taylor, ...) and the City of Detroit's own
+# "99999999." form, trailing dot included. Read live 2026-10-28 for the 153
+# land-bank rows without a point: 148 identifiers present, 146 exactly one
+# polygon, 2 several different polygons (AMBIGUOUS - never written), 5 absent.
+# pnum2 equals pnum on every hit; apn2 is blank. The City of Detroit layer
+# (mi_detroit_assessor_parcels) is not a coordinate source (centroid=False) and
+# covers only Detroit, which is why these rows never got a point.
+#
+# Scoped to the land bank's rows (row_source_ids): the Detroit Land Bank rows
+# carry the land bank's own points and are never swept. Coordinates only -
+# Address / Acerage / PropertyClass are published but the Detroit layer
+# already fills acreage / class for Wayne, and this sprint adds no field.
+MI_WAYNE_COUNTY_PARCELS = register(ParcelSourceConfig(
+    source_id="mi_wayne_county_parcels", state="MI",
+    agency="Wayne County, Michigan (County GIS)",
+    dataset="Parcels_AssessmentData FeatureServer layer 0 (ParcelsFINAL5)",
+    landing_url="https://services1.arcgis.com/b6rkZNtCd6Mx2gvB/ArcGIS/rest/services/Parcels_AssessmentData/FeatureServer",
+    layer_url="https://services1.arcgis.com/b6rkZNtCd6Mx2gvB/ArcGIS/rest/services/Parcels_AssessmentData/FeatureServer/0",
+    id_field="pnum", id_rule="exact", field_map={},
+    licence="Item licenseInfo, accessInformation and description blank; no licence or terms found. " + OWNER_2026_10_27_FIELDS,
+    publication_status="APPROVED", centroid=True, columns_verified=True, batch_size=50,
+    counties=("Wayne",),
+    row_source_ids=("mi_wayne_county_landbank",),
+    notes="Fields read live 2026-10-28 (maxRecordCount 2,000; data edited 2026-10-26). The 153 Wayne County Land Bank "
+          "rows without a point: 146 matched exactly one polygon on pnum, 2 ambiguous, 5 absent. Coordinates only.",
+))
+
+
+# ---------------------------------------------------------------------------
 # Texas - TxGIO StratMap Land Parcels 2026 (TX enrichment, 2026-10-27).
 #
 # The Texas Geographic Information Office (Texas Water Development Board)
@@ -623,7 +660,9 @@ SC_OCONEE_PARCELS = register(ParcelSourceConfig(
 # sampled accounts matched exactly one record; 'numeric' (digits, leading
 # zeros dropped) is used only where the listing's sampled accounts share one
 # shape (e.g. every one written 'R' + digits) and the CAD file stores digits.
-# Excluded (no or too few matches): Tarrant (its PROP_ID is TAD's lot/block
+# Excluded (no or too few matches): Matagorda (its 2026 file leaves PROP_ID
+# empty and its GEO_ID is the district's map number, not the account the
+# listings publish - 0/20 PBFCM accounts on 2026-10-28), Tarrant (its PROP_ID is TAD's lot/block
 # key, not the 8-digit account), Hunt, Matagorda, Smith, Grayson, Hardin,
 # Red River, Travis, Anderson, Erath, Franklin, Goliad, Panola.
 #
@@ -659,7 +698,11 @@ TX_STRATMAP_COUNTY_ID = {
     "Starr": (("PROP_ID",), "numeric"),  # 8/8 sampled; 40525 parcels
     "Angelina": (("PROP_ID",), "alnum"),  # 7/8 sampled; 60763 parcels
     "Gregg": (("PROP_ID",), "alnum"),  # 5/8 sampled; 78015 parcels
-    "Val Verde": (("GEO_ID",), "alnum"),  # 7/8 sampled; 31660 parcels
+    # Val Verde: LGBS writes the 12-digit GEO_ID, MVBA the 5-digit PROP_ID
+    # (2026-10-28: 20/20 MVBA accounts matched PROP_ID). The two columns'
+    # normalized values never coincide in the 2026 file (0 of 31,172), so
+    # one key cannot reach two different records through them.
+    "Val Verde": (("GEO_ID", "PROP_ID"), "alnum"),  # 7/8 LGBS + 20/20 MVBA sampled; 31660 parcels
     "Lamar": (("PROP_ID",), "alnum"),  # 8/8 sampled; 36525 parcels
     "Marion": (("PROP_ID",), "numeric"),  # 8/8 sampled; 19757 parcels
     "Cass": (("GEO_ID",), "alnum"),  # 8/8 sampled; 35172 parcels
@@ -708,7 +751,9 @@ TX_STRATMAP_COUNTY_ID = {
     "Wilson": (("GEO_ID",), "alnum"),  # 4/4 sampled; 29144 parcels
     "Hamilton": (("PROP_ID",), "numeric"),  # 3/3 sampled; 14001 parcels
     "Houston": (("PROP_ID",), "numeric"),  # 3/3 sampled; 26621 parcels
-    "Reeves": (("GEO_ID",), "alnum"),  # 2/2 sampled; 23494 parcels
+    # Reeves: LGBS writes GEO_ID, PBFCM PROP_ID (8/9 matched 2026-10-28);
+    # the columns' normalized values never coincide (0 of 14,502).
+    "Reeves": (("GEO_ID", "PROP_ID"), "alnum"),  # 2/2 LGBS + 8/9 PBFCM sampled; 23494 parcels
     "Sabine": (("PROP_ID",), "numeric"),  # 2/2 sampled; 23731 parcels
     "Camp": (("PROP_ID",), "alnum"),  # 1/1 sampled; 11708 parcels
     "Collin": (("GEO_ID",), "alnum"),  # 1/1 sampled; 387736 parcels
@@ -717,6 +762,40 @@ TX_STRATMAP_COUNTY_ID = {
     "Pecos": (("GEO_ID",), "alnum"),  # 1/1 sampled; 17908 parcels
     "Rockwall": (("GEO_ID",), "alnum"),  # 1/1 sampled; 55134 parcels
     "Rusk": (("GEO_ID",), "alnum"),  # 1/1 sampled; 40321 parcels
+    # ------------------------------------------------------------------
+    # Added 2026-10-28 for the PBFCM / MVBA / GovEase listings and the county
+    # lists that arrived after the first measurement (the same rule: at least
+    # half of the sampled accounts of the rows WITHOUT coordinates matched
+    # exactly one record; counts only, every sample from production rows).
+    # A matched record's legal description was compared by hand with the
+    # row's own legal description for Bastrop, Brewster, Brown, Dimmit, San
+    # Jacinto, Trinity, Val Verde and Waller: every compared pair named the
+    # same lot / tract. 'r_account' where the listing writes the district's
+    # real-property 'R' prefix (Waller's 'N' rows are mineral leases and
+    # never match).
+    "Trinity": (("PROP_ID",), "alnum"),  # 20/20 sampled (Trinity CAD resale list PID); 26028 parcels
+    "San Jacinto": (("PROP_ID",), "r_account"),  # 20/20 sampled; 36555 parcels
+    "Bell": (("PROP_ID",), "alnum"),  # 20/20 sampled; 169443 parcels
+    "Dimmit": (("PROP_ID",), "alnum"),  # 16/20 sampled; 15649 parcels
+    "Hill": (("PROP_ID",), "alnum"),  # 20/20 sampled; 39427 parcels
+    "Bastrop": (("PROP_ID",), "alnum"),  # 18/20 sampled (2 manufactured homes only); 65281 parcels
+    "Waller": (("PROP_ID",), "r_account"),  # 12/20 sampled (6 'N' mineral leases); 52777 parcels
+    "Uvalde": (("PROP_ID",), "alnum"),  # 20/20 sampled; 21771 parcels
+    "Brown": (("PROP_ID",), "alnum"),  # 20/20 sampled; 31369 parcels
+    "Brewster": (("PROP_ID",), "r_account"),  # 20/20 sampled; 20584 parcels
+    "Chambers": (("PROP_ID",), "alnum"),  # 8/12 sampled; 38217 parcels
+    "Walker": (("PROP_ID",), "alnum"),  # 11/12 sampled; 36857 parcels
+    "Palo Pinto": (("GEO_ID",), "alnum"),  # 9/10 sampled; 39019 parcels
+    "Panola": (("PROP_ID",), "alnum"),  # 7/9 sampled; 18848 parcels
+    "Knox": (("PROP_ID",), "r_account"),  # 7/7 sampled; 6408 parcels
+    "Newton": (("PROP_ID",), "alnum"),  # 4/5 sampled; 23363 parcels
+    "Wichita": (("PROP_ID",), "alnum"),  # 4/4 sampled; 58667 parcels
+    "Randall": (("PROP_ID",), "alnum"),  # 3/3 sampled (Randall trustee list); 65530 parcels
+    "Nacogdoches": (("PROP_ID",), "alnum"),  # 2/2 sampled; 48002 parcels
+    "Milam": (("PROP_ID",), "alnum"),  # 1/1 sampled; 20804 parcels
+    "Washington": (("PROP_ID",), "alnum"),  # 1/1 sampled; 23675 parcels
+    "Throckmorton": (("PROP_ID",), "alnum"),  # 1/1 sampled; 5250 parcels
+    "Runnels": (("PROP_ID",), "r_account"),  # 1/1 sampled (the file writes 'R' + zero-padded digits); 13506 parcels
 }
 
 
@@ -731,6 +810,17 @@ def _tx_fips() -> dict:
 # The Texas vendor listings whose case_no is the appraisal-district account
 # (harvesters/ledgers/records.py CAUSE_IN_PARCEL_SOURCES).
 TX_ACCOUNT_IN_CASE_NO_SOURCES = ("tx_lgbs", "tx_realauction", "tx_pbfcm", "tx_mvba", "tx_govease")
+# The county-published lists whose case_no is ALSO the appraisal-district
+# account (scripts/harvest_tx_county_sales.py to_properties_row: "case_no =
+# the CAD account"; the cause number rides in otc_provenance). Measured
+# 2026-10-28: Trinity's resale PID 20/20 = PROP_ID, Bexar 12/12, Jefferson
+# 6/6 and Orange 4/4 = the configured GEO_ID, Randall 3/3 = PROP_ID; Harris'
+# list is the HCAD account (the HCAD layer's own identifier).
+# Montgomery's and Hood's lists are left out until a sample of theirs is
+# measured (neither held a row without coordinates on 2026-10-28).
+TX_COUNTY_LIST_ACCOUNT_SOURCES = ("tx_hctax", "tx_bexar_resale", "tx_jefferson_sheriff_sale", "tx_orange_trust_property",
+                                  "tx_trinity_cad_resale", "tx_randall_trustee_property")
+TX_CAD_ACCOUNT_ROW_SOURCES = TX_ACCOUNT_IN_CASE_NO_SOURCES + TX_COUNTY_LIST_ACCOUNT_SOURCES
 
 TX_STRATMAP = register(ParcelSourceConfig(
     source_id="tx_txgio_stratmap_parcels", state="TX",
@@ -750,10 +840,12 @@ TX_STRATMAP = register(ParcelSourceConfig(
              "grants permission to copy and distribute its materials' (read 2026-10-27); the appraisal districts' own reuse "
              "terms were not read - interim internal risk acceptance (data/source_permissions.csv)."),
     publication_status="APPROVED", centroid=True, columns_verified=True, fill_blank_only=True,
-    row_source_ids=TX_ACCOUNT_IN_CASE_NO_SOURCES,
+    row_source_ids=TX_CAD_ACCOUNT_ROW_SOURCES,
     notes=("TX enrichment 2026-10-27: schema definitions read from the TxGIO Land Parcel Schema PDF; per-county identifier "
            "column and rule measured against a sample of the rows' accounts for every county with TX rows (counts only); "
-           "the shapefiles' .prj is geographic WGS 84, so the centroid is the matched parcel polygon's own."),
+           "the shapefiles' .prj is geographic WGS 84, so the centroid is the matched parcel polygon's own. 2026-10-28: 23 "
+           "counties added for the PBFCM / MVBA / GovEase listings and the county lists (Trinity, Randall), and the "
+           "county lists whose case_no is the CAD account joined the matched sources."),
 ))
 
 
@@ -785,6 +877,6 @@ TX_HCAD = register(ParcelSourceConfig(
     licence=("Harris Central Appraisal District parcel layer (copyright 'Harris County Appraisal District'); no licence or "
              "terms stated on the layer - interim internal risk acceptance (data/source_permissions.csv)."),
     publication_status="APPROVED", counties=("Harris",), centroid=True, columns_verified=True, fill_blank_only=True,
-    row_source_ids=TX_ACCOUNT_IN_CASE_NO_SOURCES, batch_size=50,
+    row_source_ids=TX_CAD_ACCOUNT_ROW_SOURCES, batch_size=50,
     notes="TX enrichment 2026-10-27: fields read live; 7 of 10 sampled Harris accounts matched HCAD_NUM exactly.",
 ))
