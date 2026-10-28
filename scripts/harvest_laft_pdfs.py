@@ -302,6 +302,25 @@ def finalize_record(record: dict) -> dict:
     return record
 
 
+# Counties whose clerk publishes an empty list as the table header alone, with
+# no "no properties" wording (Hendry's 09-28-2026 list, read 2026-10-28: title,
+# the statutory paragraph, the column header row, nothing after it). For these
+# counties ONLY, that exact shape is an explicit empty table (laft_status
+# "empty_table"), so the county counts as read and absent rows close. Any digit
+# after the header row - a parcel, a bid, a date - means the parser missed
+# rows, and the read stays INCOMPLETE.
+HEADER_ONLY_EMPTY_COUNTIES = frozenset({"Hendry"})
+_HEADER_LINE_RE = re.compile(r"parcel identification number.*minimum bid", re.I)
+
+
+def header_only_list(text: str) -> bool:
+    lines = [l.strip() for l in (text or "").splitlines() if l.strip()]
+    idx = next((i for i, l in enumerate(lines) if _HEADER_LINE_RE.search(l)), None)
+    if idx is None or "list of lands available" not in (text or "").lower():
+        return False
+    return not any(re.search(r"\d", l) for l in lines[idx + 1:])
+
+
 def looks_empty(text: str) -> bool:
     # Collapse all whitespace (including the mid-phrase line breaks PDF text
     # extraction leaves behind, e.g. DeSoto's placeholder wraps as "NO
@@ -560,6 +579,8 @@ def extract_rows_with_outcome(pdf_bytes: bytes, county: str, source_url: str) ->
         rows = deduped
     outcome["rows"] = len(rows)
     outcome["rejected"] = len(rejected)
+    if not rows and not rejected and county in HEADER_ONLY_EMPTY_COUNTIES and header_only_list(full_text):
+        outcome["empty_table"] = True
     return rows, outcome
 
 
@@ -789,6 +810,9 @@ def main() -> int:
                 elif outcome["empty_marker"]:
                     print("      no properties currently listed (document says so)", flush=True)
                     recorder.empty(county, "empty_marker", **status_kw, **doc_kw)
+                elif outcome.get("empty_table"):
+                    print("      no properties currently listed (the list is its header row alone)", flush=True)
+                    recorder.empty(county, "empty_table", **status_kw, **doc_kw)
                 elif outcome.get("rejected"):
                     # Every candidate row failed the identifier gate: the
                     # parser found something but none of it was a property.

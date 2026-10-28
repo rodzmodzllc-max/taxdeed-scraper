@@ -183,6 +183,11 @@ MOVED_SINCE_017 = {
         "https://www.brevardclerk.us/_cache/files/7/b/7b8e6515-1af7-4968-977f-cc32647e2257/"
         "A61EE6220F52FD754C0693E0343635FF.lola.pdf",
     ),
+    # 2026-10-28: the clerk replaced the list file (old one now 404); same Municode folder page.
+    ("Hendry", "fl_laft_pdfs"): (
+        "https://library.municode.com/FL/hendry_clerk_of_courts/munidocs/munidocs?nodeId=4b2b2ea877a65",
+        "https://mcclibraryfunctions.azurewebsites.us/api/munidocDownload/31143/8216f21582c5d/pdf",
+    ),
 }
 
 
