@@ -7406,6 +7406,22 @@ await big.press('#globalSearchInput', 'Enter');
   results.mergedLookPerLedger = out;
   await pg.close();
 }
+// Two looks only (owner's decision 2026-10-28): the menu offers Classic and
+// Merged; an old "tactile" / "terrain" link or stored choice reads Classic.
+{
+  const pg = await newPage({ viewport: { width: 390, height: 844 } });
+  pg.on('pageerror', e => errors.push('two looks pageerror: ' + e.message));
+  await pg.goto(BASE_URL + '?look=tactile#/lands', { waitUntil: 'networkidle' });
+  await pg.waitForTimeout(1500);
+  results.lookMenuTwoOnly = await pg.evaluate(() => ({ items: [...document.querySelectorAll('#lookMenu [data-look]')].map(b => b.dataset.look),
+    linked: document.documentElement.dataset.look, button: document.querySelector('#lookBtn .look-name').textContent }));
+  await pg.evaluate(() => localStorage.setItem('tdw_experience_v1', 'terrain'));
+  await pg.reload({ waitUntil: 'networkidle' });
+  await pg.waitForTimeout(1500);
+  results.lookStoredTerrainReadsClassic = await pg.evaluate(() => document.documentElement.dataset.look);
+  await pg.evaluate(() => localStorage.removeItem('tdw_experience_v1'));
+  await pg.close();
+}
 
 // One fact, one place + the sticky "Now showing" county bar (2026-10-27,
 // owner's option B). On Available, in every look, ONE bar under the site
@@ -7600,6 +7616,8 @@ const EXPECTED = {
   tierGuidedCertificate: ["find", "price", "risks", "buy", "wait", "deed"],
   miEmptyOneReason: {"reasons": 1, "label": "Source restricted or pending review.", "noCurrentCountZero": true, "titleCount": "0"},
   cardOutlineLazy: {"below": true, "before": 0, "after": 1},
+  lookMenuTwoOnly: {"items": ["classic", "merged"], "linked": "classic", "button": "Classic"},
+  lookStoredTerrainReadsClassic: "classic",
   mergedLookPerLedger: {"lands": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}, "auctions": {"look": "merged", "drawn": "tactile", "stage": "tactile", "button": "Merged", "mainHidden": true}, "certificates": {"look": "merged", "drawn": "merged", "stage": "merged", "button": "Merged", "mainHidden": true}, "landsAgain": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}},
   saleStrip_phone: {"head": {"strip": true, "first": true, "inFold": false, "calendarFold": false, "days": 9, "chips": 9, "selected": 1, "scrolls": "auto"}, "pickedSecond": true, "jumped": true, "question": true, "look": true, "price": {"insideCard": true, "insideScreen": true, "inFlow": true}, "noOverflow": true},
   saleStrip_desktop: {"head": {"strip": true, "first": true, "inFold": false, "calendarFold": false, "days": 9, "chips": 9, "selected": 1, "scrolls": "auto"}, "pickedSecond": true, "jumped": true, "question": true, "look": true, "price": {"insideCard": true, "insideScreen": true, "inFlow": true}, "noOverflow": true},
@@ -7756,7 +7774,7 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v151"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v152"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },

@@ -16170,7 +16170,7 @@ function cardAcqBadgeHtml(p) {
 }
 
 
-// ==================== Look switch: Classic / Tactile / Terrain (2026-10-25) ====================
+// ==================== Look switch: Classic / Merged (2026-10-25; Tactile and Terrain dropped from the menu 2026-10-28) ====================
 // A trial switch so the owner can compare two candidate List experiences on
 // live data before choosing one. Classic is the existing card list and stays
 // the default. Tactile (experience-tactile.js/.css) and Terrain
@@ -16182,7 +16182,11 @@ function cardAcqBadgeHtml(p) {
 // Choice: ?look=<name> in the URL, else per browser in localStorage.
 // Declared with var / function declarations: render() runs during module
 // init and reaches experienceApi() (TDZ).
-var EXPERIENCES = { classic: "Classic", merged: "Merged", tactile: "Tactile", terrain: "Terrain" };
+// The menu offers Classic and Merged only (owner's decision 2026-10-28). The
+// Tactile and Terrain modules stay as Merged's engines for Auctions and
+// Available; a stored or linked "tactile" / "terrain" choice reads Classic.
+var EXPERIENCES = { classic: "Classic", merged: "Merged" };
+var ENGINE_LABELS = { classic: "Classic", merged: "Merged", tactile: "Merged", terrain: "Merged" };
 var EXPERIENCE_KEY = "tdw_experience_v1";
 var EXPERIENCE_LOADED = {};
 var XP_API = null;
@@ -16451,7 +16455,7 @@ function loadExperience(name) {
   return import(`./experience-${name}.js`).catch(err => {
     EXPERIENCE_LOADED[name] = false;
     (window.__tdwBootErrors = window.__tdwBootErrors || []).push(`experience-${name}: ${err && err.message}`);
-    showErrorToast("Couldn't load the " + EXPERIENCES[name] + " look; showing Classic.");
+    showErrorToast("Couldn't load the " + ENGINE_LABELS[name] + " look; showing Classic.");
     applyExperience("classic", false);
   });
 }
@@ -16515,7 +16519,7 @@ function installLookSwitch() {
     `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"></path><path d="M3 13l9 5 9-5"></path></svg>` +
     `<span class="look-label">Look</span><span class="look-name">Classic</span></button>` +
     `<div id="lookMenu" class="look-menu" role="menu" hidden>` +
-    Object.keys(EXPERIENCES).map(k => `<button type="button" role="menuitemradio" aria-checked="false" data-look="${k}">${EXPERIENCES[k]}<span class="look-sub">${k === "classic" ? "The current card list" : k === "merged" ? "Available as Terrain, Auctions as Tactile, liens as slips" : k === "tactile" ? "Cards you handle: placards, folders, slips" : "A living map: time, place and layers"}</span></button>`).join("") +
+    Object.keys(EXPERIENCES).map(k => `<button type="button" role="menuitemradio" aria-checked="false" data-look="${k}">${EXPERIENCES[k]}<span class="look-sub">${k === "classic" ? "The current card list" : "Map-style Available, folder-style Auctions, liens as slips"}</span></button>`).join("") +
     `</div>`;
   host.insertBefore(wrap, host.firstChild);
   const btn = wrap.querySelector("#lookBtn"), menu = wrap.querySelector("#lookMenu");
@@ -16989,7 +16993,7 @@ document.addEventListener("click", e => {
 // questions", with where the answer can be found. Rows with a real answer,
 // and their sources, are untouched. Nothing is hidden from the record: the
 // question is still on the page, in one place instead of fifty.
-var FILLER_VALUE_RX = /^(not verified|not yet verified|not published( by the source)?|not tracked|not recorded( for this record)?|not on file|not checked|n\/a|unknown|none published( by the source)?|none published beyond the form|origin not recorded|currency not established.*|none stated by the source|source terms not yet read|no listing link on file|cannot be calculated|not yet confirmed by a read of the source|dataset name not recorded)\.?$/i;
+var FILLER_VALUE_RX = /^(not verified|not yet verified|not published( by the source)?|not tracked|not recorded( for this record)?|not on file|not checked|n\/a|unknown|none published( by the source)?|none published beyond the form|origin not recorded|currency not established.*|none stated by the source|source terms not yet read|no listing link on file|cannot be calculated|not yet confirmed by a read of the source|dataset name not recorded)\.?(\s*[-–—:;(].*)?$/i;
 // One buyer question per topic, however many rows asked it. Rows about our
 // own record-keeping (provenance, last read, source health, identifiers the
 // record does carry) are not a buyer's question: they leave the page section
@@ -17003,6 +17007,7 @@ var OPEN_QUESTION_TOPICS = [
   [/lien|judgment|foreclos|code violation/i, "Other liens, judgments, foreclosure or code cases", "Search the clerk's records and ask code enforcement."],
   [/coordinat|exact location/i, "Exact location", "The county appraiser's map shows the parcel."],
   [/image|imagery|photo|picture/i, "A picture of the property", "Look at the aerial view or drive by."],
+  [/name in which assessed|owner/i, "Owner of record", "The county appraiser's record."],
   [/taxable/i, "Taxable value", "The county appraiser's record."],
   [/assessed/i, "Assessed value", "The county appraiser's record."],
   [/legal description/i, "Legal description", "The county appraiser's record or the deed."],
@@ -17062,9 +17067,19 @@ function proCleanupInto(root, questions) {
   root.querySelectorAll(".dd-rule:not(.dd-save-hint)").forEach(r => { r.textContent = "Only items the records carry evidence for are listed here. Everything else is under Open questions."; });
   // Answers once: How to acquire carries the method, steps, contact, source
   // and cost, so the checklist and the decision block do not repeat them.
+  // How to acquire's own form / submit / contact answers that are only "Not
+  // yet verified" become one "How to apply" question (2026-10-28: the owner
+  // still saw them on real records).
+  root.querySelectorAll('.acq-q').forEach(q => {
+    if (!["4", "5", "6"].includes(q.dataset.acqQ)) return;
+    const body = q.cloneNode(true); body.querySelector(".acq-h")?.remove();
+    if (/^not yet verified\b/i.test(body.textContent.replace(/\s+/g, " ").trim())) { add("How to apply", "acquire"); q.remove(); }
+  });
   if (root.querySelector('[data-section="acquire"]')) {
     root.querySelectorAll(".acq-checklist-wrap").forEach(w => w.remove());
-    root.querySelectorAll('[data-section="decision"] .dec-row').forEach(r => { if (["how", "contact", "proof", "cost"].includes(r.dataset.q)) r.remove(); });
+    // The decision block repeats what How to acquire, the header and the
+    // status band already say: what / why / where / source / freshness too.
+    root.querySelectorAll('[data-section="decision"] .dec-row').forEach(r => { if (["how", "contact", "proof", "cost", "why", "where", "source", "fresh"].includes(r.dataset.q)) r.remove(); });
   }
   // Financial position: items with no amount on file fold into one line that
   // still names them (they are real costs, only their amounts are unknown).
@@ -17080,8 +17095,9 @@ function proCleanupInto(root, questions) {
   });
   root.querySelectorAll(".fp-group").forEach(g => { if (g.querySelector(".fp-empty") && !g.querySelector("li")) g.remove(); });
   root.querySelectorAll('[data-section="money"]').forEach(sec => {
-    const acqNone = sec.querySelector(".fp-acq .fp-acq-val.muted"), tot = sec.querySelector(".fp-total");
-    if (acqNone && tot && tot.querySelector(".fp-acq-val.muted")) { add("Total price today", "money"); tot.remove(); }
+    // An unpublished total is a question, not a row (whatever the current amount).
+    const tot = sec.querySelector(".fp-total");
+    if (tot && tot.querySelector(".fp-acq-val.muted")) { add("Total price today", "money"); tot.remove(); }
   });
   // A list, checklist or section left with nothing to say goes too.
   root.querySelectorAll(".kv-list, .acq-checklist-wrap, .detail-grid, .dec-list").forEach(l => {
