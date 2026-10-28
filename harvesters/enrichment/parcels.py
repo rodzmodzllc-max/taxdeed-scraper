@@ -42,7 +42,7 @@ from typing import Any, Callable, Iterable
 from urllib.parse import urlencode
 
 __all__ = ["ID_RULES", "ParcelSourceConfig", "MatchResult", "Coverage", "normalize_id", "enrichment_allowed",
-           "query_urls", "index_features", "match_rows", "plan_update", "polygon_centroid", "polygon_area_sqft",
+           "query_urls", "socrata_features", "index_features", "match_rows", "plan_update", "polygon_centroid", "polygon_area_sqft",
            "LAYER_URL_RE", "DERIVED_AREA_NOTE"]
 
 LAYER_URL_RE = re.compile(r"^https://[^?#\s]+/(FeatureServer|MapServer)/\d+$")
@@ -201,7 +201,7 @@ class ParcelSourceConfig:
     # shared precedence rule: equal rank never overwrites, a blank only).
     derived_lot_area: bool = False
     # socrata transport: the dataset column holding the parcel geometry
-    # (GeoJSON), read only for derived_lot_area.
+    # (GeoJSON), read only for derived_lot_area and / or centroid.
     geometry_field: str | None = None
 
     def __post_init__(self) -> None:
@@ -222,12 +222,12 @@ class ParcelSourceConfig:
             for c, (fields_, rule) in self.county_id.items():
                 if not fields_ or rule not in ID_RULES:
                     raise ValueError(f"{self.source_id}: bad identifier rule for {c}")
-        if self.transport == "socrata" and self.centroid:
-            raise ValueError(f"{self.source_id}: a centroid needs polygon geometry (arcgis transport)")
+        if self.transport == "socrata" and self.centroid and not self.geometry_field:
+            raise ValueError(f"{self.source_id}: a socrata centroid needs the parcel polygon column (geometry_field)")
         if self.derived_lot_area and not (self.transport == "arcgis" or (self.transport == "socrata" and self.geometry_field)):
             raise ValueError(f"{self.source_id}: a derived lot area needs the parcel polygon (arcgis, or socrata with geometry_field)")
-        if self.geometry_field and not (self.transport == "socrata" and self.derived_lot_area):
-            raise ValueError(f"{self.source_id}: geometry_field is read only for a socrata derived lot area")
+        if self.geometry_field and not (self.transport == "socrata" and (self.derived_lot_area or self.centroid)):
+            raise ValueError(f"{self.source_id}: geometry_field is read only for a socrata derived lot area or centroid")
         if self.derived_lot_area and ("lot_sqft" in self.field_map or "lot_sqft" in self.conditional_map):
             raise ValueError(f"{self.source_id}: lot_sqft is either published (mapped) or derived, never both")
         if self.id_query not in ("string", "number", "normalized"):
@@ -408,6 +408,15 @@ def query_urls(cfg: ParcelSourceConfig, county: str, raw_ids: Iterable[str]) -> 
     return urls
 
 
+def socrata_features(cfg: ParcelSourceConfig, records) -> list[dict]:
+    """A SODA answer (a list of records) as ArcGIS-shaped features: the
+    attributes without the geometry column, the geometry (GeoJSON) beside
+    them. None / anything but a list is a failed read - the caller decides."""
+    gf = cfg.geometry_field
+    return [{"attributes": {k: v for k, v in rec.items() if k != gf}, **({"geometry": rec.get(gf)} if gf else {})}
+            for rec in records if isinstance(rec, dict)]
+
+
 def index_features(cfg: ParcelSourceConfig, features: Iterable[dict], county: str | None = None) -> dict[tuple[str, str], list[dict]]:
     """(layer county value or '', normalized id) -> features. More than one
     feature per key is kept so the match can call it ambiguous. `county`
@@ -514,19 +523,49 @@ def _coerce(column: str, value: Any):
     return None
 
 
+def _ring_moments(ring) -> tuple[float, float, float]:
+    """(2 x signed area, x moment, y moment) of one ring (shoelace)."""
+    pts = [(float(p[0]), float(p[1])) for p in ring if isinstance(p, (list, tuple)) and len(p) >= 2]
+    a = mx = my = 0.0
+    if len(pts) < 3:
+        return a, mx, my
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:] + pts[:1]):
+        cross = x0 * y1 - x1 * y0
+        a += cross
+        mx += (x0 + x1) * cross
+        my += (y0 + y1) * cross
+    return a, mx, my
+
+
 def polygon_centroid(geometry: dict | None) -> tuple[float, float] | None:
-    """Area-weighted centroid (lat, lng) of an Esri JSON polygon in WGS84 -
-    the parcel's own geometry, never a geocode. None when there is none."""
-    rings = (geometry or {}).get("rings") or []
+    """Area-weighted centroid (lat, lng) of a WGS84 parcel polygon - the
+    parcel's own geometry, never a geocode. Accepts an Esri JSON polygon
+    ({"rings": ...}) or a GeoJSON Polygon / MultiPolygon (a Socrata
+    dataset's geometry column). None when there is none.
+
+    Esri rings keep their published orientation (outer clockwise, holes
+    counter-clockwise), so the signed sums already subtract the holes. A
+    GeoJSON polygon is normalised per part - its first ring counts as area,
+    every later ring (a hole) as negative area - so a dataset that does not
+    enforce the right-hand rule still yields the right centroid."""
+    geometry = geometry if isinstance(geometry, dict) else {}
     a_sum = cx = cy = 0.0
-    for ring in rings:
-        if len(ring) < 3:
-            continue
-        for (x0, y0, *_), (x1, y1, *_) in zip(ring, ring[1:] + ring[:1]):
-            cross = x0 * y1 - x1 * y0
-            a_sum += cross
-            cx += (x0 + x1) * cross
-            cy += (y0 + y1) * cross
+    if geometry.get("rings"):
+        for ring in geometry["rings"]:
+            a, mx, my = _ring_moments(ring)
+            a_sum, cx, cy = a_sum + a, cx + mx, cy + my
+    else:
+        kind, coords = geometry.get("type"), geometry.get("coordinates") or []
+        polys = [coords] if kind == "Polygon" else coords if kind == "MultiPolygon" else []
+        for poly in polys:
+            if not isinstance(poly, list):
+                continue
+            for i, ring in enumerate(poly):
+                if not isinstance(ring, list):
+                    continue
+                a, mx, my = _ring_moments(ring)
+                sign = (1.0 if a >= 0 else -1.0) * (1.0 if i == 0 else -1.0)
+                a_sum, cx, cy = a_sum + sign * a, cx + sign * mx, cy + sign * my
     if abs(a_sum) < 1e-18:
         return None
     lng, lat = cx / (3 * a_sum), cy / (3 * a_sum)

@@ -198,8 +198,14 @@ LA_EBR_TAX_PARCELS = register(ParcelSourceConfig(
     # parcel" (column definition, read live): the lot size is that polygon's
     # own area, labelled as derived (parcels.DERIVED_AREA_NOTE).
     derived_lot_area=True, geometry_field="the_geom",
+    # 2026-10-28: the same matched polygon also gives the record its point -
+    # the area-weighted centroid of the_geom (PARCEL_GIS / PARCEL_CENTROID,
+    # coordinates.PROVENANCE_COORDINATES["statewide_parcel"]). 404 active
+    # adjudicated rows had no coordinates; 400 of them already match here
+    # (they carry this layer's derived lot area). A point outside Louisiana
+    # is refused; two records for one number stay AMBIGUOUS and get no point.
     licence="Public Domain (Open Data BR dataset metadata, licenseId PUBLIC_DOMAIN); attribution: EBR Parish Assessor.",
-    publication_status="APPROVED", county_field=None, centroid=False, columns_verified=True, batch_size=100,
+    publication_status="APPROVED", county_field=None, centroid=True, columns_verified=True, batch_size=100,
     notes="enrichment sprint evidence (2026-10-01): licence run 36832227666; field names and assessment_num shape run 36835470121. "
           "All-sources engine deep probe (run 36922621158, 2026-10-01): 10,157 of 10,334 AVAILABLE rows match exactly on "
           "assessment_num; legal_description is populated on about 60% of the matched records, so it is now mapped "

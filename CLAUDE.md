@@ -3762,6 +3762,12 @@ Full description: `docs/enrich-thin-fields-2026-10-27.md`. Stable facts:
 - **New layers:** `ok_okc_government_owned_parcels` (land use, `id_query="normalized"`), `sc_oconee_county_parcels`;
   `co_oit_public_parcels` also matches `parcel_id` (Saguache's list parcel). ArcGIS GETs over ~2 KB answered 404:
   keep `batch_size` small when the where clause names two attributes.
+- **Socrata centroids (2026-10-28):** `centroid=True` works on a socrata layer with `geometry_field` (GeoJSON;
+  `polygon_centroid` normalises ring winding per polygon). `la_ebr_tax_parcels` now writes the matched `the_geom`
+  centroid (PARCEL_GIS / PARCEL_CENTROID), through the factory run and `geocode_authoritative.py`; the factory never
+  writes a centroid over an equal or stronger stored point (`coordinates.should_replace`). Douglas CO has no
+  CC BY-SA parcel geometry reachable without a token (the "Parcels w/ Accounts" service needs one; the public
+  Parcels services state no licence), so its certificate rows stay without coordinates.
 - **Genesee paged reader:** exact stated totals (`total_pattern`) and in-place session recovery (`stay_data` /
   `prev_data`); still HELD (not scheduled) pending the workflow change.
 
