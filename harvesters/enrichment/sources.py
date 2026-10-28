@@ -579,6 +579,43 @@ SC_OCONEE_PARCELS = register(ParcelSourceConfig(
 
 
 # ---------------------------------------------------------------------------
+# Coordinates for MI / PA / OK records left without a point (2026-10-28,
+# docs/coordinates-mi-pa-ok-2026-10-28.md). Measured live, read-only.
+#
+# Michigan - Wayne County GIS (ArcGIS Online organization "Wayne County",
+# urlKey "wayne", the county's own GIS program) "Parcels_AssessmentData"
+# (layer ParcelsFINAL5, 812,735 parcel polygons, public, data edited
+# 2026-10-26). `pnum` is the parcel number exactly as the Wayne County Land
+# Bank list publishes it: 14 digits for the out-county municipalities
+# (Romulus, Redford, Inkster, Taylor, ...) and the City of Detroit's own
+# "99999999." form, trailing dot included. Read live 2026-10-28 for the 153
+# land-bank rows without a point: 148 identifiers present, 146 exactly one
+# polygon, 2 several different polygons (AMBIGUOUS - never written), 5 absent.
+# pnum2 equals pnum on every hit; apn2 is blank. The City of Detroit layer
+# (mi_detroit_assessor_parcels) is not a coordinate source (centroid=False) and
+# covers only Detroit, which is why these rows never got a point.
+#
+# Scoped to the land bank's rows (row_source_ids): the Detroit Land Bank rows
+# carry the land bank's own points and are never swept. Coordinates only -
+# Address / Acerage / PropertyClass are published but the Detroit layer
+# already fills acreage / class for Wayne, and this sprint adds no field.
+MI_WAYNE_COUNTY_PARCELS = register(ParcelSourceConfig(
+    source_id="mi_wayne_county_parcels", state="MI",
+    agency="Wayne County, Michigan (County GIS)",
+    dataset="Parcels_AssessmentData FeatureServer layer 0 (ParcelsFINAL5)",
+    landing_url="https://services1.arcgis.com/b6rkZNtCd6Mx2gvB/ArcGIS/rest/services/Parcels_AssessmentData/FeatureServer",
+    layer_url="https://services1.arcgis.com/b6rkZNtCd6Mx2gvB/ArcGIS/rest/services/Parcels_AssessmentData/FeatureServer/0",
+    id_field="pnum", id_rule="exact", field_map={},
+    licence="Item licenseInfo, accessInformation and description blank; no licence or terms found. " + OWNER_2026_10_27_FIELDS,
+    publication_status="APPROVED", centroid=True, columns_verified=True, batch_size=50,
+    counties=("Wayne",),
+    row_source_ids=("mi_wayne_county_landbank",),
+    notes="Fields read live 2026-10-28 (maxRecordCount 2,000; data edited 2026-10-26). The 153 Wayne County Land Bank "
+          "rows without a point: 146 matched exactly one polygon on pnum, 2 ambiguous, 5 absent. Coordinates only.",
+))
+
+
+# ---------------------------------------------------------------------------
 # Texas - TxGIO StratMap Land Parcels 2026 (TX enrichment, 2026-10-27).
 #
 # The Texas Geographic Information Office (Texas Water Development Board)
