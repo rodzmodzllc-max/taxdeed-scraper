@@ -4940,6 +4940,7 @@
    "publisher": "East Baton Rouge Parish Assessor (Open Data BR)",
    "roles": [
     "assessment",
+    "coordinates",
     "identity",
     "legal"
    ],

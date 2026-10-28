@@ -156,6 +156,13 @@ def _point_in_state(state: str, lat, lng) -> bool:
     return GC.in_state(float(lat), float(lng), state)
 
 
+def _may_replace_coordinates(row: dict) -> bool:
+    """A parcel centroid (PARCEL_GIS) may be written only over no coordinates
+    or strictly weaker ones - never over an equal or stronger stored point."""
+    from harvesters.sources import coordinates as C  # noqa: PLC0415
+    return C.should_replace(C.coordinate_provenance(row)["method"], "PARCEL_GIS")
+
+
 def _row_blank(row: dict, column: str) -> bool:
     if column in ("latitude", "longitude"):
         return FP.is_blank(row.get("latitude")) and FP.is_blank(row.get("longitude"))
@@ -199,9 +206,7 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
                 # A SODA resource answers with a list of records (or an error object).
                 ok_ = isinstance(data, list)
                 if ok_:
-                    gf = cfg.geometry_field
-                    features += [{"attributes": {k: v for k, v in rec.items() if k != gf}, **({"geometry": rec.get(gf)} if gf else {})}
-                                 for rec in data if isinstance(rec, dict)]
+                    features += P.socrata_features(cfg, data)
             elif ok_:
                 ok_ = isinstance(data, dict) and "error" not in data
                 if ok_:
@@ -233,6 +238,9 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
                 fields = {k: v for k, v in fields.items() if _row_blank(row, k)}
             if "latitude" in fields and not _point_in_state(state, fields.get("latitude"), fields.get("longitude")):
                 fields.pop("latitude", None)    # a centroid outside the row's state is not its location
+                fields.pop("longitude", None)
+            if "latitude" in fields and not _may_replace_coordinates(row):
+                fields.pop("latitude", None)    # stored coordinates of equal / higher rank stay (coordinates.should_replace)
                 fields.pop("longitude", None)
             cand = {k: v for k, v in fields.items() if blank_for(row, k) or k in (row.get("field_provenance") or {})}
             # A placeholder ("Parcel <id>") is no value: the precedence rule
