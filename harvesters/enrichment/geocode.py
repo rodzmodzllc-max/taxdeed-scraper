@@ -243,7 +243,7 @@ def from_feature_count(features: list, state: str, *, point_of, matched_identifi
 
 
 def lookup_parcel_layer(src: CoordinateSource, rows: list[dict], fetch_json) -> dict[str, Lookup]:
-    """Batch lookup against one ArcGIS parcel layer (row id -> Lookup).
+    """Batch lookup against one ArcGIS or Socrata parcel layer (row id -> Lookup).
     A failed / error query marks every row of the county SOURCE_UNAVAILABLE."""
     cfg = src.parcel_cfg
     out: dict[str, Lookup] = {}
@@ -261,6 +261,13 @@ def lookup_parcel_layer(src: CoordinateSource, rows: list[dict], fetch_json) -> 
             except Exception:  # noqa: BLE001 - transport / HTTP failure
                 failed = True
                 break
+            if cfg.transport == "socrata":
+                # A SODA resource answers with a list of records (or an error object).
+                if not isinstance(data, list):
+                    failed = True
+                    break
+                features += P.socrata_features(cfg, data)
+                continue
             if not isinstance(data, dict) or "error" in data or not isinstance(data.get("features"), list):
                 failed = True
                 break
