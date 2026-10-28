@@ -86,7 +86,10 @@ function draw(detail) {
     S.limit[ledger] = PAGE;
     S.cLim.clear();
   }
-  const key = ledger + "|" + rows.length + "|" + idOf(rows[0]) + "|" + idOf(rows[rows.length - 1]);
+  // The entrance animation plays once per ledger (2026-10-28): rows arrive a
+  // page at a time while a ledger loads, and keying it on the row count
+  // replayed it on every page - the deck jumped several times on load.
+  const key = ledger;
   const enter = key !== S.key;
   S.key = key;
 
@@ -102,8 +105,12 @@ function draw(detail) {
   else if (ledger === "laft") html = availableHtml(rows, api);
   else html = liensHtml(rows, api);
 
+  // A redraw keeps the sale-day rail and lot grid where the reader left them.
+  const keepScroll = {};
+  [".xpt-days", ".xpt-lot-grid"].forEach(sel => { const el = stage.querySelector(sel); if (el) keepScroll[sel] = el.scrollLeft; });
   stage.dataset.xp = NAME;
   stage.innerHTML = `<div class="xpt xpt-${ledger}${enter ? " xpt-enter" : ""}" data-ledger="${ledger}">${html}</div>`;
+  Object.keys(keepScroll).forEach(sel => { const el = stage.querySelector(sel); if (el) el.scrollLeft = keepScroll[sel]; });
   try { api.hydrateVisuals(stage); } catch {}
   // The shared "Now showing" county bar (app.js). Called on every ledger so a
   // bar left from Available is cleared: it hides itself with fewer than two
@@ -119,6 +126,31 @@ function draw(detail) {
 }
 
 function redraw() { if (S.last) draw(S.last); }
+
+// Moving through the deck (next / previous / a swipe / a lot picked from the
+// grid) replaces only the top placard, the pager and the grid's highlight
+// (2026-10-28). Redrawing the whole stage reloaded every picture, reset the
+// rail's scroll position and flashed the page - the "glitchy" deck.
+function updateDeck() {
+  const stage = stageEl();
+  const api = apiOf(S.last);
+  const col = stage && stage.querySelector(".xpt-deck-col");
+  if (!col || !api || S.ledger !== "auction") { redraw(); return; }
+  const tmp = document.createElement("div");
+  tmp.innerHTML = auctionsHtml(S.last.rows || [], api);
+  const oldDeck = col.querySelector(".xpt-deck"), newDeck = tmp.querySelector(".xpt-deck");
+  const oldCtl = col.querySelector(".xpt-deck-ctl"), newCtl = tmp.querySelector(".xpt-deck-ctl");
+  if (!oldDeck || !newDeck || !oldCtl || !newCtl) { redraw(); return; }
+  oldDeck.replaceWith(newDeck);
+  oldCtl.replaceWith(newCtl);
+  const grid = stage.querySelector(".xpt-lot-grid"), newGrid = tmp.querySelector(".xpt-lot-grid");
+  if (grid && newGrid && grid.children.length !== newGrid.children.length) grid.replaceWith(newGrid);
+  else if (grid) grid.querySelectorAll(".xpt-mini").forEach(m => { const on = m.dataset.pid === S.deckId; m.classList.toggle("on", on); m.setAttribute("aria-current", String(on)); });
+  const more = stage.querySelector(".xpt-lots .xpt-more"), newMore = tmp.querySelector(".xpt-lots .xpt-more");
+  if (more && newMore) more.replaceWith(newMore); else if (more && !newMore) more.remove();
+  try { api.hydrateVisuals(newDeck); } catch {}
+  S.deckAnim = null;
+}
 
 // --------------------------------------------------------------- shared bits
 
@@ -675,7 +707,7 @@ function openRecord(id, fromEl) {
   } else api.openDetail(p);
 }
 
-function deckStep(dir) {
+function deckStep(dir, thrown) {
   const rows = S.last && S.last.rows ? S.last.rows : [];
   const lots = rows.filter(p => saleDay(p) === (S.day || ""));
   if (lots.length < 2) return;
@@ -686,12 +718,13 @@ function deckStep(dir) {
     S.deckId = idOf(lots[next]);
     S.deckAnim = { id: S.deckId, cls: dir > 0 ? "landing" : "returning" };
     if (S.limit.auction <= next) S.limit.auction = Math.ceil((next + 1) / PAGE) * PAGE;
-    redraw();
+    updateDeck();
     const t = stageEl() && stageEl().querySelector(".xpt-mini.on");
     if (t && t.scrollIntoView) { try { t.scrollIntoView({ block: "nearest", inline: "nearest" }); } catch {} }
   };
-  const top = stageEl() && stageEl().querySelector(".xpt-placard");
-  if (top && !reduced()) {
+  const top = stageEl() && stageEl().querySelector(".xpt-deck .xpt-placard");
+  if (thrown) go();
+  else if (top && !reduced()) {
     top.classList.add(dir > 0 ? "thrown" : "thrown-back");
     setTimeout(go, 240);
   } else go();
@@ -743,9 +776,10 @@ function onClick(e) {
     case "prev": deckStep(-1); break;
     case "next": deckStep(1); break;
     case "pick":
+      if (S.deckId === pid) break;
       S.deckId = pid;
       S.deckAnim = { id: pid, cls: "landing" };
-      redraw();
+      updateDeck();
       {
         const deck = stage.querySelector(".xpt-deck");
         if (deck && deck.getBoundingClientRect().top < 0 && deck.scrollIntoView) { try { deck.scrollIntoView({ block: "start", behavior: reduced() ? "auto" : "smooth" }); } catch {} }
@@ -800,6 +834,61 @@ document.addEventListener("click", e => {
   S.pressed = k && stage.contains(k) ? k.getAttribute("data-k") : null;
 }, true);
 document.addEventListener("click", onClick);
+
+// Swipe the top placard left / right to move through the deck (2026-10-28).
+// The placard follows the finger; past SWIPE_PX it is thrown off and the next
+// lot lands, otherwise it springs back. A vertical drag still scrolls the page
+// (touch-action: pan-y on the deck), and the click a drag ends with is not
+// taken as a flip.
+const SWIPE_PX = 64;
+const DRAG = { id: null, x: 0, y: 0, dx: 0, on: false, card: null, suppressClick: false };
+document.addEventListener("pointerdown", e => {
+  const stage = stageEl();
+  if (!stage || stage.dataset.xp !== NAME || !isActive() || S.ledger !== "auction") return;
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  const card = e.target.closest && e.target.closest(".xpt-deck .xpt-placard");
+  if (!card || !stage.contains(card) || e.target.closest(".back-scroll, .acts, a")) return;
+  DRAG.id = e.pointerId; DRAG.x = e.clientX; DRAG.y = e.clientY; DRAG.dx = 0; DRAG.on = false; DRAG.card = card;
+});
+document.addEventListener("pointermove", e => {
+  if (DRAG.id !== e.pointerId || !DRAG.card) return;
+  const dx = e.clientX - DRAG.x, dy = e.clientY - DRAG.y;
+  if (!DRAG.on) {
+    if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.2) { if (Math.abs(dy) > 12) DRAG.id = null; return; }
+    DRAG.on = true;
+    DRAG.card.classList.add("dragging");
+  }
+  DRAG.dx = dx;
+  DRAG.card.style.transform = `translateX(${dx}px) rotate(${Math.max(-12, Math.min(12, dx / 18))}deg)`;
+});
+function endDrag(e) {
+  if (DRAG.id !== e.pointerId) return;
+  const card = DRAG.card, dx = DRAG.dx, was = DRAG.on;
+  DRAG.id = null; DRAG.card = null; DRAG.on = false;
+  if (!card || !was) return;
+  DRAG.suppressClick = true;
+  setTimeout(() => { DRAG.suppressClick = false; }, 0);
+  card.classList.remove("dragging");
+  const lots = (S.last && S.last.rows ? S.last.rows : []).filter(p => saleDay(p) === (S.day || ""));
+  if (Math.abs(dx) >= SWIPE_PX && lots.length > 1) {
+    const dir = dx < 0 ? 1 : -1;
+    if (reduced()) { card.style.transform = ""; deckStep(dir, true); return; }
+    card.style.transition = "transform 200ms ease-in, opacity 200ms ease-in";
+    card.style.transform = `translateX(${dx < 0 ? -460 : 460}px) rotate(${dx < 0 ? -14 : 14}deg)`;
+    card.style.opacity = "0";
+    setTimeout(() => deckStep(dir, true), 190);
+  } else {
+    card.style.transition = "transform 260ms cubic-bezier(.2,.9,.3,1.2)";
+    card.style.transform = "";
+    setTimeout(() => { card.style.transition = ""; }, 280);
+  }
+}
+document.addEventListener("pointerup", endDrag);
+document.addEventListener("pointercancel", endDrag);
+// The click that ends a swipe is not a flip.
+document.addEventListener("click", e => {
+  if (DRAG.suppressClick && e.target.closest && e.target.closest(".xpt-deck")) { e.stopImmediatePropagation(); e.preventDefault(); DRAG.suppressClick = false; }
+}, true);
 document.addEventListener("keydown", onKey);
 window.addEventListener("tdw:rendered", e => draw(e.detail));
 window.addEventListener("tdw:experience", () => { if (isActive()) { if (window.__tdwLastRender) draw(window.__tdwLastRender); } else deactivate(); });

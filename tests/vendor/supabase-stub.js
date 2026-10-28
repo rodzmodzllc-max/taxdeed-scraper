@@ -1244,7 +1244,7 @@ export function createClient() {
             latitude: 42.30 + rnd() * 0.12, longitude: -83.20 + rnd() * 0.22, publication_status: "UNREVIEWED", ledger_type: "buy",
             last_seen_at: "2026-10-02T12:00:00Z", updated_at: "2026-10-02T12:00:00Z" }));
         }
-        const rows = FIXTURE_PROPERTIES.concat(pState === "MI" && window.__stubBigRows ? window.__stubBigRows : [])
+        const rows = FIXTURE_PROPERTIES.concat(window.__stubExtraRows || []).concat(pState === "MI" && window.__stubBigRows ? window.__stubBigRows : [])
           .filter(p => !EMPTY_STATE && (p.state || "FL") === pState)
           .filter(p => !args.p_ledger_type || (p.ledger_type || LEDGER_FOR_SOURCE[p.source]) === args.p_ledger_type)
           .slice().sort((a, b) => String(a.county).localeCompare(String(b.county)) || String(a.case_no).localeCompare(String(b.case_no)))

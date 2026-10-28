@@ -446,3 +446,9 @@ html[data-experience-ready="tactile"] #xpStage{container:xpt / inline-size}
    sort; the toolbar's Sort select would be a second control for it. */
 html[data-experience-ready="tactile"][data-ledger="certificate"] .qc-sort,
 html[data-experience-ready="tactile"][data-ledger="certificate"] #sortBy{display:none}
+
+/* Swipe the deck (2026-10-28): a vertical drag still scrolls the page; the
+   dragged placard follows the finger without its rest transition. */
+html[data-experience="tactile"] .xpt .xpt-deck{touch-action:pan-y;-webkit-user-select:none;user-select:none}
+html[data-experience="tactile"] .xpt .xpt-deck .xpt-placard.dragging{transition:none!important;animation:none!important;cursor:grabbing}
+html[data-experience="tactile"] .xpt .xpt-deck .xpt-placard.dragging .face{pointer-events:none}

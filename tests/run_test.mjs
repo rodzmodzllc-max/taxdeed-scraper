@@ -7406,6 +7406,44 @@ await big.press('#globalSearchInput', 'Enter');
   results.mergedLookPerLedger = out;
   await pg.close();
 }
+// Merged -> Auctions deck (2026-10-28, owner: "you should be able to slide
+// them ... it's very glitchy"): Next / a swipe / a picked lot swap only the
+// top placard (the rail and lot grid stay the same nodes), a short drag is
+// neither a move nor a flip, and rows arriving later do not replay the
+// entrance animation. Six extra lots on one sale day (window.__stubExtraRows).
+{
+  const d = new Date(Date.now() + 9 * 864e5).toISOString().slice(0, 10);
+  const extra = Array.from({ length: 6 }, (_, i) => ({ id: 'dk' + i, source: 'auction', state: 'FL', county: 'Leon', case_no: 'DK-' + i, parcel: '99' + i, address: (i + 1) + ' Deck St', bid: 1000 + i * 100, status: 'active', sale_date: d, ledger_type: 'auctions', url_auction: 'https://leon.realtaxdeed.com/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=' + d, url_auction_kind: 'sale', last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString(), lien_level: 'unscreened', publication_status: 'APPROVED' }));
+  const pg = await newPage({ viewport: { width: 390, height: 844 } });
+  pg.on('pageerror', e => errors.push('deck pageerror: ' + e.message));
+  await pg.addInitScript(r => { window.__stubExtraRows = r; }, extra);
+  await pg.goto(BASE_URL + '?look=merged#/auctions', { waitUntil: 'networkidle' });
+  await pg.waitForTimeout(2500);
+  const st = () => pg.evaluate(() => ({ pager: (document.querySelector('.xpt-pager') || {}).textContent.replace(/\s+/g, ' ').trim(), top: (document.querySelector('.xpt-deck .xpt-placard') || { dataset: {} }).dataset.pid, flipped: !!document.querySelector('.xpt-deck .xpt-placard.flipped'), miniOn: (document.querySelector('.xpt-mini.on') || { dataset: {} }).dataset.pid }));
+  await pg.evaluate(dd => { document.querySelector(`.xpt-day[data-day="${dd}"]`).click(); }, d);
+  await pg.waitForTimeout(900);
+  await pg.evaluate(() => { window.__deckRail = document.querySelector('.xpt-rail'); window.__deckGrid = document.querySelector('.xpt-lot-grid'); });
+  const out = {};
+  out.day = await st();
+  await pg.click('#xpStage [data-xa="next"]'); await pg.waitForTimeout(800);
+  out.next = await st();
+  out.sameNodes = await pg.evaluate(() => document.querySelector('.xpt-rail') === window.__deckRail && document.querySelector('.xpt-lot-grid') === window.__deckGrid);
+  const box = await pg.locator('.xpt-deck .xpt-placard').boundingBox();
+  const drag = async (x0, dx) => { await pg.mouse.move(x0, box.y + 200); await pg.mouse.down(); for (let i = 1; i <= 10; i++) await pg.mouse.move(x0 + dx * i / 10, box.y + 202); await pg.mouse.up(); await pg.waitForTimeout(900); };
+  await drag(box.x + box.width * 0.8, -180); out.swipeLeft = await st();
+  await drag(box.x + 40, 180); out.swipeRight = await st();
+  await drag(box.x + 100, 25); out.shortDrag = await st();
+  await pg.click('.xpt-deck .xpt-placard .face.front'); await pg.waitForTimeout(800); out.tap = await st();
+  await pg.click('.xpt-deck .xpt-placard .back-head'); await pg.waitForTimeout(800);
+  await pg.click('.xpt-mini[data-pid="dk4"]'); await pg.waitForTimeout(800); out.pick = await st();
+  out.sameNodesAfterAll = await pg.evaluate(() => document.querySelector('.xpt-rail') === window.__deckRail);
+  await pg.evaluate(() => { const l = window.__tdwLastRender; window.dispatchEvent(new CustomEvent('tdw:rendered', { detail: { ...l, rows: l.rows.slice(0, -1) } })); });
+  await pg.waitForTimeout(300);
+  out.noReplayOnMoreRows = await pg.evaluate(() => !document.querySelector('#xpStage .xpt').classList.contains('xpt-enter'));
+  await pg.evaluate(() => localStorage.removeItem('tdw_experience_v1'));
+  results.mergedAuctionDeck = out;
+  await pg.close();
+}
 // Two looks only (owner's decision 2026-10-28): the menu offers Classic and
 // Merged; an old "tactile" / "terrain" link or stored choice reads Classic.
 {
@@ -7616,6 +7654,7 @@ const EXPECTED = {
   tierGuidedCertificate: ["find", "price", "risks", "buy", "wait", "deed"],
   miEmptyOneReason: {"reasons": 1, "label": "Source restricted or pending review.", "noCurrentCountZero": true, "titleCount": "0"},
   cardOutlineLazy: {"below": true, "before": 0, "after": 1},
+  mergedAuctionDeck: {"day": {"pager": "Lot 1 of 7", "top": "p7", "flipped": false, "miniOn": "p7"}, "next": {"pager": "Lot 2 of 7", "top": "dk0", "flipped": false, "miniOn": "dk0"}, "sameNodes": true, "swipeLeft": {"pager": "Lot 3 of 7", "top": "dk1", "flipped": false, "miniOn": "dk1"}, "swipeRight": {"pager": "Lot 2 of 7", "top": "dk0", "flipped": false, "miniOn": "dk0"}, "shortDrag": {"pager": "Lot 2 of 7", "top": "dk0", "flipped": false, "miniOn": "dk0"}, "tap": {"pager": "Lot 2 of 7", "top": "dk0", "flipped": true, "miniOn": "dk0"}, "pick": {"pager": "Lot 6 of 7", "top": "dk4", "flipped": false, "miniOn": "dk4"}, "sameNodesAfterAll": true, "noReplayOnMoreRows": true},  // 2026-10-28: swipeable, in-place deck
   lookMenuTwoOnly: {"items": ["classic", "merged"], "linked": "classic", "button": "Classic"},
   lookStoredTerrainReadsClassic: "classic",
   mergedLookPerLedger: {"lands": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}, "auctions": {"look": "merged", "drawn": "tactile", "stage": "tactile", "button": "Merged", "mainHidden": true}, "certificates": {"look": "merged", "drawn": "merged", "stage": "merged", "button": "Merged", "mainHidden": true}, "landsAgain": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}},
@@ -7774,7 +7813,7 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v152"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v153"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
