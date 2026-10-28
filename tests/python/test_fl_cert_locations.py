@@ -221,3 +221,55 @@ def test_certificate_rows_are_geocoding_candidates_from_the_tax_roll():
                                "ledger_type": "lien", "status": "active", "parcel": parcel, "source_id": sid,
                                "latitude": None, "longitude": None, "field_provenance": {}})
         assert (cls, src.source_id) == ("MISSING", "fl_fdor_cadastral")
+
+
+# --- 2026-10-28: certificate identifiers that name no land parcel -------------
+# Synthetic identifiers in the real shapes; nothing is fetched.
+WALTON_MINERAL = "07-2N-B3-MINR0-001-0000"     # Walton mineral-rights account
+WALTON_PARCEL = "07-2N-23-12345-001-0010"      # an ordinary Walton parcel, same dashes
+
+
+def _cert(**kw):
+    base = {"id": "c1", "state": "FL", "county": "Walton", "ledger_type": "lien", "source": "certificate",
+            "status": "active", "parcel": WALTON_MINERAL, "latitude": None, "longitude": None,
+            "field_provenance": {}}
+    base.update(kw)
+    return base
+
+
+def test_walton_mineral_rights_account_is_not_a_parcel():
+    assert G.non_parcel_reason("FL", "Walton", WALTON_MINERAL)
+    assert G.non_parcel_reason("FL", "Walton", WALTON_MINERAL.lower())
+    assert G.plan_row(_cert()) == ("NOT_A_PARCEL", None)
+    assert "NOT_A_PARCEL" in G.PLAN_CLASSES
+
+
+def test_ordinary_walton_parcel_is_still_looked_up():
+    assert G.non_parcel_reason("FL", "Walton", WALTON_PARCEL) is None
+    cls, src = G.plan_row(_cert(parcel=WALTON_PARCEL))
+    assert cls == "MISSING" and src.source_id == "fl_fdor_cadastral"
+
+
+def test_mineral_shape_is_scoped_to_walton_only():
+    # The same text in another county is an ordinary identifier lookup.
+    assert G.non_parcel_reason("FL", "Okaloosa", WALTON_MINERAL) is None
+    assert G.plan_row(_cert(county="Okaloosa"))[0] == "MISSING"
+
+
+def test_shapes_shared_with_real_parcels_are_never_skipped():
+    # Santa Rosa "...M", Volusia 12-digit and Alachua "ddddd ddd ddd" numbers
+    # share their shape with parcels that do match: they stay lookups.
+    assert G.plan_row(_cert(county="Santa Rosa", parcel="123N450000001000020M"))[0] == "MISSING"
+    assert G.plan_row(_cert(county="Volusia", parcel="123456000781"))[0] == "MISSING"
+    assert G.plan_row(_cert(county="Alachua", parcel="98765 432 101"))[0] == "MISSING"
+
+
+def test_not_a_parcel_rows_cost_no_lookup():
+    from harvesters.enrichment import priority as PR
+    from scripts import geocode_authoritative as GA
+
+    calls = []
+    rep = GA.run([_cert()], mode="dry-run", allow_upgrade=False, limit=None, ctx=PR.Context(),
+                 fl_lookup_fn=lambda src, r: calls.append(r) or G.Lookup("NO_MATCH"))
+    assert calls == []
+    assert rep["plan"] == {"NOT_A_PARCEL": 1} and rep["candidates"] == 0

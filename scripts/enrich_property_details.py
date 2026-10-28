@@ -502,6 +502,30 @@ def alt_key_candidate(county, parcel):
 # Not rules, on purpose: Santa Rosa / Pasco numbers ending in "M" are
 # mobile-home accounts and Walton "MINR" numbers are mineral rights - none is
 # a land parcel, and stripping the suffix matched nothing (0 of 6).
+#
+# Re-checked 2026-10-28 for the certificate rows still without coordinates
+# (read-only, a handful of identifiers per county; no value logged). No
+# deterministic re-spelling exists, so no rule was added:
+#   Santa Rosa "...M" (333 rows): with the M removed, 0 of 10 sampled
+#             equal any PAR_NUM in the county layer or any FDOR PARCEL_ID
+#             (dashed 2-2-2-4-5-4 form); 3 of 10 share only the section /
+#             tract head with a "-0000" parcel - a DIFFERENT parcel, never a
+#             match. They are numbered sub-accounts (0010, 0020, ...) of one
+#             tract, assessed at a few hundred dollars. The 74 "M" rows that do
+#             equal a PAR_NUM after the M is removed already match.
+#   Volusia 12-digit (221 rows): the number is already the PARCEL_ID format,
+#             but 0 of 6 sampled exist in FDOR or in the county's own parcel
+#             and ownership layers; most share no 11-digit head with any
+#             parcel at all ("NO STREET", assessed $300-$600).
+#   Alachua "ddddd ddd ddd" (21 rows): the space -> dash spelling above is
+#             already tried; 0 of 5 sampled 5-digit blocks exist in FDOR or the
+#             Property Appraiser's public parcel layer ("UNASSIGNED LOCATION",
+#             assessed $300).
+#   Walton "MINR" (38 rows): mineral-rights accounts; geocoding plans them as
+#             NOT_A_PARCEL (harvesters/enrichment/geocode.NON_PARCEL_IDENTIFIERS).
+#   Hillsborough "A" + folio (53 rows): ALT_KEY_RULES above already maps them;
+#             what is left is AMBIGUOUS (two features share one ALT_KEY) or
+#             the layer's transient errors, not the identifier's format.
 # ---------------------------------------------------------------------------
 def _blocks(compact, lens):
     if len(compact) != sum(lens):
