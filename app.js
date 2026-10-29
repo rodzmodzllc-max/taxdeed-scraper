@@ -4079,6 +4079,7 @@ async function showApp() {
   else if (route && route.page === "county") { if (route.county) openCountyPage(route.county, PAGE_STATE); else openCountyIndex(); }
   else if (route && route.page === "research") openResearchPage();
   else if (route && route.page === "rules") openRulesPage(route.county);
+  else if (route && route.page === "guide") openGuidePage(route.county, route.guideLedger);
   // Landing (2026-10-13): a bare URL, or any route not named here, opens the
   // List on its landing ledger - Available first wherever it has rows (see
   // landingLedger). Home stays one click away (#/dashboard) and in the nav.
@@ -7068,7 +7069,7 @@ function countyPageHtml(c, st) {
     <header class="cty-head">
       <p class="cty-kicker">${esc(stName)} · County Intelligence</p>
       <h2 class="cty-title">${esc(c.county)} ${esc(UNIT_WORD)}</h2>
-      <p class="cty-lede">What this app knows before you buy tax-sale or government-held property here - and what it does not.</p>
+      <p class="cty-lede">What this app knows before you buy tax-sale or government-held property here - and what it does not. <button type="button" class="link-btn" data-action="buyersguide" data-county="${esc(c.county)}">Buyer's guide for ${esc(c.county)} ${esc(UNIT_WORD)} →</button></p>
       <div class="cty-ledger-strip">${["laft", "auction", "certificate"].map(k => `<button type="button" class="cty-ledger-count" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="${k}" ${counts[k] ? "" : "disabled"}><span class="cty-dot" data-ledger="${k}"></span>${esc(ledgerNavName(k))} <b>${counts[k].toLocaleString("en-US")}</b></button>`).join("")}</div>
     </header>
     ${countyLadderHtml(rs)}
@@ -7406,6 +7407,67 @@ async function researchAfterOpen(p) {
   if (typeof hydrateDiligence === "function") hydrateDiligence(p.id);
   hydrateGuided(p.id);
 }
+// ==================== Buyer's Guide page (#/guide, 2026-10-29) ====================
+// The owner's buyer's guide: per state, ledger and county, the questions a
+// buyer asks before acting, answered from official sources or marked not yet
+// verified (docs/buyers-guide-contract.md). The page itself lives in
+// buyers-guide.js, loaded on first open; this block only routes to it and
+// passes the page context. Access follows config.js buyersGuideAccess:
+// "all" (default while testing), "guided" (Guided tier and admins/testers),
+// "admin". var / function declarations: showPage() can run during init (TDZ).
+var GUIDE_PAGE = GUIDE_PAGE || { county: null, ledger: null };
+var GUIDE_LEDGER_FOR_SOURCE = { auction: "AUCTIONS", laft: "AVAILABLE", certificate: "LIENS_CERTIFICATES" };
+function ensureGuideSection() {
+  let sec = document.getElementById("pageGuide");
+  if (sec) return sec;
+  const map = document.getElementById("pageMap");
+  sec = document.createElement("section");
+  sec.className = "page guide-page";
+  sec.id = "pageGuide";
+  sec.hidden = true;
+  sec.setAttribute("aria-label", "Buyer's Guide");
+  if (map && map.parentNode) map.parentNode.insertBefore(sec, map.nextSibling);
+  else (document.getElementById("app") || document.body).appendChild(sec);
+  return sec;
+}
+function guidePageHash() {
+  const q = new URLSearchParams();
+  if (GUIDE_PAGE.ledger) q.set("ledger", GUIDE_PAGE.ledger);
+  if (GUIDE_PAGE.county) q.set("county", GUIDE_PAGE.county);
+  const qs = q.toString();
+  return "#/guide" + (qs ? "?" + qs : "");
+}
+function guideAccess() {
+  const mode = (window.TDW_CONFIG && window.TDW_CONFIG.buyersGuideAccess) || "all";
+  if (mode === "all" || IS_ADMIN) return true;
+  if (mode === "guided") return (typeof canSwitchTier === "function" && canSwitchTier()) || pageTier() === "beginner";
+  return false;
+}
+function openGuidePage(county, ledger) {
+  GUIDE_PAGE.county = county || null;
+  GUIDE_PAGE.ledger = ledger || (state && GUIDE_LEDGER_FOR_SOURCE[state.ledger]) || "AVAILABLE";
+  showPage("guide");
+}
+function renderGuidePage() {
+  const sec = ensureGuideSection();
+  if (!guideAccess()) {
+    sec.innerHTML = `<div class="bg-page"><p class="bg-eyebrow">Buyer's Guide</p><h1 class="bg-title">Answers before you buy</h1><p class="bg-lede">The Buyer's Guide answers the questions to settle before acting - how each sale works, what is added to the price, redemption, what you receive - for every ${esc(UNIT_WORD.toLowerCase())} we cover. It is included with the Guided view.</p><button type="button" class="detail-btn" data-action="support">Ask about access →</button></div>`;
+    return;
+  }
+  const meta = STATE_META[PAGE_STATE] || {};
+  const ctx = {
+    state: PAGE_STATE, stateName: meta.name || PAGE_STATE, unit: UNIT_WORD,
+    county: GUIDE_PAGE.county, ledger: GUIDE_PAGE.ledger,
+    counties: Array.isArray(ALL_COUNTIES) ? ALL_COUNTIES.slice() : [],
+    esc, fmtDate: d => (typeof fmtDate === "function" ? fmtDate(String(d).slice(0, 10)) : String(d)),
+    navigate: ({ ledger, county }) => { GUIDE_PAGE.ledger = ledger || GUIDE_PAGE.ledger; GUIDE_PAGE.county = county || null; syncPageHash(); renderGuidePage(); },
+  };
+  import("./buyers-guide.js").then(m => m.render(sec, ctx)).then(r => { window.__tdwGuideLast = r || null; }).catch(err => {
+    (window.__tdwBootErrors = window.__tdwBootErrors || []).push("buyers-guide: " + (err && err.message));
+    sec.innerHTML = `<div class="bg-page"><p class="muted">The Buyer's Guide could not be loaded right now.</p></div>`;
+  });
+}
+
 // ==================== State rules page (#/rules, 2026-10-10) ====================
 // public/state-rules.json (scripts/build_state_rules.py) holds, per state:
 // the three ledgers' tracking status, the recorded rules (statewide and
@@ -9832,6 +9894,7 @@ function sourceTruthHtml(p) {
   rows.push(["Official listing", href ? `<a href="${esc(href)}" target="_blank" rel="noopener" data-acq-link="source">${esc(listing ? listing.label : "Open the source listing")} →</a>` : muted("No listing link on file")]);
   if (p.source !== "certificate") rows.push(["Imagery", imageryTruthHtml(p)]);
   rows.push([`${UNIT_WORD} intelligence`, `<button type="button" class="link-btn" data-action="countyintel" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">${esc(`${p.county} ${UNIT_WORD}: sources, coverage and process`)} →</button> <button type="button" class="link-btn county-page-link" data-action="countypage" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">${esc(p.source === "auction" ? "County auction intelligence" : "Full county page")} →</button>`]);
+  rows.push(["Buyer's guide", `<button type="button" class="link-btn" data-action="buyersguide" data-county="${esc(p.county)}" data-guide-ledger="${esc(GUIDE_LEDGER_FOR_SOURCE[p.source] || "AVAILABLE")}">${esc(`Buyer's guide for ${p.county} ${UNIT_WORD}`)} →</button>`]);
   rows.push(["State rules", `<button type="button" class="link-btn" data-action="staterules" data-county="${esc(p.county)}">${esc(`${STATE_META[regionOf(p)] ? STATE_META[regionOf(p)].name : regionOf(p)} tax-sale rules for ${p.county} ${UNIT_WORD}`)} →</button>`]);
   return detailSectionHtml("Source truth", `<p class="truth-lede">The record as its source publishes it. Nothing here is inferred or scored.</p><dl class="truth-dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`, "truth-card", "truth");
 }
@@ -10719,6 +10782,12 @@ document.addEventListener("click", async e => {
     return;
   }
   if (action === "rulesretry") { STATE_RULES_PROMISE = null; renderRulesPage(); return; }
+  if (action === "buyersguide") {
+    const c = btn.dataset.county || null, l = btn.dataset.guideLedger || null;
+    if (document.getElementById("detailModal") && !document.getElementById("detailModal").hidden) { closeDetail(); afterSelfBack(() => openGuidePage(c, l)); }
+    else openGuidePage(c, l);
+    return;
+  }
   if (action === "countymap") {
     if (btn.dataset.county) applyCountySelection(btn.dataset.county);   // the shared county selection
     mapFilter.ledger = btn.dataset.ledger && LEDGERS[btn.dataset.ledger] ? btn.dataset.ledger : "all";
@@ -11773,6 +11842,8 @@ function routeFromHash() {
   if (seg === "research") return { page: "research", ledger: null, pid: null, params };
   // State rules (2026-10-10): #/rules (statewide) and #/rules?county=<name>.
   if (seg === "rules") return { page: "rules", county: params.county || null, ledger: null, pid: null, params };
+  // Buyer's Guide (2026-10-29): #/guide?ledger=AUCTIONS&county=<name>.
+  if (seg === "guide") return { page: "guide", county: params.county || null, guideLedger: params.ledger || null, ledger: null, pid: null, params };
   if (seg === "county") {
     let county = null;
     try { county = sub ? decodeURIComponent(sub) : null; } catch { county = null; }
@@ -11820,6 +11891,7 @@ function pageHash(name) {
   if (name === "county") return countyPageHash();
   if (name === "research") return "#/research";
   if (name === "rules") return rulesPageHash();
+  if (name === "guide") return guidePageHash();
   if (name === "watchlist") return "#/watchlist";
   return "#/" + (LEDGERS[state.ledger] || LEDGERS.auction).slug;
 }
@@ -13871,7 +13943,7 @@ let shellPage = "list";
 // Intelligence, My Research and State rules, and since the 2026-10-10 remediation the
 // Watchlist too - a page of its own (#/watchlist), no longer a layer over the
 // List. "auctions" is accepted as the List page's old name.
-const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch", rules: "pageRules", watchlist: "pageWatchlist" };
+const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch", rules: "pageRules", guide: "pageGuide", watchlist: "pageWatchlist" };
 
 // Browser title per route (remediation): the title follows the page on
 // screen - Home, Map, County, Research, the List's ledger, or an open
@@ -13886,6 +13958,7 @@ function applyPageTitle(propertyLabel) {
   else if (page === "dashboard") head = "Home";
   else if (page === "map") head = "Map";
   else if (page === "county") head = "County Intelligence";
+  else if (page === "guide") head = "Buyer's Guide";
   else if (page === "research") head = "My Research";
   else if (page === "watchlist") head = "Watchlist";
   else { const cfg = ledgerCopy(state.ledger); head = (cfg && cfg.title) || "Properties"; }
@@ -13897,6 +13970,7 @@ function showPage(name) {
   if (name === "county") ensureCountySection();
   if (name === "research") ensureResearchSection();
   if (name === "rules") ensureRulesSection();
+  if (name === "guide") ensureGuideSection();
   // Watchlist (remediation, 2026-10-10): a page of its own, reached from the
   // rail, the phone bar, the List chip and #/watchlist - no longer a modal
   // over the List. The page remembers where it was opened from so "Back"
@@ -13916,6 +13990,7 @@ function showPage(name) {
   if (name === "county") renderCountyPage();
   if (name === "research") renderResearchPage();
   if (name === "rules") renderRulesPage();
+  if (name === "guide") renderGuidePage();
   if (name === "watchlist") renderWatchlistPage();
   syncPageHash();
   applyPageTitle();
@@ -16082,6 +16157,7 @@ function openStatePicker(returnEl) {
       + `<button class="account-item" type="button" role="menuitem" data-goto="research">My Research <b class="goto-count" id="gotoResearchCount">0</b></button>`
       + `<button class="account-item" type="button" role="menuitem" data-goto="watchlist">Watchlist <b class="goto-count" id="gotoWatchlistCount">0/10</b></button>`
       + `<button class="account-item" type="button" role="menuitem" data-goto="counties">County Intelligence</button>`
+      + `<button class="account-item" type="button" role="menuitem" data-goto="guide">Buyer's Guide</button>`
       + `<button class="account-item" type="button" role="menuitem" data-goto="about">About</button>`;
     head.after(g);
     // "About" opens the same guide "How to read this data" did; one entry.
@@ -16094,6 +16170,7 @@ function openStatePicker(returnEl) {
       afterSelfBack(() => {
         if (go === "research") openResearchPage("all");
         else if (go === "counties") openCountyIndex();
+        else if (go === "guide") openGuidePage(null, null);
         else if (go === "searches" && saved) saved.click();
         else if (go === "watchlist") showPage("watchlist");
         else if (go === "about" && about) about.click();

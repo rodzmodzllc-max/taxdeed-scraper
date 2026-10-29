@@ -79,6 +79,14 @@ jobs:
       - name: Run regression test
         run: node tests/run_test.mjs
 
+      # 2026-10-29: one standalone file per audit fix theme (tests/audit/*.mjs).
+      - name: Run audit fix tests
+        env:
+          BASE_URL: http://localhost:8934/index.html
+        run: |
+          set -e
+          for f in tests/audit/*.mjs; do echo "== $f"; node "$f"; done
+
       # Password recovery against the REAL supabase-js (the site's own
       # supabase-js.umd.js) and a fake Supabase Auth server - no network,
       # no e-mail (tests/recovery_flow_test.mjs).

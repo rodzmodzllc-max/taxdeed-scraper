@@ -64,6 +64,9 @@ DEPLOYED_BUNDLE_FILES = (
     "experience-terrain.js",
     "experience-merged.css",
     "experience-merged.js",
+    # 2026-10-29 Buyer's Guide page module (loaded by app.js on #/guide).
+    "buyers-guide.js",
+    "buyers-guide.css",
     # 2026-10-03 boot resilience: startup watchdog + supabase-js loader and
     # its same-origin fallback copy.
     "boot.js",
