@@ -25,7 +25,11 @@ closed -> sold. Never:
     re-listed row's earlier sale says nothing about the current one -
     production: 3 active rows re-listed after an earlier "Auction Sold");
   * a row whose case number this run's Waiting harvest read (the county
-    still lists it, so the sync's own `active` stands);
+    still lists it, so the sync's own `active` stands) - unless the verified
+    result was observed AFTER that harvest was written (audit F78,
+    2026-10-29: an Orange case read on the Waiting list at 16:35 and
+    published "Redeemed" for the same sale day at 16:43 stayed active; the
+    later source statement wins, counted as result_after_waiting_read);
   * a row of another state or ledger (state=eq.FL, source=eq.auction in
     every read and write), and never 'dropped' / 'notfound' / 'sold' rows;
   * an event without the source's own wording (auction_outcomes.is_verified);
@@ -45,6 +49,7 @@ import os
 import sys
 import urllib.request
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -68,9 +73,19 @@ def target_status(event: dict) -> str | None:
     return "sold" if event.get(AO.EVENT_OUTCOME_COLUMN) == "sold" else "closed"
 
 
-def plan(events: list[dict], properties: list[dict], *, harvested: dict[str, set[str]] | None = None
-         ) -> tuple[list[tuple[str, str, str]], dict]:
-    """[(property id, from status, to status)] and counts. Pure."""
+def _ts(value) -> datetime | None:
+    try:
+        t = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+
+
+def plan(events: list[dict], properties: list[dict], *, harvested: dict[str, set[str]] | None = None,
+         harvest_read_at: datetime | None = None) -> tuple[list[tuple[str, str, str]], dict]:
+    """[(property id, from status, to status)] and counts. Pure.
+    `harvest_read_at`: when this run's Waiting harvest was written (its file
+    time - every Waiting read happened before it)."""
     harvested = harvested or {}
     by_property: dict[str, list[dict]] = {}
     for e in events:
@@ -97,8 +112,11 @@ def plan(events: list[dict], properties: list[dict], *, harvested: dict[str, set
         current = str(p.get("status") or "").lower()
         county = str(p.get("county") or "")
         if AO.norm_id(p.get("case_no")) in harvested.get(county, set()):
-            counts["still_on_waiting_list"] += 1
-            continue
+            observed = [t for t in (_ts(e.get("outcome_observed_at")) for e in same_day if target_status(e)) if t]
+            if not (harvest_read_at and observed and min(observed) > harvest_read_at):
+                counts["still_on_waiting_list"] += 1
+                continue
+            counts["result_after_waiting_read"] += 1
         if current == to:
             counts["already_" + to] += 1
             continue
@@ -153,7 +171,9 @@ def main(argv=None) -> int:
         print("auction outcome status: SUPABASE_URL / SUPABASE_SERVICE_KEY not set - skipped")
         return 0
     events, props = fetch(base, key)
-    changes, counts = plan(events, props, harvested=AO.harvested_cases(a.harvest))
+    hp = Path(a.harvest)
+    read_at = datetime.fromtimestamp(hp.stat().st_mtime, tz=timezone.utc) if hp.is_file() else None
+    changes, counts = plan(events, props, harvested=AO.harvested_cases(a.harvest), harvest_read_at=read_at)
     print(f"auction outcome status (FL): verified events {sum(1 for e in events if AO.is_verified(e))}; "
           f"{'apply' if a.apply else 'plan-only'}; would move {len(changes)} row(s)")
     print("  counts: " + json.dumps(counts, sort_keys=True))

@@ -234,7 +234,9 @@ if ([string]::IsNullOrWhiteSpace($p.case_no)) { $skipped++; continue }
 # publishes a property_address, but fall back the same way LAFT does so
 # a missing address never becomes a failed insert.
 $addr = $p.address
-if ([string]::IsNullOrWhiteSpace($addr)) { $addr = "Account $($p.case_no)" }
+# The placeholder names the ACCOUNT (the parcel); case_no is the certificate
+# key '<tax year>-<cert #>' since 2026-10-29 (sync_value_guard recognises both).
+if ([string]::IsNullOrWhiteSpace($addr)) { $addr = if ([string]::IsNullOrWhiteSpace($p.parcel)) { "Account $($p.case_no)" } else { "Account $($p.parcel)" } }
 
 $bidVal = ToNum $p.bid
 if ($null -eq $bidVal) { $bidVal = 0 }
@@ -384,12 +386,21 @@ if ($completeCounties.Count -gt 0) {
 # reconciliation, matching the (state, source, county, case_no) identity
 # the upsert itself already uses as its conflict target.
 $harvestedKeysByCounty = @{}
+# Accounts (parcels) listed this run per COMPLETE county: a stored row keyed on
+# an account that is still listed is a row of the old one-row-per-parcel key
+# (before 2026-10-29), superseded by its certificate-keyed rows - closed, never
+# marked notfound (its certificates are still on the list).
+$harvestedParcelsByCounty = @{}
 foreach ($r in $rows) {
 if (-not $completeCounties.Contains([string]$r.county)) { continue }
 if (-not $harvestedKeysByCounty.ContainsKey($r.county)) {
 $harvestedKeysByCounty[$r.county] = [System.Collections.Generic.HashSet[string]]::new()
 }
 $harvestedKeysByCounty[$r.county].Add([string]$r.case_no) | Out-Null
+if (-not $harvestedParcelsByCounty.ContainsKey($r.county)) {
+$harvestedParcelsByCounty[$r.county] = [System.Collections.Generic.HashSet[string]]::new()
+}
+if (-not [string]::IsNullOrWhiteSpace([string]$r.parcel)) { $harvestedParcelsByCounty[$r.county].Add([string]$r.parcel) | Out-Null }
 }
 
 $encodedCounties = ($completeCounties | ForEach-Object { [uri]::EscapeDataString($_) }) -join ","
@@ -401,6 +412,7 @@ $activeUrl = "$supabaseUrl/rest/v1/properties?state=eq.FL&source=eq.certificate&
 $activeRows = Invoke-RestMethod -Uri $activeUrl -Method Get -Headers $headers -UserAgent $SupabaseUserAgent
 
 $staleIds = @()
+$supersededIds = @()
 foreach ($ar in $activeRows) {
 # Defense in depth: re-check county membership even though the query
 # above already filters on it, so a future query-shape change can't
@@ -408,7 +420,22 @@ foreach ($ar in $activeRows) {
 if (-not $completeCounties.Contains([string]$ar.county)) { continue }
 $keysForCounty = $harvestedKeysByCounty[$ar.county]
 $stillListed = $keysForCounty -and $keysForCounty.Contains([string]$ar.case_no)
-if (-not $stillListed) { $staleIds += $ar.id }
+if ($stillListed) { continue }
+$parcelsForCounty = $harvestedParcelsByCounty[$ar.county]
+if ($parcelsForCounty -and $parcelsForCounty.Contains([string]$ar.case_no)) { $supersededIds += $ar.id }
+else { $staleIds += $ar.id }
+}
+
+if ($supersededIds.Count -gt 0) {
+Write-Output "Closing $($supersededIds.Count) account-keyed certificate row(s) superseded by this run's per-certificate rows..."
+$supHeaders = $headers.Clone()
+$supHeaders["Prefer"] = "return=minimal"
+$supBody = [System.Text.Encoding]::UTF8.GetBytes('{"status":"closed"}')
+for ($i = 0; $i -lt $supersededIds.Count; $i += $batchSize) {
+$idBatch = $supersededIds[$i..([math]::Min($i + $batchSize - 1, $supersededIds.Count - 1))]
+$patchUrl = "$supabaseUrl/rest/v1/properties?id=in.(" + ($idBatch -join ",") + ")"
+Invoke-RestMethod -Uri $patchUrl -Method Patch -Headers $supHeaders -Body $supBody -UserAgent $SupabaseUserAgent | Out-Null
+}
 }
 
 if ($staleIds.Count -gt 0) {

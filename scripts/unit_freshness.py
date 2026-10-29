@@ -194,17 +194,15 @@ def lookup(record: dict, state: str, source_id: str, county: str) -> dict | None
 
 
 def read_status(path: Path) -> list:
-    """A status file's unit entries: the laft_status list, or the Texas
-    harvester's {"counties": [...]} object (one entry per (source_id, county)
-    read - audit B14: the Texas registry rows were never stamped because this
-    reader dropped that shape)."""
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return []
-    if isinstance(data, dict):
-        data = data.get("counties")
-    return [e for e in data if isinstance(e, dict)] if isinstance(data, list) else []
+    # The Texas harvester's status file is {"retrieved_at", "sources",
+    # "counties": [...]} - its per-(source, county) entries are the units.
+    if isinstance(data, dict) and isinstance(data.get("counties"), list):
+        return [e for e in data["counties"] if isinstance(e, dict)]
+    return data if isinstance(data, list) else []
 
 
 def registry_units(path: Path | str = REGISTRY_PATH) -> dict[str, dict]:
@@ -220,8 +218,12 @@ def registry_units(path: Path | str = REGISTRY_PATH) -> dict[str, dict]:
     return out
 
 
-def registry_patches(record: dict, units: dict[str, dict]) -> list[tuple[dict, dict]]:
-    """[(match, body)] for every unit the registry knows."""
+def registry_patches(record: dict, units: dict[str, dict], *, error_category: bool = False) -> list[tuple[dict, dict]]:
+    """[(match, body)] for every unit the registry knows. `error_category`:
+    the registry has migration 022's last_error_category column (main()
+    probes it), so each patch carries the last attempt's category - NULL
+    after a success - which is what the admin "Needs attention" panel
+    translates into plain words."""
     out = []
     for key, u in record.items():
         if key not in units:
@@ -234,7 +236,7 @@ def registry_patches(record: dict, units: dict[str, dict]) -> list[tuple[dict, d
         # Migration 022 adds last_error_category to the registry; PostgREST
         # ignores nothing - an unknown column fails the PATCH - so it is sent
         # only when the caller says the column exists (see main()).
-        if u.get("_registry_has_error_category"):
+        if error_category:
             body["last_error_category"] = u.get("last_error_category") or None
         out.append(({"state": u["state"], "source_id": u["source_id"], "county": u["county"]}, body))
     return out
@@ -254,6 +256,20 @@ class RegistryApi:
 
     def has_columns(self) -> bool:
         req = urllib.request.Request(f"{self.base}?select={','.join(REGISTRY_COLUMNS)}&limit=0", headers=self._headers())
+        try:
+            with urllib.request.urlopen(req, timeout=60):
+                self.requests_made += 1
+                return True
+        except urllib.error.HTTPError as exc:
+            if exc.code == 400:
+                return False
+            raise
+
+    def has_error_category(self) -> bool:
+        """Migration 022's last_error_category column. Before 2026-10-29 the
+        PATCH never sent it (the flag it waited for was never set), so every
+        failed unit in production read "reason not recorded"."""
+        req = urllib.request.Request(f"{self.base}?select=last_error_category&limit=0", headers=self._headers())
         try:
             with urllib.request.urlopen(req, timeout=60):
                 self.requests_made += 1
@@ -444,7 +460,7 @@ def main(argv=None) -> int:
         if not api.has_columns():
             print("  migration 021 not applied - county_source_registry freshness columns absent; registry not updated")
             return 0
-        patches = registry_patches(record, registry_units(args.registry))
+        patches = registry_patches(record, registry_units(args.registry), error_category=api.has_error_category())
         for match, body in patches:
             api.patch(match, body)
         print(f"  registry: {len(patches)} unit row(s) patched{' (dry run)' if args.dry_run else ''}")

@@ -623,7 +623,13 @@ jobs:
           # Refill tax-roll values a sync erased before sync_value_guard.py
           # (2026-10-26: 146 FL auction rows' FDOR `assessed`).
           ENRICH_REFILL_ERASED: "1"
-        run: python3 scripts/enrich_property_details.py
+          # Stop cleanly at 13 minutes (the step timeout is 15) and abandon a
+          # county after 3 consecutive request errors, so one unresponsive
+          # county no longer uses the whole budget (audit B15/B28).
+          ENRICH_TIME_BUDGET_SECONDS: '780'
+          ENRICH_COUNTY_ERROR_STREAK: '3'
+        # -u: unbuffered, so a step that is stopped still shows its progress.
+        run: python3 -u scripts/enrich_property_details.py
 
       # Flood is the first Risk & Legal panel field with a real source. It
       # needs only lat/lon, which the geocoding step above has already
@@ -662,7 +668,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/enrich_property_photos_naip.py
+          # Stop cleanly at 10 minutes (step timeout 12) - before, the step was
+          # killed on every run and printed nothing (audit B28).
+          NAIP_TIME_BUDGET_SECONDS: '600'
+        run: python3 -u scripts/enrich_property_photos_naip.py
 
       - name: Backfill property photos (Street View Static API)
         # No-ops cleanly (exit 0) until a GOOGLE_MAPS_API_KEY secret exists -
@@ -1508,6 +1517,32 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/source_health.py --source tx_sales --label "Texas tax sales (LGBS + county sheriff-sale sites)" --state TX --mode scheduled --cadence-hours 24 --status out/harvest_texas_status.json --rows out/harvest_texas.json --outcome ${{ steps.sync.outcome }}
 
+      - name: Restore unit freshness record
+        # Keeps each Texas unit's failure streak across runs (same rolling
+        # cache pattern as the expansion job); a miss starts the streak over.
+        if: always()
+        continue-on-error: true
+        uses: actions/cache@v4
+        with:
+          path: out/.harvest_cache
+          key: unit-freshness-texas-${{ github.run_id }}
+          restore-keys: |
+            unit-freshness-texas-
+
+      - name: Per-unit freshness (Texas)
+        # scripts/unit_freshness.py: last attempt / last complete read /
+        # failure streak / last error category per (source, county) unit of
+        # out/harvest_texas_status.json "counties", written to the registry
+        # rows that exist (2026-10-29: before this, no Texas unit ever had a
+        # read recorded, so the admin "Needs attention" panel could not tell
+        # a working Texas source from a dead one). Monitoring only.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/unit_freshness.py --status out/harvest_texas_status.json --state TX --status out/harvest_tx_county_auctions_status.json --status out/harvest_tx_county_available_status.json --persist out/.harvest_cache/unit_freshness_tx.json --report out/public/unit-freshness-tx.json || true
+
       - name: Sync Texas county-published lists
         # scripts/sync_state_inventory.py, once per ledger (its own rows and
         # status file): upserts only rows of a PRODUCTION_VERIFIED, APPROVED
@@ -1573,21 +1608,6 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/texas_closeout.py --harvest out/harvest_tx_county_auctions.json --harvest out/harvest_tx_county_available.json --status out/harvest_tx_county_auctions_status.json --status out/harvest_tx_county_available_status.json
-
-      - name: Per-unit freshness for the Texas sources (registry last read)
-        # scripts/unit_freshness.py (audit B14, 2026-10-29): the Texas job never
-        # ran it, so every Texas county_source_registry row kept a NULL
-        # last_attempt_at and source health read "not recorded". Reads the
-        # vendor walk's `counties` entries and the county lists' status files;
-        # PATCHes only registry rows that already exist (state, source_id,
-        # county); never advances a last success on a FAILED read. Own persist /
-        # report files. Never fails the job.
-        if: always()
-        continue-on-error: true
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/unit_freshness.py --status out/harvest_texas_status.json --state TX --status out/harvest_tx_county_auctions_status.json --status out/harvest_tx_county_available_status.json --persist out/.harvest_cache/unit_freshness_tx.json --report out/public/unit-freshness-tx.json || true
 
       # Phase B (auction-event history): same writer as the deeds job, fed by
       # out/harvest_texas.json. Texas has no per-county completeness file, so

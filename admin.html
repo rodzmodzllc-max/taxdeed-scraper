@@ -24,6 +24,16 @@ row-level security) whether the signed-in account is an admin. Anyone else
       <h1 class="admin-title">Administration</h1>
     </div>
   </header>
+  <!-- Needs attention (2026-10-29): every place a person has to act - a
+       county read that is failing or stale, a source link dead on two daily
+       checks, Available records withheld because their source has not
+       confirmed them - one row per (state, county, source), from recorded
+       fields only (admin.js refreshAttention). -->
+  <section class="admin-card admin-attention" id="attention" aria-labelledby="adminAttentionLabel">
+    <h2 class="admin-label admin-attention-head" id="adminAttentionLabel">Needs attention</h2>
+    <p class="admin-note" id="adminAttentionStatus" role="status">Checking every source</p>
+    <div class="admin-attention-list" id="adminAttentionList"></div>
+  </section>
   <section class="admin-card" aria-labelledby="adminIdentityLabel">
     <p class="admin-label" id="adminIdentityLabel">Signed in as</p>
     <p class="admin-identity" id="adminIdentity"></p>

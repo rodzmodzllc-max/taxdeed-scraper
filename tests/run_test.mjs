@@ -3318,6 +3318,44 @@ await navMap.close();
     const row = id => { const e = document.querySelector(`#adminInventoryList tr[data-source-id="${id}"]`); return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; };
     return { status: (document.getElementById('adminInventoryStatus') || {}).textContent, lots: row('mi_detroit_landbank_lots'), programs: row('mi_detroit_landbank_programs') };
   });
+  // Needs attention (2026-10-29): the first card, one row per (state, county,
+  // source) unit, from recorded fields only. Default fixture registry: Bay's
+  // pioneer read FAILED with a 403 category, Bradford's production source has
+  // no read on record, Galveston's LGBS read is INCOMPLETE with no category;
+  // ?brokenlinks=1 adds Citrus' list page BROKEN on two checks (p15 carries
+  // it), ?unconfirmed=1 leaves Bay's p3 never confirmed and Citrus' p15 ten
+  // days old. Current units (Alachua, Citrus' read, Dixie) and the never-read
+  // candidate (Broward) are not listed.
+  results.adminAttentionFirstCard = await adm.evaluate(() => { const c = document.querySelector('#adminShell > .admin-card'); return c ? c.id : null; });
+  await adm.goto(BASE_URL.replace(/index\.html$/, 'admin.html') + '?stubauth=1&brokenlinks=1&unconfirmed=1', { waitUntil: 'networkidle' });
+  await adm.waitForSelector('#adminAttentionList .attn-row', { timeout: 8000 }).catch(() => {});
+  results.adminAttention = await adm.evaluate(() => {
+    const rows = [...document.querySelectorAll('#adminAttentionList .attn-row')];
+    const row = c => rows.find(r => r.dataset.county === c);
+    const txt = c => { const r = row(c); return r ? r.textContent.replace(/\s+/g, ' ').trim() : null; };
+    return {
+      head: document.getElementById('adminAttentionLabel').textContent.trim(),
+      states: [...document.querySelectorAll('#adminAttentionList .attn-state')].map(s => s.dataset.state),
+      units: rows.map(r => `${r.dataset.state}|${r.dataset.county}|${r.dataset.source}|${r.dataset.kinds}`).sort(),
+      flOrder: rows.filter(r => r.dataset.state === 'FL').map(r => r.dataset.county),
+      bay403: /site blocks automated reads/.test(txt('Bay') || '') && /3 failed reads in a row/.test(txt('Bay') || ''),
+      bayNever: /1 Available record withheld from customers: never confirmed by the source/.test(txt('Bay') || '') && /successful read of this county's list/.test(txt('Bay') || ''),
+      bayHead: (row('Bay') || { querySelector: () => null }).querySelector('.attn-where') ? row('Bay').querySelector('.attn-where').textContent : null,
+      citrusLink: /list page link is dead \(HTTP 404 since Oct 26\): https:\/\/x\/citrus-list/.test(txt('Citrus') || '') && /the current link \(the page or file moved\)/.test(txt('Citrus') || ''),
+      citrusUnconfirmed: /1 Available record withheld from customers: not confirmed by the source since/.test(txt('Citrus') || ''),
+      galvestonUnrecorded: /List read incomplete: reason not recorded/.test(txt('Galveston') || '') && /check the latest job log/.test(txt('Galveston') || ''),
+      bradfordNoRead: /No read recorded for this source in this county/.test(txt('Bradford') || ''),
+      status: document.getElementById('adminAttentionStatus').textContent.trim(),
+      noIdentity: !/Oak Ave|Manatee Ln|\b333\b|\b1515\b|Bob|Lee Park/.test(document.getElementById('adminAttentionList').textContent)
+    };
+  });
+  // A read that fails is named, never read as "Nothing needs attention".
+  await adm.goto(BASE_URL.replace(/index\.html$/, 'admin.html') + '?stubauth=1&registry=none', { waitUntil: 'networkidle' });
+  await adm.waitForTimeout(600);
+  results.adminAttentionGapNamed = await adm.evaluate(() => ({
+    status: document.getElementById('adminAttentionStatus').textContent.trim(),
+    saysNothing: /^Nothing needs attention\.$/.test(document.getElementById('adminAttentionStatus').textContent.trim())
+  }));
   // 8. Signing out removes admin access: redirected now, and on a revisit.
   await adm.click('#adminSignOut');
   await adm.waitForTimeout(600);
@@ -7774,7 +7812,7 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v152"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v153"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -8194,6 +8232,9 @@ const EXPECTED = {
   adminSourcesLaOnly: true,
   adminSourcesNoticeRows: 3,
   adminFreshnessHealthRows: 5,
+  adminAttentionFirstCard: "attention",
+  adminAttention: {"head": "Needs attention (4)", "states": ["TX", "FL"], "units": ["FL|Bay|fl_laft_pioneer|read,unconfirmed", "FL|Bradford|fl_laft_pdfs|read", "FL|Citrus|fl_laft_html|link,unconfirmed", "TX|Galveston|tx_lgbs|read"], "flOrder": ["Citrus", "Bay", "Bradford"], "bay403": true, "bayNever": true, "bayHead": "Bay, FL · Lands Available · fl_laft_pioneer", "citrusLink": true, "citrusUnconfirmed": true, "galvestonUnrecorded": true, "bradfordNoRead": true, "status": "", "noIdentity": true},
+  adminAttentionGapNamed: {"status": "Could not check the county read status (column county_source_registry.last_attempt_at does not exist); the link checks (migration 036 is not on this deployment) - this list may be missing items.", "saysNothing": false},
   adminFreshnessUnitDetail: "FLBayfl_laft_pioneerStalelast read 2h ago (failed) · last complete read 3d ago · 3 rows at that read · 3 consecutive failed attempts · source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours · back-off: attempted at most once per 48 hours until a read succeeds",
   adminInventoryMi: {"status": "MI: 7 collected rows across 3 sources; 2 sources awaiting customer-publication review.", "lots": "mi_detroit_landbank_lotsAvailableUnreviewed55102 of 4 with a verified structureOct 3, 2026", "programs": "mi_detroit_landbank_programsAvailableUnreviewed11100 of 0 with a verified structureOct 2, 2026"},
   adminSignOutRedirected: true,
