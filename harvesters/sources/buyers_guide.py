@@ -143,12 +143,19 @@ def load_ledgers(path: Path = LEDGERS_PATH) -> dict[tuple[str, str], dict]:
         return {(r["state"], r["ledger"]): r for r in csv.DictReader(f)}
 
 
+READ_RESULTS = ("FOUND", "PARTIAL", "NOT_FOUND")   # the page was read; anything else is a failed read
+
+
 def capture_index(captures: list[dict]) -> dict[tuple[str, str, str], dict]:
-    """The latest capture per (answer key, quote hash, url) - a later read wins,
-    so a page that changed since an earlier FOUND downgrades the answer."""
+    """The latest capture per (answer key, quote hash, url). A later READ wins,
+    so a page that changed since an earlier FOUND downgrades the answer; a
+    failed read (blocked, fetch failed, denied) never replaces an earlier read -
+    it decides only when no read exists."""
     out: dict[tuple[str, str, str], dict] = {}
     for c in sorted(captures, key=lambda c: (c["captured_on"], c["run_id"])):
-        out[(c["answer_key"], c["quote_sha256"], c["source_url"])] = c
+        k = (c["answer_key"], c["quote_sha256"], c["source_url"])
+        if c["result"] in READ_RESULTS or k not in out or out[k]["result"] not in READ_RESULTS:
+            out[k] = c
     return out
 
 

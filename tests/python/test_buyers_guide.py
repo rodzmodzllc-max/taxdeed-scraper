@@ -72,10 +72,13 @@ def test_found_capture_publishes_the_answer_with_the_capture_date():
     assert e["status"] == "VERIFIED" and e["answer"] == a.answer and e["verified_on"] == "2026-10-30"
 
 
-def test_later_capture_wins_and_blocked_is_source_restricted():
+def test_later_read_wins_a_failed_read_never_undoes_one_and_blocked_is_source_restricted():
     a = ans()
     caps = G.capture_index([cap(a, "FOUND", "2026-10-30", "1"), cap(a, "BLOCKED", "2026-11-05", "2")])
-    assert G.published(a, caps, "")["status"] == "SOURCE_RESTRICTED"
+    assert G.published(a, caps, "")["status"] == "VERIFIED"
+    assert G.published(a, G.capture_index([cap(a, "BLOCKED", "2026-11-05", "2")]), "")["status"] == "SOURCE_RESTRICTED"
+    caps = G.capture_index([cap(a, "FOUND", "2026-10-30", "1"), cap(a, "NOT_FOUND", "2026-11-05", "2")])
+    assert G.published(a, caps, "")["status"] == "NOT_VERIFIED"
     caps = G.capture_index([cap(a, "NOT_FOUND", "2026-10-30", "1"), cap(a, "FOUND", "2026-11-05", "2")])
     assert G.published(a, caps, "")["status"] == "VERIFIED"
 
