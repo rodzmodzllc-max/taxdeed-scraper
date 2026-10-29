@@ -87,6 +87,7 @@ def test_b14_registry_sync_inserts_missing_rows_and_never_touches_freshness_or_p
     p = RS.plan(rows, table)
     assert [b["source_id"] for b in p["insert"]] == ["tn_shelby_landbank"]
     assert p["insert"][0]["publication_status"] == "APPROVED" and p["insert"][0]["purchase_url"] is None
+    assert p["insert"][0] == UF.registry_insert_row(rows[0], {})   # one insert shape with unit_freshness (#251)
     (rid, body), = p["patch"]
     assert rid == "1" and body == {"canonical_url": "https://data.brla.gov/new", "last_checked": "2026-10-26"}
     for c in ("publication_status", "restrictions", "completeness_status", "last_success_at", "last_attempt_at"):

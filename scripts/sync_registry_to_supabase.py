@@ -2,13 +2,13 @@
 """Bring public.county_source_registry in line with data/county_source_registry.csv
 (audit B14 / F4, 2026-10-29).
 
-Why: the production table was seeded by hand on 2026-09-29 / 30 and nothing
-ever added a row after that. It held 121 rows against 380 in the repository
-registry - none for TN, OK, MO, PA, MN, nor for fl_realauction /
-fl_lienhub_certificates and most expansion sources. scripts/unit_freshness.py
-only PATCHes rows that exist, so those sources never got a last read, and the
-property page's Source health read "No read of this source has been recorded
-yet". The one Louisiana row still described the retired a4h4-zi7e dataset.
+Why: the production table was seeded by hand on 2026-09-29 / 30. Since
+audit ops #251, scripts/unit_freshness.py inserts the CSV row of a unit the
+table lacks - but only for a unit a harvest just read. Two gaps remain:
+a source no freshness run has reported yet has no row (customers read
+"No read of this source has been recorded yet"), and an existing row's
+metadata is never refreshed from the CSV (the Louisiana row still named the
+retired a4h4-zi7e dataset; the Minnesota rows named REST endpoints).
 
 What it does (dry run unless --apply):
 
@@ -17,8 +17,9 @@ What it does (dry run unless --apply):
 * matches a CSV row to a table row on (state, county, source_id); a candidate
   row (no source_id) on (state, county, canonical URL) with the scheme,
   "www." and a trailing slash ignored;
-* INSERTs each CSV row the table lacks, with its CSV publication_status and
-  restrictions;
+* INSERTs each CSV row the table lacks, built by
+  unit_freshness.registry_insert_row (the same insert as #251, without
+  freshness values) and sent through unit_freshness.RegistryApi.insert;
 * PATCHes an existing row's METADATA columns only where a value differs.
 
 What it never does:
@@ -55,18 +56,20 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 
+import unit_freshness as UF  # noqa: E402  - the one INSERT shape (registry_insert_row)
+
 REGISTRY = REPO / "data" / "county_source_registry.csv"
 TABLE = "county_source_registry"
 USER_AGENT = "taxdeed-scraper/1.0 (registry sync)"
 
 # Columns this script keeps in step with the CSV on existing rows.
-METADATA = ("harvester", "inventory_type", "source_authority", "canonical_url", "document_url", "purchase_url",
-            "purchase_url_kind", "access_method", "machine_format", "verification_status", "governance_status",
-            "last_checked", "evidence_ref", "notes", "publishing_unit", "publishing_unit_name", "amount_kind",
-            "update_frequency", "source_terminology", "ledgers")
 # Set on INSERT only: owned afterwards by another writer (see the docstring).
 INSERT_ONLY = ("completeness_status", "publication_status", "restrictions")
 IDENTITY = ("state", "county", "source_id")
+# Columns this script keeps in step with the CSV on existing rows: every table
+# column a CSV row carries (unit_freshness.REGISTRY_TABLE_COLUMNS) except the
+# identity and the insert-only ones.
+METADATA = tuple(c for c in UF.REGISTRY_TABLE_COLUMNS if c not in (*IDENTITY, *INSERT_ONLY))
 NOT_NULL = {"access_method", "machine_format", "verification_status", "governance_status", "last_checked",
             "completeness_status", "evidence_ref", "publication_status", "publishing_unit"}
 
@@ -165,7 +168,9 @@ def plan(csv_in: list[dict], table: list[dict]) -> dict:
         meta = {c: _v(r.get(c)) for c in METADATA}
         cur = by_key.get(k)
         if cur is None:
-            body = {**{c: _v(r.get(c)) for c in IDENTITY}, **meta, **{c: _v(r.get(c)) for c in INSERT_ONLY}}
+            # The same INSERT unit_freshness sends for a unit the table lacks
+            # (audit ops #251) - one insert shape, no freshness values.
+            body = UF.registry_insert_row(r, {})
             bad = problems(body)
             if bad:
                 refused.update(bad)
@@ -205,13 +210,13 @@ class Api:
         with urllib.request.urlopen(req, timeout=60):
             pass
 
-    def insert(self, rows: list[dict], batch: int = 100) -> int:
-        n = 0
-        for i in range(0, len(rows), batch):
-            chunk = rows[i:i + batch]
-            self._send("POST", TABLE, chunk)
-            n += len(chunk)
-        return n
+    def insert(self, rows: list[dict]) -> int:
+        """One POST per row through unit_freshness.RegistryApi.insert (the
+        single insert path); returns how many were sent."""
+        api = UF.RegistryApi(self.base, self.h["apikey"])
+        for r in rows:
+            api.insert(r)
+        return len(rows)
 
     def patch(self, row_id: str, body: dict) -> None:
         self._send("PATCH", f"{TABLE}?id=eq.{urllib.parse.quote(str(row_id), safe='')}", body)
