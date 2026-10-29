@@ -517,11 +517,15 @@ results.bayPinCount = await page.locator('#exploreMapCanvas .pin').count();
 await page.locator('#exploreStrip .strip-card').first().click();
 await page.waitForTimeout(250);
 results.bayPreviewText = ((await page.locator('#explorePreview').textContent()) || '').replace(/\s+/g, ' ');
-results.bayPreviewHasAvailability = results.bayPreviewText.includes('Availability') && results.bayPreviewText.includes('Available over the counter');
+// Map peek card (2026-10-29): the card's Status fact is the row's own phase
+// (app.js kickerParts - "Lands Available list · over the counter"); the
+// "Availability" / "Amount kind" rows of the old panel are on the property
+// page. The amount kind is the amount's own label (the list's "Opening bid").
+results.bayPreviewHasAvailability = results.bayPreviewText.includes('Status') && results.bayPreviewText.includes('over the counter');
 // Acquisition sprint: the preview names the acquisition path, and an unverified one says so - never "no link".
 // Acquisition-path sprint: an unverified Available row never reaches the map (acquisition gate), so the preview names a verified path.
 results.bayPreviewHasPurchasePath = results.bayPreviewText.includes('How to acquire') && !results.bayPreviewText.includes('Not yet verified') && !results.bayPreviewText.includes('No online purchase link');
-results.bayPreviewHasAmountKind = results.bayPreviewText.includes('Amount kind') && results.bayPreviewText.includes('Opening bid');
+results.bayPreviewHasAmountKind = ((await page.locator('#explorePreview .mp-fact.bid dt').textContent()) || '').trim().startsWith('Opening bid');
 delete results.bayPreviewText;
 await page.locator('#exploreStrip .strip-card').first().click();
 await page.waitForTimeout(150);
@@ -2033,22 +2037,38 @@ results.stripInSidePanel = await p67d.locator('#mapSidePanel #exploreStrip').cou
 await p67d.locator('#exploreMapCanvas .map-pin[data-pid="p5"]').click({ force: true });
 await p67d.waitForTimeout(300);
 results.pinClickPreviewTitle = ((await p67d.locator('#explorePreview .preview-title').textContent()) || '').trim();
+// Map peek card (2026-10-29): the preview floats over the map stage (bottom-
+// left) instead of the top of the side panel, so the strip list stays on
+// screen - pinClickPreviewInSidePanel is now 0 (pinned below with a note).
 results.pinClickPreviewInSidePanel = await p67d.locator('#mapSidePanel #explorePreview').count();
 results.pinClickPinSel = await p67d.locator('#exploreMapCanvas .map-pin.sel').count();
 results.pinClickHalo = await p67d.locator('#exploreMapCanvas .map-pin.sel .pin-halo').count();
 results.pinClickStripSel = await p67d.locator('#exploreStrip .strip-card.sel[data-pid="p5"]').count();
-results.previewKicker = ((await p67d.locator('#explorePreview .pv-kicker').textContent()) || '').trim();
-results.previewCoords = ((await p67d.locator('#explorePreview .pv-coords').textContent()) || '').trim();
-results.previewBid = ((await p67d.locator('#explorePreview .pv-val.bid').textContent()) || '').trim();
-results.previewValueLabel = ((await p67d.locator('#explorePreview .pv-stat small').textContent()) || '').trim();
-results.previewIds = await p67d.locator('#explorePreview .pv-ids dd').allTextContents();
-results.previewFlood = ((await p67d.locator('#explorePreview .pv-risk span:nth-child(2)').textContent()) || '').trim();
-results.previewMoreClosed = await p67d.locator('#explorePreview details.pv-more').evaluate(el => !el.open);
-// Phase 72: the preview carries the same kind-driven auction link as the
-// card and the full page (p5: a sale-date page, kind 'sale').
-results.previewAuctionLinkText = ((await p67d.locator('#explorePreview .pv-auction a').textContent()) || '').trim();
-results.previewAuctionLinkKind = await p67d.locator('#explorePreview .pv-auction a').getAttribute('data-auction-link');
-results.previewAuctionLinkHref = await p67d.locator('#explorePreview .pv-auction a').getAttribute('href');
+// The peek card replaced the tall panel: kicker, coordinates, ids, flood and
+// the "More" list moved to the full property page (all already there). These
+// keys now read the card's new structure: the ledger chip + Status fact, the
+// county locator's position claim, the amount under its own label, the
+// value label, the fact labels (app.js previewFacts), and the absence of
+// the moved rows.
+results.previewKicker = await p67d.evaluate(() => (document.querySelector('#explorePreview .mp-ledger') || {}).textContent + ' · ' + (document.querySelector('#explorePreview .mp-fact.status dd') || {}).textContent);
+results.previewCoords = ((await p67d.locator('#explorePreview .mp-locator-text').textContent()) || '').trim();
+results.previewBid = ((await p67d.locator('#explorePreview .mp-fact.bid dd').textContent()) || '').trim();
+results.previewValueLabel = ((await p67d.locator('#explorePreview .mp-fact.value dt').textContent()) || '').trim();
+results.previewIds = await p67d.locator('#explorePreview .mp-fact dt').allTextContents();
+results.previewFlood = (await p67d.locator('#explorePreview').textContent()).includes('Flood') ? 'on the card' : 'on the property page';
+results.previewMoreClosed = (await p67d.locator('#explorePreview details, #explorePreview .pv-more, #explorePreview .pv-expand').count()) === 0;
+// Phase 72: the same kind-driven auction link as the card and the full page
+// (p5: a sale-date page, kind 'sale'). The peek card carries no link row of
+// its own (it named every list "Auction link" - wrong for certificates and
+// Available); the link is one tap away on the full property page.
+await p67d.click('#explorePreview .preview-open');
+await p67d.waitForTimeout(500);
+const p67AuctionLink = p67d.locator('#detailModal a[data-auction-link]').first();
+results.previewAuctionLinkText = ((await p67AuctionLink.textContent()) || '').trim();
+results.previewAuctionLinkKind = await p67AuctionLink.getAttribute('data-auction-link');
+results.previewAuctionLinkHref = await p67AuctionLink.getAttribute('href');
+await p67d.keyboard.press('Escape');
+await p67d.waitForTimeout(400);
 results.selectionEventPid = await p67d.evaluate(() => { const e = window.__selEvents; return e.length ? e[e.length - 1].pid : null; });
 results.selectionEventHasCoords = await p67d.evaluate(() => { const e = window.__selEvents; const d = e[e.length - 1]; return !!d && typeof d.lat === 'number' && typeof d.lng === 'number'; });
 // Close via the preview's own close button: pin highlight, strip highlight
@@ -2115,13 +2135,17 @@ await p67m.waitForTimeout(700);
 await p67m.locator('#exploreMapCanvas .map-pin[data-pid="p5"]').click({ force: true });
 await p67m.waitForTimeout(300);
 results.mobilePreviewInStage = await p67m.locator('#mapStage .explore-map-stage > #explorePreview').count();
-results.mobilePreviewCollapsed = await p67m.locator('#explorePreview').evaluate(el => !el.classList.contains('expanded'));
+// Map peek card (2026-10-29): the phone sheet has no collapsed / expanded
+// states any more - one fixed-height sheet with the picture and "Open
+// property" on it. These keys now check that: no expand state and no old
+// body (Collapsed / BodyHiddenCollapsed), under half the stage, the picture
+// never collapsed to 0px (Expanded) and the open button on screen
+// (BodyVisibleExpanded).
+results.mobilePreviewCollapsed = await p67m.locator('#explorePreview').evaluate(el => !el.classList.contains('expanded') && !el.querySelector('.pv-expand'));
 results.mobilePreviewBodyHiddenCollapsed = await p67m.locator('#explorePreview .pv-body').isHidden();
 results.mobilePreviewCoversLessThanHalfStage = await p67m.locator('#explorePreview').evaluate(el => el.getBoundingClientRect().height < el.closest('.explore-map-stage').getBoundingClientRect().height * 0.5);
-await p67m.click('#explorePreview .pv-expand');
-await p67m.waitForTimeout(200);
-results.mobilePreviewExpanded = await p67m.locator('#explorePreview').evaluate(el => el.classList.contains('expanded'));
-results.mobilePreviewBodyVisibleExpanded = await p67m.locator('#explorePreview .pv-body').isVisible();
+results.mobilePreviewExpanded = await p67m.locator('#explorePreview .mp-media').evaluate(el => el.getBoundingClientRect().height > 60);
+results.mobilePreviewBodyVisibleExpanded = await p67m.locator('#explorePreview .preview-open').isVisible();
 results.mobileStripStillReachable = await p67m.locator('#exploreStrip .strip-card').first().isVisible();
 results.mapNoOverflowMobileSelected = await p67m.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
 await p67m.close();
@@ -8071,19 +8095,31 @@ const EXPECTED = {
   stripVerticalOnDesktop: true,
   stripInSidePanel: 1,
   pinClickPreviewTitle: '500 Elm Way',
-  pinClickPreviewInSidePanel: 1,
+  // Map peek card (2026-10-29): the card floats over the map stage, not in
+  // the side panel (was 1), so the panel's property list stays visible.
+  pinClickPreviewInSidePanel: 0,
   pinClickPinSel: 1,
   pinClickHalo: 1,
   pinClickStripSel: 1,
-  previewKicker: /^Charlotte County, FL · Auction · Sale [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
-  previewCoords: '26.93420, -82.04540',
+  // Map peek card (2026-10-29): ledger chip + Status fact (was the uppercase
+  // kicker; county and state are in the toolbar context and the sub-line).
+  previewKicker: /^Auction · Sale [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
+  // Raw coordinates moved to the property page; the card's picture states
+  // only what the row has: a pin in this county (was '26.93420, -82.04540').
+  previewCoords: 'Pinned in Charlotte County',
   previewBid: '$8,000.00',
   previewValueLabel: 'County Just Value',
-  previewIds: ['444', 'D-1'],
-  previewFlood: 'Not checked',
+  // The card's fact labels, from app.js previewFacts (was the parcel / case
+  // values, now on the property page).
+  previewIds: ['Opening bid', 'Status', 'County Just Value'],
+  // Flood moved to the property page (was 'Not checked').
+  previewFlood: 'on the property page',
+  // No disclosure on the card at all (was: the "More" disclosure closed).
   previewMoreClosed: true,
-  // Phase 72: the map preview's auction link (p5, kind 'sale')
-  previewAuctionLinkText: /^View sale listing for [A-Z][a-z]{2} \d{1,2}, \d{4} ↗$/,
+  // Phase 72: the auction link (p5, kind 'sale'), one tap away on the full
+  // property page now - the card has no link row (was the card's own link,
+  // with a trailing ↗).
+  previewAuctionLinkText: /^View sale listing for [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
   previewAuctionLinkKind: 'sale',
   previewAuctionLinkHref: /^https:\/\/charlotte\.realforeclose\.com\/index\.cfm\?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=\d{2}\/\d{2}\/\d{4}$/,
   selectionEventPid: 'p5',

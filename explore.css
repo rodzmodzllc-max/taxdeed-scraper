@@ -190,38 +190,23 @@ body[data-state="TX"] .explore-map{--map-aspect:0.994}
 .satellite-map-canvas[data-ledger="laft"] .sat-county-bubble{background:var(--brass)}
 .satellite-map-canvas[data-ledger="certificate"] .sat-county-bubble{background:#7C3AED}
 .sat-county-bubble.sel{background:var(--ok) !important}
-.sat-pin{width:16px;height:16px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
-  background:var(--bad);border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);
-  cursor:pointer}
-.sat-pin.sel{background:var(--accent)}
-/* google.maps.InfoWindow's own chrome (bubble background, close button,
-   pointer tail) is styled via its .gm-style-iw* classes - Google reserves
-   these class names and can change them between releases, and they render
-   inside a closed shadow root in current versions besides, so overriding
-   them isn't reliable. Left at Google's own default chrome on that path.
-   MapLibre's popup chrome IS plain, overridable CSS, so that path gets
-   themed to match the app - both paths' actual content (passed to
-   setContent()/setDOMContent()) is the same .sat-popup-* markup either way.
-   Phase 63: these were still named .mapboxgl-popup-* from when this file's
-   comment (and satellite-map.js's provider) meant Mapbox GL JS itself.
-   Phase 60 swapped the provider for MapLibre GL JS - an independent fork,
-   not a Mapbox build - and MapLibre 4.x's own stylesheet ships its popup
-   chrome under a .maplibregl-popup-* prefix, not .mapboxgl-popup-* (verified
-   against the actual maplibre-gl@4.7.1 package, the version pinned in
-   satellite-map.js's MAPLIBRE_GL_VERSION). So these rules never matched
-   anything: every MapTiler property-pin popup rendered in MapLibre's bare
-   default chrome (plain white, square corners, no shadow) instead of the
-   app's card theme, however Marc reported it - "preview" covers this popup,
-   not just the pin. */
-.maplibregl-popup-content{background:var(--card) !important;color:var(--ink) !important;
-  font-family:var(--font-sans) !important;border-radius:8px !important;
-  box-shadow:var(--shadow) !important;padding:.7rem .8rem !important}
-.maplibregl-popup-tip{border-top-color:var(--card) !important;border-bottom-color:var(--card) !important}
-.sat-popup-addr{font-weight:700;font-size:.8rem;margin:0 0 .2rem}
-.sat-popup-meta{font-size:.72rem;color:var(--ink-soft);margin:0 0 .5rem}
-.sat-popup-open{font-family:var(--font-sans);font-size:.72rem;font-weight:700;
-  color:#fff;background:var(--accent);border:none;border-radius:6px;padding:.3rem .6rem;
-  cursor:pointer}
+/* Satellite pins (2026-10-29): the marker element is a 44px hit box (the
+   touch rule) anchored at its bottom centre; the teardrop inside it is the
+   visible pin, coloured by ledger with a white centre dot so it reads on
+   imagery. The selected pin is the accent colour, larger, and on top. The
+   provider popups are gone: every basemap opens the one peek card. */
+.sat-pin{position:relative;width:44px;height:44px;cursor:pointer;background:none;border:none}
+.sat-pin-mark{position:absolute;left:50%;bottom:4px;width:18px;height:18px;margin-left:-9px;
+  border-radius:50% 50% 50% 0;transform:rotate(-45deg);transform-origin:50% 50%;
+  background:var(--lc,var(--bad));border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45);
+  box-sizing:border-box;transition:transform .12s ease-out}
+.sat-pin-mark::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;
+  border-radius:50%;background:#fff}
+.sat-pin.sel{z-index:3}
+.sat-pin.sel .sat-pin-mark{background:var(--accent);transform:rotate(-45deg) scale(1.35)}
+.sat-pin:focus-visible{outline:none}
+.sat-pin:focus-visible .sat-pin-mark{outline:2px solid #fff;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){ .sat-pin-mark{transition:none} }
 
 /* County shapes: quiet by default so the data bubbles on top are what the eye
    lands on - the reverse of the filter-panel picker map, where the shapes
@@ -713,71 +698,96 @@ font-weight:700;color:var(--bad)}
 .strip-flag{position:absolute;top:.25rem;right:.35rem;font-size:.5rem;color:var(--bad)}
 .strip-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-/* ---- the preview card ----------------------------------------------------
-   Sits over the map rather than beside it: the panel is already narrow in
-   split view, and anchoring the card to the bottom keeps the pin you tapped
-   in sight above it. */
-/* Phase 67: the preview is the top block of the side panel (desktop) or a
-   bottom sheet over the map (phone) - see the workspace rules at the end of
-   this file. This is its content styling, shared by both. */
-.explore-preview{position:relative;background:var(--card);border:1px solid var(--card-line);
-  border-left:3px solid var(--accent);border-radius:4px;padding:.65rem .75rem .6rem;
-  display:flex;flex-direction:column;gap:.5rem}
+/* ---- the map peek card (2026-10-29) --------------------------------------
+   One compact card for all three basemaps (explore.js showPreview), floating
+   over the map STAGE: bottom-left on desktop so the side panel's property
+   list stays visible, a fixed-height sheet on a phone (see the phone rules
+   in the workspace section at the end of this file). Picture first (never
+   blank), then the ledger and stamp, the address, at most three facts and
+   one way in. Everything else is on the full property page. */
+.explore-preview.mp{position:absolute;z-index:8;left:.75rem;bottom:.75rem;width:340px;
+  max-width:calc(100% - 1.5rem);background:var(--card);border:1px solid var(--card-line);
+  border-radius:8px;box-shadow:0 12px 32px rgba(15,23,42,.28);overflow:hidden;padding:0;
+  display:block;transform-origin:bottom left;animation:mpIn .16s ease-out;
+  transition:transform .12s ease-out}
+.explore-preview.mp.mp-right{left:auto;right:.75rem;transform-origin:bottom right}
+.explore-preview.mp.mp-top{left:auto;right:.75rem;bottom:auto;top:.75rem;transform-origin:top right}
+.explore-preview.mp.dragging{transition:none}
+@keyframes mpIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .explore-preview[hidden]{display:none}
-.pv-head{position:relative;padding-right:1.6rem}
-.pv-kicker{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
-  color:var(--accent);margin-bottom:.15rem}
-.preview-title{margin:0;font-size:1rem;font-weight:800;line-height:1.25;color:var(--ink)}
-.preview-sub{margin:.1rem 0 0;font-size:.68rem;color:var(--ink-soft)}
-.preview-close{position:absolute;top:-.15rem;right:-.2rem;border:none;background:none;
-  color:var(--ink-soft);font-size:.95rem;cursor:pointer;line-height:1;padding:.2rem;
-  min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center}
-.preview-close:hover{color:var(--ink)}
-.pv-visual{border-radius:3px;overflow:hidden;background:var(--paper)}
-.pv-visual.has-photo{aspect-ratio:2/1;max-height:150px;position:relative}
-.pv-visual.has-photo img{width:100%;height:100%;object-fit:cover;display:block}
-.pv-money{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
-.pv-stat{background:var(--paper);border-radius:3px;padding:.45rem .55rem;min-width:0;
-  border-left:3px solid var(--card-line)}
-.pv-stat:first-child{border-left-color:var(--bad)}
-.pv-label{display:block;font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;
-  font-weight:700;color:var(--ink-soft);margin-bottom:.1rem}
-.pv-val{display:block;font-family:var(--font-mono);font-variant-numeric:tabular-nums;
-  font-size:.98rem;font-weight:700;color:var(--ink);overflow-wrap:anywhere}
-.pv-val.bid{color:var(--bad)}
-.pv-val.muted,.explore-preview .muted{font-family:var(--font-sans);font-size:.74rem;font-weight:600;
-  color:var(--ink-soft);font-style:italic}
-.pv-stat small{display:block;font-size:.62rem;color:var(--ink-soft);margin-top:.1rem}
-.pv-body{display:flex;flex-direction:column;gap:.45rem}
-.pv-ids{margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:.35rem .6rem}
-.pv-ids div{min-width:0}
-.pv-ids dt,.pv-more-list dt{font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;
-  font-weight:700;color:var(--ink-soft);margin:0}
-.pv-ids dd,.pv-more-list dd{margin:0;font-family:var(--font-mono);font-variant-numeric:tabular-nums;
-  font-size:.74rem;font-weight:700;color:var(--ink);overflow-wrap:anywhere}
-.pv-loc,.pv-risk{font-size:.72rem;color:var(--ink);display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem .5rem}
-.pv-loc .pv-label,.pv-risk .pv-label{display:inline;margin:0}
-.pv-coords{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-weight:700}
-.pv-center{font-family:inherit;font-size:.66rem;font-weight:700;color:var(--accent);background:none;
-  border:1px solid var(--card-line);border-radius:3px;padding:.15rem .45rem;cursor:pointer;min-height:26px}
-.pv-center:hover{border-color:var(--accent)}
-.pv-risk .warn{color:var(--warn);font-weight:700}
-.pv-note{flex:1 1 100%;font-size:.62rem;color:var(--ink-soft)}
-/* Phase 72: the auction link row - same kind-driven label as the card and
-   the full page; muted text when there is nothing to link to. */
-.pv-auction{font-size:.72rem;color:var(--ink);display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem .5rem}
-.pv-auction .pv-label{display:inline;margin:0}
-.pv-auction a{color:var(--accent);font-weight:700;text-decoration:none}
-.pv-auction a:hover{text-decoration:underline}
-.pv-more{font-size:.72rem}
-.pv-more summary{cursor:pointer;color:var(--ink-soft);font-size:.66rem;font-weight:700;
-  text-transform:uppercase;letter-spacing:.04em;min-height:28px;display:flex;align-items:center}
-.pv-more-list{margin:.35rem 0 0;display:grid;grid-template-columns:1fr 1fr;gap:.35rem .6rem}
-.pv-more-list div{min-width:0}
-.pv-expand{display:none}
-.preview-open{width:100%;border:none;border-radius:3px;background:var(--accent);
-  color:#fff;font-size:.76rem;font-weight:700;padding:.5rem;cursor:pointer;min-height:36px}
-.preview-open:hover{filter:brightness(1.06)}
+.mp-inner{display:flex;flex-direction:column;min-width:0}
+.mp-media{position:relative;flex-shrink:0;cursor:pointer;background:var(--paper);overflow:hidden}
+.mp-media .pv-visual{display:block;width:100%;height:auto;max-height:none;border-radius:0;flex-shrink:0}
+.mp-media .pv-visual.has-photo{aspect-ratio:16/9;max-height:none;position:relative}
+.mp-media .pv-visual.has-photo img{width:100%;height:100%;object-fit:cover;display:block}
+/* Imagery / outline credit on the picture: kept visible, one line, the full
+   wording in its title (the boundary credit conditions need it shown). */
+.mp-media .photo-caption,.mp-media .pb-attrib{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:calc(100% - 1rem);box-sizing:border-box}
+.mp-locator{display:flex;align-items:center;gap:.6rem;height:96px;padding:.5rem .75rem;box-sizing:border-box}
+.mp-locator .minimap{flex:0 0 80px;width:80px;height:80px;position:relative;display:block;aspect-ratio:auto}
+.mp-media .mp-locator{display:flex}
+.mp-locator .minimap{overflow:hidden;background:transparent}
+.mp-locator .minimap svg{position:static;width:100%;height:100%;display:block}
+.mp-locator .minimap .mm-neighbor{fill:#DCD5C8;stroke:#C8BFAF;stroke-width:.8}
+.mp-locator .minimap .mm-county{fill:var(--copper,#B5652E);stroke:var(--copper-deep,#8A3F1E);stroke-width:1.2}
+.mp-locator-text{font-size:.78rem;font-weight:600;color:var(--ink-soft);line-height:1.3}
+.mp-ledger{position:absolute;top:.45rem;left:.45rem;z-index:2;font-size:.62rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:.06em;color:#fff;background:var(--lc,var(--accent));
+  border-radius:3px;padding:.18rem .45rem;pointer-events:none}
+.mp-locator ~ .mp-ledger{top:auto;bottom:.45rem;left:auto;right:.45rem}
+.explore-preview .preview-close{position:absolute;top:.4rem;right:.4rem;z-index:3;width:36px;height:36px;
+  min-width:36px;min-height:36px;padding:0;border:1px solid var(--card-line);border-radius:50%;
+  background:color-mix(in srgb,var(--card) 88%,transparent);color:var(--ink);font-size:.9rem;line-height:1;
+  display:inline-flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(3px)}
+.explore-preview .preview-close:hover{border-color:var(--accent);color:var(--accent)}
+.mp-body{padding:.6rem .75rem .7rem;display:flex;flex-direction:column;gap:.3rem;min-width:0}
+.mp-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;min-height:22px}
+.mp-stamp.pc-stamp{position:static;align-self:flex-start;margin:0;font-size:.6rem;padding:.22rem .5rem .18rem}
+.mp-pager{display:inline-flex;align-items:center;gap:.15rem;margin-left:auto;font-size:.66rem;
+  color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
+.mp-pager button{width:28px;height:28px;border:1px solid var(--card-line);border-radius:3px;
+  background:var(--card);color:var(--ink);font-size:1rem;line-height:1;cursor:pointer;padding:0}
+.mp-pager button:hover:not([disabled]){border-color:var(--accent);color:var(--accent)}
+.mp-pager button[disabled]{opacity:.35;cursor:default}
+.mp-pager-pos{padding:0 .2rem}
+.explore-preview .preview-title{margin:0;font-size:1rem;font-weight:800;line-height:1.25;color:var(--ink);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.explore-preview .preview-sub{font-size:.72rem;color:var(--ink-soft);margin:0}
+.mp-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:.4rem;margin:.15rem 0 0}
+.mp-fact{min-width:0}
+.mp-fact dt{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mp-note{font-size:.7rem;letter-spacing:0;cursor:help}
+.mp-fact dd{margin:0;font-weight:700;font-size:.86rem;line-height:1.2;color:var(--ink);overflow-wrap:anywhere}
+.mp-fact.bid dd,.mp-fact.value dd{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.mp-fact.bid dd{color:var(--bad)}
+.mp-fact.bid.text dd{font-family:var(--font-sans);font-size:.78rem;color:var(--ink)}
+.mp-fact.id dd{font-family:var(--font-mono);font-size:.78rem}
+.mp-fact.status dd{font-size:.76rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mp-fact.phase-soon dd{color:var(--warn)}
+.mp-fact.phase-today dd,.mp-fact.phase-past dd,.mp-fact.phase-closed dd{color:var(--bad)}
+.mp-fact.phase-fixed dd{color:var(--ok)}
+.mp-acq{margin:0;font-size:.72rem;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mp-acq span{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);margin-right:.25rem}
+.mp-actions{display:flex;gap:.5rem;margin-top:.25rem;align-items:stretch}
+.explore-preview .preview-open{flex:1;width:auto;min-height:40px;border:none;border-radius:4px;background:var(--accent);
+  color:#fff;font-size:.8rem;font-weight:700;padding:.45rem .7rem;cursor:pointer;white-space:nowrap}
+.explore-preview .preview-open:hover{filter:brightness(1.06)}
+.mp-watch{display:flex}
+.explore-preview .mp-watch .bid-btn{min-height:40px;min-width:0;width:auto;padding:0 .7rem;white-space:nowrap;
+  border:1px solid var(--card-line);border-radius:4px;background:var(--card);color:var(--ink);
+  font-family:inherit;font-size:.78rem;font-weight:700;line-height:1;cursor:pointer}
+.explore-preview .mp-watch .bid-btn:hover{border-color:var(--accent)}
+.explore-preview .mp-watch .bid-btn.on{border-color:var(--accent);color:var(--accent)}
+.explore-preview .mp-watch .bid-btn.pending{color:var(--warn)}
+.mp-credit.pb-credit{margin:0;font-size:.62rem;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* The hint / reset strip shares the card's corner: it waits while the card is open. */
+.map-page-map .explore-map-stage.mp-open .explore-map-foot{display:none}
+/* Short stage: the third fact waits for the property page. */
+.map-page-map .explore-map-stage{container-type:size}
+@container (max-height:360px){ .mp-fact:nth-child(3){display:none} }
+@media (prefers-reduced-motion:reduce){ .explore-preview.mp{animation:none;transition:none} }
 
 /* The panel needs to be the positioning context for the zoom-out button and
    the preview card. */
@@ -798,7 +808,7 @@ font-weight:700;color:var(--bad)}
 .map-page-map .explore-map-canvas.zoomed{min-height:0}
 
 .explore-zoom-out:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.preview-open:focus-visible,.preview-close:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.preview-open:focus-visible,.preview-close:focus-visible,.mp-pager button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 /* The empty state now explains what search actually matches - "Nothing found"
    with no hint is a dead end when the field you tried is not one of them. */
@@ -1073,31 +1083,36 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
   .map-side{border-left:none;border-top:1px solid var(--card-line)}
   .map-side-body{overflow:visible;padding:.6rem .8rem .9rem}
   .map-side .strip-card{min-width:170px;max-width:220px}
-  /* The preview is a sheet over the lower edge of the map STAGE (explore.js
-     re-homes the node there on a phone): collapsed it shows the header + the
-     two money figures (~150px) and a Details button; expanded it grows to
-     most of the stage and scrolls. The property list under the map is never
-     covered, and the map stays visible around the sheet. */
-  .map-page-map .explore-map-stage > .explore-preview{position:absolute;left:.5rem;right:.5rem;
-    bottom:.5rem;z-index:8;border-radius:6px;border-left:none;border-top:3px solid var(--accent);
-    box-shadow:0 10px 30px rgba(15,23,42,.28);max-height:calc(100% - 3.2rem);overflow-y:auto;
-    padding:.55rem .7rem .6rem}
-  .map-page-map .explore-map-stage:has(.explore-preview:not([hidden])) .explore-map-foot{display:none}
-  .explore-preview .pv-body,.explore-preview .pv-visual,.explore-preview .preview-open{display:none}
-  .explore-preview.expanded .pv-body,.explore-preview.expanded .preview-open{display:flex}
-  .explore-preview.expanded .pv-visual{display:block}
-  /* Collapsed, the sheet must leave more than half the stage to the map. With
-     the real IBM Plex webfonts (the sandbox suite only ever saw the fallback
-     face) the kicker wraps to two lines on a 360px phone and the sheet sat at
-     exactly half the stage. Collapsed-only: the subtitle repeats the county
-     and state the kicker already carries, so it waits for Details; spacing
-     tightens a notch. Expanded, everything is back as designed. */
-  .map-page-map .explore-map-stage > .explore-preview:not(.expanded){gap:.4rem;padding:.5rem .65rem .5rem}
-  .explore-preview:not(.expanded) .preview-sub{display:none}
-  .explore-preview:not(.expanded) .pv-stat{padding:.35rem .5rem}
-  .pv-expand{display:inline-flex;align-items:center;justify-content:center;min-height:34px;
-    font-family:inherit;font-size:.72rem;font-weight:700;color:var(--accent);background:var(--accent-soft);
-    border:none;border-radius:3px;cursor:pointer}
+  /* The peek card is a fixed-height sheet over the lower edge of the map
+     STAGE (explore.js re-homes the node there): picture on the left, the
+     title, two facts and the two actions on the right, about 170px tall -
+     well under half the stage, no expand state, no inner scroll. The picture
+     is a grid cell with its own min-height, never a flex child that can
+     shrink to 0. Swipe down or tap empty map to close it. */
+  .map-page-map .explore-map-stage > .explore-preview.mp{left:.5rem;right:.5rem;bottom:calc(.5rem + env(safe-area-inset-bottom,0px));
+    width:auto;max-width:none;border-top:3px solid var(--lc,var(--accent));touch-action:pan-x}
+  .explore-preview.mp .mp-inner{display:grid;grid-template-columns:96px minmax(0,1fr)}
+  .explore-preview.mp .mp-media{grid-row:1;grid-column:1;width:96px;height:100%;min-height:112px}
+  .explore-preview.mp .mp-body{grid-row:1;grid-column:2;padding:.5rem .6rem .55rem;gap:.25rem}
+  .explore-preview.mp .mp-media .pv-visual,
+  .explore-preview.mp .mp-media .pv-visual.has-photo{aspect-ratio:auto;width:100%;height:100%;min-height:112px}
+  .explore-preview.mp .mp-locator{flex-direction:column;justify-content:center;gap:.3rem;height:100%;padding:.4rem}
+  .explore-preview.mp .mp-locator .minimap{flex:0 0 auto;width:64px;height:64px}
+  .explore-preview.mp .mp-locator-text{font-size:.62rem;text-align:center}
+  .explore-preview.mp .mp-ledger{font-size:.58rem;top:.35rem;left:.35rem;right:auto;bottom:auto}
+  .explore-preview.mp .mp-media .photo-caption,.explore-preview.mp .mp-media .pb-attrib{left:.25rem;right:.25rem;bottom:.25rem;max-width:none;font-size:.5rem;padding:.1rem .25rem}
+  .explore-preview.mp .preview-close{top:.3rem;right:.3rem;width:44px;height:44px;min-width:44px;min-height:44px;border-color:transparent;background:none}
+  .explore-preview.mp .mp-head{min-height:0;padding-right:2.2rem}
+  .explore-preview.mp .mp-head.no-stamp{display:none}
+  .explore-preview.mp .mp-pager{display:none}
+  .explore-preview.mp .preview-title{-webkit-line-clamp:1;font-size:.95rem;padding-right:2.2rem}
+  .explore-preview.mp .preview-sub{display:none}
+  .explore-preview.mp .mp-fact:nth-child(3){display:none}
+  .explore-preview.mp .mp-fact dd{font-size:.8rem}
+  .explore-preview.mp .mp-actions{margin-top:.15rem}
+  .explore-preview.mp .preview-open,.explore-preview.mp .mp-watch .bid-btn{min-height:44px}
+  .explore-preview.mp .preview-open{font-size:.76rem;padding:.35rem .5rem}
+  .explore-preview.mp .mp-watch .bid-btn{padding:0 .55rem;font-size:.74rem}
 }
 
 /* Touch targets (2026-10-05): every primary control on a phone or touch
