@@ -91,7 +91,7 @@ def test_n05_router_routes_four_pages_and_keeps_every_existing_hash_working():
     assert 'if (seg === "list")' in block and 'seg === "dashboard" || seg === "map" || seg === "watchlist"' in block
     # County Intelligence (2026-10-06) is a fourth shell page; the three original pages are unchanged.
     # State rules (2026-10-10) is one more shell page (#/rules).
-    assert 'const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch", rules: "pageRules", watchlist: "pageWatchlist" };' in APP
+    assert 'const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch", rules: "pageRules", guide: "pageGuide", watchlist: "pageWatchlist" };' in APP
     assert 'if (seg === "counties")' in block and 'if (seg === "county")' in block and 'if (seg === "research")' in block
     assert 'if (name === "auctions") name = "list";' in APP
     # Remediation (2026-10-10): the watchlist is a shell page of its own, not a
