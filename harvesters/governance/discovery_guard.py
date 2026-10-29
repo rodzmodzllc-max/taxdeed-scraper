@@ -115,6 +115,17 @@ def build_index(repo: Path = REPO) -> list[Target]:
                     if n:
                         out.append(Target((r.get("source_id") or "").strip(), (r.get("state") or "").strip().upper(),
                                           _county(r.get("county")), *n))
+    # Buyer's Guide pages (scripts/capture_buyers_guide.py): every official
+    # page an answer cites belongs to that state's guide source,
+    # buyers_guide_<state>, so its discover permission is what allows the read.
+    bg = repo / "data" / "buyers_guide_answers.csv"
+    if bg.is_file():
+        with bg.open(newline="", encoding="utf-8") as fh:
+            for r in csv.DictReader(fh):
+                st = (r.get("state") or "").strip().upper()
+                n = _norm(r.get("source_url") or "")
+                if n and st:
+                    out.append(Target(f"buyers_guide_{st.lower()}", st, _county(r.get("county")), *n))
     try:
         import sys
         if str(repo) not in sys.path:
@@ -142,10 +153,19 @@ def build_index(repo: Path = REPO) -> list[Target]:
     return out
 
 
+# label of the capture script -> the source-id prefix of its own pages
+OWN_SOURCE_PREFIX = {"capture_buyers_guide": "buyers_guide_"}
+
+
 class Guard:
     def __init__(self, label: str, *, index: list[Target] | None = None, authorize=None,
                  allow_hosts: tuple[str, ...] = ()):
         self.label = label
+        # A capture reading pages for one purpose (the Buyer's Guide) is decided by its
+        # own source's record on a page that source lists at that exact path - not by
+        # another table that happens to list the same page (often a candidate row with
+        # no source id). Every other request is decided exactly as below.
+        self.own_prefix = OWN_SOURCE_PREFIX.get(label, "")
         self.index = build_index() if index is None else list(index)
         self._authorize = authorize
         self.allow_hosts = {h.lower() for h in allow_hosts if h}
@@ -186,6 +206,10 @@ class Guard:
             candidates = [t for t in prefixed if len(t.path) == longest]
         else:
             candidates = same_host
+        if self.own_prefix:
+            own = [t for t in candidates if t.source_id.startswith(self.own_prefix) and t.path == path]
+            if own:
+                candidates = own
         ids = tuple(sorted({t.source_id or "(none)" for t in candidates}))
         for t in candidates:
             ok, why = self._permit(t)

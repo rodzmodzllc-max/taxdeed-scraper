@@ -29,7 +29,7 @@ from permission_fixtures import install as install_perms  # noqa: E402
 from permission_fixtures import record  # noqa: E402
 
 SCRIPTS = ("capture_available_sources", "capture_pioneer_statements", "capture_purchase_evidence", "capture_sc_available",
-           "capture_state_sources", "capture_tn_shelby", "capture_tx_vendors", "discover_sources", "probe_fdor_starvation",
+           "capture_state_sources", "capture_tn_shelby", "capture_buyers_guide", "capture_tx_vendors", "discover_sources", "probe_fdor_starvation",
            "probe_field_fill", "probe_tx_parcels")
 
 IDX = [DG.Target("zz_ok", "ZZ", None, "ok.example.gov", "/list"),
@@ -184,11 +184,20 @@ def test_only_owner_recorded_sources_hold_a_discover_permission():
     allowing = [r for r in PERM.Permissions.from_file().records if r.operation == "discover" and r.status != "BLOCKED"]
     from harvesters.otc.adapters import expansion as EX  # noqa: PLC0415 - + the new-sources sprint (2026-10-26)
     assert OWNER_VENDORS | {"fl_taxsys_county_held"} | set(EX.NEW_SOURCE_IDS) <= {r.source_id for r in allowing}
+    # 2026-10-29: the Buyer's Guide capture (scripts/capture_buyers_guide.py) reads the official pages
+    # the guide cites under one discover-only record per state (owner request of that day).
+    guide = [r for r in allowing if r.source_id.startswith("buyers_guide_")]
+    from harvesters.governance import states as ST  # noqa: PLC0415
+    assert {r.state for r in guide} == set(ST.PRODUCTION_STATES)
+    assert all(r.operation == "discover" and r.status == "OWNER_PERMISSION_REQUIRED" and r.evidence_type == "INTERNAL_RISK_ACCEPTANCE"
+               and r.effective_on == "2026-10-29" and r.expires_on == "2027-04-12" for r in guide)
+    assert not [r for r in PERM.Permissions.from_file().records if r.source_id.startswith("buyers_guide_") and r.operation != "discover"]
+    others = [r for r in allowing if not r.source_id.startswith("buyers_guide_")]
     # (The vendors' records carry status LEGAL_REVIEW_REQUIRED, the county sources' OWNER_PERMISSION_REQUIRED; both
     # are INTERIM allowances.)
     assert all(r.status in ("OWNER_PERMISSION_REQUIRED", "LEGAL_REVIEW_REQUIRED") and r.evidence_type == "INTERNAL_RISK_ACCEPTANCE"
                and r.effective_on == "2026-10-26" and r.expires_on == "2027-04-12"
-               and (r.state in ("FL", "TX") or r.source_id in EX.NEW_SOURCE_IDS) for r in allowing)
+               and (r.state in ("FL", "TX") or r.source_id in EX.NEW_SOURCE_IDS) for r in others)
     permitted = {r.source_id for r in allowing}
     g = DG.Guard("t")
     hosts = sorted({t.host for t in g.index if t.source_id not in permitted})
