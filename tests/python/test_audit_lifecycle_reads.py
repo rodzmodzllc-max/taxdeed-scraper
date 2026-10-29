@@ -68,7 +68,7 @@ def test_wide_columns_are_read_by_id_in_small_batches_and_nothing_is_lost():
 def test_sync_wide_stored_read_pages_small(monkeypatch):
     seen = {}
 
-    def fake_read_all(base, table, headers, params, *, page=1000, fetch=None):
+    def fake_read_all(base, table, headers, params, *, page=1000, fetch=None, **retry):   # attempts / backoff (audit B43)
         seen["page"] = page
         return []
 

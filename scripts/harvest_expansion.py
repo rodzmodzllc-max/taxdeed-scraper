@@ -274,7 +274,8 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
         if res.outcome == "FAILED":
             return "FAILED", [], res.error_category, res.error_detail, None
         print(f"{cfg.source_id}: portal size={res.size} read={res.rows_read} offered={len(res.records)} "
-              f"not-offered={res.excluded_status} bad-id={res.rejected_ids} duplicate={res.duplicates}")
+              f"not-offered={res.excluded_status} bad-id={res.rejected_ids} duplicate={res.duplicates} "
+              f"shared-point-coordinates-withheld={res.shared_point_withheld}")
         if res.outcome == "INCOMPLETE":
             return "INCOMPLETE", res.records, res.error_category, res.error_detail, None
         return res.outcome, res.records, None, None, ("no_offered_status" if res.outcome == "EMPTY" else None)
@@ -396,6 +397,12 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
     if adapter.rejected_ids or adapter.excluded_status:
         print(f"{cfg.source_id}: {adapter.rejected_ids} non-identifier row(s), "
               f"{adapter.excluded_status} row(s) whose own status is not an offer - skipped")
+    if recs and adapter.identity_only_rows:
+        # Audit B10 (2026-10-29): rows published with every data cell blank
+        # (the county mid-update) are not a complete read - nothing closes,
+        # and the sync keeps those rows' stored list values.
+        return ("INCOMPLETE", recs, "PARSE_FORMAT_CHANGE",
+                f"{adapter.identity_only_rows} row(s) published with only their identifier", None)
     if recs:
         return "COMPLETE", recs, None, None, None
     if adapter.empty_statement:

@@ -228,7 +228,7 @@ SC_OCONEE = TabularConfig(
                       amount=("total tax due",)),
     amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, header_required=("map number",),
     empty_patterns=(r"tax sale is scheduled for",),
-    list_url="https://oconeesc.com/delinquent-tax/sale-list", columns_verified=True,
+    list_url="https://oconeesc.com/delinquent-tax/sale-list", columns_verified=True, data_cells_expected=True,
     published_sale_date=("2026-11-09", "'The auction will be held at the Walhalla Performing Arts Center ... beginning at "
                                        "10:00 am on Monday, November 9, 2026' (the county's sale-list page, read 2026-10-29)"),
     notes="'If there are no bids, the property will be considered purchased by the county's Forfeited Land Commission for the "

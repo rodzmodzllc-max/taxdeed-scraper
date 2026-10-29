@@ -228,6 +228,50 @@ def _ocr_digits(s: str) -> str:
     return s.replace("O", "0").replace("o", "0").replace("l", "1").replace("I", "1")
 
 
+_DIRECTIONAL = re.compile(r"^(?:N|S|E|W|NE|NW|SE|SW)\.?$", re.I)
+
+
+def bexar_address(cell: str | None) -> str | None:
+    """The list's 'Property Address' cell in street-number order.
+
+    Bexar's resale list is sorted by street and prints each address street
+    first - 'Rotary, 407', 'Commerce E. St. 2630', 'Sabinas N 1315 St',
+    'Vickers Ave. #2, 1234' - and the PDF's text layer runs some words
+    together ('AmandaSt.', 'Goodrich211'). Audit 2026-10-28 B9 / B33: 34 of
+    46 rows were shown as 'Rotary, 407'. The same words are kept, only
+    re-spaced and re-ordered: number, directional, street name, the rest,
+    unit. A cell with no house number keeps its street words alone (the list
+    publishes no number for it); nothing is added (no city, no ZIP)."""
+    s = _clean(cell or "")
+    if not s:
+        return None
+    # Re-space what the text layer ran together: 'AmandaSt.' -> 'Amanda St.',
+    # 'CommerceE.' -> 'Commerce E.', 'Goodrich211' -> 'Goodrich 211'. 'Mc'
+    # prefixes ('McKay') stay whole.
+    s = re.sub(r"(?<=[a-z])P1\.", "Pl.", s)                 # OCR '1' for 'l' in 'Pl.'
+    s = re.sub(r"(?<=[a-z])(?=[A-Z])", lambda m: "" if s[max(0, m.start() - 2):m.start()] == "Mc" else " ", s)
+    s = re.sub(r"(?<=[A-Za-z])(?=\d)", " ", s)
+    s = re.sub(r"(?<=[A-Za-z] )5\.(?= \d)", "S.", s)       # OCR '5.' for the directional 'S.' before the number
+    s = _clean(s).strip(" ,")
+    unit = None
+    m = re.match(r"^(?P<street>.*?)\s*(?P<unit>#\s?\w+)\s*,\s*(?P<num>\d{1,6})$", s)
+    if m:
+        street, num, unit = m.group("street"), m.group("num"), m.group("unit").replace(" ", "")
+        tail = ""
+    else:
+        m = re.match(r"^(?P<street>\D*?)\s*,?\s+(?P<num>\d{1,6})(?:\s+(?P<tail>\D+))?$", s)
+        if not m:
+            return s
+        street, num, tail = m.group("street"), m.group("num"), m.group("tail") or ""
+    words = street.strip(" ,").split()
+    if not words:
+        return s
+    directional = [w for w in words[1:] if _DIRECTIONAL.match(w)]
+    name = [w for w in words if not (w in directional and w is not words[0])]
+    out = " ".join([num, *directional[:1], *name, *tail.strip(" ,").split(), *([unit] if unit else [])])
+    return _clean(out).rstrip(",") or None
+
+
 def parse_bexar_text(text: str, url: str = BEXAR_URL) -> tuple[list[dict], dict]:
     flat = _clean(text)
     if "RESALEPROPERTIES" not in flat.upper().replace(" ", ""):
@@ -244,7 +288,7 @@ def parse_bexar_text(text: str, url: str = BEXAR_URL) -> tuple[list[dict], dict]
     def emit(acct: str, suit: str, addr: str | None, amt: str, extra: list[str] | None = None) -> None:
         rows.append(_row(
             account_number=_ocr_digits(acct), county="Bexar", cause_number=_ocr_digits(suit),
-            address=(_clean(addr or "").rstrip(",") or None),
+            address=bexar_address(addr),
             struck_off_amount=float(amt.replace(",", "")),
             amount_kind="STRUCK_OFF_AMOUNT_WITHOUT_INTERIM_TAX_FEES",
             source="laft", harvester_source="tx_bexar_resale", sale_list_url=url, list_as_of=as_of,
@@ -322,10 +366,20 @@ NOTICE_LINK = re.compile(r'href="([^"]+Notice-of-Sale[^"]*\.pdf)"', re.I)
 JEFF_ACCT = re.compile(r"\d{6}-\d{3}-\d{6}-\d{5}")
 
 
+def doc_url(base: str, href: str) -> str:
+    """A document link as a valid URL: joined to the page it was read from,
+    with characters a URL may not carry raw (spaces) percent-encoded and
+    existing escapes kept. Audit 2026-10-28 B40: Orange's trust-property list
+    was stored as '.../02.26.2026_UPDATED TRUST PROPERTY LIST.pdf', so the
+    daily link check skipped it. The href is otherwise kept as published."""
+    from urllib.parse import quote  # noqa: PLC0415
+    return quote(urljoin(base, href.strip()), safe=":/?#[]@!$&'()*+,;=%~")
+
+
 def jefferson_notice_url(page_html: str, base: str = JEFFERSON_PAGE) -> str:
     links = []
     for href in NOTICE_LINK.findall(page_html):
-        u = urljoin(base, href)
+        u = doc_url(base, href)
         if u not in links:
             links.append(u)
     if not links:
@@ -409,7 +463,7 @@ def find_doc_link(page_html: str, base: str, text_re: str, href_re: str = r"\.pd
     for m in re.finditer(r'<a\b[^>]*?href=\s*["\']([^"\']+)["\'][^>]*>(.*?)</a>', page_html, re.S | re.I):
         href, txt = m.group(1).replace("&amp;", "&"), _clean(re.sub(r"<[^>]+>", " ", m.group(2)))
         if re.search(text_re, txt, re.I) and re.search(href_re, href, re.I):
-            u = urljoin(base, href)
+            u = doc_url(base, href)
             if u not in out:
                 out.append(u)
     return out
