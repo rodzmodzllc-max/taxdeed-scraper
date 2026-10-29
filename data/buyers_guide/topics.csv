@@ -1,0 +1,29 @@
+topic,ledger,level,question,order
+sale_overview,AUCTIONS,state,What is sold at a tax sale here and who holds it?,10
+sale_schedule,AUCTIONS,both,When are tax sales held?,20
+bidding_platform,AUCTIONS,both,Where do I bid - online or in person?,30
+registration,AUCTIONS,both,How do I register to bid?,40
+deposit,AUCTIONS,both,Is a deposit required and how much?,50
+opening_bid,AUCTIONS,state,What makes up the opening or minimum bid?,60
+payment_deadline,AUCTIONS,both,When and how must the winning bidder pay?,70
+costs_added,AUCTIONS,both,What costs are added on top of the winning bid?,80
+redemption_after_sale,AUCTIONS,state,Can the former owner redeem after the sale?,90
+deed_type,AUCTIONS,state,What kind of deed or title does the buyer receive?,100
+surviving_liens,AUCTIONS,state,Which liens or interests survive the sale?,110
+unsold_property,AUCTIONS,state,What happens to property that does not sell?,120
+available_overview,AVAILABLE,state,What is this list and why is the property available?,10
+how_to_buy,AVAILABLE,both,How do I buy a property from this list?,20
+price_basis,AVAILABLE,both,How is the price set?,30
+costs_added,AVAILABLE,both,What costs are added to the price?,40
+documents_required,AVAILABLE,both,What forms or documents are required?,50
+payment,AVAILABLE,both,How and when do I pay?,60
+deed_type,AVAILABLE,state,What kind of deed or title does the buyer receive?,70
+time_limit,AVAILABLE,state,How long does a property stay available?,80
+lien_overview,LIENS_CERTIFICATES,state,What is a tax lien or certificate here?,10
+lien_bidding,LIENS_CERTIFICATES,both,How does bidding work (interest bid-down or premium)?,20
+interest_rate,LIENS_CERTIFICATES,state,What interest or penalty does the holder earn?,30
+redemption_period,LIENS_CERTIFICATES,state,How long does the owner have to redeem?,40
+getting_the_deed,LIENS_CERTIFICATES,state,How does a holder get the property if it is not redeemed?,50
+certificate_expiry,LIENS_CERTIFICATES,state,When does a certificate or lien expire?,60
+county_office,ALL,county,Which office handles it and how do I contact them?,5
+due_diligence,ALL,state,What does the law or the county tell buyers to check before buying?,200
