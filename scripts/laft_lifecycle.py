@@ -812,6 +812,7 @@ def group_provenance(rows: list[tuple[str, dict]], gate: dict, retrieved_at: str
 # ---------------------------------------------------------------------------
 
 API_PAGE = 1000          # PostgREST max-rows on this project
+WIDE_BATCH = 100         # rows per by-id read of the wide columns (fetch_state_rows)
 
 
 class Api:
@@ -908,11 +909,22 @@ def fetch_state_rows(api: Api, state: str, counties: list[str], extra_columns=()
     lifecycle plan, plus the source-field columns (and field_provenance) the
     fill-blank step needs to know what is already there."""
     select = list(dict.fromkeys(["id", "county", "case_no", "status", "field_provenance", *SF.BASE_COLUMNS, *extra_columns]))
-    rows: list[dict] = []
+    # Two phases (2026-10-29, audit B13). A keyset page over the county filter
+    # ORDER BY id has to sort every matching row; with the wide columns
+    # (otc_provenance, field_provenance ...) in the select, Postgres detoasts
+    # all of them first - 2.3 s per page on Louisiana's 11,163 rows when the
+    # database is quiet, and past the 8 s statement timeout (HTTP 500) on every
+    # loaded laft run since 2026-10-26. The narrow identity read costs ~30 ms a
+    # page; the wide columns are then read by primary key in small batches.
+    ids: list = []
     for i in range(0, len(counties), 25):
         chunk = counties[i:i + 25]
-        rows.extend(api.get_all(f"state=eq.{state}&source=eq.{SOURCE}&county=in.{q(in_list(chunk))}"
-                                f"&select={','.join(select)}"))
+        ids.extend(r["id"] for r in api.get_all(f"state=eq.{state}&source=eq.{SOURCE}&county=in.{q(in_list(chunk))}"
+                                                f"&select=id"))
+    rows: list[dict] = []
+    for i in range(0, len(ids), WIDE_BATCH):
+        batch = ids[i:i + WIDE_BATCH]
+        rows.extend(api.get(f"id=in.{q(in_list(batch))}&select={','.join(select)}&order=id.asc"))
     return rows
 
 
