@@ -167,7 +167,7 @@ on:
         required: false
         type: choice
         default: all
-        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available, geocode, publication]
+        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available, geocode, publication, registry]
       enrich_states:
         description: >-
           (job=enrich only) Comma-separated postal codes for the enrichment
@@ -253,6 +253,16 @@ on:
         description: (job=geocode, dry-run / apply) look up at most N candidates, highest priority first; blank = all.
         required: false
         default: ''
+      registry_mode:
+        description: >-
+          (job=registry only) "plan" prints what scripts/sync_registry_to_supabase.py
+          would insert / patch in public.county_source_registry from
+          data/county_source_registry.csv (counts only); "apply" writes it. Never
+          deletes a row, never touches freshness or publication columns.
+        required: false
+        type: choice
+        default: plan
+        options: [plan, apply]
       geocode_allow_upgrade:
         description: >-
           (job=geocode only) "yes" also replaces stored coordinates whose origin
@@ -1568,7 +1578,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/unit_freshness.py --status out/harvest_texas_status.json --state TX --persist out/.harvest_cache/unit_freshness_tx.json --report out/public/unit-freshness-tx.json || true
+        run: python3 scripts/unit_freshness.py --status out/harvest_texas_status.json --state TX --status out/harvest_tx_county_auctions_status.json --status out/harvest_tx_county_available_status.json --persist out/.harvest_cache/unit_freshness_tx.json --report out/public/unit-freshness-tx.json || true
 
       - name: Sync Texas county-published lists
         # scripts/sync_state_inventory.py, once per ledger (its own rows and
@@ -2234,6 +2244,37 @@ jobs:
           path: |
             out/public/
             out/private/
+
+  registry:
+    # Registry rows on their own - MANUAL ONLY (job=registry, audit B14 / F4
+    # 2026-10-29): the production county_source_registry table was seeded by
+    # hand and never received a row after 2026-09-30 (121 vs 380), so
+    # unit_freshness had nothing to stamp for most sources. registry_mode=plan
+    # (default) prints the insert / patch counts; apply writes them.
+    name: County source registry -> Supabase (manual only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'registry'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Plan or apply the registry sync
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          if [ "${{ github.event.inputs.registry_mode }}" = "apply" ]; then
+            python3 scripts/sync_registry_to_supabase.py --apply
+          else
+            python3 scripts/sync_registry_to_supabase.py
+          fi
+        # registry_mode == 'apply' is the only path that writes (--apply).
 
   outcomes:
     # Verified auction outcomes on their own - MANUAL ONLY (job=outcomes),
