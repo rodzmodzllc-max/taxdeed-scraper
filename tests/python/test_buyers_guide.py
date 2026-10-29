@@ -192,3 +192,15 @@ def test_lead_mode_prints_keyword_sentences_of_unread_pages(monkeypatch, capsys)
     assert f"BGLEAD\t{a.key}\tREAD\t200" in out
     assert f"BGTEXT\t{a.key}\tA deposit of 5% is required before bidding." in out
     assert "Parking" not in out and "BGCAP" not in out
+
+
+def test_guide_capture_reads_a_page_another_table_also_lists():
+    from harvesters.governance import discovery_guard as DG
+    idx = [DG.Target("", "FL", "Lee", "www.leeclerk.org", "/tax-deeds"),
+           DG.Target("buyers_guide_fl", "FL", "Lee", "www.leeclerk.org", "/tax-deeds")]
+    allow = lambda s, op, st, c: type("D", (), {"allowed": s == "buyers_guide_fl", "reason_code": "NO_RECORD"})()
+    assert DG.Guard("capture_buyers_guide", index=idx, authorize=allow).decide("https://www.leeclerk.org/tax-deeds").allowed
+    # any other capture still needs every source listing the page
+    assert not DG.Guard("capture_purchase_evidence", index=idx, authorize=allow).decide("https://www.leeclerk.org/tax-deeds").allowed
+    # and the guide capture never reaches a page its own table does not list
+    assert not DG.Guard("capture_buyers_guide", index=idx, authorize=allow).decide("https://www.leeclerk.org/other").allowed
