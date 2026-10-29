@@ -42,7 +42,13 @@ const S = {
   fanStart: 0,
   slip: null,
   pressed: null,
-  last: null
+  last: null,
+  deckTarget: null,         // the lot the deck is moving to (taps queue here)
+  deckTimer: 0,             // the pending landing of a throw, if any
+  deckDir: 1,
+  neutral: false,           // building the watch-neutral markup (see draw)
+  html: null,               // the markup of the last full build, and the same
+  neutralHtml: null         // markup with every watchlist mark left out
 };
 
 const ACQ_CACHE = new WeakMap();
@@ -100,17 +106,36 @@ function draw(detail) {
     : (!ae || ae === document.body) ? S.pressed : null;
   S.pressed = null;
 
-  let html;
-  if (ledger === "auction") html = auctionsHtml(rows, api);
-  else if (ledger === "laft") html = availableHtml(rows, api);
-  else html = liensHtml(rows, api);
+  const build = () => ledger === "auction" ? auctionsHtml(rows, api) : ledger === "laft" ? availableHtml(rows, api) : liensHtml(rows, api);
+  const html = build();
+  // The same markup with every watchlist mark left out. When only the
+  // watchlist changed (a tap on Add to Watchlist re-renders the List), the
+  // marks are patched in place (2026-10-29): rebuilding the whole stage
+  // reloaded every picture, replayed the ribbons and moved the page.
+  let neutral;
+  S.neutral = true;
+  try { neutral = build(); } finally { S.neutral = false; }
+  const root = stage.querySelector(":scope > .xpt");
+  if (!enter && stage.dataset.xp === NAME && root && root.dataset.ledger === ledger && S.neutralHtml !== null && neutral === S.neutralHtml) {
+    if (html !== S.html) patchWatch(stage, html, focusKey);
+    S.html = html;
+    document.documentElement.dataset.experienceReady = NAME;
+    S.deckAnim = null;
+    return;
+  }
+  S.html = html;
+  S.neutralHtml = neutral;
 
   // A redraw keeps the sale-day rail and lot grid where the reader left them.
   const keepScroll = {};
   [".xpt-days", ".xpt-lot-grid"].forEach(sel => { const el = stage.querySelector(sel); if (el) keepScroll[sel] = el.scrollLeft; });
   stage.dataset.xp = NAME;
+  // A rebuild never moves the page (it used to on a phone: the old focused
+  // control vanished and the browser re-anchored the scroll).
+  const keepY = window.scrollY;
   stage.innerHTML = `<div class="xpt xpt-${ledger}${enter ? " xpt-enter" : ""}" data-ledger="${ledger}">${html}</div>`;
   Object.keys(keepScroll).forEach(sel => { const el = stage.querySelector(sel); if (el) el.scrollLeft = keepScroll[sel]; });
+  if (!enter && Math.abs(window.scrollY - keepY) > 1) { try { window.scrollTo({ top: keepY, behavior: "instant" }); } catch { window.scrollTo(0, keepY); } }
   try { api.hydrateVisuals(stage); } catch {}
   // The shared "Now showing" county bar (app.js). Called on every ledger so a
   // bar left from Available is cleared: it hides itself with fewer than two
@@ -127,6 +152,41 @@ function draw(detail) {
 
 function redraw() { if (S.last) draw(S.last); }
 
+// Swap only the watchlist marks (buttons, tile and folder ribbons) whose
+// markup changed; everything else - pictures, flips, scroll - stays put.
+function patchWatch(stage, html, focusKey) {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  const keyOf = el => el.getAttribute("data-k") || el.getAttribute("data-wk");
+  const fresh = new Map();
+  tmp.querySelectorAll('[data-action="bidlist"][data-k], .xpt-mini[data-k], [data-wk]').forEach(el => fresh.set(keyOf(el), el));
+  const ae = document.activeElement;
+  stage.querySelectorAll('[data-action="bidlist"][data-k], .xpt-mini[data-k], [data-wk]').forEach(el => {
+    const n = fresh.get(keyOf(el));
+    if (!n || n.outerHTML === el.outerHTML) return;
+    // A mini keeps its live highlight (the deck may have moved in place).
+    if (el.classList.contains("xpt-mini")) { n.classList.toggle("on", el.classList.contains("on")); n.setAttribute("aria-current", el.getAttribute("aria-current") || "false"); }
+    // A control on the back of an unflipped placard stays out of the tab order.
+    if (el.getAttribute("tabindex") === "-1") n.setAttribute("tabindex", "-1"); else if (el.hasAttribute("tabindex")) n.setAttribute("tabindex", el.getAttribute("tabindex"));
+    const hadFocus = ae === el || (focusKey && keyOf(el) === focusKey);
+    el.replaceWith(n);
+    if (hadFocus) { try { n.focus({ preventScroll: true }); } catch {} }
+  });
+}
+
+// The height of whatever sticks to the top of the screen (the header, the
+// List toolbar), so a placard scrolled to is not left under it.
+function stickyBottom() {
+  let b = 0;
+  document.querySelectorAll(".topbar, .quick-controls, header").forEach(el => {
+    const cs = getComputedStyle(el);
+    if (cs.position !== "sticky" && cs.position !== "fixed") return;
+    const r = el.getBoundingClientRect();
+    if (r.height && r.top <= 1 && r.bottom > b && r.bottom < innerHeight / 2) b = r.bottom;
+  });
+  return b;
+}
+
 // Moving through the deck (next / previous / a swipe / a lot picked from the
 // grid) replaces only the top placard, the pager and the grid's highlight
 // (2026-10-28). Redrawing the whole stage reloaded every picture, reset the
@@ -141,6 +201,8 @@ function updateDeck() {
   const oldDeck = col.querySelector(".xpt-deck"), newDeck = tmp.querySelector(".xpt-deck");
   const oldCtl = col.querySelector(".xpt-deck-ctl"), newCtl = tmp.querySelector(".xpt-deck-ctl");
   if (!oldDeck || !newDeck || !oldCtl || !newCtl) { redraw(); return; }
+  const ae = document.activeElement;
+  const ctlFocus = ae && oldCtl.contains(ae) ? ae.getAttribute("data-k") : null;
   oldDeck.replaceWith(newDeck);
   oldCtl.replaceWith(newCtl);
   const grid = stage.querySelector(".xpt-lot-grid"), newGrid = tmp.querySelector(".xpt-lot-grid");
@@ -149,13 +211,36 @@ function updateDeck() {
   const more = stage.querySelector(".xpt-lots .xpt-more"), newMore = tmp.querySelector(".xpt-lots .xpt-more");
   if (more && newMore) more.replaceWith(newMore); else if (more && !newMore) more.remove();
   try { api.hydrateVisuals(newDeck); } catch {}
+  // Keyboard focus stays on Next / Previous when the controls are swapped.
+  if (ctlFocus) { const b = newCtl.querySelector(`[data-k="${ctlFocus}"]`); if (b) { try { b.focus({ preventScroll: true }); } catch {} } }
   S.deckAnim = null;
+  rememberBuild();          // the stage now matches a build with this lot on top
+}
+
+// Record the markup a full build would give for the stage as it now stands
+// (after a lot moved or a placard flipped in place), so the next re-render
+// can tell a watchlist-only change from a real one.
+function rememberBuild() {
+  const api = apiOf(S.last);
+  const rows = S.last && Array.isArray(S.last.rows) ? S.last.rows : [];
+  if (!api || !rows.length) { S.neutralHtml = null; return; }
+  const build = () => S.ledger === "auction" ? auctionsHtml(rows, api) : S.ledger === "laft" ? availableHtml(rows, api) : liensHtml(rows, api);
+  const anim = S.deckAnim;
+  S.deckAnim = null;
+  try {
+    S.html = build();
+    S.neutral = true;
+    S.neutralHtml = build();
+  } catch { S.neutralHtml = null; }
+  finally { S.neutral = false; S.deckAnim = anim; }
 }
 
 // --------------------------------------------------------------- shared bits
 
+function watched(p, api) { return !S.neutral && api.isWatched(p.id); }
+
 function watchBtn(p, api, cls) {
-  const on = api.isWatched(p.id);
+  const on = watched(p, api);
   return `<button type="button" class="${cls}${on ? " on" : ""}" data-action="bidlist" data-pid="${api.esc(p.id)}" data-k="w-${api.esc(p.id)}" aria-pressed="${on}" aria-label="${on ? "On your watchlist - tap to remove" : "Add to watchlist"}">` +
     `<svg width="18" height="18" viewBox="0 0 24 24" fill="${on ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>` +
     `<span>${on ? "On Watchlist" : "Add to Watchlist"}</span></button>`;
@@ -381,11 +466,16 @@ function miniPlacardHtml(p, i, api, on) {
   const id = idOf(p);
   const t = titleHtml(p, api);
   const a = api.amountShort(p);
-  const watched = api.isWatched(p.id);
+  // Lot tiles show the bid as published (2026-10-29): the short figure
+  // rounds to whole dollars, so a bid with cents ($2,386.16) read $2,386 on
+  // the tile and $2,386.16 on its placard - two figures for one lot.
+  const cents = a.state === "bid" && Number.isFinite(Number(p.bid)) && Math.round(Number(p.bid) * 100) % 100 !== 0;
+  if (cents) a.text = api.fmtMoney(p.bid);
+  const isW = watched(p, api);
   return `<button type="button" class="xpt-mini xpt-obj${on ? " on" : ""}" data-xa="pick" data-pid="${api.esc(id)}" data-k="pick-${api.esc(id)}" style="--i:${Math.min(i, 16)}" aria-current="${on}"
       aria-label="${api.esc(`Lot ${i + 1}. ${a.label}: ${a.text}. Show this placard on top of the deck.`)}">
     <span class="band" aria-hidden="true"></span>
-    <span class="mini-top"><span class="numeral-s">${i + 1}</span>${watched ? `<span class="rib" aria-label="On your watchlist"><svg width="12" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg></span>` : ""}</span>
+    <span class="mini-top"><span class="numeral-s">${i + 1}</span>${isW ? `<span class="rib" aria-label="On your watchlist"><svg width="12" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg></span>` : ""}</span>
     <span class="mini-title${t.parcel ? " parcel" : ""}">${t.html}</span>
     <span class="mini-fig"><span class="xpt-caps">${api.esc(a.label)}</span><span class="${a.state === "not_published" ? "nf" : "f"}">${api.esc(a.text)}</span></span>
   </button>`;
@@ -463,7 +553,7 @@ function folderHtml(p, i, api) {
     ? `<span class="xpt-chip vchip">${checkIcon()}${api.esc(a.label)}${a.steps.length ? ` · ${a.steps.length} step${a.steps.length === 1 ? "" : "s"}` : ""}</span>`
     : "";
   const face = `<span class="ftab ${tabCls}" style="left:${TAB_X[i % 3]}">${api.esc(tabText)}</span>
-      <span class="face-row"><span class="face-title${t.parcel ? " parcel" : ""}">${t.html}</span>${api.isWatched(p.id) ? `<span class="rib" aria-label="On your watchlist"><svg width="14" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg></span>` : ""}</span>
+      <span class="face-row" data-wk="fr-${api.esc(id)}"><span class="face-title${t.parcel ? " parcel" : ""}">${t.html}</span>${watched(p, api) ? `<span class="rib" aria-label="On your watchlist"><svg width="14" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg></span>` : ""}</span>
       <span class="fline">${has ? `<span class="xpt-caps">${api.esc(amt.label)}</span><span class="val">${api.esc(fig)}</span>` : `<span class="xpt-caps">${api.esc(amt.label)}</span>${missing(fig, api)}`}</span>
       ${chip ? `<span class="face-chip">${chip}</span>` : ""}
       <span class="face-more">
@@ -707,26 +797,49 @@ function openRecord(id, fromEl) {
   } else api.openDetail(p);
 }
 
+// Every tap moves the deck one lot (2026-10-29). The target advances at once
+// (and the pager says so); a throw already in the air lands on the latest
+// target instead of each tap re-reading the lot it started from - three fast
+// taps used to move one lot. Stepping never scrolls the page: the deck and
+// its buttons stay under the finger.
+function cancelDeckMove() {
+  if (S.deckTimer) clearTimeout(S.deckTimer);
+  S.deckTimer = 0;
+  S.deckTarget = null;
+}
 function deckStep(dir, thrown) {
   const rows = S.last && S.last.rows ? S.last.rows : [];
   const lots = rows.filter(p => saleDay(p) === (S.day || ""));
   if (lots.length < 2) return;
-  let idx = lots.findIndex(p => idOf(p) === S.deckId);
+  const from = S.deckTarget !== null ? S.deckTarget : S.deckId;
+  let idx = lots.findIndex(p => idOf(p) === from);
   if (idx < 0) idx = 0;
   const next = (idx + dir + lots.length) % lots.length;
+  S.deckTarget = idOf(lots[next]);
+  S.deckDir = dir;
+  const stage = stageEl();
+  const pagerNum = stage && stage.querySelector(".xpt-deck-ctl .xpt-pager b");
+  if (pagerNum) pagerNum.textContent = String(next + 1);
   const go = () => {
-    S.deckId = idOf(lots[next]);
-    S.deckAnim = { id: S.deckId, cls: dir > 0 ? "landing" : "returning" };
-    if (S.limit.auction <= next) S.limit.auction = Math.ceil((next + 1) / PAGE) * PAGE;
+    if (S.deckTimer) clearTimeout(S.deckTimer);
+    S.deckTimer = 0;
+    const id = S.deckTarget;
+    S.deckTarget = null;
+    if (id === null) return;
+    const all = (S.last && S.last.rows ? S.last.rows : []).filter(p => saleDay(p) === (S.day || ""));
+    const at = all.findIndex(p => idOf(p) === id);
+    if (at < 0) return;
+    S.deckId = id;
+    S.deckAnim = { id, cls: S.deckDir > 0 ? "landing" : "returning" };
+    if (S.limit.auction <= at) S.limit.auction = Math.ceil((at + 1) / PAGE) * PAGE;
     updateDeck();
-    const t = stageEl() && stageEl().querySelector(".xpt-mini.on");
-    if (t && t.scrollIntoView) { try { t.scrollIntoView({ block: "nearest", inline: "nearest" }); } catch {} }
   };
-  const top = stageEl() && stageEl().querySelector(".xpt-deck .xpt-placard");
+  if (S.deckTimer) return;          // a throw is in the air: it lands on the new target
+  const top = stage && stage.querySelector(".xpt-deck .xpt-placard");
   if (thrown) go();
   else if (top && !reduced()) {
     top.classList.add(dir > 0 ? "thrown" : "thrown-back");
-    setTimeout(go, 240);
+    S.deckTimer = setTimeout(go, 240);
   } else go();
 }
 
@@ -750,7 +863,7 @@ function onClick(e) {
       break;
     }
     case "day":
-      if (S.day !== el.dataset.day) { S.day = el.dataset.day; S.deckId = null; S.limit.auction = PAGE; S.deckAnim = null; redraw(); }
+      if (S.day !== el.dataset.day) { cancelDeckMove(); S.day = el.dataset.day; S.deckId = null; S.limit.auction = PAGE; S.deckAnim = null; redraw(); }
       break;
     case "flip": {
       const card = el.closest(".xpt-placard");
@@ -768,6 +881,7 @@ function onClick(e) {
           if (fl) back.removeAttribute("aria-hidden"); else back.setAttribute("aria-hidden", "true");
           back.querySelectorAll("button, a").forEach(b => { if (fl) b.removeAttribute("tabindex"); else b.setAttribute("tabindex", "-1"); });
         }
+        rememberBuild();        // the stage now matches a build with this flip
         const focusTo = fl ? card.querySelector(".back-head") : front;
         if (focusTo) setTimeout(() => { try { focusTo.focus({ preventScroll: true }); } catch {} }, reduced() ? 0 : 320);
       } else redraw();
@@ -776,13 +890,18 @@ function onClick(e) {
     case "prev": deckStep(-1); break;
     case "next": deckStep(1); break;
     case "pick":
-      if (S.deckId === pid) break;
+      if (S.deckId === pid && S.deckTarget === null) break;
+      cancelDeckMove();
       S.deckId = pid;
       S.deckAnim = { id: pid, cls: "landing" };
       updateDeck();
       {
+        // Bring the deck back into view when it is above the screen, clear
+        // of the sticky header (it used to land under it).
         const deck = stage.querySelector(".xpt-deck");
-        if (deck && deck.getBoundingClientRect().top < 0 && deck.scrollIntoView) { try { deck.scrollIntoView({ block: "start", behavior: reduced() ? "auto" : "smooth" }); } catch {} }
+        const top = deck ? deck.getBoundingClientRect().top : 0;
+        const room = stickyBottom() + 12;
+        if (deck && top < room) { try { window.scrollBy({ top: top - room, behavior: reduced() ? "auto" : "smooth" }); } catch {} }
       }
       break;
     case "open": openRecord(pid, el); break;
