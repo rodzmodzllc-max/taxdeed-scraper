@@ -306,11 +306,23 @@ foreach ($row in $counties) {
             if ([string]::IsNullOrWhiteSpace($addr) -and $d.account_number) { $addr = "Account $($d.account_number)" }
             if ([string]::IsNullOrWhiteSpace($addr)) { $addr = "Address not published - see LienHub listing" }
 
+            # One row per CERTIFICATE, never per parcel (audit B2, 2026-10-29):
+            # a parcel can hold several county-held certificates, and keying
+            # on the account made the sync keep only the last of them. The
+            # key is '<tax year>-<certificate #>' - the same identity the
+            # Sarasota Tax Collector's own list uses (sync_sarasota_
+            # certificates.py), so both sources describe one row per
+            # certificate. A row missing either part keeps the account.
+            $certKey = $d.account_number
+            if (-not [string]::IsNullOrWhiteSpace([string]$d.tax_year) -and -not [string]::IsNullOrWhiteSpace([string]$d.certificate_number)) {
+                $certKey = "$(([string]$d.tax_year).Trim())-$(([string]$d.certificate_number).Trim())"
+            }
+
             $all += [pscustomobject]@{
                 source          = "certificate"
                 county          = $row.County
                 host            = "lienhub.com"
-                case_no         = $d.account_number
+                case_no         = $certKey
                 certificate_no  = [string]$d.certificate_number
                 tax_year        = [string]$d.tax_year
                 issued_date     = $d.issued_date
