@@ -8239,7 +8239,7 @@ const EXPECTED = {
   rdPickerEscape: true,
   rdPickerAdminMI: "MI=auction|laft",
   rdPickerProbeFail: "WY=auction|laft|certificate!unchecked",
-  rdPhoneBottom: ["Home", "Properties", "Map", "Watchlist"],
+  rdPhoneBottom: ["Available2", "Auctions9", "Liens1", "Map"],
   rdPhoneAccount: true,
   rdPhoneSearchVisible: false,   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
   landCO: { hash: '#/certificates', cards: 2, issue: 0 },
@@ -9103,7 +9103,7 @@ const EXPECTED = {
   researchEmptyToCounties: "#/counties",
   researchPipeline: ["DISCOVERED=1", "RESEARCHING=0", "DUE_DILIGENCE=1", "ACQUISITION_READY=0", "PASSED=0", "ACQUIRED=0"],
   researchPipelineFilter: ["DUE_DILIGENCE"],
-  accountGotoPhone: {"labels": ["Saved searches", "My Research 0", "Watchlist 0/10", "County Intelligence", "Buyer's Guide", "About"], "research": {"hash": "#/research", "menuClosed": true}, "counties": {"hash": "#/counties", "menuClosed": true}, "desktopHidden": false},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
+  accountGotoPhone: {"labels": ["Home", "Saved searches", "My Research 0", "Watchlist 0/10", "County Intelligence", "Buyer's Guide", "About"], "research": {"hash": "#/research", "menuClosed": true}, "counties": {"hash": "#/counties", "menuClosed": true}, "desktopHidden": false},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
   countyRecords: {"auction": ["p1"], "certificate": ["p4"]},
   countyRecordOpens: "#/auctions/p1",
   // Current acquisition amounts (2026-10-06).

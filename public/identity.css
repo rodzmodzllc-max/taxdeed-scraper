@@ -1676,7 +1676,7 @@ html[data-shell="v3"] .hdr-nav .nav-item.on .nav-count[data-dup="1"]{display:non
   .nav-bottom-ledger .nb-ico{color:color-mix(in srgb, var(--lc) 70%, var(--warm-gray))}
   .nav-bottom-ledger.on{color:var(--lc)!important;box-shadow:inset 0 3px 0 var(--lc)}
   .nav-bottom-ledger.on .nb-ico{color:var(--lc)}
-  .nav-bottom-ledger.on .nb-count{color:var(--lc)}
+  .nav-bottom-ledger.on .nb-count{color:var(--lc);visibility:hidden}
   .nav-bottom[data-bar="v3"] .nav-bottom-item[data-page="map"].on{box-shadow:inset 0 3px 0 var(--copper)}
   /* On the Map page: the ledger the map is filtered to. */
   .nav-bottom-ledger.map-filter .nb-ico::after{content:"";position:absolute;top:-3px;right:-6px;width:7px;height:7px;border-radius:50%;background:var(--lc);box-shadow:0 0 0 2px var(--paper-white)}
