@@ -5,7 +5,9 @@
 dropped the two link fields the feed publishes per record - `county_sale_list`
 (the county sale-list document; on every record with a sale date) and
 `property_loc` (the record's online sale site) - and the sync had no column to
-send them to. Both are now kept verbatim or not at all; nothing is composed.
+send them to. Both are now kept verbatim or not at all; the one exception
+(2026-10-29) is the '.pdf' LGBS's own map page appends to county_sale_list, and
+only for a list it publishes (sale_published 'Y').
 
 Synthetic hosts and values only; no network.
 """
@@ -33,7 +35,7 @@ def _lgbs(**kw):
     rec = {"uid": "u1", "state": "TX", "status": "Scheduled for Auction", "county": "SAMPLE COUNTY",
            "account_nbr": "000111", "cause_nbr": "C-1", "sale_date_only": "2026-11-03", "minimum_bid": "1000",
            "value": "5000", "sale_notes": "LOT 1", "prop_address_one": "1 FIXTURE ST", "prop_city": "SAMPLE",
-           "prop_zipcode": "75000", "geometry": {"coordinates": [-95.0, 30.0]}}
+           "prop_zipcode": "75000", "geometry": {"coordinates": [-95.0, 30.0]}, "sale_published": "Y"}
     rec.update(kw)
     return rec
 
@@ -152,4 +154,7 @@ def test_sync_sends_sale_list_as_document_url_and_site_as_url_auction_only_when_
     assert rows["L-1"]["url_auction_kind"] == "county"
     assert rows["L-2"]["document_url"] == SALE_LIST and "url_auction" not in rows["L-2"]
     for k in ("L-3", "L-4"):
-        assert "document_url" not in rows[k] and "url_auction" not in rows[k]   # never an explicit null
+        # An LGBS record without a published sale list clears the LGBS row's
+        # stored link (only LGBS writes it; audit 2026-10-28 B24: the old bare
+        # links were HTTP 404); the auction site is never sent as a null.
+        assert rows[k]["document_url"] is None and "url_auction" not in rows[k]
