@@ -176,3 +176,19 @@ def test_guide_pages_map_to_the_state_guide_source():
     url = next(a.source_url for a in rows if a.state == "FL" and "leg.state.fl.us" in a.source_url)
     d = DG.Guard("t").decide(url)
     assert d.allowed and "buyers_guide_fl" in d.source_ids
+
+
+def test_lead_mode_prints_keyword_sentences_of_unread_pages(monkeypatch, capsys):
+    import capture_buyers_guide as C
+    a = ans(question="deposit", status="NOT_VERIFIED", answer="", quote="", verified_on="",
+            source_url="https://county.example.gov/rules")
+    monkeypatch.setattr(G, "load_answers", lambda *x, **k: [a, ans()])
+    page = "Welcome to the sale site. A deposit of 5% is required before bidding. Parking is free downstairs today."
+    monkeypatch.setattr(C, "fetch", lambda s, u: ("", 200, page))
+    import permission_gate
+    monkeypatch.setattr(permission_gate, "install_discovery_guard", lambda label: None)
+    assert C.main(["--leads"]) == 0
+    out = capsys.readouterr().out
+    assert f"BGLEAD\t{a.key}\tREAD\t200" in out
+    assert f"BGTEXT\t{a.key}\tA deposit of 5% is required before bidding." in out
+    assert "Parking" not in out and "BGCAP" not in out

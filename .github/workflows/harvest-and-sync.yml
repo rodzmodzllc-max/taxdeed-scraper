@@ -322,7 +322,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, buyers_guide, realauction_labels, fl_certificate_sources, taxsys_check, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging, tx_realauction, tx_vendors, county_sources, county_certificates, new_sources_validate, tx_parcels]
+        options: [available, buyers_guide, buyers_guide_leads, realauction_labels, fl_certificate_sources, taxsys_check, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging, tx_realauction, tx_vendors, county_sources, county_certificates, new_sources_validate, tx_parcels]
 
 concurrency:
   # Evidence captures (job=evidence) are read-only and never write to the
@@ -1737,6 +1737,17 @@ jobs:
             IFS=',' read -ra ss <<< "$COUNTIES"
             for s in "${ss[@]}"; do s="$(echo "$s" | xargs)"; [ -n "$s" ] && sargs="$sargs --state $s"; done
             python3 scripts/capture_buyers_guide.py $sargs
+            exit 0
+          fi
+          if [ "$SCOPE" = "buyers_guide_leads" ]; then
+            # The official pages the research network could not read: print
+            # their own sentences about each open question (BGTEXT lines, at
+            # most 8 per answer), so the answer can be written from them and
+            # confirmed by the next buyers_guide capture.
+            sargs=""
+            IFS=',' read -ra ss <<< "$COUNTIES"
+            for s in "${ss[@]}"; do s="$(echo "$s" | xargs)"; [ -n "$s" ] && sargs="$sargs --state $s"; done
+            python3 scripts/capture_buyers_guide.py --leads $sargs
             exit 0
           fi
           if [ "$SCOPE" = "tx_parcels" ]; then

@@ -14,6 +14,18 @@ a challenge page - never retried or worked around) / DENIED (no discover
 permission for the page's source). A person copies the job log and records it
 with scripts/record_buyers_guide_captures.py; nothing here writes anywhere.
 
+--leads: for NOT_VERIFIED / SOURCE_RESTRICTED answers that name an official
+page (pages the research network could not read), print the page's own
+sentences about the question instead (at most 8 per answer, 400 characters
+each, chosen by the question's keywords):
+
+    BGLEAD<TAB>key<TAB>RESULT<TAB>http status
+    BGTEXT<TAB>key<TAB>sentence
+
+A person writes the answer and quote from those sentences; the next normal
+capture confirms the quote. Only official process pages are cited, never a
+property record, so no row data can be printed.
+
 Every request goes through the discovery guard (permission_gate): the page
 must belong to a source with an in-date discover permission - the guide's
 own pages map to buyers_guide_<state> (harvesters/governance/discovery_guard.py).
@@ -86,17 +98,55 @@ def fetch(session, url: str) -> tuple[str, int, str]:
     return "", status, text
 
 
+LEAD_KEYWORDS = {
+    "register": r"regist|sign up|account|bidder",
+    "deposit": r"deposit",
+    "pay_after_win": r"pay|wire|cashier|balance|due",
+    "pay": r"pay|wire|cashier|check|due",
+    "extra_costs": r"fee|recording|stamp|cost",
+    "costs": r"fee|cost",
+    "schedule": r"held|sale date|sales are|schedule|calendar|month|week",
+    "where_when": r"online|in person|courthouse|auction site|website|bid",
+    "how_to_buy": r"purchase|buy|apply|application|offer|bid",
+    "application": r"form|application|submit|document",
+    "price": r"price|minimum|amount|value",
+    "surplus": r"surplus|excess|overage",
+    "title": r"title|quiet|insur",
+    "occupied": r"occup|evict|possession|tenant",
+    "inspect": r"inspect|as is|as-is|view",
+    "refunds": r"refund|final|as is|as-is",
+    "assignment": r"assign|county.held|struck|over the counter",
+    "due_diligence": r"research|responsib|as is|as-is|beware|due diligence|caveat",
+}
+_SENT = re.compile(r"(?<=[.!?])\s+")
+
+
+def lead_sentences(text: str, question: str, limit: int = 8) -> list[str]:
+    pat = re.compile(LEAD_KEYWORDS.get(question, r"tax (sale|deed|lien)"), re.I)
+    out, seen = [], set()
+    for s in _SENT.split(re.sub(r"\s+", " ", text)):
+        s = s.strip()
+        if 25 <= len(s) and pat.search(s) and s.lower() not in seen:
+            seen.add(s.lower())
+            out.append(s[:400])
+            if len(out) >= limit:
+                break
+    return out
+
+
 def main(argv=None) -> int:
     import permission_gate as _PG  # noqa: PLC0415
     _PG.install_discovery_guard("capture_buyers_guide")
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--state", action="append", default=[], help="only these states (repeatable)")
     ap.add_argument("--delay", type=float, default=1.0, help="seconds between requests to one host")
+    ap.add_argument("--leads", action="store_true", help="print the sentences of unread pages instead")
     a = ap.parse_args(argv)
     import requests  # noqa: PLC0415
     from harvesters.sources import buyers_guide as G  # noqa: PLC0415
 
-    answers = [x for x in G.load_answers() if x.status in G.READ_STATUSES and (not a.state or x.state in a.state)]
+    want = (lambda x: x.status not in G.READ_STATUSES and x.source_url) if a.leads else (lambda x: x.status in G.READ_STATUSES)
+    answers = [x for x in G.load_answers() if want(x) and (not a.state or x.state in a.state)]
     by_url: dict[str, list] = defaultdict(list)
     for x in answers:
         by_url[x.source_url].append(x)
@@ -112,6 +162,13 @@ def main(argv=None) -> int:
         result, status, text = fetch(session, url)
         last[host] = time.monotonic()
         for x in by_url[url]:
+            if a.leads:
+                res = result or "READ"
+                tally[res] += 1
+                print(f"BGLEAD\t{x.key}\t{res}\t{status}", flush=True)
+                for sent in ([] if result else lead_sentences(text, x.question)):
+                    print(f"BGTEXT\t{x.key}\t{sent}", flush=True)
+                continue
             res = result or G.match_quote(x.quote, text)
             tally[res] += 1
             print(f"BGCAP\t{x.key}\t{G.quote_sha(x.quote)}\t{res}\t{status}", flush=True)
