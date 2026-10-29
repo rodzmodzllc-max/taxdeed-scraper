@@ -1498,6 +1498,32 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/source_health.py --source tx_sales --label "Texas tax sales (LGBS + county sheriff-sale sites)" --state TX --mode scheduled --cadence-hours 24 --status out/harvest_texas_status.json --rows out/harvest_texas.json --outcome ${{ steps.sync.outcome }}
 
+      - name: Restore unit freshness record
+        # Keeps each Texas unit's failure streak across runs (same rolling
+        # cache pattern as the expansion job); a miss starts the streak over.
+        if: always()
+        continue-on-error: true
+        uses: actions/cache@v4
+        with:
+          path: out/.harvest_cache
+          key: unit-freshness-texas-${{ github.run_id }}
+          restore-keys: |
+            unit-freshness-texas-
+
+      - name: Per-unit freshness (Texas)
+        # scripts/unit_freshness.py: last attempt / last complete read /
+        # failure streak / last error category per (source, county) unit of
+        # out/harvest_texas_status.json "counties", written to the registry
+        # rows that exist (2026-10-29: before this, no Texas unit ever had a
+        # read recorded, so the admin "Needs attention" panel could not tell
+        # a working Texas source from a dead one). Monitoring only.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/unit_freshness.py --status out/harvest_texas_status.json --state TX --persist out/.harvest_cache/unit_freshness_tx.json --report out/public/unit-freshness-tx.json || true
+
       - name: Sync Texas county-published lists
         # scripts/sync_state_inventory.py, once per ledger (its own rows and
         # status file): upserts only rows of a PRODUCTION_VERIFIED, APPROVED
