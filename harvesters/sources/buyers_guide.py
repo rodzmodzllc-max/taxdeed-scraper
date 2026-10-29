@@ -184,7 +184,7 @@ def build(rows: list[Row] | None = None, topics: list[Topic] | None = None) -> d
 
 
 def render(rows: list[Row] | None = None, topics: list[Topic] | None = None) -> str:
-    return json.dumps(build(rows, topics), indent=1, ensure_ascii=False, sort_keys=False) + "\n"
+    return json.dumps(build(rows, topics), ensure_ascii=False, separators=(",", ":")) + "\n"
 
 
 def answer_for(guide: dict, state: str, county: str, ledger: str, topic: str) -> dict | None:
