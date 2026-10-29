@@ -2566,7 +2566,9 @@ document.addEventListener("error", e => {
   img.remove();
   const cap = host.querySelector(".photo-caption");
   host.classList.remove("has-photo", "static-sat");
-  if (host.classList.contains("pv-visual")) { host.remove(); return; }
+  // The Map card puts its county locator in the failed picture's place
+  // (explore.js listens), so the card is never left without a picture.
+  if (host.classList.contains("pv-visual")) { host.dispatchEvent(new CustomEvent("tdw:visualfailed", { bubbles: true })); host.remove(); return; }
   host.classList.add("minimap");
   // Say the aerial image failed, never just "location" as if none was tried.
   if (cap) cap.textContent = `${host.dataset.imagery === "naip_failed" ? "Aerial image unavailable · " : ""}Location in ${host.dataset.county || ""} ${UNIT_WORD}`;
@@ -5414,7 +5416,7 @@ function previewFacts(p) {
     if (p.issued_date) more.push(["Issued", fmtDate(p.issued_date)]);
     if (isGone(p)) more.push(["Listing status", outcomeText(p)]);
     return {
-      kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls,
+      kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls, type: k.type, phase: k.phase,
       bidLabel: "Amount", bid: hasPublishedBid(p) ? fmtMoney(p.bid) : null,
       value: null, valueLabel: null,
       parcelLabel: "Account", parcel: p.case_no || null, caseNo: null,
@@ -5455,7 +5457,7 @@ function previewFacts(p) {
   if (isGone(p)) more.push(["Listing status", outcomeText(p)]);
   if (p.legal_desc) more.push(["Legal", String(p.legal_desc).length > 140 ? String(p.legal_desc).slice(0, 137) + "…" : String(p.legal_desc)]);
   return {
-    kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls,
+    kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls, type: k.type, phase: k.phase,
     bidLabel: p.source === "laft" ? availableAmountLabel(p) : auctionBidLabel(p),
     bid: p.source === "laft" ? (amountInfo(p).value !== null && amountInfo(p).value !== undefined ? fmtMoney(amountInfo(p).value) : (amountInfo(p).display === "Not published" ? null : amountInfo(p).display)) : (hasPublishedBid(p) ? fmtMoney(p.bid) : null),
     bidNote: p.source === "laft" ? amountInfo(p).note : "",
@@ -14177,7 +14179,11 @@ function renderMapPage() {
   const rows = computeMapRows();
   // Phase 67: the preview panel renders with the cards' own label/visual
   // helpers - passed over the event so explore.js never duplicates a rule.
-  const rendered = { rows, ledger: mapFilter.ledger, openDetail, previewFacts, propertyVisual, hydrateVisuals, amountShort };
+  // Map peek card (2026-10-29): the card's stamp and Watchlist button come
+  // from the same helpers the List cards use (cardStamp, bidListBtnHtml), so
+  // the map never words a status or a watch state on its own.
+  const rendered = { rows, ledger: mapFilter.ledger, openDetail, previewFacts, propertyVisual, hydrateVisuals, amountShort,
+    cardStamp, watchBtn: p => bidListBtnHtml(p, "card"), isWatched: id => BIDLIST.has(id), unitWord: UNIT_WORD };
   window.__tdwMapLastRender = rendered;
   window.dispatchEvent(new CustomEvent("tdw:maprendered", { detail: rendered }));
 }
