@@ -421,7 +421,7 @@ def test_o01_outcomes_only_through_the_source_map_which_is_empty_today(monkeypat
 
 def test_x01_workflow_steps_are_non_blocking_and_after_the_sync():
     wf = yaml.safe_load((REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8"))
-    for job, expect_fresh in (("laft", True), ("deeds", True), ("texas", False)):
+    for job, expect_fresh in (("laft", True), ("deeds", True), ("texas", True)):   # texas: audit B14 (2026-10-29)
         steps = wf["jobs"][job]["steps"]
         names = [s.get("name") for s in steps]
         inv = next(s for s in steps if (s.get("name") or "").startswith("Inventory status"))

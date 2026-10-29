@@ -281,13 +281,13 @@
     {
      "county": "Brevard",
      "evidence": "Clerk's Lands Available page and the list document itself say a request for the current minimum bid must be in writing (email, fax or mail) and payment is accepted in the Titusville office only, in certified funds; first come, first served",
-     "evidence_url": "https://www.brevardclerk.us/lands-available",
+     "evidence_url": "https://www.brevardclerk.us/services/clerk-services/property-sales/tax-deeds-auctions/",
      "instructions": "If, after review, you are interested in purchasing a property from the List of Lands Available, please submit a request in writing for the current minimum bid. Requests for bid amounts must be in writing and can be sent via email to taxdeedclerks@brevardclerk.us, fax to 321-637-2011, or by mail to Brevard County Clerk of Court, PO Box 219, Titusville, FL 32781-0219 Attn: Tax Deed Clerks. Please allow up to 30 days for a response. Payments are accepted in our Titusville office only; payment must be in certified funds. Properties on the List of Lands Available are sold on a first come, first serve basis.",
-     "observed_on": "2026-09-30",
+     "observed_on": "2026-10-29",
      "office": "Brevard County Clerk of Court - Tax Deed Clerks (Titusville office)",
      "path_type": "phone_mail",
      "source_id": "fl_laft_pdfs",
-     "source_title": "Lands Available - Tax Deeds / Auctions - Brevard County, Florida - Clerk of the Court",
+     "source_title": "Tax Deeds & Auctions | Brevard County Clerk of Court",
      "steps": "Review the List of Lands Available (the Clerk's PDF list) | Request the current minimum bid in writing: e-mail taxdeedclerks@brevardclerk.us, fax 321-637-2011, or mail to PO Box 219, Titusville, FL 32781-0219, Attn: Tax Deed Clerks | Allow up to 30 days for the bid amount (the amounts shown online are not the current bid) | Pay in certified funds at the Titusville office - payments are accepted there only; first come, first served"
     },
     {
@@ -518,7 +518,7 @@
      "version": "1"
     },
     {
-     "changed_on": "2026-10-11",
+     "changed_on": "2026-10-29",
      "county": "Brevard",
      "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
      "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_pdfs/Brevard (phone_mail; review_state verified)",
@@ -528,15 +528,15 @@
      "office": "Brevard County Clerk of Court - Tax Deed Clerks (Titusville office)",
      "related_sources": "fl_laft_pdfs",
      "scope": "county",
-     "source_title": "Lands Available - Tax Deeds / Auctions - Brevard County, Florida - Clerk of the Court",
-     "source_url": "https://www.brevardclerk.us/lands-available",
+     "source_title": "Tax Deeds & Auctions | Brevard County Clerk of Court",
+     "source_url": "https://www.brevardclerk.us/services/clerk-services/property-sales/tax-deeds-auctions/",
      "state": "FL",
      "statement": "Clerk's Lands Available page and the list document itself say a request for the current minimum bid must be in writing (email, fax or mail) and payment is accepted in the Titusville office only, in certified funds; first come, first served",
      "status": "VERIFIED",
      "test_ref": "tests/python/test_gap_closure.py",
      "topic": "acquisition_procedure_available",
-     "verified_on": "2026-09-30",
-     "version": "1"
+     "verified_on": "2026-10-29",
+     "version": "2"
     },
     {
      "changed_on": "2026-10-11",
@@ -896,7 +896,18 @@
      "version": "1"
     }
    ],
-   "history": [],
+   "history": [
+    {
+     "affects": "data/purchase_path_evidence.csv FL/fl_laft_pdfs/Brevard; public/acquisition-evidence.json",
+     "change": "Source page moved 2026-10-29 (audit F84): /lands-available answers 404; the same Lands Available for Taxes text is on the Clerk's Tax Deeds & Auctions page (re-read 2026-10-29). Statement unchanged; source_url, source_title and verified_on updated",
+     "changed_on": "2026-10-11",
+     "county": "Brevard",
+     "prior_statement": "Clerk's Lands Available page and the list document itself say a request for the current minimum bid must be in writing (email, fax or mail) and payment is accepted in the Titusville office only, in certified funds; first come, first served",
+     "prior_status": "VERIFIED",
+     "topic": "acquisition_procedure_available",
+     "version": "1"
+    }
+   ],
    "ledgers": {
     "AUCTIONS": {
      "coverage": [
@@ -7202,7 +7213,7 @@
     },
     {
      "check": "rule_history",
-     "detail": "every rule is at version 1",
+     "detail": "1 rule(s) with a recorded prior version",
      "state": "FL",
      "status": "PASS"
     },

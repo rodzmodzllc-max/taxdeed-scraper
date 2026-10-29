@@ -194,11 +194,17 @@ def lookup(record: dict, state: str, source_id: str, county: str) -> dict | None
 
 
 def read_status(path: Path) -> list:
+    """A status file's unit entries: the laft_status list, or the Texas
+    harvester's {"counties": [...]} object (one entry per (source_id, county)
+    read - audit B14: the Texas registry rows were never stamped because this
+    reader dropped that shape)."""
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return []
-    return data if isinstance(data, list) else []
+    if isinstance(data, dict):
+        data = data.get("counties")
+    return [e for e in data if isinstance(e, dict)] if isinstance(data, list) else []
 
 
 def registry_units(path: Path | str = REGISTRY_PATH) -> dict[str, dict]:

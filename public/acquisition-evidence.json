@@ -290,11 +290,11 @@
    "source_id": "fl_laft_pdfs",
    "county": "Brevard",
    "path_type": "phone_mail",
-   "purchase_evidence_url": "https://www.brevardclerk.us/lands-available",
+   "purchase_evidence_url": "https://www.brevardclerk.us/services/clerk-services/property-sales/tax-deeds-auctions/",
    "purchase_evidence_type": "county_page",
-   "purchase_evidence_title": "Lands Available - Tax Deeds / Auctions - Brevard County, Florida - Clerk of the Court",
+   "purchase_evidence_title": "Tax Deeds & Auctions | Brevard County Clerk of Court",
    "purchase_instructions": "If, after review, you are interested in purchasing a property from the List of Lands Available, please submit a request in writing for the current minimum bid. Requests for bid amounts must be in writing and can be sent via email to taxdeedclerks@brevardclerk.us, fax to 321-637-2011, or by mail to Brevard County Clerk of Court, PO Box 219, Titusville, FL 32781-0219 Attn: Tax Deed Clerks. Please allow up to 30 days for a response. Payments are accepted in our Titusville office only; payment must be in certified funds. Properties on the List of Lands Available are sold on a first come, first serve basis.",
-   "purchase_path_observed_on": "2026-09-30",
+   "purchase_path_observed_on": "2026-10-29",
    "acquisition": {
     "mode": "multi_step",
     "channels": [
@@ -311,8 +311,8 @@
      "Allow up to 30 days for the bid amount (the amounts shown online are not the current bid)",
      "Pay in certified funds at the Titusville office - payments are accepted there only; first come, first served"
     ],
-    "evidence_url": "https://www.brevardclerk.us/lands-available",
-    "observed_on": "2026-09-30"
+    "evidence_url": "https://www.brevardclerk.us/services/clerk-services/property-sales/tax-deeds-auctions/",
+    "observed_on": "2026-10-29"
    }
   },
   {
@@ -1491,8 +1491,8 @@
    "county": "Brevard",
    "status": "VERIFIED",
    "basis": "evidence_table",
-   "reason": "Lands Available - Tax Deeds / Auctions - Brevard County, Florida - Clerk of the Court",
-   "attempted_on": "2026-09-30",
+   "reason": "Tax Deeds & Auctions | Brevard County Clerk of Court",
+   "attempted_on": "2026-10-29",
    "authority_type": "county_clerk",
    "authority": "Clerk of the Circuit Court",
    "path_type": "phone_mail",
