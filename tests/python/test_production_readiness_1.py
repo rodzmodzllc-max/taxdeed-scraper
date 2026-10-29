@@ -421,7 +421,7 @@ def test_o01_outcomes_only_through_the_source_map_which_is_empty_today(monkeypat
 
 def test_x01_workflow_steps_are_non_blocking_and_after_the_sync():
     wf = yaml.safe_load((REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8"))
-    for job, expect_fresh in (("laft", True), ("deeds", True), ("texas", False)):
+    for job, expect_fresh in (("laft", True), ("deeds", True), ("texas", True)):   # texas since 2026-10-29 (admin Needs attention)
         steps = wf["jobs"][job]["steps"]
         names = [s.get("name") for s in steps]
         inv = next(s for s in steps if (s.get("name") or "").startswith("Inventory status"))
@@ -437,6 +437,6 @@ def test_x01_workflow_steps_are_non_blocking_and_after_the_sync():
 
 
 def test_x02_docs_and_service_worker():
-    assert 'const CACHE = "tdw-shell-v152"' in (REPO / "public/sw.js").read_text(encoding="utf-8")
+    assert 'const CACHE = "tdw-shell-v153"' in (REPO / "public/sw.js").read_text(encoding="utf-8")
     model = (REPO / "docs/otc-inventory-model.md").read_text(encoding="utf-8")
     assert "## 16." in model and "inventory_status" in model and "laft_purchase_link_rules.csv" in model

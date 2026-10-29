@@ -60,12 +60,17 @@ async function gate() {
   document.getElementById("adminShell").hidden = false;
   document.body.dataset.admin = "verified";
   sendApprovalNotifications();          // sweep: send any approval e-mail whose retry is due
+  const attention = refreshAttention().catch(e => {
+    const st = document.getElementById("adminAttentionStatus");
+    if (st) st.textContent = "Could not build the Needs attention list: " + (e && e.message ? e.message : e);
+  });
   await refreshPending();
   await refreshCustomers();
   await refreshUsage();
   await refreshSources();
   await refreshFreshness();
   initInventory();
+  await attention;
 }
 
 // Product usage (migration 024's product_usage_summary(), admin-only on the
@@ -380,6 +385,286 @@ function renderFreshness() {
   units.innerHTML = reg && reg.length
     ? unitTable(reg.slice(0, UNIT_FIRST)) + (reg.length > UNIT_FIRST ? `<details class="admin-more-units"><summary>Show the other ${reg.length - UNIT_FIRST} county source units</summary>${unitTable(reg.slice(UNIT_FIRST))}</details>` : "")
     : "";
+}
+
+// Needs attention (2026-10-29). One list of every place a person has to act,
+// so the owner is never the one who finds a dead source first (the Hendry
+// FL Lands Available record: its list file 404'd, the county's read had
+// failed 33 times and the record was already withheld - but each fact sat in
+// a different view). One row per unit (state, county, source); every reason
+// comes from a recorded field:
+//   * county_source_registry: last read status, failure streak, last complete
+//     read and last_error_category (scripts/unit_freshness.py). A unit is
+//     listed when its last read is FAILED / INCOMPLETE / SOURCE_UNAVAILABLE,
+//     its last complete read is older than ATTENTION_STALE_DAYS, or it is a
+//     production source with no read on record;
+//   * source_link_checks (migration 036): a link BROKEN on 2+ separate daily
+//     checks, tied to its unit through the registry row or the active
+//     properties rows that carry it, else acquisition-evidence.json;
+//   * properties: Available rows withheld as unconfirmed (last_seen_at NULL or
+//     older than 7 days - app.js unconfirmedAvailable), counted per unit.
+// Nothing here guesses a cause: a failure with no recorded category reads
+// "reason not recorded". Counts and place names only - no parcel, address or
+// owner is read or shown.
+const ATTENTION_STALE_DAYS = 2;
+const ATTENTION_UNCONFIRMED_DAYS = 7;   // app.js UNCONFIRMED_DAYS
+const ATTENTION_LEDGER_NAMES = { AUCTIONS: "Auctions", AVAILABLE: "Available", LIENS_CERTIFICATES: "Liens & Certificates", auction: "Auctions", laft: "Available", certificate: "Liens & Certificates" };
+// last_error_category -> [what happened, what is needed]. Keys cover
+// scripts/laft_status.py ERROR_CATEGORIES plus the categories the Texas and
+// expansion harvesters write (tests/python/test_needs_attention.py pins it).
+const ATTENTION_READ_REASONS = {
+  TRANSPORT_HTTP_403_BLOCKED: ["site blocks automated reads (HTTP 403 / Cloudflare challenge)", "a decision on how to read it: a recorded permission, a proxy route, or a manual capture"],
+  TRANSPORT_HTTP_404: ["list file / page moved (HTTP 404)", "the current link to the county's list"],
+  TRANSPORT_HTTP_4XX: ["site refused the request (HTTP 4xx)", "a look at the source page to see what it now requires"],
+  TRANSPORT_HTTP_5XX: ["source site returned a server error (HTTP 5xx)", "nothing if it clears on the next run; a look at the site if it persists"],
+  TRANSPORT_TIMEOUT: ["site did not answer in time", "nothing if it clears on the next run; a look at the site if it persists"],
+  TRANSPORT_CONNECTION: ["site could not be reached (connection refused or address does not resolve)", "check the site still exists at this address"],
+  TRANSPORT_REQUEST_FAILED: ["the request to the site failed", "check the latest job log for the failed request"],
+  TRANSPORT_PAGE_FAILED: ["a page of the feed failed after its retries", "nothing if it clears on the next run; a look at the feed if it persists"],
+  TRANSPORT: ["the site could not be read", "check the latest job log for the failed request"],
+  PROXY_FAILURE: ["site blocks automated reads and the fallback proxy also failed", "a check of the proxy account"],
+  PROXY_NOT_CONFIGURED: ["site blocks automated reads and no proxy key is set", "a proxy key, or another recorded way to read it"],
+  ACCESS_DENIED: ["a login or disclaimer gate was not passed", "check whether the list now sits behind a login or a click-through"],
+  PLACEHOLDER_TENANT: ["the platform shows a test placeholder, not the county's list", "the county's real list address"],
+  PARSE_NO_TABLE: ["no list found on the page and no 'none available' statement", "a look at the page: the list may have moved or changed format"],
+  PARSE_FORMAT_CHANGE: ["list format changed", "a parser update for the new format"],
+  PARSE_COUNT_MISMATCH: ["rows read do not match the count the source shows", "a parser check"],
+  PARSE_TRUNCATED: ["source says more rows exist than were read", "a parser check of the paging"],
+  PARSE_UNREADABLE_DOCUMENT: ["the list file could not be read (unreadable document)", "a look at the file: it may be a scan or a different format"],
+  UNCONFIRMED_EMPTY: ["list could not be confirmed (zero rows and no 'none available' statement)", "check whether the county really lists nothing today"],
+  SOURCE_LINK_MISSING: ["the page no longer links to the list file", "the current link to the county's list"],
+  PERMISSION_DENIED: ["no recorded permission to read this source, so nothing was requested", "a permission record in data/source_permissions.csv"],
+  UNKNOWN: ["unexpected error", "check the latest job log"]
+};
+const ATTENTION_LINK_DETAIL = {
+  HTTP_404: "HTTP 404", HTTP_410: "HTTP 410 - removed", SOFT_404: "page reads 'not found'", DNS: "site address no longer resolves"
+};
+// referenced_by (check_source_links.py) -> what the link is, most specific first.
+const ATTENTION_LINK_ROLES = [
+  ["registry.document_url", "list file link"], ["properties.document_url", "list file link"], ["properties.otc_provenance.document", "list file link"],
+  ["properties.list_url", "list page link"], ["properties.otc_provenance.list", "list page link"], ["registry.canonical_url", "source page link"],
+  ["registry.purchase_url", "purchase page link"], ["properties.purchase_url", "purchase page link"], ["properties.url_auction", "auction site link"],
+  ["properties.otc_provenance.application", "application form link"], ["acquisition-evidence", "acquisition instructions link"],
+  ["properties.otc_provenance.evidence", "acquisition instructions link"]
+];
+function attentionDate(iso) {
+  const t = iso ? Date.parse(iso) : NaN;
+  return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+function attentionLinkRole(refs) {
+  const list = Array.isArray(refs) ? refs.map(String) : String(refs || "").replace(/^\{|\}$/g, "").split(",");
+  const hit = ATTENTION_LINK_ROLES.find(([k]) => list.includes(k));
+  return hit ? hit[1] : "source link";
+}
+function attentionLinkNeed(detail) {
+  if (detail === "DNS") return "the site's current address (the domain no longer resolves)";
+  return "the current link (the page or file moved)";
+}
+// The read problem of one registry unit, or null when it reads fine.
+function attentionReadProblem(u, now) {
+  const t = now || Date.now();
+  const st = String(u.last_attempt_status || "");
+  const success = u.last_success_at ? Date.parse(u.last_success_at) : NaN;
+  const staleMs = ATTENTION_STALE_DAYS * 86400000;
+  const lastGood = isNaN(success) ? "no complete read on record" : `last complete read ${attentionDate(u.last_success_at)}`;
+  if (!u.last_attempt_at) {
+    if (u.verification_status !== "PRODUCTION_VERIFIED") return null;   // a candidate is never harvested
+    return { kind: "read", start: null, text: "No read recorded for this source in this county", need: "check that the job reading this source records its reads" };
+  }
+  const failing = st === "FAILED" || st === "INCOMPLETE" || st === "SOURCE_UNAVAILABLE";
+  if (failing) {
+    const cat = String(u.last_error_category || "");
+    const known = ATTENTION_READ_REASONS[cat]
+      || (cat.startsWith("TRANSPORT_") ? ATTENTION_READ_REASONS.TRANSPORT : null)
+      || (cat.startsWith("PARSE_") ? ["the list could not be read as expected (" + cat + ")", "a parser check"] : null);
+    let reason = known ? known[0] : (cat ? `reason code ${cat}` : "reason not recorded");
+    let need = known ? known[1] : "check the latest job log";
+    if (!cat && st === "SOURCE_UNAVAILABLE") { reason = "source could not be reached"; need = "a look at the site if it persists"; }
+    const word = st === "INCOMPLETE" ? "List read incomplete" : "List read failing";
+    const streak = Number(u.consecutive_failures) > 0 ? `${u.consecutive_failures} failed read${Number(u.consecutive_failures) === 1 ? "" : "s"} in a row` : "";
+    return { kind: "read", start: isNaN(success) ? null : success, text: [`${word}: ${reason}`, streak, lastGood].filter(Boolean).join(" · "), need };
+  }
+  if (isNaN(success) || t - success > staleMs) {
+    const days = isNaN(success) ? null : Math.floor((t - success) / 86400000);
+    return { kind: "read", start: isNaN(success) ? null : success,
+      text: days === null ? "No complete read on record" : `No complete read in ${days} days (${lastGood})`,
+      need: "check the scheduled job is still reading this source" };
+  }
+  return null;
+}
+async function attentionRegistry() {
+  const { data, error } = await sb.from("county_source_registry")
+    .select("state,county,source_id,ledgers,inventory_type,verification_status,canonical_url,document_url,purchase_url,last_attempt_at,last_attempt_status,last_success_at,consecutive_failures,last_error_category");
+  if (error) throw new Error("the county read status (" + (error.message || error.code) + ")");
+  return data || [];
+}
+async function attentionBrokenLinks() {
+  const out = [];
+  let after = null;
+  for (let i = 0; i < 50; i++) {
+    let q = sb.from("source_link_checks").select("url,host,status,http_code,detail,first_failed_at,checked_at,consecutive_failures,referenced_by")
+      .eq("status", "BROKEN").gte("consecutive_failures", 2).order("url").limit(1000);
+    if (after !== null) q = q.gt("url", after);
+    const { data, error } = await q;
+    if (error) {
+      if (/PGRST205|42P01/.test(String(error.code || ""))) return null;   // migration 036 not on this deployment
+      throw new Error("the link checks (" + (error.message || error.code) + ")");
+    }
+    (data || []).forEach(r => { if (r && r.url && Number(r.consecutive_failures) >= 2) out.push(r); });
+    if (!data || data.length < 1000) break;
+    after = data[data.length - 1].url;
+  }
+  return out;
+}
+// The active rows that carry one of `urls` in a link column: which units a
+// dead link belongs to. Units only - no row identity is kept.
+async function attentionLinkOwners(urls) {
+  const owners = new Map();   // url -> Map(unitKey -> unit)
+  const add = (url, unit) => { if (!owners.has(url)) owners.set(url, new Map()); owners.get(url).set(unit.key, unit); };
+  for (const col of ["document_url", "list_url", "purchase_url", "url_auction"]) {
+    for (let i = 0; i < urls.length; i += 20) {
+      const chunk = urls.slice(i, i + 20);
+      const { data, error } = await sb.from("properties").select(`state,county,source,source_id,harvester_source,${col}`)
+        .in(col, chunk).in("status", ["active", "available"]).limit(1000);
+      if (error) throw new Error("the properties carrying a broken link (" + (error.message || error.code) + ")");
+      (data || []).forEach(p => add(p[col], attentionUnit(p.state || "FL", p.county, p.source_id || p.harvester_source, p.source)));
+    }
+  }
+  return owners;
+}
+async function attentionUnconfirmed() {
+  const cutoff = new Date(Date.now() - ATTENTION_UNCONFIRMED_DAYS * 86400000).toISOString();
+  const rows = [];
+  let after = null;
+  for (let i = 0; i < 200; i++) {
+    let q = sb.from("properties").select("id,state,county,source,source_id,harvester_source,last_seen_at")
+      .eq("source", "laft").in("status", ["active", "available"])
+      .or(`last_seen_at.is.null,last_seen_at.lt.${cutoff}`).order("id").limit(1000);
+    if (after !== null) q = q.gt("id", after);
+    const { data, error } = await q;
+    if (error) throw new Error("the unconfirmed Available records (" + (error.message || error.code) + ")");
+    rows.push(...(data || []));
+    if (!data || data.length < 1000) break;
+    after = data[data.length - 1].id;
+  }
+  return rows;
+}
+async function attentionEvidence() {
+  try {
+    const resp = await fetch("acquisition-evidence.json", { cache: "no-store" });
+    return resp.ok ? await resp.json() : null;
+  } catch { return null; }
+}
+function attentionUnit(state, county, sourceId, ledger) {
+  const st = String(state || ""), co = String(county || ""), src = String(sourceId || "");
+  return { key: `${st}|${co}|${src}`, state: st, county: co, source_id: src, ledger: ledger || null, problems: [] };
+}
+function attentionLedgerLabel(u) {
+  const name = ATTENTION_LEDGER_NAMES[u.ledger] || "";
+  if (name === "Available" && u.state === "FL") return "Lands Available";
+  return name;
+}
+// The whole panel from the four reads. `now` is injectable for determinism.
+function attentionModel({ registry, links, owners, unconfirmed, evidence }, now) {
+  const units = new Map();
+  const unitFor = (state, county, src, ledger) => {
+    const u = attentionUnit(state, county, src, ledger);
+    if (!units.has(u.key)) units.set(u.key, u);
+    const cur = units.get(u.key);
+    if (!cur.ledger && ledger) cur.ledger = ledger;
+    return cur;
+  };
+  const regLedger = r => r.ledgers ? String(r.ledgers).split("|")[0] : (r.inventory_type ? "AVAILABLE" : null);
+  (registry || []).forEach(r => {
+    const p = attentionReadProblem(r, now);
+    if (p) unitFor(r.state, r.county, r.source_id || "", regLedger(r)).problems.push(p);
+  });
+  (links || []).forEach(l => {
+    const detail = ATTENTION_LINK_DETAIL[l.detail] || (l.http_code ? `HTTP ${l.http_code}` : String(l.detail || "broken"));
+    const since = attentionDate(l.first_failed_at);
+    const problem = { kind: "link", start: l.first_failed_at ? Date.parse(l.first_failed_at) : null,
+      text: `${attentionLinkRole(l.referenced_by)} is dead (${detail}${since ? " since " + since : ""}): ${l.url}`, need: attentionLinkNeed(l.detail), url: l.url };
+    const homes = new Map();
+    (registry || []).forEach(r => {
+      if ([r.canonical_url, r.document_url, r.purchase_url].includes(l.url)) homes.set(`${r.state}|${r.county}|${r.source_id || ""}`, [r.state, r.county, r.source_id || "", regLedger(r)]);
+    });
+    const carried = owners && owners.get(l.url);
+    if (carried) carried.forEach(u => { if (!homes.has(u.key)) homes.set(u.key, [u.state, u.county, u.source_id, u.ledger]); });
+    if (!homes.size && evidence) {
+      const hit = rec => JSON.stringify(rec).includes(JSON.stringify(l.url));
+      (evidence.records || []).concat(evidence.status || []).forEach(rec => {
+        if (rec && hit(rec)) homes.set(`${rec.state}|${rec.county}|${rec.source_id || ""}`, [rec.state, rec.county, rec.source_id || "", "AVAILABLE"]);
+      });
+    }
+    if (!homes.size) homes.set(`||${l.host || ""}`, ["", "", l.host || "", null]);
+    homes.forEach(([st, co, src, ledger]) => unitFor(st, co, src, ledger).problems.push(problem));
+  });
+  const byUnit = new Map();
+  (unconfirmed || []).forEach(p => {
+    const k = `${p.state || "FL"}|${p.county || ""}|${p.source_id || p.harvester_source || ""}`;
+    const e = byUnit.get(k) || { state: p.state || "FL", county: p.county || "", src: p.source_id || p.harvester_source || "", n: 0, never: 0, newest: null };
+    e.n++;
+    if (!p.last_seen_at) e.never++;
+    else if (!e.newest || p.last_seen_at > e.newest) e.newest = p.last_seen_at;
+    byUnit.set(k, e);
+  });
+  byUnit.forEach(e => {
+    const u = unitFor(e.state, e.county, e.src, "laft");
+    const when = e.newest ? `not confirmed by the source since ${attentionDate(e.newest)}` : "never confirmed by the source";
+    const mixed = e.newest && e.never ? ` (${e.never} never confirmed)` : "";
+    u.problems.push({ kind: "unconfirmed", start: e.newest ? Date.parse(e.newest) + ATTENTION_UNCONFIRMED_DAYS * 86400000 : null,
+      text: `${e.n} Available record${e.n === 1 ? "" : "s"} withheld from customers: ${when}${mixed}`,
+      need: u.problems.some(p => p.kind === "read") ? "a successful read of this county's list (see above)" : "a read of this county's list that includes them, or confirmation they left the list" });
+  });
+  const list = [...units.values()].filter(u => u.problems.length);
+  list.forEach(u => {
+    const starts = u.problems.map(p => p.start).filter(x => typeof x === "number" && !isNaN(x));
+    u.newest = starts.length ? Math.max(...starts) : null;
+    u.problems.sort((a, b) => ["read", "link", "unconfirmed"].indexOf(a.kind) - ["read", "link", "unconfirmed"].indexOf(b.kind));
+  });
+  const newestFirst = (a, b) => (b.newest === null ? -Infinity : b.newest) - (a.newest === null ? -Infinity : a.newest)
+    || a.county.localeCompare(b.county) || a.source_id.localeCompare(b.source_id);
+  const states = new Map();
+  list.forEach(u => { const k = u.state || ""; if (!states.has(k)) states.set(k, []); states.get(k).push(u); });
+  const groups = [...states.entries()].map(([state, rows]) => {
+    rows.sort(newestFirst);
+    return { state, units: rows, newest: rows.reduce((m, u) => (u.newest !== null && (m === null || u.newest > m) ? u.newest : m), null) };
+  });
+  groups.sort((a, b) => (!a.state) - (!b.state) || (b.newest === null ? -Infinity : b.newest) - (a.newest === null ? -Infinity : a.newest) || a.state.localeCompare(b.state));
+  return { total: list.length, groups };
+}
+function attentionRowHtml(u) {
+  const where = u.county ? `${u.county}, ${u.state}` : (u.state ? u.state : "Not tied to a county");
+  const head = [where, attentionLedgerLabel(u), u.source_id].filter(Boolean).join(" · ");
+  const kinds = [...new Set(u.problems.map(p => p.kind))].join(",");
+  return `<li class="attn-row" data-state="${esc(u.state)}" data-county="${esc(u.county)}" data-source="${esc(u.source_id)}" data-kinds="${esc(kinds)}">`
+    + `<p class="attn-where">${esc(head)}</p><ul class="attn-problems">${u.problems.map(p =>
+      `<li class="attn-problem" data-kind="${esc(p.kind)}">${esc(p.text)} <span class="attn-need">· what's needed: ${esc(p.need)}</span></li>`).join("")}</ul></li>`;
+}
+function renderAttention(model, gaps) {
+  const head = document.getElementById("adminAttentionLabel");
+  const status = document.getElementById("adminAttentionStatus");
+  const list = document.getElementById("adminAttentionList");
+  if (!head || !status || !list) return;
+  head.textContent = `Needs attention (${model.total})`;
+  const gapText = gaps.length ? `Could not check ${gaps.join("; ")} - this list may be missing items.` : "";
+  status.textContent = model.total ? gapText : (gapText || "Nothing needs attention.");
+  list.innerHTML = model.groups.map(g => `<section class="attn-state" data-state="${esc(g.state)}"><p class="attn-state-head">${esc(g.state || "Links not tied to a county")} (${g.units.length})</p><ul class="attn-list">${g.units.map(attentionRowHtml).join("")}</ul></section>`).join("");
+  document.getElementById("attention").dataset.count = String(model.total);
+}
+async function refreshAttention() {
+  const status = document.getElementById("adminAttentionStatus");
+  if (!status) return;
+  const gaps = [];
+  const safe = async (fn, fallback) => { try { return await fn(); } catch (e) { gaps.push(e && e.message ? e.message : String(e)); return fallback; } };
+  const [registry, links, unconfirmed, evidence] = await Promise.all([
+    safe(attentionRegistry, []), safe(attentionBrokenLinks, []), safe(attentionUnconfirmed, []), attentionEvidence()
+  ]);
+  if (links === null) gaps.push("the link checks (migration 036 is not on this deployment)");
+  const linkList = links || [];
+  const owners = linkList.length ? await safe(() => attentionLinkOwners([...new Set(linkList.map(l => l.url))]), new Map()) : new Map();
+  const model = attentionModel({ registry, links: linkList, owners, unconfirmed, evidence });
+  renderAttention(model, gaps);
 }
 
 // Collected inventory by source: what is collected in a state against what a
