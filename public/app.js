@@ -10939,6 +10939,18 @@ function ledgerCountText(k, n, locale) {
 }
 // Tab, List-nav and sidebar ledger counts. Also called alone when a background
 // ledger's pages arrive while another ledger is on screen.
+function scrollStripTo(btn) {
+  let strip = btn.parentElement;
+  while (strip && strip !== document.body) {
+    const ox = getComputedStyle(strip).overflowX;
+    if ((ox === "auto" || ox === "scroll") && strip.scrollWidth > strip.clientWidth) break;
+    strip = strip.parentElement;
+  }
+  if (!strip || strip === document.body) return;
+  const sr = strip.getBoundingClientRect(), br = btn.getBoundingClientRect();
+  if (br.left >= sr.left && br.right <= sr.right) return;
+  strip.scrollLeft += (br.left + br.width / 2) - (sr.left + sr.width / 2);
+}
 function renderLedgerCounts(scrollActive) {
   const tabCounts = { auction: 0, laft: 0, certificate: 0 };
   const activeLedger = state.ledger;
@@ -10965,9 +10977,10 @@ function renderLedgerCounts(scrollActive) {
     // On a narrow phone the strip can still scroll. Whatever else is cut off,
     // the tab for the page you are actually on must be fully visible - a
     // half-clipped active tab is how the strip stops reading as navigation.
-    if (active && scrollActive && btn.scrollIntoView) {
-      try { btn.scrollIntoView({ block: "nearest", inline: "center" }); } catch { /* older engines */ }
-    }
+    // Only the strip scrolls, sideways (2026-10-29): scrollIntoView also
+    // scrolled the PAGE back up to the tabs on every render, so a watchlist
+    // tap while scrolled down a phone page jumped the page.
+    if (active && scrollActive) scrollStripTo(btn);
     const countEl = document.getElementById("tabCount" + src[0].toUpperCase() + src.slice(1));
     if (countEl) countEl.textContent = ledgerCountText(src, tabCounts[src] || 0, false);
   });
