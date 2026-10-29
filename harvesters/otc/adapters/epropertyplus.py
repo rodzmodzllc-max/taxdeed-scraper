@@ -131,6 +131,7 @@ class EppResult:
     rejected_ids: int = 0
     duplicates: int = 0
     excluded_county: int = 0
+    shared_point_withheld: int = 0       # coordinates not stored: a point shared by SHARED_POINT_MIN+ parcels
 
 
 def page_url(cfg: EppConfig, page: int) -> str:
@@ -221,9 +222,41 @@ def _offered_rule(cfg: EppConfig) -> str:
     return "; ".join(parts)
 
 
+# Audit F34 (2026-10-29): a point the portal publishes for this many DISTINCT
+# parcels in one read is a placeholder (a subdivision or city point), not a
+# parcel's location. Wayne County Land Bank: 62, 26 and 21 offered parcels on
+# three single points. Such a point is never stored or labelled as the
+# parcel's own; the parcel-layer enrichment (mi_wayne_county_parcels) fills it.
+SHARED_POINT_MIN = 3
+
+
+def _point(row: dict) -> tuple[float, float] | None:
+    try:
+        lat, lng = float(row.get("latitude")), float(row.get("longitude"))
+    except (TypeError, ValueError):
+        return None
+    if -90 <= lat <= 90 and -180 <= lng <= 180 and (lat, lng) != (0.0, 0.0):
+        return lat, lng
+    return None
+
+
+def shared_points(rows: list[dict], *, minimum: int = SHARED_POINT_MIN) -> set[tuple[float, float]]:
+    """Points (rounded to 5 decimals, ~1 m) the portal publishes for at least
+    `minimum` distinct parcel numbers among `rows`."""
+    by_point: dict[tuple[float, float], set[str]] = {}
+    for row in rows:
+        pt = _point(row)
+        pid = _text(row.get("parcelNumber"))
+        if pt and pid:
+            by_point.setdefault((round(pt[0], 5), round(pt[1], 5)), set()).add(pid)
+    return {pt for pt, pids in by_point.items() if len(pids) >= minimum}
+
+
 def parse_rows(cfg: EppConfig, rows: list[dict], *, retrieved_at: datetime) -> tuple[list[OtcRecord], dict]:
     """Rows of the portal's list -> offered records, plus counts."""
     counts = {"excluded_status": 0, "rejected_ids": 0, "duplicates": 0, "excluded_county": 0}
+    # `shared_point_withheld` is added only when a point was withheld.
+    shared = shared_points([r for r in rows if _in_county(r, cfg) and _offered(r, cfg)])
     seen: set[str] = set()
     out: list[OtcRecord] = []
     for row in rows:
@@ -244,12 +277,13 @@ def parse_rows(cfg: EppConfig, rows: list[dict], *, retrieved_at: datetime) -> t
         amount = _positive(row.get(cfg.amount_field)) if cfg.amount_field else None
         kind = cfg.amount_kind if amount is not None else AmountKind.NOT_PUBLISHED
         coords = {}
-        try:
-            lat, lng = float(row.get("latitude")), float(row.get("longitude"))
-            if -90 <= lat <= 90 and -180 <= lng <= 180 and (lat, lng) != (0.0, 0.0):
-                coords = {"latitude": lat, "longitude": lng}
-        except (TypeError, ValueError):
-            pass
+        shared_point = False
+        pt = _point(row)
+        if pt and (round(pt[0], 5), round(pt[1], 5)) in shared:
+            shared_point = True
+            counts["shared_point_withheld"] = counts.get("shared_point_withheld", 0) + 1
+        elif pt:
+            coords = {"latitude": pt[0], "longitude": pt[1]}
         land_use = _text(row.get("propertyClass"))
         prov = {
             "adapter": "epropertyplus",
@@ -264,6 +298,9 @@ def parse_rows(cfg: EppConfig, rows: list[dict], *, retrieved_at: datetime) -> t
             prov["portal_inventory_type"] = _text(row.get("inventoryType"))      # the source's own wording
         if coords:
             prov["coordinates"] = "the portal's own latitude / longitude for the parcel"
+        elif shared_point:
+            prov["coordinates"] = (f"not stored: the portal publishes the same point for {SHARED_POINT_MIN} or more "
+                                   "different parcels in this read (a shared placeholder, not this parcel's location)")
         purchase_url, purchase_kind = cfg.purchase_url, cfg.purchase_url_kind
         page = cfg.property_page.url_for(pid) if cfg.property_page else None
         if page:

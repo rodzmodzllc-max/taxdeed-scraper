@@ -228,7 +228,7 @@ SC_OCONEE = TabularConfig(
                       amount=("total tax due",)),
     amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, header_required=("map number",),
     empty_patterns=(r"tax sale is scheduled for",),
-    list_url="https://oconeesc.com/delinquent-tax/sale-list", columns_verified=True,
+    list_url="https://oconeesc.com/delinquent-tax/sale-list", columns_verified=True, data_cells_expected=True,
     notes="'If there are no bids, the property will be considered purchased by the county's Forfeited Land Commission for the "
           "amount of taxes, penalties, and costs owed' (Tax Sale Information page). Total Tax Due is kept as published.")
 

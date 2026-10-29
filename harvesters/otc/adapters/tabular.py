@@ -47,6 +47,10 @@ class ColumnMap:
     land_use: tuple[str, ...] = ()          # the source's own property type wording (AVAILABLE expansion)
 
 
+# Fields that identify a row (or filter it) rather than describe it.
+IDENTITY_FIELDS = frozenset({"case_no", "parcel", "status"})
+
+
 @dataclass(frozen=True)
 class TabularConfig:
     source_id: str
@@ -63,6 +67,11 @@ class TabularConfig:
     # Every row of this table is a PAST sale listing (e.g. a "Previous Sales" table):
     # the record is closed; a result is stored only where a price column publishes one.
     past_listing: bool = False
+    # Audit B10 (2026-10-29): a list whose every row normally carries its data
+    # cells. A row published with only its identifier is marked
+    # `identity_only_row` and the runner reads the list INCOMPLETE. Off by
+    # default: several lists publish legitimately sparse rows (Oceana MI).
+    data_cells_expected: bool = False
     # Regex with one group capturing a date in the DOCUMENT NAME/TITLE,
     # e.g. r"(\d{1,2}\.\d{1,2}\.\d{2,4})" for "6.2.2026_Resale_List.pdf".
     list_as_of_pattern: str | None = None
@@ -223,6 +232,12 @@ class TabularListAdapter:
         self.label_as_of: date | None = None
         self._row_links: list[dict[str, str]] = []
         self.rejected_ids = 0
+        # Rows carrying only their identifier while the list's header names
+        # data columns (audit B10, 2026-10-29: Oconee SC published 213 of its
+        # 562 rows with Owner / Description / Total Tax Due blank while the
+        # county was updating the list). Counted; the runner reads such a
+        # list INCOMPLETE and the sync never lets those blanks erase values.
+        self.identity_only_rows = 0
         self.excluded_status = 0
 
     def field_for(self, label: str) -> tuple[str, ...] | None:
@@ -310,6 +325,7 @@ class TabularListAdapter:
                                or any(re.search(p, only, re.I) for p in self.cfg.empty_patterns)):
             self.empty_statement = True
             return []
+        data_fields = {f for fs in fields if fs for f in fs} - IDENTITY_FIELDS
         out: list[OtcRecord] = []
         for raw, row_links in zip(body, links + [{}] * (len(body) - len(links))):
             values: dict[str, str] = {}
@@ -346,6 +362,9 @@ class TabularListAdapter:
                 "columns": {f: True for f in values},
                 "amount": (f"column {self.cfg.columns.amount[0]!r} = {kind.value}" if amount is not None else "no amount column value"),
             }
+            if self.cfg.data_cells_expected and data_fields and not (set(values) & data_fields):
+                self.identity_only_rows += 1
+                prov["identity_only_row"] = True
             if as_of:
                 prov["list_as_of"] = f"parsed from document name {document_name!r}"
             elif self.label_as_of:

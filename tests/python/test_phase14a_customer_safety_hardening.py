@@ -311,10 +311,11 @@ def test_H_texas_job_runs_daily_in_the_0737_run_and_on_dispatch():
     next_job_start = workflow.index("\n  backup:", texas_block_start)
     texas_block = workflow[texas_block_start:next_job_start]
     if_line = next(line for line in texas_block.splitlines() if line.strip().startswith("if:"))
+    # Audit B25 (2026-10-29): wrapped by the schedule guard.
     assert if_line.strip() == (
-        "if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || "
+        "if: ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || "
         "github.event.inputs.job == 'texas' || github.event.inputs.job == '')) || "
-        "github.event.schedule == '37 11 * * *'"
+        "github.event.schedule == '37 11 * * *') && !contains(needs.schedule_guard.outputs.covered, 'texas') }}"
     )
     assert "cron: '37 11 * * *'" in workflow
 
