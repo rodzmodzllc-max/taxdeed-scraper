@@ -115,6 +115,17 @@ def build_index(repo: Path = REPO) -> list[Target]:
                     if n:
                         out.append(Target((r.get("source_id") or "").strip(), (r.get("state") or "").strip().upper(),
                                           _county(r.get("county")), *n))
+    # Buyer's Guide pages (scripts/capture_buyers_guide.py): every official
+    # page an answer cites belongs to that state's guide source,
+    # buyers_guide_<state>, so its discover permission is what allows the read.
+    bg = repo / "data" / "buyers_guide_answers.csv"
+    if bg.is_file():
+        with bg.open(newline="", encoding="utf-8") as fh:
+            for r in csv.DictReader(fh):
+                st = (r.get("state") or "").strip().upper()
+                n = _norm(r.get("source_url") or "")
+                if n and st:
+                    out.append(Target(f"buyers_guide_{st.lower()}", st, _county(r.get("county")), *n))
     try:
         import sys
         if str(repo) not in sys.path:

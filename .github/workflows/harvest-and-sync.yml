@@ -268,7 +268,10 @@ on:
         default: ''
       evidence_scope:
         description: >-
-          (job=evidence only) "pioneer_statements" = where Pioneer
+          (job=evidence only) "buyers_guide" = read the official page every
+          researched Buyer's Guide answer cites and check its quote is there
+          (scripts/capture_buyers_guide.py; one line per answer, no page text;
+          evidence_counties = optional comma-separated state codes). "pioneer_statements" = where Pioneer
           TaxSmartWeb clerks publish the per-case Lands Available purchase
           statement, structure and label shapes only. "available" = the AVAILABLE purchase-process
           capture (default). "auction_results" = skip it and read only the
@@ -319,7 +322,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, realauction_labels, fl_certificate_sources, taxsys_check, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging, tx_realauction, tx_vendors, county_sources, county_certificates, new_sources_validate, tx_parcels]
+        options: [available, buyers_guide, realauction_labels, fl_certificate_sources, taxsys_check, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging, tx_realauction, tx_vendors, county_sources, county_certificates, new_sources_validate, tx_parcels]
 
 concurrency:
   # Evidence captures (job=evidence) are read-only and never write to the
@@ -1725,6 +1728,17 @@ jobs:
           RA_DATES: ${{ github.event.inputs.evidence_realauction_dates }}
           SCOPE: ${{ github.event.inputs.evidence_scope }}
         run: |
+          if [ "$SCOPE" = "buyers_guide" ]; then
+            # 2026-10-29 (owner request): confirm each Buyer's Guide quote on the
+            # official page it cites. Prints BGCAP lines only (answer key, quote
+            # hash, result, HTTP status) - recorded with
+            # scripts/record_buyers_guide_captures.py. No database credential.
+            sargs=""
+            IFS=',' read -ra ss <<< "$COUNTIES"
+            for s in "${ss[@]}"; do s="$(echo "$s" | xargs)"; [ -n "$s" ] && sargs="$sargs --state $s"; done
+            python3 scripts/capture_buyers_guide.py $sargs
+            exit 0
+          fi
           if [ "$SCOPE" = "tx_parcels" ]; then
             # 2026-10-27: reachability of the Texas parcel enrichment sources from a
             # runner (TxGIO StratMap county shapefiles, the HCAD layer). Record

@@ -3,6 +3,240 @@
  "entries": [
   {
    "call_sites": [
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-29",
+   "evidence_date": "2026-10-29",
+   "evidence_ref": "data/buyers_guide_answers.csv; docs/buyers-guide.md (owner request 2026-10-29: build the Buyer's Guide from official pages read by a capture job)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "CO",
+   "operation": "discover",
+   "reviewer": "product owner (request 2026-10-29: Buyer's Guide capture of official pages)",
+   "source_id": "buyers_guide_co",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-29",
+   "evidence_date": "2026-10-29",
+   "evidence_ref": "data/buyers_guide_answers.csv; docs/buyers-guide.md (owner request 2026-10-29: build the Buyer's Guide from official pages read by a capture job)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "FL",
+   "operation": "discover",
+   "reviewer": "product owner (request 2026-10-29: Buyer's Guide capture of official pages)",
+   "source_id": "buyers_guide_fl",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-29",
+   "evidence_date": "2026-10-29",
+   "evidence_ref": "data/buyers_guide_answers.csv; docs/buyers-guide.md (owner request 2026-10-29: build the Buyer's Guide from official pages read by a capture job)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "LA",
+   "operation": "discover",
+   "reviewer": "product owner (request 2026-10-29: Buyer's Guide capture of official pages)",
+   "source_id": "buyers_guide_la",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-29",
+   "evidence_date": "2026-10-29",
+   "evidence_ref": "data/buyers_guide_answers.csv; docs/buyers-guide.md (owner request 2026-10-29: build the Buyer's Guide from official pages read by a capture job)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "discover",
+   "reviewer": "product owner (request 2026-10-29: Buyer's Guide capture of official pages)",
+   "source_id": "buyers_guide_mi",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-29",
+   "evidence_date": "2026-10-29",
+   "evidence_ref": "data/buyers_guide_answers.csv; docs/buyers-guide.md (owner request 2026-10-29: build the Buyer's Guide from official pages read by a capture job)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "discover",
+   "reviewer": "product owner (request 2026-10-29: Buyer's Guide capture of official pages)",
+   "source_id": "buyers_guide_mn",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-29",
+   "evidence_date": "2026-10-29",
+   "evidence_ref": "data/buyers_guide_answers.csv; docs/buyers-guide.md (owner request 2026-10-29: build the Buyer's Guide from official pages read by a capture job)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MO",
+   "operation": "discover",
+   "reviewer": "product owner (request 2026-10-29: Buyer's Guide capture of official pages)",
+   "source_id": "buyers_guide_mo",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-29",
+   "evidence_date": "2026-10-29",
+   "evidence_ref": "data/buyers_guide_answers.csv; docs/buyers-guide.md (owner request 2026-10-29: build the Buyer's Guide from official pages read by a capture job)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "OK",
+   "operation": "discover",
+   "reviewer": "product owner (request 2026-10-29: Buyer's Guide capture of official pages)",
+   "source_id": "buyers_guide_ok",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-29",
+   "evidence_date": "2026-10-29",
+   "evidence_ref": "data/buyers_guide_answers.csv; docs/buyers-guide.md (owner request 2026-10-29: build the Buyer's Guide from official pages read by a capture job)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "PA",
+   "operation": "discover",
+   "reviewer": "product owner (request 2026-10-29: Buyer's Guide capture of official pages)",
+   "source_id": "buyers_guide_pa",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-29",
+   "evidence_date": "2026-10-29",
+   "evidence_ref": "data/buyers_guide_answers.csv; docs/buyers-guide.md (owner request 2026-10-29: build the Buyer's Guide from official pages read by a capture job)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "discover",
+   "reviewer": "product owner (request 2026-10-29: Buyer's Guide capture of official pages)",
+   "source_id": "buyers_guide_sc",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-29",
+   "evidence_date": "2026-10-29",
+   "evidence_ref": "data/buyers_guide_answers.csv; docs/buyers-guide.md (owner request 2026-10-29: build the Buyer's Guide from official pages read by a capture job)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TN",
+   "operation": "discover",
+   "reviewer": "product owner (request 2026-10-29: Buyer's Guide capture of official pages)",
+   "source_id": "buyers_guide_tn",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-29",
+   "evidence_date": "2026-10-29",
+   "evidence_ref": "data/buyers_guide_answers.csv; docs/buyers-guide.md (owner request 2026-10-29: build the Buyer's Guide from official pages read by a capture job)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TX",
+   "operation": "discover",
+   "reviewer": "product owner (request 2026-10-29: Buyer's Guide capture of official pages)",
+   "source_id": "buyers_guide_tx",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-29",
+   "evidence_date": "2026-10-29",
+   "evidence_ref": "data/buyers_guide_answers.csv; docs/buyers-guide.md (owner request 2026-10-29: build the Buyer's Guide from official pages read by a capture job)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "WI",
+   "operation": "discover",
+   "reviewer": "product owner (request 2026-10-29: Buyer's Guide capture of official pages)",
+   "source_id": "buyers_guide_wi",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-29",
+   "evidence_date": "2026-10-29",
+   "evidence_ref": "data/buyers_guide_answers.csv; docs/buyers-guide.md (owner request 2026-10-29: build the Buyer's Guide from official pages read by a capture job)",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "WY",
+   "operation": "discover",
+   "reviewer": "product owner (request 2026-10-29: Buyer's Guide capture of official pages)",
+   "source_id": "buyers_guide_wy",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
     "scripts/geocode_properties.py"
    ],
    "conditions": [],
@@ -7522,12 +7756,12 @@
  "interim_max_days": 210,
  "summary": {
   "by_expiry": {
-   "2027-04-12": 371
+   "2027-04-12": 384
   },
   "by_finding": {
    "REVIEWER_IS_NOT_A_DECISION": 77
   },
-  "records": 371,
-  "sources": 96
+  "records": 384,
+  "sources": 109
  }
 }

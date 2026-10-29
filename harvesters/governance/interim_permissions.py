@@ -66,6 +66,10 @@ def _class_gates(source_id: str, repo: Path) -> list[str]:
                 # discover-only candidates: every request is checked by URL against the record
                 gates.append("harvesters/governance/discovery_guard.py (discover, by URL)")
                 break
+    if source_id.startswith("buyers_guide_"):
+        # The Buyer's Guide capture: every page an answer cites maps to its state's
+        # guide source and is checked by URL before the request.
+        gates.append("harvesters/governance/discovery_guard.py (discover, by URL)")
     if source_id.startswith("fl_laft_") or source_id == "la_ebr_adjudicated":
         gates.append("scripts/laft_lifecycle.py (apply_store_permission)")
     try:
