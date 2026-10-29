@@ -5271,6 +5271,439 @@
     }
    }
   },
+  "LA": {
+   "statewide": {
+    "ALL": [
+     {
+      "topic": "due_diligence",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://legis.la.gov/legis/LawSearch.aspx",
+      "source_title": "Louisiana Laws - Louisiana State Legislature",
+      "note": "No statutory buyer-diligence instruction was found in the sections read (R.S. 47:2121 et seq.).",
+      "question": "What does the law or the county tell buyers to check before buying?",
+      "order": 200
+     }
+    ],
+    "AUCTIONS": [
+     {
+      "topic": "sale_overview",
+      "answer": "The tax collector advertises the tax lien for sale by public auction and issues a tax lien certificate in favor of the winning bidder, recorded in the mortgage records.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "the tax collector will advertise for sale by public auction the tax lien and that the tax collector will issue in favor of the winning bidder and record in the mortgage records a tax lien certificate.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631545",
+      "source_title": "Louisiana State Legislature - RS 47:2153",
+      "citation": "La. R.S. 47:2153",
+      "verified_on": "2026-10-29",
+      "note": "Louisiana replaced tax sales with tax lien auctions by Acts 2024, No. 774 (and Acts 2025, No. 411), effective 2026-01-01; Const. Art. VII, Sec. 25 was amended by Acts 2024, No. 409, eff. 2026-01-01. Sales before 2026-01-01 follow the law in effect on 2025-12-31 (R.S. 47:2241.1).",
+      "question": "What is sold at a tax sale here and who holds it?",
+      "order": 10
+     },
+     {
+      "topic": "sale_schedule",
+      "answer": "The tax collector advertises the tax lien auction on or before May 1 of the year after the taxes were assessed, or as soon as possible after that. Bidding is held on weekdays, opening no earlier than 8:00 a.m. and closing no later than 8:00 p.m.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The tax collector shall advertise for sale by public auction the tax lien on or before May first of the year following the year in which the taxes were assessed, or as soon thereafter as possible. ... The tax lien auction shall be conducted on any weekday, with bidding opening not earlier than 8:00 a.m. and closing no later than 8:00 p.m.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631549",
+      "source_title": "Louisiana State Legislature - RS 47:2154",
+      "citation": "La. R.S. 47:2154",
+      "verified_on": "2026-10-29",
+      "question": "When are tax sales held?",
+      "order": 20
+     },
+     {
+      "topic": "bidding_platform",
+      "answer": "The law allows a tax lien auction to be held online or electronically over several days; bids placed before the auction opens are void.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "If a tax lien auction is conducted by using an online or electronic bidding process that is conducted over the course of multiple days, bids may be placed on any day at any time on any tax lien upon which bidding has not closed, provided that all bidding closes on a weekday within the hours prescribed in this Subsection. Any bid received prior to the opening of the auction shall be null and void.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631549",
+      "source_title": "Louisiana State Legislature - RS 47:2154",
+      "citation": "La. R.S. 47:2154",
+      "verified_on": "2026-10-29",
+      "question": "Where do I bid - online or in person?",
+      "order": 30
+     },
+     {
+      "topic": "registration",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631545",
+      "source_title": "Louisiana State Legislature - RS 47:2153",
+      "note": "State law refers to registered tax lien auction participants but does not set a registration procedure; check the parish tax collector.",
+      "question": "How do I register to bid?",
+      "order": 40
+     },
+     {
+      "topic": "deposit",
+      "answer": "The tax collector may require registered participants to pay a deposit of up to $1,000 before the auction. A winner's deposit is applied to the price; other bidders' deposits are returned within 14 days after the auction closes.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The tax collector may require all registered tax lien auction participants to provide a deposit, not to exceed one thousand dollars, prior to the commencement of the tax lien auction. If a deposit is required, the deposit of the winning bidder shall be applied toward the sale price at the time of purchase. A deposit from a nonwinning bidder shall be returned or refunded to the depositor no later than fourteen days after the close of the auction.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631545",
+      "source_title": "Louisiana State Legislature - RS 47:2153",
+      "citation": "La. R.S. 47:2153",
+      "verified_on": "2026-10-29",
+      "question": "Is a deposit required and how much?",
+      "order": 50
+     },
+     {
+      "topic": "opening_bid",
+      "answer": "The auction price is the face value of the tax lien certificate. Bidders compete on the monthly interest rate, starting from a maximum of 1% per month and bidding down in steps of 0.1%; no bid below 0.7% per month is accepted.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The auction price shall be the face value of the tax lien certificate. ... Subject to a maximum bid of one percent per month, bidders may submit bids reducing the monthly interest rate in increments of one-tenth of one percent or an integral multiple thereof. ... no bid shall be accepted that purports to reduce the rate of monthly interest below seven-tenths of one percent.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631549",
+      "source_title": "Louisiana State Legislature - RS 47:2154",
+      "citation": "La. R.S. 47:2154",
+      "verified_on": "2026-10-29",
+      "question": "What makes up the opening or minimum bid?",
+      "order": 60
+     },
+     {
+      "topic": "payment_deadline",
+      "answer": "The statutory advertisement says the sale is for cash or another payment method the tax collector accepts. The law quoted does not state a payment deadline.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "At the auction, I will sell the tax lien to the winning bidder. The sale will be for cash or other payment method acceptable to the tax collector, in legal tender money of the United States.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631545",
+      "source_title": "Louisiana State Legislature - RS 47:2153",
+      "citation": "La. R.S. 47:2153",
+      "verified_on": "2026-10-29",
+      "question": "When and how must the winning bidder pay?",
+      "order": 70
+     },
+     {
+      "topic": "costs_added",
+      "answer": "The clerk of court's recording cost is included in the price paid at the auction and in the face value of the certificate.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The recording cost due to the clerk of court shall be included in the price paid at the tax lien auction and the face value of the tax lien certificate.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631549",
+      "source_title": "Louisiana State Legislature - RS 47:2154",
+      "citation": "La. R.S. 47:2154",
+      "verified_on": "2026-10-29",
+      "question": "What costs are added on top of the winning bid?",
+      "order": 80
+     },
+     {
+      "topic": "redemption_after_sale",
+      "answer": "Anyone may extinguish the tax lien by paying the termination price to the tax collector until close of business on the 30th day after the last party is served in the certificate holder's enforcement suit.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "Until close of business on the thirtieth day following the date on which the last party was served, or the next day that is not a legal holiday if the thirtieth day is a legal holiday, any person may cause the tax lien to be extinguished by delivering the termination price to the tax collector.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=1388659",
+      "source_title": "Louisiana State Legislature - RS 47:2266.1",
+      "citation": "La. R.S. 47:2266.1",
+      "verified_on": "2026-10-29",
+      "question": "Can the former owner redeem after the sale?",
+      "order": 90
+     },
+     {
+      "topic": "deed_type",
+      "answer": "After the later of three years from recording the tax lien certificate or six months after the required post-auction notices, a certificate holder may sue to have the delinquent obligation and the lien recognized.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "Upon the expiration of the later of three years from recordation of the tax lien certificate, or the tax sale certificate if R.S. 47:2201(B) is applicable, or six months after providing the notices required by R.S. 47:2156, a certificate holder may, by verified petition, institute in a court of competent jurisdiction",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=1388659",
+      "source_title": "Louisiana State Legislature - RS 47:2266.1",
+      "citation": "La. R.S. 47:2266.1",
+      "verified_on": "2026-10-29",
+      "note": "The winning bidder receives a tax lien certificate, not a deed (R.S. 47:2154(E)); property passes only through the judicial sale in R.S. 47:2267, executed by the sheriff. Louisiana replaced tax sales with tax lien auctions by Acts 2024, No. 774 (and Acts 2025, No. 411), effective 2026-01-01; Const. Art. VII, Sec. 25 was amended by Acts 2024, No. 409, eff. 2026-01-01. Sales before 2026-01-01 follow the law in effect on 2025-12-31 (R.S. 47:2241.1).",
+      "question": "What kind of deed or title does the buyer receive?",
+      "order": 100
+     },
+     {
+      "topic": "surviving_liens",
+      "answer": "A judicial sale to enforce the tax lien ends all interests in the property, except rights created by certain written instruments listed in the statute that were filed before the tax lien certificate was recorded.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "a judicial sale pursuant to R.S. 47:2267 shall terminate all interests in the immovable property. B. The rights and obligations established or created by the following written instruments affecting immovable property shall not be terminated pursuant to this Chapter to the extent the interests remain effective against third persons and are filed with the appropriate recorder prior to the recordation of the tax lien certificate:",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=1388662",
+      "source_title": "Louisiana State Legislature - RS 47:2268",
+      "citation": "La. R.S. 47:2268",
+      "verified_on": "2026-10-29",
+      "question": "Which liens or interests survive the sale?",
+      "order": 110
+     },
+     {
+      "topic": "unsold_property",
+      "answer": "If no one bids, the tax collector issues and records the tax lien certificate in favor of the political subdivision.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "If there is no bidder, the tax collector shall issue and record the tax lien certificate in favor of the political subdivision.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631549",
+      "source_title": "Louisiana State Legislature - RS 47:2154",
+      "citation": "La. R.S. 47:2154",
+      "verified_on": "2026-10-29",
+      "question": "What happens to property that does not sell?",
+      "order": 120
+     }
+    ],
+    "AVAILABLE": [
+     {
+      "topic": "available_overview",
+      "answer": "Adjudicated property is property whose tax sale title a political subdivision acquired under R.S. 47:2196 before January 1, 2026.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "\"Adjudicated property\" means property of which tax sale title is acquired by a political subdivision pursuant to R.S. 47:2196 prior to January 1, 2026.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631506",
+      "source_title": "Louisiana State Legislature - RS 47:2122",
+      "citation": "La. R.S. 47:2122",
+      "verified_on": "2026-10-29",
+      "note": "Sales authority: R.S. 47:2201(A)(1). Louisiana replaced tax sales with tax lien auctions by Acts 2024, No. 774 (and Acts 2025, No. 411), effective 2026-01-01; Const. Art. VII, Sec. 25 was amended by Acts 2024, No. 409, eff. 2026-01-01. Sales before 2026-01-01 follow the law in effect on 2025-12-31 (R.S. 47:2241.1).",
+      "question": "What is this list and why is the property available?",
+      "order": 10
+     },
+     {
+      "topic": "how_to_buy",
+      "answer": "Any person may start the public sale of adjudicated property by making a written request to the political subdivision and depositing the amount it sets to cover the sale's expenses, including advertising and appraisals.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "any person may initiate the public sale of adjudicated property or property subject to a tax lien certificate held by a political subdivision by making a written request to the political subdivision and depositing an amount determined by the political subdivision to be sufficient to cover the expenses of the sale, including advertising, appraisals, and other costs associated with the sale.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631578",
+      "source_title": "Louisiana State Legislature - RS 47:2203",
+      "citation": "La. R.S. 47:2203",
+      "verified_on": "2026-10-29",
+      "question": "How do I buy a property from this list?",
+      "order": 20
+     },
+     {
+      "topic": "price_basis",
+      "answer": "The political subdivision may sell to the highest bidder without a minimum bid or appraisal. If it sets a dollar minimum bid, that minimum must be at least the statutory impositions, governmental liens and costs of sale.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The governing authority of each political subdivision may elect to sell adjudicated property at a public sale to the highest bidder without setting a minimum bid or requiring an appraisal. (2) If the governing authority elects to set a dollar amount as a minimum bid for the public sale of adjudicated property, the minimum bid shall be no less than the total amount of statutory impositions, governmental liens, and costs of sale.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631577",
+      "source_title": "Louisiana State Legislature - RS 47:2202",
+      "citation": "La. R.S. 47:2202",
+      "verified_on": "2026-10-29",
+      "question": "How is the price set?",
+      "order": 30
+     },
+     {
+      "topic": "costs_added",
+      "answer": "The buyer files the act of sale or donation and pays all filing fees.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "A transferee of immovable property in accordance with this Subpart shall be responsible for filing the act of sale or donation and payment of all filing fees.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631582",
+      "source_title": "Louisiana State Legislature - RS 47:2207",
+      "citation": "La. R.S. 47:2207",
+      "verified_on": "2026-10-29",
+      "question": "What costs are added to the price?",
+      "order": 40
+     },
+     {
+      "topic": "documents_required",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631578",
+      "source_title": "Louisiana State Legislature - RS 47:2203",
+      "note": "State law sets no form; the political subdivision's ordinance governs (R.S. 47:2201, 2204).",
+      "question": "What forms or documents are required?",
+      "order": 50
+     },
+     {
+      "topic": "payment",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631582",
+      "source_title": "Louisiana State Legislature - RS 47:2207",
+      "note": "No statewide payment rule found; the political subdivision's ordinance governs.",
+      "question": "How and when do I pay?",
+      "order": 60
+     },
+     {
+      "topic": "deed_type",
+      "answer": "The political subdivision's only warranty is against eviction resulting from its own prior sale; otherwise the sale is without any warranty, even as to return or reduction of the price.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The only warranty owed by the political subdivision shall be a warranty against eviction resulting from a prior alienation by the political subdivision. Otherwise, all sales and donations shall be without warranty, either expressed or implied, even as to return or reduction of the purchase price",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631582",
+      "source_title": "Louisiana State Legislature - RS 47:2207",
+      "citation": "La. R.S. 47:2207",
+      "verified_on": "2026-10-29",
+      "question": "What kind of deed or title does the buyer receive?",
+      "order": 70
+     },
+     {
+      "topic": "time_limit",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631774",
+      "source_title": "Louisiana State Legislature - RS 47:2201",
+      "note": "No statutory time limit on how long adjudicated property stays available was found.",
+      "question": "How long does a property stay available?",
+      "order": 80
+     }
+    ],
+    "LIENS_CERTIFICATES": [
+     {
+      "topic": "lien_overview",
+      "answer": "At the tax lien auction the winning bidder receives a tax lien certificate, recorded in the parish mortgage records, which is prima facie evidence of the lien and its assignment to the holder.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "No later than thirty days after conclusion of the tax lien auction, the tax collector shall issue and file in the mortgage records of the parish in which the property is situated a tax lien certificate in favor of the winning bidder. ... The tax lien certificate shall be prima facie evidence of the validity of the tax lien and the assignment to the person named thereon.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631549",
+      "source_title": "Louisiana State Legislature - RS 47:2154",
+      "citation": "La. R.S. 47:2154",
+      "verified_on": "2026-10-29",
+      "note": "Louisiana replaced tax sales with tax lien auctions by Acts 2024, No. 774 (and Acts 2025, No. 411), effective 2026-01-01; Const. Art. VII, Sec. 25 was amended by Acts 2024, No. 409, eff. 2026-01-01. Sales before 2026-01-01 follow the law in effect on 2025-12-31 (R.S. 47:2241.1).",
+      "question": "What is a tax lien or certificate here?",
+      "order": 10
+     },
+     {
+      "topic": "lien_bidding",
+      "answer": "Bidding is on the monthly interest rate that will accrue on the certificate's face value; the lowest rate wins, and a tie goes to the bidder who bid first.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The subject of the competitive bidding shall be the monthly rate at which interest will accrue on the face value of the tax lien certificate following its issuance. ... The bid that requires the assessment of interest at the lowest rate shall be declared the winner. If multiple bidders submit the same lowest bid, the winner shall be the first in time to submit the bid.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631549",
+      "source_title": "Louisiana State Legislature - RS 47:2154",
+      "citation": "La. R.S. 47:2154",
+      "verified_on": "2026-10-29",
+      "question": "How does bidding work (interest bid-down or premium)?",
+      "order": 20
+     },
+     {
+      "topic": "interest_rate",
+      "answer": "Interest accrues on the certificate's face value at the monthly rate set by the winning bid, or at 1% per month when the political subdivision holds the certificate, in both cases without compounding.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "Upon the issuance of a tax lien certificate, interest shall accrue on the face value of the tax lien certificate at the monthly rate established by the winning bid at the tax lien auction. If the tax lien certificate is issued in favor of the political subdivision, interest shall accrue on the face value of the tax lien certificate at the rate of one percent per month. In both cases, interest shall be calculated on a noncompounding basis.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631549",
+      "source_title": "Louisiana State Legislature - RS 47:2154",
+      "citation": "La. R.S. 47:2154",
+      "verified_on": "2026-10-29",
+      "question": "What interest or penalty does the holder earn?",
+      "order": 30
+     },
+     {
+      "topic": "redemption_period",
+      "answer": "The taxes, interest, penalties and costs may be paid at any time until thirty days after service of a petition to enforce the tax lien.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "the statutory impositions, together with interest, penalties, and costs, may be paid at any time prior to the expiration of thirty days after service of a petition to enforce the tax lien.",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631551",
+      "source_title": "Louisiana State Legislature - RS 47:2155",
+      "citation": "La. R.S. 47:2155",
+      "verified_on": "2026-10-29",
+      "question": "How long does the owner have to redeem?",
+      "order": 40
+     },
+     {
+      "topic": "getting_the_deed",
+      "answer": "A judgment for the certificate holder in an enforcement action under R.S. 47:2266.1 is executed by a writ of fieri facias under the Code of Civil Procedure (a judicial sale).",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "a judgment rendered in favor of the tax lien certificate holder in an action brought pursuant to R.S. 47:2266.1 shall be executed by a writ of fieri facias in accordance with the provisions of Title II of Book IV of the Code of Civil Procedure",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=1388661",
+      "source_title": "Louisiana State Legislature - RS 47:2267",
+      "citation": "La. R.S. 47:2267",
+      "verified_on": "2026-10-29",
+      "question": "How does a holder get the property if it is not redeemed?",
+      "order": 50
+     },
+     {
+      "topic": "certificate_expiry",
+      "answer": "An action to enforce the tax lien must be brought within seven years from recording the tax lien certificate in the parish mortgage records; after that the tax lien is extinguished.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "An action to enforce the tax lien pursuant to R.S. 47:2266.1 shall be brought no later than seven years from the date that the tax lien certificate is recorded in the mortgage records of the parish in which the property is located. Upon the expiration of this time period, the tax lien shall be extinguished",
+      "source_url": "https://legis.la.gov/Legis/Law.aspx?d=631551",
+      "source_title": "Louisiana State Legislature - RS 47:2155",
+      "citation": "La. R.S. 47:2155",
+      "verified_on": "2026-10-29",
+      "question": "When does a certificate or lien expire?",
+      "order": 60
+     }
+    ]
+   },
+   "counties": {
+    "East Baton Rouge": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "Sales of adjudicated property are handled through the Office of the Parish Attorney, telephone (225) 389-3114.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Abandoned adjudicated property sales for the Parish are handled through the Office of the Parish Attorney. Questions concerning the sale process and procedures should be addressed to that office, telephone number (225) 389-3114",
+       "source_url": "https://www.brla.gov/DocumentCenter/View/795/Adjudicated-Memo-PDF",
+       "source_title": "MEMORANDUM - Office of the Parish Attorney, Property Division (purchase of adjudicated property)",
+       "verified_on": "2026-10-29",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AVAILABLE": [
+      {
+       "topic": "how_to_buy",
+       "answer": "First confirm that the property was adjudicated and is still adjudicated to the City-Parish (the City-Parish keeps no list of adjudicated properties), then call the Parish Attorney's Office to confirm it is still available.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "you must first determine that the property in which you are interested has in fact been adjudicated, and is still adjudicated, to the City-Parish. The City-Parish does not maintain a roster/ list/ database of properties that are adjudicated. ... you must call the Parish Attorney's Office so that someone in our office can confirm that the property is still currently available",
+       "source_url": "https://www.brla.gov/DocumentCenter/View/795/Adjudicated-Memo-PDF",
+       "source_title": "MEMORANDUM - Office of the Parish Attorney, Property Division (purchase of adjudicated property)",
+       "verified_on": "2026-10-29",
+       "note": "The Parish Attorney's own page also links an open-data list and CivicSource; the memorandum states the City-Parish keeps no list.",
+       "question": "How do I buy a property from this list?",
+       "order": 20
+      },
+      {
+       "topic": "price_basis",
+       "answer": "Offers need not equal the appraised value or the taxes and public liens; the Metropolitan Council considers those amounts when deciding whether to accept or reject the offer.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Offers do not have to equal or exceed either the appraised value or the amount of taxes and public liens. However, these amounts will be considered by the Metropolitan Council at a regularly scheduled meeting in which it will be determined whether to accept or reject your offer.",
+       "source_url": "https://www.brla.gov/DocumentCenter/View/795/Adjudicated-Memo-PDF",
+       "source_title": "MEMORANDUM - Office of the Parish Attorney, Property Division (purchase of adjudicated property)",
+       "verified_on": "2026-10-29",
+       "question": "How is the price set?",
+       "order": 30
+      },
+      {
+       "topic": "costs_added",
+       "answer": "Advanced costs are at least $500 per property, and some properties have additional costs; this fee is not part of the sale price. The buyer also pays all fees and expenses to record the sale documents.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "This amount will be a MINIMUM of $500. However, each individual property may have additional amounts due for costs. ... This fee is not part of the sales price that is ultimately paid to buy the property. ... You are responsible for all fees and expense to record these documents.",
+       "source_url": "https://www.brla.gov/DocumentCenter/View/795/Adjudicated-Memo-PDF",
+       "source_title": "MEMORANDUM - Office of the Parish Attorney, Property Division (purchase of adjudicated property)",
+       "verified_on": "2026-10-29",
+       "question": "What costs are added to the price?",
+       "order": 40
+      },
+      {
+       "topic": "documents_required",
+       "answer": "To open a file: a completed 'Request to Purchase Adjudicated Property' form, the two-page tax print and current tax bill from the Sheriff, and a certified check or money order for advanced costs for each property, among other items.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "A completed \"Request to Purchase Adjudicated Property\" form . ... A copy of the two page tax print and the current tax bill for that particular property. You will obtain this from the East Baton Rouge Parish Sheriff. ... A certified check or money order for advanced costs for each piece of property you open a file on.",
+       "source_url": "https://www.brla.gov/DocumentCenter/View/795/Adjudicated-Memo-PDF",
+       "source_title": "MEMORANDUM - Office of the Parish Attorney, Property Division (purchase of adjudicated property)",
+       "verified_on": "2026-10-29",
+       "question": "What forms or documents are required?",
+       "order": 50
+      },
+      {
+       "topic": "payment",
+       "answer": "Advanced costs are paid by certified check or money order payable to the City of Baton Rouge (no personal checks or cash). The sale price is paid with certified funds at the closing.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "NO PERSONAL CHECKS OR CASH can be accepted. Checks must be made payable to the \"City of Baton Rouge.\" ... Please note that you will be required to pay the sales price with certified funds at the time of the sale.",
+       "source_url": "https://www.brla.gov/DocumentCenter/View/795/Adjudicated-Memo-PDF",
+       "source_title": "MEMORANDUM - Office of the Parish Attorney, Property Division (purchase of adjudicated property)",
+       "verified_on": "2026-10-29",
+       "question": "How and when do I pay?",
+       "order": 60
+      }
+     ]
+    }
+   }
+  },
   "MI": {
    "statewide": {
     "ALL": [
@@ -10842,6 +11275,844 @@
     }
    }
   },
+  "MO": {
+   "statewide": {
+    "ALL": [
+     {
+      "topic": "due_diligence",
+      "answer": "The purchaser must obtain a title search report from a licensed attorney or licensed title company detailing the ownership and encumbrances on the property.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The purchaser shall obtain a title search report from a licensed attorney or licensed title company detailing the ownership and encumbrances on the property.",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=140.405",
+      "source_title": "Missouri Revisor of Statutes - Section 140.405 RSMo",
+      "citation": "RSMo 140.405",
+      "verified_on": "2026-10-29",
+      "question": "What does the law or the county tell buyers to check before buying?",
+      "order": 200
+     }
+    ],
+    "AUCTIONS": [
+     {
+      "topic": "sale_overview",
+      "answer": "Land on which taxes or special assessments are delinquent is subject to sale to discharge the tax lien, held on the fourth Monday in August each year.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "All lands, lots, mineral rights, and royalty interests on which taxes or special assessments are delinquent and unpaid are subject to sale to discharge the lien for the delinquent and unpaid taxes or unpaid special assessments as provided for in this chapter on the fourth Monday in August of each year.",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=140.150",
+      "source_title": "Missouri Revisor of Statutes - Section 140.150 RSMo",
+      "citation": "RSMo 140.150",
+      "verified_on": "2026-10-29",
+      "note": "Missouri ch. 140 is the general county tax sale law; St. Louis City and Jackson County collect delinquent land taxes under other chapters (ch. 92 / ch. 141), not read for these statewide rows.",
+      "question": "What is sold at a tax sale here and who holds it?",
+      "order": 10
+     },
+     {
+      "topic": "sale_schedule",
+      "answer": "The sale is held on the fourth Monday in August each year, starting at 10 o'clock and continuing day to day until all land is offered.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "will be sold at public auction to discharge the taxes, penalty, interest, and costs due thereon at the time of sale in or adjacent to the courthouse of such county, on the fourth Monday in August next thereafter, commencing at ten o'clock of said day and continuing from day to day thereafter until all are offered.",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=140.170",
+      "source_title": "Missouri Revisor of Statutes - Section 140.170 RSMo",
+      "citation": "RSMo 140.170",
+      "verified_on": "2026-10-29",
+      "note": "Missouri ch. 140 is the general county tax sale law; St. Louis City and Jackson County collect delinquent land taxes under other chapters (ch. 92 / ch. 141), not read for these statewide rows.",
+      "question": "When are tax sales held?",
+      "order": 20
+     },
+     {
+      "topic": "bidding_platform",
+      "answer": "The auction is held in or next to the county courthouse; the collector may also run it at the same time by electronic media, including the internet.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "in or adjacent to the courthouse of such county ... Such auction may also be conducted by electronic media, including the internet, at the same time and at the discretion of the county collector.",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=140.170",
+      "source_title": "Missouri Revisor of Statutes - Section 140.170 RSMo",
+      "citation": "RSMo 140.170",
+      "verified_on": "2026-10-29",
+      "question": "Where do I bid - online or in person?",
+      "order": 30
+     },
+     {
+      "topic": "registration",
+      "answer": "No sale is made to a person who is currently delinquent on taxes on other property and does not sign an affidavit stating such at the time of sale. A nonresident must file a written consent to the jurisdiction of the county's circuit court.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "no sale shall be made to any person or designated agent who: (a) Is currently delinquent on any tax payments on any property, other than a delinquency on the property being offered for sale, and who does not sign an affidavit stating such at the time of sale. ... A nonresident shall file with said collector an agreement in writing consenting to the jurisdiction of the circuit court of the county in which such sale shall be made",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=140.190",
+      "source_title": "Missouri Revisor of Statutes - Section 140.190 RSMo",
+      "citation": "RSMo 140.190",
+      "verified_on": "2026-10-29",
+      "question": "How do I register to bid?",
+      "order": 40
+     },
+     {
+      "topic": "deposit",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=140.190",
+      "source_title": "Missouri Revisor of Statutes - Section 140.190 RSMo",
+      "note": "No statutory deposit requirement was found in ch. 140; check the county collector.",
+      "question": "Is a deposit required and how much?",
+      "order": 50
+     },
+     {
+      "topic": "opening_bid",
+      "answer": "At the first offering, if no one bids a sum equal to the delinquent taxes with interest, penalty and costs, the land is not sold and is offered again at the next sale.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "If at the first offering of sale of any tract of land or lot under the provisions of this law, no person bids therefor a sum equal to the delinquent taxes thereon with interest, penalty and costs",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=140.240",
+      "source_title": "Missouri Revisor of Statutes - Section 140.240 RSMo",
+      "citation": "RSMo 140.240",
+      "verified_on": "2026-10-29",
+      "question": "What makes up the opening or minimum bid?",
+      "order": 60
+     },
+     {
+      "topic": "payment_deadline",
+      "answer": "The purchaser must pay the bid to the collector immediately. A purchaser who fails to pay forfeits a penalty of 25% of the bid, and the land is offered again.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "the purchaser at such sale shall immediately pay the amount of his bid to the collector ... In case the purchaser fails to pay his bid, the land shall be again forthwith offered for sale the same as if no sale had been made, and the purchaser so failing shall forfeit and pay for the use of the distributive county school fund of the county a penalty of twenty-five percent of the amount of his bid",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=140.280",
+      "source_title": "Missouri Revisor of Statutes - Section 140.280 RSMo",
+      "citation": "RSMo 140.280",
+      "verified_on": "2026-10-29",
+      "question": "When and how must the winning bidder pay?",
+      "order": 70
+     },
+     {
+      "topic": "costs_added",
+      "answer": "For each certificate of purchase, the purchaser pays the collector the fee to record the certificate with the county recorder, as part of the cost of the sale.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "For each certificate of purchase issued, as a part of the cost of the sale, the purchaser shall pay to the collector the fee necessary to record such certificate of purchase in the office of the county recorder.",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=140.290",
+      "source_title": "Missouri Revisor of Statutes - Section 140.290 RSMo",
+      "citation": "RSMo 140.290",
+      "verified_on": "2026-10-29",
+      "question": "What costs are added on top of the winning bid?",
+      "order": 80
+     },
+     {
+      "topic": "redemption_after_sale",
+      "answer": "The owner, lienholder, occupant or others with an interest have an absolute right to redeem for one year after the sale, and a defeasible right until the purchaser acquires the deed.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "shall have the absolute right to redeem the same at any time during the one year next ensuing and shall continue to have a defeasible right to redeem the same until such time as the tax sale purchaser acquires the deed",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=140.340",
+      "source_title": "Missouri Revisor of Statutes - Section 140.340 RSMo",
+      "citation": "RSMo 140.340",
+      "verified_on": "2026-10-29",
+      "note": "Third offering: RSMo 140.250.1 (ninety-day redemption); post-third-offering sales: RSMo 140.250.4 (no period of redemption).",
+      "question": "Can the former owner redeem after the sale?",
+      "order": 90
+     },
+     {
+      "topic": "deed_type",
+      "answer": "The collector executes a deed in the name of the state that vests an absolute estate in fee simple, subject to claims for unpaid taxes (other than certain inferior ones).",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The collector of the county in which the sale of such lands took place shall execute to the purchaser or the purchaser's heirs or assigns, in the name of the state, a conveyance of the real estate so sold, which shall vest in the grantee an absolute estate in fee simple, subject, however, to all claims thereon for unpaid taxes",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=140.420",
+      "source_title": "Missouri Revisor of Statutes - Section 140.420 RSMo",
+      "citation": "RSMo 140.420",
+      "verified_on": "2026-10-29",
+      "question": "What kind of deed or title does the buyer receive?",
+      "order": 100
+     },
+     {
+      "topic": "surviving_liens",
+      "answer": "The deed is subject to claims for unpaid taxes, except unpaid taxes whose lien was inferior to the lien for which the land was sold.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "subject, however, to all claims thereon for unpaid taxes except such unpaid taxes, existing at time of the purchase of said lands and the lien for which taxes was inferior to the lien for taxes for which said tract or lot of land was sold",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=140.420",
+      "source_title": "Missouri Revisor of Statutes - Section 140.420 RSMo",
+      "citation": "RSMo 140.420",
+      "verified_on": "2026-10-29",
+      "question": "Which liens or interests survive the sale?",
+      "order": 110
+     },
+     {
+      "topic": "unsold_property",
+      "answer": "If land is not sold at the third offering, the collector advertises or offers it for sale once every thirty days.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "If any lands or lots are not sold at such third offering, then the collector shall advertise or offer such lands or lots for sale once every thirty days.",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=140.250",
+      "source_title": "Missouri Revisor of Statutes - Section 140.250 RSMo",
+      "citation": "RSMo 140.250",
+      "verified_on": "2026-10-29",
+      "question": "What happens to property that does not sell?",
+      "order": 120
+     }
+    ],
+    "AVAILABLE": [
+     {
+      "topic": "available_overview",
+      "answer": "A municipality in a county operating wholly under the Land Tax Collection Law may establish a land bank agency to manage, sell, transfer and dispose of real estate the agency owns.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "Any municipality located wholly or partially within a county electing to operate wholly under the provisions of sections 141.210 to 141.810 may establish a land bank agency for the management, sale, transfer, and other disposition of interests in real estate owned by such land bank agency.",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=141.980",
+      "source_title": "Missouri Revisor of Statutes - Section 141.980 RSMo",
+      "citation": "RSMo 141.980",
+      "verified_on": "2026-10-29",
+      "note": "St. Louis City's Land Reutilization Authority is created under RSMo 92.875 instead (see the St. Louis City rows).",
+      "question": "What is this list and why is the property available?",
+      "order": 10
+     },
+     {
+      "topic": "how_to_buy",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://revisor.mo.gov/main/OneChapter.aspx?chapter=141",
+      "source_title": "Missouri Revisor of Statutes - Chapter 141",
+      "note": "Set by each land bank agency / authority; see the county rows.",
+      "question": "How do I buy a property from this list?",
+      "order": 20
+     },
+     {
+      "topic": "price_basis",
+      "answer": "Each land bank agency's board sets the general terms and conditions for the consideration it receives for transfers in its policies and procedures.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The land bank agency shall determine and set forth in policies and procedures of the board the general terms and conditions for consideration to be received by the land bank agency for the transfer of real property and interests in real property",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=141.985",
+      "source_title": "Missouri Revisor of Statutes - Section 141.985 RSMo",
+      "citation": "RSMo 141.985",
+      "verified_on": "2026-10-29",
+      "question": "How is the price set?",
+      "order": 30
+     },
+     {
+      "topic": "costs_added",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://revisor.mo.gov/main/OneChapter.aspx?chapter=141",
+      "source_title": "Missouri Revisor of Statutes - Chapter 141",
+      "note": "Set by each land bank agency / authority; see the county rows.",
+      "question": "What costs are added to the price?",
+      "order": 40
+     },
+     {
+      "topic": "documents_required",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://revisor.mo.gov/main/OneChapter.aspx?chapter=141",
+      "source_title": "Missouri Revisor of Statutes - Chapter 141",
+      "note": "Set by each land bank agency / authority; see the county rows.",
+      "question": "What forms or documents are required?",
+      "order": 50
+     },
+     {
+      "topic": "payment",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://revisor.mo.gov/main/OneChapter.aspx?chapter=141",
+      "source_title": "Missouri Revisor of Statutes - Chapter 141",
+      "note": "Set by each land bank agency / authority; see the county rows.",
+      "question": "How and when do I pay?",
+      "order": 60
+     },
+     {
+      "topic": "deed_type",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=141.985",
+      "source_title": "Missouri Revisor of Statutes - Section 141.985 RSMo",
+      "note": "No statewide deed form for land bank agencies found; St. Louis LRA deeds: RSMo 92.895 (see county row).",
+      "question": "What kind of deed or title does the buyer receive?",
+      "order": 70
+     },
+     {
+      "topic": "time_limit",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://revisor.mo.gov/main/OneSection.aspx?section=141.985",
+      "source_title": "Missouri Revisor of Statutes - Section 141.985 RSMo",
+      "note": "No statutory time limit found.",
+      "question": "How long does a property stay available?",
+      "order": 80
+     }
+    ]
+   },
+   "counties": {
+    "Jackson": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Kansas City Land Bank's public property site lists phone (816) 513-9020 and e-mail landbank@kcmo.org for questions.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "tenantName: KANSAS CITY LAND BANK supportEmail: landbank@kcmo.org supportPhone: (816) 513-9020",
+       "source_url": "https://public-kclb.epropertyplus.com/landmgmtpub/remote/tenant/getPublicSettings",
+       "source_title": "Kansas City Land Bank - ePropertyPlus public site settings",
+       "verified_on": "2026-10-29",
+       "note": "Read from the Land Bank's ePropertyPlus public site settings. The City's own Land Bank page (kcmo.gov) refused the request (HTTP 403).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AVAILABLE": [
+      {
+       "topic": "how_to_buy",
+       "status": "NOT_VERIFIED",
+       "kind": "PROCEDURE",
+       "source_url": "https://public-kclb.epropertyplus.com/landmgmtpub/app/base/landing",
+       "source_title": "Kansas City Land Bank - property portal",
+       "note": "The Land Bank's policy pages on kcmo.gov refused the request (HTTP 403); the portal shows an 'Apply for this Property' button but no published terms were read.",
+       "question": "How do I buy a property from this list?",
+       "order": 20
+      },
+      {
+       "topic": "price_basis",
+       "status": "NOT_VERIFIED",
+       "kind": "PROCEDURE",
+       "source_url": "https://public-kclb.epropertyplus.com/landmgmtpub/app/base/landing",
+       "source_title": "Kansas City Land Bank - property portal",
+       "note": "The Land Bank's policy pages on kcmo.gov refused the request (HTTP 403); the portal shows an 'Apply for this Property' button but no published terms were read.",
+       "question": "How is the price set?",
+       "order": 30
+      },
+      {
+       "topic": "costs_added",
+       "status": "NOT_VERIFIED",
+       "kind": "PROCEDURE",
+       "source_url": "https://public-kclb.epropertyplus.com/landmgmtpub/app/base/landing",
+       "source_title": "Kansas City Land Bank - property portal",
+       "note": "The Land Bank's policy pages on kcmo.gov refused the request (HTTP 403); the portal shows an 'Apply for this Property' button but no published terms were read.",
+       "question": "What costs are added to the price?",
+       "order": 40
+      },
+      {
+       "topic": "documents_required",
+       "status": "NOT_VERIFIED",
+       "kind": "PROCEDURE",
+       "source_url": "https://public-kclb.epropertyplus.com/landmgmtpub/app/base/landing",
+       "source_title": "Kansas City Land Bank - property portal",
+       "note": "The Land Bank's policy pages on kcmo.gov refused the request (HTTP 403); the portal shows an 'Apply for this Property' button but no published terms were read.",
+       "question": "What forms or documents are required?",
+       "order": 50
+      },
+      {
+       "topic": "payment",
+       "status": "NOT_VERIFIED",
+       "kind": "PROCEDURE",
+       "source_url": "https://public-kclb.epropertyplus.com/landmgmtpub/app/base/landing",
+       "source_title": "Kansas City Land Bank - property portal",
+       "note": "The Land Bank's policy pages on kcmo.gov refused the request (HTTP 403); the portal shows an 'Apply for this Property' button but no published terms were read.",
+       "question": "How and when do I pay?",
+       "order": 60
+      }
+     ]
+    },
+    "St. Louis City": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "For information on LRA-owned properties or how to buy them, call 314.657.3721; the office is open Monday-Friday, 8:30 a.m.-4:30 p.m.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The office is open Monday – Friday from 8:30 A.M. – 4:30 P.M. For information on LRA-owned properties or questions about how to purchase properties call 314.657.3721 .",
+       "source_url": "https://www.lrastl.org/offer-to-purchase",
+       "source_title": "Offer to Purchase - LRA, Land Reutilization Authority",
+       "verified_on": "2026-10-29",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AVAILABLE": [
+      {
+       "topic": "how_to_buy",
+       "answer": "Offers are taken by appointment (except Prop NS Program properties) and, apart from Side Lot and Temporary Use applications, must be made on the LRA Offer Submission Form.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "All offers are taken by appointment. (With the exception of properties offered under the Prop NS Program). ... All offers, excluding the Side Lot and Temporary Use Applications, must be submitted using the Offer Submission Form.",
+       "source_url": "https://www.lrastl.org/offer-to-purchase",
+       "source_title": "Offer to Purchase - LRA, Land Reutilization Authority",
+       "verified_on": "2026-10-29",
+       "note": "The LRA is created under RSMo 92.875 to manage and sell tax-delinquent lands; under RSMo 92.895 it may convey by general or special warranty deed.",
+       "question": "How do I buy a property from this list?",
+       "order": 20
+      },
+      {
+       "topic": "price_basis",
+       "answer": "The LRA price list provides recommended purchase prices for lots and residential buildings; properties listed as 'Appraisal' and commercial/industrial buildings may be sold for no less than 2/3 of their appraised value.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "provides recommended purchase prices for lots and residential buildings. Note that all properties listed as \"Appraisal\" on the Price List, as well as any commercial/industrial buildings, may be sold for no less than 2/3 of their appraised value.",
+       "source_url": "https://www.lrastl.org/s/LRA-Pricing-Policy-Updated-07262023.pdf",
+       "source_title": "LRA Pricing Policy (Land Reutilization Authority, City of St. Louis)",
+       "verified_on": "2026-10-29",
+       "question": "How is the price set?",
+       "order": 30
+      },
+      {
+       "topic": "costs_added",
+       "answer": "The LRA charges a $25 offer processing fee with each offer and a $60 closing/recording fee due at closing in addition to the purchase amount.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Offer Processing Fee $25 Required with any Offer Submission Form and Option Renewal Request. ... Closing / Recording Fee $60 Due at closing, in addition to the purchase amount.",
+       "source_url": "https://www.lrastl.org/s/LRA-Fee-Schedule-32724.pdf",
+       "source_title": "LRA Fee Schedule (Land Reutilization Authority, City of St. Louis)",
+       "verified_on": "2026-10-29",
+       "note": "Fee schedule dated 3.27.24. Also on it: Offer Processing Fee $25; Title Search $175 (residential) / $500 (commercial).",
+       "question": "What costs are added to the price?",
+       "order": 40
+      },
+      {
+       "topic": "documents_required",
+       "answer": "Individuals submit the completed Offer Submission Form, the $25 non-refundable processing fee (cashier's check or money order only), photo ID, the latest tax return or W-2s, two recent pay stubs and proof of financing for 25% of the estimated project cost.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Completed Offer Submission Form Offer processing Fee – $25 NON-REFUNDABLE processing fee must be made by cashier's check or money order only payable to LRA. Credit Cards and Personal/Business Checks are NOT accepted. Offeror Photo ID Most recent tax return OR most recent W-2(s) Two most recent paycheck stubs Proof of financing Demonstrating 25% of your Estimated Project Cost",
+       "source_url": "https://www.lrastl.org/s/SLDCLRAOfferSubmissionCklstv15C.pdf",
+       "source_title": "LRA Offer Submission Checklist (Land Reutilization Authority, City of St. Louis)",
+       "verified_on": "2026-10-29",
+       "question": "What forms or documents are required?",
+       "order": 50
+      },
+      {
+       "topic": "payment",
+       "answer": "An option fee of 10% of the purchase price is due when the option contract is signed, and the $60 closing/recording fee is due at closing in addition to the purchase amount.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Option Fee 10% of purchase price Due at execution of option contract. Closing / Recording Fee $60 Due at closing, in addition to the purchase amount.",
+       "source_url": "https://www.lrastl.org/s/LRA-Fee-Schedule-32724.pdf",
+       "source_title": "LRA Fee Schedule (Land Reutilization Authority, City of St. Louis)",
+       "verified_on": "2026-10-29",
+       "question": "How and when do I pay?",
+       "order": 60
+      }
+     ]
+    }
+   }
+  },
+  "OK": {
+   "statewide": {
+    "ALL": [
+     {
+      "topic": "due_diligence",
+      "answer": "County treasurers must make available to potential buyers at the resale the list of properties on which the Oklahoma Health Care Authority has liens.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The county treasurers shall make the list of properties with the OHCA liens available to potential buyers at the tax resales.",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3129(D)",
+      "verified_on": "2026-10-29",
+      "question": "What does the law or the county tell buyers to check before buying?",
+      "order": 200
+     }
+    ],
+    "AUCTIONS": [
+     {
+      "topic": "sale_overview",
+      "answer": "When real estate taxes have been unpaid for three years or more, the county treasurer advertises and sells the real estate at the annual tax resale for those taxes and all other delinquent taxes, special assessments and costs.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "where taxes are a lien upon real property and have been unpaid for a period of three (3) years or more as of the date such taxes first became due and payable, advertise and sell such real estate for such taxes and all other delinquent taxes, special assessments and costs at the tax resale provided for in Section 3125 of this title",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3105(A)",
+      "verified_on": "2026-10-29",
+      "note": "Oklahoma repealed its tax certificate sale sections in 2008 (Laws 2008, c. 82); 68 O.S. 3105.1 keeps earlier liens under the old law.",
+      "question": "What is sold at a tax sale here and who holds it?",
+      "order": 10
+     },
+     {
+      "topic": "sale_schedule",
+      "answer": "The resale is held on the second Monday of June each year; an online resale starts during normal business hours within the full week of the second Monday of June.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "the county treasurer shall proceed to sell such real estate at resale, which shall be held on the second Monday of June each year in each county or, if conducted through an online auction, shall be started on a date and time set by the county treasurer during normal business hours within the full week of the second Monday of June",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3125",
+      "verified_on": "2026-10-29",
+      "question": "When are tax sales held?",
+      "order": 20
+     },
+     {
+      "topic": "bidding_platform",
+      "answer": "The county treasurer may hold the June resale as an online auction instead of in person.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The county treasurer may choose to hold the June resale through an online auction instead of the in-person process as prescribed in subsection A of this section.",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3129(B)",
+      "verified_on": "2026-10-29",
+      "question": "Where do I bid - online or in person?",
+      "order": 30
+     },
+     {
+      "topic": "registration",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "note": "No statewide registration rule found; see the county treasurer's resale instructions.",
+      "question": "How do I register to bid?",
+      "order": 40
+     },
+     {
+      "topic": "deposit",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "note": "No statewide deposit rule found for the June resale; see the county treasurer's resale instructions.",
+      "question": "Is a deposit required and how much?",
+      "order": 50
+     },
+     {
+      "topic": "opening_bid",
+      "answer": "Property must sell for at least two-thirds of its current assessed value or the total taxes, penalties, interest and costs due, whichever is less.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "All property must be sold for a sum not less than two-thirds (2/3) of the assessed value of such real estate as fixed for the current fiscal year, or for the total amount of taxes, penalties, interest and costs due on such property, whichever is the lesser.",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3129(C)",
+      "verified_on": "2026-10-29",
+      "question": "What makes up the opening or minimum bid?",
+      "order": 60
+     },
+     {
+      "topic": "payment_deadline",
+      "answer": "Property is sold at public auction to the highest bidder for cash or certified funds; online auctions may accept online payments.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The real estate shall be sold at public auction to the highest bidder for cash or certified funds. Online auctions may accept online payments.",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3129(A)",
+      "verified_on": "2026-10-29",
+      "question": "When and how must the winning bidder pay?",
+      "order": 70
+     },
+     {
+      "topic": "costs_added",
+      "answer": "In addition to the bid, the treasurer collects enough to pay the county's expenses of preparing, listing and advertising the property.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The county treasurer shall also charge and collect from the purchaser at such sale an amount in addition to the bid placed on such real estate, sufficient to pay all expenses incurred by the county in preparing, listing and advertising the lot or tract purchased by such bidder",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3131(B)",
+      "verified_on": "2026-10-29",
+      "question": "What costs are added on top of the winning bid?",
+      "order": 80
+     },
+     {
+      "topic": "redemption_after_sale",
+      "answer": "The owner or anyone with a legal or equitable interest may redeem only before the resale auction starts, by paying the original delinquency with interest and costs.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "may redeem the same at any time before the start of the resale auction by paying to the county treasurer the sum which was originally delinquent including interest at the lawful rate",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3113",
+      "verified_on": "2026-10-29",
+      "note": "Disability exception also in 68 O.S. 3131(A).",
+      "question": "Can the former owner redeem after the sale?",
+      "order": 90
+     },
+     {
+      "topic": "deed_type",
+      "answer": "The resale deed vests absolute and perfect title in fee simple, subject to all claims the state may have for taxes or other liens or encumbrances.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "shall vest in the grantee an absolute and perfect title in fee simple to the real estate, subject to all claims which the state may have had on the real estate for taxes or other liens or encumbrances",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3131(A)",
+      "verified_on": "2026-10-29",
+      "note": "Surface rights: 68 O.S. 3119. No action to set aside the deed may begin twelve months after it is filed (3131(A)).",
+      "question": "What kind of deed or title does the buyer receive?",
+      "order": 100
+     },
+     {
+      "topic": "surviving_liens",
+      "answer": "The resale tax deed does not extinguish the mortgage of a mortgagee to whom no notice was sent.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "the resale tax deed shall be ineffective to extinguish any mortgage on said real estate of a mortgagee to whom no notice was sent.",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3127",
+      "verified_on": "2026-10-29",
+      "note": "State claims: 68 O.S. 3131(A); covenants: 68 O.S. 3145.",
+      "question": "Which liens or interests survive the sale?",
+      "order": 110
+     },
+     {
+      "topic": "unsold_property",
+      "answer": "If no bid reaches the required minimum, the county treasurer bids the property off in the name of the county.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "if there is no bid equal to or greater than the sum so required, the county treasurer shall bid off the same in the name of the county.",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3129(C)",
+      "verified_on": "2026-10-29",
+      "question": "What happens to property that does not sell?",
+      "order": 120
+     }
+    ],
+    "AVAILABLE": [
+     {
+      "topic": "available_overview",
+      "answer": "Property the county acquired at the tax resale may be sold by the county treasurer after notice by publication, at a price approved by the board of county commissioners.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "Any property acquired by the county under the provisions of the resale tax laws may be sold by the county treasurer, after notice by publication, at a price as may be approved by the board of county commissioners, the notice to be given after receipt of bid on the property.",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3135(A)",
+      "verified_on": "2026-10-29",
+      "question": "What is this list and why is the property available?",
+      "order": 10
+     },
+     {
+      "topic": "how_to_buy",
+      "answer": "On the date in the published notice, the property is sold to the highest competitive bidder, or to the original bidder if no higher price is offered, subject to the board of county commissioners' approval.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "On the date stated in the notice, the property shall be sold by the county treasurer to the highest competitive bidder, for cash in hand or certified funds, or to the original bidder if there be no higher price offered. The sale in any event shall be subject to the approval of the board of county commissioners in its discretion.",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3135(A)",
+      "verified_on": "2026-10-29",
+      "question": "How do I buy a property from this list?",
+      "order": 20
+     },
+     {
+      "topic": "price_basis",
+      "answer": "At a county auction, a bid below all the ad valorem taxes owed at the original resale is accepted only with the approval of the county commissioners and the county excise board.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "Any bid which is less than all of the real estate ad valorem taxes owed at the time of the original resale shall be accepted only upon approval of the county commissioners and the county excise board.",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3135(B)",
+      "verified_on": "2026-10-29",
+      "question": "How is the price set?",
+      "order": 30
+     },
+     {
+      "topic": "costs_added",
+      "answer": "Advertising and other sale expenses are added to the sale price as a separate charge paid by the purchaser in addition to the bid.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The cost of the advertisement and other expense incident to the sale, as provided by law, shall be apportioned to the respective tracts listed in the sale and shall be added to the sale price of the real estate as a separate and additional charge and shall be paid by the purchaser, in addition to the amount bid upon the real estate.",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3135(A)",
+      "verified_on": "2026-10-29",
+      "question": "What costs are added to the price?",
+      "order": 40
+     },
+     {
+      "topic": "documents_required",
+      "answer": "The State Auditor and Inspector prescribes the form of bid the county treasurers use.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The State Auditor and Inspector shall prescribe, for the use of the several county treasurers, a form of bid and form of report of sale.",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3136",
+      "verified_on": "2026-10-29",
+      "question": "What forms or documents are required?",
+      "order": 50
+     },
+     {
+      "topic": "payment",
+      "answer": "Bidders must pay a deposit before the property is advertised to cover advertising and costs.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "A deposit shall be required of any bidder before advertisement of the property to cover the advertisement and costs.",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3135(A)",
+      "verified_on": "2026-10-29",
+      "question": "How and when do I pay?",
+      "order": 60
+     },
+     {
+      "topic": "deed_type",
+      "answer": "After the commissioners approve the sale, their chair executes a deed conveying title on a form prescribed by the State Auditor and Inspector.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "Upon approval of the sale as hereinbefore provided, the chair of the board of county commissioners shall execute a deed conveying title to the purchaser of the property in as full and ample manner as by law provided on a form prescribed by the State Auditor and Inspector.",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "citation": "68 O.S. 3135(A)",
+      "verified_on": "2026-10-29",
+      "question": "What kind of deed or title does the buyer receive?",
+      "order": 70
+     },
+     {
+      "topic": "time_limit",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://www.oklegislature.gov/OK_Statutes/CompleteTitles/os68.rtf",
+      "source_title": "Oklahoma Statutes - Title 68 (Oklahoma Legislature, complete title)",
+      "note": "No statutory time limit found; the county manages the property until sold (68 O.S. 3134).",
+      "question": "How long does a property stay available?",
+      "order": 80
+     }
+    ]
+   },
+   "counties": {
+    "Oklahoma": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "Questions about buying county property go to the Treasurer's delinquent tax department at (405) 713-1300.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "If you have any questions concerning this process, please call the delinquent tax department at (405) 713-1300.",
+       "source_url": "https://www.oklahomacounty.org/Portals/0/Images/Treasurer/GUIDELINES%20FOR%20PURCHASING%20COUNTY%20OWNED%20PROPERTIES.pdf",
+       "source_title": "Oklahoma County Treasurer - Guidelines for Purchasing County Owned Properties",
+       "verified_on": "2026-10-29",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "sale_schedule",
+       "answer": "The 2026 resale began Monday, June 8, 2026, between 8:00 a.m. and 5:00 p.m., continuing day to day until completed.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Beginning Monday, June 08, 2026, between the hours of 8:00 a.m. and 5:00 p.m. on Monday (Exact time to be determined by County Treasurer) and continuing from day to day thereafter between the hours of 8:00 a. m. and 5:00 p. m., until said sale has been completed according to law.",
+       "source_url": "https://www.oklahomacounty.org/elected-offices/treasurer",
+       "source_title": "Oklahoma County Treasurer",
+       "verified_on": "2026-10-29",
+       "note": "2026 resale instructions; the next resale's dates are not yet published.",
+       "question": "When are tax sales held?",
+       "order": 20
+      },
+      {
+       "topic": "bidding_platform",
+       "answer": "Bidders must follow the sale on the Treasurer's Resale Active List web page.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "IT WILL BE THE BIDDERS RESPONSIBILITY TO FOLLOW ALONG WITH THE SALE FROM THE RESALE ACTIVE LIST ON OUR WEBSITE.",
+       "source_url": "https://www.oklahomacounty.org/elected-offices/treasurer",
+       "source_title": "Oklahoma County Treasurer",
+       "verified_on": "2026-10-29",
+       "question": "Where do I bid - online or in person?",
+       "order": 30
+      },
+      {
+       "topic": "registration",
+       "answer": "Resale bidders must be 18 or older; for 2026 they could pre-register at the County Treasurer's Office from May 14 to June 5.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "ALL RESALE BIDDERS MUST BE 18 YEARS OF AGE OR OLDER, IN ORDER TO BID ON PROPERTY. ... Bidders can pre-register in the County Treasurer's Office May 14 thru June 5, 2026.",
+       "source_url": "https://www.oklahomacounty.org/elected-offices/treasurer",
+       "source_title": "Oklahoma County Treasurer",
+       "verified_on": "2026-10-29",
+       "question": "How do I register to bid?",
+       "order": 40
+      },
+      {
+       "topic": "payment_deadline",
+       "answer": "You must have cash at the time of the sale and cannot leave to get it; money can be placed on trust before 8:00 a.m. on sale day.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "YOU MUST HAVE CASH AT THE TIME OF THE SALE. YOU CAN NOT LEAVE TO GO GET CASH. YOU CAN PUT MONEY ON TRUST BEFORE 8:00 A.M. ON DAY OF SALE.",
+       "source_url": "https://www.oklahomacounty.org/elected-offices/treasurer",
+       "source_title": "Oklahoma County Treasurer",
+       "verified_on": "2026-10-29",
+       "question": "When and how must the winning bidder pay?",
+       "order": 70
+      },
+      {
+       "topic": "costs_added",
+       "answer": "Successful bids include the cost, abstract fee and resale advertising; the Treasurer also collects $10.00 per deed plus a $20.00 filing fee.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "All Successful Bids include the amount bid and any cost, abstract fee, and Resale advertising. ... The Treasurer collect $10.00 for each deed issued and an additional filing fee of $20.00.",
+       "source_url": "https://www.oklahomacounty.org/elected-offices/treasurer",
+       "source_title": "Oklahoma County Treasurer",
+       "verified_on": "2026-10-29",
+       "question": "What costs are added on top of the winning bid?",
+       "order": 80
+      }
+     ],
+     "AVAILABLE": [
+      {
+       "topic": "how_to_buy",
+       "answer": "Complete the County Property Bid Form, print it and present it to the Oklahoma County Treasurer's Office.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "An interested bidder must initiate a bid by completing a bid form by clicking this link, County Property Bid Form. You will need to print the form and present it to the Oklahoma County Treasurer's Office.",
+       "source_url": "https://www.oklahomacounty.org/Portals/0/Images/Treasurer/GUIDELINES%20FOR%20PURCHASING%20COUNTY%20OWNED%20PROPERTIES.pdf",
+       "source_title": "Oklahoma County Treasurer - Guidelines for Purchasing County Owned Properties",
+       "verified_on": "2026-10-29",
+       "question": "How do I buy a property from this list?",
+       "order": 20
+      },
+      {
+       "topic": "price_basis",
+       "answer": "Once the County owns these properties, the public can buy them through a bidding process.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Once the County owns these properties, they can be purchased by the public through a bidding process.",
+       "source_url": "https://www.oklahomacounty.org/elected-offices/treasurer",
+       "source_title": "Oklahoma County Treasurer",
+       "verified_on": "2026-10-29",
+       "question": "How is the price set?",
+       "order": 30
+      },
+      {
+       "topic": "costs_added",
+       "answer": "The Treasurer collects an additional $330.00 in cash for estimated publication cost, treasurer's cost and recording fees.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "We will collect an additional $330.00 in cash for estimated publication cost, treasurer's cost and recording fees.",
+       "source_url": "https://www.oklahomacounty.org/Portals/0/Images/Treasurer/GUIDELINES%20FOR%20PURCHASING%20COUNTY%20OWNED%20PROPERTIES.pdf",
+       "source_title": "Oklahoma County Treasurer - Guidelines for Purchasing County Owned Properties",
+       "verified_on": "2026-10-29",
+       "question": "What costs are added to the price?",
+       "order": 40
+      },
+      {
+       "topic": "documents_required",
+       "answer": "A completed County Property Bid Form.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "An interested bidder must initiate a bid by completing a bid form",
+       "source_url": "https://www.oklahomacounty.org/Portals/0/Images/Treasurer/GUIDELINES%20FOR%20PURCHASING%20COUNTY%20OWNED%20PROPERTIES.pdf",
+       "source_title": "Oklahoma County Treasurer - Guidelines for Purchasing County Owned Properties",
+       "verified_on": "2026-10-29",
+       "question": "What forms or documents are required?",
+       "order": 50
+      },
+      {
+       "topic": "payment",
+       "answer": "Pay the full bid in cash, or 10% in cash and the rest by personal check (proof it cleared is needed before the deed issues); cashier's checks and money orders are also accepted.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Bidder has the option of paying full amount of bid in cash or paying 10% in cash with remaining balance to be paid by personal check (proof the check has cleared must be presented before deed will be issued). We also accept cashiers check or money orders.",
+       "source_url": "https://www.oklahomacounty.org/Portals/0/Images/Treasurer/GUIDELINES%20FOR%20PURCHASING%20COUNTY%20OWNED%20PROPERTIES.pdf",
+       "source_title": "Oklahoma County Treasurer - Guidelines for Purchasing County Owned Properties",
+       "verified_on": "2026-10-29",
+       "question": "How and when do I pay?",
+       "order": 60
+      }
+     ]
+    }
+   }
+  },
   "PA": {
    "statewide": {
     "ALL": [
@@ -11679,6 +12950,347 @@
        "note": "yorkcountysc.gov answered 403 from this sandbox on 2026-10-29.",
        "question": "What costs are added on top of the winning bid?",
        "order": 80
+      }
+     ]
+    }
+   }
+  },
+  "TN": {
+   "statewide": {
+    "ALL": [
+     {
+      "topic": "due_diligence",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "note": "No statutory buyer-diligence instruction found in the source read.",
+      "question": "What does the law or the county tell buyers to check before buying?",
+      "order": 200
+     }
+    ],
+    "AUCTIONS": [
+     {
+      "topic": "sale_overview",
+      "answer": "After a delinquent tax suit ends, the county sells the property at a tax sale ordered by the court for cash, subject to the taxpayer's right of redemption.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "After the conclusion of the delinquent tax suit, the county holds a tax sale to sell property in order to collect delinquent taxes. ... The court shall order the sale of the property for cash, subject to the equity of redemption",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "citation": "T.C.A. 67-5-2501",
+      "verified_on": "2026-10-29",
+      "note": "Read from CTAS (University of Tennessee County Technical Assistance Service), which summarizes and cites the Tennessee Code; the official T.C.A. publisher (LexisNexis) and tn.gov could not be read from this environment.",
+      "question": "What is sold at a tax sale here and who holds it?",
+      "order": 10
+     },
+     {
+      "topic": "sale_schedule",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "note": "Sale dates are set by the court in each county's tax suit; check the county clerk and master / chancery court.",
+      "question": "When are tax sales held?",
+      "order": 20
+     },
+     {
+      "topic": "bidding_platform",
+      "answer": "The sale is held at the place and time given in the notice and must be public and open to all.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The sale must be conducted at the place and time given in the notice or as advertised. The sale should be public and open to all.",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "citation": "T.C.A. 67-5-2502",
+      "verified_on": "2026-10-29",
+      "note": "Read from CTAS (University of Tennessee County Technical Assistance Service), which summarizes and cites the Tennessee Code; the official T.C.A. publisher (LexisNexis) and tn.gov could not be read from this environment.",
+      "question": "Where do I bid - online or in person?",
+      "order": 30
+     },
+     {
+      "topic": "registration",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "note": "Not stated in the source read; set by the court / clerk and master in each county.",
+      "question": "How do I register to bid?",
+      "order": 40
+     },
+     {
+      "topic": "deposit",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "note": "Not stated in the source read.",
+      "question": "Is a deposit required and how much?",
+      "order": 50
+     },
+     {
+      "topic": "opening_bid",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "note": "Not stated in the source read.",
+      "question": "What makes up the opening or minimum bid?",
+      "order": 60
+     },
+     {
+      "topic": "payment_deadline",
+      "answer": "The court orders the sale for cash. The source read does not state a payment deadline.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The court shall order the sale of the property for cash",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "citation": "T.C.A. 67-5-2501",
+      "verified_on": "2026-10-29",
+      "note": "Read from CTAS (University of Tennessee County Technical Assistance Service), which summarizes and cites the Tennessee Code; the official T.C.A. publisher (LexisNexis) and tn.gov could not be read from this environment.",
+      "question": "When and how must the winning bidder pay?",
+      "order": 70
+     },
+     {
+      "topic": "costs_added",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "note": "Not stated in the source read.",
+      "question": "What costs are added on top of the winning bid?",
+      "order": 80
+     },
+     {
+      "topic": "redemption_after_sale",
+      "answer": "Redemption runs from the order confirming the sale: one year if taxes were delinquent five years or less, 180 days if more than five but less than eight years, and 90 days if eight years or more.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "If the period of delinquency is five years or less, the redemption period shall be one year from the entry of the order confirming the sale; If the period of delinquency is more than five years but less than eight years, the redemption period shall be one hundred eighty days from the entry of the order confirming the sale; or If the period of delinquency is eight years or more, the redemption period shall be ninety days",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "citation": "T.C.A. 67-5-2701(a)(1)",
+      "verified_on": "2026-10-29",
+      "note": "Read from CTAS (University of Tennessee County Technical Assistance Service), which summarizes and cites the Tennessee Code; the official T.C.A. publisher (LexisNexis) and tn.gov could not be read from this environment.",
+      "question": "Can the former owner redeem after the sale?",
+      "order": 90
+     },
+     {
+      "topic": "deed_type",
+      "answer": "A tax deed or an order confirming the sale is an assurance of perfect title; it can be invalidated only on grounds set by statute, such as proof that the land was not liable to sale for taxes or that the taxes were paid before the sale.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "A tax deed of conveyance or an order confirming the sale is an assurance of perfect title to the purchaser of such land, and no such conveyance will be invalidated in any court, except by proof that the land was not liable to sale for taxes, or that the taxes for which the land was sold have been paid before the sale",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "citation": "T.C.A. 67-5-2504(b)",
+      "verified_on": "2026-10-29",
+      "note": "Read from CTAS (University of Tennessee County Technical Assistance Service), which summarizes and cites the Tennessee Code; the official T.C.A. publisher (LexisNexis) and tn.gov could not be read from this environment.",
+      "question": "What kind of deed or title does the buyer receive?",
+      "order": 100
+     },
+     {
+      "topic": "surviving_liens",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "note": "Not stated in the source read.",
+      "question": "Which liens or interests survive the sale?",
+      "order": 110
+     },
+     {
+      "topic": "unsold_property",
+      "answer": "The clerk bids the amount due for taxes, penalties, interest and costs if no other bidder offers the same or more.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The clerk should bid in the amount due for taxes, penalties, interest and costs at the sale if no other bidder offers the same or larger bid.",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "citation": "T.C.A. 67-5-2501; 67-5-2506",
+      "verified_on": "2026-10-29",
+      "note": "Read from CTAS (University of Tennessee County Technical Assistance Service), which summarizes and cites the Tennessee Code; the official T.C.A. publisher (LexisNexis) and tn.gov could not be read from this environment.",
+      "question": "What happens to property that does not sell?",
+      "order": 120
+     }
+    ],
+    "AVAILABLE": [
+     {
+      "topic": "available_overview",
+      "answer": "The county mayor takes charge of all parcels the county bought at a delinquent tax sale.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "It is the duty of the county mayor of each county to take charge of all parcels purchased by the county at a delinquent tax sale pursuant to T.C.A..§ 67-5-2501.",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "citation": "T.C.A. 67-5-2507",
+      "verified_on": "2026-10-29",
+      "note": "Rewritten by Public Chapter 967 (2024), effective September 1, 2024. Read from CTAS (University of Tennessee County Technical Assistance Service), which summarizes and cites the Tennessee Code; the official T.C.A. publisher (LexisNexis) and tn.gov could not be read from this environment.",
+      "question": "What is this list and why is the property available?",
+      "order": 10
+     },
+     {
+      "topic": "how_to_buy",
+      "answer": "When someone makes a written offer, the county mayor publishes its details; if within ten days someone files a written offer at least 10% higher, the parcel goes to auction.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "Upon a written offer being made to purchase a parcel the county mayor shall cause to be published a notice of the details of such offer with a description of the parcel. During the ten-day period following the date of such publication, if a person files with the county mayor or the county mayor's designee a written offer to increase the advertised offer by ten percent (10%) or more",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "citation": "T.C.A. 67-5-2507(a)(4)",
+      "verified_on": "2026-10-29",
+      "note": "Read from CTAS (University of Tennessee County Technical Assistance Service), which summarizes and cites the Tennessee Code; the official T.C.A. publisher (LexisNexis) and tn.gov could not be read from this environment.",
+      "question": "How do I buy a property from this list?",
+      "order": 20
+     },
+     {
+      "topic": "price_basis",
+      "answer": "Unless county regulations require otherwise, each parcel is offered with no minimum bid and without needing approval by the county legislative body.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "Unless otherwise required by the regulations adopted by the county legislative body, each parcel must be offered for sale with no minimum bid or approval by the county legislative body required.",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "citation": "T.C.A. 67-5-2507(a)(4)",
+      "verified_on": "2026-10-29",
+      "note": "Read from CTAS (University of Tennessee County Technical Assistance Service), which summarizes and cites the Tennessee Code; the official T.C.A. publisher (LexisNexis) and tn.gov could not be read from this environment.",
+      "question": "How is the price set?",
+      "order": 30
+     },
+     {
+      "topic": "costs_added",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "note": "Not stated in the source read; set by county regulations.",
+      "question": "What costs are added to the price?",
+      "order": 40
+     },
+     {
+      "topic": "documents_required",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "note": "Not stated in the source read; set by county regulations.",
+      "question": "What forms or documents are required?",
+      "order": 50
+     },
+     {
+      "topic": "payment",
+      "answer": "County regulations may allow parcels to be sold on credit and set its terms.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "That parcels may be sold on credit and the terms thereof;",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "citation": "T.C.A. 67-5-2507(a)(1)-(2)",
+      "verified_on": "2026-10-29",
+      "note": "Read from CTAS (University of Tennessee County Technical Assistance Service), which summarizes and cites the Tennessee Code; the official T.C.A. publisher (LexisNexis) and tn.gov could not be read from this environment.",
+      "question": "How and when do I pay?",
+      "order": 60
+     },
+     {
+      "topic": "deed_type",
+      "answer": "The county conveys parcels without warranties, and the county mayor executes the deeds.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "Conveyances of parcels must be made without warranties by the county. Deeds must be executed by the county mayor.",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "citation": "T.C.A. 67-5-2507(c)",
+      "verified_on": "2026-10-29",
+      "note": "Read from CTAS (University of Tennessee County Technical Assistance Service), which summarizes and cites the Tennessee Code; the official T.C.A. publisher (LexisNexis) and tn.gov could not be read from this environment.",
+      "question": "What kind of deed or title does the buyer receive?",
+      "order": 70
+     },
+     {
+      "topic": "time_limit",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://www.ctas.tennessee.edu/node/1584/printable/pdf",
+      "source_title": "CTAS - Collection of Delinquent Real Property Taxes (University of Tennessee County Technical Assistance Service)",
+      "note": "No statutory time limit found in the source read.",
+      "question": "How long does a property stay available?",
+      "order": 80
+     }
+    ]
+   },
+   "counties": {
+    "Shelby": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Shelby County Land Bank's property site lists phone 901-222-1150 and e-mail landbank@shelbycountytn.gov.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "tenantName: Shelby County Land Bank supportEmail: landbank@shelbycountytn.gov supportPhone: 901-222-1150",
+       "source_url": "https://public-sctn.epropertyplus.com/landmgmtpub/remote/tenant/getPublicSettings",
+       "source_title": "Shelby County Land Bank - ePropertyPlus public site (FAQ and disclaimer)",
+       "verified_on": "2026-10-29",
+       "note": "Read from the Land Bank's ePropertyPlus public site settings; the Land Bank's own website (landbank.shelbycountytn.gov) refused the request (HTTP 403).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AVAILABLE": [
+      {
+       "topic": "how_to_buy",
+       "answer": "Properties with an upcoming bid-off are listed on the Land Bank's site for 10 days after they are advertised in the Tri-State Defender or The Daily News; you may apply online to take part in the bid-off.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Please monitor our website for listings of properties for the 10 days after they are advertised in either the Tri-State Defender or The Daily News as required by T.C.A. 67-5-2507. ... You may apply for these properties online to participate in a bid-off for the property.",
+       "source_url": "https://public-sctn.epropertyplus.com/landmgmtpub/remote/tenant/getPublicSettings",
+       "source_title": "Shelby County Land Bank - ePropertyPlus public site (FAQ and disclaimer)",
+       "verified_on": "2026-10-29",
+       "question": "How do I buy a property from this list?",
+       "order": 20
+      },
+      {
+       "topic": "price_basis",
+       "status": "NOT_VERIFIED",
+       "kind": "PROCEDURE",
+       "source_url": "https://public-sctn.epropertyplus.com/landmgmtpub/app/base/landing",
+       "source_title": "Shelby County Land Bank - property portal",
+       "note": "The portal shows an asking price per parcel, but the Land Bank's sales Policy & Procedures documents (landbank.shelbycountytn.gov) could not be read (HTTP 403; the offer packet is a scanned PDF).",
+       "question": "How is the price set?",
+       "order": 30
+      },
+      {
+       "topic": "costs_added",
+       "answer": "The Land Bank's site states an application fee of $70.00, which is not refunded when a saved draft application is submitted after the listed Last Day to Apply.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Any saved draft applications submitted after the listed Last Day to Apply will be rejected, and the application fee of $70.00 will not be refunded.",
+       "source_url": "https://public-sctn.epropertyplus.com/landmgmtpub/remote/tenant/getPublicSettings",
+       "source_title": "Shelby County Land Bank - ePropertyPlus public site (FAQ and disclaimer)",
+       "verified_on": "2026-10-29",
+       "question": "What costs are added to the price?",
+       "order": 40
+      },
+      {
+       "topic": "documents_required",
+       "answer": "A buyer is asked to sign either an Offer to Purchase and Sales Agreement or a Nominal Consideration Conveyance Agreement.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "If you obtain property from the Shelby County Land Bank, you will be asked to sign either an Offer to Purchase and Sales Agreement or a Nominal Consideration Conveyance Agreement.",
+       "source_url": "https://public-sctn.epropertyplus.com/landmgmtpub/remote/tenant/getPublicSettings",
+       "source_title": "Shelby County Land Bank - ePropertyPlus public site (FAQ and disclaimer)",
+       "verified_on": "2026-10-29",
+       "question": "What forms or documents are required?",
+       "order": 50
+      },
+      {
+       "topic": "payment",
+       "status": "NOT_VERIFIED",
+       "kind": "PROCEDURE",
+       "source_url": "https://public-sctn.epropertyplus.com/landmgmtpub/app/base/landing",
+       "source_title": "Shelby County Land Bank - property portal",
+       "note": "Payment terms are in the Land Bank's Policy & Procedures documents, which could not be read (HTTP 403 / scanned PDF).",
+       "question": "How and when do I pay?",
+       "order": 60
       }
      ]
     }
@@ -16348,8 +17960,8 @@
   }
  },
  "counts": {
-  "VERIFIED": 1029,
-  "NOT_VERIFIED": 191,
+  "VERIFIED": 1122,
+  "NOT_VERIFIED": 223,
   "NOT_APPLICABLE": 2
  }
 }
