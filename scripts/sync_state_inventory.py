@@ -490,6 +490,9 @@ def units_for(path: Path) -> dict:
     return LH.ledger_units(_entries(path))
 
 
+STORED_PAGE = 250  # rows per keyset page of the wide stored-row read
+
+
 def stored_provenance(base: str, key: str, state: str, source_ids: set[str], first_seen: dict | None = None,
                       rows_out: dict | None = None, full_out: dict | None = None) -> dict:
     """identity -> the stored field_provenance of this state's rows from
@@ -502,9 +505,12 @@ def stored_provenance(base: str, key: str, state: str, source_ids: set[str], fir
     out: dict = {}
     select = "*" if full_out is not None else ("id,source,county,case_no,field_provenance,first_seen_at,harvester_source,otc_provenance,"
                                                + ",".join(PATH_COLUMNS))
+    # Smaller pages for this wide read (audit B13, 2026-10-29): building the
+    # JSON of 1,000 whole Louisiana rows took 1.2 s with the database quiet
+    # and crossed the 8 s statement timeout (HTTP 500) on loaded runs.
     rows = RP.read_all(base, "properties", _read_headers(key),
                        {"select": select, "state": f"eq.{state}",
-                        "harvester_source": f"in.({','.join(sorted(source_ids))})"})
+                        "harvester_source": f"in.({','.join(sorted(source_ids))})"}, page=STORED_PAGE)
     for r in rows:
         out[identity(r)] = r.get("field_provenance")
         if first_seen is not None:
