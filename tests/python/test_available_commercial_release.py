@@ -258,7 +258,7 @@ def test_e10_committed_registry_alone_establishes_no_path_and_only_captured_evid
         assert path.url in ("", None) or ev.path_type in PE.URL_TYPES
         prov = path.provenance()
         assert prov["purchase_evidence_url"] == ev.evidence_url and prov["purchase_instructions"] == ev.instructions
-        assert prov["purchase_path_observed_on"] == ev.observed_on and ev.observed_on in ("2026-09-30", "2026-10-01")
+        assert prov["purchase_path_observed_on"] == ev.observed_on and ev.observed_on in ("2026-09-30", "2026-10-01", "2026-10-29")  # 10-29: Brevard re-read (audit F84)
     fl_evidence = [k for k, e in evidence.items() if e.state == "FL"]
     assert typed == len(fl_evidence), (typed, len(fl_evidence))                  # every committed FL row is reachable
     # Every path type the table uses is a real, labelled type - the frontend names it.
@@ -427,7 +427,7 @@ def test_wf01_job_selector_gates_every_job_and_never_schedules_texas():
     wf = yaml.safe_load((REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8"))
     on = wf.get("on") or wf.get(True)
     job = on["workflow_dispatch"]["inputs"]["job"]
-    assert job["default"] == "all" and job["options"] == ["all", "deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes", "expansion", "enrich", "storage", "available", "geocode", "publication"]
+    assert job["default"] == "all" and job["options"] == ["all", "deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes", "expansion", "enrich", "storage", "available", "geocode", "publication", "registry"]  # registry: audit B14
     # Authoritative geocoding (2026-10-06) is manual-only, never part of "all".
     assert wf["jobs"]["geocode"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'geocode'"
     # The enrichment backfill (property-enrichment sprint) is manual-only, never part of "all".

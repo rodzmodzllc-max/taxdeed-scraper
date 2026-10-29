@@ -261,7 +261,7 @@ def test_w02_writer_reads_active_rows_by_keyset_pages_and_is_plan_only_without_0
 
 def test_w03_workflow_runs_the_writer_after_every_sync_and_offers_the_manual_job():
     assert WORKFLOW.count("scripts/publication_state_writer.py") >= 7
-    assert ", publication]" in WORKFLOW
+    assert ", publication, registry]" in WORKFLOW   # registry: audit B14 (2026-10-29)
     assert re.search(r"job == 'publication'", WORKFLOW)
 
 
