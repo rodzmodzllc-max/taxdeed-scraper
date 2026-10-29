@@ -2621,6 +2621,11 @@ const marketOf = p => Number(p.market || p.assessed || 0);
 //    field renders only when present, and a row with none of them has to
 //    look deliberately lean rather than broken.
 const hasNum = v => v !== null && v !== undefined && v !== "" && isFinite(Number(v));
+// A county VALUE (market / assessed) is on file only when it is above zero:
+// East Baton Rouge's list carries FAIR MARKET VALUE 0 on every adjudicated
+// row (audit F11, 2026-10-28) - a zero there is "not published", never "$0".
+// Function declaration: render() runs during module init (TDZ).
+function hasValueNum(v) { return hasNum(v) && Number(v) > 0; }
 const fmtSqft = v => Number(v).toLocaleString("en-US") + " sq ft";
 // Lots are quoted in acres once they get big enough that a six-digit square
 // footage stops meaning anything to a reader.
@@ -2674,7 +2679,7 @@ function assessedSourceLabel(p) {
 // scalable replacement, so the Zillow link-out remains the only honest route
 // to a live estimate. Saying so here is the point of the relabel.
 function valueLabel(p) {
-  if (hasNum(p.market)) {
+  if (hasValueNum(p.market)) {
     // Louisiana's list carries the tax roll's FAIR MARKET VALUE, not a
     // Florida county "just value" - named as the source names it.
     if (regionOf(p) === "LA") return p.tax_year ? `${p.tax_year} Fair Market Value (tax roll)` : "Fair Market Value (tax roll)";
@@ -5114,7 +5119,7 @@ function passes(p) {
     if (state.availSeenRecently) { const d = daysSince(p.last_seen_at); if (d === null || d > 14) return false; }
     if (state.availLandUse !== "any" && String(p.land_use || "") !== state.availLandUse) return false;
     if (state.availGeocoded && !(hasNum(p.latitude) && hasNum(p.longitude))) return false;
-    if (state.availValues && !(hasNum(p.market) || hasNum(p.assessed))) return false;
+    if (state.availValues && !(hasValueNum(p.market) || hasNum(p.assessed))) return false;
   }
   if (PAGE_STATE === "FL" && p.source !== "certificate" && state.assessedMin !== null && Number(p.assessed || 0) < state.assessedMin) return false;
   // Customer monitoring filters (2026-10-01). An unknown value never passes
@@ -5416,12 +5421,14 @@ function previewFacts(p) {
       kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls,
       bidLabel: "Amount", bid: hasPublishedBid(p) ? fmtMoney(p.bid) : null,
       value: null, valueLabel: null,
-      parcelLabel: "Account", parcel: p.case_no || null, caseNo: null,
+      // The parcel / account the source publishes (parcelOf), never case_no:
+      // Sarasota's case_no is "<tax year>-<cert #>" (audit F46, 2026-10-28).
+      parcelLabel: "Parcel #", parcel: hasParcel(p) ? String(parcelOf(p)) : null, caseNo: null,
       source: harvesterSourceLabel(p), flood: null, more,
       link: auctionLinkInfo(p)
     };
   }
-  const hasMarket = hasNum(p.market), hasAssessed = hasNum(p.assessed);
+  const hasMarket = hasValueNum(p.market), hasAssessed = hasValueNum(p.assessed);
   if (hasMarket && hasAssessed) more.push([assessedSourceLabel(p), fmtShort(p.assessed)]);
   if (hasNum(p.land_value)) more.push(["Land value", fmtShort(p.land_value)]);
   if (p.prop_type) more.push(["Type", String(p.prop_type)]);
@@ -5459,7 +5466,8 @@ function previewFacts(p) {
     bid: p.source === "laft" ? (amountInfo(p).value !== null && amountInfo(p).value !== undefined ? fmtMoney(amountInfo(p).value) : (amountInfo(p).display === "Not published" ? null : amountInfo(p).display)) : (hasPublishedBid(p) ? fmtMoney(p.bid) : null),
     bidNote: p.source === "laft" ? amountInfo(p).note : "",
     value: hasMarket ? fmtShort(p.market) : hasAssessed ? fmtShort(p.assessed) : null,
-    valueLabel: hasMarket ? valueLabel(p) : hasAssessed ? assessedSourceLabel(p) + " - no just value on file" : null,
+    // "Just value" is Florida's statutory term; elsewhere the market figure is named generically.
+    valueLabel: hasMarket ? valueLabel(p) : hasAssessed ? assessedSourceLabel(p) + (region === "FL" ? " - no just value on file" : " - no market value on file") : null,
     parcelLabel: "Parcel", parcel: hasParcel(p) ? String(parcelOf(p)) : null,
     caseNo: p.case_no ? String(p.case_no) : null,
     source: harvesterSourceLabel(p),
@@ -6139,7 +6147,7 @@ function dataGaps(p) {
   // "What is not known?" list reads complete while that question says not yet
   // verified (fixed 2026-10-23).
   if (p.source === "auction" && !acquisitionOf(p).verified) gaps.push("Registration, deposit and payment rules not verified");
-  if (!hasNum(p.market) && !hasNum(p.assessed)) gaps.push("No county value on file");
+  if (!hasValueNum(p.market) && !hasNum(p.assessed)) gaps.push("No county value on file");
   if (p.source === "auction" && !p.sale_date) gaps.push("Sale date not scheduled");
   // Phase 72: no url_auction means the source published no link this
   // pipeline could verify (every Texas LGBS row today). Said here as well as
@@ -6242,7 +6250,7 @@ function opportunitySummaryHtml(p) {
   }
   const bid = hasPublishedBid(p) ? fmtMoney(p.bid) : null;
   let value, valueCls = "";
-  if (hasNum(p.market)) value = `${fmtShort(p.market)}<span class="opp-sub">${esc(valueLabel(p))}${hasNum(p.assessed) ? ` · ${esc(assessedSourceLabel(p))} ${fmtShort(p.assessed)}` : ""}</span>`;
+  if (hasValueNum(p.market)) value = `${fmtShort(p.market)}<span class="opp-sub">${esc(valueLabel(p))}${hasNum(p.assessed) ? ` · ${esc(assessedSourceLabel(p))} ${fmtShort(p.assessed)}` : ""}</span>`;
   else if (hasNum(p.assessed)) value = `${fmtShort(p.assessed)}<span class="opp-sub">${esc(assessedSourceLabel(p))} - no just value on file</span>`;
   else { value = "No county value on file"; valueCls = "muted"; }
   const ratio = bid && marketOf(p) > 0 ? `<span class="opp-sub">Value ÷ bid ${valueRatio(p).toFixed(1)}× (screening ratio, not a return)</span>` : "";
@@ -9185,7 +9193,7 @@ function sourceReviewText(p) {
 // A value figure is named as its source names it (valueLabel /
 // assessedSourceLabel) - never Florida's "just value" for another state.
 function provenanceFieldLabel(field, p) {
-  if (p && field === "market" && hasNum(p.market)) return valueLabel(p);
+  if (p && field === "market" && hasValueNum(p.market)) return valueLabel(p);
   if (p && field === "assessed" && regionOf(p) !== "FL") return assessedSourceLabel(p);
   return PROVENANCE_FIELD_LABELS[field] || field;
 }
@@ -9948,7 +9956,7 @@ function detailHtml(p) {
     // Named for what it is - the appraiser's own just value for a stated roll
     // year - rather than the old "Market Value", which implied a live
     // estimate this app has never had and cannot legitimately obtain.
-    if (hasNum(p.market)) stats.push([valueLabel(p), fmtShort(p.market), "financial"]);
+    if (hasValueNum(p.market)) stats.push([valueLabel(p), fmtShort(p.market), "financial"]);
     // Phase 36 fix: this used to hardcode the label "County Assessed Value"
     // here, bypassing assessedSourceLabel() (Phase 14A) which exists
     // specifically so a Texas row's p.assessed - LGBS's raw CAD value or
@@ -16331,10 +16339,29 @@ function countyNowGo(k) {
   if (!h || !h.isConnected) return;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   b.lockUntil = Date.now() + (reduce ? 150 : 900);
+  // A look that draws its county sections lazily (Terrain) fills every one
+  // above the target first, so nothing grows under the scroll after the
+  // target's position is measured (audit F48, 2026-10-28).
+  if (typeof b.beforeJump === "function") { try { b.beforeJump(h); } catch {} }
   // Scrolling only moves the page: a county the reader closed stays closed.
-  const y = h.getBoundingClientRect().top + window.scrollY - countyNowLine() + 4;
+  const target = () => h.getBoundingClientRect().top + window.scrollY - countyNowLine() + 4;
+  const y = target();
   try { window.scrollTo({ top: Math.max(0, y), behavior: reduce ? "auto" : "smooth" }); } catch { window.scrollTo(0, Math.max(0, y)); }
-  setTimeout(() => { b.lockUntil = 0; countyNowUpdate(); }, reduce ? 160 : 950);
+  // Once the scroll has settled, measure the head again and correct once if
+  // anything above it changed height while the page moved (pictures, rows).
+  let done = false;
+  const settle = () => {
+    if (done) return;
+    done = true;
+    window.removeEventListener("scrollend", settle);
+    if (h.isConnected && b.names[b.idx] === h.dataset.countyHead) {
+      const y2 = target();
+      if (Math.abs(y2 - window.scrollY) > 6) window.scrollTo(0, Math.max(0, y2));
+    }
+    setTimeout(() => { b.lockUntil = 0; countyNowUpdate(); }, 50);
+  };
+  if ("onscrollend" in window && !reduce) window.addEventListener("scrollend", settle);
+  setTimeout(settle, reduce ? 160 : 1200);
 }
 function countyNowBind() {
   if (COUNTY_BAR.bound) return;
@@ -16378,8 +16405,11 @@ function hideCountyNowBar() {
 // Install (or refresh) the one bar for the county heads inside scopeEl. The
 // bar is inserted just before the first head, inside the closest element that
 // holds every head, so its sticky range covers the whole list.
-function installCountyNowBar(scopeEl) {
+// opts.beforeJump(headEl): called before a jump measures its target, so a
+// look can draw any lazy section that sits above that head.
+function installCountyNowBar(scopeEl, opts) {
   const b = countyBarState();
+  b.beforeJump = opts && typeof opts.beforeJump === "function" ? opts.beforeJump : null;
   if (!scopeEl || !scopeEl.querySelectorAll) { hideCountyNowBar(); return null; }
   const all = Array.from(scopeEl.querySelectorAll("[data-county-head]"));
   const names = [], heads = new Map();
@@ -16766,7 +16796,7 @@ function guidedStages(p) {
   if (floodChecked) risks.facts.push({ title: "Flood zone", answer: fl.text + (p.flood_sfha === true ? " - a FEMA high-risk area" : "") });
   else risks.tasks.splice(1, 0, { key: "flood", title: "Check the flood zone", how: "Look the address up on FEMA's flood map.", href: fema, hrefLabel: "FEMA flood map" });
   const seen = p.last_seen_at ? dateOnly(p.last_seen_at) : "";
-  const value = hasNum(p.market) ? { title: valueLabel(p), answer: fmtMoney(Number(p.market)) } : null;
+  const value = hasValueNum(p.market) ? { title: valueLabel(p), answer: fmtMoney(Number(p.market)) } : null;
 
   if (p.source === "certificate") {
     const facts1 = [{ title: "On the county's certificate list", answer: seen ? `Read ${seen}` : "Listed by the county" }];
@@ -16856,7 +16886,7 @@ function guidedThree(p) {
   if (p.source === "auction") {
     return [
       ["What it is", `A property the county will sell at its tax-deed auction${p.sale_date ? ` on ${fmtDate(String(p.sale_date).slice(0, 10))}` : ""}.`],
-      ["What it costs", hasPublishedBid(p) ? `${auctionBidLabel(p, true)} ${fmtMoney(Number(p.bid))}. Bidding starts there and can go higher.${hasNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : ""}` : "The opening bid is not published yet."],
+      ["What it costs", hasPublishedBid(p) ? `${auctionBidLabel(p, true)} ${fmtMoney(Number(p.bid))}. Bidding starts there and can go higher.${hasValueNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : ""}` : "The opening bid is not published yet."],
       ["How you buy it", "Register on the county's auction site, follow its deposit rules and bid on sale day."]
     ];
   }
@@ -16864,7 +16894,7 @@ function guidedThree(p) {
   const i = amountInfo(p);
   const hasAmt = i.value !== null && i.value !== undefined;
   const cost = (hasAmt ? `${i.label} ${fmtMoney(i.value)}.` : `${i.display && i.display !== "Not published" ? i.display : "The list does not publish a price - ask the office"}.`) +
-    (hasNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : "");
+    (hasValueNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : "");
   const how = a.verified ? `${a.label}${a.office ? ` from ${a.office}` : ""}.${a.steps.length ? ` First: ${a.steps[0]}` : ""}` : "The county has not published how to buy it yet - the official listing names the office to ask.";
   return [["What it is", availableWhy(p).text + "."], ["What it costs", cost], ["How you buy it", how]];
 }

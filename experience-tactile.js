@@ -584,13 +584,20 @@ function liensHtml(rows, api) {
 }
 
 function certNo(p) { return p.certificate_no ? String(p.certificate_no) : ""; }
+// "County" -> "counties", "Parish" -> "parishes" (never "countys").
+function unitPlural(api) {
+  const w = String(api.unitWord() || "County").toLowerCase();
+  if (/[^aeiou]y$/.test(w)) return w.slice(0, -1) + "ies";
+  if (/(s|sh|ch|x|z)$/.test(w)) return w + "es";
+  return w + "s";
+}
 
 function bundleLabels(k, list, api) {
   const by = S.bundleBy;
   const caps = by === "year" ? "Tax year" : api.unitWord();
   const title = k === "" ? (by === "year" ? "Tax year not published" : "Not published") : k;
   const other = new Set(list.map(p => (by === "year" ? p.county : (p.tax_year ? String(p.tax_year) : "")))).size;
-  const sub = by === "year" ? `${other} ${api.unitWord().toLowerCase()}${other === 1 ? "" : "s"}` : `${other} tax year${other === 1 ? "" : "s"}`;
+  const sub = by === "year" ? `${other} ${other === 1 ? api.unitWord().toLowerCase() : unitPlural(api)}` : `${other} tax year${other === 1 ? "" : "s"}`;
   return { caps, title, sub };
 }
 

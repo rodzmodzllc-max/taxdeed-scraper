@@ -329,13 +329,15 @@ html[data-experience="terrain"] #xpStage[hidden]{display:none}
 .xp-terrain .xt-ruleline{height:1px;background:repeating-linear-gradient(90deg,#CFC4B2 0 4px,transparent 4px 7px);margin-bottom:12px}
 .xp-terrain .xt-bedrock p{margin-top:6px;font-size:13px;line-height:18px;color:var(--gray-2);max-width:70ch}
 
-/* ==================== phones: the card rail stacks ==================== */
+/* ============ narrow stages: the card rail stays a sliding strip ============
+   Audit F65 / F49 (2026-10-28): this used to stack the rail into one long
+   column below 700px - every phone, and desktops around 1440-1455px where
+   the List's filter column narrows the stage - with 424px-tall pictures. The
+   rail is the same horizontal scroll-snap strip at every width; on a narrow
+   stage each card takes about 86% of it, so the next card peeks in. */
 @container xt (max-width:699.98px){
-  .xp-terrain .xt-rail{flex-direction:column;overflow-x:visible;scroll-snap-type:none;margin:0;padding:12px 0 14px}
-  .xp-terrain .xt-acard{flex:0 0 auto;width:100%}
-  .xp-terrain .xt-rail-more{flex:0 0 auto;min-height:56px;flex-direction:row;gap:10px}
-  .xp-terrain .xt-rail-more-n{font-size:20px;line-height:24px}
-  .xp-terrain .xt-rail-lazy{min-height:420px}
+  .xp-terrain .xt-acard{flex:0 0 min(86%,330px)}
+  .xp-terrain .xt-rail-more{flex:0 0 min(60%,200px)}
 }
 
 /* ==================== wider screens ==================== */
