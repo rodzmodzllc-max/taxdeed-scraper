@@ -10813,8 +10813,11 @@ document.addEventListener("click", async e => {
   // closes first (its own Back layer), then the page changes.
   if (action === "crumbhome" || action === "crumbledger") {
     const inModal = btn.closest("#detailModal");
-    if (inModal) closeDetail(); else clearDetailPanel();
-    if (action === "crumbhome") showPage("dashboard"); else goToLedger(btn.dataset.ledger);
+    const go = () => { if (action === "crumbhome") showPage("dashboard"); else goToLedger(btn.dataset.ledger); };
+    // The modal's own history layer goes first; the page changes once that
+    // self-back has landed, so its popstate cannot pop the new state.
+    if (inModal) { closeDetail(); afterSelfBack(go); }
+    else { clearDetailPanel(); go(); }
     return;
   }
   if (action === "fav") {
@@ -11052,6 +11055,12 @@ function renderLedgerCounts(scrollActive) {
   LEDGER_ORDER.forEach(k => {
     const el = document.getElementById("navCount" + k[0].toUpperCase() + k.slice(1));
     if (el) el.textContent = ledgerCountText(k, tabCounts[k] || 0, true);
+    // Phone ledger bar (2026-10-29): the same number, under the same rule
+    // ("…" while the ledger is still loading). Its full name and count are
+    // also its accessible name.
+    const txt = ledgerCountText(k, tabCounts[k] || 0, true);
+    document.querySelectorAll('[data-bar-count="' + k + '"]').forEach(b => { b.textContent = txt; });
+    document.querySelectorAll('#navBottom .nav-bottom-ledger[data-nav-ledger="' + k + '"]').forEach(b => barLedgerLabel(b, txt));
   });
   return tabCounts;
 }
@@ -14024,7 +14033,7 @@ function syncLedgerNav(pageName) {
   let ledgerNow = null;
   try { ledgerNow = state.ledger; } catch { ledgerNow = null; }   // TDZ-safe, same as shellPage above
   const railLedger = name === "list" && document.querySelector(`.nav-item[data-nav-ledger="${ledgerNow}"]`);
-  document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page], .nav-item[data-nav-ledger]").forEach(btn => {
+  document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page], .nav-item[data-nav-ledger], .nav-bottom-item[data-nav-ledger]").forEach(btn => {
     let on;
     if (btn.dataset.navLedger) on = name === "list" && btn.dataset.navLedger === ledgerNow;
     else if (btn.classList.contains("nav-item") && btn.dataset.page === "list" && railLedger) on = false;
@@ -14038,6 +14047,18 @@ function syncLedgerNav(pageName) {
     cty.classList.toggle("on", name === "county");
     if (name === "county") cty.setAttribute("aria-current", "page"); else cty.removeAttribute("aria-current");
   }
+  syncBarMapFilter(name);
+}
+// On the Map page the phone bar lights Map; the ledger the map is filtered to
+// carries a small mark on its bar entry, so the map's own filter is visible
+// from the bar. A bar tap still opens the List (one meaning on every page).
+function syncBarMapFilter(pageName) {
+  let name = pageName, led = "all";
+  try { if (!name) name = shellPage; } catch { name = name || "list"; }
+  try { led = mapFilter.ledger; } catch { led = "all"; }
+  document.querySelectorAll("#navBottom .nav-bottom-ledger").forEach(b => {
+    b.classList.toggle("map-filter", name === "map" && led === b.dataset.navLedger);
+  });
 }
 document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page]").forEach(btn => {
   btn.addEventListener("click", () => showPage(btn.dataset.page));
@@ -14173,7 +14194,7 @@ function renderMapPage() {
   buildMapCountySelect();
   renderMapContext();
   let onMap = false; try { onMap = shellPage === "map"; } catch { onMap = false; }
-  if (onMap) syncPageHash();
+  if (onMap) { syncPageHash(); syncBarMapFilter("map"); }
   const rows = computeMapRows();
   // Phase 67: the preview panel renders with the cards' own label/visual
   // helpers - passed over the event so explore.js never duplicates a rule.
@@ -15331,6 +15352,7 @@ function syncLedgerNavNames() {
   document.querySelectorAll(".nav-item[data-nav-ledger] .nav-ledger-name").forEach(el => {
     el.textContent = ledgerNavName(el.closest("[data-nav-ledger]").dataset.navLedger);
   });
+  syncBarLedgerNames();   // the phone bar's short names and accessible names
 }
 syncLedgerNavNames();
 
@@ -16153,6 +16175,7 @@ function openStatePicker(returnEl) {
     // workspace entries at every width - the separate utility row is gone.
     // Each count appears once on screen: here.
     g.innerHTML = `<p class="account-goto-head">Go to</p>`
+      + `<button class="account-item" type="button" role="menuitem" data-goto="dashboard">Home</button>`
       + `<button class="account-item" type="button" role="menuitem" data-goto="searches">Saved searches</button>`
       + `<button class="account-item" type="button" role="menuitem" data-goto="research">My Research <b class="goto-count" id="gotoResearchCount">0</b></button>`
       + `<button class="account-item" type="button" role="menuitem" data-goto="watchlist">Watchlist <b class="goto-count" id="gotoWatchlistCount">0/10</b></button>`
@@ -16168,7 +16191,8 @@ function openStatePicker(returnEl) {
       if (!b) return;
       const go = b.dataset.goto;
       afterSelfBack(() => {
-        if (go === "research") openResearchPage("all");
+        if (go === "dashboard") showPage("dashboard");
+        else if (go === "research") openResearchPage("all");
         else if (go === "counties") openCountyIndex();
         else if (go === "guide") openGuidePage(null, null);
         else if (go === "searches" && saved) saved.click();
@@ -16682,7 +16706,141 @@ function installShellV3() {
   const tabs = document.getElementById("ledgerTabs");
   const availTab = tabs && tabs.querySelector('.ledger-tab[data-ledger="laft"]');
   if (availTab) tabs.insertBefore(availTab, tabs.firstChild);
+  // The Map's ledger pills in the same order as the List and the header:
+  // All Ledgers, Available, Auctions, Liens. The elements are moved, so their
+  // click listeners stay.
+  const pills = document.getElementById("mapLedgerPills");
+  if (pills) ["all", "laft", "auction", "certificate"].forEach(k => {
+    const p = pills.querySelector(`[data-ledger="${k}"]`);
+    if (p) pills.appendChild(p);
+  });
   installListToolbarV3();
+  installBottomBarV3();
+}
+
+// ---- Phone ledger bar (2026-10-29) ----
+// Below 1024px the fixed bottom bar is the one control always on screen, so
+// it carries the switch: Available, Auctions, Liens, then Map (the header's
+// own order). Home is the header logo and the account sheet's "Go to"; the
+// Watchlist is there too. Built here, like the header, so every state page
+// gets it without touching the generated HTML; the static markup stays as
+// the no-JS fallback. Each ledger entry runs goToLedger() (the header's own
+// path) and is lit by syncLedgerNav(); Map is the ORIGINAL button, so the
+// showPage listener bound to it at load still runs. No data attribute named
+// data-ledger on any of it: the delegated [data-ledger] rules must never
+// match a navigation button.
+function barLedgerShortName(k) {
+  return ledgerNavName(k).replace(/\s*&\s*Certificates$/i, "");
+}
+function barLedgerLabel(btn, countText) {
+  const full = ledgerNavName(btn.dataset.navLedger);
+  let label = full;
+  if (countText === "…") label = full + ", loading";
+  else if (countText && /…$/.test(countText)) label = full + ", " + countText.slice(0, -1) + " properties so far";
+  else if (countText) label = full + ", " + countText + (countText === "1" ? " property" : " properties");
+  btn.setAttribute("aria-label", label);
+  btn.title = full;
+}
+function syncBarLedgerNames() {
+  document.querySelectorAll("#navBottom .nav-bottom-ledger").forEach(btn => {
+    const nm = btn.querySelector(".nb-name");
+    if (nm) nm.textContent = barLedgerShortName(btn.dataset.navLedger);
+    const c = btn.querySelector(".nb-count");
+    barLedgerLabel(btn, c ? c.textContent : "");
+  });
+}
+function focusNavItem(btn) {
+  if (!btn || !btn.isConnected || document.activeElement === btn) return;
+  try { btn.focus({ preventScroll: true }); } catch { /* older engines */ }
+}
+var KB_TEXT_TYPES = /^(text|search|email|number|password|tel|url|date|datetime-local|month|time|week)$/;
+function isTextEntry(el) {
+  if (!el || el === document.body) return false;
+  if (el.isContentEditable || el.tagName === "TEXTAREA") return true;
+  return el.tagName === "INPUT" && KB_TEXT_TYPES.test(el.type || "text");
+}
+function installBottomBarV3() {
+  const bar = document.getElementById("navBottom");
+  if (!bar || bar.dataset.bar === "v3") return;
+  bar.dataset.bar = "v3";
+  bar.setAttribute("aria-label", "Ledgers and map");
+  bar.querySelectorAll('.nav-bottom-item[data-page="dashboard"], .nav-bottom-item[data-page="list"], .nav-bottom-item[data-page="watchlist"]').forEach(b => b.remove());
+  const mapBtn = bar.querySelector('.nav-bottom-item[data-page="map"]');
+  ["laft", "auction", "certificate"].forEach(k => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "nav-bottom-item nav-bottom-ledger";
+    b.dataset.navLedger = k;
+    const ico = document.createElement("span");
+    ico.className = "nb-ico"; ico.setAttribute("aria-hidden", "true");
+    const svg = document.querySelector(`#ledgerTabs .ledger-tab[data-ledger="${k}"] .ledger-tab-icon svg`);
+    if (svg) ico.appendChild(svg.cloneNode(true));
+    const nm = document.createElement("span");
+    nm.className = "nb-name"; nm.textContent = barLedgerShortName(k);
+    const ct = document.createElement("b");
+    ct.className = "nb-count"; ct.dataset.barCount = k;
+    b.append(ico, nm, ct);
+    barLedgerLabel(b, "");
+    b.addEventListener("click", () => {
+      let onList = false; try { onList = shellPage === "list"; } catch { onList = false; }
+      // The ledger already on screen: keep the reader's place.
+      if (!(onList && state.ledger === k)) goToLedger(k);
+      focusNavItem(b);
+    });
+    if (mapBtn) bar.insertBefore(b, mapBtn); else bar.appendChild(b);
+  });
+  if (mapBtn) {
+    bar.appendChild(mapBtn);
+    const label = Array.from(mapBtn.childNodes).find(n => n.nodeType === 3 && n.textContent.trim());
+    if (label) { const s = document.createElement("span"); s.className = "nb-name"; s.textContent = label.textContent.trim(); label.replaceWith(s); }
+    const svg = mapBtn.querySelector("svg");
+    if (svg && !svg.parentElement.classList.contains("nb-ico")) { const ico = document.createElement("span"); ico.className = "nb-ico"; ico.setAttribute("aria-hidden", "true"); svg.replaceWith(ico); ico.appendChild(svg); }
+    mapBtn.addEventListener("click", () => focusNavItem(mapBtn));
+  }
+  try { syncLedgerNav(); } catch { /* before the router is ready */ }
+  // The bar's real height drives the page's bottom padding, the toasts and the
+  // property sheet's bottom edge (--nav-bottom-h); 0 wherever it is not shown.
+  const root = document.documentElement;
+  const measure = () => {
+    const shown = bar.getClientRects().length && getComputedStyle(bar).display !== "none";
+    root.style.setProperty("--nav-bottom-h", (shown ? bar.offsetHeight : 0) + "px");
+  };
+  measure();
+  if (window.ResizeObserver) {
+    new ResizeObserver(measure).observe(bar);
+    // The header's height (it wraps on narrow screens) is where the desktop
+    // property modal and the county bar start: follow it too.
+    const tb = document.querySelector(".topbar");
+    if (tb) new ResizeObserver(() => { try { countyNowSyncTop(); } catch { /* not ready */ } }).observe(tb);
+  }
+  window.addEventListener("resize", measure);
+  try { countyNowSyncTop(); } catch { /* not ready */ }
+  // An open property (or the hidden-properties list) no longer covers the
+  // switch. One tap on it closes the overlay through its own history layer,
+  // then runs the tapped entry's own handler once that self-back has landed
+  // (never synchronously - the popstate would pop the new page).
+  document.addEventListener("click", e => {
+    const b = e.target && e.target.closest && e.target.closest("#navBottom .nav-bottom-item, #hdrNav .nav-item, #hdrHomeBtn");
+    if (!b) return;
+    const dm = document.getElementById("detailModal"), hm = document.getElementById("hiddenModal");
+    const dOpen = !!dm && !dm.hidden, hOpen = !!hm && !hm.hidden;
+    if (!dOpen && !hOpen) return;
+    e.stopPropagation(); e.preventDefault();
+    const run = () => { b.click(); focusNavItem(b); };
+    if (dOpen) { closeDetail(); afterSelfBack(hOpen ? () => { closeHiddenModal(); afterSelfBack(run); } : run); }
+    else { closeHiddenModal(); afterSelfBack(run); }
+  }, true);
+  // On-screen keyboard: the bar would ride on top of it. A text field focused
+  // on a touch screen is the signal; a much shorter visual viewport (at
+  // normal zoom) is the backstop.
+  const coarse = window.matchMedia ? window.matchMedia("(pointer: coarse)") : null;
+  const vv = window.visualViewport;
+  const kbUp = () => !!coarse && coarse.matches && (isTextEntry(document.activeElement)
+    || (!!vv && Math.abs((vv.scale || 1) - 1) < 0.01 && vv.height < window.innerHeight * 0.7));
+  const syncKb = () => root.classList.toggle("kb-open", kbUp());
+  document.addEventListener("focusin", syncKb);
+  document.addEventListener("focusout", () => setTimeout(syncKb, 60));
+  if (vv) vv.addEventListener("resize", syncKb);
 }
 // One toolbar over the List: county, Filters (with its active-filter count)
 // and Sort. Table view and Export move inside Filters; Collapse/Expand all

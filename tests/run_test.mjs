@@ -179,12 +179,13 @@ async function openCardDetails(card) {
   }
 }
 // The List itself: the header entry of the ledger in force (desktop) or the
-// phone bar's Properties entry. The rail's "Search" entry is gone.
+// phone bar's entry for that ledger (2026-10-29: the phone bar carries the
+// three ledgers; its Properties entry is gone). The rail's "Search" entry is gone.
 async function openListPage(pg) {
   const k = await pg.evaluate(() => document.documentElement.dataset.ledger || 'auction');
   const h = pg.locator(`.hdr-nav .nav-item[data-nav-ledger="${k}"]`);
   if (await h.isVisible().catch(() => false)) return h.click();
-  return pg.click('.nav-bottom-item[data-page="list"]');
+  return pg.click(`.nav-bottom-item[data-nav-ledger="${k}"]`);
 }
 const page = await newPage({ viewport: { width: 390, height: 844 } });
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));
@@ -629,7 +630,7 @@ await page.waitForTimeout(150);
 
 // Return to the Auctions page - just the card list now, no embedded map and
 // no List/Split view-toggle (Marc: "auctions shoild be just the list").
-await page.click('.nav-bottom-item[data-page="list"]');
+await openListPage(page);   // the phone bar's ledger entry (2026-10-29)
 await page.waitForTimeout(200);
 results.auctionsPageVisibleAfterReturnFromMap = await page.locator('#pageList').isVisible();
 results.viewToggleGoneFromAuctions = await page.locator('#viewToggle').count();
@@ -1567,7 +1568,7 @@ results.contextLabelsHiddenWhenZoomed = await page.evaluate(() => {
 });
 await page.click('#exploreZoomOut');
 await page.waitForTimeout(1100);
-await page.click('.nav-bottom-item[data-page="list"]');
+await openListPage(page);   // the phone bar's ledger entry (2026-10-29)
 await page.waitForTimeout(400);
 
 // --- the header is the logo and the title, and nothing else ---
@@ -2209,6 +2210,8 @@ results.dashUnitBayUnavailable = await dashPage.locator('#dashUnitRows .unit-row
 // nav entry stays on "list" whichever ledger is showing.
 results.navRailItems = await dashPage.locator('.nav-list .nav-item[data-page]').evaluateAll(els => els.map(e => e.dataset.page + ':' + e.textContent.replace(/\s+/g, ' ').trim()));
 results.navBottomItems = await dashPage.locator('#navBottom .nav-bottom-item[data-page]').evaluateAll(els => els.map(e => e.dataset.page));
+// Phone ledger bar (2026-10-29): the three ledgers, in the header's order.
+results.navBottomLedgerEntries = await dashPage.locator('#navBottom .nav-bottom-item[data-nav-ledger]').evaluateAll(els => els.map(e => e.dataset.navLedger));
 results.navLedgerEntriesGone = await dashPage.locator('.nav-item[data-ledger], .nav-bottom-item[data-ledger]').count();
 results.navDashboardLit = await dashPage.locator('.nav-list .nav-item.on, #hdrNav .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navDashboardHash = await dashPage.evaluate(() => location.hash);
@@ -6166,7 +6169,7 @@ await navMap.close();
       value: document.getElementById('stateSelect').value
     };
   });
-  results.gsPhoneBottomNav = await ph.locator('.nav-bottom .nav-bottom-item').evaluateAll(els => els.map(e => e.dataset.page));
+  results.gsPhoneBottomNav = await ph.locator('.nav-bottom .nav-bottom-item').evaluateAll(els => els.map(e => e.dataset.page || e.dataset.navLedger));
   await ph.close();
 }
 
@@ -6237,7 +6240,8 @@ await navPhone.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await navPhone.waitForTimeout(500);
 results.navPhoneBottomItems = await navPhone.locator('#navBottom .nav-bottom-item').count();
 results.navPhoneBottomFits = await navPhone.locator('#navBottom').evaluate(el => el.scrollWidth <= el.clientWidth && Array.from(el.children).every(c => c.getBoundingClientRect().right <= window.innerWidth + 1));
-results.navPhoneBottomLabels = await navPhone.locator('#navBottom .nav-bottom-item').evaluateAll(els => els.map(e => e.textContent.trim()));
+// The visible name (a ledger entry also shows its count under the name).
+results.navPhoneBottomLabels = await navPhone.locator('#navBottom .nav-bottom-item').evaluateAll(els => els.map(e => (e.querySelector('.nb-name') || e).textContent.trim()));
 await navPhone.close();
 
 // Watchlist: the same parcel watched in two ledgers (p1 auction + p4
@@ -6362,7 +6366,7 @@ await monDetail.waitForTimeout(200);
 results.monAlertsBadgeAfterRead = await monDetail.locator('#alertsUnread').isHidden();
 await monDetail.click('#alertsCloseBtn');
 // 8. Watchlist modal lists server-detected changes for watched rows.
-await monDetail.click('.nav-bottom-item[data-page="watchlist"]');
+await gotoVia(monDetail, 'watchlist');   // the phone bar no longer carries Watchlist (2026-10-29)
 await monDetail.waitForTimeout(300);
 results.monWatchServerChanges = await monDetail.locator('#watchServerChanges li').count();
 // 9. Analytics: session_start + property_viewed; a search never sends its text.
@@ -8146,7 +8150,11 @@ const EXPECTED = {
   navMapBtnOnAfterMapNav: true,
   mapPageTitle: 'Map',
   navRailItems: ["dashboard:Home", "list:Search", "research:My Research 0", "watchlist:Watchlist 0/10"],   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
-  navBottomItems: ['dashboard', 'list', 'map', 'watchlist'],
+  // Phone ledger bar (2026-10-29): Home is the header logo and the account
+  // sheet's "Go to"; Watchlist is there too. The bar keeps Map as a page
+  // entry and carries the three ledgers (navBottomLedgerEntries).
+  navBottomItems: ['map'],
+  navBottomLedgerEntries: ['laft', 'auction', 'certificate'],
   navLedgerEntriesGone: 0,
   navDashboardLit: ['dashboard'],
   navDashboardHash: '#/dashboard',
@@ -8314,7 +8322,7 @@ const EXPECTED = {
   gsDeepLinkTexas: {"state": "TX", "modal": true},
   gsDeepLinkSwitch: {"file": "index.html", "hash": "#/auctions", "state": "FL", "modal": false},
   gsPhone: {"bothVisible": true, "inViewport": true, "sameRow": true, "selectorFirst": true, "headerCompact": true, "noHorizontalScroll": true, "value": "TX"},
-  gsPhoneBottomNav: ["dashboard", "list", "map", "watchlist"],
+  gsPhoneBottomNav: ["laft", "auction", "certificate", "map"],   // phone ledger bar (2026-10-29)
   navMapHasNoOwnStateSelect: true,
   navMapAllLedgersLabel: 'All Ledgers',
   navMapCertPillLabel: 'Liens & Certificates',
@@ -8359,7 +8367,7 @@ const EXPECTED = {
   navDashTileHeading: 'Available',
   navPhoneBottomItems: 4,
   navPhoneBottomFits: true,
-  navPhoneBottomLabels: ['Home', 'Properties', 'Map', 'Watchlist'],
+  navPhoneBottomLabels: ['Available', 'Auctions', 'Liens', 'Map'],   // phone ledger bar (2026-10-29)
   navWlCards: ['p4'],
   navWlRelated: ['Currently listed in Auctions · also on your watchlist'],
   navWlCount: '2/10',
