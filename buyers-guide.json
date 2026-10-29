@@ -3515,7 +3515,303 @@
    }
   },
   "TX": {
-   "statewide": {},
+   "statewide": {
+    "ALL": [
+     {
+      "topic": "due_diligence",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "note": "No statewide statement found; the counties' own warnings are in their sale pages (e.g. Harris, Dallas, Bexar).",
+      "question": "What does the law or the county tell buyers to check before buying?",
+      "order": 200
+     }
+    ],
+    "AUCTIONS": [
+     {
+      "topic": "sale_overview",
+      "answer": "Real property seized under a tax warrant or ordered sold after foreclosure of a tax lien is sold by the officer charged with selling the property. The sale is conducted the way similar property is sold under execution, except as the Tax Code provides otherwise.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "Real property seized under a tax warrant issued under Subchapter E , Chapter 33 , or ordered sold pursuant to foreclosure of a tax lien shall be sold by the officer charged with selling the property, unless otherwise directed by the taxing unit that requested the warrant or order of sale or by an authorized agent or attorney for that unit. The sale shall be conducted in the manner similar property is sold under execution",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "citation": "Tex. Tax Code 34.01(a)",
+      "verified_on": "2026-10-29",
+      "note": "Read from the Texas Legislature's statute file server (statutes.capitol.texas.gov viewer).",
+      "question": "What is sold at a tax sale here and who holds it?",
+      "order": 10
+     },
+     {
+      "topic": "sale_schedule",
+      "answer": "An in-person sale must take place between 10 a.m. and 4 p.m. on the first Tuesday of a month (the first Wednesday if that Tuesday is January 1 or July 4). An online auction may begin at any time but must conclude at 4 p.m. on that same day.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "must take place between 10 a.m. and 4 p.m. on the first Tuesday of a month or, if the first Tuesday of a month occurs on January 1 or July 4, between 10 a.m. and 4 p.m. on the first Wednesday of the month. (r-2) A sale of real property conducted by means of a public auction using online bidding and sale under Subsection (a-1) may begin at any time and must conclude at 4 p.m. on the first Tuesday of a month",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "citation": "Tex. Tax Code 34.01(r-1), (r-2)",
+      "verified_on": "2026-10-29",
+      "note": "Read from the Texas Legislature's statute file server (statutes.capitol.texas.gov viewer).",
+      "question": "When are tax sales held?",
+      "order": 20
+     },
+     {
+      "topic": "bidding_platform",
+      "answer": "A tax sale must take place at the county courthouse, unless the commissioners court authorizes a public auction using online bidding and sale.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The commissioners court of a county by official action may authorize the officer charged with selling property under this section to conduct a public auction using online bidding and sale. … Except as provided by Subsection (a-1) and this subsection, a sale of real property under this section must take place at the county courthouse in the county in which the land is located.",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "citation": "Tex. Tax Code 34.01(a-1), (r)",
+      "verified_on": "2026-10-29",
+      "note": "Read from the Texas Legislature's statute file server (statutes.capitol.texas.gov viewer).",
+      "question": "Where do I bid - online or in person?",
+      "order": 30
+     },
+     {
+      "topic": "registration",
+      "answer": "A commissioners court may require bidders to register with the county assessor-collector before the sale begins. The officer may not deliver a deed unless the purchaser shows an unexpired written statement issued by the county assessor-collector.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "A commissioners court may require that, to be eligible to bid at a sale of real property under this chapter, a person must be registered as a bidder with the county assessor-collector before the sale begins. … may not execute or deliver a deed to the purchaser of the property unless the purchaser exhibits to the officer an unexpired written statement issued under this section to the person by the county assessor-collector",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "citation": "Tex. Tax Code 34.011(b); 34.015(b)",
+      "verified_on": "2026-10-29",
+      "note": "Read from the Texas Legislature's statute file server (statutes.capitol.texas.gov viewer). 34.015 applies in counties of 250,000+ that have not adopted 34.011, and in smaller counties that adopt it (34.015(p)). The statement costs at most $10 and expires on the 90th day after issuance (34.015(j), (k)).",
+      "question": "How do I register to bid?",
+      "order": 40
+     },
+     {
+      "topic": "deposit",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "note": "Chapter 34 of the Tax Code sets no bid deposit; deposits are set by each county's sale rules (see county rows).",
+      "question": "Is a deposit required and how much?",
+      "order": 50
+     },
+     {
+      "topic": "opening_bid",
+      "answer": "The officer calculates the total amount due under the judgment: taxes, penalties and interest, any other amount awarded, court costs and the costs of the sale. If no bid sufficient to pay the lesser of that amount or the adjudged value is received, the taxing unit that requested the order of sale may end the sale.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The officer shall calculate the total amount due under the judgment, including all taxes, penalties, and interest, plus any other amount awarded by the judgment, court costs, and the costs of the sale. … If a bid sufficient to pay the lesser of the amount calculated under Subsection (b) or the adjudged value is not received, the taxing unit that requested the order of sale may terminate the sale.",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "citation": "Tex. Tax Code 34.01(b), (j)",
+      "verified_on": "2026-10-29",
+      "note": "Read from the Texas Legislature's statute file server (statutes.capitol.texas.gov viewer).",
+      "question": "What makes up the opening or minimum bid?",
+      "order": 60
+     },
+     {
+      "topic": "payment_deadline",
+      "answer": "Under the Texas Rules of Civil Procedure for execution sales, a bidder who fails to comply with the terms of the sale is liable to pay the plaintiff twenty percent of the value of the property plus costs, and the officer sells the property again.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "If any person shall bid off property at any sale made by virtue of an execution, and shall fail to comply with the terms of the sale, he shall be liable to pay the plaintiff in execution twenty per cent on the value of the property thus bid off, besides costs … When the terms of the sale shall not be complied with by the bidder the levying officer shall proceed to sell the same property again on the same day, if there be sufficient time",
+      "source_url": "https://www.txcourts.gov/media/1463426/texas-rules-of-civil-procedure.pdf",
+      "source_title": "Texas Rules of Civil Procedure",
+      "citation": "Tex. R. Civ. P. 652, 653",
+      "verified_on": "2026-10-29",
+      "note": "Tax Code 34.01(a) applies execution-sale procedure to tax sales.",
+      "question": "When and how must the winning bidder pay?",
+      "order": 70
+     },
+     {
+      "topic": "costs_added",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "note": "The Tax Code puts sale costs inside the amount due (34.01(b)); it does not list costs added on top of the winning bid. See county rows.",
+      "question": "What costs are added on top of the winning bid?",
+      "order": 80
+     },
+     {
+      "topic": "redemption_after_sale",
+      "answer": "Yes. For a residence homestead or land designated for agricultural use, the owner may redeem on or before the second anniversary of the date the purchaser's deed is filed, paying the amount bid and other statutory amounts plus a 25% premium in the first year or 50% in the second. For other property the right must be exercised within 180 days after the deed is filed.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "may redeem the property on or before the second anniversary of the date on which the purchaser's deed is filed for record by paying the purchaser the amount the purchaser bid for the property … plus a redemption premium of 25 percent of the aggregate total if the property is redeemed during the first year of the redemption period or 50 percent … may be exercised not later than the 180th day following the date on which the purchaser's or taxing unit's deed is filed for record",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "citation": "Tex. Tax Code 34.21(a), (e)",
+      "verified_on": "2026-10-29",
+      "note": "Read from the Texas Legislature's statute file server (statutes.capitol.texas.gov viewer). The two-year rule in 34.21(a) applies to a residence homestead, land designated for agricultural use, or a mineral interest; 34.21(e) gives the 180-day period (premium not over 25 percent) for all other property.",
+      "question": "Can the former owner redeem after the sale?",
+      "order": 90
+     },
+     {
+      "topic": "deed_type",
+      "answer": "The deed vests good and perfect title in the purchaser to the defendant's interest in the property, including the right to use and possess it, subject to the defendant's right of redemption (and the recorded covenants and easements listed in the statute). It may be impeached only for fraud.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The deed vests good and perfect title in the purchaser or the purchaser's assigns to the interest owned by the defendant in the property subject to the foreclosure, including the defendant's right to the use and possession of the property, subject only to the defendant's right of redemption … The deed may be impeached only for fraud.",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "citation": "Tex. Tax Code 34.01(m), (n)",
+      "verified_on": "2026-10-29",
+      "note": "Read from the Texas Legislature's statute file server (statutes.capitol.texas.gov viewer).",
+      "question": "What kind of deed or title does the buyer receive?",
+      "order": 100
+     },
+     {
+      "topic": "surviving_liens",
+      "answer": "A sale to a purchaser other than a taxing unit extinguishes each lien securing the delinquent taxes, penalties and interest included in the judgment. Title remains subject to restrictive covenants recorded before January 1 of the year the tax lien arose, a recorded lien under such a covenant not extinguished in the judgment, and valid easements of record (34.01(n)).",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "a recorded restrictive covenant running with the land that was recorded before January 1 of the year in which the tax lien on the property arose, a recorded lien that arose under that restrictive covenant that was not extinguished in the judgment foreclosing the tax lien, and each valid easement of record … extinguishes each lien securing payment of the delinquent taxes, penalties, and interest against that property and included in the judgment",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "citation": "Tex. Tax Code 34.01(n), (q)",
+      "verified_on": "2026-10-29",
+      "note": "Read from the Texas Legislature's statute file server (statutes.capitol.texas.gov viewer). First quoted part from 34.01(n); second from 34.01(q)(1). The deed also remains subject to the defendant's right of redemption.",
+      "question": "Which liens or interests survive the sale?",
+      "order": 110
+     },
+     {
+      "topic": "unsold_property",
+      "answer": "If no sufficient bid is received and the taxing unit does not end the sale, the officer bids the property off to the taxing unit that requested the order of sale, for the lesser of the judgment amount or the market value in the judgment. That taxing unit takes title for itself and the other taxing units in the suit.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "the officer making the sale shall bid the property off to the taxing unit that requested the order of sale … for the aggregate amount of the judgment against the property or for the market value of the property as specified in the judgment, whichever is less. … The taxing unit to which the property is bid off takes title to the property for the use and benefit of itself and all other taxing units that established tax liens in the suit.",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "citation": "Tex. Tax Code 34.01(j), (k); 34.05(a)",
+      "verified_on": "2026-10-29",
+      "note": "Read from the Texas Legislature's statute file server (statutes.capitol.texas.gov viewer).",
+      "question": "What happens to property that does not sell?",
+      "order": 120
+     }
+    ],
+    "AVAILABLE": [
+     {
+      "topic": "available_overview",
+      "answer": "These are properties sold to a taxing unit at a tax sale. Such a taxing unit may sell the property at any time by public or private sale, subject to any right of redemption of the former owner; the redemption period begins when the deed to the taxing unit is filed for record.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "If property is sold to a taxing unit that is a party to the judgment, the taxing unit may sell the property at any time by public or private sale. … The sale is subject to any right of redemption of the former owner. The redemption period begins on the date the deed to the taxing unit is filed for record.",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "citation": "Tex. Tax Code 34.05(a); 34.01(j)",
+      "verified_on": "2026-10-29",
+      "note": "Read from the Texas Legislature's statute file server (statutes.capitol.texas.gov viewer).",
+      "question": "What is this list and why is the property available?",
+      "order": 10
+     },
+     {
+      "topic": "how_to_buy",
+      "answer": "The taxing unit that bought the property may ask the sheriff or a constable to sell it at a public sale, or may instead sell it at a private sale.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The taxing unit purchasing the property by resolution of its governing body may request the sheriff or a constable to sell the property at a public sale. … In lieu of a sale pursuant to Subsections (c) and (d) of this section, the taxing unit that purchased the property may sell the property at a private sale.",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "citation": "Tex. Tax Code 34.05(c), (d), (h)",
+      "verified_on": "2026-10-29",
+      "note": "Read from the Texas Legislature's statute file server (statutes.capitol.texas.gov viewer). How a particular taxing unit takes offers is set locally (see county rows).",
+      "question": "How do I buy a property from this list?",
+      "order": 20
+     },
+     {
+      "topic": "price_basis",
+      "answer": "A public resale requested by the taxing unit may be for any amount. A private sale under 34.05(h) may not be for less than the lesser of the market value in the judgment or the total judgments against the property.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "Property sold pursuant to Subsections (c) and (d) of this section may be sold for any amount. … Property sold under this subsection may not be sold for an amount that is less than the lesser of: (1) the market value specified in the judgment of foreclosure; or (2) the total amount of the judgments against the property.",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "citation": "Tex. Tax Code 34.05(b), (h), (i)",
+      "verified_on": "2026-10-29",
+      "note": "Read from the Texas Legislature's statute file server (statutes.capitol.texas.gov viewer).",
+      "question": "How is the price set?",
+      "order": 30
+     },
+     {
+      "topic": "costs_added",
+      "answer": "For a private sale at or above market value under 34.05(j), the conveyance is subject to the purchaser's obligation to pay the prorated taxes for the current year.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "The conveyance is subject to any remaining right of redemption at the time of the sale and to the purchaser's obligation to pay the prorated taxes for the current year as provided by Section 26.10 .",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "citation": "Tex. Tax Code 34.05(k)",
+      "verified_on": "2026-10-29",
+      "note": "Read from the Texas Legislature's statute file server (statutes.capitol.texas.gov viewer). The statute states this for 34.05(j) sales only; other resale costs are set locally (see county rows).",
+      "question": "What costs are added to the price?",
+      "order": 40
+     },
+     {
+      "topic": "documents_required",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "note": "The written statement of 34.015 is tied to sales under 34.01; no statewide document rule for taxing-unit resales was found. See county rows.",
+      "question": "What forms or documents are required?",
+      "order": 50
+     },
+     {
+      "topic": "payment",
+      "status": "NOT_VERIFIED",
+      "kind": "LAW",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "note": "Payment terms for resales are set locally; see county rows.",
+      "question": "How and when do I pay?",
+      "order": 60
+     },
+     {
+      "topic": "deed_type",
+      "answer": "The seller executes a deed conveying the right, title and interest held by each taxing unit that was a party to the judgment. The conveyance is subject to any remaining right of redemption.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "shall execute a deed to the property conveying to the purchaser the right, title, and interest acquired or held by each taxing unit that was a party to the judgment foreclosing tax liens on the property. The conveyance shall be made subject to any remaining right of redemption at the time of the sale.",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "citation": "Tex. Tax Code 34.05(e)",
+      "verified_on": "2026-10-29",
+      "note": "Read from the Texas Legislature's statute file server (statutes.capitol.texas.gov viewer).",
+      "question": "What kind of deed or title does the buyer receive?",
+      "order": 70
+     },
+     {
+      "topic": "time_limit",
+      "answer": "The taxing unit may sell the property at any time. If it has not sold the property within six months after the owner's right of redemption ends, any taxing unit entitled to the proceeds may ask the sheriff or a constable in writing to sell it at a public sale.",
+      "status": "VERIFIED",
+      "kind": "LAW",
+      "quote": "If the purchasing taxing unit has not sold the property within six months after the date on which the owner's right of redemption terminates, any taxing unit that is entitled to receive proceeds of the sale by resolution of its governing body may request the sheriff or a constable in writing to sell the property at a public sale.",
+      "source_url": "https://tcss.legis.texas.gov/resources/TX/htm/TX.34.htm",
+      "source_title": "TAX CODE CHAPTER 34. TAX SALES AND REDEMPTION",
+      "citation": "Tex. Tax Code 34.05(a), (c)",
+      "verified_on": "2026-10-29",
+      "note": "Read from the Texas Legislature's statute file server (statutes.capitol.texas.gov viewer).",
+      "question": "How long does a property stay available?",
+      "order": 80
+     }
+    ],
+    "LIENS_CERTIFICATES": [
+     {
+      "topic": "lien_overview",
+      "answer": "Texas does not sell tax lien certificates. The tax office sells no tax liens; the property itself is sold at the monthly tax foreclosure sale.",
+      "status": "NOT_APPLICABLE",
+      "kind": "PROCEDURE",
+      "quote": "The tax office does not sell tax liens. Texas law allows the public to purchase properties from the county at a monthly tax foreclosure sale. The states sells the deed to the property. Note: The state does not sell tax lien certificates where a buyer becomes the lienholder for the back taxes.",
+      "source_url": "https://tax-office.traviscountytx.gov/properties/foreclosed/faq",
+      "source_title": "Foreclosed properties frequently asked questions",
+      "verified_on": "2026-10-29",
+      "note": "Travis County Tax Office FAQ. Denton County's Sheriff's Sale Rules say the same: 'There is no Tax Lien Certificate Sale in Texas.'",
+      "question": "What is a tax lien or certificate here?",
+      "order": 10
+     }
+    ]
+   },
    "counties": {
     "Anderson": {
      "ALL": [
@@ -3636,6 +3932,101 @@
       }
      ]
     },
+    "Bell": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Texas Comptroller's county directory lists the Bell County Tax Assessor-Collector at 254-933-5318 (website www.bellcountytx.com).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax Assessor-Collector: Shay Luedeke Phone: 254-933-5318 … Website: www.bellcountytx.com",
+       "source_url": "https://comptroller.texas.gov/taxes/property-tax/county-directory/bell.php",
+       "source_title": "Bell - 014",
+       "verified_on": "2026-10-29",
+       "note": "Contact from the Comptroller's county directory. The sentence on the statement and the sale officer rests on Tex. Tax Code 34.015(b) and 34.05(c).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ]
+    },
+    "Bexar": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "Struck-off properties are handled by the Bexar County Public Works Department (main 210-335-6700); all redemptions are handled by the Bexar County Tax Assessor/Collector.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "PUBLIC WORKS DEPARTMENT … Main 210-335-6700 … All redemptions are handled by: Bexar County Tax Assessor/Collector",
+       "source_url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information",
+       "source_title": "Bexar County Tax Foreclosure Struck Off Properties General Information",
+       "verified_on": "2026-10-29",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AVAILABLE": [
+      {
+       "topic": "how_to_buy",
+       "answer": "Properties not sold at the monthly Sheriff's sale are struck off and deeded in trust to Bexar County, and are sold either as a Private Sale by the Public Works Asset Management Division or at the semi-annual Commissioners Court Resale auction.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Struck Off properties deeded to the County will either be sold as a Private Sale by the Asset Management Division of the Public Works Department or during the semi-annual Commissioners Court Resale auction.",
+       "source_url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information",
+       "source_title": "Bexar County Tax Foreclosure Struck Off Properties General Information",
+       "verified_on": "2026-10-29",
+       "question": "How do I buy a property from this list?",
+       "order": 20
+      },
+      {
+       "topic": "price_basis",
+       "answer": "Struck-off properties are sold at a minimum of the court judgment against the property or the adjudged value, whichever is less.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Properties are sold at a minimum amount of the court judgment against the property or for the adjudged value of the property, whichever is less.",
+       "source_url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information",
+       "source_title": "Bexar County Tax Foreclosure Struck Off Properties General Information",
+       "verified_on": "2026-10-29",
+       "question": "How is the price set?",
+       "order": 30
+      },
+      {
+       "topic": "costs_added",
+       "answer": "In addition to the struck-off amount the buyer pays any code compliance liens not included in the tax suit, interim taxes (tax years not in the judgment) and the deed recording fee.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "In addition to paying the struck off amount, the property will incur the following additional costs; Code Compliance Liens: … Interim Taxes: … Deed Recording fee:",
+       "source_url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information",
+       "source_title": "Bexar County Tax Foreclosure Struck Off Properties General Information",
+       "verified_on": "2026-10-29",
+       "question": "What costs are added to the price?",
+       "order": 40
+      },
+      {
+       "topic": "documents_required",
+       "answer": "The buyer signs a Purchase Agreement listing all costs; the file then goes to Commissioners Court for formal approval and a Court Order authorizing the sale.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "the purchaser will be asked to sign a Purchase Agreement form that will include all associated costs and conveyance information. The file will then be taken to Commissioners Court for formal approval and issuance of a Court Order authorizing the sale.",
+       "source_url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information",
+       "source_title": "Bexar County Tax Foreclosure Struck Off Properties General Information",
+       "verified_on": "2026-10-29",
+       "question": "What forms or documents are required?",
+       "order": 50
+      },
+      {
+       "topic": "payment",
+       "answer": "After Commissioners Court approval the buyer first pays the interim taxes to the Tax Assessor/Collector, then the struck-off amount (and any code compliance liens) by cashier's check payable to the Bexar County Sheriff, and last the deed recording fee payable to the County Clerk.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "After formal approval by the Commissioner's Court, the purchaser will first make payment to Bexar County Tax Assessor/Collector's office, for the interim taxes due. … the next collection of payment is for the struck off amount and that amount needed to satisfy the code compliance liens if any, in the form of a cashier's check made payable to Bexar County Sheriff. The last payment is for the recording fee",
+       "source_url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information",
+       "source_title": "Bexar County Tax Foreclosure Struck Off Properties General Information",
+       "verified_on": "2026-10-29",
+       "question": "How and when do I pay?",
+       "order": 60
+      }
+     ]
+    },
     "Bosque": {
      "ALL": [
       {
@@ -3650,6 +4041,35 @@
        "note": "Texas Comptroller of Public Accounts county directory (Property Tax Assistance).",
        "question": "Which office handles it and how do I contact them?",
        "order": 5
+      }
+     ]
+    },
+    "Brazoria": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Texas Comptroller's county directory lists the Brazoria County Tax Assessor-Collector at 979-864-1320 (website www.brazoriacountytx.gov).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax Assessor-Collector: Kristin Bulanek Phone: 979-864-1320 … Website: www.brazoriacountytx.gov",
+       "source_url": "https://comptroller.texas.gov/taxes/property-tax/county-directory/brazoria.php",
+       "source_title": "Brazoria - 020",
+       "verified_on": "2026-10-29",
+       "note": "Contact from the Comptroller's county directory. The sentence on the statement and the sale officer rests on Tex. Tax Code 34.015(b) and 34.05(c).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "registration",
+       "status": "NOT_VERIFIED",
+       "kind": "PROCEDURE",
+       "source_url": "https://www.brazoriacountytx.gov/departments/tax-office/property-taxes/sheriff-sale-tax-resales",
+       "source_title": "Sheriff Sale & Tax Resales",
+       "note": "Official page returned HTTP 403 (Akamai) to the sandbox on 2026-10-29.",
+       "question": "How do I register to bid?",
+       "order": 40
       }
      ]
     },
@@ -3733,6 +4153,73 @@
       }
      ]
     },
+    "Cameron": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Texas Comptroller's county directory lists the Cameron County Tax Assessor-Collector at 956-544-0800 (website www.cameroncountytx.gov).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax Assessor-Collector: Eddie Garcia Phone: 956-544-0800 … Website: www.cameroncountytx.gov",
+       "source_url": "https://comptroller.texas.gov/taxes/property-tax/county-directory/cameron.php",
+       "source_title": "Cameron - 031",
+       "verified_on": "2026-10-29",
+       "note": "Contact from the Comptroller's county directory. The sentence on the statement and the sale officer rests on Tex. Tax Code 34.015(b) and 34.05(c).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "bidding_platform",
+       "answer": "Online: Cameron County tax foreclosure sales are held as online auctions on the county's RealAuction site.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Cameron County utilizes the services of Realauction.com, LLC.",
+       "source_url": "https://cameron.texas.sheriffsaleauctions.com/index.cfm?ZACTION=HOME&ZMETHOD=TAXDEED",
+       "source_title": "RealForeclose- Cameron County",
+       "verified_on": "2026-10-29",
+       "question": "Where do I bid - online or in person?",
+       "order": 30
+      },
+      {
+       "topic": "registration",
+       "answer": "Anyone may bid by registering on the county's auction site at least five business days before the auction; one account is established for each bidder.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Anyone may bid on the properties by registering on this site at least five (5) business days before the auction. One account will be established for each bidder.",
+       "source_url": "https://cameron.texas.sheriffsaleauctions.com/index.cfm?ZACTION=HOME&ZMETHOD=TAXDEED",
+       "source_title": "RealForeclose- Cameron County",
+       "verified_on": "2026-10-29",
+       "question": "How do I register to bid?",
+       "order": 40
+      },
+      {
+       "topic": "deposit",
+       "answer": "Yes. A deposit of at least 5% of the bidder's anticipated total bid must be in place before the auction.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "You will need to place a deposit of at least 5% of the anticipated total bid amount prior to the start of the sale.",
+       "source_url": "https://cameron.texas.sheriffsaleauctions.com/index.cfm?zaction=home&zmethod=faq",
+       "source_title": "RealForeclose- Cameron County - FAQ",
+       "verified_on": "2026-10-29",
+       "question": "Is a deposit required and how much?",
+       "order": 50
+      },
+      {
+       "topic": "payment_deadline",
+       "answer": "The balance of the winning bid must be received within 24 hours of the close of the online sale.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The balance of the winning bid amount must be received and processed within 24 hours of the close of the online sale.",
+       "source_url": "https://cameron.texas.sheriffsaleauctions.com/index.cfm?zaction=home&zmethod=faq",
+       "source_title": "RealForeclose- Cameron County - FAQ",
+       "verified_on": "2026-10-29",
+       "question": "When and how must the winning bidder pay?",
+       "order": 70
+      }
+     ]
+    },
     "Camp": {
      "ALL": [
       {
@@ -3801,6 +4288,74 @@
       }
      ]
     },
+    "Collin": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Texas Comptroller's county directory lists the Collin County Tax Assessor-Collector at 972-547-5020 (website www.collincountytx.gov).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax Assessor-Collector: Scott Grigg Phone: 972-547-5020 … Website: www.collincountytx.gov",
+       "source_url": "https://comptroller.texas.gov/taxes/property-tax/county-directory/collin.php",
+       "source_title": "Collin - 043",
+       "verified_on": "2026-10-29",
+       "note": "Contact from the Comptroller's county directory. The sentence on the statement and the sale officer rests on Tex. Tax Code 34.015(b) and 34.05(c).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "sale_schedule",
+       "answer": "Collin County Constable sales are held the first Tuesday of each month between 10:00 AM and 4:00 PM.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The Constable Sale is held the first Tuesday of each month between 10:00 AM and 4:00 PM",
+       "source_url": "https://www.collincountytx.gov/courts/constables/constable-precinct-1/sale-information",
+       "source_title": "Constable Precinct 1: Sale Information",
+       "verified_on": "2026-10-29",
+       "question": "When are tax sales held?",
+       "order": 20
+      },
+      {
+       "topic": "bidding_platform",
+       "answer": "In person: property is sold at public auction to the highest bidder, based on oral bids.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The property will be sold at public auction to the highest bidder, based on oral bids.",
+       "source_url": "https://www.collincountytx.gov/courts/constables/constable-precinct-1/sale-information",
+       "source_title": "Constable Precinct 1: Sale Information",
+       "verified_on": "2026-10-29",
+       "question": "Where do I bid - online or in person?",
+       "order": 30
+      },
+      {
+       "topic": "payment_deadline",
+       "answer": "Precinct 1 accepts payment by cashier's check, money order or cash, payable to Collin County Constable Pct. 1, at the Constable's Office.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The Constable's Office will accept payment by cashier's check, money order or cash. Checks or money orders must be payable to Collin County Constable Pct. 1.",
+       "source_url": "https://www.collincountytx.gov/courts/constables/constable-precinct-1/sale-information",
+       "source_title": "Constable Precinct 1: Sale Information",
+       "verified_on": "2026-10-29",
+       "note": "Constable Precinct 1 page; Precincts 2-4 and the Sheriff publish their own payment terms.",
+       "question": "When and how must the winning bidder pay?",
+       "order": 70
+      },
+      {
+       "topic": "costs_added",
+       "answer": "The buyer needs a Written Statement from the Property Tax Office ($10.00, good for 90 days), and there may be additional taxes that accrued since the judgment.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "This can be obtained from the Property Tax Office. The cost is $10.00. … Written Statements are good for 90 days. There may be additional taxes due on the property that have accrued since the judgment was rendered.",
+       "source_url": "https://www.collincountytx.gov/courts/constables/constable-precinct-1/sale-information",
+       "source_title": "Constable Precinct 1: Sale Information",
+       "verified_on": "2026-10-29",
+       "question": "What costs are added on top of the winning bid?",
+       "order": 80
+      }
+     ]
+    },
     "Concho": {
      "ALL": [
       {
@@ -3818,6 +4373,112 @@
       }
      ]
     },
+    "Dallas": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "For struck-off resale properties, the Dallas County Public Works Property Division can be reached at 214-653-6400 (for example, for the scheduled court date of a bid).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "We recommend the highest, qualified bidders to the court to approve the sale. You may contact us at 214-653-6400 for the scheduled court date",
+       "source_url": "https://www.dallascounty.org/Assets/uploads/docs/public-works/TaxFCResaleFAQ_2024_Bids.pdf",
+       "source_title": "Dallas County Property Division, Tax Foreclosure Resales - Frequently Asked Questions - Sealed Bids",
+       "verified_on": "2026-10-29",
+       "note": "Sheriff online auction: Dallas Public Works Property Division page ('Sold by the Dallas County Sheriff via Live Online Auction held the first Tuesday of every month').",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "sale_schedule",
+       "answer": "Dallas County tax sale properties are sold by the Sheriff via live online auction held the first Tuesday of every month.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Sold by the Dallas County Sheriff via Live Online Auction held the first Tuesday of every month.",
+       "source_url": "https://www.dallascounty.org/departments/pubworks/property-division.php",
+       "source_title": "Public Works | Property Division Tax Foreclosure Resales",
+       "verified_on": "2026-10-29",
+       "question": "When are tax sales held?",
+       "order": 20
+      },
+      {
+       "topic": "bidding_platform",
+       "answer": "Online: the Sheriff conducts the tax foreclosure sale online through RealAuction (dallas.texas.sheriffsaleauctions.com).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The tax foreclosure sale is conducted by the Dallas County Sheriff’s Office, facilitated by Realauction.com, LLC.",
+       "source_url": "https://dallas.texas.sheriffsaleauctions.com/index.cfm?ZACTION=HOME&ZMETHOD=TAXDEED",
+       "source_title": "RealForeclose- Dallas County",
+       "verified_on": "2026-10-29",
+       "question": "Where do I bid - online or in person?",
+       "order": 30
+      },
+      {
+       "topic": "registration",
+       "answer": "Anyone may bid by registering on the auction site at least five business days before the auction; one account is established per bidder.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Anyone may bid on the properties by registering on this site at least five (5) business days before the auction. One account will be established for each bidder.",
+       "source_url": "https://dallas.texas.sheriffsaleauctions.com/index.cfm?ZACTION=HOME&ZMETHOD=TAXDEED",
+       "source_title": "RealForeclose- Dallas County",
+       "verified_on": "2026-10-29",
+       "question": "How do I register to bid?",
+       "order": 40
+      },
+      {
+       "topic": "payment_deadline",
+       "answer": "After the sale the bidder's deposit is applied to the winning bid; the remainder is due within 24 hours of the day of the sale, in the form the Sheriff specifies.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Once a sale has been completed, the bidder’s deposit is applied to the winning bid. The remainder of the bid is due within 24 hours of the day of the sale. Payment must be made in the form specified by the Sheriff.",
+       "source_url": "https://dallas.texas.sheriffsaleauctions.com/index.cfm?ZACTION=HOME&ZMETHOD=TAXDEED",
+       "source_title": "RealForeclose- Dallas County",
+       "verified_on": "2026-10-29",
+       "question": "When and how must the winning bidder pay?",
+       "order": 70
+      }
+     ],
+     "AVAILABLE": [
+      {
+       "topic": "how_to_buy",
+       "answer": "Struck-off properties listed on the website will be advertised for sale by sealed bid solicitation at a future date; the website will then announce the solicitation and link to bidding instructions.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The properties listed on the website will be advertised for sale via sealed bid solicitation at a future date. Once the date has been determined, the website will be updated with an announcement of the pending bid solicitation and a link to instructions for submitting your bid.",
+       "source_url": "https://www.dallascounty.org/Assets/uploads/docs/public-works/TaxFCResaleFAQ_2024_Bids.pdf",
+       "source_title": "Dallas County Property Division, Tax Foreclosure Resales - Frequently Asked Questions - Sealed Bids",
+       "verified_on": "2026-10-29",
+       "question": "How do I buy a property from this list?",
+       "order": 20
+      },
+      {
+       "topic": "costs_added",
+       "answer": "The new purchaser is responsible for post-judgment taxes, if any, and the pro-rata current year taxes.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Once completed, the Tax Office website should reflect only the post judgment year taxes, if any, and the pro-rata current year taxes which are the responsibility of the new purchaser.",
+       "source_url": "https://www.dallascounty.org/Assets/uploads/docs/public-works/TaxFCResaleFAQ_2024_Bids.pdf",
+       "source_title": "Dallas County Property Division, Tax Foreclosure Resales - Frequently Asked Questions - Sealed Bids",
+       "verified_on": "2026-10-29",
+       "question": "What costs are added to the price?",
+       "order": 40
+      },
+      {
+       "topic": "payment",
+       "answer": "Once the Commissioners Court accepts a bid, the full balance is due within 30 days.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Once a bid has been accepted by the Commissioners Court, the full balance is due within 30 days.",
+       "source_url": "https://www.dallascounty.org/Assets/uploads/docs/public-works/TaxFCResaleFAQ_2024_Bids.pdf",
+       "source_title": "Dallas County Property Division, Tax Foreclosure Resales - Frequently Asked Questions - Sealed Bids",
+       "verified_on": "2026-10-29",
+       "note": "Same FAQ: 'DOES THE DEPOSIT GO TOWARDS THE PURCHASE PRICE? A: Yes.'",
+       "question": "How and when do I pay?",
+       "order": 60
+      }
+     ]
+    },
     "Delta": {
      "ALL": [
       {
@@ -3832,6 +4493,124 @@
        "note": "Texas Comptroller of Public Accounts county directory (Property Tax Assistance).",
        "question": "Which office handles it and how do I contact them?",
        "order": 5
+      }
+     ]
+    },
+    "Denton": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Texas Comptroller's county directory lists the Denton County Tax Assessor-Collector at 940-349-3500 (website www.dentoncounty.gov/778/Tax-Assessor-Collector).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax Assessor-Collector: Dawn Waye Phone: 940-349-3500 … Website: www.dentoncounty.gov/778/Tax-Assessor-Collector",
+       "source_url": "https://comptroller.texas.gov/taxes/property-tax/county-directory/denton.php",
+       "source_title": "Denton - 061",
+       "verified_on": "2026-10-29",
+       "note": "Contact from the Comptroller's county directory. The sentence on the statement and the sale officer rests on Tex. Tax Code 34.015(b) and 34.05(c).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "sale_schedule",
+       "answer": "Real property is sold on the first Tuesday of the month; sales are held only when orders of sale are issued and are not always scheduled each month.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax Sales are only held when Orders of Sale are issued from the District Courts in reference to tax judgments for delinquent taxes. Sales are not always scheduled each month. Real property is required by Texas law to be sold on the first Tuesday of the month.",
+       "source_url": "https://www.dentoncounty.gov/DocumentCenter/View/9104/Sale-FAQs-PDF",
+       "source_title": "Denton County Sheriff's Sale FAQs (PDF)",
+       "verified_on": "2026-10-29",
+       "question": "When are tax sales held?",
+       "order": 20
+      },
+      {
+       "topic": "bidding_platform",
+       "answer": "Online: bidders must register and be approved by GovEase to take part in the Sheriff's auction.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Yes, you must register and be approved by GovEase to participate in the auction.",
+       "source_url": "https://www.dentoncounty.gov/DocumentCenter/View/9104/Sale-FAQs-PDF",
+       "source_title": "Denton County Sheriff's Sale FAQs (PDF)",
+       "verified_on": "2026-10-29",
+       "question": "Where do I bid - online or in person?",
+       "order": 30
+      },
+      {
+       "topic": "registration",
+       "answer": "A buyer needs a written statement from the County Tax Assessor-Collector; call or visit the main office in Denton at least 5 business days before the sale to request it.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Please call or visit our main office in Denton at least 5 business days prior to the sale to request this statement.",
+       "source_url": "https://www.dentoncounty.gov/867/Delinquent-Tax-Sales",
+       "source_title": "Delinquent Tax Sales | Denton County, TX",
+       "verified_on": "2026-10-29",
+       "question": "How do I register to bid?",
+       "order": 40
+      },
+      {
+       "topic": "deposit",
+       "answer": "No. No deposit is required before the sale.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "No deposit is required before the sale.",
+       "source_url": "https://www.dentoncounty.gov/DocumentCenter/View/9104/Sale-FAQs-PDF",
+       "source_title": "Denton County Sheriff's Sale FAQs (PDF)",
+       "verified_on": "2026-10-29",
+       "question": "Is a deposit required and how much?",
+       "order": 50
+      },
+      {
+       "topic": "payment_deadline",
+       "answer": "Payment of the total amount bid is made by ACH/E-Check through GovEase by 4 pm on the day of the sale; payment plans are not accepted.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Denton County requires payment in the form of an ACH/E-Check for the total amount that was bid paid via the GovEase website. Payment plans are not accepted. Payment is not required at the time of purchase. However, the total amount must be paid by 4 pm on the day of sale",
+       "source_url": "https://www.dentoncounty.gov/DocumentCenter/View/9104/Sale-FAQs-PDF",
+       "source_title": "Denton County Sheriff's Sale FAQs (PDF)",
+       "verified_on": "2026-10-29",
+       "question": "When and how must the winning bidder pay?",
+       "order": 70
+      },
+      {
+       "topic": "costs_added",
+       "answer": "All expenses are included in the opening bid, but there may be additional taxes that accrued since the judgment.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "All the expenses are included in the opening bid; however, there may be additional taxes due on the property that has accrued since the judgment was rendered.",
+       "source_url": "https://www.dentoncounty.gov/DocumentCenter/View/9104/Sale-FAQs-PDF",
+       "source_title": "Denton County Sheriff's Sale FAQs (PDF)",
+       "verified_on": "2026-10-29",
+       "question": "What costs are added on top of the winning bid?",
+       "order": 80
+      }
+     ],
+     "AVAILABLE": [
+      {
+       "topic": "how_to_buy",
+       "answer": "Properties listed as 'Resolution' were offered at the Sheriff's sale and struck off to the taxing entity; they may be bid on.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The properties listed as Resolution have been previously offered for sale by the Sheriff and were struck off to the Taxing entity. Persons wishing to purchase these properties may bid on these properties.",
+       "source_url": "https://www.dentoncounty.gov/843/Sheriffs-Sale-Rules",
+       "source_title": "Sheriff's Sale Rules | Denton County, TX",
+       "verified_on": "2026-10-29",
+       "note": "Sale FAQ: 'If a property goes to the taxing entity - contact can be made with the attorney who represents that entity for purchase information.'",
+       "question": "How do I buy a property from this list?",
+       "order": 20
+      },
+      {
+       "topic": "price_basis",
+       "answer": "The opening bid for Resolution property is listed with each tract; the attorney representing the taxing entity may accept a bid below it.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The amount of the opening bid is set out below each tract. The attorney representing the taxing entity may accept a bid less than the amount of the opening bid.",
+       "source_url": "https://www.dentoncounty.gov/843/Sheriffs-Sale-Rules",
+       "source_title": "Sheriff's Sale Rules | Denton County, TX",
+       "verified_on": "2026-10-29",
+       "question": "How is the price set?",
+       "order": 30
       }
      ]
     },
@@ -3900,6 +4679,73 @@
        "note": "Texas Comptroller of Public Accounts county directory (Property Tax Assistance).",
        "question": "Which office handles it and how do I contact them?",
        "order": 5
+      }
+     ]
+    },
+    "El Paso": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Texas Comptroller's county directory lists the El Paso County Tax Assessor-Collector at 915-273-3430 (website www.epcounty.com/taxoffice/).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax Assessor-Collector: Ruben P. Gonzales Phone: 915-273-3430 … Website: www.epcounty.com/taxoffice/",
+       "source_url": "https://comptroller.texas.gov/taxes/property-tax/county-directory/elpaso.php",
+       "source_title": "El Paso - 071",
+       "verified_on": "2026-10-29",
+       "note": "Contact from the Comptroller's county directory. The sentence on the statement and the sale officer rests on Tex. Tax Code 34.015(b) and 34.05(c).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "bidding_platform",
+       "answer": "Online: El Paso County tax foreclosure sales are held as online auctions on the county's RealAuction site.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "El Paso County utilizes the services of Realauction.com, LLC.",
+       "source_url": "https://elpaso.texas.sheriffsaleauctions.com/index.cfm?ZACTION=HOME&ZMETHOD=TAXDEED",
+       "source_title": "RealForeclose- El Paso County",
+       "verified_on": "2026-10-29",
+       "question": "Where do I bid - online or in person?",
+       "order": 30
+      },
+      {
+       "topic": "registration",
+       "answer": "Anyone may bid by registering on the county's auction site at least five business days before the auction; one account is established for each bidder.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Anyone may bid on the properties by registering on this site at least five (5) business days before the auction. One account will be established for each bidder.",
+       "source_url": "https://elpaso.texas.sheriffsaleauctions.com/index.cfm?ZACTION=HOME&ZMETHOD=TAXDEED",
+       "source_title": "RealForeclose- El Paso County",
+       "verified_on": "2026-10-29",
+       "question": "How do I register to bid?",
+       "order": 40
+      },
+      {
+       "topic": "deposit",
+       "answer": "Yes. A deposit of 5% of the bidder's anticipated total bid must be in place before the auction by wire transfer to the El Paso County Auditor's Office.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "You will need to place a deposit of 5% of the anticipated total bid amount via wire transfer to the El Paso County Auditor’s Office made payable to El Paso County.",
+       "source_url": "https://elpaso.texas.sheriffsaleauctions.com/index.cfm?zaction=home&zmethod=faq",
+       "source_title": "RealForeclose- El Paso County - FAQ",
+       "verified_on": "2026-10-29",
+       "question": "Is a deposit required and how much?",
+       "order": 50
+      },
+      {
+       "topic": "payment_deadline",
+       "answer": "The balance of the winning bid must be received within 24 hours of the date of the sale, by wire transfer to the El Paso County Auditor's Office.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Payments must be made via wire transfer to the El Paso County Auditor’s Office. Wire transfers should be made payable to El Paso County. The balance of the winning bid amount must be received and processed within 24 hours of the date of the sale.",
+       "source_url": "https://elpaso.texas.sheriffsaleauctions.com/index.cfm?zaction=home&zmethod=faq",
+       "source_title": "RealForeclose- El Paso County - FAQ",
+       "verified_on": "2026-10-29",
+       "question": "When and how must the winning bidder pay?",
+       "order": 70
       }
      ]
     },
@@ -4021,6 +4867,62 @@
       }
      ]
     },
+    "Fort Bend": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Texas Comptroller's county directory lists the Fort Bend County Tax Assessor-Collector at 281-341-3710 (website www.fortbendcountytx.gov).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax Assessor-Collector: Carmen Turner Phone: 281-341-3710 … Website: www.fortbendcountytx.gov",
+       "source_url": "https://comptroller.texas.gov/taxes/property-tax/county-directory/fortbend.php",
+       "source_title": "Fort Bend - 079",
+       "verified_on": "2026-10-29",
+       "note": "Contact from the Comptroller's county directory. The sentence on the statement and the sale officer rests on Tex. Tax Code 34.015(b) and 34.05(c).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "sale_schedule",
+       "answer": "Fort Bend County Constable Precinct 2 property sales are held the first Tuesday of each month.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Fort Bend County Constable Pct. 2 property Sales are held the first Tuesday of each month",
+       "source_url": "https://www.fortbendcountytx.gov/government/departments/constables/constable-precinct-2/civil-and-writs-division/property-sales",
+       "source_title": "Property Sales | Fort Bend County",
+       "verified_on": "2026-10-29",
+       "question": "When are tax sales held?",
+       "order": 20
+      },
+      {
+       "topic": "bidding_platform",
+       "answer": "In person: the terms are cash at the time the property is struck off to the highest bidder.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The terms of these sales are cash at the time the property is struck off to the highest bidder.",
+       "source_url": "https://www.fortbendcountytx.gov/government/departments/constables/constable-precinct-2/civil-and-writs-division/property-sales",
+       "source_title": "Property Sales | Fort Bend County",
+       "verified_on": "2026-10-29",
+       "question": "Where do I bid - online or in person?",
+       "order": 30
+      },
+      {
+       "topic": "payment_deadline",
+       "answer": "Winning bidders pay in person at the Constable Precinct 2 office by 2 pm; the page states no money orders, business checks or personal checks.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Winning bidders are required to pay in person at the Precinct 2's office by 2pm; no money orders, business checks or personal checks.",
+       "source_url": "https://www.fortbendcountytx.gov/government/departments/constables/constable-precinct-2/civil-and-writs-division/property-sales",
+       "source_title": "Property Sales | Fort Bend County",
+       "verified_on": "2026-10-29",
+       "note": "The page also says 'TERMS: Cash or certified check at sale' and 'You must pay with a separate money order / cashier’s check for each property purchased', which conflicts with 'no money orders'; check with the Constable.",
+       "question": "When and how must the winning bidder pay?",
+       "order": 70
+      }
+     ]
+    },
     "Franklin": {
      "ALL": [
       {
@@ -4052,6 +4954,88 @@
        "note": "Texas Comptroller of Public Accounts county directory (Property Tax Assistance).",
        "question": "Which office handles it and how do I contact them?",
        "order": 5
+      }
+     ]
+    },
+    "Galveston": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Texas Comptroller's county directory lists the Galveston County Tax Assessor-Collector at 409-766-2284 (website www.galcotax.com).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax Assessor-Collector: Cheryl E. Johnson Phone: 409-766-2284 … Website: www.galcotax.com",
+       "source_url": "https://comptroller.texas.gov/taxes/property-tax/county-directory/galveston.php",
+       "source_title": "Galveston - 084",
+       "verified_on": "2026-10-29",
+       "note": "Contact from the Comptroller's county directory. The sentence on the statement and the sale officer rests on Tex. Tax Code 34.015(b) and 34.05(c).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "bidding_platform",
+       "answer": "Online only: tax foreclosure sales and resales are conducted by the Galveston County Sheriff exclusively through Real Auction; there are no live auctions.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax foreclosure sales/resales are conducted by the Galveston County Sheriff exclusively through an online platform and website operated by Real Auction. There will be no live auctions of tax foreclosures and/or resales.",
+       "source_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
+       "source_title": "Galveston County Sheriff's Office - Sheriff Sales Information & Procedures",
+       "verified_on": "2026-10-29",
+       "question": "Where do I bid - online or in person?",
+       "order": 30
+      },
+      {
+       "topic": "registration",
+       "answer": "Bidders must register through the Real Auction website.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Bidder Registration - Bidders must register through the Real Auction website: www.realauction.com.",
+       "source_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
+       "source_title": "Galveston County Sheriff's Office - Sheriff Sales Information & Procedures",
+       "verified_on": "2026-10-29",
+       "question": "How do I register to bid?",
+       "order": 40
+      },
+      {
+       "topic": "deposit",
+       "answer": "Yes. Bidders must deposit with the Sheriff at least 5% of the aggregate of all their bids, by wire transfer or ACH, at least ten days before the sale date.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "bidders must deposit with the Galveston County Sheriff an amount equal to at least five percent (5%) of the total amount of their bids (the aggregate of all bids on all properties). Bid deposits can be processed by wire transfer or ACH through the Real Auction website at least ten (10) days prior to the sale date.",
+       "source_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
+       "source_title": "Galveston County Sheriff's Office - Sheriff Sales Information & Procedures",
+       "verified_on": "2026-10-29",
+       "question": "Is a deposit required and how much?",
+       "order": 50
+      },
+      {
+       "topic": "payment_deadline",
+       "answer": "Winning bids can be paid by wire transfer through the Real Auction website, or by money order or cashier's check to the Sheriff's Office, by 4:00 PM on the day of the sale.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Winning bid amounts can be delivered by wire transfer through the Real Auction website, or by money order or cashier’s check to the Galveston County Sheriff’s Office by 4:00 PM on the day of the sale.",
+       "source_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
+       "source_title": "Galveston County Sheriff's Office - Sheriff Sales Information & Procedures",
+       "verified_on": "2026-10-29",
+       "question": "When and how must the winning bidder pay?",
+       "order": 70
+      }
+     ],
+     "AVAILABLE": [
+      {
+       "topic": "documents_required",
+       "answer": "For struck-off property in Dickinson, League City, Santa Fe, Clear Lake Shores and Kemah, a Bid Form for Tax Foreclosed Property is completed and sent with a cashier's check payable to Galveston County for 10% of the bid amount.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Upon your decision to offer to purchase a property within the city limits of the cities of Dickinson, League City, Santa Fe, Clear Lake Shores, Kemah , a Bid Form for Tax Foreclosed Property must be completed … Completed Bid Forms, accompanied by a cashier’s check made payable to “ Galveston County” in an amount equal to ten percent (10%) of the bid amount",
+       "source_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/sheriff_sale_rules.pdf",
+       "source_title": "Galveston County Sheriff - Sheriff Sale Information",
+       "verified_on": "2026-10-29",
+       "note": "Undated information letter on the Sheriff's site; its auction section describes live sales that the Sheriff's current procedures replaced with online sales.",
+       "question": "What forms or documents are required?",
+       "order": 50
       }
      ]
     },
@@ -4245,6 +5229,85 @@
       }
      ]
     },
+    "Harris": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "Tax sale questions go to the Special Tax Service Department of the Harris County Tax Office at 713-274-8120.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "For more information on this or other tax sale issues, you may also call the Special Tax Service Department of the Harris County Tax Office at 713-274-8120 .",
+       "source_url": "https://www.hctax.net/Property/TaxSales",
+       "source_title": "Harris County Tax Office",
+       "verified_on": "2026-10-29",
+       "note": "Same page: 'Tax Sales are held by the eight Harris County Constables'.",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "sale_schedule",
+       "answer": "The Harris County tax sale is held on the first Tuesday of each month; registration begins at 8:30 a.m. and sales are held from 10:00 a.m. to 4:00 p.m.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax sales are held the first Tuesday of each month. Registration of bidders begins at 8:30 a.m. Sales must be held from 10:00 a.m. – 4:00 p.m.",
+       "source_url": "https://www.hctax.net/Property/TaxSales",
+       "source_title": "Harris County Tax Office",
+       "verified_on": "2026-10-29",
+       "question": "When are tax sales held?",
+       "order": 20
+      },
+      {
+       "topic": "bidding_platform",
+       "answer": "In person: the auction is held on the first Tuesday of each month at the Bayou City Event Center, where the eight Constables auction properties simultaneously.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The auction is conducted on the first Tuesday of each month at Bayou City Event Center, between 10:00 am to 4:00 pm. Properties are auctioned off by the eight (8) Constables simultaneously",
+       "source_url": "https://www.hctax.net/Property/TaxSales",
+       "source_title": "Harris County Tax Office",
+       "verified_on": "2026-10-29",
+       "question": "Where do I bid - online or in person?",
+       "order": 30
+      },
+      {
+       "topic": "registration",
+       "answer": "Registration with the Harris County Tax Assessor-Collector is required and must be renewed annually. Bidders may pre-register online, by mail or in person at the sale, need valid identification and must not owe delinquent taxes on any Harris County property.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Registration is required to participate in the Harris County Tax Sale and must be renewed annually. Bidders may pre-register online, by mail or in person at the Tax Sale. Bidders must have valid identification and must not owe any delinquent taxes on any property in Harris County.",
+       "source_url": "https://www.hctax.net/Property/TaxSales",
+       "source_title": "Harris County Tax Office",
+       "verified_on": "2026-10-29",
+       "question": "How do I register to bid?",
+       "order": 40
+      },
+      {
+       "topic": "payment_deadline",
+       "answer": "Full payment is required immediately after the sale, in cash or certified funds only. A receipt is issued on the day of the sale and the deed within 4-6 weeks.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Property is sold to the highest bidder and full payment for the purchase is required immediately after the sale. Only cash and certified funds are accepted as payment. A receipt for the purchase payment is issued on the day of the sale and the deed is issued within 4-6 weeks.",
+       "source_url": "https://www.hctax.net/Property/TaxSales",
+       "source_title": "Harris County Tax Office",
+       "verified_on": "2026-10-29",
+       "question": "When and how must the winning bidder pay?",
+       "order": 70
+      },
+      {
+       "topic": "costs_added",
+       "answer": "Taxes that accrued after the foreclosure judgment (post-judgment taxes) are the purchaser's responsibility and are paid at the Tax Assessor-Collector's Office, not at the sale.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "If taxes have accrued on the property for years after the date of the foreclosure judgment (“post-judgment taxes”), the Tax Sale purchaser is responsible for those taxes. Post-judgment taxes are paid at the Tax Assessor-Collector’s Office – not at the Tax sale.",
+       "source_url": "https://www.hctax.net/Property/TaxSales",
+       "source_title": "Harris County Tax Office",
+       "verified_on": "2026-10-29",
+       "question": "What costs are added on top of the winning bid?",
+       "order": 80
+      }
+     ]
+    },
     "Hays": {
      "ALL": [
       {
@@ -4302,6 +5365,23 @@
        "verified_on": "2026-10-29",
        "question": "How do I register to bid?",
        "order": 40
+      }
+     ]
+    },
+    "Hidalgo": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Texas Comptroller's county directory lists the Hidalgo County Tax Assessor-Collector at 956-318-2157 (website www.hidalgocounty.us).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax Assessor-Collector: Paul Villarreal Jr. Phone: 956-318-2157 … Website: www.hidalgocounty.us",
+       "source_url": "https://comptroller.texas.gov/taxes/property-tax/county-directory/hidalgo.php",
+       "source_title": "Hidalgo - 108",
+       "verified_on": "2026-10-29",
+       "note": "Contact from the Comptroller's county directory. The sentence on the statement and the sale officer rests on Tex. Tax Code 34.015(b) and 34.05(c).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
       }
      ]
     },
@@ -4519,6 +5599,73 @@
        "note": "Texas Comptroller of Public Accounts county directory (Property Tax Assistance).",
        "question": "Which office handles it and how do I contact them?",
        "order": 5
+      }
+     ]
+    },
+    "Jefferson": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Texas Comptroller's county directory lists the Jefferson County Tax Assessor-Collector at 409-835-8516 (website www.jeffcotax.com).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax Assessor-Collector: Kate Carroll Phone: 409-835-8516 … Website: www.jeffcotax.com",
+       "source_url": "https://comptroller.texas.gov/taxes/property-tax/county-directory/jefferson.php",
+       "source_title": "Jefferson - 123",
+       "verified_on": "2026-10-29",
+       "note": "Contact from the Comptroller's county directory. The sentence on the statement and the sale officer rests on Tex. Tax Code 34.015(b) and 34.05(c).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "bidding_platform",
+       "answer": "In person: property is sold at public auction for cash to the highest bidder, based on oral bids.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The property will be sold at public auction and will be sold for cash to the highest bidder, based on oral bids.",
+       "source_url": "https://jeffcotax.com/property-tax/delinquent-tax-sale/",
+       "source_title": "Delinquent Tax Sale - Jefferson County Tax Office",
+       "verified_on": "2026-10-29",
+       "question": "Where do I bid - online or in person?",
+       "order": 30
+      },
+      {
+       "topic": "registration",
+       "answer": "A bidder must be registered with the person conducting the sale when the sale begins and submit a Statement of No Delinquent Taxes Owed; no bidder numbers are issued after the sale begins at 10:00 am.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "A bidder at the sale must be registered, at the time the sale begins, with the person conducting the sale. The bidder must submit the letter ( Statement of No Delinquent Taxes Owed) to the person conducting the sale. Once the sale begins at 10:00 am, no one will be allowed to obtain a bidder number.",
+       "source_url": "https://jeffcotax.com/property-tax/delinquent-tax-sale/",
+       "source_title": "Delinquent Tax Sale - Jefferson County Tax Office",
+       "verified_on": "2026-10-29",
+       "question": "How do I register to bid?",
+       "order": 40
+      },
+      {
+       "topic": "payment_deadline",
+       "answer": "Purchasers pay with cash or a cashier's check payable to the Jefferson County Sheriff's Department by 4:00 p.m. on the day of the sale.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Purchasers must pay for their property with cash or a cashier’s check payable to the Jefferson County Sheriff’s Department by 4:00 p.m. on the day of the sale .",
+       "source_url": "https://jeffcotax.com/property-tax/delinquent-tax-sale/",
+       "source_title": "Delinquent Tax Sale - Jefferson County Tax Office",
+       "verified_on": "2026-10-29",
+       "question": "When and how must the winning bidder pay?",
+       "order": 70
+      },
+      {
+       "topic": "costs_added",
+       "answer": "Purchasers must pay the taxes for tax years that became due since the date of judgment.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "You will be required to pay the taxes for the tax years, which became due since the date of judgment.",
+       "source_url": "https://jeffcotax.com/property-tax/delinquent-tax-sale/",
+       "source_title": "Delinquent Tax Sale - Jefferson County Tax Office",
+       "verified_on": "2026-10-29",
+       "question": "What costs are added on top of the winning bid?",
+       "order": 80
       }
      ]
     },
@@ -4958,6 +6105,35 @@
       }
      ]
     },
+    "McLennan": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Texas Comptroller's county directory lists the McLennan County Tax Assessor-Collector at 254-757-5130 (website www.co.mclennan.tx.us).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax Assessor-Collector: Randy Riggs Phone: 254-757-5130 … Website: www.co.mclennan.tx.us",
+       "source_url": "https://comptroller.texas.gov/taxes/property-tax/county-directory/mclennan.php",
+       "source_title": "McLennan - 161",
+       "verified_on": "2026-10-29",
+       "note": "Contact from the Comptroller's county directory. The sentence on the statement and the sale officer rests on Tex. Tax Code 34.015(b) and 34.05(c).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "bidding_platform",
+       "status": "NOT_VERIFIED",
+       "kind": "PROCEDURE",
+       "source_url": "https://www.mclennan.gov/tax",
+       "source_title": "McLennan County Tax Office",
+       "note": "Official page is behind a Cloudflare challenge (HTTP 403) on 2026-10-29; not bypassed.",
+       "question": "Where do I bid - online or in person?",
+       "order": 30
+      }
+     ]
+    },
     "Milam": {
      "ALL": [
       {
@@ -5033,6 +6209,85 @@
       }
      ]
     },
+    "Montgomery": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Texas Comptroller's county directory lists the Montgomery County Tax Assessor-Collector at 936-539-7897 (website www.mctotx.org).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax Assessor-Collector: Tammy McRae Phone: 936-539-7897 … Website: www.mctotx.org",
+       "source_url": "https://comptroller.texas.gov/taxes/property-tax/county-directory/montgomery.php",
+       "source_title": "Montgomery - 170",
+       "verified_on": "2026-10-29",
+       "note": "Contact from the Comptroller's county directory. The sentence on the statement and the sale officer rests on Tex. Tax Code 34.015(b) and 34.05(c).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "sale_schedule",
+       "answer": "Montgomery County tax sales are held the first Tuesday of every month at 10 a.m. (the following business day if a holiday).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "First Tuesday of every month at 10 a.m. (unless holiday, then following business day).",
+       "source_url": "https://www.mctx.org/departments/departments_q_-_z/tax_office/foreclosure_sales_and_resales.php",
+       "source_title": "Montgomery County Tax Office - Tax Lien Foreclosure Sales And Resales",
+       "verified_on": "2026-10-29",
+       "question": "When are tax sales held?",
+       "order": 20
+      },
+      {
+       "topic": "bidding_platform",
+       "answer": "Online: Montgomery County tax foreclosure sales are held as online auctions on the county's RealAuction site.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "tax sales in Montgomery County shall be conducted as an ONLINE AUCTION",
+       "source_url": "https://montgomery.texas.realforeclose.com/index.cfm?ZACTION=HOME&ZMETHOD=TAXDEED",
+       "source_title": "RealForeclose- Montgomery County",
+       "verified_on": "2026-10-29",
+       "question": "Where do I bid - online or in person?",
+       "order": 30
+      },
+      {
+       "topic": "registration",
+       "answer": "Bidders register on RealAuction and must also have the Request for Written Statement completed, notarized and received by the Montgomery County Tax Office (with a $10 fee) no later than 5 business days before the sale.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "No later than 5 business days before the sale, the Request for the Written Statement MUST be completed, notarized and received by the Montgomery County Tax Office in person, or sent by US Mail, along with cash, cashier’s check or money order for $10",
+       "source_url": "https://www.mctx.org/departments/departments_q_-_z/tax_office/foreclosure_sales_and_resales.php",
+       "source_title": "Montgomery County Tax Office - Tax Lien Foreclosure Sales And Resales",
+       "verified_on": "2026-10-29",
+       "question": "How do I register to bid?",
+       "order": 40
+      },
+      {
+       "topic": "deposit",
+       "answer": "Yes. A deposit of 5% of the bidder's anticipated total bid must be in place before the auction.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "In order to bid, a deposit equal to 5% of the bidders intended total bid must be made prior to the auction.",
+       "source_url": "https://montgomery.texas.realforeclose.com/index.cfm?zaction=home&zmethod=faq",
+       "source_title": "RealForeclose- Montgomery County - FAQ",
+       "verified_on": "2026-10-29",
+       "question": "Is a deposit required and how much?",
+       "order": 50
+      },
+      {
+       "topic": "payment_deadline",
+       "answer": "The remainder of the bid is due within 24 hours of the close of the online sale or resale.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The remainder of the bid is due within 24 hours of the close of the online sale or resale.",
+       "source_url": "https://montgomery.texas.realforeclose.com/index.cfm?zaction=home&zmethod=faq",
+       "source_title": "RealForeclose- Montgomery County - FAQ",
+       "verified_on": "2026-10-29",
+       "question": "When and how must the winning bidder pay?",
+       "order": 70
+      }
+     ]
+    },
     "Morris": {
      "ALL": [
       {
@@ -5098,6 +6353,73 @@
        "note": "Texas Comptroller of Public Accounts county directory (Property Tax Assistance).",
        "question": "Which office handles it and how do I contact them?",
        "order": 5
+      }
+     ]
+    },
+    "Nueces": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Texas Comptroller's county directory lists the Nueces County Tax Assessor-Collector at 361-888-0307 (website www.nuecesco.com).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax Assessor-Collector: Kevin Kieschnick Phone: 361-888-0307 … Website: www.nuecesco.com",
+       "source_url": "https://comptroller.texas.gov/taxes/property-tax/county-directory/nueces.php",
+       "source_title": "Nueces - 178",
+       "verified_on": "2026-10-29",
+       "note": "Contact from the Comptroller's county directory. The sentence on the statement and the sale officer rests on Tex. Tax Code 34.015(b) and 34.05(c).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "bidding_platform",
+       "answer": "Online: Nueces County tax foreclosure sales are held as online auctions on the county's RealAuction site.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Nueces County utilizes the services of Realauction.com, LLC.",
+       "source_url": "https://nueces.texas.sheriffsaleauctions.com/index.cfm?ZACTION=HOME&ZMETHOD=TAXDEED",
+       "source_title": "RealForeclose- Nueces County Sheriff",
+       "verified_on": "2026-10-29",
+       "question": "Where do I bid - online or in person?",
+       "order": 30
+      },
+      {
+       "topic": "registration",
+       "answer": "Anyone may bid by registering on the county's auction site at least five business days before the auction; one account is established for each bidder.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Anyone may bid on the properties by registering on this site at least five (5) business days before the auction. One account will be established for each bidder.",
+       "source_url": "https://nueces.texas.sheriffsaleauctions.com/index.cfm?ZACTION=HOME&ZMETHOD=TAXDEED",
+       "source_title": "RealForeclose- Nueces County Sheriff",
+       "verified_on": "2026-10-29",
+       "question": "How do I register to bid?",
+       "order": 40
+      },
+      {
+       "topic": "deposit",
+       "answer": "Yes. A deposit of 5% of the bidder's anticipated total bid must be in place before the auction.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "In order to bid, a deposit equal to 5% of the anticipated total bid is required prior to the auction.",
+       "source_url": "https://nueces.texas.sheriffsaleauctions.com/index.cfm?zaction=home&zmethod=faq",
+       "source_title": "RealForeclose- Nueces County Sheriff - FAQ",
+       "verified_on": "2026-10-29",
+       "question": "Is a deposit required and how much?",
+       "order": 50
+      },
+      {
+       "topic": "payment_deadline",
+       "answer": "The balance of the winning bid must be received within 24 hours of the date of the sale; it may not be paid by ACH.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The balance of the winning bid amount must be received and processed within 24 hours of the date of the sale. You may NOT pay your winning bid balance via ACH.",
+       "source_url": "https://nueces.texas.sheriffsaleauctions.com/index.cfm?zaction=home&zmethod=faq",
+       "source_title": "RealForeclose- Nueces County Sheriff - FAQ",
+       "verified_on": "2026-10-29",
+       "question": "When and how must the winning bidder pay?",
+       "order": 70
       }
      ]
     },
@@ -5620,6 +6942,73 @@
       }
      ]
     },
+    "Smith": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Texas Comptroller's county directory lists the Smith County Tax Assessor-Collector at 903-590-2920 (website www.smith-county.com).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax Assessor-Collector: Gary B. Barber Phone: 903-590-2920 … Website: www.smith-county.com",
+       "source_url": "https://comptroller.texas.gov/taxes/property-tax/county-directory/smith.php",
+       "source_title": "Smith - 212",
+       "verified_on": "2026-10-29",
+       "note": "Contact from the Comptroller's county directory. The sentence on the statement and the sale officer rests on Tex. Tax Code 34.015(b) and 34.05(c).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "bidding_platform",
+       "answer": "Online: Smith County tax foreclosure sales are held as online auctions on the county's RealAuction site.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Smith County utilizes the services of Realauction.com, LLC.",
+       "source_url": "https://smith.texas.sheriffsaleauctions.com/index.cfm?ZACTION=HOME&ZMETHOD=TAXDEED",
+       "source_title": "RealForeclose- Smith  County",
+       "verified_on": "2026-10-29",
+       "question": "Where do I bid - online or in person?",
+       "order": 30
+      },
+      {
+       "topic": "registration",
+       "answer": "Bidders register on the auction site and must also send a notarized Request for Written Statement to the Smith County Tax Office with a $10 money order or check.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The Request for the Written Statement MUST be completed, notarized and sent to the Smith County Tax Office by US Mail along with a money order or check for $10.",
+       "source_url": "https://smith.texas.sheriffsaleauctions.com/index.cfm?zaction=home&zmethod=faq",
+       "source_title": "RealForeclose- Smith  County - FAQ",
+       "verified_on": "2026-10-29",
+       "question": "How do I register to bid?",
+       "order": 40
+      },
+      {
+       "topic": "deposit",
+       "answer": "Yes. A deposit of 5% of the bidder's anticipated total bid must be in place before the auction.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "In order to bid, a deposit equal to 5% of the bidders intended total bid must be in place prior to the auction .",
+       "source_url": "https://smith.texas.sheriffsaleauctions.com/index.cfm?zaction=home&zmethod=faq",
+       "source_title": "RealForeclose- Smith  County - FAQ",
+       "verified_on": "2026-10-29",
+       "question": "Is a deposit required and how much?",
+       "order": 50
+      },
+      {
+       "topic": "payment_deadline",
+       "answer": "The balance of the winning bid must be received by 4:00 PM CT on the day of the online sale.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The balance of the winning bid amount must be received and processed by 4:00 PM CT on the day of the online sale.",
+       "source_url": "https://smith.texas.sheriffsaleauctions.com/index.cfm?zaction=home&zmethod=faq",
+       "source_title": "RealForeclose- Smith  County - FAQ",
+       "verified_on": "2026-10-29",
+       "question": "When and how must the winning bidder pay?",
+       "order": 70
+      }
+     ]
+    },
     "Starr": {
      "ALL": [
       {
@@ -5634,6 +7023,73 @@
        "note": "Texas Comptroller of Public Accounts county directory (Property Tax Assistance).",
        "question": "Which office handles it and how do I contact them?",
        "order": 5
+      }
+     ]
+    },
+    "Tarrant": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "Tarrant County Constable Precinct 3 conducts all delinquent tax sales in Tarrant County; its phone is 817-581-3610 Option 2.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Constable Darrell Huffman, Tarrant County Precinct 3 Constable, is charged with the responsibility of conducting all Delinquent Tax Sales in Tarrant County. These sales are conducted by a deputy constable based in the Southlake Town Square. The phone number is 817-581-3610 Option 2.",
+       "source_url": "https://www.tarrantcountytx.gov/en/constables/constable-3/frequently-asked-questions.html",
+       "source_title": "Frequently Asked Questions",
+       "verified_on": "2026-10-29",
+       "note": "Tax Assessor-Collector phone 817-884-1186 is on the same page.",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "sale_schedule",
+       "answer": "Tarrant County tax sales are held on the first Tuesday of each month on the 1895 Courthouse steps between 10 a.m. and 4 p.m.; tax sales begin at 10 a.m.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Pursuant to Texas law, all sales are held on the first Tuesday of each month. … All property sales are held on the 1895 Courthouse steps between the hours of 10 a.m. and 4 p.m. Tax sales begin at 10 a.m..",
+       "source_url": "https://www.tarrantcountytx.gov/en/constables/constable-3/frequently-asked-questions.html",
+       "source_title": "Frequently Asked Questions",
+       "verified_on": "2026-10-29",
+       "question": "When are tax sales held?",
+       "order": 20
+      },
+      {
+       "topic": "bidding_platform",
+       "answer": "In person only: bidders must be present at the sale, held on the 1895 Courthouse steps.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "No, you must be present at the sale, in person, to bid.",
+       "source_url": "https://www.tarrantcountytx.gov/en/constables/constable-3/frequently-asked-questions.html",
+       "source_title": "Frequently Asked Questions",
+       "verified_on": "2026-10-29",
+       "question": "Where do I bid - online or in person?",
+       "order": 30
+      },
+      {
+       "topic": "registration",
+       "answer": "Bidders must register before 10 a.m.; registrations are not accepted after the sale has begun.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Bidders MUST register prior to 10 a.m. We will no longer accept registrations after the sale has begun.",
+       "source_url": "https://www.tarrantcountytx.gov/en/constables/constable-3/delinquent-tax-sales.html",
+       "source_title": "Delinquent Tax Sales",
+       "verified_on": "2026-10-29",
+       "question": "How do I register to bid?",
+       "order": 40
+      },
+      {
+       "topic": "payment_deadline",
+       "answer": "Payment is accepted only as cashier's checks and money orders in the exact amount; purchasers have up to one hour after the sale to bring certified funds.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Payments are only accepted in these forms: cashier checks and money orders. … Purchasers have up to one hour after the sale to bring in certified funds in the exact amount.",
+       "source_url": "https://www.tarrantcountytx.gov/en/constables/constable-3/delinquent-tax-sales.html",
+       "source_title": "Delinquent Tax Sales",
+       "verified_on": "2026-10-29",
+       "question": "When and how must the winning bidder pay?",
+       "order": 70
       }
      ]
     },
@@ -5699,6 +7155,139 @@
        "verified_on": "2026-10-29",
        "question": "How do I buy a property from this list?",
        "order": 20
+      }
+     ]
+    },
+    "Travis": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Texas Comptroller's county directory lists the Travis County Tax Assessor-Collector at 512-854-9473 (website www.tax-office.traviscountytx.gov).",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Tax Assessor-Collector: Celia Israel Phone: 512-854-9473 … Website: www.tax-office.traviscountytx.gov",
+       "source_url": "https://comptroller.texas.gov/taxes/property-tax/county-directory/travis.php",
+       "source_title": "Travis - 227",
+       "verified_on": "2026-10-29",
+       "note": "Contact from the Comptroller's county directory. The sentence on the statement and the sale officer rests on Tex. Tax Code 34.015(b) and 34.05(c).",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AUCTIONS": [
+      {
+       "topic": "bidding_platform",
+       "answer": "Online: Travis County tax sales are conducted through RealAuction.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Travis county tax sales are conducted by RealAuction.",
+       "source_url": "https://tax-office.traviscountytx.gov/properties/foreclosed/faq",
+       "source_title": "Foreclosed properties frequently asked questions",
+       "verified_on": "2026-10-29",
+       "question": "Where do I bid - online or in person?",
+       "order": 30
+      },
+      {
+       "topic": "registration",
+       "answer": "Bidders register with RealAuction and also with the tax office: the Bidder Registration and $10 fee are submitted online at least five business days before the sale.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Register with the tax office: Submit the Bidder Registration (Solicitud para participar en las subastas de propiedades) and the $10 fee online at least five business days before the date of the sale.",
+       "source_url": "https://tax-office.traviscountytx.gov/properties/foreclosed",
+       "source_title": "Foreclosed properties",
+       "verified_on": "2026-10-29",
+       "question": "How do I register to bid?",
+       "order": 40
+      },
+      {
+       "topic": "deposit",
+       "answer": "A deposit equal to 5% of the bidder's intended total bid must be made before the auction by ACH or wire transfer.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "In order to bid, a deposit equal to 5% of the bidders intended total bid must be made prior to the auction. This deposit can be made via ACH or wire transfer.",
+       "source_url": "https://travis.texas.realforeclose.com/index.cfm?zaction=home&zmethod=faq",
+       "source_title": "RealForeclose- Travis County - FAQ",
+       "verified_on": "2026-10-29",
+       "question": "Is a deposit required and how much?",
+       "order": 50
+      },
+      {
+       "topic": "payment_deadline",
+       "answer": "The remainder of the bid is due by 4:00 PM CT on the day of the online sale.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The remainder of the bid is due by 4:00 PM CT the day of the online sale.",
+       "source_url": "https://travis.texas.realforeclose.com/index.cfm?zaction=home&zmethod=faq",
+       "source_title": "RealForeclose- Travis County - FAQ",
+       "verified_on": "2026-10-29",
+       "question": "When and how must the winning bidder pay?",
+       "order": 70
+      },
+      {
+       "topic": "costs_added",
+       "answer": "The minimum bid covers tax, penalties and interest, attorney fees and court fees for the foreclosed years; other unpaid delinquent tax years appear as 'Additional Taxes Due' in the sales list.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "The minimum bid consists of tax, penalties and interest, attorney fees and court fees for the years used to foreclose on the property. Other unpaid delinquent tax years not included in the minimum bid appear as \"Additional Taxes Due\" in the sales list.",
+       "source_url": "https://tax-office.traviscountytx.gov/properties/foreclosed/faq",
+       "source_title": "Foreclosed properties frequently asked questions",
+       "verified_on": "2026-10-29",
+       "question": "What costs are added on top of the winning bid?",
+       "order": 80
+      }
+     ]
+    },
+    "Trinity": {
+     "ALL": [
+      {
+       "topic": "county_office",
+       "answer": "The Trinity County Appraisal District's resale offer form gives its phone as (936) 642-1502.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "TRINITY COUNTY APPRAISAL DISTRICT … Ph. (936) 642-1502",
+       "source_url": "https://trinitycad.net/wp-content/uploads/2022/10/Tax-resale-bid-form-1.pdf",
+       "source_title": "Trinity County Appraisal District - Trust Property Resale Offer Form",
+       "verified_on": "2026-10-29",
+       "question": "Which office handles it and how do I contact them?",
+       "order": 5
+      }
+     ],
+     "AVAILABLE": [
+      {
+       "topic": "how_to_buy",
+       "answer": "An offer may be made on any parcel on the Trust Property/Resale List using the Resale Offer Form; the taxing units may accept or reject any offer.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "An offer may be made on any parcel shown on the Trust Property/Resale List. Enter the amount of the offer for each parcel. The taxing units in Trinity County reserve the right to accept or reject any or all offers.",
+       "source_url": "https://trinitycad.net/wp-content/uploads/2022/10/Tax-resale-bid-form-1.pdf",
+       "source_title": "Trinity County Appraisal District - Trust Property Resale Offer Form",
+       "verified_on": "2026-10-29",
+       "question": "How do I buy a property from this list?",
+       "order": 20
+      },
+      {
+       "topic": "costs_added",
+       "answer": "The successful bidder becomes immediately responsible for post-judgment taxes.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "I further understand that I will become immediately responsible for post-judgment taxes if I am the successful bidder on the property.",
+       "source_url": "https://trinitycad.net/wp-content/uploads/2022/10/Tax-resale-bid-form-1.pdf",
+       "source_title": "Trinity County Appraisal District - Trust Property Resale Offer Form",
+       "verified_on": "2026-10-29",
+       "question": "What costs are added to the price?",
+       "order": 40
+      },
+      {
+       "topic": "payment",
+       "answer": "If the offer is approved, the bidder has 14 days to send the full amount by cashier's check or money order only. The bid approval process can take 3-6 months.",
+       "status": "VERIFIED",
+       "kind": "PROCEDURE",
+       "quote": "Bidder then has 14 days to send in the full amount for the offer by cashier’s check or money order only. ***THE BID APPROVAL PROCESS CAN TAKE 3-6 MONTHS***",
+       "source_url": "https://trinitycad.net/wp-content/uploads/2022/10/Tax-resale-bid-form-1.pdf",
+       "source_title": "Trinity County Appraisal District - Trust Property Resale Offer Form",
+       "verified_on": "2026-10-29",
+       "question": "How and when do I pay?",
+       "order": 60
       }
      ]
     },
@@ -6589,8 +8178,8 @@
   }
  },
  "counts": {
-  "VERIFIED": 379,
-  "NOT_VERIFIED": 74,
-  "NOT_APPLICABLE": 0
+  "VERIFIED": 489,
+  "NOT_VERIFIED": 81,
+  "NOT_APPLICABLE": 1
  }
 }
