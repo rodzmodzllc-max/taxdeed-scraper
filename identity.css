@@ -1636,3 +1636,71 @@ html[data-shell="v3"] .hdr-nav .nav-item.on .nav-count[data-dup="1"]{display:non
 .prop-card .card-lot{font-size:.8rem;color:var(--ink-soft);margin:-.05rem 0 .35rem}
 .prop-card .card-lot-label{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase}
 .prop-card .card-lot-val{color:var(--ink);font-weight:600}
+
+/* ---- Phone ledger bar (2026-10-29) ----------------------------------
+   Below 1024px the fixed bottom bar is the ledger switch: Available,
+   Auctions, Liens, Map (app.js installBottomBarV3). Each ledger entry is
+   lit in its own colour; its colour comes from data-nav-ledger, never a
+   data-ledger attribute. --nav-bottom-h is the bar's measured height (0
+   wherever it is not shown); the page padding, the toasts and the property
+   sheet's bottom edge follow it, so nothing sits under the bar. Z-index
+   ladder: county bar 34 < header 40 < this bar 45 < sheets 80/81 < modals
+   100 (< the header while a modal is open on desktop, 101). */
+:root{--nav-bottom-h:0px}
+.nav-bottom-item[hidden]{display:none!important}
+.nav-bottom-ledger[data-nav-ledger="laft"]{--lc:var(--sage)}
+.nav-bottom-ledger[data-nav-ledger="auction"]{--lc:var(--rust)}
+.nav-bottom-ledger[data-nav-ledger="certificate"]{--lc:var(--plum)}
+:root[data-theme="dark"] .nav-bottom-ledger[data-nav-ledger="laft"]{--lc:#86A68B}
+:root[data-theme="dark"] .nav-bottom-ledger[data-nav-ledger="auction"]{--lc:#D08A63}
+:root[data-theme="dark"] .nav-bottom-ledger[data-nav-ledger="certificate"]{--lc:#B392B6}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .nav-bottom-ledger[data-nav-ledger="laft"]{--lc:#86A68B}
+  :root:not([data-theme="light"]) .nav-bottom-ledger[data-nav-ledger="auction"]{--lc:#D08A63}
+  :root:not([data-theme="light"]) .nav-bottom-ledger[data-nav-ledger="certificate"]{--lc:#B392B6}
+}
+@media (max-width:1023.98px){
+  :root{--nav-bottom-h:4.2rem}
+  html{scroll-padding-bottom:calc(var(--nav-bottom-h) + .5rem)}
+  body{padding-bottom:calc(var(--nav-bottom-h) + .5rem)!important}
+  .nav-bottom{z-index:45!important;padding:0 max(.25rem, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(.25rem, env(safe-area-inset-left))!important;gap:0;align-items:stretch}
+  .nav-bottom[data-bar="v3"] .nav-bottom-item{flex:1 1 0;min-width:0;min-height:56px;padding:.45rem .15rem .4rem!important;gap:.12rem;justify-content:flex-start;
+    font:600 .66rem/1.15 var(--font-sans)!important;letter-spacing:.02em;position:relative;
+    transition:color .15s ease, box-shadow .15s ease;-webkit-tap-highlight-color:transparent}
+  .nav-bottom[data-bar="v3"] .nb-ico{display:inline-flex;position:relative;line-height:0}
+  .nav-bottom[data-bar="v3"] .nb-ico svg{width:20px;height:20px}
+  .nav-bottom[data-bar="v3"] .nb-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+    max-width:100%;text-align:center;overflow-wrap:anywhere}
+  .nav-bottom[data-bar="v3"] .nb-count{font:500 .62rem/1 var(--font-mono);color:var(--warm-gray);font-variant-numeric:tabular-nums;min-height:.62rem}
+  .nav-bottom[data-bar="v3"] .nb-count:empty{visibility:hidden}
+  .nav-bottom-ledger .nb-ico{color:color-mix(in srgb, var(--lc) 70%, var(--warm-gray))}
+  .nav-bottom-ledger.on{color:var(--lc)!important;box-shadow:inset 0 3px 0 var(--lc)}
+  .nav-bottom-ledger.on .nb-ico{color:var(--lc)}
+  .nav-bottom-ledger.on .nb-count{color:var(--lc)}
+  .nav-bottom[data-bar="v3"] .nav-bottom-item[data-page="map"].on{box-shadow:inset 0 3px 0 var(--copper)}
+  /* On the Map page: the ledger the map is filtered to. */
+  .nav-bottom-ledger.map-filter .nb-ico::after{content:"";position:absolute;top:-3px;right:-6px;width:7px;height:7px;border-radius:50%;background:var(--lc);box-shadow:0 0 0 2px var(--paper-white)}
+  .nav-bottom[data-bar="v3"] .nav-bottom-item:focus-visible{outline:2px solid var(--copper)!important;outline-offset:-3px}
+  /* An open property stops above the bar, so the switch stays on screen. */
+  #detailModal,#hiddenModal{bottom:var(--nav-bottom-h)}
+  #detailModal .detail-modal-inner,#hiddenModal .detail-modal-inner{max-height:min(92vh, calc(100% - 68px))}
+  .err-toast{bottom:calc(var(--nav-bottom-h) + .8rem)}
+  /* The on-screen keyboard is up: the bar would ride on top of it. */
+  html.kb-open .nav-bottom{display:none!important}
+}
+@media (max-width:379.98px){
+  .nav-bottom[data-bar="v3"] .nav-bottom-item{font-size:.62rem!important;letter-spacing:0}
+}
+@media (min-width:1024px){
+  /* A property modal (opened from Home, the Map or the Watchlist) starts
+     under the header, so the ledger switch in it stays clickable; the
+     header (and its menus) paint above the modal while one is open. */
+  #detailModal,#hiddenModal{top:var(--cnb-top,60px)}
+  #detailModal .detail-modal-inner,#hiddenModal .detail-modal-inner{max-height:min(88vh, 100%)}
+  [data-ledger="auction"] #detailModal .detail-modal-inner{height:100%;max-height:100%}
+  body:has(#detailModal:not([hidden])) .topbar,body:has(#hiddenModal:not([hidden])) .topbar{z-index:101}
+}
+html[data-shell="v3"] .topbar{background:var(--stone)!important}
+body:has(#bootFailure:not([hidden])) .nav-bottom{display:none!important}
+@media print{ .nav-bottom{display:none!important} body{padding-bottom:0!important} }
+@media (prefers-reduced-motion:reduce){ .nav-bottom-item{transition:none!important} }
