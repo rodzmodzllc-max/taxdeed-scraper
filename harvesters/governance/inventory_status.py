@@ -313,6 +313,15 @@ def adapter_record_status(row: dict, *, today: date) -> StatusObservation | None
 
 # Texas county-published AUCTIONS lists (scripts/harvest_tx_county_sales.py).
 TX_COUNTY_AUCTION_SOURCE_IDS = frozenset({"tx_hctax", "tx_jefferson_sheriff_sale"})
+# The Texas vendor sale listings the owner unblocked on 2026-10-26
+# (harvesters/texas_vendors.py): each publishes a scheduled sale (a date when
+# it states one) and presence, no result. Audit 2026-10-28 B32: their 427
+# active auction rows had no inventory status at all.
+TX_VENDOR_AUCTION_FEEDS = {
+    "tx_pbfcm": "the PBFCM tax-sale listing",
+    "tx_mvba": "the MVBA tax-sale listing",
+    "tx_govease": "the GovEase auction listing",
+}
 
 
 def status_for_row(row: dict, *, today: date, sold_column_present: bool = False) -> StatusObservation | None:
@@ -331,6 +340,8 @@ def status_for_row(row: dict, *, today: date, sold_column_present: bool = False)
         return tx_lgbs_status(row)
     if sid == "tx_realauction" and source == "auction":
         return feed_auction_status(row, today=today, feed="the county's RealAuction sale calendar")
+    if sid in TX_VENDOR_AUCTION_FEEDS and source == "auction":
+        return feed_auction_status(row, today=today, feed=TX_VENDOR_AUCTION_FEEDS[sid])
     if sid in TX_COUNTY_AUCTION_SOURCE_IDS and source == "auction":
         # Texas county-published sale lists (scripts/harvest_tx_county_sales.py,
         # 2026-10-26): a scheduled date and presence, no result.

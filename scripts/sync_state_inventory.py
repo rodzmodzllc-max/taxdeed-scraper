@@ -189,6 +189,27 @@ def identity(row: dict) -> tuple:
     return (row.get("source"), row.get("county"), row.get("case_no"))
 
 
+def account_key(value) -> str:
+    """An account / case number with its separators removed, uppercased: the
+    same CAD account written '01235-043-0100' by a county list and
+    '012350430100' by a vendor feed (audit 2026-10-28 B4 / B20: 45 Bexar and
+    12 Grayson accounts were each listed twice in one ledger because the
+    vendor-wins rule compared the two spellings exactly). Leading zeros and
+    every letter are kept; only spaces and punctuation go."""
+    import re as _re  # noqa: PLC0415
+    return _re.sub(r"[^0-9A-Za-z]", "", str(value or "")).upper()
+
+
+def normalized_identity(row: dict) -> tuple:
+    return (row.get("source"), row.get("county"), account_key(row.get("case_no")))
+
+
+# A stored row in one of these pipeline statuses no longer holds its account:
+# a county list may list it again under its own source.
+GONE_ROW_STATUSES = frozenset({"closed", "expired", "gone", "sold", "redeemed", "cancelled", "canceled", "dropped",
+                               "notfound", "delisted"})
+
+
 def list_provenance(row: dict, stored, observed_at: str) -> dict:
     """The row's field_provenance after this read: the stored entries, with
     every column the county list supplied (a non-null value) stamped
@@ -289,6 +310,18 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
     stored_provenance = stored_provenance or {}
     stored_first_seen = stored_first_seen or {}
     stored_rows = stored_rows or {}
+    # The vendor-wins rule (keep_other_sources) by the normalized account: an
+    # ACTIVE stored row of another source whose account differs from this
+    # row's only in separators is the same property in the same ledger.
+    other_by_account: dict[tuple, set[str]] = {}
+    if keep_other_sources:
+        for ident, prior in stored_rows.items():
+            if not isinstance(ident, tuple) or len(ident) != 3 or not account_key(ident[2]):
+                continue
+            if str((prior or {}).get("status") or "active").lower() in GONE_ROW_STATUSES:
+                continue
+            key = (ident[0], ident[1], account_key(ident[2]))
+            other_by_account.setdefault(key, set()).add(str((prior or {}).get("harvester_source") or ""))
     if not states.is_activated(state):
         raise ValueError(f"state {state} is not activated: {', '.join(states.activation_blockers(state))}")
     counts = {"input": len(rows), "upsert": 0, "skipped_unit_not_read": 0, "wrong_state": 0, "withheld_not_publishable": 0,
@@ -340,6 +373,15 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
         if kept:
             counts["enriched_values_kept"] = counts.get("enriched_values_kept", 0) + kept
         prior = stored_rows.get(identity(row))
+        exact_other = prior is not None and prior.get("harvester_source") not in (None, reg.source_id)
+        if keep_other_sources and not exact_other and other_by_account.get(normalized_identity(row), set()) - {reg.source_id, ""}:
+            # Another source's ACTIVE row lists this account under another
+            # spelling: the vendor row wins. This source's own earlier row of
+            # the account (if any) is left as it is - not refreshed - and
+            # scripts/texas_closeout.py closes it as superseded.
+            counts["skipped_row_of_other_source"] = counts.get("skipped_row_of_other_source", 0) + 1
+            counts["skipped_same_account_other_spelling"] = counts.get("skipped_same_account_other_spelling", 0) + 1
+            continue
         if prior is not None and prior.get("harvester_source") not in (None, reg.source_id):
             if keep_other_sources:
                 counts["skipped_row_of_other_source"] = counts.get("skipped_row_of_other_source", 0) + 1
@@ -500,7 +542,7 @@ def stored_provenance(base: str, key: str, state: str, source_ids: set[str], fir
     `full_out` is given, with identity -> the whole stored row, so main()
     writes only rows whose values changed (scripts/write_diff.py)."""
     out: dict = {}
-    select = "*" if full_out is not None else ("id,source,county,case_no,field_provenance,first_seen_at,harvester_source,otc_provenance,"
+    select = "*" if full_out is not None else ("id,source,county,case_no,status,field_provenance,first_seen_at,harvester_source,otc_provenance,"
                                                + ",".join(PATH_COLUMNS))
     rows = RP.read_all(base, "properties", _read_headers(key),
                        {"select": select, "state": f"eq.{state}",
@@ -510,7 +552,7 @@ def stored_provenance(base: str, key: str, state: str, source_ids: set[str], fir
         if first_seen is not None:
             first_seen[identity(r)] = r.get("first_seen_at")
         if rows_out is not None:
-            rows_out[identity(r)] = {k: r.get(k) for k in ("harvester_source", "otc_provenance", *PATH_COLUMNS)}
+            rows_out[identity(r)] = {k: r.get(k) for k in ("harvester_source", "status", "otc_provenance", *PATH_COLUMNS)}
         if full_out is not None:
             full_out[identity(r)] = r
     return out
