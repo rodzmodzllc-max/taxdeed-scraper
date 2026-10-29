@@ -19,7 +19,7 @@ import csv
 import io
 import re
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from ..model import AmountKind, InventoryType, OtcRecord, PurchaseUrlKind, SourceAuthority
 from .property_page import PropertyPage
@@ -49,6 +49,19 @@ class ColumnMap:
 
 # Fields that identify a row (or filter it) rather than describe it.
 IDENTITY_FIELDS = frozenset({"case_no", "parcel", "status"})
+
+
+PUBLISHED_SALE_DATE_GRACE = 30   # days after a config's published sale date it still dates rows
+
+
+def published_sale_date(cfg, retrieved_at):
+    """cfg.published_sale_date as a date, or None once it is more than
+    PUBLISHED_SALE_DATE_GRACE days before the read."""
+    if not cfg.published_sale_date:
+        return None
+    day = date.fromisoformat(cfg.published_sale_date[0])
+    read = retrieved_at.date() if isinstance(retrieved_at, datetime) else retrieved_at
+    return day if read <= day + timedelta(days=PUBLISHED_SALE_DATE_GRACE) else None
 
 
 @dataclass(frozen=True)
@@ -117,6 +130,13 @@ class TabularConfig:
     # (e.g. Fayette PA's "Bid Received": a bid is pending the taxing bodies'
     # consent). Counted in `excluded_status`, never kept.
     status_exclude: tuple[str, ...] = ()
+    # Audit B22 (2026-10-29). The sale date the county publishes for this
+    # whole list on its own page or document, when the list itself carries
+    # no date column: (ISO date, where it is stated, quoted). Applied only to
+    # an auction row with no date of its own, and only until
+    # PUBLISHED_SALE_DATE_GRACE days after that date - a config left behind
+    # after the county posts next year's list never dates the new rows.
+    published_sale_date: tuple[str, str] | None = None
     # 2026-10-26 (Fayette PA): the ONE workbook sheet a source's XLSX list is
     # read from (matched case- and whitespace-insensitively). Other sheets -
     # e.g. a "Completed" sheet of finished sales - are never read.
@@ -377,6 +397,10 @@ class TabularListAdapter:
                 result_amount = sold_price
                 prov["result"] = f"the amount cell's own 'SOLD - <price>' wording (a completed sale, as published)"
             sale_date = _date(values.get("sale_date")) if "sale_date" in values else None
+            if sale_date is None and self.cfg.record_source == "auction":
+                sale_date = published_sale_date(self.cfg, retrieved_at)
+                if sale_date is not None:
+                    prov["sale_date"] = f"the county's published sale date: {self.cfg.published_sale_date[1]}"
             if result_amount is not None and "result" not in prov:
                 prov["result"] = f"column {self.cfg.columns.result_amount[0]!r} as published (a completed sale)"
             purchase_url, purchase_kind = self.cfg.purchase_url, self.cfg.purchase_url_kind

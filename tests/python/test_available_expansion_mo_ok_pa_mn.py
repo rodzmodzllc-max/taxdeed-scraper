@@ -129,7 +129,8 @@ def test_mo_reads_only_the_sources_own_available_status(tmp_path, capsys):
     assert r["purchase_url"] == "https://www.lrastl.org/s/LRA-Offer-Submission-Form-5224.pdf"
     out = capsys.readouterr().out
     assert "1 non-identifier row(s), 2 row(s) whose own status is not an offer" in out
-    assert "1 duplicate identifier(s) dropped" in out
+    # Audit B39: a source's own repeat of an identifier is counted per source (not in the row count).
+    assert "1 repeat listing(s) of an identifier already read from the same source" in out
     assert "10000100010" not in out and "TEST ST" not in out                 # shapes / counts only
 
 

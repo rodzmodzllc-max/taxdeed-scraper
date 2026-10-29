@@ -359,8 +359,8 @@ def test_refill_is_switched_on_only_by_the_workflow():
     src = (ROOT / "scripts" / "enrich_property_details.py").read_text(encoding="utf-8")
     assert 'os.environ.get("ENRICH_REFILL_ERASED") == "1"' in src
     wf = (ROOT / ".github" / "workflows" / "harvest-and-sync.yml").read_text(encoding="utf-8")
-    i = wf.index("run: python3 scripts/enrich_property_details.py")
-    assert 'ENRICH_REFILL_ERASED: "1"' in wf[i - 600:i]
+    i = wf.index("run: python3 -u scripts/enrich_property_details.py")
+    assert 'ENRICH_REFILL_ERASED: "1"' in wf[i - 1000:i]
 
 
 # ------------------------------------------------------------- C: Sarasota county-held certificates

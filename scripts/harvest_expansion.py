@@ -476,6 +476,15 @@ def main(argv=None) -> int:
         # county read is INCOMPLETE - nothing is closed on an untrusted read.
         valid = [r for r in recs if not r.validate()]
         invalid = len(recs) - len(valid)
+        # Audit B39 (2026-10-29): Morgan CO's deed-auction page read 105 rows of
+        # which only 7 were distinct (each listing repeated), and the status file
+        # recorded 105 - the registry's last row count overstated the source 15x.
+        # A source's repeats of its own identity are one listing: counted and
+        # reported here, never in the row count.
+        valid, repeats = dedupe(valid)
+        if repeats:
+            print(f"::warning title=harvest_{st.lower()}::{cfg.source_id} [{cfg.county}]: {repeats} repeat listing(s) of "
+                  f"an identifier already read from the same source (count only; row count is the distinct listings)")
         if invalid and status == "COMPLETE":
             status = "INCOMPLETE"
         per_county[cfg.county].append((cfg, status, len(valid), cat, detail, empty, src.url))

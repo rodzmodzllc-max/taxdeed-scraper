@@ -260,7 +260,10 @@ def feed_auction_status(row: dict, *, today: date, feed: str) -> StatusObservati
                              note=f"sale date {sale.isoformat()} has passed; the feed publishes no result (sold / no sale / redeemed are not distinguishable)")
 
 
-ADAPTER_KINDS = frozenset({"arcgis", "tabular"})
+# tax_sale_info: Tax-Sale.info Michigan auction catalogs (2026-10-26). Same
+# semantics as the county lists - a scheduled date and presence, no result -
+# but its rows were never given a status (audit B18, 2026-10-29: 753 rows).
+ADAPTER_KINDS = frozenset({"arcgis", "tabular", "tax_sale_info"})
 
 
 def adapter_record_status(row: dict, *, today: date) -> StatusObservation | None:
@@ -307,12 +310,30 @@ def adapter_record_status(row: dict, *, today: date) -> StatusObservation | None
         return StatusObservation("active", "LIST_PRESENCE", note="on the county's current sale list; no sale date published on the list")
     if sale >= today:
         return StatusObservation("upcoming", "SCHEDULED_DATE", note=f"scheduled for {sale.isoformat()} per the county's sale list")
+    if source_id_of(row) in LISTED_AFTER_DUE_SOURCE_IDS:
+        return StatusObservation("active", "LIST_PRESENCE",
+                                 note=f"bid due date {sale.isoformat()} has passed and the county still lists the parcel "
+                                      "as available; the county moves sold parcels to its own sold table")
     return StatusObservation("unknown", "SCHEDULED_DATE",
                              note=f"sale date {sale.isoformat()} has passed; the list publishes no result")
 
 
+# Audit F38 (2026-10-29). Sources whose stored sale_date is a BID DEADLINE on
+# a standing available-parcels table, not a one-off sale day: Dane County WI
+# ("Available parcels are listed ... in chronological order by Bid Due date";
+# "Once sold, the purchased parcels are shifted to the 'Sold Parcels' tab" -
+# harvesters/otc/adapters/expansion.py). A parcel still on the available
+# table after its Bid Due date is still offered by the county - its own
+# statement, not an inference - so it reads `active`, never `unknown`.
+LISTED_AFTER_DUE_SOURCE_IDS = frozenset({"wi_dane_tax_deed_auction"})
+
+
 # Texas county-published AUCTIONS lists (scripts/harvest_tx_county_sales.py).
 TX_COUNTY_AUCTION_SOURCE_IDS = frozenset({"tx_hctax", "tx_jefferson_sheriff_sale"})
+# Texas vendor sale lists (harvesters/texas_vendors.py, 2026-10-26): a
+# scheduled date and presence, no result. Audit B38 (2026-10-29): their 427
+# active auction rows had no inventory status.
+TX_VENDOR_AUCTION_SOURCE_IDS = frozenset({"tx_pbfcm", "tx_mvba", "tx_govease"})
 
 
 def status_for_row(row: dict, *, today: date, sold_column_present: bool = False) -> StatusObservation | None:
@@ -335,6 +356,8 @@ def status_for_row(row: dict, *, today: date, sold_column_present: bool = False)
         # Texas county-published sale lists (scripts/harvest_tx_county_sales.py,
         # 2026-10-26): a scheduled date and presence, no result.
         return feed_auction_status(row, today=today, feed="the county's published tax-sale list")
+    if sid in TX_VENDOR_AUCTION_SOURCE_IDS and source == "auction":
+        return feed_auction_status(row, today=today, feed="the vendor's published sale list")
     if state == "AL" and source == "laft":
         prov = row.get("otc_provenance") if isinstance(row.get("otc_provenance"), dict) else {}
         return alabama_status(str(prov.get("normalized_status") or "UNKNOWN"),

@@ -229,6 +229,8 @@ SC_OCONEE = TabularConfig(
     amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, header_required=("map number",),
     empty_patterns=(r"tax sale is scheduled for",),
     list_url="https://oconeesc.com/delinquent-tax/sale-list", columns_verified=True, data_cells_expected=True,
+    published_sale_date=("2026-11-09", "'The auction will be held at the Walhalla Performing Arts Center ... beginning at "
+                                       "10:00 am on Monday, November 9, 2026' (the county's sale-list page, read 2026-10-29)"),
     notes="'If there are no bids, the property will be considered purchased by the county's Forfeited Land Commission for the "
           "amount of taxes, penalties, and costs owed' (Tax Sale Information page). Total Tax Due is kept as published.")
 
@@ -638,6 +640,8 @@ SC_HORRY_TAX_SALE = TabularConfig(
     amount_kind=AmountKind.OPENING_BID, id_pattern=r"\d{9,11}", header_required=("PIN", "FLC Bid Amount"),
     list_as_of_pattern=r"real-estate-delinquent-list-(\d{6})", list_as_of_formats=("%m%d%y",),
     document_sheet="*", list_url=SC_HORRY_DELINQUENT_PAGE, document_url=SC_HORRY_DELINQUENT_PAGE, columns_verified=True,
+    published_sale_date=("2026-12-01", "'DECEMBER 1, 2026, TAX SALE ... Day and Time: Tuesday, December 1, 2026, beginning at "
+                                       "9:00 a.m.' (the Treasurer's 2026 Tax Sale Information document, read 2026-10-29)"),
     notes="Horry County delinquent real-estate tax sale list (the Treasurer's newest dated workbook). The sale is the "
           "county's December 1, 2026 open-bid tax sale (2026 Tax Sale Information document); 'Not all properties advertised "
           "will be sold' (redeemed parcels drop off the updated lists). FLC Bid Amount = the opening bid made for the "
