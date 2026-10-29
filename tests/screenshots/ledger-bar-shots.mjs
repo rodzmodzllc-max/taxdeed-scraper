@@ -1,5 +1,5 @@
 // Screenshots for docs/review/ledger-bar/ (phone + desktop). Usage:
-//   BASE_URL=http://localhost:8882/index.html OUT=docs/review/ledger-bar PREFIX=after node tests/audit/ledger-bar-shots.mjs
+//   BASE_URL=http://localhost:8882/index.html OUT=docs/review/ledger-bar PREFIX=after node tests/screenshots/ledger-bar-shots.mjs
 import { chromium } from 'playwright';
 import fs from 'fs';
 const BASE = process.env.BASE_URL || 'http://localhost:8882/index.html';
