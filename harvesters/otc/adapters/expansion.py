@@ -228,7 +228,9 @@ SC_OCONEE = TabularConfig(
                       amount=("total tax due",)),
     amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, header_required=("map number",),
     empty_patterns=(r"tax sale is scheduled for",),
-    list_url="https://oconeesc.com/delinquent-tax/sale-list", columns_verified=True,
+    list_url="https://oconeesc.com/delinquent-tax/sale-list", columns_verified=True, data_cells_expected=True,
+    published_sale_date=("2026-11-09", "'The auction will be held at the Walhalla Performing Arts Center ... beginning at "
+                                       "10:00 am on Monday, November 9, 2026' (the county's sale-list page, read 2026-10-29)"),
     notes="'If there are no bids, the property will be considered purchased by the county's Forfeited Land Commission for the "
           "amount of taxes, penalties, and costs owed' (Tax Sale Information page). Total Tax Due is kept as published.")
 
@@ -426,6 +428,18 @@ PA_FAYETTE_REPOSITORY = TabularConfig(
           "(its 'Active' sheet when it is a workbook; 'Completed' is never read); 'Bid Received' rows are pending, not offered. "
           "No purchase form URL verified - the path is the Tax Claim Bureau's bid process.")
 
+# Minnesota customer pages (audit B8, 2026-10-29). Each ArcGIS layer is read from
+# its REST endpoint (layer_url), but a REST service directory is a developer page,
+# never a customer link: list_url (-> properties.list_url / url_auction and the
+# registry canonical_url) is the publisher's own human page, each read live
+# 2026-10-29 (HTTP 200, title / wording quoted in the config comments).
+MN_RAMSEY_TFL_PAGE = ("https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/"
+                      "tax-forfeited-public-sales")
+MN_WRIGHT_AUCTION_PAGE = "https://www.publicsurplus.com/sms/wrightcore,mn/browse/home"
+MN_HUBBARD_TFL_PAGE = "https://www.hubbardcounty.gov/tfl"
+MN_STPAUL_HRA_PAGE = ("https://www.stpaul.gov/departments/planning-and-economic-development/economic-development/"
+                      "development-opportunity-sites")
+
 # Ramsey County, MN - Tax Forfeited Land public layer (109 points). Its own
 # Status: "Available for purchase" (over the counter), "Purchased from
 # counter", "Sold at auction", "Approved for auction". Only "Available for
@@ -439,7 +453,9 @@ MN_RAMSEY_TAX_FORFEIT = ArcGisLayerConfig(
                           amount="MinimumBid", status="Status"),
     where="Status = 'Available for purchase'", require=(("Status", "Available for purchase"),),
     amount_kind=AmountKind.OPENING_BID, centroid=True,
-    list_url="https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/MapServer/0", columns_verified=True,
+    # The customer link is the county's own "Tax-Forfeited Public Sales" page ("Parcels available for immediate
+    # purchase"), never the REST layer (audit B8, 2026-10-29); layer_url stays the machine source.
+    list_url=MN_RAMSEY_TFL_PAGE, columns_verified=True,
     notes="Ramsey County tax-forfeited land: 'Available for purchase' = offered over the counter; parcels sold at auction "
           "or purchased from the counter are not read. PIN = the 12-digit county parcel id.")
 
@@ -638,6 +654,8 @@ SC_HORRY_TAX_SALE = TabularConfig(
     amount_kind=AmountKind.OPENING_BID, id_pattern=r"\d{9,11}", header_required=("PIN", "FLC Bid Amount"),
     list_as_of_pattern=r"real-estate-delinquent-list-(\d{6})", list_as_of_formats=("%m%d%y",),
     document_sheet="*", list_url=SC_HORRY_DELINQUENT_PAGE, document_url=SC_HORRY_DELINQUENT_PAGE, columns_verified=True,
+    published_sale_date=("2026-12-01", "'DECEMBER 1, 2026, TAX SALE ... Day and Time: Tuesday, December 1, 2026, beginning at "
+                                       "9:00 a.m.' (the Treasurer's 2026 Tax Sale Information document, read 2026-10-29)"),
     notes="Horry County delinquent real-estate tax sale list (the Treasurer's newest dated workbook). The sale is the "
           "county's December 1, 2026 open-bid tax sale (2026 Tax Sale Information document); 'Not all properties advertised "
           "will be sold' (redeemed parcels drop off the updated lists). FLC Bid Amount = the opening bid made for the "
@@ -671,7 +689,9 @@ MN_WRIGHT_TAX_FORFEIT = ArcGisLayerConfig(
     fields=ArcGisFieldMap(case_no="PID", parcel="PID", legal_desc="LEGAL", amount="Auction_Starting_Price", status="Status",
                           market="EMV__Assessment_2025_", acreage="CalculatedArea"),
     where="Status = 'Open'", require=(("Status", "Open"),), amount_kind=AmountKind.OPENING_BID, centroid=True,
-    list_url="https://services2.arcgis.com/CiQCvRGImIxsaFnM/arcgis/rest/services/Tax_Forfeited_Parcels/FeatureServer/0",
+    # The layer's own Public_Surplus attribute (the same value on every Open row, read 2026-10-29) names the county's
+    # online auction site - the customer link, never the REST layer (audit B8).
+    list_url=MN_WRIGHT_AUCTION_PAGE,
     columns_verified=True,
     notes="Wright County tax-forfeited parcels: Status 'Open' rows only (the county's own status; 'Closed' is not read). "
           "Auction Starting Price kept as the opening bid; sales run on the county's PublicSurplus page. EMV = the 2025 "
@@ -685,7 +705,8 @@ MN_HUBBARD_TFL_OTC = ArcGisLayerConfig(
     layer_url="https://services.arcgis.com/auNjCUvKlkSqV04X/arcgis/rest/services/TFL_Sales_view/FeatureServer/0",
     fields=ArcGisFieldMap(case_no="Parcel_Number", parcel="Parcel_Number", amount="Minimum_Bid", status="Sales_Status"),
     where="Sales_Status = 'OTC'", require=(("Sales_Status", "OTC"),), amount_kind=AmountKind.OPENING_BID, centroid=True,
-    list_url="https://services.arcgis.com/auNjCUvKlkSqV04X/arcgis/rest/services/TFL_Sales_view/FeatureServer/0",
+    # The county's Tax Forfeited Lands page ("Over the Counter Parcels for Sale"), never the REST layer (audit B8).
+    list_url=MN_HUBBARD_TFL_PAGE,
     columns_verified=True,
     notes="Hubbard County tax-forfeited land offered over the counter (Sales_Status 'OTC'). Minimum_Bid when filled.")
 
@@ -701,7 +722,8 @@ MN_STPAUL_HRA = ArcGisLayerConfig(
                           status="Marketing_Status", market="LandHeldForResale_ActVa_EMVTotal"),
     where="Marketing_Status LIKE '5 -%'",
     require=(("Marketing_Status", "5 - Available on the open market, subject to disposition policy"),), centroid=True,
-    list_url="https://services1.arcgis.com/9meaaHE3uiba0zr8/arcgis/rest/services/HRA_Owned_Parcels_for_Sale/FeatureServer/0",
+    # The City's "Development Opportunity Sites" page (the HRA's inventory of its property), never the REST layer (audit B8).
+    list_url=MN_STPAUL_HRA_PAGE,
     columns_verified=True,
     notes="Saint Paul Housing and Redevelopment Authority land held for resale: Marketing Status '5 - Available on the "
           "open market, subject to disposition policy' only. No price on the layer.")

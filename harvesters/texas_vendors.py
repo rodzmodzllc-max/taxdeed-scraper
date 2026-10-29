@@ -544,6 +544,11 @@ def harvest_mvba(fetcher: PoliteFetcher | None = None, stats: dict | None = None
         fetcher.requests += site_fetcher.requests
     if online.get("error"):
         index_errors[MVBA_AUCTION_SITE] = online["error"]
+        # What the auction site answered instead of JSON (size, HTML or not,
+        # page title) - value-free; audit 2026-10-28 B42 could not tell a
+        # changed API from a block page because it was never printed.
+        print(f"harvest_mvba: {MVBA_AUCTION_SITE} /api/auctions answer was not JSON: "
+              f"{online.get('non_json')}", file=sys.stderr)
     rows.extend(online_rows)
     rows = _dedupe(rows)
     if stats is not None:
@@ -641,6 +646,14 @@ def parse_govease_parcel(page_html: str) -> dict:
     m = re.search(r"scheduled to begin\s+(\d{1,2})/(\d{1,2})/(20\d\d)", " ".join(lines), re.I)
     if m:
         facts["_sale_date"] = f"{int(m.group(3)):04d}-{int(m.group(1)):02d}-{int(m.group(2)):02d}"
+    # The page's own auction status banner (<div class="alert ..."><strong>
+    # Auction Scheduled</strong>), verbatim. Some counties' pages state no
+    # date at all (audit 2026-10-28 B5, re-read 2026-10-29: Wichita's parcel
+    # page reads only "Auction Scheduled"); the status is kept so the row is
+    # never presented as an unscheduled sale. No date is derived from it.
+    sm = re.search(r'<div class="alert[^"]*"[^>]*>\s*<strong>([^<]{3,80})</strong>', page_html or "", re.I)
+    if sm:
+        facts["_status"] = re.sub(r"\s+", " ", htmllib.unescape(sm.group(1))).strip()
     return facts
 
 
@@ -686,9 +699,11 @@ def govease_row(county: str, rec: dict, facts: dict) -> tuple[dict | None, str]:
     value = TABLES.plain_number(vm.group(1)) if vm else None
     address = _clean_text(rec.get("Parcel Address") or facts.get("Physical Address"), 160)
     legal = _clean_text(facts.get("Legal Description"))
-    return _row(source_id="tx_govease", ledger="auction", county=county, account=account, cause=cause_no,
-                legal=legal, address=address, min_bid=bid, value=value, sale_date=facts.get("_sale_date"),
-                auction_url=rec.get("_link"), auction_url_kind="property" if rec.get("_link") else None), "row"
+    row = _row(source_id="tx_govease", ledger="auction", county=county, account=account, cause=cause_no,
+               legal=legal, address=address, min_bid=bid, value=value, sale_date=facts.get("_sale_date"),
+               auction_url=rec.get("_link"), auction_url_kind="property" if rec.get("_link") else None)
+    row["sale_status"] = facts.get("_status") or None
+    return row, "row"
 
 
 def harvest_govease(fetcher: PoliteFetcher | None = None, stats: dict | None = None, limit: int | None = None,
@@ -782,3 +797,20 @@ def _log(name: str, rows: list[dict], book: UnitBook, index_errors: dict) -> Non
         by_status[u["status"]] = by_status.get(u["status"], 0) + 1
     print(f"{name}: kept {len(rows)} TX rows across {len({r['county'] for r in rows})} counties; "
           f"units {dict(sorted(by_status.items()))}; index errors {index_errors or 'none'}", file=sys.stderr)
+    # Which units did not read COMPLETE / EMPTY, and why (county names and the
+    # reader's own signal words only - audit 2026-10-28 B42: the INCOMPLETE
+    # units were counted every run but never named).
+    for line in incomplete_unit_lines(book):
+        print(f"{name}: {line}", file=sys.stderr)
+
+
+def incomplete_unit_lines(book: UnitBook) -> list[str]:
+    out = []
+    for county in sorted(book.units):
+        u = book.units[county]
+        if u["status"] in (COMPLETE, EMPTY):
+            continue
+        signals = sorted({f"{d['ledger']}:{d['status']}:{d['signal'] or '-'}" for d in u["documents"]
+                          if d["status"] not in (COMPLETE, EMPTY)})
+        out.append(f"unit {county} {u['status']} ({', '.join(signals)})")
+    return out

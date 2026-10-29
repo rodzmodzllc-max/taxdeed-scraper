@@ -673,7 +673,10 @@ def expansion_rows() -> list[dict]:
                                              else EX.SC_HORRY_LATEST_READ[1] if cfg is EX.SC_HORRY_TAX_SALE
                                              else getattr(cfg, "document_url", "")),
                    "epropertyplus": getattr(cfg, "portal", "") + "/landmgmtpub/remote/public/property/getPublishedProperties",
-                   "tax_sale_info": "https://www.tax-sale.info/catalog/getCsv/id/"}.get(src.kind, "")
+                   # Each catalog's spreadsheet is /catalog/getCsv/id/<catalog id>; the id changes per sale, so
+                   # no single document URL exists. The template with an empty id is a dead link (audit B41) and
+                   # is never stored - the canonical (county catalog list) page is the source link.
+                   "tax_sale_info": ""}.get(src.kind, "")
             access, fmt = {"arcgis": ("JSON_ENDPOINT", "JSON"), "epropertyplus": ("JSON_ENDPOINT", "JSON"),
                            "tax_sale_info": ("HTTP_GET_HTML", "CSV"), "paged_table": ("HTTP_GET_HTML", "HTML_TABLE"), "sc_flc_pdf": ("HTTP_GET_PDF", "PDF"),
                            "pdf_table": ("HTTP_GET_PDF", "PDF"), "csv": ("HTTP_GET_HTML", "CSV"),

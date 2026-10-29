@@ -244,7 +244,12 @@ class Guard:
                 "note": "counts, hosts, reason codes and source ids only; never a path, query, credential or row value"}
 
     def write_report(self, out_dir: Path | None = None) -> Path:
-        out_dir = out_dir or (Path(os.environ.get("DISCOVERY_REPORT_DIR", "")) or REPO / "out" / "public")
+        # Path("") is Path(".") and always truthy: test the variable, not the
+        # Path, or an unset variable writes the report into the working
+        # directory (two such reports were committed at the deployed repo
+        # root - audit B44, 2026-10-29).
+        env_dir = os.environ.get("DISCOVERY_REPORT_DIR", "").strip()
+        out_dir = out_dir or (Path(env_dir) if env_dir else REPO / "out" / "public")
         out_dir.mkdir(parents=True, exist_ok=True)
         p = out_dir / f"discovery-permission-{self.label}.json"
         p.write_text(json.dumps(self.summary(), indent=2, sort_keys=True) + "\n", encoding="utf-8")

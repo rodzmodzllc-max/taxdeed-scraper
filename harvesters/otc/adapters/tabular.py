@@ -19,7 +19,7 @@ import csv
 import io
 import re
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from ..model import AmountKind, InventoryType, OtcRecord, PurchaseUrlKind, SourceAuthority
 from .property_page import PropertyPage
@@ -47,6 +47,23 @@ class ColumnMap:
     land_use: tuple[str, ...] = ()          # the source's own property type wording (AVAILABLE expansion)
 
 
+# Fields that identify a row (or filter it) rather than describe it.
+IDENTITY_FIELDS = frozenset({"case_no", "parcel", "status"})
+
+
+PUBLISHED_SALE_DATE_GRACE = 30   # days after a config's published sale date it still dates rows
+
+
+def published_sale_date(cfg, retrieved_at):
+    """cfg.published_sale_date as a date, or None once it is more than
+    PUBLISHED_SALE_DATE_GRACE days before the read."""
+    if not cfg.published_sale_date:
+        return None
+    day = date.fromisoformat(cfg.published_sale_date[0])
+    read = retrieved_at.date() if isinstance(retrieved_at, datetime) else retrieved_at
+    return day if read <= day + timedelta(days=PUBLISHED_SALE_DATE_GRACE) else None
+
+
 @dataclass(frozen=True)
 class TabularConfig:
     source_id: str
@@ -63,6 +80,11 @@ class TabularConfig:
     # Every row of this table is a PAST sale listing (e.g. a "Previous Sales" table):
     # the record is closed; a result is stored only where a price column publishes one.
     past_listing: bool = False
+    # Audit B10 (2026-10-29): a list whose every row normally carries its data
+    # cells. A row published with only its identifier is marked
+    # `identity_only_row` and the runner reads the list INCOMPLETE. Off by
+    # default: several lists publish legitimately sparse rows (Oceana MI).
+    data_cells_expected: bool = False
     # Regex with one group capturing a date in the DOCUMENT NAME/TITLE,
     # e.g. r"(\d{1,2}\.\d{1,2}\.\d{2,4})" for "6.2.2026_Resale_List.pdf".
     list_as_of_pattern: str | None = None
@@ -108,6 +130,13 @@ class TabularConfig:
     # (e.g. Fayette PA's "Bid Received": a bid is pending the taxing bodies'
     # consent). Counted in `excluded_status`, never kept.
     status_exclude: tuple[str, ...] = ()
+    # Audit B22 (2026-10-29). The sale date the county publishes for this
+    # whole list on its own page or document, when the list itself carries
+    # no date column: (ISO date, where it is stated, quoted). Applied only to
+    # an auction row with no date of its own, and only until
+    # PUBLISHED_SALE_DATE_GRACE days after that date - a config left behind
+    # after the county posts next year's list never dates the new rows.
+    published_sale_date: tuple[str, str] | None = None
     # 2026-10-26 (Fayette PA): the ONE workbook sheet a source's XLSX list is
     # read from (matched case- and whitespace-insensitively). Other sheets -
     # e.g. a "Completed" sheet of finished sales - are never read.
@@ -223,6 +252,12 @@ class TabularListAdapter:
         self.label_as_of: date | None = None
         self._row_links: list[dict[str, str]] = []
         self.rejected_ids = 0
+        # Rows carrying only their identifier while the list's header names
+        # data columns (audit B10, 2026-10-29: Oconee SC published 213 of its
+        # 562 rows with Owner / Description / Total Tax Due blank while the
+        # county was updating the list). Counted; the runner reads such a
+        # list INCOMPLETE and the sync never lets those blanks erase values.
+        self.identity_only_rows = 0
         self.excluded_status = 0
 
     def field_for(self, label: str) -> tuple[str, ...] | None:
@@ -310,6 +345,7 @@ class TabularListAdapter:
                                or any(re.search(p, only, re.I) for p in self.cfg.empty_patterns)):
             self.empty_statement = True
             return []
+        data_fields = {f for fs in fields if fs for f in fs} - IDENTITY_FIELDS
         out: list[OtcRecord] = []
         for raw, row_links in zip(body, links + [{}] * (len(body) - len(links))):
             values: dict[str, str] = {}
@@ -346,6 +382,9 @@ class TabularListAdapter:
                 "columns": {f: True for f in values},
                 "amount": (f"column {self.cfg.columns.amount[0]!r} = {kind.value}" if amount is not None else "no amount column value"),
             }
+            if self.cfg.data_cells_expected and data_fields and not (set(values) & data_fields):
+                self.identity_only_rows += 1
+                prov["identity_only_row"] = True
             if as_of:
                 prov["list_as_of"] = f"parsed from document name {document_name!r}"
             elif self.label_as_of:
@@ -358,6 +397,10 @@ class TabularListAdapter:
                 result_amount = sold_price
                 prov["result"] = f"the amount cell's own 'SOLD - <price>' wording (a completed sale, as published)"
             sale_date = _date(values.get("sale_date")) if "sale_date" in values else None
+            if sale_date is None and self.cfg.record_source == "auction":
+                sale_date = published_sale_date(self.cfg, retrieved_at)
+                if sale_date is not None:
+                    prov["sale_date"] = f"the county's published sale date: {self.cfg.published_sale_date[1]}"
             if result_amount is not None and "result" not in prov:
                 prov["result"] = f"column {self.cfg.columns.result_amount[0]!r} as published (a completed sale)"
             purchase_url, purchase_kind = self.cfg.purchase_url, self.cfg.purchase_url_kind

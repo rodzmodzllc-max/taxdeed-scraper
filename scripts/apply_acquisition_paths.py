@@ -13,8 +13,9 @@ closes that gap WITHOUT a source read:
     (source_id, county) - the page the harvester read the row from - never a
     composed property URL;
   * the deterministic match is the identity the sync upserted the row under
-    (case_no, else parcel), dated by the registry's last successful read of
-    that source; no name, address or proximity match;
+    (case_no, else parcel), undated - the row's own last_seen_at is its read
+    date (never the registry's last_checked, audit 2026-10-28 B17); no name,
+    address or proximity match;
   * the acquisition record is the VERIFIED county-level evidence row
     (data/purchase_path_evidence.csv) for the row's (state, source_id,
     county), through the same engine the lifecycle uses
@@ -108,11 +109,27 @@ def source_match(row: dict, *, listing: str, read_on: str | None, harvester: str
     else:
         return None
     m["source"] = listing
-    m["basis"] = (f"row read from the source listing by the harvester ({harvester}); identity as the sync upserts it"
-                  + (f"; last successful source read {read_on}" if read_on else ""))
-    if read_on:
-        m["read_at"] = read_on
+    # No read date (audit 2026-10-28 B17): this step runs without a source
+    # read, so the only date it had was the registry's fixed last_checked -
+    # ~4,150 Texas rows said "listing read 2026-09-23" five weeks after it.
+    # The row's own last_seen_at (stamped by every read) is its read date.
+    m["basis"] = MATCH_BASIS.format(harvester=harvester)
     return m
+
+
+MATCH_BASIS = "row read from the source listing by the harvester ({harvester}); identity as the sync upserts it"
+_OUR_BASIS = "identity as the sync upserts it"
+
+
+def undated_match(stored: dict) -> dict:
+    """A source_match this step wrote earlier, without the registry date it
+    used to carry (read_at and the '; last successful source read <date>'
+    clause). A match another step wrote (a lifecycle read) is returned as is."""
+    if not (isinstance(stored, dict) and _OUR_BASIS in str(stored.get("basis") or "")):
+        return stored
+    out = {k: v for k, v in stored.items() if k != "read_at"}
+    out["basis"] = str(stored["basis"]).split("; last successful source read")[0]
+    return out
 
 
 def plan_row(row: dict, *, registry: dict, evidence: list, state: str, today: str, scope: dict | None = None) -> tuple[dict | None, str]:
@@ -140,11 +157,12 @@ def plan_row(row: dict, *, registry: dict, evidence: list, state: str, today: st
     prov.setdefault("harvester", source_id)
     if not prov.get("list_url") and not prov.get("document_url"):
         prov["list_url"] = listing
-    read_on = reg.get("last_checked") if PE._DATE.match(reg.get("last_checked") or "") else None
     if not (isinstance(prov.get("source_match"), dict) and prov["source_match"].get("value")):
-        m = source_match(row, listing=listing, read_on=read_on, harvester=row.get("harvester_source") or source_id)
+        m = source_match(row, listing=listing, read_on=None, harvester=row.get("harvester_source") or source_id)
         if m:
             prov["source_match"] = m
+    else:
+        prov["source_match"] = undated_match(prov["source_match"])
     payload: dict = {}
     if not row.get("source_id") and row.get("harvester_source"):
         payload["source_id"] = row["harvester_source"]      # the harvester's own id, never another source's

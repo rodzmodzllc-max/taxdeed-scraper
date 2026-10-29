@@ -118,6 +118,28 @@ def close_plan(stored_rows: list[dict], harvested: set[str]) -> list:
             if s.get("status") == "active" and s.get("source_id") == SOURCE_ID and s.get("case_no") not in harvested]
 
 
+LIENHUB_SOURCE_ID = "fl_lienhub_certificates"
+
+
+def _digits(v) -> str:
+    return "".join(ch for ch in str(v or "") if ch.isdigit())
+
+
+def superseded_plan(stored_rows: list[dict], kept: list[dict]) -> list:
+    """Active LienHub copies of a certificate this COMPLETE Tax Collector read
+    lists (audit B3, 2026-10-29): same account (digits) AND same certificate
+    number, under another key (LienHub's old one-row-per-account case_no).
+    They are the same certificate shown twice with a vendor amount; the
+    county's own list supersedes them. Closed, never 'sold' / 'notfound'."""
+    listed = {(_digits(r.get("parcel")), str(r.get("certificate_no") or "").strip())
+              for r in kept if _digits(r.get("parcel")) and str(r.get("certificate_no") or "").strip()}
+    keys = {r["case_no"] for r in kept}
+    return [s["id"] for s in stored_rows
+            if s.get("status") == "active" and s.get("source_id") in (None, LIENHUB_SOURCE_ID)
+            and s.get("case_no") not in keys
+            and (_digits(s.get("parcel")), str(s.get("certificate_no") or "").strip()) in listed]
+
+
 def _headers(key: str) -> dict:
     return {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json", "User-Agent": USER_AGENT}
 
@@ -168,7 +190,7 @@ def main(argv=None) -> int:
     to_write, _ = WDF.filter_rows(kept, state="FL", base=base, key=key, label=SOURCE_ID)
     for i in range(0, len(to_write), BATCH):
         _send(endpoint, "POST", to_write[i:i + BATCH], up)
-    closed = 0
+    closed = superseded = 0
     if status == "COMPLETE":
         ids = close_plan(stored_rows, {r["case_no"] for r in kept})
         patch = {**headers, "Prefer": "return=minimal"}
@@ -177,6 +199,12 @@ def main(argv=None) -> int:
             _send(f"{base.rstrip('/')}/rest/v1/properties?id=in.({','.join(urllib.parse.quote(str(x)) for x in chunk)})",
                   "PATCH", {"status": "notfound"}, patch)
             closed += len(chunk)
+        sup = superseded_plan(stored_rows, kept)
+        for i in range(0, len(sup), 50):
+            chunk = sup[i:i + 50]
+            _send(f"{base.rstrip('/')}/rest/v1/properties?id=in.({','.join(urllib.parse.quote(str(x)) for x in chunk)})",
+                  "PATCH", {"status": "closed"}, patch)
+        superseded = len(sup)
     new = sum(1 for r in kept if r["case_no"] not in stored)
     print(f"{SOURCE_ID}: read {status}; {len(to_write)} of {len(kept)} certificate row(s) upserted ({new} new), {len(refused)} refused by the "
           f"ledger contract, {closed} closed to notfound")
