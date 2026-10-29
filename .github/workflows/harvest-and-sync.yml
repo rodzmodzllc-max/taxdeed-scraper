@@ -613,7 +613,13 @@ jobs:
           # Refill tax-roll values a sync erased before sync_value_guard.py
           # (2026-10-26: 146 FL auction rows' FDOR `assessed`).
           ENRICH_REFILL_ERASED: "1"
-        run: python3 scripts/enrich_property_details.py
+          # Stop cleanly at 13 minutes (the step timeout is 15) and abandon a
+          # county after 3 consecutive request errors, so one unresponsive
+          # county no longer uses the whole budget (audit B15/B28).
+          ENRICH_TIME_BUDGET_SECONDS: '780'
+          ENRICH_COUNTY_ERROR_STREAK: '3'
+        # -u: unbuffered, so a step that is stopped still shows its progress.
+        run: python3 -u scripts/enrich_property_details.py
 
       # Flood is the first Risk & Legal panel field with a real source. It
       # needs only lat/lon, which the geocoding step above has already
@@ -652,7 +658,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/enrich_property_photos_naip.py
+          # Stop cleanly at 10 minutes (step timeout 12) - before, the step was
+          # killed on every run and printed nothing (audit B28).
+          NAIP_TIME_BUDGET_SECONDS: '600'
+        run: python3 -u scripts/enrich_property_photos_naip.py
 
       - name: Backfill property photos (Street View Static API)
         # No-ops cleanly (exit 0) until a GOOGLE_MAPS_API_KEY secret exists -

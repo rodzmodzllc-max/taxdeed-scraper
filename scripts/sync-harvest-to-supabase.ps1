@@ -208,16 +208,24 @@ function ConvertTo-IsoDate($s) {
 $rows = @()
 $skipped = 0
 foreach ($p in $harvest) {
-    if ([string]::IsNullOrWhiteSpace($p.case) -or [string]::IsNullOrWhiteSpace($p.address)) {
+    # Only a row with no case number is unusable (it is the row's identity).
+    # A vacant lot the county lists with no situs address is still on the
+    # sale list: it is kept with an EMPTY address (the column is NOT NULL, ''
+    # satisfies it, and the app titles such a row from its parcel). Before
+    # 2026-10-29 these rows were dropped, so every no-address lot of a fully
+    # read sale day was missing from the Auctions ledger (audit B1). An empty
+    # address never erases a stored one: the stored-value guard keeps it.
+    if ([string]::IsNullOrWhiteSpace($p.case)) {
         $skipped++
         continue
     }
+    $addr = if ([string]::IsNullOrWhiteSpace($p.address)) { "" } else { $p.address }
     $rows += [ordered]@{
         source        = "auction"
         county        = $p.county
         case_no       = $p.case
         parcel        = $p.parcel
-        address       = $p.address
+        address       = $addr
         bid           = $p.bid
         assessed      = $p.assessed
         sale_date     = ConvertTo-IsoDate $p.sale_date
@@ -246,8 +254,8 @@ foreach ($p in $harvest) {
 # Every row must belong to the AUCTIONS ledger and pass its record contract
 # (scripts/ledger_gate.py) before anything is written.
 $rows = @(Select-LedgerRows "AUCTIONS" $rows)
-if ($rows.Count -eq 0) { throw "Every harvested row was missing case # or address - nothing to sync." }
-Write-Output "Prepared $($rows.Count) properties ($skipped skipped for missing case/address)."
+if ($rows.Count -eq 0) { throw "Every harvested row was missing its case # - nothing to sync." }
+Write-Output "Prepared $($rows.Count) properties ($skipped skipped for missing case #)."
 # A listing that publishes no assessed value (most RealAuction counties) never
 # erases the state tax roll's, nor any stored value of a higher-ranked source.
 $rows = @(Protect-StoredValues "auction" $rows)
