@@ -1,0 +1,207 @@
+{
+ "about": "Answers quoted from official sources only. A county entry replaces the statewide entry for the same ledger and topic. NOT_VERIFIED = no official answer read yet; check source_url.",
+ "topics": [
+  {
+   "topic": "county_office",
+   "ledger": "ALL",
+   "level": "county",
+   "question": "Which office handles it and how do I contact them?",
+   "order": 5
+  },
+  {
+   "topic": "due_diligence",
+   "ledger": "ALL",
+   "level": "state",
+   "question": "What does the law or the county tell buyers to check before buying?",
+   "order": 200
+  },
+  {
+   "topic": "sale_overview",
+   "ledger": "AUCTIONS",
+   "level": "state",
+   "question": "What is sold at a tax sale here and who holds it?",
+   "order": 10
+  },
+  {
+   "topic": "sale_schedule",
+   "ledger": "AUCTIONS",
+   "level": "both",
+   "question": "When are tax sales held?",
+   "order": 20
+  },
+  {
+   "topic": "bidding_platform",
+   "ledger": "AUCTIONS",
+   "level": "both",
+   "question": "Where do I bid - online or in person?",
+   "order": 30
+  },
+  {
+   "topic": "registration",
+   "ledger": "AUCTIONS",
+   "level": "both",
+   "question": "How do I register to bid?",
+   "order": 40
+  },
+  {
+   "topic": "deposit",
+   "ledger": "AUCTIONS",
+   "level": "both",
+   "question": "Is a deposit required and how much?",
+   "order": 50
+  },
+  {
+   "topic": "opening_bid",
+   "ledger": "AUCTIONS",
+   "level": "state",
+   "question": "What makes up the opening or minimum bid?",
+   "order": 60
+  },
+  {
+   "topic": "payment_deadline",
+   "ledger": "AUCTIONS",
+   "level": "both",
+   "question": "When and how must the winning bidder pay?",
+   "order": 70
+  },
+  {
+   "topic": "costs_added",
+   "ledger": "AUCTIONS",
+   "level": "both",
+   "question": "What costs are added on top of the winning bid?",
+   "order": 80
+  },
+  {
+   "topic": "redemption_after_sale",
+   "ledger": "AUCTIONS",
+   "level": "state",
+   "question": "Can the former owner redeem after the sale?",
+   "order": 90
+  },
+  {
+   "topic": "deed_type",
+   "ledger": "AUCTIONS",
+   "level": "state",
+   "question": "What kind of deed or title does the buyer receive?",
+   "order": 100
+  },
+  {
+   "topic": "surviving_liens",
+   "ledger": "AUCTIONS",
+   "level": "state",
+   "question": "Which liens or interests survive the sale?",
+   "order": 110
+  },
+  {
+   "topic": "unsold_property",
+   "ledger": "AUCTIONS",
+   "level": "state",
+   "question": "What happens to property that does not sell?",
+   "order": 120
+  },
+  {
+   "topic": "available_overview",
+   "ledger": "AVAILABLE",
+   "level": "state",
+   "question": "What is this list and why is the property available?",
+   "order": 10
+  },
+  {
+   "topic": "how_to_buy",
+   "ledger": "AVAILABLE",
+   "level": "both",
+   "question": "How do I buy a property from this list?",
+   "order": 20
+  },
+  {
+   "topic": "price_basis",
+   "ledger": "AVAILABLE",
+   "level": "both",
+   "question": "How is the price set?",
+   "order": 30
+  },
+  {
+   "topic": "costs_added",
+   "ledger": "AVAILABLE",
+   "level": "both",
+   "question": "What costs are added to the price?",
+   "order": 40
+  },
+  {
+   "topic": "documents_required",
+   "ledger": "AVAILABLE",
+   "level": "both",
+   "question": "What forms or documents are required?",
+   "order": 50
+  },
+  {
+   "topic": "payment",
+   "ledger": "AVAILABLE",
+   "level": "both",
+   "question": "How and when do I pay?",
+   "order": 60
+  },
+  {
+   "topic": "deed_type",
+   "ledger": "AVAILABLE",
+   "level": "state",
+   "question": "What kind of deed or title does the buyer receive?",
+   "order": 70
+  },
+  {
+   "topic": "time_limit",
+   "ledger": "AVAILABLE",
+   "level": "state",
+   "question": "How long does a property stay available?",
+   "order": 80
+  },
+  {
+   "topic": "lien_overview",
+   "ledger": "LIENS_CERTIFICATES",
+   "level": "state",
+   "question": "What is a tax lien or certificate here?",
+   "order": 10
+  },
+  {
+   "topic": "lien_bidding",
+   "ledger": "LIENS_CERTIFICATES",
+   "level": "both",
+   "question": "How does bidding work (interest bid-down or premium)?",
+   "order": 20
+  },
+  {
+   "topic": "interest_rate",
+   "ledger": "LIENS_CERTIFICATES",
+   "level": "state",
+   "question": "What interest or penalty does the holder earn?",
+   "order": 30
+  },
+  {
+   "topic": "redemption_period",
+   "ledger": "LIENS_CERTIFICATES",
+   "level": "state",
+   "question": "How long does the owner have to redeem?",
+   "order": 40
+  },
+  {
+   "topic": "getting_the_deed",
+   "ledger": "LIENS_CERTIFICATES",
+   "level": "state",
+   "question": "How does a holder get the property if it is not redeemed?",
+   "order": 50
+  },
+  {
+   "topic": "certificate_expiry",
+   "ledger": "LIENS_CERTIFICATES",
+   "level": "state",
+   "question": "When does a certificate or lien expire?",
+   "order": 60
+  }
+ ],
+ "states": {},
+ "counts": {
+  "VERIFIED": 0,
+  "NOT_VERIFIED": 0,
+  "NOT_APPLICABLE": 0
+ }
+}
