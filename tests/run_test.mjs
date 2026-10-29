@@ -8952,7 +8952,7 @@ const EXPECTED = {
       "instructions": "known", "listing": "known", "contact": "known", "deadlines": "not_published", "verified": "known", "not_published": "summary"},
     "method": "Multi-step county process", "head": "10 of 13 on file", "firstInAcquire": true},
   acqChecklistNoInference: {"n": 14, "known": [], "summary": "summary"},
-  sourceTruth: {"labels": ["Source record", "Last read", "Source date", "Publication status", "Source health", "Acquisition path", "Customer actionability", "Price", "Official listing", "Imagery", "County intelligence", "State rules"], "health": "CURRENT", "dossierBtn": true, "navPill": true},
+  sourceTruth: {"labels": ["Source record", "Last read", "Source date", "Publication status", "Source health", "Acquisition path", "Customer actionability", "Price", "Official listing", "Imagery", "County intelligence", "Buyer's guide", "State rules"], "health": "CURRENT", "dossierBtn": true, "navPill": true},
   sourceHealthVectors: [],
   dossierCitrus: {"title": "Citrus County, FL", "intel": "VERIFIED", "ledgers": {"laft": "COVERED", "auction": "COVERED", "certificate": "COVERED"}, "acq": true, "terms": true, "listBtn": true},
   dossierToList: {"modal": true, "hash": "#/lands", "counties": ["Citrus"]},
@@ -9059,7 +9059,7 @@ const EXPECTED = {
   researchEmptyToCounties: "#/counties",
   researchPipeline: ["DISCOVERED=1", "RESEARCHING=0", "DUE_DILIGENCE=1", "ACQUISITION_READY=0", "PASSED=0", "ACQUIRED=0"],
   researchPipelineFilter: ["DUE_DILIGENCE"],
-  accountGotoPhone: {"labels": ["Saved searches", "My Research 0", "Watchlist 0/10", "County Intelligence", "About"], "research": {"hash": "#/research", "menuClosed": true}, "counties": {"hash": "#/counties", "menuClosed": true}, "desktopHidden": false},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
+  accountGotoPhone: {"labels": ["Saved searches", "My Research 0", "Watchlist 0/10", "County Intelligence", "Buyer's Guide", "About"], "research": {"hash": "#/research", "menuClosed": true}, "counties": {"hash": "#/counties", "menuClosed": true}, "desktopHidden": false},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
   countyRecords: {"auction": ["p1"], "certificate": ["p4"]},
   countyRecordOpens: "#/auctions/p1",
   // Current acquisition amounts (2026-10-06).
