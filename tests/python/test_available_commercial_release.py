@@ -446,7 +446,8 @@ def test_wf01_job_selector_gates_every_job_and_never_schedules_texas():
             assert f"github.event.schedule == '{c}'" in cond
     texas = wf["jobs"]["texas"]["if"]
     # Texas reads daily in the 07:37 ET run since 2026-10-26 (owner approval), once a day.
-    assert texas == "(github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'texas' || github.event.inputs.job == '')) || github.event.schedule == '37 11 * * *'"
+    # Audit B25 (2026-10-29): wrapped by the schedule guard (a slot a catch-up run already completed is skipped).
+    assert texas == "${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'texas' || github.event.inputs.job == '')) || github.event.schedule == '37 11 * * *') && !contains(needs.schedule_guard.outputs.covered, 'texas') }}"
     assert "job == 'laft'" not in texas
 
 

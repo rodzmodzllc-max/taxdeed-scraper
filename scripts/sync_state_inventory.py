@@ -274,6 +274,33 @@ def keep_enriched_values(row: dict, stored: dict | None) -> int:
             continue
         row[col] = value
         kept += 1
+    return kept + keep_list_values_on_identity_only_row(row, stored)
+
+
+# Columns an identity-only row (below) leaves blank that the list itself
+# published on an earlier read.
+IDENTITY_ONLY_KEPT = ("owner_name", "address", "legal_desc", "assessed", "market", "taxable_value", "land_value",
+                      "improvement_value", "acreage", "land_use", "min_bid", "purchase_amount", "sale_date", "certificate_no")
+
+
+def keep_list_values_on_identity_only_row(row: dict, stored: dict | None) -> int:
+    """Audit B10 (2026-10-29): a row the source published with ONLY its
+    identifier (tabular.py marks it `otc_provenance.identity_only_row`) does
+    not erase what the same list published on an earlier read - Oconee SC's
+    17:56 read nulled the amount, description and owner of 213 of its 560
+    rows while the county was updating the page, and the next read put some
+    back (hundreds of spurious change events a day). The stored value is
+    sent back; the stored amount keeps its stored kind with it."""
+    prov = row.get("otc_provenance")
+    if not stored or not isinstance(prov, dict) or not prov.get("identity_only_row"):
+        return 0
+    kept = 0
+    for col in IDENTITY_ONLY_KEPT:
+        if col in row and FP.is_blank(row[col]) and not FP.is_blank(stored.get(col)) and not _placeholder(col, stored.get(col)):
+            row[col] = stored[col]
+            kept += 1
+            if col == "purchase_amount" and stored.get("purchase_amount_kind"):
+                row["purchase_amount_kind"] = stored["purchase_amount_kind"]
     return kept
 
 
@@ -408,6 +435,16 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
     # PostgREST bulk upserts need one key set per request: rows are aligned
     # on their own SOURCE's key set (upsert() sends one source per request).
     out = [{k: r.get(k) for k in sorted(keys[r["harvester_source"]])} for r in out]
+    # Audit B23 (2026-10-29): key alignment above gives a row that OMITTED a
+    # column its source publishes on other rows a NULL for it - after the
+    # keep above ran, so the NULL went out over the enriched value. Saguache
+    # CO: 552 of 900 rows publish no Deeded_Acres, the sync nulled their
+    # parcel-layer acreage every run and the enricher wrote it back (two
+    # writers taking turns). The keep runs again on the aligned row.
+    for r in out:
+        kept = keep_enriched_values(r, (stored_values or {}).get(identity(r)))
+        if kept:
+            counts["enriched_values_kept_after_alignment"] = counts.get("enriched_values_kept_after_alignment", 0) + kept
     counts["upsert"] = len(out)
     return out, counts
 
@@ -451,27 +488,33 @@ def stored_active(base: str, key: str, state: str, source_ids: set[str]) -> list
     crossed the statement timeout under load (HTTP 500)."""
     return RP.read_all(base, "properties", _read_headers(key),
                        {"select": "id,state,source,county,case_no,status,harvester_source", "state": f"eq.{state}",
-                        "status": "eq.active", "harvester_source": f"in.({','.join(sorted(source_ids))})"})
+                        "status": "eq.active", "harvester_source": f"in.({','.join(sorted(source_ids))})"},
+                       attempts=SYNC_READ_ATTEMPTS, backoff=SYNC_READ_BACKOFF)
+
+
+# The sync's own population reads ride out a longer overload episode than the
+# default 2 / 4 / 8 s (audit B43, 2026-10-29: the 2026-10-27 episode lasted
+# minutes and every expansion sync stopped on its first read): 5, 10, 20,
+# 40, 80 s - about 2.5 minutes - before the read gives up.
+SYNC_READ_ATTEMPTS = 6
+SYNC_READ_BACKOFF = 5.0
 
 
 def patch_query(base: str, key: str, query: str, body: dict) -> None:
-    """One PATCH of `properties` filtered by a ready PostgREST query string."""
-    req = urllib.request.Request(
+    """One PATCH of `properties` filtered by a ready PostgREST query string
+    (idempotent: retried on a transient failure - rest_pages.send_idempotent)."""
+    RP.send_idempotent(lambda: urllib.request.Request(
         f"{base.rstrip('/')}/rest/v1/properties?{query}", data=json.dumps(body).encode(), method="PATCH",
         headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT,
-                 "Content-Type": "application/json", "Prefer": "return=minimal"})
-    with urllib.request.urlopen(req, timeout=60):
-        pass
+                 "Content-Type": "application/json", "Prefer": "return=minimal"}), timeout=60)
 
 
 def close_rows(base: str, key: str, closes: list[dict]) -> None:
     for c in closes:
-        req = urllib.request.Request(
+        RP.send_idempotent(lambda c=c: urllib.request.Request(
             f"{base.rstrip('/')}/rest/v1/properties?id=eq.{c['id']}", data=json.dumps({k: v for k, v in c.items() if k != "id"}).encode(),
             method="PATCH", headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT,
-                                     "Content-Type": "application/json", "Prefer": "return=minimal"})
-        with urllib.request.urlopen(req, timeout=60):
-            pass
+                                     "Content-Type": "application/json", "Prefer": "return=minimal"}), timeout=60)
 
 
 # Worst first: a county-level fallback is only as good as its weakest read.
@@ -552,7 +595,8 @@ def stored_provenance(base: str, key: str, state: str, source_ids: set[str], fir
     # and crossed the 8 s statement timeout (HTTP 500) on loaded runs.
     rows = RP.read_all(base, "properties", _read_headers(key),
                        {"select": select, "state": f"eq.{state}",
-                        "harvester_source": f"in.({','.join(sorted(source_ids))})"}, page=STORED_PAGE)
+                        "harvester_source": f"in.({','.join(sorted(source_ids))})"},
+                       page=STORED_PAGE, attempts=SYNC_READ_ATTEMPTS, backoff=SYNC_READ_BACKOFF)
     for r in rows:
         out[identity(r)] = r.get("field_provenance")
         if first_seen is not None:
@@ -621,13 +665,18 @@ def _upsert(base: str, key: str, rows: list[dict], *, post=None, sleep=None) -> 
 
 
 def _post_chunk(base: str, key: str, chunk: list[dict]) -> None:
-    req = urllib.request.Request(
-        f"{base.rstrip('/')}/rest/v1/properties?on_conflict=state,source,county,case_no",
-        data=json.dumps(chunk).encode(), method="POST",
-        headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT, "Content-Type": "application/json",
-                 "Prefer": "resolution=merge-duplicates,return=minimal"})
-    with urllib.request.urlopen(req, timeout=120):
-        pass
+    # The upsert is idempotent on its conflict key. A gateway error (502 /
+    # 503 / 504 / 52x) or a connection error / read timeout is retried on the
+    # SAME chunk with backoff (audit B43, 2026-10-29); a statement timeout
+    # (500 57014) and every other HTTP error reach _upsert unchanged, which
+    # halves or stops exactly as before.
+    def make():
+        return urllib.request.Request(
+            f"{base.rstrip('/')}/rest/v1/properties?on_conflict=state,source,county,case_no",
+            data=json.dumps(chunk).encode(), method="POST",
+            headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT, "Content-Type": "application/json",
+                     "Prefer": "resolution=merge-duplicates,return=minimal"})
+    RP.send_idempotent(make, timeout=120, retry_statuses=RP.RETRY_STATUSES - {500})
 
 
 def main(argv=None) -> int:
