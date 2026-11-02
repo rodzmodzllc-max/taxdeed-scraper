@@ -1443,7 +1443,12 @@ const state = {
   // longer carries, is not shown to customers. Administrators can pick another
   // view inside Filters (#statusViewSelect).
   statusView: "live",
-  ledger: "auction",
+  // Loading state (audit F75, 2026-11-02): the ledger the hash routes to is
+  // the ledger of the very first render too - render() runs during module
+  // init, before showApp() reads the route, and used to title the page
+  // "Auctions in ..." on a #/lands load until the first page arrived.
+  // LEDGERS is declared above this object, so its slugs are readable here.
+  ledger: (() => { try { const m = /^#\/?([a-z]+)/.exec(location.hash || ""); const k = m && Object.keys(LEDGERS).find(x => LEDGERS[x].slug === m[1]); return k || "auction"; } catch { return "auction"; } })(),
   // Which state this is used to be a mutable filter here (`region`), toggled
   // by clicking a tab while the frontend fetched the whole table and hid the
   // other state's rows in JS. That's gone: FL and TX are now separate pages
@@ -3135,7 +3140,21 @@ function laftListLabel(p) {
 function auctionLinkInfo(p) {
   const href = p && p.url_auction ? String(p.url_auction).trim() : "";
   const kind = p && AUCTION_LINK_KINDS.includes(p.url_auction_kind) ? p.url_auction_kind : null;
-  if (!href) return { href: null, kind: null, label: "Auction link not published", note: null };
+  if (!href) {
+    // Audit F12 (2026-11-02): a Texas vendor row (PBFCM, MVBA, LGBS) carries
+    // no url_auction but does carry the vendor's published sale-list document
+    // for that sale (document_url). That IS the source's own listing, named
+    // as a list document - never "not published", never a per-property page.
+    const doc = p && p.source === "auction" && p.document_url ? String(p.document_url).trim() : "";
+    if (/^https:\/\//i.test(doc)) {
+      const d = p.sale_date ? daysUntil(p) : null;
+      if (!isGone(p) && !(d !== null && d < 0)) {
+        return { href: doc, kind: "document", label: "View the published sale list" + (/\.pdf(?:[?#]|$)/i.test(doc) ? " (PDF)" : ""),
+          note: "The source's own sale-list document, where this property appears among the others listed for that sale - not a page for this property alone." };
+      }
+    }
+    return { href: null, kind: null, label: "Auction link not published", note: null };
+  }
   if (kind === "sale") {
     const d = p.sale_date ? daysUntil(p) : null;
     if (isGone(p) || (d !== null && d < 0)) {
@@ -4066,6 +4085,14 @@ async function showApp() {
       `<div class="empty-state error-state">⚠ Couldn't load property data right now.` +
       `<span class="empty-hint">Check your connection and reload the page. If this keeps happening, the data source may be temporarily unavailable.</span>` +
       `<button type="button" class="reload-btn" onclick="location.reload()">Reload</button></div>`;
+    // The chrome around the error says the same thing (audit F29): the routed
+    // ledger's title, "—" counts, no "Loading…" line and no phantom county
+    // chip - never a bare 0 or a loading claim next to a failed load.
+    applyLedgerChrome();
+    if (typeof syncLedgerNav === "function") syncLedgerNav();
+    renderLedgerCounts(false);
+    renderListHead([], state.ledger, null);
+    renderFilterChips();
     startIdleWatch();
     return;
   }
@@ -4516,7 +4543,7 @@ function ledgerStatusHtml(kind, shown, opts) {
   const covText = z.eligibility === "COUNTY_DEPENDENT" && z.coverage.length ? `${unitsCap} with a tracked source or verified procedure: ${z.coverage.map(c => c.county).join(", ")}` : "";
   const verified = z.led && z.led.eligibility_verified_on ? `verified ${fmtDate(z.led.eligibility_verified_on)}` : "not verified";
   return `<div class="ledger-status" data-ledger-status="${esc(kind)}" data-eligibility="${esc(z.eligibility)}" data-zero-case="${esc(z.zeroCase || "")}" data-health="${esc(z.health)}" data-tracked="${z.tracked ? "1" : "0"}">
-    <span class="ls-item"><b>Offered here</b><span class="ls-val ${eligCls}" data-ls-eligibility>${esc(eligLabel)}</span><span class="ls-sub">${esc(verified)}</span></span>
+    <span class="ls-item"><b>Offered here</b><span class="ls-val ${eligCls}" data-ls-eligibility>${esc(eligLabel)}</span>${eligLabel.toLowerCase() === verified.toLowerCase() ? "" : `<span class="ls-sub">${esc(verified)}</span>`}</span>
     <span class="ls-item"><b>In TAXACQ</b><span class="ls-val" data-ls-tracked>${esc(z.led ? ((doc.ledger_statuses || {})[z.led.status] || z.led.status) : "Not recorded")}</span></span>
     ${countIsTitle ? "" : `<span class="ls-item"><b>${ok && !o.compact ? "Ledger total" : "Current count"}</b><span class="ls-val" data-ls-count="${ok ? z.count : ""}"${ok ? ` data-ls-total="${ledgerTotal}"` : ""}>${esc(ok && !o.compact ? ledgerNoun(kind, ledgerTotal) : countText)}</span></span>`}
     <span class="ls-item"><b>Source read</b><span class="ls-val" data-ls-read>${esc(freshness)}</span></span>
@@ -4761,8 +4788,10 @@ async function loadAll(activeKey, opts) {
   if (!ok) {
     const genEl = document.getElementById("generatedAt");
     if (genEl) genEl.textContent = "Error: " + ((LOAD_ISSUES[0] && LOAD_ISSUES[0].message) || "properties could not be loaded");
+    LOAD_FAILED = true;
     return false;
   }
+  LOAD_FAILED = false;
   PAID_BETA_SOURCES = new Set(commercialScope && Array.isArray(commercialScope.paid_beta_source_ids) ? commercialScope.paid_beta_source_ids : []);
   PAID_BETA_LOADED = !!commercialScope;
   applyLedgerRows();
@@ -5194,13 +5223,57 @@ function bidListBtnHtml(p, compact) {
     : pending ? "Watchlist is full - queued, will be added automatically once a slot frees up (tap to cancel)"
     : `Add to watchlist (max ${BID_LIST_MAX})`;
   const cls = on ? " on" : pending ? " pending" : "";
+  // data-variant: refreshWatchState() regenerates the button in place after a
+  // Watch tap (audit F47) and needs to know which of the three shapes it is.
   // Cards (2026-10-25): a short label beside the card's one action.
-  if (compact === "card") return `<button class="icon-btn bid-btn${cls}" data-action="bidlist" data-pid="${p.id}" type="button" title="${esc(label)}" aria-label="${esc(label)}">${on ? "⚑ Watching" : pending ? "⏳ Queued" : "⚐ Watchlist"}</button>`;
+  if (compact === "card") return `<button class="icon-btn bid-btn${cls}" data-action="bidlist" data-pid="${p.id}" data-variant="card" type="button" title="${esc(label)}" aria-label="${esc(label)}">${on ? "⚑ Watching" : pending ? "⏳ Queued" : "⚐ Watchlist"}</button>`;
   if (compact) {
-    return `<button class="icon-btn bid-btn${cls}" data-action="bidlist" data-pid="${p.id}" type="button" title="${esc(label)}">${icon}</button>`;
+    return `<button class="icon-btn bid-btn${cls}" data-action="bidlist" data-pid="${p.id}" data-variant="icon" type="button" title="${esc(label)}">${icon}</button>`;
   }
   const fullLabel = on ? "⚑ On Watchlist" : pending ? "⏳ Queued — adds automatically" : "⚐ Add to Watchlist";
-  return `<button class="icon-btn bid-btn${cls}" data-action="bidlist" data-pid="${p.id}" type="button" title="${esc(label)}">${fullLabel}</button>`;
+  return `<button class="icon-btn bid-btn${cls}" data-action="bidlist" data-pid="${p.id}" data-variant="full" type="button" title="${esc(label)}">${fullLabel}</button>`;
+}
+// Watch tap (audit F47, 2026-11-02): every button for that one property
+// changes in place - the classic ones are regenerated from bidListBtnHtml,
+// a look's own button (Merged / Tactile / Terrain markup) has its state,
+// icon and word flipped - and the watchlist counts are refreshed. A full
+// render() rebuilt every card of the ledger (750 cards, about 1 s at
+// Florida's certificate volume) for one flag; it runs only when watch
+// membership is itself a filter of the list or the Map.
+function refreshWatchCounts() {
+  const bidListCountEl = document.getElementById("bidListCount");
+  if (bidListCountEl) bidListCountEl.textContent = `${BIDLIST.size}/${BID_LIST_MAX}` + (BID_LIST_PENDING.length ? ` +${BID_LIST_PENDING.length}⏳` : "");
+  ["navWatchlistCount", "gotoWatchlistCount"].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = `${BIDLIST.size}/${BID_LIST_MAX}`; });
+}
+function refreshWatchState() {
+  // Every watch button on the page, touched only where its state disagrees
+  // (a removal can also promote a queued property - promoteNextPending).
+  document.querySelectorAll('[data-action="bidlist"][data-pid]').forEach(btn => {
+    const pid = btn.dataset.pid;
+    const on = BIDLIST.has(pid), pending = !on && BID_LIST_PENDING.includes(pid);
+    if (btn.classList.contains("on") === on && btn.classList.contains("pending") === pending && !btn.disabled) return;
+    const p = ALL.find(x => String(x.id) === String(pid));
+    if (btn.classList.contains("bid-btn") && p) {
+      const tmp = document.createElement("div");
+      const v = btn.dataset.variant || "full";
+      tmp.innerHTML = bidListBtnHtml(p, v === "card" ? "card" : v === "icon");
+      const fresh = tmp.firstElementChild;
+      if (fresh) { fresh.disabled = false; btn.replaceWith(fresh); }
+      return;
+    }
+    btn.disabled = false;
+    btn.classList.toggle("on", on);
+    btn.classList.toggle("pending", pending);
+    if (btn.hasAttribute("aria-pressed")) btn.setAttribute("aria-pressed", String(on));
+    if (btn.hasAttribute("aria-label")) btn.setAttribute("aria-label", on ? "On your watchlist - tap to remove" : "Add to watchlist");
+    btn.querySelectorAll("svg[fill], svg path[fill]").forEach(el => el.setAttribute("fill", on ? "currentColor" : "none"));
+    const pair = btn.classList.contains("xt-btn") ? ["On watchlist", "Watch"] : btn.textContent.includes("Watchlist") ? ["On Watchlist", "Add to Watchlist"] : ["Watching", "Watch"];
+    const swap = node => { const t = node.textContent.trim(); if (t === pair[0] || t === pair[1]) node.textContent = on ? pair[0] : pair[1]; };
+    const span = btn.querySelector("span");
+    if (span) swap(span);
+    else Array.from(btn.childNodes).filter(n => n.nodeType === 3 && n.textContent.trim()).forEach(swap);
+  });
+  refreshWatchCounts();
 }
 
 // Phase 65: the card's first line answers "what kind of listing is this, and
@@ -5869,10 +5942,22 @@ function parcelKey(p) {
   const norm = raw.replace(/[^0-9a-z]/gi, "").toUpperCase();
   return norm ? `${regionOf(p)}|${String(p.county || "").toLowerCase()}|${norm}` : "";
 }
+// One parcel index per ALL[] (audit F28, 2026-11-02): relatedRecordsFor()
+// used to scan every row and normalise every parcel once per call, and the
+// Map strip calls it once per card - 100 cards x 30,000 rows per render.
+// var: reached from render() during module init (TDZ).
+var PARCEL_INDEX = { all: null, size: -1, map: null };
+function parcelIndex() {
+  if (PARCEL_INDEX.all === ALL && PARCEL_INDEX.size === ALL.length && PARCEL_INDEX.map) return PARCEL_INDEX.map;
+  const map = new Map();
+  ALL.forEach(o => { const k = parcelKey(o); if (!k) return; const l = map.get(k); if (l) l.push(o); else map.set(k, [o]); });
+  PARCEL_INDEX = { all: ALL, size: ALL.length, map };
+  return map;
+}
 function relatedRecordsFor(p) {
   const key = parcelKey(p);
   if (!key) return [];
-  return ALL.filter(o => o.id !== p.id && parcelKey(o) === key)
+  return (parcelIndex().get(key) || []).filter(o => o.id !== p.id)
     .sort((a, b) => LEDGER_ORDER.indexOf(a.source) - LEDGER_ORDER.indexOf(b.source) || String(a.case_no || "").localeCompare(String(b.case_no || "")));
 }
 // Whether a related record is CURRENTLY on its ledger's feed or was
@@ -6155,7 +6240,7 @@ function dataGaps(p) {
   // Phase 72: no url_auction means the source published no link this
   // pipeline could verify (every Texas LGBS row today). Said here as well as
   // in the CTA slot, so the "Missing" list is complete.
-  if (!p.url_auction) gaps.push("Auction link not published");
+  if (!p.url_auction && !auctionLinkInfo(p).href) gaps.push("Auction link not published");
   // Migration 017: a list page is never a purchase mechanism, so a LAFT /
   // struck-off row with no purchase_url is missing that link, whatever
   // else it carries.
@@ -10895,7 +10980,9 @@ document.addEventListener("click", async e => {
         else showErrorToast("Couldn't add to watchlist: " + error.message);
       } else { BIDLIST.add(pid); BIDLIST_ORDER.push(pid); track("property_watched", { property_id: pid }); }
     }
-    render();
+    // In place (audit F47); a full render only when membership filters the list.
+    if (state.watchStatus !== "any") render();
+    else { refreshWatchState(); if (mapFilter.watchlistOnly) renderMapPage(); }
     refreshOpenDetail(pid);
     if (typeof refreshDetailPanel === "function") refreshDetailPanel(pid);
     refreshBidListModal();
@@ -11014,9 +11101,16 @@ document.addEventListener("input", e => {
 // A ledger's count while it is still loading is not a count: "…" before its
 // first page, "1,000…" while later pages arrive, the number once settled.
 // Before any data (skeleton) the old 0 is kept.
+// var: read by render() during module init (TDZ).
+var LOAD_FAILED = false;   // every ledger failed with nothing loaded (loadAll's !ok path)
 function ledgerCountText(k, n, locale) {
   const txt = locale ? n.toLocaleString("en-US") : String(n);
-  if (!PROPERTIES_LOADED || ledgerSettled(k)) return txt;
+  // Before the first page arrives the count is unknown, not zero (audit F75);
+  // after a total load failure it is unavailable, not zero (audit F29).
+  if (!PROPERTIES_LOADED) return LOAD_FAILED ? "—" : "…";
+  // A ledger whose own read failed with nothing loaded has no count (audit F30).
+  if (LEDGER_LOAD[k] === "error" && !n) return "—";
+  if (ledgerSettled(k)) return txt;
   return n ? txt + "…" : "…";
 }
 // Tab, List-nav and sidebar ledger counts. Also called alone when a background
@@ -11071,7 +11165,7 @@ function renderLedgerCounts(scrollActive) {
   const navListCountEl = document.getElementById("navCountList");
   if (navListCountEl) {
     const sum = (tabCounts.auction || 0) + (tabCounts.laft || 0) + (tabCounts.certificate || 0);
-    navListCountEl.textContent = PROPERTIES_LOADED && !allLedgersSettled() ? (sum ? sum + "…" : "…") : sum;
+    navListCountEl.textContent = !PROPERTIES_LOADED ? (LOAD_FAILED ? "—" : "…") : !allLedgersSettled() ? (sum ? sum + "…" : "…") : sum;
   }
   // Shell redesign (2026-10-04): each ledger's own sidebar entry carries its
   // count - the same number as its tab.
@@ -11306,7 +11400,20 @@ function listProgramLine(ledgerKey) {
     : PAGE_STATE === "LA" ? "Adjudicated property - the Parish's list as of its own last-update date, not verified available now"
     : PAGE_STATE === "FL" ? "Lands Available list - over the counter"
     : "Government-held property the source offers - each card shows the source's own status";
-  return "County-held certificates";
+  // Liens & Certificates: "County-held certificates" describes Florida's
+  // LienHub / Tax Collector lists. A state whose ledger copy renames the
+  // instrument (Texas: redeemable deeds) carries its own question in the
+  // subtitle instead, so no second name is added (audit F88).
+  return ledgerCopy("certificate").title === LEDGERS.certificate.title ? "County-held certificates" : "";
+}
+// The first line of a settled, genuinely empty ledger, in the state's own
+// ledger name (audit F88: Texas's "Redeemable Deeds" was told "No liens or
+// certificates currently available").
+function ledgerEmptyHead(kind) {
+  const base = LEDGER_EMPTY_HEAD[kind] || "";
+  if (kind !== "certificate") return base;
+  const cfg = ledgerCopy(kind);
+  return cfg.title === LEDGERS.certificate.title ? base : `No ${String(cfg.nav || cfg.title).toLowerCase()} currently available.`;
 }
 
 // COUNTY_INFO carries per-county logistics (online vs in-person, deposit
@@ -11604,14 +11711,21 @@ function section(container, title, sub, rows, kind) {
         return { shown };
       }
       const head = stateEmpty ? "No properties currently available for this state. "
-        : ledgerEmpty && !LOAD_ISSUES.some(i => LEDGER_FOR_TYPE[i.ledgerType] === kind) ? LEDGER_EMPTY_HEAD[kind] + " " : "";
+        : ledgerEmpty && !LOAD_ISSUES.some(i => LEDGER_FOR_TYPE[i.ledgerType] === kind) ? ledgerEmptyHead(kind) + " " : "";
       // One reason, once (2026-10-27): when the ledger status strip above
       // names which zero this is (its .ls-why), the empty state carries only
       // its head line - the ledger copy's generic sentence and the coverage
       // hint used to restate (and could contradict) that reason. A ledger
       // with rows that the filters exclude still gets the ledger's own text.
-      const zeroNamed = !!ledgerZeroState(kind).zeroCase;
+      const zero = ledgerZeroState(kind);
+      const zeroNamed = !!zero.zeroCase;
       e.textContent = zeroNamed && head ? head.trim() : head + (cfg.empty || "Nothing found.");
+      // A ledger whose own read failed with nothing loaded is not empty, it is
+      // unavailable (audit F30): no "No ... listings match" sentence here.
+      if (zero.loadFailed && !ALL.some(p => p.source === kind)) {
+        e.textContent = `${ledgerNavName(kind)} for ${STATE_INFO.name} could not be loaded right now, so this list is not shown. Nothing here is a statement that the list is empty.`;
+        e.dataset.loadFailed = "1";
+      }
       if (stateEmpty) e.dataset.stateEmpty = "1";
       if (ledgerEmpty) e.dataset.ledgerEmpty = "1";
       // Available records withheld because their source could not confirm
@@ -11653,12 +11767,22 @@ function section(container, title, sub, rows, kind) {
   const groups = new Map();
   shown.forEach(p => {
     const k = groupKeyOf(kind, p.county, p.sale_date);
-    if (!groups.has(k)) groups.set(k, { county: p.county, date: p.sale_date, rows: [] });
+    if (!groups.has(k)) groups.set(k, { county: p.county, date: p.sale_date, rows: [], first: groups.size });
     groups.get(k).rows.push(p);
   });
 
+  // Sort (audit F13, 2026-11-02): with the default "county" order the groups
+  // follow groupSortKey (date, then county). Once a Sort or "Then by" is
+  // chosen, the groups follow it too - each group takes the place of its
+  // first card in the sorted list (`shown` is already in that order), so
+  // "Opening bid, high to low" puts the county holding the highest bid first
+  // and "Sale date, latest first" reverses the date clusters. Before this,
+  // the sort only reordered cards INSIDE each group, so on Auctions (one
+  // sale date per group) every sort produced the same page.
+  const customSort = !!(SORT_COMPARATORS[state.sortBy] || SORT_COMPARATORS[state.sortSecondary]);
   const orderedKeys = Array.from(groups.keys()).sort((ka, kb) => {
     const ga = groups.get(ka), gb = groups.get(kb);
+    if (customSort) return ga.first - gb.first;
     const sa = groupSortKey(kind, ga.county, ga.date), sb = groupSortKey(kind, gb.county, gb.date);
     if (sa !== sb) return sa < sb ? -1 : 1;
     return ga.county.localeCompare(gb.county);
@@ -11803,7 +11927,7 @@ function updateBadge() {
   if (state.favoritesOnly || state.topPicksOnly || state.soonOnly || state.hideOldListings || state.hideSlivers || state.hideBareLandOnly) n++;
   if (state.statusView !== "live") n++;
   if (state.maxBidPct !== 40) n++;
-  if (state.counties.size < ALL_COUNTIES.length) n++;
+  if (PROPERTIES_LOADED && state.counties.size < ALL_COUNTIES.length) n++;
   if (state.types.size !== TYPE_ORDER.length) n++;
   if (state.liens.size !== LIEN_ORDER.length) n++;
   if (state.taxableMin !== null || state.imagery !== "any" || state.acqState !== "any" || state.acqMode !== "any" || state.watchStatus !== "any" || state.freshDays !== null || state.saleFrom || state.saleTo || state.sourceId !== "any") n++;
@@ -12074,6 +12198,16 @@ function applyLedgerChrome() {
   const availRow = document.getElementById("availableFilters");
   if (availRow) availRow.hidden = key !== "laft";
   if (key === "laft") buildAvailLandUseSelect();
+  // Acquisition method reads the verified Available record (passes() returns
+  // false for every other ledger), so it is shown on Available only, and a
+  // value carried over from Available is reset rather than emptying Auctions
+  // or Liens for every choice (audit F52).
+  const acqModeEl = document.getElementById("acqModeFilter");
+  const acqModeField = acqModeEl && acqModeEl.closest(".field");
+  if (acqModeField) acqModeField.hidden = key !== "laft";
+  if (key !== "laft" && state.acqMode !== "any") { state.acqMode = "any"; if (acqModeEl) acqModeEl.value = "any"; }
+  // The Source filter lists this ledger's sources only (audit F51).
+  buildSourceFilterOptions();
 
   // The CSV export is the same file either way - only the label changes, so
   // it reads as "the thing this ledger's desk actually wants" rather than a
@@ -12398,7 +12532,10 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     // Texas Yield Desk fields (002_add_texas_support.sql / tx_yield_calc.py)
     // - blank for FL rows, and blank for TX rows until CAD/harvest data
     // populates them.
-    ["TX Min Bid", p => p.min_bid ?? ""],
+    // Audit F87 (2026-11-02): Texas values only - MI / SC / MN / WI lists
+    // also store their published figure in min_bid (an opening bid there,
+    // see auctionBidLabel), and it used to export under this Texas label.
+    ["TX Min Bid", p => (regionOf(p) === "TX" ? (p.min_bid ?? "") : "")],
     ["TX Redemption Period (months)", p => p.redemption_period_months ?? ""],
     ["TX Redemption Expires", p => p.redemption_expiration_date || ""],
     ["TX Max Statutory Return ($, informational only)", p => p.max_statutory_return_usd ?? ""],
@@ -14164,7 +14301,14 @@ function buildMapCountySelect() {
     // loading the county is kept (listed with no count yet), so a routed
     // #/map?county= is not cleared by a render that ran before its rows
     // arrived (that transient clear is what corrupted the back stack).
-    if (mapLedgerSettled()) { applyCountySelection("ALL"); return; }
+    // ... and only while the Map page is the one on screen (audit F50): the
+    // List's own county pick of a county with no rows anywhere used to be
+    // undone by this fallback, snapping the select back to All Counties and
+    // showing every county's properties with no explanation. Off the Map the
+    // county is kept (listed with no count) and the List shows its empty
+    // state for that county.
+    let onMap = false; try { onMap = shellPage === "map"; } catch { onMap = false; }
+    if (onMap && mapLedgerSettled()) { applyCountySelection("ALL"); return; }
     names.push(mapFilter.county); names.sort((a, b) => a.localeCompare(b));
   }
   el.innerHTML = countyPickerOptionsHtml(names, counts, `All Counties (${names.length})`);
@@ -14941,14 +15085,19 @@ function syncMonitorFilterInputs() {
 // The List's Source filter: every source this state's loaded rows were
 // harvested from, named as the provenance card names it, with its count.
 function sourceIdLabel(id) {
+  // The publisher's name (HARVESTER_SOURCE_NAMES via sourceNameFor), never a
+  // raw source id such as fl_laft_html (audit F51).
+  if (HARVESTER_SOURCE_NAMES[id]) return HARVESTER_SOURCE_NAMES[id];
   const p = ALL.find(x => (x.source_id || x.harvester_source) === id);
-  return (p && harvesterSourceLabel(p)) || String(id);
+  return (p && (sourceNameFor(p) || harvesterSourceLabel(p))) || String(id).replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 function buildSourceFilterOptions() {
   const el = document.getElementById("sourceFilter");
   if (!el) return;
   const counts = new Map();
-  ALL.forEach(p => { const id = p.source_id || p.harvester_source; if (id) counts.set(id, (counts.get(id) || 0) + 1); });
+  // This ledger's sources with this ledger's counts (audit F51): a Lands
+  // Available source offered on Auctions could only ever empty the list.
+  ALL.forEach(p => { if (p.source !== state.ledger) return; const id = p.source_id || p.harvester_source; if (id) counts.set(id, (counts.get(id) || 0) + 1); });
   if (state.sourceId !== "any" && !counts.has(state.sourceId)) counts.set(state.sourceId, 0);
   const ids = Array.from(counts.keys()).sort((a, b) => sourceIdLabel(a).localeCompare(sourceIdLabel(b)));
   el.innerHTML = `<option value="any">Any source</option>` + ids.map(id => `<option value="${esc(id)}">${esc(sourceIdLabel(id))} (${counts.get(id).toLocaleString("en-US")})</option>`).join("");
@@ -15741,7 +15890,8 @@ function homeLedgerCardHtml(k) {
   const counties = new Set(rows.map(p => p.county)).size;
   const n = rows.length;
   const fin = PROPERTIES_LOADED && ledgerSettled(k);
-  const unit = k === "certificate" && PAGE_STATE !== "FL" ? "records" : ({ laft: "properties", auction: "upcoming sales", certificate: "certificates" })[k];
+  const unit = k === "certificate" && PAGE_STATE !== "FL" ? (n === 1 ? "record" : "records")
+    : ({ laft: n === 1 ? "property" : "properties", auction: n === 1 ? "upcoming sale" : "upcoming sales", certificate: n === 1 ? "certificate" : "certificates" })[k];
   return `<button type="button" class="home-ledger-card${k === "laft" ? " primary" : ""}" data-ledger="${esc(k)}" data-home-ledger="${esc(k)}">
     <span class="home-ledger-kicker">${esc(ledgerNavName(k).toUpperCase())}</span>
     <span class="home-ledger-count" id="homeCount_${esc(k)}">${PROPERTIES_LOADED ? ledgerCountText(k, n, true) : "—"}</span>
@@ -15899,7 +16049,9 @@ function renderListHead(shown, k, tabCounts) {
   const name = ledgerNavName(k);
   const total = (tabCounts && tabCounts[k]) || 0;
   const n = shown.length;
-  const count = !PROPERTIES_LOADED ? "" : !ledgerSettled(k) ? `${n.toLocaleString("en-US")}…` : n.toLocaleString("en-US");
+  // A ledger whose read failed with nothing loaded shows no number at all -
+  // the status strip says "Count unavailable - load failed" (audit F30).
+  const count = !PROPERTIES_LOADED ? "" : !ledgerSettled(k) ? `${n.toLocaleString("en-US")}…` : (LEDGER_LOAD[k] === "error" && !n ? "" : n.toLocaleString("en-US"));
   t.innerHTML = `${esc(name)} in ${esc(STATE_INFO.name)}${count ? ` <span class="list-count" id="listCount">${esc(count)}</span>` : ""}`;
   if (sub) {
     // One subtitle line (2026-10-27): the ledger's question, its program
@@ -15907,7 +16059,7 @@ function renderListHead(shown, k, tabCounts) {
     // many counties are in view. The number of properties in view is the
     // title count only; a filtered view names the ledger total it came from.
     const parts = [];
-    if (!PROPERTIES_LOADED) parts.push(`Loading ${STATE_INFO.name}…`);
+    if (!PROPERTIES_LOADED) parts.push(LOAD_FAILED ? `${STATE_INFO.name} property data could not be loaded` : `Loading ${STATE_INFO.name}…`);
     else {
       const cfg = ledgerCopy(k) || {};
       if (cfg.question) parts.push(cfg.question);
@@ -15960,7 +16112,9 @@ function chipControlIds() {
 function filterChipList() {
   const chips = [];
   if (state.search) chips.push({ key: "search", label: `Search: “${state.search}”` });
-  if (ALL_COUNTIES.length && state.counties.size < ALL_COUNTIES.length) {
+  // state.counties is seeded from ALL_COUNTIES only once the first load
+  // settles; before that it is empty, which is not a "0 selected" filter.
+  if (PROPERTIES_LOADED && ALL_COUNTIES.length && state.counties.size < ALL_COUNTIES.length) {
     chips.push({ key: "counties", label: state.counties.size === 1 ? `${UNIT_WORD}: ${Array.from(state.counties)[0]}` : `${UNIT_WORD}: ${state.counties.size} selected` });
   }
   if (state.bidMin !== null || state.bidMax !== null) {
@@ -17073,6 +17227,11 @@ function guidedStages(p) {
 
   if (p.source === "auction") {
     const link = auctionLinkInfo(p);
+    // A vendor's sale-list document (audit F12) is where the sale is
+    // published, not a site to register or bid on: it is offered under its
+    // own name for finding the sale, and the register step carries no link.
+    const doc = link.kind === "document";
+    const site = { href: link.href, label: doc ? "Published sale list" : "County auction site" };
     const facts1 = [];
     if (seen) facts1.push({ title: "On the county's sale list", answer: `Read ${seen}` });
     if (p.sale_date) facts1.push({ title: "Sale date", answer: fmtDate(String(p.sale_date).slice(0, 10)) });
@@ -17080,10 +17239,10 @@ function guidedStages(p) {
     if (hasPublishedBid(p)) facts2.push({ title: auctionBidLabel(p, true), answer: fmtMoney(Number(p.bid)) });
     if (value) facts2.push(value);
     return [
-      { key: "find", title: "Find it", facts: facts1, tasks: facts1.length ? [] : [{ key: "find", title: "Find the sale date", how: "The county's auction calendar lists it.", href: link.href, hrefLabel: "County auction site" }] },
+      { key: "find", title: "Find it", facts: facts1, tasks: facts1.length ? [] : [{ key: "find", title: "Find the sale date", how: doc ? "The published sale list names it." : "The county's auction calendar lists it.", href: site.href, hrefLabel: site.label }] },
       { key: "price", title: "Know the bid", facts: facts2, tasks: [{ key: "ceiling", title: "Set your highest bid", how: "Add fees, back taxes and the cost of clearing title before you decide." }] },
       risks,
-      { key: "register", title: "Register", facts: [], tasks: [{ key: "register", title: "Register and follow the deposit rules", how: "Do it on the county's auction site before sale day.", href: link.href, hrefLabel: "County auction site" }] },
+      { key: "register", title: "Register", facts: [], tasks: [{ key: "register", title: "Register and follow the deposit rules", how: "Do it on the county's auction site before sale day.", href: doc ? null : link.href, hrefLabel: "County auction site" }] },
       { key: "bid", title: "Bid", facts: [], tasks: [{ key: "bid", title: "Bid on sale day", how: p.sale_date ? `The sale is ${fmtDate(String(p.sale_date).slice(0, 10))}.` : "Watch the county's calendar for the date." }] },
       { key: "deed", title: "Pay and get the deed", facts: [], tasks: [{ key: "pay", title: "Pay the balance and receive the deed", how: "Follow the auction site's payment deadline; ask the clerk when the deed is recorded." }] }
     ];
