@@ -43,6 +43,15 @@ the capture date. The latest capture per (answer, quote, URL) decides:
 
 A changed quote or URL needs a new capture. A page that stops carrying the quote downgrades the answer on the next run.
 
+### Where a capture may run
+
+A capture run is any read by `scripts/capture_buyers_guide.py` under the discovery guard; the run id says
+where it ran. GitHub runners (`job=evidence`, run id = the Actions run id) are the default. Some official sites
+refuse the runners (Texas sheriff-sale sites, michigan.gov, several Florida clerks) but answer the development
+sandbox; a run from there is recorded with run id `local-sandbox-<date><letter>` and the same rules (same script,
+same quote matching, no block bypassed). Neither network changes a page's words, so a FOUND from either is a read of
+the page; a page both refuse stays SOURCE_RESTRICTED.
+
 ### Running a capture
 
 1. Dispatch `harvest-and-sync.yml` with `job=evidence`, `evidence_scope=buyers_guide` (optionally `evidence_counties=FL,TX`).
