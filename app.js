@@ -5122,7 +5122,7 @@ function passes(p) {
     if (state.availSeenRecently) { const d = daysSince(p.last_seen_at); if (d === null || d > 14) return false; }
     if (state.availLandUse !== "any" && String(p.land_use || "") !== state.availLandUse) return false;
     if (state.availGeocoded && !(hasNum(p.latitude) && hasNum(p.longitude))) return false;
-    if (state.availValues && !(hasValueNum(p.market) || hasNum(p.assessed))) return false;
+    if (state.availValues && !(hasValueNum(p.market) || hasValueNum(p.assessed))) return false;
   }
   if (PAGE_STATE === "FL" && p.source !== "certificate" && state.assessedMin !== null && Number(p.assessed || 0) < state.assessedMin) return false;
   // Customer monitoring filters (2026-10-01). An unknown value never passes
@@ -6150,7 +6150,7 @@ function dataGaps(p) {
   // "What is not known?" list reads complete while that question says not yet
   // verified (fixed 2026-10-23).
   if (p.source === "auction" && !acquisitionOf(p).verified) gaps.push("Registration, deposit and payment rules not verified");
-  if (!hasValueNum(p.market) && !hasNum(p.assessed)) gaps.push("No county value on file");
+  if (!hasValueNum(p.market) && !hasValueNum(p.assessed)) gaps.push("No county value on file");
   if (p.source === "auction" && !p.sale_date) gaps.push("Sale date not scheduled");
   // Phase 72: no url_auction means the source published no link this
   // pipeline could verify (every Texas LGBS row today). Said here as well as
@@ -6253,8 +6253,8 @@ function opportunitySummaryHtml(p) {
   }
   const bid = hasPublishedBid(p) ? fmtMoney(p.bid) : null;
   let value, valueCls = "";
-  if (hasValueNum(p.market)) value = `${fmtShort(p.market)}<span class="opp-sub">${esc(valueLabel(p))}${hasNum(p.assessed) ? ` · ${esc(assessedSourceLabel(p))} ${fmtShort(p.assessed)}` : ""}</span>`;
-  else if (hasNum(p.assessed)) value = `${fmtShort(p.assessed)}<span class="opp-sub">${esc(assessedSourceLabel(p))} - no just value on file</span>`;
+  if (hasValueNum(p.market)) value = `${fmtShort(p.market)}<span class="opp-sub">${esc(valueLabel(p))}${hasValueNum(p.assessed) ? ` · ${esc(assessedSourceLabel(p))} ${fmtShort(p.assessed)}` : ""}</span>`;
+  else if (hasValueNum(p.assessed)) value = `${fmtShort(p.assessed)}<span class="opp-sub">${esc(assessedSourceLabel(p))} - no just value on file</span>`;
   else { value = "No county value on file"; valueCls = "muted"; }
   const ratio = bid && marketOf(p) > 0 ? `<span class="opp-sub">Value ÷ bid ${valueRatio(p).toFixed(1)}× (screening ratio, not a return)</span>` : "";
   const gaps = dataGaps(p);
@@ -6998,7 +6998,7 @@ function countyPropertyIntelHtml(rows) {
   return `<section class="cty-section" data-county-section="property"><h3>Property intelligence</h3>
     ${countyKv([
       line("Parcel / account identifier", cnt(hasParcel)),
-      line("Assessed value", cnt(p => hasNum(p.assessed) && Number(p.assessed) > 0)),
+      line("Assessed value", cnt(p => hasValueNum(p.assessed))),
       line("Taxable value", cnt(p => hasNum(p.taxable_value))),
       line("Acreage or lot size", cnt(p => hasNum(p.acreage) || hasNum(p.lot_sqft))),
       line("Land use", cnt(p => !!p.land_use || !!p.dor_use_code)),
@@ -9428,7 +9428,7 @@ function inventoryCardHtml(p) {
   if (causeOf(p)) prop.push(row("Tax suit cause #", esc(causeOf(p)), "mono"));
   prop.push(row("Legal description", p.legal_desc ? `<span class="kv-wrap">${esc(p.legal_desc)}</span>` : muted("Not on file")));
   prop.push(row(tx ? "Owner of record" : "Name in which assessed", p.owner_name ? esc(p.owner_name) : muted("Not on file")));
-  prop.push(row("Assessed value", hasNum(p.assessed) ? `${esc(fmtMoney(p.assessed))}${p.value_year ? `<span class="kv-sub">Tax year ${esc(String(p.value_year))}</span>` : ""}` : muted("Not on file")));
+  prop.push(row("Assessed value", hasValueNum(p.assessed) ? `${esc(fmtMoney(p.assessed))}${p.value_year ? `<span class="kv-sub">Tax year ${esc(String(p.value_year))}</span>` : ""}` : muted("Not on file")));
   prop.push(row("Taxable value", hasNum(p.taxable_value) ? esc(fmtMoney(p.taxable_value)) : muted("Not on file")));
   prop.push(row("Acreage", hasNum(p.acreage) ? esc(Number(p.acreage).toFixed(2) + " ac") : muted("Not on file")));
   // An assessor / tax-roll classification (statewide_parcel provenance, e.g.
@@ -10029,7 +10029,7 @@ function detailHtml(p) {
     // isn't mislabeled with Florida's statutory AV_NSD concept. This is the
     // same field/value, just now routed through the label helper this
     // detail modal had never actually called.
-    stats.push([assessedSourceLabel(p), hasNum(p.assessed) ? fmtShort(p.assessed) : "N/A", "financial"]);
+    stats.push([assessedSourceLabel(p), hasValueNum(p.assessed) ? fmtShort(p.assessed) : "N/A", "financial"]);
     if (hasNum(p.land_value)) stats.push(["Land Value", fmtShort(p.land_value), "financial"]);
     // Just Value split into land vs. whatever's built on it - one FDOR-
     // sourced subtraction, not a new field. A bare lot reads as exactly
@@ -13427,7 +13427,7 @@ function watchSnapshotOf(p) {
     // simply has no value for them, and they are not compared (no change
     // is invented from a missing baseline).
     acq: p.purchase_path_type || "", acq_on: p.purchase_path_observed_on || "", src: p.list_url || p.url_auction || "",
-    assessed: hasNum(p.assessed) ? Number(p.assessed) : null, taxable: hasNum(p.taxable_value) ? Number(p.taxable_value) : null,
+    assessed: hasValueNum(p.assessed) ? Number(p.assessed) : null, taxable: hasNum(p.taxable_value) ? Number(p.taxable_value) : null,
     acreage: hasNum(p.acreage) ? Number(p.acreage) : null, land_use: p.land_use || "", flood: p.flood_zone || "" };
 }
 const WATCH_FIELD_LABELS = { acq: "Acquisition path", acq_on: "Acquisition last verified", src: "Source listing", assessed: "Assessed value",

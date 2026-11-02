@@ -238,6 +238,29 @@ const overlap = (a, c) => !!a && !!c && !(a.right <= c.left || a.left >= c.right
   }
 }
 
+// ---- Short phones (merged-work review, 2026-11-02): the stage runs under
+// the fixed ledger bar, so the card is lifted by that overlap - its Open
+// property / Watchlist buttons stay above the bar, the page never scrolls.
+for (const vp of [{ width: 375, height: 667 }, { width: 360, height: 640 }]) {
+  const label = `short${vp.width}`;
+  const pg = await b.newPage({ viewport: vp, hasTouch: true, isMobile: true });
+  const errs = [];
+  pg.on('pageerror', e => errs.push(e.message));
+  await pg.goto(BASE + '#/map', { waitUntil: 'networkidle' }); await pg.waitForTimeout(800);
+  await pg.selectOption('#mapCountySelect', 'Charlotte'); await pg.waitForTimeout(900);
+  const y0 = await pg.evaluate(() => window.scrollY);
+  await pg.locator('#exploreMapCanvas .map-pin[data-pid="p5"]').click({ force: true }); await pg.waitForTimeout(900);
+  const bar = await rect(pg, '#navBottom'), open = await rect(pg, '#explorePreview .preview-open'), watch = await rect(pg, '#explorePreview .mp-watch .bid-btn'), card = await rect(pg, '#explorePreview'), stage = await rect(pg, '#mapStage');
+  check(label + 'ButtonsAboveLedgerBar', open && watch && bar && open.bottom <= bar.top && watch.bottom <= bar.top, { open, watch, bar });
+  check(label + 'CardInsideStage', card && stage && card.top >= stage.top && card.bottom <= stage.bottom, { card, stage });
+  check(label + 'NoPageScroll', (await pg.evaluate(() => window.scrollY)) === y0, null);
+  const pin = await rect(pg, '#exploreMapCanvas .map-pin.sel path');
+  check(label + 'PinClearOfLiftedCard', pin && !overlap(pin, card), { pin, card });
+  await shot(pg, 'after-' + label + '-pin');
+  check(label + 'NoErrors', errs.length === 0, errs);
+  await pg.close();
+}
+
 // ---- Dead provider popups are gone ----
 {
   const pg = await b.newPage();

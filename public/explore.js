@@ -1405,10 +1405,53 @@ function hidePeek(card) {
     card.hidden = true;
     card.classList.remove("mp-right", "mp-top", "dragging", "expanded");
     card.style.transform = "";
+    card.style.removeProperty("--mp-lift");
   }
   const stage = stageEl();
   if (stage) stage.classList.remove("mp-open");
   window.__tdwPreviewInset = Object.assign({}, ZERO_INSET);
+}
+
+// Short phones (375x667, 360x640): the stage (56-58vh, min 320px) runs
+// under the fixed ledger bar, and the card is pinned to the STAGE's bottom
+// edge - so its Open property / Watchlist buttons sat under the bar. The
+// card is lifted by exactly how far the stage runs under the bar at this
+// scroll position (--mp-lift, read by explore.css), re-measured on scroll
+// and resize while it is open, 0 on desktop (merged-work review,
+// 2026-11-02). The page itself is never scrolled.
+function navBottomHeight() {
+  const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nav-bottom-h"));
+  return isFinite(v) && v > 0 ? v : 0;
+}
+function liftPeekAboveBar(card) {
+  card = card || $("explorePreview");
+  const stage = stageEl();
+  if (!card || !stage) return 0;
+  let lift = 0;
+  if (isPhone() && !card.hidden) {
+    const s = stage.getBoundingClientRect();
+    const limit = window.innerHeight - navBottomHeight();
+    lift = Math.max(0, Math.round(s.bottom - limit));
+    // Never lift the card off the top of the stage: at worst it fills it.
+    lift = Math.min(lift, Math.max(0, Math.round(s.height - card.offsetHeight - 8)));
+  }
+  if (lift) card.style.setProperty("--mp-lift", lift + "px");
+  else card.style.removeProperty("--mp-lift");
+  return lift;
+}
+let liftWatching = false;
+function onPeekViewportMove() {
+  const card = $("explorePreview");
+  if (!card || card.hidden || !activeProp) return;
+  const before = card.style.getPropertyValue("--mp-lift");
+  liftPeekAboveBar(card);
+  if (card.style.getPropertyValue("--mp-lift") !== before) window.__tdwPreviewInset = computeInset(card);
+}
+function watchPeekViewport() {
+  if (liftWatching) return;
+  liftWatching = true;
+  window.addEventListener("scroll", onPeekViewportMove, { passive: true });
+  window.addEventListener("resize", onPeekViewportMove);
 }
 
 function showPreview(p, opts) {
@@ -1431,6 +1474,8 @@ function showPreview(p, opts) {
   card.style.transform = "";
   card.hidden = false;
   card.dataset.pid = String(p.id);
+  liftPeekAboveBar(card);
+  watchPeekViewport();
   const stage = stageEl();
   if (stage) stage.classList.add("mp-open");
   if (typeof hydrateVisuals === "function") hydrateVisuals(card);
@@ -1973,11 +2018,6 @@ function absorb(detail) {
   // A re-render never re-announces the selection or moves a map: the open
   // card keeps its row (re-read from the new rows) and only its Watchlist
   // button is refreshed; a row the new filters dropped closes the card.
-  if (activeProp) {
-    const still = propById(activeProp.id);
-    if (still) { activeProp = still; refreshPeekWatch(); }
-    else showPreview(null);
-  }
   // The Map page's own county select (#mapCountySelect) is the source of
   // truth for "am I filtered to one county" - the user can change it from the
   // dropdown itself or by clicking a bubble (applyCounty drives the same
@@ -1985,6 +2025,20 @@ function absorb(detail) {
   ensureMap();
   const select = $("mapCountySelect");
   selectedCounty = select && select.value !== "ALL" ? select.value : null;
+  if (activeProp) {
+    const still = propById(activeProp.id);
+    if (still) { activeProp = still; refreshPeekWatch(); }
+    // The county moved on under the open card (Brevard -> Bay from the
+    // dropdown): close the card WITHOUT a draw() - zoomTo() below redraws
+    // for the new county. Before the resync above ran first, showPreview(
+    // null)'s draw() still saw zoomCounty = Brevard with no Brevard rows,
+    // called zoomOut() -> applyCounty(selectedCounty = Brevard) which
+    // TOGGLED the select to All Counties, and its second history.back()
+    // raced the route: the pick landed on "#/map" / ALL (merged-work
+    // review, 2026-11-02).
+    else if (zoomCounty !== selectedCounty) { activeProp = null; back.pop("map-preview"); showPreviewHidden(); }
+    else showPreview(null);
+  }
   // The county can also change straight from the dropdown (the Filters
   // panel), not just by tapping a bubble. computeMapRows() in app.js already
   // narrows `rows` to that one county whenever mapFilter.county isn't "ALL"

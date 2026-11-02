@@ -757,7 +757,12 @@ font-weight:700;color:var(--bad)}
 .mp-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:.4rem;margin:.15rem 0 0}
 .mp-fact{min-width:0}
 .mp-fact dt{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
-  color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  color:var(--ink-soft);line-height:1.25;overflow-wrap:anywhere}
+/* The label is the figure's source ("County just value", "Opening bid"):
+   it wraps to a second line rather than being cut to "COUNTY JUST VAL..."
+   (merged-work review, 2026-11-02). The row's labels align at the bottom,
+   so every figure still sits under its own full label. */
+.mp-facts{align-items:end}
 .mp-note{font-size:.7rem;letter-spacing:0;cursor:help}
 .mp-fact dd{margin:0;font-weight:700;font-size:.86rem;line-height:1.2;color:var(--ink);overflow-wrap:anywhere}
 .mp-fact.bid dd,.mp-fact.value dd{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
@@ -1089,7 +1094,10 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
      well under half the stage, no expand state, no inner scroll. The picture
      is a grid cell with its own min-height, never a flex child that can
      shrink to 0. Swipe down or tap empty map to close it. */
-  .map-page-map .explore-map-stage > .explore-preview.mp{left:.5rem;right:.5rem;bottom:calc(.5rem + env(safe-area-inset-bottom,0px));
+  /* --mp-lift (explore.js liftPeekAboveBar): how far the stage runs under
+     the fixed ledger bar on this scroll position, so the card's buttons sit
+     above the bar on a short phone (375x667 / 360x640) instead of under it. */
+  .map-page-map .explore-map-stage > .explore-preview.mp{left:.5rem;right:.5rem;bottom:calc(.5rem + env(safe-area-inset-bottom,0px) + var(--mp-lift,0px));
     width:auto;max-width:none;border-top:3px solid var(--lc,var(--accent));touch-action:pan-x}
   .explore-preview.mp .mp-inner{display:grid;grid-template-columns:96px minmax(0,1fr)}
   .explore-preview.mp .mp-media{grid-row:1;grid-column:1;width:96px;height:100%;min-height:112px}

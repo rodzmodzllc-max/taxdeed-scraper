@@ -225,6 +225,22 @@ for (const [w, h, page] of [[320, 640, 'index.html#/auctions'], [360, 780, 'inde
   check('finePointerKeepsBarOnFocus', await pg.evaluate(() => getComputedStyle(document.getElementById('navBottom')).display !== 'none'), null);
   await pg.context().close();
 }
+// Short phones (merged-work review, 2026-11-02): an open map card stops
+// above the bar too (its buttons are not under it), and the bar's own
+// entries stay hit at their centres while the card is open.
+for (const vp of [{ width: 375, height: 667 }, { width: 360, height: 640 }]) {
+  const label = `short${vp.width}`;
+  const pg = await open('index.html#/map', vp, { hasTouch: true, isMobile: true });
+  await pg.selectOption('#mapCountySelect', 'Charlotte'); await pg.waitForTimeout(900);
+  await pg.locator('#exploreMapCanvas .map-pin[data-pid="p5"]').click({ force: true }); await pg.waitForTimeout(900);
+  const r = await pg.evaluate(() => {
+    const q = s => { const el = document.querySelector(s); if (!el) return null; const b = el.getBoundingClientRect(); return { top: b.top, bottom: b.bottom }; };
+    return { bar: q('#navBottom'), open: q('#explorePreview .preview-open'), watch: q('#explorePreview .mp-watch .bid-btn') };
+  });
+  check(label + 'MapCardButtonsAboveBar', r.bar && r.open && r.watch && r.open.bottom <= r.bar.top && r.watch.bottom <= r.bar.top, r);
+  check(label + 'BarUncoveredUnderMapCard', await barUncovered(pg), await barState(pg));
+  await pg.context().close();
+}
 check('noPageErrors', allErrs.length === 0, allErrs);
 await b.close();
 console.log(fail ? `FAIL: ${fail} check(s)` : 'PASS: all ledger-bar checks');
