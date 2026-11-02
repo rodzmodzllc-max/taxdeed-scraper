@@ -481,7 +481,7 @@ def test_f02_history_is_append_only_wording_and_export_is_published_fields_only(
 def test_f03_filters_read_stored_fields_and_the_admin_panel_is_admin_gated():
     assert 'if (state.availLandUse !== "any" && String(p.land_use || "") !== state.availLandUse) return false;' in APP
     assert "if (state.availGeocoded && !(hasNum(p.latitude) && hasNum(p.longitude))) return false;" in APP
-    assert "if (state.availValues && !(hasNum(p.market) || hasNum(p.assessed))) return false;" in APP
+    assert "if (state.availValues && !(hasValueNum(p.market) || hasValueNum(p.assessed))) return false;" in APP  # a 0 value is "not published" (2026-11-02)
     # Admin-gated twice over: the panel loads only inside the admin-only governance
     # view (account menu / #/governance, 2026-09-30), and the loader refuses a non-admin.
     assert "if (IS_ADMIN) refreshAdminApprovals();" in APP and "await refreshAdminPublication();" in APP
