@@ -522,7 +522,7 @@ def test_workflow_runs_writer_after_each_property_sync_and_never_the_seed():
         assert "Property harvest and sync succeeded" in report
         assert "continue-on-error" not in report
     # Texas: dispatch or the daily 07:37 ET run (owner approval 2026-10-26).
-    assert "if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'texas' || github.event.inputs.job == '')) || github.event.schedule == '37 11 * * *'" in texas
+    assert "if: ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'texas' || github.event.inputs.job == '')) || github.event.schedule == '37 11 * * *') && !contains(needs.schedule_guard.outputs.covered, 'texas') }}" in texas   # audit B25: schedule guard
     assert yml.count("cron:") == 4   # 2026-10-26: + the second daily AVAILABLE read; Texas still unscheduled
 
 

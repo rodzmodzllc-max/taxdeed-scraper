@@ -24,7 +24,8 @@ This module is the one place a script reads a population:
   520-524) and on a connection error or timeout. A 4xx is never retried -
   it is a request that will not succeed by repeating it.
 
-Nothing here writes. Error messages carry the HTTP status and the
+`send_idempotent` is the write-side twin, for idempotent writes only.
+Error messages carry the HTTP status and the
 PostgREST table path only, never a query value (a parcel or an owner
 name never reaches a public log).
 """
@@ -68,6 +69,37 @@ def get_json(url: str, headers: dict, *, timeout: float = 120, attempts: int = A
     raise AssertionError("unreachable")
 
 
+WRITE_ATTEMPTS = 4              # 1 + 3 retries
+WRITE_BACKOFF_SECONDS = 5.0     # 5 s, 10 s, 20 s
+
+
+def send_idempotent(make_request: Callable[[], urllib.request.Request], *, timeout: float = 120,
+                    attempts: int = WRITE_ATTEMPTS, backoff: float = WRITE_BACKOFF_SECONDS,
+                    sleep: Callable[[float], None] = time.sleep, opener: Callable | None = None,
+                    retry_statuses: frozenset = RETRY_STATUSES) -> bytes:
+    """Send an IDEMPOTENT write (a PATCH by id / filter, an upsert on its
+    conflict key), retrying the same transient failures `get_json` retries
+    (audit B43, 2026-10-29: both scheduled harvests of 2026-10-27 stopped on
+    a single HTTP 503 / read timeout during a database overload episode).
+    A 4xx is raised at once, unchanged; after the last attempt the last
+    error is raised unchanged. `make_request` builds a fresh Request per
+    attempt. Returns the response body. `opener` defaults to
+    urllib.request.urlopen looked up at call time (tests patch it)."""
+    opener = opener or (lambda req, timeout: urllib.request.urlopen(req, timeout=timeout))
+    for attempt in range(1, attempts + 1):
+        try:
+            with opener(make_request(), timeout=timeout) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as exc:
+            if exc.code not in retry_statuses or attempt == attempts:
+                raise
+        except (urllib.error.URLError, TimeoutError, socket.timeout, ConnectionError):
+            if attempt == attempts:
+                raise
+        sleep(backoff * (2 ** (attempt - 1)))
+    raise AssertionError("unreachable")
+
+
 def keyset_query(params: dict, after, page: int = PAGE) -> str:
     """The query string for one keyset page. `params` must not carry its own
     order / limit / offset / id filter - paging owns those."""
@@ -83,14 +115,15 @@ def keyset_query(params: dict, after, page: int = PAGE) -> str:
 
 
 def read_all(base_url: str, table: str, headers: dict, params: dict, *, page: int = PAGE,
-             fetch: Callable[[str], list] | None = None) -> list[dict]:
+             fetch: Callable[[str], list] | None = None, attempts: int = ATTEMPTS,
+             backoff: float = BACKOFF_SECONDS) -> list[dict]:
     """Every row of `table` matching `params`, by keyset pages. `params`
     must select `id` (or `*`, which includes it). A short page ends the read."""
     cols = [c.strip() for c in str(params.get("select", "id")).split(",")]
     if "id" not in cols and "*" not in cols:
         raise ValueError("keyset paging needs `id` in select")
     url = f"{base_url.rstrip('/')}/rest/v1/{table}"
-    fetch = fetch or (lambda qs: get_json(f"{url}?{qs}", headers))
+    fetch = fetch or (lambda qs: get_json(f"{url}?{qs}", headers, attempts=attempts, backoff=backoff))
     rows: list[dict] = []
     after = None
     while True:

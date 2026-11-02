@@ -364,6 +364,14 @@ def main() -> None:
         sale_list_url = (p.get("sale_list_url") or "").strip()
         if sale_list_url.startswith("https://") and not any(c.isspace() for c in sale_list_url):
             row["document_url"] = sale_list_url
+        elif harvester_source == "tx_lgbs":
+            # LGBS is the only writer of an LGBS row's document_url, and the
+            # harvester now keeps a sale list only when LGBS publishes it
+            # (sale_published 'Y', '.pdf' as LGBS's own page links it). A
+            # record without one clears the link stored before 2026-10-29 -
+            # the bare county_sale_list value, which answers HTTP 404 (audit
+            # 2026-10-28 B24 / F69: 428 active rows).
+            row["document_url"] = None
         # The vendor's own raw sale status, verbatim, when it published one.
         sale_status = (p.get("sale_status") or "").strip()
         if sale_status:
@@ -414,6 +422,14 @@ def main() -> None:
         )
         provenance_by_source[harvester_source] = provenance_by_source.get(harvester_source, 0) + 1
 
+        earlier = deduped.get((source, county, case_no))
+        if earlier is not None and "document_url" not in projected_row and "document_url" in earlier:
+            # Two vendors list the same account in the same ledger: one stored
+            # row (the conflict key has no source id). The later read wins, but
+            # a sale-list link (or its clearing) the earlier LGBS read decided
+            # is kept - RealAuction and GovEase publish no sale list, so without
+            # this the shared row kept a stale link forever (audit B24).
+            projected_row = {**projected_row, "document_url": earlier["document_url"]}
         deduped[(source, county, case_no)] = projected_row
 
     dupe_count = len(harvest) - skipped - skipped_gate - skipped_customer_restriction - skipped_ledger_contract - len(deduped)

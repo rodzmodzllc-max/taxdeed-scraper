@@ -9,8 +9,8 @@ current practice continue until `expires_on`, and `permissions.authorize()` deni
 after (`EXPIRED`), with no fallback to a broader record. A window longer than
 210 days is a configuration error that denies every request.
 
-- Records: 371 across 96 sources
-- By expiry: 2027-04-12 (371)
+- Records: 384 across 109 sources
+- By expiry: 2027-04-12 (384)
 - Findings: REVIEWER_IS_NOT_A_DECISION (77)
 - Configuration: valid
 
@@ -20,6 +20,19 @@ found in the code for that source.
 
 | Source | Jurisdiction | Dataset | Operation | Status | Evidence | Effective | Expires | Conditions | Call sites | Findings |
 |---|---|---|---|---|---|---|---|---|---|---|
+| buyers_guide_co | CO | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-29 | 2027-04-12 | - | harvesters/governance/discovery_guard.py (discover, by URL) | - |
+| buyers_guide_fl | FL | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-29 | 2027-04-12 | - | harvesters/governance/discovery_guard.py (discover, by URL) | - |
+| buyers_guide_la | LA | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-29 | 2027-04-12 | - | harvesters/governance/discovery_guard.py (discover, by URL) | - |
+| buyers_guide_mi | MI | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-29 | 2027-04-12 | - | harvesters/governance/discovery_guard.py (discover, by URL) | - |
+| buyers_guide_mn | MN | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-29 | 2027-04-12 | - | harvesters/governance/discovery_guard.py (discover, by URL) | - |
+| buyers_guide_mo | MO | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-29 | 2027-04-12 | - | harvesters/governance/discovery_guard.py (discover, by URL) | - |
+| buyers_guide_ok | OK | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-29 | 2027-04-12 | - | harvesters/governance/discovery_guard.py (discover, by URL) | - |
+| buyers_guide_pa | PA | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-29 | 2027-04-12 | - | harvesters/governance/discovery_guard.py (discover, by URL) | - |
+| buyers_guide_sc | SC | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-29 | 2027-04-12 | - | harvesters/governance/discovery_guard.py (discover, by URL) | - |
+| buyers_guide_tn | TN | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-29 | 2027-04-12 | - | harvesters/governance/discovery_guard.py (discover, by URL) | - |
+| buyers_guide_tx | TX | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-29 | 2027-04-12 | - | harvesters/governance/discovery_guard.py (discover, by URL) | - |
+| buyers_guide_wi | WI | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-29 | 2027-04-12 | - | harvesters/governance/discovery_guard.py (discover, by URL) | - |
+| buyers_guide_wy | WY | * | discover | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-10-29 | 2027-04-12 | - | harvesters/governance/discovery_guard.py (discover, by URL) | - |
 | census_geocoder | US | * | enrich | UNKNOWN | GRANDFATHERED_PRACTICE | 2026-09-14 | 2027-04-12 | - | scripts/geocode_properties.py | REVIEWER_IS_NOT_A_DECISION |
 | census_geocoder | US | * | fetch | UNKNOWN | GRANDFATHERED_PRACTICE | 2026-09-14 | 2027-04-12 | - | scripts/geocode_properties.py | REVIEWER_IS_NOT_A_DECISION |
 | co_morgan_county_held_certificates | CO | * | display | OWNER_PERMISSION_REQUIRED | INTERNAL_RISK_ACCEPTANCE | 2026-09-30 | 2027-04-12 | - | scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display) | - |

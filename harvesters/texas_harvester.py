@@ -670,7 +670,16 @@ def _lgbs_published_links(raw: dict) -> tuple[str | None, str | None, str | None
                           bare homepage (no path, no query) or on a blocked
                           vendor's host.
       county_sale_list -> sale_list_url (the county sale-list document),
-                          https only.
+                          https only - built exactly as LGBS's own map page
+                          builds its "County Property Sale List / PDF report"
+                          link (scripts/views/map/map-partial.html,
+                          ng-href="{{map.county_sale_list}}.pdf", shown only
+                          when the record's sale_published is 'Y'). The field
+                          itself has no extension and answers HTTP 404 (audit
+                          2026-10-28 B24 / F69, re-checked 2026-10-29: 30 of
+                          30 published lists + '.pdf' -> 200 application/pdf,
+                          every bare value and all 7 sale_published='N' lists
+                          -> 404). An unpublished list is no link at all.
     """
     from urllib.parse import urlsplit
     auction_url = _https_url(raw.get("property_loc"))
@@ -679,7 +688,12 @@ def _lgbs_published_links(raw: dict) -> tuple[str | None, str | None, str | None
         host = (parts.hostname or "").lower()
         if (parts.path in ("", "/") and not parts.query) or any(host == b or host.endswith("." + b) for b in LGBS_LINK_BLOCKED_HOSTS):
             auction_url = None
-    return auction_url, ("county" if auction_url else None), _https_url(raw.get("county_sale_list"))
+    sale_list = _https_url(raw.get("county_sale_list"))
+    if sale_list and str(raw.get("sale_published") or "").strip().upper() != "Y":
+        sale_list = None
+    if sale_list and not sale_list.lower().endswith(".pdf"):
+        sale_list += ".pdf"
+    return auction_url, ("county" if auction_url else None), sale_list
 
 
 def _lgbs_compose_address(raw: dict) -> str | None:
@@ -1229,8 +1243,7 @@ def harvest_realauction(limit: int | None = None, stats: dict | None = None) -> 
         dates = sorted(set(dates))
 
         county_kept = 0
-        if not dates:
-            print(f"harvest_realauction: {county_name} - no auction days in the next 3 months", file=sys.stderr)
+        no_dates = not dates
         for date in dates:
             preview_url = f"https://{host}/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate={date}"
             calendar_referer_url = f"https://{host}/index.cfm?zaction=USER&zmethod=CALENDAR"
@@ -1341,6 +1354,11 @@ def harvest_realauction(limit: int | None = None, stats: dict | None = None) -> 
                          reason="every request succeeded")
         county_entries.append(entry)
 
+        if no_dates:
+            # With the read status and its reason (audit 2026-10-28 B42: one
+            # county read INCOMPLETE every run and no line said which).
+            print(f"harvest_realauction: {county_name} - no auction days in the next 3 months, read {entry['status']}"
+                  + (f" ({entry.get('reason')})" if entry["status"] != "EMPTY" else ""), file=sys.stderr)
         if county_kept:
             counties_with_matches += 1
             print(f"harvest_realauction: {county_name} - {county_kept} properties across {len(dates)} sale date(s), "

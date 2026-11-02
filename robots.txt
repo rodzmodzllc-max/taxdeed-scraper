@@ -1,0 +1,21 @@
+# TAXACQ - robots.txt (root-only, not mirrored from public/; audit B44, 2026-10-29).
+# Cloudflare Pages deploys the repository root, so repository internals are
+# reachable by URL. They are not part of the product and must not be indexed.
+# This file asks crawlers to stay out; it does not hide anything (the
+# repository is public on GitHub). Removing them from the deploy is a Pages
+# build-output setting - see the PR that added this file.
+User-agent: *
+Disallow: /.github/
+Disallow: /data/
+Disallow: /docs/
+Disallow: /harvesters/
+Disallow: /scripts/
+Disallow: /supabase/
+Disallow: /tests/
+Disallow: /out/
+Disallow: /admin.html
+Disallow: /*.md$
+Disallow: /*.sql$
+Disallow: /*.py$
+Disallow: /*.ps1$
+Disallow: /*.csv$

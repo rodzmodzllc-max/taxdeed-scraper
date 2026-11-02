@@ -170,6 +170,10 @@ def _server(store):
                 if present:
                     return self._send(200, b"[]")
                 return self._send(400, json.dumps({"code": "42703", "message": f"column properties.{sel.split(',')[0]} does not exist"}).encode())
+            if qs.get("id", [""])[0].startswith("in."):
+                # fetch_state_rows phase 2: the wide columns by primary key.
+                ids = unquote(qs["id"][0])[len("in.("):-1].replace('"', "").split(",")
+                return self._send(200, json.dumps([r for r in store.rows if str(r.get("id")) in ids]).encode())
             assert qs.get("state") == ["eq.FL"] and qs.get("source") == ["eq.laft"], self.path
             counties = unquote(qs["county"][0])[len("in.("):-1].replace('"', "").split(",")
             self._send(200, json.dumps([r for r in store.rows if r["county"] in counties]).encode())

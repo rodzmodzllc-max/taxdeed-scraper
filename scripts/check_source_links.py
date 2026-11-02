@@ -11,7 +11,8 @@ separate daily checks, so one bad day never hides a link.
 What is collected (each URL checked once, however many rows carry it):
 
 * active / available `properties` rows: url_auction, list_url, document_url,
-  purchase_url, and the otc_provenance values the property page renders as
+  purchase_url, url_appraiser, url_taxcoll, url_title (the property page's
+  reference links - audit F40 / F67), and the otc_provenance values the property page renders as
   links (purchase_evidence_url, list_url, document_url,
   acquisition.application_url, purchase_statement.document_url / url). Read
   with keyset pages (scripts/rest_pages.py), never offset;
@@ -32,7 +33,8 @@ Classification (one per URL):
 on the same UTC day does not add to it); any other result resets it to 0.
 
 Politeness: HEAD first, GET (first 64 KB only) when a server refuses HEAD
-(405 / 403 / 501) or when a body is needed to tell a PDF from an error page;
+(405 / 403 / 501 / 400), answers it 404 / 410 (CivicPlus answers HEAD 404
+for files a GET serves - a URL is BROKEN only on a GET) or when a body is needed to tell a PDF from an error page;
 one request at a time per host with a pause between them; a per-host cap per
 run (URLs that failed last time first, then never checked, then the oldest).
 A challenge, a login or a block is recorded as BLOCKED and never worked
@@ -85,7 +87,8 @@ HOST_WORKERS = 8
 UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
       "Chrome/126.0 Safari/537.36 taxdeed-scraper-linkcheck/1.0")
 
-PROPERTY_COLUMNS = ("url_auction", "list_url", "document_url", "purchase_url")
+PROPERTY_COLUMNS = ("url_auction", "list_url", "document_url", "purchase_url",
+                    "url_appraiser", "url_taxcoll", "url_title")
 # otc_provenance paths the app renders as links (alias -> PostgREST json path).
 OTC_PATHS = {
     "o_evidence": "otc_provenance->>purchase_evidence_url",
@@ -243,22 +246,38 @@ def classify(url: str, resp: Response) -> Result:
     return Result("ERROR", s, f"HTTP_{s}", final)
 
 
+# HEAD answers that are not trusted on their own: the GET decides. 404 / 410
+# are here because CivicPlus DocumentCenter files (and some other hosts, e.g.
+# a Pioneer TaxSmartWeb landing page) answer HEAD with 404 while the same
+# URL answers GET with the file (audit B7 / B11 / B12, 2026-10-28: the
+# Fayette PA repository list and bid form, the Georgetown SC FLC list, Green
+# WI's bid form and Randall TX's listing were all marked BROKEN while the
+# harvesters downloaded them the same day). A URL is BROKEN only on a GET.
+GET_RETRY_STATUSES = frozenset({400, 403, 404, 405, 410, 501})
+
+
 def check(url: str, fetch: Callable[[str, str], Response]) -> Result:
-    """HEAD, then GET when the server refuses HEAD or a body is needed."""
+    """HEAD, then GET when the server refuses HEAD, answers it with a
+    not-found (never trusted alone), or a body is needed."""
     try:
         resp = fetch("HEAD", url)
-        need_get = resp.status in (403, 405, 501, 400) or (
-            200 <= resp.status < 300 and (expects_pdf(url) and is_html(resp)))
-        # A 2xx HTML page can be a soft 404: look at its title.
-        if 200 <= resp.status < 300 and is_html(resp):
-            need_get = True
-        if need_get:
-            resp = fetch("GET", url)
-        return classify(url, resp)
     except FetchError as exc:
         if exc.kind == "DNS":
             return Result("BROKEN", None, "DNS", None)
         return Result("ERROR", None, exc.kind, None)
+    need_get = resp.status in GET_RETRY_STATUSES or (
+        200 <= resp.status < 300 and (expects_pdf(url) and is_html(resp)))
+    # A 2xx HTML page can be a soft 404: look at its title.
+    if 200 <= resp.status < 300 and is_html(resp):
+        need_get = True
+    if need_get:
+        try:
+            resp = fetch("GET", url)
+        except FetchError as exc:
+            # The host resolved for HEAD; a GET that fails in transport proves
+            # nothing either way (a HEAD 404 alone is not proof of a dead link).
+            return Result("ERROR", None, exc.kind, None)
+    return classify(url, resp)
 
 
 def http_fetch(method: str, url: str, *, timeout: float = TIMEOUT) -> Response:

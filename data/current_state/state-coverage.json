@@ -7843,7 +7843,7 @@
        {
         "amount_kind": "OPENING_BID",
         "approved_for_customers": true,
-        "canonical_url": "https://services2.arcgis.com/CiQCvRGImIxsaFnM/arcgis/rest/services/Tax_Forfeited_Parcels/FeatureServer/0",
+        "canonical_url": "https://www.publicsurplus.com/sms/wrightcore,mn/browse/home",
         "county": "Wright",
         "governance_status": "APPROVED",
         "harvester": "harvest_expansion.py --state MN",
@@ -8024,7 +8024,7 @@
        {
         "amount_kind": "OPENING_BID",
         "approved_for_customers": true,
-        "canonical_url": "https://services.arcgis.com/auNjCUvKlkSqV04X/arcgis/rest/services/TFL_Sales_view/FeatureServer/0",
+        "canonical_url": "https://www.hubbardcounty.gov/tfl",
         "county": "Hubbard",
         "governance_status": "APPROVED",
         "harvester": "harvest_expansion.py --state MN",
@@ -8041,7 +8041,7 @@
        {
         "amount_kind": "OPENING_BID",
         "approved_for_customers": true,
-        "canonical_url": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/MapServer/0",
+        "canonical_url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales",
         "county": "Ramsey",
         "governance_status": "APPROVED",
         "harvester": "harvest_expansion.py --state MN",
@@ -8058,7 +8058,7 @@
        {
         "amount_kind": "NOT_PUBLISHED",
         "approved_for_customers": true,
-        "canonical_url": "https://services1.arcgis.com/9meaaHE3uiba0zr8/arcgis/rest/services/HRA_Owned_Parcels_for_Sale/FeatureServer/0",
+        "canonical_url": "https://www.stpaul.gov/departments/planning-and-economic-development/economic-development/development-opportunity-sites",
         "county": "Ramsey",
         "governance_status": "APPROVED",
         "harvester": "harvest_expansion.py --state MN",

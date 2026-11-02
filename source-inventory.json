@@ -700,14 +700,14 @@
   },
   {
    "access": "ACCESSIBLE",
-   "access_note": "verified capture, observed 2026-09-30",
+   "access_note": "verified capture, observed 2026-10-29",
    "county": "Brevard",
-   "evidence": "Captured by scripts/capture_purchase_evidence.py (harvest-and-sync job=evidence, run 36698285461, 2026-09-30) from the source's own page; wording quoted from the capture; reviewed by the maintainer against that capture.",
+   "evidence": "Captured by scripts/capture_purchase_evidence.py (harvest-and-sync job=evidence, run 36698285461, 2026-09-30) from the source's own page; wording quoted from the capture; reviewed by the maintainer against that capture. Re-read 2026-10-29 (",
    "governance": "APPROVED",
    "governance_reason": "",
-   "last_checked": "2026-09-30",
+   "last_checked": "2026-10-29",
    "legacy_status": "",
-   "name": "Lands Available - Tax Deeds / Auctions - Brevard County, Florida - Clerk of the Court",
+   "name": "Tax Deeds & Auctions | Brevard County Clerk of Court",
    "next_action": "",
    "origin": "evidence",
    "publisher": "Brevard County Clerk of Court - Tax Deed Clerks (Titusville office)",
@@ -718,7 +718,7 @@
    "source_id": "evidence:FL:Brevard:1",
    "source_type": "GOVERNMENT",
    "state": "FL",
-   "url": "https://www.brevardclerk.us/lands-available"
+   "url": "https://www.brevardclerk.us/services/clerk-services/property-sales/tax-deeds-auctions/"
   },
   {
    "access": "ACCESSIBLE",
@@ -7229,7 +7229,7 @@
    "source_id": "MN:Hubbard:mn_hubbard_tfl_otc",
    "source_type": "GOVERNMENT",
    "state": "MN",
-   "url": "https://services.arcgis.com/auNjCUvKlkSqV04X/arcgis/rest/services/TFL_Sales_view/FeatureServer/0"
+   "url": "https://www.hubbardcounty.gov/tfl"
   },
   {
    "access": "ACCESSIBLE",
@@ -7253,7 +7253,7 @@
    "source_id": "MN:Ramsey:mn_ramsey_tax_forfeit",
    "source_type": "GOVERNMENT",
    "state": "MN",
-   "url": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/MapServer/0"
+   "url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales"
   },
   {
    "access": "ACCESSIBLE",
@@ -7277,7 +7277,7 @@
    "source_id": "MN:Ramsey:mn_stpaul_hra_properties",
    "source_type": "GOVERNMENT",
    "state": "MN",
-   "url": "https://services1.arcgis.com/9meaaHE3uiba0zr8/arcgis/rest/services/HRA_Owned_Parcels_for_Sale/FeatureServer/0"
+   "url": "https://www.stpaul.gov/departments/planning-and-economic-development/economic-development/development-opportunity-sites"
   },
   {
    "access": "NOT_CHECKED",
@@ -7365,7 +7365,7 @@
    "source_id": "MN:Wright:mn_wright_tax_forfeit",
    "source_type": "GOVERNMENT",
    "state": "MN",
-   "url": "https://services2.arcgis.com/CiQCvRGImIxsaFnM/arcgis/rest/services/Tax_Forfeited_Parcels/FeatureServer/0"
+   "url": "https://www.publicsurplus.com/sms/wrightcore,mn/browse/home"
   },
   {
    "access": "ACCESSIBLE",

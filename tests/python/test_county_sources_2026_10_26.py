@@ -259,7 +259,7 @@ def test_find_doc_link_reads_links_from_the_page_never_composes():
     html = ('<a href= "https://x.example/TaxOffice/MCTX Tax Trust List 06272024.pdf?t=1"  target="_blank"  >PDF Format</a>'
             '<a href="/a.pdf">Other</a>')
     assert T.find_doc_link(html, "https://x.example/p", r"PDF Format", r"Tax\s*Trust.*\.pdf") == [
-        "https://x.example/TaxOffice/MCTX Tax Trust List 06272024.pdf?t=1"]
+        "https://x.example/TaxOffice/MCTX%20Tax%20Trust%20List%2006272024.pdf?t=1"]   # spaces encoded (audit B40)
 
 
 # ------------------------------------------------------------------ outputs, ledgers, permissions, registry, workflow

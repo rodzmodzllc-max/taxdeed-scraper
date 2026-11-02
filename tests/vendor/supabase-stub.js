@@ -431,7 +431,7 @@ if (new URLSearchParams(location.search).get("unconfirmed") === "1") {
 // purchase page BROKEN once (still a link) and p3's list BLOCKED (still a
 // link). Absent = the table is not deployed (PGRST205).
 const LINK_CHECKS = new URLSearchParams(location.search).get("brokenlinks") === "1" ? [
-  { url: "https://x/citrus-list", status: "BROKEN", http_code: 404, checked_at: "2026-10-27T11:55:00Z", first_failed_at: "2026-10-26T11:55:00Z", consecutive_failures: 2 },
+  { url: "https://x/citrus-list", host: "x", status: "BROKEN", http_code: 404, detail: "HTTP_404", checked_at: "2026-10-27T11:55:00Z", first_failed_at: "2026-10-26T11:55:00Z", consecutive_failures: 2, referenced_by: ["properties.list_url"] },
   { url: "https://www.citrusclerk.example.gov/lands-available/how-to-purchase", status: "BROKEN", http_code: 404, checked_at: "2026-10-27T11:55:00Z", first_failed_at: "2026-10-27T11:55:00Z", consecutive_failures: 1 },
   { url: "https://x", status: "BLOCKED", http_code: 403, checked_at: "2026-10-27T11:55:00Z", first_failed_at: null, consecutive_failures: 0 }
 ] : null;
@@ -830,8 +830,15 @@ class MockQuery {
         else if (new URLSearchParams(location.search).get("probefail") === "1") result = { data: null, error: { message: "probe failed (stub)" } };
         else {
           window.__stubPropertyProbes = (window.__stubPropertyProbes || 0) + 1;
-          let rows = FIXTURE_PROPERTIES.filter(r => this._filters.every(([c, v]) => (c === "state" ? (r.state || "FL") : r[c]) === v));
+          let rows = FIXTURE_PROPERTIES.filter(r => this._filters.every(([c, v, kind]) => {
+            const val = c === "state" ? (r.state || "FL") : r[c];
+            return kind === "in" ? (v || []).includes(val) : kind === "lt" ? String(val) < String(v) : val === v;
+          }));
           if (/publication_status\.is\.null/.test(this._or || "")) rows = rows.filter(r => !r.publication_status || ["APPROVED", "APPROVED_GRANDFATHERED"].includes(r.publication_status));
+          // The admin "Needs attention" read of unconfirmed Available rows:
+          // or=(last_seen_at.is.null,last_seen_at.lt.<iso>).
+          const seenCut = /last_seen_at\.is\.null,last_seen_at\.lt\.([^,)]+)/.exec(this._or || "");
+          if (seenCut) rows = rows.filter(r => !r.last_seen_at || String(r.last_seen_at) < seenCut[1]);
           result.data = this._limit ? rows.slice(0, this._limit) : rows;
         }
       }

@@ -22,9 +22,17 @@ def state_filter() -> list[str]:
 
 
 def state_param(states: list[str]) -> dict:
-    """PostgREST filter for the selected states (none = every state)."""
+    """PostgREST filter for the selected states (none = every state).
+
+    One state is sent as `eq.`, never `in.(XX)` (audit B26, 2026-10-29):
+    PostgREST renders `in.` as `state = ANY('{XX}')`, for which the planner
+    walked the primary key in id order and filtered every row - 6.8 s for
+    Missouri's first flood page, at the statement timeout (HTTP 500) - while
+    `state = 'XX'` uses properties_state_id_idx (44 ms)."""
     if not states:
         return {}
+    if len(states) == 1:
+        return {"state": f"eq.{states[0]}"}
     return {"state": "in.(" + ",".join(states) + ")"}
 
 

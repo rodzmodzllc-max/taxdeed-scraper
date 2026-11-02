@@ -22,6 +22,15 @@ closes only its own rows, the same way:
               other result - absence only means the list dropped it. The
               decision is scripts/sync_state_inventory.py's plan_close(),
               the same rule every other state's close-out uses.
+  supersede   a stored ACTIVE row of a COUNTY-published list whose account,
+              separators ignored (sync_state_inventory.account_key), is held
+              in the same ledger and county by an ACTIVE vendor row (LGBS,
+              PBFCM, MVBA, GovEase, RealAuction) -> status 'closed',
+              delisted_at = now. The owner's rule (2026-10-27): the vendor row
+              wins; the county list sync no longer writes such an account
+              (audit 2026-10-28 B20: 45 Bexar accounts were listed twice in
+              Available). Not a result and not an absence: the county list may
+              still list it. Never reactivated while the vendor row is active.
   reactivate  a stored row this run's harvest lists again whose status is
               'closed' (or the older 'dropped' / 'notfound') -> status
               'active', delisted_at cleared. A row with a recorded result
@@ -115,14 +124,28 @@ def plan(harvest: list[dict], stored: list[dict], units: dict, permitted: set[st
                 refused[sid] = n
         closes = [c for c in closes if by_id[c["id"]].get("harvester_source") not in refused]
 
+    # The vendor row wins (see the module docstring): a county-list row whose
+    # account an active vendor row holds in the same ledger and county.
+    vendor_accounts = {(r.get("source"), r.get("county"), SI.account_key(r.get("case_no")))
+                       for r in stored if r.get("status") == "active" and r.get("harvester_source") in VENDOR_SOURCE_IDS
+                       and SI.account_key(r.get("case_no"))}
+
+    def held_by_vendor(r: dict) -> bool:
+        return (r.get("harvester_source") in COUNTY_LIST_SOURCE_IDS
+                and (r.get("source"), r.get("county"), SI.account_key(r.get("case_no"))) in vendor_accounts)
+
+    closing_ids = {c["id"] for c in closes}
+    supersede = sorted(r["id"] for r in active if r["id"] not in closing_ids and held_by_vendor(r))
+
     reactivate = [r["id"] for r in stored
                   if str(r.get("status") or "").lower() in REACTIVATABLE
                   and r.get("harvester_source") in sids
-                  and (STATE, r.get("source"), r.get("county"), r.get("case_no")) in listed]
+                  and (STATE, r.get("source"), r.get("county"), r.get("case_no")) in listed
+                  and not held_by_vendor(r)]
 
     # What was kept and why (counts only).
     kept = Counter()
-    closing = {c["id"] for c in closes}
+    closing = {c["id"] for c in closes} | set(supersede)
     for r in active:
         if r["id"] in closing:
             continue
@@ -132,10 +155,12 @@ def plan(harvest: list[dict], stored: list[dict], units: dict, permitted: set[st
         status = LH.unit_status(units, r.get("harvester_source"), r.get("county"))
         kept["absent, refused (large close)" if r.get("harvester_source") in refused
              else f"absent, read {status or 'NOT_RUN'}"] += 1
-    return {"close": closes, "reactivate": sorted(reactivate), "refused_sources": refused,
+    return {"close": closes, "supersede": supersede, "reactivate": sorted(reactivate), "refused_sources": refused,
             "kept": dict(sorted(kept.items())),
             "close_by_unit": dict(sorted(Counter(f"{by_id[c['id']].get('harvester_source')}:{by_id[c['id']].get('source')}"
-                                                  for c in closes).items()))}
+                                                  for c in closes).items())),
+            "supersede_by_unit": dict(sorted(Counter(f"{by_id[i].get('harvester_source')}:{by_id[i].get('source')}"
+                                                      for i in supersede).items()))}
 
 
 def _status_entries(path: Path) -> list[dict]:
@@ -227,7 +252,8 @@ def main(argv=None) -> int:
         return 1
     stored = stored_rows(base, key)
     p = plan(harvest, stored, units, permitted, max_share=None if args.allow_large_close else MAX_CLOSE_SHARE)
-    print(f"TX close-out plan: close {len(p['close'])} {p['close_by_unit']}, reactivate {len(p['reactivate'])}, "
+    print(f"TX close-out plan: close {len(p['close'])} {p['close_by_unit']}, "
+          f"superseded by a vendor row {len(p['supersede'])} {p['supersede_by_unit']}, reactivate {len(p['reactivate'])}, "
           f"kept active {p['kept']}")
     for sid, n in p["refused_sources"].items():
         print(f"::warning title=texas_closeout::{sid}: {n} closes refused - more than {MAX_CLOSE_SHARE:.0%} of its active "
@@ -236,7 +262,7 @@ def main(argv=None) -> int:
         print("TX close-out: dry run - nothing written")
         return 0
     now = FP.now_iso()
-    closed = patch_ids(base, key, [c["id"] for c in p["close"]], {"status": "closed", "delisted_at": now})
+    closed = patch_ids(base, key, [c["id"] for c in p["close"]] + p["supersede"], {"status": "closed", "delisted_at": now})
     reopened = patch_ids(base, key, p["reactivate"], {"status": "active", "delisted_at": None})
     print(f"TX close-out: closed {closed}, reactivated {reopened}")
     return 0

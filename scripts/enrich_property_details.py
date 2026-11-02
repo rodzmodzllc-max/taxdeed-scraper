@@ -173,6 +173,17 @@ PER_COUNTY_LIMIT = int(os.environ.get("ENRICH_PER_COUNTY_LIMIT", "40"))
 # on request while their slices led with 228, 31 and 333 certificate rows.
 # The threshold itself is unchanged; it now bounds each ledger separately.
 COUNTY_MISS_STREAK = int(os.environ.get("ENRICH_COUNTY_MISS_STREAK", "6"))
+# 2026-10-29 (audit B15/B28): the deeds job's step timeout (15 min) killed this
+# step on every run - one county's lookups (Hillsborough, Marion, Escambia)
+# kept ending in ReadTimeout (~20 s each) and used the whole budget, so no
+# summary was ever printed and the counties after it were never reached.
+#   * COUNTY_ERROR_STREAK consecutive transport errors (timeouts, connection
+#     errors) abandon that county's slice for this run - rows untouched,
+#     retried next run - so one unresponsive county cannot starve the rest;
+#   * ENRICH_TIME_BUDGET_SECONDS (0 = none) stops the run cleanly before the
+#     step timeout, printing the summary and writing the report.
+COUNTY_ERROR_STREAK = max(1, int(os.environ.get("ENRICH_COUNTY_ERROR_STREAK", "3")))
+TIME_BUDGET_SECONDS = float(os.environ.get("ENRICH_TIME_BUDGET_SECONDS", "0") or 0)
 REQUEST_DELAY_SECONDS = 0.3  # polite pacing against a free public API
 FDOR_ENDPOINT = (
     "https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/services/"
@@ -750,6 +761,10 @@ def is_junk_fdor_address(phy_addr1, phy_city):
     return False
 
 
+COUNTY_SCAN_PAGE = 1000
+COUNTY_SCAN_MAX_PAGES = 50
+
+
 def fetch_needing_enrichment_counties():
     """All distinct counties that still have at least one row with a parcel
     number that this script hasn't successfully enriched yet - the fairness
@@ -782,11 +797,22 @@ def fetch_needing_enrichment_counties():
         "state": f"eq.{ENRICH_STATE}",
         "and": "(parcel.not.is.null,parcel.neq.\"\")",
         "fdor_enriched_at": "is.null",
-        "limit": "5000",
+        "order": "id.asc",
+        "limit": str(COUNTY_SCAN_PAGE),
     }
-    resp = requests.get(f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30)
-    resp.raise_for_status()
-    outstanding = Counter(row["county"] for row in resp.json() if row.get("county"))
+    # Paged (2026-10-29): PostgREST caps every read at 1,000 rows, so the old
+    # single `limit=5000` read saw only the first 1,000 outstanding rows (FL
+    # held 1,869 in 31 counties) and a county whose rows all sat past that
+    # point was never offered a slice at all.
+    outstanding = Counter()
+    for page in range(COUNTY_SCAN_MAX_PAGES):
+        resp = requests.get(f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS,
+                            params={**params, "offset": str(page * COUNTY_SCAN_PAGE)}, timeout=30)
+        resp.raise_for_status()
+        batch = resp.json()
+        outstanding.update(row["county"] for row in batch if row.get("county"))
+        if len(batch) < COUNTY_SCAN_PAGE:
+            break
     counties = sorted(outstanding)
     random.shuffle(counties)
     # (county, outstanding) rather than bare names: fetch_county_batch() needs
@@ -1637,8 +1663,14 @@ def main():
     # populated rather than just "N rows matched".
     filled_counts = {}
 
+    deadline = time.monotonic() + TIME_BUDGET_SECONDS if TIME_BUDGET_SECONDS > 0 else None
+    budget_reached = False
+    counties_abandoned_errors = 0
     for county, outstanding in counties:
         if total_attempted >= BATCH_LIMIT:
+            break
+        if deadline is not None and time.monotonic() >= deadline:
+            budget_reached = True
             break
         refill = erased.get(county, [])[:max(0, BATCH_LIMIT - total_attempted)]
         rows = refill + (fetch_county_batch(
@@ -1665,7 +1697,15 @@ def main():
         # COUNTY_MISS_STREAK consecutive misses are paid for any one ledger.
         miss_streaks = {}
         exhausted = set()
+        error_streak = 0
         for row in rows:
+            if deadline is not None and time.monotonic() >= deadline:
+                budget_reached = True
+                break
+            if error_streak >= COUNTY_ERROR_STREAK:
+                counties_abandoned_errors += 1
+                print(f"  [{county}] {COUNTY_ERROR_STREAK} consecutive request errors - abandoning this county's slice this run; rows untouched", file=sys.stderr)
+                break
             source = row.get("source") or "unknown"
             if miss_streaks.get(source, 0) >= COUNTY_MISS_STREAK:
                 if source not in exhausted:
@@ -1709,8 +1749,10 @@ def main():
                 # public CI output.
                 print(f"  [{county}] ERROR looking up row {row.get('id')}: {type(e).__name__}", file=sys.stderr)
                 total_errored += 1
+                error_streak += 1
                 time.sleep(REQUEST_DELAY_SECONDS)
                 continue
+            error_streak = 0
             if matched_candidate == AMBIGUOUS_MATCH:
                 total_ambiguous += 1
                 print(f"  [{county}] row {row.get('id')}: candidate matched more than one layer feature - skipped (ambiguous)")
@@ -1808,7 +1850,11 @@ def main():
             # streak had abandoned after six lookups, which read as forty
             # misses and hid the starvation this phase fixed.
             per_county_matches[county] = (county_matched, county_attempted)
+        if budget_reached:
+            break
 
+    if budget_reached:
+        print(f"Time budget of {TIME_BUDGET_SECONDS:.0f} s reached - stopped cleanly; the remaining rows stay unenriched for a later run.")
     print(
         f"Done. Attempted {total_attempted}, matched {total_matched}, written {total_written}, "
         f"unmatched {total_unmatched}, ambiguous (skipped) {total_ambiguous}, errored {total_errored}, "
@@ -1836,6 +1882,8 @@ def main():
         "error": total_errored, "withheld_by_provenance": total_skipped_provenance,
         "unmapped_county": total_unmapped_county, "alt_key_matches": total_alt_key_matches,
         "layer_retries_recovered": LAYER_RETRY_STATS["recovered"],
+        "counties_abandoned_after_errors": counties_abandoned_errors,
+        "time_budget_reached": budget_reached,
         "fields_populated": dict(sorted(filled_counts.items())),
         "per_county": {c: {"matched": m, "attempted": a} for c, (m, a) in sorted(per_county_matches.items())},
         "unmatched_shapes": {c: {s: dict(sorted(sh.items())) for s, sh in sorted(src.items())} for c, src in sorted(unmatched_shapes.items())},

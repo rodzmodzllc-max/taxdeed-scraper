@@ -183,6 +183,48 @@ def decide(now: datetime, runs: list[dict], jobs_by_run: dict) -> Decision:
     return Decision("dispatch", first, due, "one job per tick; no single input reproduces the missed set")
 
 
+# ------------------------------------------------------- scheduled-run guard
+# Audit B25 (2026-10-29): GitHub starts scheduled runs 5-6.4 h late. The
+# watchdog (GRACE 100 min) dispatches a catch-up first, and the late schedule
+# then arrives and runs the same jobs again (deeds 4x, laft / certificates /
+# expansion 3x on 2026-10-28), all in US daytime. The harvest workflow's
+# `schedule_guard` job calls `--guard` on a scheduled run: every job of that
+# run's slot that another run already COMPLETED successfully since the slot
+# is reported as covered, and the workflow skips it. A failed or cancelled
+# catch-up covers nothing (the late schedule still runs it); any error here
+# covers nothing (fail open: the job runs as before).
+
+def succeeded(jobs: list[dict] | None) -> set[str]:
+    """Scheduled-job keys a run finished with conclusion 'success'."""
+    return {k for j in (jobs or []) if j.get("conclusion") == "success" and (k := job_key(j.get("name", "")))}
+
+
+def covered_jobs(cron: str, run_created: datetime, runs: list[dict], jobs_by_run: dict, self_id=None) -> list[str]:
+    """Pure. The jobs of `cron`'s slot (the latest firing at or before this
+    scheduled run's creation) that another run created since that slot
+    finished successfully."""
+    if cron not in SCHEDULES:
+        return []
+    slot = last_slot(cron, run_created)
+    done: set[str] = set()
+    for run in runs:
+        if run.get("id") == self_id or _ts(run["created_at"]) < slot - SKEW:
+            continue
+        done |= succeeded(jobs_by_run.get(run["id"]))
+    return sorted(done & set(SCHEDULES[cron]))
+
+
+def guard(cron: str, gh, *, run_id=None, now: datetime | None = None) -> list[str]:
+    now = now or datetime.now(timezone.utc)
+    if cron not in SCHEDULES:
+        return []
+    slot = last_slot(cron, now)
+    runs = gh.runs_since(slot - SKEW)
+    jobs_by_run = {r["id"]: gh.jobs(r["id"]) for r in runs
+                   if r.get("id") != run_id and r.get("status") not in ACTIVE_STATUSES}
+    return covered_jobs(cron, now, runs, jobs_by_run, self_id=run_id)
+
+
 # ------------------------------------------------------------------- I/O
 
 class GitHub:
@@ -224,8 +266,26 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--dry-run", action="store_true", help="decide and print, never dispatch")
     ap.add_argument("--ref", default=os.environ.get("WATCHDOG_REF") or "main")
+    ap.add_argument("--guard", metavar="CRON",
+                    help="scheduled-run guard: print (and write to $GITHUB_OUTPUT as covered=) the jobs of this cron's "
+                         "slot another run already completed; never dispatches")
     a = ap.parse_args(argv)
     repo, token = os.environ.get("GITHUB_REPOSITORY", ""), os.environ.get("GITHUB_TOKEN", "")
+    if a.guard is not None:
+        covered: list[str] = []
+        if repo and token and a.guard in SCHEDULES:
+            gh = GitHub(repo, token, os.environ.get("GITHUB_API_URL", "https://api.github.com"))
+            run_id = os.environ.get("GITHUB_RUN_ID")
+            try:
+                covered = guard(a.guard, gh, run_id=int(run_id) if run_id and run_id.isdigit() else None)
+            except (urllib.error.URLError, ValueError, KeyError) as exc:
+                print(f"::warning title=schedule_guard::could not read the workflow's runs ({type(exc).__name__}) - every job runs")
+        print(f"schedule guard ({a.guard or 'not a scheduled run'}): already completed since the slot: {','.join(covered) or 'none'}")
+        out = os.environ.get("GITHUB_OUTPUT")
+        if out:
+            with open(out, "a", encoding="utf-8") as fh:
+                fh.write(f"covered={','.join(covered)}\n")
+        return 0
     if not repo or not token:
         print("::error title=watchdog::GITHUB_REPOSITORY / GITHUB_TOKEN not set - nothing checked")
         return 2

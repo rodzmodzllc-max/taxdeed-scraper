@@ -64,8 +64,9 @@ def test_g01_texas_row_inherits_the_county_level_record_with_listing_and_match()
     assert payload["purchase_url"].startswith("https://www.galvestoncountytx.gov/") and payload["purchase_path_observed_on"] == "2026-10-01"
     prov = payload["otc_provenance"]
     assert prov["source_match"] == {"identifier": "case_no", "value": "129500040015000", "parcel": "23-TX-0644", "source": "https://taxsales.lgbs.com/",
-                                    "basis": prov["source_match"]["basis"], "read_at": "2026-09-23"}
-    assert "last successful source read 2026-09-23" in prov["source_match"]["basis"]
+                                    "basis": prov["source_match"]["basis"]}
+    # Undated (audit 2026-10-28 B17): the registry's last_checked is not this row's read date.
+    assert "2026-09-23" not in prov["source_match"]["basis"]
     assert prov["purchase_evidence_url"].startswith("https://www.galvestoncountytx.gov/") and prov["acquisition"]["steps"]
     full = dict(_tx(), **payload)
     assert PE.acquisition_gaps(full) == []

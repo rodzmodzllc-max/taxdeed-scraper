@@ -189,6 +189,27 @@ def identity(row: dict) -> tuple:
     return (row.get("source"), row.get("county"), row.get("case_no"))
 
 
+def account_key(value) -> str:
+    """An account / case number with its separators removed, uppercased: the
+    same CAD account written '01235-043-0100' by a county list and
+    '012350430100' by a vendor feed (audit 2026-10-28 B4 / B20: 45 Bexar and
+    12 Grayson accounts were each listed twice in one ledger because the
+    vendor-wins rule compared the two spellings exactly). Leading zeros and
+    every letter are kept; only spaces and punctuation go."""
+    import re as _re  # noqa: PLC0415
+    return _re.sub(r"[^0-9A-Za-z]", "", str(value or "")).upper()
+
+
+def normalized_identity(row: dict) -> tuple:
+    return (row.get("source"), row.get("county"), account_key(row.get("case_no")))
+
+
+# A stored row in one of these pipeline statuses no longer holds its account:
+# a county list may list it again under its own source.
+GONE_ROW_STATUSES = frozenset({"closed", "expired", "gone", "sold", "redeemed", "cancelled", "canceled", "dropped",
+                               "notfound", "delisted"})
+
+
 def list_provenance(row: dict, stored, observed_at: str) -> dict:
     """The row's field_provenance after this read: the stored entries, with
     every column the county list supplied (a non-null value) stamped
@@ -253,6 +274,33 @@ def keep_enriched_values(row: dict, stored: dict | None) -> int:
             continue
         row[col] = value
         kept += 1
+    return kept + keep_list_values_on_identity_only_row(row, stored)
+
+
+# Columns an identity-only row (below) leaves blank that the list itself
+# published on an earlier read.
+IDENTITY_ONLY_KEPT = ("owner_name", "address", "legal_desc", "assessed", "market", "taxable_value", "land_value",
+                      "improvement_value", "acreage", "land_use", "min_bid", "purchase_amount", "sale_date", "certificate_no")
+
+
+def keep_list_values_on_identity_only_row(row: dict, stored: dict | None) -> int:
+    """Audit B10 (2026-10-29): a row the source published with ONLY its
+    identifier (tabular.py marks it `otc_provenance.identity_only_row`) does
+    not erase what the same list published on an earlier read - Oconee SC's
+    17:56 read nulled the amount, description and owner of 213 of its 560
+    rows while the county was updating the page, and the next read put some
+    back (hundreds of spurious change events a day). The stored value is
+    sent back; the stored amount keeps its stored kind with it."""
+    prov = row.get("otc_provenance")
+    if not stored or not isinstance(prov, dict) or not prov.get("identity_only_row"):
+        return 0
+    kept = 0
+    for col in IDENTITY_ONLY_KEPT:
+        if col in row and FP.is_blank(row[col]) and not FP.is_blank(stored.get(col)) and not _placeholder(col, stored.get(col)):
+            row[col] = stored[col]
+            kept += 1
+            if col == "purchase_amount" and stored.get("purchase_amount_kind"):
+                row["purchase_amount_kind"] = stored["purchase_amount_kind"]
     return kept
 
 
@@ -289,6 +337,18 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
     stored_provenance = stored_provenance or {}
     stored_first_seen = stored_first_seen or {}
     stored_rows = stored_rows or {}
+    # The vendor-wins rule (keep_other_sources) by the normalized account: an
+    # ACTIVE stored row of another source whose account differs from this
+    # row's only in separators is the same property in the same ledger.
+    other_by_account: dict[tuple, set[str]] = {}
+    if keep_other_sources:
+        for ident, prior in stored_rows.items():
+            if not isinstance(ident, tuple) or len(ident) != 3 or not account_key(ident[2]):
+                continue
+            if str((prior or {}).get("status") or "active").lower() in GONE_ROW_STATUSES:
+                continue
+            key = (ident[0], ident[1], account_key(ident[2]))
+            other_by_account.setdefault(key, set()).add(str((prior or {}).get("harvester_source") or ""))
     if not states.is_activated(state):
         raise ValueError(f"state {state} is not activated: {', '.join(states.activation_blockers(state))}")
     counts = {"input": len(rows), "upsert": 0, "skipped_unit_not_read": 0, "wrong_state": 0, "withheld_not_publishable": 0,
@@ -340,6 +400,15 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
         if kept:
             counts["enriched_values_kept"] = counts.get("enriched_values_kept", 0) + kept
         prior = stored_rows.get(identity(row))
+        exact_other = prior is not None and prior.get("harvester_source") not in (None, reg.source_id)
+        if keep_other_sources and not exact_other and other_by_account.get(normalized_identity(row), set()) - {reg.source_id, ""}:
+            # Another source's ACTIVE row lists this account under another
+            # spelling: the vendor row wins. This source's own earlier row of
+            # the account (if any) is left as it is - not refreshed - and
+            # scripts/texas_closeout.py closes it as superseded.
+            counts["skipped_row_of_other_source"] = counts.get("skipped_row_of_other_source", 0) + 1
+            counts["skipped_same_account_other_spelling"] = counts.get("skipped_same_account_other_spelling", 0) + 1
+            continue
         if prior is not None and prior.get("harvester_source") not in (None, reg.source_id):
             if keep_other_sources:
                 counts["skipped_row_of_other_source"] = counts.get("skipped_row_of_other_source", 0) + 1
@@ -366,6 +435,16 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
     # PostgREST bulk upserts need one key set per request: rows are aligned
     # on their own SOURCE's key set (upsert() sends one source per request).
     out = [{k: r.get(k) for k in sorted(keys[r["harvester_source"]])} for r in out]
+    # Audit B23 (2026-10-29): key alignment above gives a row that OMITTED a
+    # column its source publishes on other rows a NULL for it - after the
+    # keep above ran, so the NULL went out over the enriched value. Saguache
+    # CO: 552 of 900 rows publish no Deeded_Acres, the sync nulled their
+    # parcel-layer acreage every run and the enricher wrote it back (two
+    # writers taking turns). The keep runs again on the aligned row.
+    for r in out:
+        kept = keep_enriched_values(r, (stored_values or {}).get(identity(r)))
+        if kept:
+            counts["enriched_values_kept_after_alignment"] = counts.get("enriched_values_kept_after_alignment", 0) + kept
     counts["upsert"] = len(out)
     return out, counts
 
@@ -409,27 +488,33 @@ def stored_active(base: str, key: str, state: str, source_ids: set[str]) -> list
     crossed the statement timeout under load (HTTP 500)."""
     return RP.read_all(base, "properties", _read_headers(key),
                        {"select": "id,state,source,county,case_no,status,harvester_source", "state": f"eq.{state}",
-                        "status": "eq.active", "harvester_source": f"in.({','.join(sorted(source_ids))})"})
+                        "status": "eq.active", "harvester_source": f"in.({','.join(sorted(source_ids))})"},
+                       attempts=SYNC_READ_ATTEMPTS, backoff=SYNC_READ_BACKOFF)
+
+
+# The sync's own population reads ride out a longer overload episode than the
+# default 2 / 4 / 8 s (audit B43, 2026-10-29: the 2026-10-27 episode lasted
+# minutes and every expansion sync stopped on its first read): 5, 10, 20,
+# 40, 80 s - about 2.5 minutes - before the read gives up.
+SYNC_READ_ATTEMPTS = 6
+SYNC_READ_BACKOFF = 5.0
 
 
 def patch_query(base: str, key: str, query: str, body: dict) -> None:
-    """One PATCH of `properties` filtered by a ready PostgREST query string."""
-    req = urllib.request.Request(
+    """One PATCH of `properties` filtered by a ready PostgREST query string
+    (idempotent: retried on a transient failure - rest_pages.send_idempotent)."""
+    RP.send_idempotent(lambda: urllib.request.Request(
         f"{base.rstrip('/')}/rest/v1/properties?{query}", data=json.dumps(body).encode(), method="PATCH",
         headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT,
-                 "Content-Type": "application/json", "Prefer": "return=minimal"})
-    with urllib.request.urlopen(req, timeout=60):
-        pass
+                 "Content-Type": "application/json", "Prefer": "return=minimal"}), timeout=60)
 
 
 def close_rows(base: str, key: str, closes: list[dict]) -> None:
     for c in closes:
-        req = urllib.request.Request(
+        RP.send_idempotent(lambda c=c: urllib.request.Request(
             f"{base.rstrip('/')}/rest/v1/properties?id=eq.{c['id']}", data=json.dumps({k: v for k, v in c.items() if k != "id"}).encode(),
             method="PATCH", headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT,
-                                     "Content-Type": "application/json", "Prefer": "return=minimal"})
-        with urllib.request.urlopen(req, timeout=60):
-            pass
+                                     "Content-Type": "application/json", "Prefer": "return=minimal"}), timeout=60)
 
 
 # Worst first: a county-level fallback is only as good as its weakest read.
@@ -490,6 +575,9 @@ def units_for(path: Path) -> dict:
     return LH.ledger_units(_entries(path))
 
 
+STORED_PAGE = 250  # rows per keyset page of the wide stored-row read
+
+
 def stored_provenance(base: str, key: str, state: str, source_ids: set[str], first_seen: dict | None = None,
                       rows_out: dict | None = None, full_out: dict | None = None) -> dict:
     """identity -> the stored field_provenance of this state's rows from
@@ -500,17 +588,21 @@ def stored_provenance(base: str, key: str, state: str, source_ids: set[str], fir
     `full_out` is given, with identity -> the whole stored row, so main()
     writes only rows whose values changed (scripts/write_diff.py)."""
     out: dict = {}
-    select = "*" if full_out is not None else ("id,source,county,case_no,field_provenance,first_seen_at,harvester_source,otc_provenance,"
+    select = "*" if full_out is not None else ("id,source,county,case_no,status,field_provenance,first_seen_at,harvester_source,otc_provenance,"
                                                + ",".join(PATH_COLUMNS))
+    # Smaller pages for this wide read (audit B13, 2026-10-29): building the
+    # JSON of 1,000 whole Louisiana rows took 1.2 s with the database quiet
+    # and crossed the 8 s statement timeout (HTTP 500) on loaded runs.
     rows = RP.read_all(base, "properties", _read_headers(key),
                        {"select": select, "state": f"eq.{state}",
-                        "harvester_source": f"in.({','.join(sorted(source_ids))})"})
+                        "harvester_source": f"in.({','.join(sorted(source_ids))})"},
+                       page=STORED_PAGE, attempts=SYNC_READ_ATTEMPTS, backoff=SYNC_READ_BACKOFF)
     for r in rows:
         out[identity(r)] = r.get("field_provenance")
         if first_seen is not None:
             first_seen[identity(r)] = r.get("first_seen_at")
         if rows_out is not None:
-            rows_out[identity(r)] = {k: r.get(k) for k in ("harvester_source", "otc_provenance", *PATH_COLUMNS)}
+            rows_out[identity(r)] = {k: r.get(k) for k in ("harvester_source", "status", "otc_provenance", *PATH_COLUMNS)}
         if full_out is not None:
             full_out[identity(r)] = r
     return out
@@ -573,13 +665,18 @@ def _upsert(base: str, key: str, rows: list[dict], *, post=None, sleep=None) -> 
 
 
 def _post_chunk(base: str, key: str, chunk: list[dict]) -> None:
-    req = urllib.request.Request(
-        f"{base.rstrip('/')}/rest/v1/properties?on_conflict=state,source,county,case_no",
-        data=json.dumps(chunk).encode(), method="POST",
-        headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT, "Content-Type": "application/json",
-                 "Prefer": "resolution=merge-duplicates,return=minimal"})
-    with urllib.request.urlopen(req, timeout=120):
-        pass
+    # The upsert is idempotent on its conflict key. A gateway error (502 /
+    # 503 / 504 / 52x) or a connection error / read timeout is retried on the
+    # SAME chunk with backoff (audit B43, 2026-10-29); a statement timeout
+    # (500 57014) and every other HTTP error reach _upsert unchanged, which
+    # halves or stops exactly as before.
+    def make():
+        return urllib.request.Request(
+            f"{base.rstrip('/')}/rest/v1/properties?on_conflict=state,source,county,case_no",
+            data=json.dumps(chunk).encode(), method="POST",
+            headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT, "Content-Type": "application/json",
+                     "Prefer": "resolution=merge-duplicates,return=minimal"})
+    RP.send_idempotent(make, timeout=120, retry_statuses=RP.RETRY_STATUSES - {500})
 
 
 def main(argv=None) -> int:

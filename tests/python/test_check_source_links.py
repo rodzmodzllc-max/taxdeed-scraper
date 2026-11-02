@@ -52,9 +52,29 @@ def test_classify(resp, status, detail):
 
 
 def test_hendry_pdf_404_is_broken():
-    f = fake({("HEAD", HENDRY): Response(404, {"content-type": "text/html"})})
+    f = fake({("HEAD", HENDRY): Response(404, {"content-type": "text/html"}),
+              ("GET", HENDRY): Response(404, {"content-type": "text/html"})})
     r = csl.check(HENDRY, f)
     assert r.status == "BROKEN" and r.http_code == 404
+    assert [m for m, _ in f.calls] == ["HEAD", "GET"]
+
+
+CIVICPLUS = "https://www.county.gov/DocumentCenter/View/1234/Repository-Bid-Form"
+
+
+@pytest.mark.parametrize("head", [404, 410])
+def test_head_not_found_is_confirmed_by_get_civicplus(head):
+    """Audit B7 / B11 / B12: CivicPlus answers HEAD 404 for a file GET serves."""
+    f = fake({("HEAD", CIVICPLUS): Response(head, {"content-type": "text/html"}),
+              ("GET", CIVICPLUS): Response(200, {"content-type": "application/pdf"}, b"%PDF-1.7")})
+    r = csl.check(CIVICPLUS, f)
+    assert (r.status, r.http_code) == ("OK", 200)
+    assert [m for m, _ in f.calls] == ["HEAD", "GET"]
+
+
+def test_head_404_then_get_transport_failure_is_not_broken():
+    f = fake({("HEAD", CIVICPLUS): Response(404, {}), ("GET", CIVICPLUS): FetchError("CONNECTION")})
+    assert (csl.check(CIVICPLUS, f).status, csl.check(CIVICPLUS, f).detail) == ("ERROR", "CONNECTION")
 
 
 def test_head_refused_falls_back_to_get():
@@ -139,6 +159,10 @@ def test_collection_from_rows_registry_and_evidence(tmp_path):
         {"id": 2, "purchase_url": "https://buy.gov/1", "o_statement_doc": None}], refs)
     assert set(refs) == {HENDRY, "https://ev.gov/p", "https://ev.gov/form.pdf", "https://buy.gov/1"}
     assert refs[HENDRY] == {"properties.url_auction", "properties.document_url"}
+    csl.urls_from_property_rows([{"id": 3, "url_appraiser": "http://pa.county.gov/parcel?acct=1",
+                                  "url_taxcoll": "https://tc.gov/x", "url_title": "https://clerk.gov/t"}], refs)
+    assert refs["http://pa.county.gov/parcel?acct=1"] == {"properties.url_appraiser"}  # audit F40 / F67
+    assert refs["https://tc.gov/x"] == {"properties.url_taxcoll"} and refs["https://clerk.gov/t"] == {"properties.url_title"}
     reg = tmp_path / "r.csv"
     reg.write_text("canonical_url,document_url,purchase_url,notes\nhttps://c.gov/,,https://buy.gov/1,x\n", encoding="utf-8")
     csl.urls_from_registry(reg, refs)
@@ -150,7 +174,8 @@ def test_collection_from_rows_registry_and_evidence(tmp_path):
 def test_property_select_is_keyset_ready_and_has_every_rendered_column():
     sel = csl.property_select()
     assert sel.startswith("id,")
-    for c in ("url_auction", "list_url", "document_url", "purchase_url", "purchase_evidence_url", "application_url"):
+    for c in ("url_auction", "list_url", "document_url", "purchase_url", "purchase_evidence_url", "application_url",
+              "url_appraiser", "url_taxcoll", "url_title"):
         assert c in sel
 
 
