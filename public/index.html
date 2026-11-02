@@ -20,6 +20,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="color-scheme" content="light dark">
 <title>TAXACQ — Tax Acquisition Intelligence</title>
+<!-- Launch (2026-11-02): a description and share preview for a signed-out visitor
+     and for search engines; the canonical URL is this page on the product domain.
+     The generated state pages get their own state name and URL from
+     scripts/build_state_page.py. -->
+<meta name="description" content="TAXACQ — tax sale property research for Florida: auctions, county-held and land bank properties, and liens and certificates where the state offers them. Every record names its source and the county's published acquisition process. No scores, no estimates.">
+<link rel="canonical" href="https://taxacq.com/index.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TAXACQ">
+<meta property="og:title" content="TAXACQ — Tax Acquisition Intelligence">
+<meta property="og:description" content="TAXACQ — tax sale property research for Florida: auctions, county-held and land bank properties, and liens and certificates where the state offers them. Every record names its source and the county's published acquisition process. No scores, no estimates.">
+<meta property="og:url" content="https://taxacq.com/index.html">
+<meta property="og:image" content="https://taxacq.com/icons/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="TAXACQ — Tax Acquisition Intelligence">
+<meta name="twitter:description" content="TAXACQ — tax sale property research for Florida: auctions, county-held and land bank properties, and liens and certificates where the state offers them. Every record names its source and the county's published acquisition process. No scores, no estimates.">
+<meta name="twitter:image" content="https://taxacq.com/icons/icon-512.png">
 <link rel="stylesheet" href="styles.css">
 <!-- Loads AFTER styles.css on purpose: explore.css adds the split list+map
 view and applies a handful of plain-specificity overrides to the card and
@@ -95,6 +113,7 @@ hidden field. -->
 <button class="auth-mode-toggle" id="resendConfirmBtn" type="button" hidden>Resend confirmation email</button>
 <div class="auth-msg" id="authMsg"></div>
 <ul class="auth-points" id="authPoints"><li>Search verified public-property inventory.</li><li>Track acquisition paths.</li><li>Save properties and research.</li></ul>
+<button class="auth-mode-toggle auth-learn" id="authLearnMore" type="button">New here? What TAXACQ is and how it works</button>
 <p class="auth-legal-links"><a href="terms.html">Terms of Service</a> · <a href="privacy.html">Privacy Policy</a> · <a href="acceptable-use.html">Acceptable Use</a> · <a href="source-disclaimer.html">Source &amp; research disclaimer</a></p>
 </div>
 </div>
@@ -134,6 +153,73 @@ own page; access is granted only by the verified stripe-webhook. -->
 <p class="auth-legal-links"><a href="terms.html">Terms of Service</a> · <a href="privacy.html">Privacy Policy</a> · <a href="acceptable-use.html">Acceptable Use</a> · <a href="source-disclaimer.html">Source &amp; research disclaimer</a></p>
 </div>
 </div>
+
+<!-- ============ signed-out product section (launch, 2026-11-02) ============
+Shown below the sign-in split for a visitor who is not signed in (identity.css:
+#authGate[hidden] ~ #landing is display:none, so it follows the gate's own
+state and needs no script). index.html only - the root of the product domain
+is where an advertisement or a search result lands. Every sentence here is a
+statement about what the app does today; no counts, no scores, no promises
+about outcomes. -->
+<section id="landing" class="landing" aria-labelledby="landingHeading">
+<div class="landing-inner">
+<p class="landing-kicker">What TAXACQ is</p>
+<h2 id="landingHeading">Find the property. Understand the record. Know how to acquire it.</h2>
+<p class="landing-lead">TAXACQ collects the lists that counties, land banks and state offices publish for properties with delinquent taxes, and shows each record with its source, when that source was last read, and the office's own published process for acquiring it. Nothing is rated, estimated or predicted.</p>
+
+<div class="landing-ledgers">
+<article class="landing-ledger" data-ledger="laft">
+<h3>Available</h3>
+<p>County-held, over-the-counter, adjudicated and land bank properties that can be acquired without an auction, with the county's published method, form and contact where one is on file.</p>
+</article>
+<article class="landing-ledger" data-ledger="auction">
+<h3>Auctions</h3>
+<p>Scheduled tax deed and tax sale auctions, grouped by sale date and county, each linked to the county's own sale page.</p>
+</article>
+<article class="landing-ledger" data-ledger="certificate">
+<h3>Liens &amp; Certificates</h3>
+<p>Tax lien certificates and county-held liens, kept apart from ownership of the underlying property, in the states that sell them.</p>
+</article>
+</div>
+
+<div class="landing-cols">
+<div>
+<h3>What every record carries</h3>
+<ul class="landing-list">
+<li><b>Its source.</b> The office or platform that published it, the link to that page, and the date it was last read. A source that listed nothing is never shown like one that could not be reached.</li>
+<li><b>Amounts named for what they are.</b> An opening bid, a minimum bid, an official total due and a published price are labelled differently and never replaced by arithmetic.</li>
+<li><b>The way in.</b> The county's published acquisition process - who sells it, the method, the form, the contact - or the words "not yet verified" when it has not been read.</li>
+<li><b>Location and parcel.</b> Coordinates, flood zone and aerial imagery where a public source supplies them, each labelled with its origin.</li>
+<li><b>Your research.</b> Saved searches, a watchlist, research lists and a due-diligence checklist per property.</li>
+</ul>
+</div>
+<div>
+<h3>What TAXACQ does not do</h3>
+<ul class="landing-list">
+<li>No scores, rankings, return estimates or recommendations.</li>
+<li>No title search, appraisal, legal advice or investment advice. The county's own records are the authority; when TAXACQ and the county disagree, the county is right.</li>
+<li>No sale results inferred from a listing disappearing. A result is shown only when the source published one.</li>
+<li>No property data is sold or redistributed beyond what is shown to a signed-in account.</li>
+</ul>
+</div>
+</div>
+
+<h3>States covered</h3>
+<p class="landing-states">
+<a href="index.html">Florida</a> <a href="tx.html">Texas</a> <a href="la.html">Louisiana</a> <a href="mi.html">Michigan</a> <a href="wy.html">Wyoming</a> <a href="sc.html">South Carolina</a> <a href="co.html">Colorado</a> <a href="wi.html">Wisconsin</a> <a href="mo.html">Missouri</a> <a href="ok.html">Oklahoma</a> <a href="pa.html">Pennsylvania</a> <a href="mn.html">Minnesota</a> <a href="tn.html">Tennessee</a>
+</p>
+<p class="landing-note">Coverage within a state is by source: a county appears when its office publishes a list TAXACQ reads. The County Intelligence page inside the app shows which counties are covered, partially covered or not yet researched, ledger by ledger.</p>
+
+<div class="landing-cta">
+<h3>Accounts</h3>
+<p>Accounts are free while TAXACQ is in beta. Every account is reviewed before it is approved; you are e-mailed when it is.</p>
+<button type="button" class="landing-btn" data-landing-signup>Create a free account</button>
+<button type="button" class="landing-link" data-landing-signin>Already have one? Sign in</button>
+</div>
+
+<p class="landing-foot">Questions: <a href="mailto:info@taxacq.com">info@taxacq.com</a> · <a href="terms.html">Terms of Service</a> · <a href="privacy.html">Privacy Policy</a> · <a href="acceptable-use.html">Acceptable Use</a> · <a href="source-disclaimer.html">Source &amp; research disclaimer</a></p>
+</div>
+</section>
 
 <!-- ============ app ============ -->
 <div id="app" class="app-shell" hidden>

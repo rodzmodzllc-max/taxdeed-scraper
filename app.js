@@ -3228,6 +3228,23 @@ function setAuthMode(mode) {
 if (authModeToggle) {
   authModeToggle.addEventListener("click", () => setAuthMode(authMode === "signin" ? "signup" : "signin"));
 }
+// Signed-out product section (index.html #landing, launch 2026-11-02): its
+// buttons only switch the sign-in card's mode and scroll - no request, no
+// state of their own. The card's "What TAXACQ is" link scrolls down to it.
+{
+  const landing = document.getElementById("landing");
+  const learn = document.getElementById("authLearnMore");
+  if (learn && landing) learn.addEventListener("click", () => landing.scrollIntoView({ behavior: "smooth", block: "start" }));
+  else if (learn) learn.hidden = true;
+  const toCard = (mode) => {
+    setAuthMode(mode);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    const first = document.getElementById(mode === "signup" ? "firstName" : "email");
+    if (first) setTimeout(() => first.focus({ preventScroll: true }), 400);
+  };
+  document.querySelectorAll("[data-landing-signup]").forEach(b => b.addEventListener("click", () => toCard("signup")));
+  document.querySelectorAll("[data-landing-signin]").forEach(b => b.addEventListener("click", () => toCard("signin")));
+}
 
 // Supabase Auth's raw sign-up errors are written for developers. The one a
 // visitor can meet in normal operation is "Signups not allowed for this

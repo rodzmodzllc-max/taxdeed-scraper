@@ -21,12 +21,12 @@ window.TDW_CONFIG = {
 
   // Support destination for "Contact support" / "Report a data problem" /
   // "Report a source problem" / account or billing / deletion requests
-  // (SaaS hardening, 2026-09-29). Blank on purpose: the app shows "no
-  // support address is configured" until the deployment owner sets a
-  // mailbox the business actually reads. It becomes a public mailto: link,
-  // so use a shared address, not a personal one. See
+  // (SaaS hardening, 2026-09-29). It becomes a public mailto: link, so it is
+  // a shared address, not a personal one. Set 2026-11-02 (launch) to the
+  // mailbox the approval and sign-up alert e-mails already use
+  // (supabase/functions/_shared/approval_notify_core.js). See
   // docs/production-configuration.md section 4.
-  supportEmail: "",
+  supportEmail: "info@taxacq.com",
 
   // Sign in with Google / Apple / Microsoft (2026-10-10). Empty on purpose:
   // a "Continue with ..." button appears only for a provider listed here, and
