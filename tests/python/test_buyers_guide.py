@@ -207,3 +207,23 @@ def test_guide_capture_reads_a_page_another_table_also_lists():
     assert not DG.Guard("capture_purchase_evidence", index=idx, authorize=allow).decide("https://www.leeclerk.org/tax-deeds").allowed
     # and the guide capture never reaches a page its own table does not list
     assert not DG.Guard("capture_buyers_guide", index=idx, authorize=allow).decide("https://www.leeclerk.org/other").allowed
+
+
+def test_capture_reads_docx_and_xlsx_sources(tmp_path):
+    import io, zipfile
+    import capture_buyers_guide as C
+    W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    docx = io.BytesIO()
+    with zipfile.ZipFile(docx, "w") as z:
+        z.writestr("word/document.xml", f'<w:document xmlns:w="{W}"><w:body><w:p><w:r><w:t>The minimum bid </w:t></w:r>'
+                   f'<w:r><w:t>includes taxes.</w:t></w:r></w:p><w:p><w:r><w:t>Second paragraph.</w:t></w:r></w:p></w:body></w:document>')
+    text = C.page_text(docx.getvalue(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                       "https://county.example.gov/bid-sheet.docx")
+    assert G.match_quote("The minimum bid includes taxes.", text) == "FOUND"
+    S = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    xlsx = io.BytesIO()
+    with zipfile.ZipFile(xlsx, "w") as z:
+        z.writestr("xl/sharedStrings.xml", f'<sst xmlns="{S}"><si><t>Bids are due by noon.</t></si></sst>')
+        z.writestr("xl/worksheets/sheet1.xml", f'<worksheet xmlns="{S}"><sheetData><row><c t="s"><v>0</v></c><c><v>42</v></c></row></sheetData></worksheet>')
+    text = C.page_text(xlsx.getvalue(), "", "https://county.example.gov/list.xlsx")
+    assert "Bids are due by noon." in text and "42" in text

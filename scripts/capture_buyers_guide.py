@@ -51,6 +51,37 @@ MAX_BYTES = 30 * 1024 * 1024
 _CHALLENGE = re.compile(r"cf-chl|just a moment\.\.\.|attention required! \| cloudflare|captcha", re.I)
 
 
+def office_text(content: bytes) -> str:
+    """Text of a .docx (word/document.xml) or .xlsx (shared strings + sheet
+    cells) read with the standard library only: XML tags dropped, each
+    paragraph / cell becoming one whitespace-separated run. Counties publish
+    bid sheets and sale terms as Word / Excel files; the capture must read
+    them the way it reads a PDF."""
+    import zipfile  # noqa: PLC0415
+    import xml.etree.ElementTree as ET  # noqa: PLC0415
+    out: list[str] = []
+    with zipfile.ZipFile(io.BytesIO(content)) as z:
+        names = set(z.namelist())
+        if "word/document.xml" in names:
+            root = ET.fromstring(z.read("word/document.xml"))
+            w = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+            for para in root.iter(f"{w}p"):
+                out.append("".join(t.text or "" for t in para.iter(f"{w}t")))
+        shared: list[str] = []
+        if "xl/sharedStrings.xml" in names:
+            ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+            for si in ET.fromstring(z.read("xl/sharedStrings.xml")).iter(f"{ns}si"):
+                shared.append("".join(t.text or "" for t in si.iter(f"{ns}t")))
+        for name in sorted(n for n in names if n.startswith("xl/worksheets/sheet") and n.endswith(".xml")):
+            ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+            for c in ET.fromstring(z.read(name)).iter(f"{ns}c"):
+                v = c.find(f"{ns}v")
+                if v is None or v.text is None:
+                    continue
+                out.append(shared[int(v.text)] if c.get("t") == "s" and v.text.isdigit() and int(v.text) < len(shared) else v.text)
+    return "\n".join(out)
+
+
 def page_text(content: bytes, content_type: str, url: str) -> str:
     ct = (content_type or "").lower()
     path = urlsplit(url).path.lower()
@@ -58,6 +89,8 @@ def page_text(content: bytes, content_type: str, url: str) -> str:
         import pdfplumber  # noqa: PLC0415
         with pdfplumber.open(io.BytesIO(content)) as pdf:
             return "\n".join((p.extract_text() or "") for p in pdf.pages)
+    if content[:2] == b"PK" and (path.endswith((".docx", ".xlsx")) or "officedocument" in ct):
+        return office_text(content)
     text = content.decode("utf-8", errors="replace")
     if path.endswith(".rtf") or text.startswith("{\\rtf"):
         text = re.sub(r"\\'[0-9a-f]{2}", " ", text)
