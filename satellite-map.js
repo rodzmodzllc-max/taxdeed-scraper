@@ -174,9 +174,33 @@ function bindStyleToggle() {
   outlineBtn.addEventListener("click", () => setStyle("outline"));
   if (googleBtn) googleBtn.addEventListener("click", () => setStyle("google"));
   if (maptilerBtn) maptilerBtn.addEventListener("click", () => setStyle("maptiler"));
+  applyViewer();
 }
 
+// Customer basemaps (owner 2026-11-03): customers get Outline and MapTiler,
+// with MapTiler opened first when its key is configured; the Google button
+// is shown to admins only until the Google key's permits are changed after
+// launch. app.js sets window.__tdwIsAdmin and fires tdw:viewer once it knows
+// the account; until then the Google button stays hidden (fails closed).
+// Visibility only - the map shows the same rows either way.
+let viewerApplied = null;
+function googleAllowed() { return window.__tdwIsAdmin === true; }
+function applyViewer() {
+  const known = typeof window.__tdwIsAdmin === "boolean";
+  const admin = googleAllowed();
+  const googleBtn = $("mapStyleGoogle");
+  if (googleBtn) googleBtn.hidden = !admin;
+  if (!admin && activeStyle === "google") setStyle(maptilerKey() ? "maptiler" : "outline");
+  // Pick the customer's first basemap once, when the viewer becomes known.
+  if (known && viewerApplied === null) {
+    viewerApplied = admin ? "admin" : "customer";
+    if (!admin && maptilerKey() && activeStyle === "outline") setStyle("maptiler");
+  }
+}
+window.addEventListener("tdw:viewer", applyViewer);
+
 function setStyle(style) {
+  if (style === "google" && !googleAllowed()) return;
   if (style === activeStyle) return;
   activeStyle = style;
   const outlineBtn = $("mapStyleOutline");

@@ -123,7 +123,12 @@ def test_m09_texas_host_roster_in_migration_matches_the_harvester_csv_exactly():
         if line.startswith("('"):
             county, host = [x.strip().strip("'") for x in line.strip("()").split(",")]
             in_sql.add((county, host))
-    assert in_sql == roster
+    # Migration 013 is applied history: it carries the roster as it stood then.
+    # The one later correction is Tyler's host (2026-11-03: the pattern-derived
+    # tyler.texas... redirected to the vendor's marketing page; the platform's
+    # own site switch answers tylercounty.texas...). Tyler had no rows to backfill.
+    corrected = {("Tyler", "tylercounty.texas.sheriffsaleauctions.com"): ("Tyler", "tyler.texas.sheriffsaleauctions.com")}
+    assert in_sql == {corrected.get(r, r) for r in roster}
 
 
 def test_m10_tx_sale_status_is_not_backfilled_and_the_reason_is_recorded():
@@ -143,7 +148,10 @@ def test_m11_transactional_and_non_destructive():
 # harvest_realauction(): the sale-event page it fetched, kind 'sale'
 # ---------------------------------------------------------------------------
 
-CAL_HTML = "<td class='CALSELT' dayid='10/06/2026'>6</td>"
+# An upcoming sale day: the harvester does not read sale days already past.
+_SALE = __import__("datetime").date.today() + __import__("datetime").timedelta(days=5)
+SALE_MDY, SALE_ISO = _SALE.strftime("%m/%d/%Y"), _SALE.isoformat()
+CAL_HTML = f"<td class='CALSELT' dayid='{SALE_MDY}'>6</td>"
 ITEM = (
     "AITEM_1 Sale Type:@F CAD_DTA\\\">@ "
     "Cause Number:@F CAD_DTA\\\">2021DCV-4034-H (5)@ "
@@ -197,10 +205,10 @@ def test_r01_realauction_row_carries_the_fetched_preview_url_as_a_sale_link(monk
 
     assert len(rows) == 1
     row = rows[0]
-    expected = "https://nueces.texas.sheriffsaleauctions.com/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=10/06/2026"
+    expected = f"https://nueces.texas.sheriffsaleauctions.com/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate={SALE_MDY}"
     assert row.auction_url == expected
     assert row.auction_url_kind == "sale"
-    assert row.auction_date == "2026-10-06"
+    assert row.auction_date == SALE_ISO
     assert row.account_number == "9377-0051-0100" and row.cause_number == "2021DCV-4034-H (5)"
     assert row.sale_status is None
     # The URL stored is one the harvester really requested, not composed after the fact.

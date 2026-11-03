@@ -3649,6 +3649,13 @@ Full description: `docs/publish-all-sources.md`. Stable facts:
   had an Account Number and each date's paging ended on a short page; EMPTY from a real calendar with no sale day or a
   JSON listing response with no items; a full page repeated, a login / non-JSON body or a failed request closes nothing.
   The Florida `harvest_all_counties.ps1` still asks `PageDir=$page&doR=1` - same cap, not changed here.
+- **TX RealAuction end of list (2026-11-03):** past the end the pager repeats the last page, so a Waiting list of
+  exactly 10*N items ends on a repeated FULL page. The harvester then asks the site's own status refresh
+  (`FNC=UPDATE&ref=<ids>`, field `WM` = page count) and reads COMPLETE only when `WM` equals the pages read
+  (Galveston had read INCOMPLETE every run). Sale days already past are not requested (their items sit only in
+  Closed / Canceled). The roster is the platform's own "Jump To" list (24 sites); Tyler's host is
+  `tylercounty.texas.sheriffsaleauctions.com`. Bexar / Brooks / Cherokee / Fort Bend / Rusk instances exist but are
+  unused templates; Hidalgo's calendar is behind the login page - none is in the roster.
 - **`scripts/texas_closeout.py`** (texas job, after the stamp, `continue-on-error`): closes ('closed' + delisted_at, never
   a result) stored active tx_lgbs / tx_realauction rows absent from a COMPLETE / EMPTY read of their own (source,
   county), through `sync_state_inventory.plan_close()`; reopens 'closed' rows the harvest lists again (never 'sold');
@@ -3853,4 +3860,4 @@ Findings are the FRONT END rows of `docs/review/audit-2026-10-28.md`; each theme
 - **Guided / Home:** `saleKindOf(p)` names the sale per source (a lien sale ends with a certificate, Morgan CO sells
   an option); certificates are bought by assignment (`certOffice`), never bid; type words in search are read on the
   Florida page only; a sale-day pick carries `data-date` and the range is dropped on a ledger change.
-- `sw.js` -> `tdw-shell-v156` (the offline fallback stores non-redirected responses; the CACHE line moved once).
+- `sw.js` -> `tdw-shell-v157` (v156 is the customer-map PR, #259; the offline fallback stores non-redirected responses).
