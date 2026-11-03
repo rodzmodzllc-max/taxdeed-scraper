@@ -2636,6 +2636,15 @@ const lotSize = p => {
   const sq = Number(p.lot_sqft);
   return sq >= 20000 ? (sq / 43560).toFixed(2) + " acres" : fmtSqft(sq);
 };
+// A published acreage under 0.01 acre (audit F82, 2026-10-28: 23 Oklahoma
+// County rows at 0.0003-0.005 acre from the county parcel layer) is quoted in
+// square feet - "0.00 acres" reads as no lot at all. `dflt` is the caller's
+// own acre wording for every other value. Function declaration: TDZ.
+function acreageText(a, dflt) {
+  const n = Number(a);
+  if (hasNum(a) && n > 0 && n < 0.01) return fmtSqft(Math.round(n * 43560));
+  return dflt;
+}
 
 // Phase 14A (Customer-Safety Hardening) - docs/phase-14a-customer-safety-
 // hardening.md's "assessed semantic audit" section traces every writer of
@@ -2684,7 +2693,10 @@ function valueLabel(p) {
   if (hasValueNum(p.market)) {
     // Louisiana's list carries the tax roll's FAIR MARKET VALUE, not a
     // Florida county "just value" - named as the source names it.
-    if (regionOf(p) === "LA") return p.tax_year ? `${p.tax_year} Fair Market Value (tax roll)` : "Fair Market Value (tax roll)";
+    // The year is the roll year the value came from (value_year), never
+    // tax_year - on an adjudicated row that is the year of the old tax
+    // sale (2012-2023 on 3,691 rows; audit F1, 2026-10-28).
+    if (regionOf(p) === "LA") return hasNum(p.value_year) ? `${p.value_year} Fair Market Value (tax roll)` : "Fair Market Value (tax roll)";
     // Six-state expansion: the figure named as its source names it (STATE_META.marketLabel).
     const meta = STATE_META[regionOf(p)];
     if (meta && meta.marketLabel) return meta.marketLabel;
@@ -2745,11 +2757,37 @@ const amountWord = (p, dflt) => (p && p.source === "auction" && p.purchase_amoun
 // summary said "Minimum bid" for the same row). The figure is named as its
 // source names it: Linebarger (tx_lgbs) publishes "minimum_bid"; every other
 // auction source here publishes an opening bid (Florida's statutory term; the
-// Michigan county lists' own column, stored in min_bid). Never a price.
-var MINIMUM_BID_SOURCES = ["tx_lgbs"];
+// Lenawee / Eaton county lists' own column, stored in min_bid). Never a price.
+// Tax-Sale.info's Michigan catalogs read their amount from the CSV column
+// "Minimum Bid" (harvesters/otc/adapters/tax_sale_info.py; audit F104), and
+// any row whose recorded source column names a minimum (otc_provenance.amount,
+// the rule amountSemanticType() already applies) is a minimum bid too.
+var MINIMUM_BID_SOURCES = ["tx_lgbs", "mi_tax_sale_info_auction"];
+function minimumBidSource(p) {
+  if (!p) return false;
+  if (MINIMUM_BID_SOURCES.includes(p.source_id || p.harvester_source)) return true;
+  return /min/i.test(sourceAmountColumn(p));
+}
 function auctionBidLabel(p, titleCase) {
-  const w = amountWord(p, p && MINIMUM_BID_SOURCES.includes(p.source_id || p.harvester_source) ? "Minimum bid" : "Opening bid");
+  const w = amountWord(p, minimumBidSource(p) ? "Minimum bid" : "Opening bid");
   return titleCase ? w.replace(/\b(bid|amount)\b/g, m => m[0].toUpperCase() + m.slice(1)) : w;
+}
+// Is the auction figure a BID (opening / minimum)? A published amount of
+// unstated kind (Saguache's Total_Due, Oconee's total tax due, Albany's TOTAL -
+// audit F5) is never a bid, so no "Value ÷ bid" ratio, spread or ceiling is
+// computed from it. Function declaration: render() runs during module init.
+function isBidAmount(p) {
+  return !!p && p.source === "auction" && hasPublishedBid(p) && p.purchase_amount_kind !== "PUBLISHED_AMOUNT_KIND_UNSPECIFIED";
+}
+// Does "county value minus bid" / "your ceiling" arithmetic apply? Only with
+// a county value on file AND a figure that is a bid (auction) or a price /
+// starting amount (Available) - never an asking price before an offer, an
+// amount of unstated kind or a quoted-on-request process (audit F33).
+function spreadApplies(p) {
+  if (!p || !hasPublishedBid(p) || marketOf(p) <= 0) return false;
+  if (p.source === "auction") return isBidAmount(p);
+  if (p.source === "laft") return ["price", "base", "partial", "vendor", "estimate", "official_current"].includes(amountInfo(p).state);
+  return false;
 }
 const bidDisplay = p => (hasPublishedBid(p) ? fmtMoney(p.bid) : "Not published");
 // Phase 65 / 71: the deed/LAFT CARD always shows the bid as a whole dollar,
@@ -2884,7 +2922,9 @@ const maxBid = p => marketOf(p) * (state.maxBidPct / 100);
 // so the improvement/building figure is one subtraction away, not a new
 // data dependency. Guards against a land_value scraped from a different,
 // stale source ever reading as negative "structure" value.
-const buildingValue = p => (hasNum(p.market) && hasNum(p.land_value) && Number(p.market) >= Number(p.land_value))
+// A market value of 0 is "not published" (hasValueNum), never a $0 value to
+// subtract from - a zero here with a 0 land value used to read "bare land".
+const buildingValue = p => (hasValueNum(p.market) && hasNum(p.land_value) && Number(p.market) >= Number(p.land_value))
   ? Number(p.market) - Number(p.land_value) : null;
 // Land value present, building value computes to (near) zero: this is
 // unimproved land, not a data gap - worth saying outright, since a bidder
@@ -2903,7 +2943,7 @@ const MUNI_LIEN_TIP = "Code enforcement, utility, and IRS liens survive a Florid
 // the clock on a date this app doesn't harvest, so these are a planning
 // figure, not the county's actual payoff quote.
 const CERT_TDA_WAIT_YEARS = 2; // FS 197.502 - earliest a TDA can be filed
-const ACCRUED_INTEREST_TIP = "Estimated with simple interest (bid rate x time since issuance) on the certificate amount. The county's actual redemption payoff may differ - Florida sets statutory minimum charges this doesn't model, and redemption stops accrual on a specific date this app doesn't track.";
+const ACCRUED_INTEREST_TIP = "Estimated with simple interest (bid rate x time since issuance) on the certificate amount. The county's actual redemption payoff may differ - states set statutory minimum charges this doesn't model (Florida's, for example), and redemption stops accrual on a specific date this app doesn't track.";
 const TDA_ELIGIBLE_TIP = "A certificate holder may file a Tax Deed Application starting 2 years after the certificate's issue date (FS 197.502). Filing starts the county's own tax deed sale process on the underlying property - it doesn't happen automatically.";
 function parseISODate(s) {
   if (!s) return null;
@@ -2911,7 +2951,12 @@ function parseISODate(s) {
   if (!y || !mo || !da) return null;
   return Date.UTC(y, mo - 1, da);
 }
+// The two-year wait is Florida's Tax Deed Application rule (FS 197.502) and
+// applies to Florida certificates only: a Colorado county-held lien has no
+// TDA and a different treasurer's-deed wait (audit F16, 2026-10-28). Every
+// caller treats null as "not applicable" and shows nothing.
 function tdaEligibleMs(p) {
+  if (regionOf(p) !== "FL") return null;
   const t = parseISODate(p.issued_date);
   if (t === null) return null;
   const d = new Date(t);
@@ -5415,7 +5460,7 @@ function cardFactsHtml(p) {
     const a = acquisitionOf(p);
     facts.push(`<span><b>Acquire</b><span class="${a.verified ? "" : "muted"}">${esc(a.verified ? a.short : (a.mode === "none" ? "None (stated)" : "Not yet verified"))}</span></span>`);
   }
-  if (hasPublishedBid(p) && marketOf(p) > 0) {
+  if (spreadApplies(p)) {
     facts.push(`<span title="County value on file divided by the opening bid - a screening ratio, not a return"><b>Value ÷ bid</b><span>${valueRatio(p).toFixed(1)}×</span></span>`);
   }
   return `<div class="prop-facts">${facts.join("")}</div>`;
@@ -5776,7 +5821,7 @@ function cardLotSize(p) {
 // with neither shows no line - nothing is estimated.
 function cardLotLineHtml(p) {
   const ac = Number(p.acreage);
-  const size = ac > 0 ? `${ac < 10 ? ac.toFixed(2) : Math.round(ac).toLocaleString()} acres` : cardLotSize(p);
+  const size = ac > 0 ? acreageText(ac, `${ac < 10 ? ac.toFixed(2) : Math.round(ac).toLocaleString()} acres`) : cardLotSize(p);
   return size ? `<div class="card-lot" data-card-lot="1"><span class="card-lot-label">Lot size</span> <span class="card-lot-val">${esc(size)}</span></div>` : "";
 }
 
@@ -6038,7 +6083,7 @@ function certCard(p, showCounty, ctx) {
           <div class="card-stat"><div class="card-stat-label">Expires</div><div class="card-stat-val">${p.expiration_date ? fmtDate(p.expiration_date) : "N/A"}</div></div>
           <div class="card-stat"><div class="card-stat-label">Interest Rate</div><div class="card-stat-val">${hasNum(p.interest_rate) ? p.interest_rate + "%" : "N/A"}</div></div>
           <div class="card-stat"><div class="card-stat-label">Est. Accrued Interest</div><div class="card-stat-val">${accruedInterestEst(p) !== null ? fmtShort(accruedInterestEst(p)) : "N/A"}</div></div>
-          <div class="card-stat"><div class="card-stat-label">TDA Eligibility</div><div class="card-stat-val">${tdaEligibleText(p)}</div></div>
+          ${regionOf(p) === "FL" ? `<div class="card-stat"><div class="card-stat-label">TDA Eligibility</div><div class="card-stat-val">${tdaEligibleText(p)}</div></div>` : ""}
         </div>
         <div class="prop-top-actions">
           <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite">${fav ? "♥" : "♡"}</button>
@@ -6271,9 +6316,11 @@ function opportunitySummaryHtml(p) {
   const bid = hasPublishedBid(p) ? fmtMoney(p.bid) : null;
   let value, valueCls = "";
   if (hasValueNum(p.market)) value = `${fmtShort(p.market)}<span class="opp-sub">${esc(valueLabel(p))}${hasValueNum(p.assessed) ? ` · ${esc(assessedSourceLabel(p))} ${fmtShort(p.assessed)}` : ""}</span>`;
-  else if (hasValueNum(p.assessed)) value = `${fmtShort(p.assessed)}<span class="opp-sub">${esc(assessedSourceLabel(p))} - no just value on file</span>`;
+  // "Just value" is Florida's statutory term (audit F56 / F81): elsewhere the
+  // assessed figure is named only as its source names it.
+  else if (hasValueNum(p.assessed)) value = `${fmtShort(p.assessed)}<span class="opp-sub">${esc(assessedSourceLabel(p))}${regionOf(p) === "FL" ? " - no just value on file" : " - no market value on file"}</span>`;
   else { value = "No county value on file"; valueCls = "muted"; }
-  const ratio = bid && marketOf(p) > 0 ? `<span class="opp-sub">Value ÷ bid ${valueRatio(p).toFixed(1)}× (screening ratio, not a return)</span>` : "";
+  const ratio = bid && spreadApplies(p) ? `<span class="opp-sub">Value ÷ bid ${valueRatio(p).toFixed(1)}× (screening ratio, not a return)</span>` : "";
   const gaps = dataGaps(p);
   const missing = gaps.length
     ? `<ul class="opp-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>`
@@ -8296,7 +8343,14 @@ function acquireBlockHtml(p) {
   const howHtml = (cta ? `<p class="acq-cta-row">${ext(cta.href, cta.label, "acq-cta", cta.kind ? cta.kind : /^(mailto|tel):/.test(cta.href) ? "instructions" : (cta.href === a.applicationUrl || ["application_download", "application_page"].includes(a.type) ? "form" : "instructions"))}${cta.sub ? `<span class="acq-cta-sub">${esc(cta.sub)}</span>` : ""}</p>` : "") + dl(howRows);
   // 4. What form do I need?
   const formsHtml = acquisitionFormsHtml(p);
-  const formHtml = formsHtml || muted(a.verified ? "No form is published by the source - follow the steps above." : "Not yet verified - no county form has been established from evidence.");
+  // No form ON FILE is not "no form published" (audit F32): a county's own
+  // process document may be identified and not yet read - the evidence unit
+  // says so (NEEDS_REVIEW / UNAVAILABLE), and this answer must not deny it.
+  const evUnit = acquisitionEvidenceStatus(p);
+  const evPending = !!evUnit && ["NEEDS_REVIEW", "UNAVAILABLE"].includes(String(evUnit.status || ""));
+  const formHtml = formsHtml || muted(a.verified
+    ? (evPending ? "No form on file from the verified listing. The source's own process document was identified but has not been read yet - see Customer actionability under Source truth." : "No form on file from the source's verified page - follow the steps above.")
+    : "Not yet verified - no county form has been established from evidence.");
   // 5. Where do I submit it?
   const submitRows = [];
   if (a.verified) {
@@ -8442,7 +8496,7 @@ function availableDecisionHtml(p) {
   // Parcel facts only. The county values (just, assessed, taxable) are shown
   // once, in Financial, not repeated here (2026-10-24).
   const known = [];
-  if (hasNum(p.acreage)) known.push(`${Number(p.acreage).toFixed(2)} ac`);
+  if (hasNum(p.acreage)) known.push(acreageText(p.acreage, `${Number(p.acreage).toFixed(2)} ac`));
   if (p.land_use) known.push(`Land use ${p.land_use}`);
   else if (p.dor_use_code && dorUseLabel(p.dor_use_code)) known.push(`State DOR use code ${p.dor_use_code} (${dorUseLabel(p.dor_use_code)})`);
   if (p.homestead === true) known.push("Homestead exemption on the roll");
@@ -8500,11 +8554,15 @@ function auctionDecisionHtml(p) {
   else { const d = daysUntil(p); when = fmtDate(p.sale_date) + (d === 0 ? " · today" : d !== null && d < 0 ? ` · ${-d}d ago (past sale date)` : d !== null ? ` · in ${d}d` : ""); whenCls = d !== null && d <= 0 ? "bad" : (d !== null && d <= SOON_DAYS ? "warn" : ""); }
   if (p.tx_sale_status) when += ` · source status "${p.tx_sale_status}"`;
   rows.push(q("when", "When is the sale?", esc(when), whenCls));
-  rows.push(q("bid", "Opening / minimum bid, if published?", hasPublishedBid(p) ? `${esc(fmtMoney(p.bid))}${hasNum(p.market) && marketOf(p) > 0 ? sub(esc(`Value ÷ bid ${valueRatio(p).toFixed(1)}× - a screening ratio, not a return`)) : ""}` : muted("Not published"), hasPublishedBid(p) ? "" : "muted"));
+  // The figure is named as the card names it (auctionBidLabel: opening bid,
+  // minimum bid, or a published amount of unstated kind - audit F5), and the
+  // screening ratio is computed only from a real bid (spreadApplies).
+  const bidQ = isBidAmount(p) || !hasPublishedBid(p) ? `${auctionBidLabel(p)}, if published?` : `${auctionBidLabel(p)}?`;
+  rows.push(q("bid", bidQ, hasPublishedBid(p) ? `${esc(fmtMoney(p.bid))}${spreadApplies(p) ? sub(esc(`Value ÷ bid ${valueRatio(p).toFixed(1)}× - a screening ratio, not a return`)) : ""}` : muted("Not published"), hasPublishedBid(p) ? "" : "muted"));
   // Parcel facts only. The county values (just, assessed, taxable) are shown
   // once, in Financial, not repeated here (2026-10-24).
   const known = [];
-  if (hasNum(p.acreage)) known.push(`${Number(p.acreage).toFixed(2)} ac`);
+  if (hasNum(p.acreage)) known.push(acreageText(p.acreage, `${Number(p.acreage).toFixed(2)} ac`));
   if (p.land_use) known.push(`Land use ${p.land_use}`);
   else if (p.dor_use_code && dorUseLabel(p.dor_use_code)) known.push(`State DOR use code ${p.dor_use_code} (${dorUseLabel(p.dor_use_code)})`);
   if (hasNum(p.year_built)) known.push(`Built ${p.year_built}`);
@@ -8872,6 +8930,9 @@ function amountInfo(p) {
   if (terms && terms.basis === "ESTIMATE") return Object.assign(base, { state: "estimate", label: terms.figure_label || "Estimated purchase price", value: figure, note: terms.figure_note || "", terms });
   if (terms && terms.basis === "MINIMUM_BID" && terms.figure_label && !isPartialAmount(p) && kind !== "FIXED_PURCHASE_PRICE") return Object.assign(base, { state: "vendor", label: terms.figure_label, value: figure, note: terms.figure_note || "", terms });
   if (terms && terms.basis === "BID_SUBMISSION" && terms.figure_label && !isPartialAmount(p)) return Object.assign(base, { state: "unspecified", label: terms.figure_label, value: figure, note: terms.figure_note || "", terms });
+  // An asking price before a negotiated offer (Shelby's Land Bank portal -
+  // audit F3): the source's own figure label and note, still not a price.
+  if (terms && terms.basis === "OFFER_NEGOTIATED" && terms.figure_label && !isPartialAmount(p)) return Object.assign(base, { state: "unspecified", label: terms.figure_label, value: figure, note: terms.figure_note || "", terms });
   if (isPartialAmount(p)) {
     const label = (terms && terms.figure_label) || partialAmountLabel(p);
     return Object.assign(base, { state: "partial", label, value: figure, terms,
@@ -9051,7 +9112,7 @@ var AMOUNT_KIND_SEMANTIC = {
 };
 var AMOUNT_FRESH_DAYS = 14;
 var AMOUNT_LIST_STALE_DAYS = 365;
-var AMOUNT_MINIMUM_BID_SOURCES = ["tx_lgbs"];
+var AMOUNT_MINIMUM_BID_SOURCES = ["tx_lgbs", "mi_tax_sale_info_auction"];
 function amountStatementRaw(p) {
   const st = p && p.otc_provenance && typeof p.otc_provenance === "object" ? p.otc_provenance.purchase_statement : null;
   return st && typeof st === "object" && Number(st.total_due) > 0 ? st : null;
@@ -9108,8 +9169,13 @@ function financialPositionHtml(p) {
     ? `<ul class="fp-lines">${list.map(l => `<li data-fp-status="${esc(l.status)}"><span class="fp-line-label">${esc(l.label)}</span><span class="fp-line-amt">${l.amount !== null ? money(l.amount) : `<span class="muted">${esc(FP_STATUS_TEXT[l.status] || "Not published")}</span>`}</span>${l.amount !== null ? `<span class="fp-line-note">${esc(FP_STATUS_TEXT[l.status] || "")}</span>` : ""}${l.note ? `<span class="fp-line-note">${esc(l.note)}</span>` : ""}</li>`).join("")}</ul>`
     : `<p class="fp-empty muted">${esc(empty)}</p>`}</div>`;
   const side = (title, s) => s ? `<div class="fp-group"><div class="fp-group-head">${esc(title)}</div><p class="fp-side">${esc(s.text)}<span class="fp-line-note">${esc(s.in_price === "no" ? "Not part of the price - shown separately, never added." : s.in_price === "yes" ? "The source says this is part of the price." : "The source does not say whether this is part of the price - shown separately, never added.")}</span></p></div>` : "";
+  // "Current" only when the figure's own time status is current (or unknown):
+  // a superseded original opening bid or an expired statement is the LAST
+  // published amount, and the block says so below (audit F54, 2026-10-28).
+  const temporal = amountTemporal(p).status;
+  const acqHead = temporal === "HISTORICAL" || temporal === "EXPIRED" ? "Last published amount" : "Current acquisition amount";
   const body = `
-    <div class="fp-acq" data-fp-basis="${esc(a.basis)}"><span class="fp-acq-label">Current acquisition amount · ${esc(a.label)}</span>
+    <div class="fp-acq" data-fp-basis="${esc(a.basis)}" data-fp-temporal="${esc(temporal)}"><span class="fp-acq-label">${acqHead} · ${esc(a.label)}</span>
       <span class="fp-acq-val${a.value === null ? " muted" : ""}">${a.value !== null ? money(a.value) : esc(a.display || "Not published")}</span>
       <span class="fp-line-note">${esc(a.authoritative ? "Authoritative: published by the source as the amount." : a.value !== null ? "As the source labels it - not a total of everything owed." : "No figure published for this record.")}</span>${amountMetaHtml(p)}</div>
     <div class="fp-grid">
@@ -9447,7 +9513,7 @@ function inventoryCardHtml(p) {
   prop.push(row(tx ? "Owner of record" : "Name in which assessed", p.owner_name ? esc(p.owner_name) : muted("Not on file")));
   prop.push(row("Assessed value", hasValueNum(p.assessed) ? `${esc(fmtMoney(p.assessed))}${p.value_year ? `<span class="kv-sub">Tax year ${esc(String(p.value_year))}</span>` : ""}` : muted("Not on file")));
   prop.push(row("Taxable value", hasNum(p.taxable_value) ? esc(fmtMoney(p.taxable_value)) : muted("Not on file")));
-  prop.push(row("Acreage", hasNum(p.acreage) ? esc(Number(p.acreage).toFixed(2) + " ac") : muted("Not on file")));
+  prop.push(row("Acreage", hasNum(p.acreage) ? esc(acreageText(p.acreage, Number(p.acreage).toFixed(2) + " ac")) : muted("Not on file")));
   // An assessor / tax-roll classification (statewide_parcel provenance, e.g.
   // the EBR Parish tax roll's STRUCTURE USE) is a classification, not a use
   // code: label it as the source publishes it.
@@ -9904,10 +9970,16 @@ function sourceTruthHtml(p) {
     // verdict and every reason, and whether the gate is enforced here.
     const v = acquisitionVerification(p);
     const modeNote = ACQ_GATE_MODE === "enforce" ? "Gate enforced: customers see verified records only." : "Gate not enforced on this deployment: shown for information.";
+    // Two scopes, named apart (audit F32): the row's own typed path can be
+    // verified (the acquisition path row above) while the county-level
+    // process the gate checks is still pending - that is not a contradiction.
+    const rowPath = acquisitionOf(p);
+    const scopeNote = rowPath.verified && rowPath.mode !== "none" && !(v && v.verified)
+      ? `<span class="kv-sub">This record's own ${rowPath.scope === "property" ? "listing link" : "path"} is verified; the county-level process the gate checks is not yet.</span>` : "";
     rows.push(["Customer actionability", v && v.verified
       ? `<span class="acq-gate-verdict" data-acq-gate="verified">${esc(ACQ_GATE_CLASS_LABELS.verified)}</span><span class="kv-sub">${esc(modeNote)}</span>`
       : `<span class="acq-gate-verdict" data-acq-gate="${esc(v ? v.classification : "pending_verification")}">${esc(ACQ_GATE_CLASS_LABELS[v ? v.classification : "pending_verification"])}</span>` +
-        `<span class="kv-sub">${esc((v ? v.reasons : []).map(r => ACQ_GATE_REASONS[r] || r).join(" · "))}</span><span class="kv-sub">${esc(modeNote)}</span>`]);
+        `<span class="kv-sub">${esc((v ? v.reasons : []).map(r => ACQ_GATE_REASONS[r] || r).join(" · "))}</span>${scopeNote}<span class="kv-sub">${esc(modeNote)}</span>`]);
   }
   if (p.source === "laft") {
     const ai = amountInfo(p);
@@ -10067,8 +10139,11 @@ function detailHtml(p) {
       // this stat when there's a real number behind it.
       const feesAmt = fees(p);
       if (feesAmt !== null) stats.push(["Fees", fmtShort(feesAmt), "financial"]);
-      stats.push(["Your ceiling (% setting)", fmtShort(maxBid(p)), "financial"]);
-      if (marketOf(p) > 0) {
+      // Audit F33: a ceiling needs a county value (a $0 ceiling is not a
+      // figure), and the spread is arithmetic on a BID or a price - never on
+      // an asking price before an offer or an amount of unstated kind.
+      if (marketOf(p) > 0) stats.push(["Your ceiling (% setting)", fmtShort(maxBid(p)), "financial"]);
+      if (spreadApplies(p)) {
         const spreadAmt = marketOf(p) - Number(p.bid);
         // "Profit" implied the quiet title suit, municipal liens, and
         // rehab that Florida tax deed math never nets out for free - this
@@ -10093,7 +10168,7 @@ function detailHtml(p) {
     if (hasNum(p.lot_sqft)) stats.push(["Lot Size", lotSize(p), "property"]);
     // Phase 52, derived from LND_SQFOOT - a unit conversion, not a second
     // measurement, so it is shown beside Lot Size rather than instead of it.
-    if (hasNum(p.acreage)) stats.push(["Acreage", `${Number(p.acreage).toFixed(2)} ac`, "property"]);
+    if (hasNum(p.acreage)) stats.push(["Acreage", acreageText(p.acreage, `${Number(p.acreage).toFixed(2)} ac`), "property"]);
     if (hasNum(p.num_buildings)) stats.push(["Buildings", String(p.num_buildings), "property"]);
     // FDOR NO_RES_UNT - dwelling units on the parcel, NOT bedrooms. The NAL
     // layout has no bedroom or bathroom field at all.
@@ -10125,7 +10200,8 @@ function detailHtml(p) {
     // the !isCert branch's existing Outcome stat) - no new function, no
     // fabricated field, no schema/RPC change.
     if (isGone(p)) stats.push(["Listing status", outcomeText(p)]);
-    stats.push(["TDA Eligibility", tdaEligibleText(p)]);
+    // Florida's TDA rule only (see tdaEligibleMs).
+    if (regionOf(p) === "FL") stats.push(["TDA Eligibility", tdaEligibleText(p)]);
   }
 
   const html = `
@@ -10189,7 +10265,7 @@ function detailHtml(p) {
         which is now null for non-FL rows (no verified TX fee formula exists) -
         gating this to FL avoids computing a profit estimate that silently
         treats a missing Florida-specific fee figure as $0. */ ""}
-    ${!isCert && p.source !== "laft" && bidPublished && marketOf(p) > 0 && regionOf(p) === "FL" ? calcDrawerHtml(p) : ""}
+    ${!isCert && p.source !== "laft" && spreadApplies(p) && regionOf(p) === "FL" ? calcDrawerHtml(p) : ""}
     ${p.legal_desc ? `<div class="detail-legal">
       <span class="detail-legal-label">Legal description</span>
       <p>${esc(p.legal_desc)}</p>
@@ -12312,7 +12388,7 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Result Date", p => p.result_date || ""],
     ["Result Amount", p => p.result_amount ?? ""],
     ["County Assessed Value", p => p.assessed ?? ""],
-    ["County Just Value", p => p.market ?? ""],
+    ["County Just Value", p => (hasValueNum(p.market) ? p.market : "")],
     ["Just Value Year", p => p.value_year ?? ""],
     ["Taxable Value", p => p.taxable_value ?? ""],
     ["Acreage", p => p.acreage ?? ""],
@@ -12381,7 +12457,7 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     // carried: it is the appraiser's statutory just value for a stated roll
     // year, and the year travels WITH it in its own column so a spreadsheet
     // mixing rows from different roll years is still readable.
-    ["County Just Value", p => p.market ?? ""],
+    ["County Just Value", p => (hasValueNum(p.market) ? p.market : "")],
     ["Just Value Year", p => p.value_year ?? ""],
     // Phase 36 fix: the `p.bid != null` guard here was always true (bid is a
     // NOT NULL column - "not published" is represented by the value 0, not
@@ -16999,7 +17075,7 @@ function tierLandUse(p) {
   return p.dor_use_code ? (dorUseLabel(p.dor_use_code) || "") : "";
 }
 function tierSize(p) {
-  if (hasNum(p.acreage) && Number(p.acreage) > 0) return `${Number(p.acreage) < 10 ? Number(p.acreage).toFixed(2) : Math.round(Number(p.acreage))} acres`;
+  if (hasNum(p.acreage) && Number(p.acreage) > 0) return acreageText(p.acreage, `${Number(p.acreage) < 10 ? Number(p.acreage).toFixed(2) : Math.round(Number(p.acreage))} acres`);
   return lotSize(p);
 }
 function tierKind(p) {
@@ -17157,7 +17233,8 @@ function guidedThree(p) {
   if (p.source === "auction") {
     return [
       ["What it is", `A property the county will sell at its tax-deed auction${p.sale_date ? ` on ${fmtDate(String(p.sale_date).slice(0, 10))}` : ""}.`],
-      ["What it costs", hasPublishedBid(p) ? `${auctionBidLabel(p, true)} ${fmtMoney(Number(p.bid))}. Bidding starts there and can go higher.${hasValueNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : ""}` : "The opening bid is not published yet."],
+      // A published amount of unstated kind is not where bidding starts (audit F5).
+      ["What it costs", hasPublishedBid(p) ? `${auctionBidLabel(p, true)} ${fmtMoney(Number(p.bid))}. ${isBidAmount(p) ? "Bidding starts there and can go higher." : "The source does not say what this amount is - not a bid or a price."}${hasValueNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : ""}` : "The opening bid is not published yet."],
       ["How you buy it", "Register on the county's auction site, follow its deposit rules and bid on sale day."]
     ];
   }
@@ -17385,7 +17462,9 @@ function proCleanupInto(root, questions) {
   // Financial position: items with no amount on file fold into one line that
   // still names them (they are real costs, only their amounts are unknown).
   root.querySelectorAll(".fp-lines").forEach(ul => {
-    const none = Array.from(ul.querySelectorAll(":scope > li")).filter(li => li.querySelector(".fp-line-amt .muted"));
+    // Only the items ADDED on top with no amount fold (audit F14): the
+    // "Already inside the listed figure" line is included, not added, and stays.
+    const none = Array.from(ul.querySelectorAll(":scope > li")).filter(li => li.dataset.fpStatus === "added_not_published");
     if (!none.length) return;
     const names = none.map(li => (li.querySelector(".fp-line-label") || {}).textContent || "").filter(Boolean);
     none.forEach(li => li.remove());
