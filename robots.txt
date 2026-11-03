@@ -19,3 +19,7 @@ Disallow: /*.sql$
 Disallow: /*.py$
 Disallow: /*.ps1$
 Disallow: /*.csv$
+
+# Launch (2026-11-02): the product pages a search engine may index. The
+# sitemap is root-only like this file (not mirrored from public/).
+Sitemap: https://taxacq.com/sitemap.xml
