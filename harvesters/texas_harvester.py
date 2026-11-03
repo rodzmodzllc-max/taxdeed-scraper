@@ -1098,6 +1098,47 @@ def _realauction_is_area_response(txt: str) -> bool:
     return isinstance(data, dict) and ("retHTML" in data or "rlist" in data)
 
 
+def _realauction_waiting_pages(txt: str | None) -> int | None:
+    """The number of Waiting-list pages the site itself reports, read from
+    its own status refresh (`FNC=UPDATE&ref=<ids>`, the call auction.js's
+    UpdateAuctions() reads): `WM` is the page count it writes into the
+    pager's "page N of M" (`PFS('W', data.WC, data.WM)`). None when the body
+    is not that response or carries no integer `WM`.
+
+    Measured 2026-11-03 (Galveston, 30 waiting items): the pager walks pages
+    1..3 and then repeats page 3; the refresh answered WM=3. A list whose
+    length is a multiple of ten therefore ends on a repeated FULL page, which
+    is indistinguishable from a stuck pager without this count."""
+    import json as _json
+    try:
+        data = _json.loads(txt or "")
+    except ValueError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    wm = data.get("WM")
+    if isinstance(wm, bool):
+        return None
+    if isinstance(wm, int):
+        return wm
+    if isinstance(wm, str) and wm.strip().isdigit():
+        return int(wm.strip())
+    return None
+
+
+def _realauction_rlist(txt: str) -> str:
+    """The comma-separated auction ids a listing response carries (`rlist`),
+    digits and commas only; empty when absent."""
+    import json as _json
+    import re as _re
+    try:
+        data = _json.loads(txt)
+    except ValueError:
+        return ""
+    raw = str(data.get("rlist") or "") if isinstance(data, dict) else ""
+    return ",".join(x for x in (p.strip() for p in raw.split(",")) if _re.fullmatch(r"\d+", x))
+
+
 def harvest_realauction(limit: int | None = None, stats: dict | None = None) -> list[TexasSaleRow]:
     """Harvest Texas's RealAuction/RealForeclose county sites
     (`<county>.texas.sheriffsaleauctions.com` / `<county>.texas.realforeclose.com`).
@@ -1170,6 +1211,18 @@ def harvest_realauction(limit: int | None = None, stats: dict | None = None) -> 
     correcting a bad guess just means fixing one row in
     data/tx_realauction_counties.csv once it's noticed.
 
+    2026-11-03: the roster equals the platform's own "Jump To" list of Texas
+    sites (24 vendor ids, the same on every county instance). One
+    pattern-derived host was wrong: Tyler County's site is
+    `tylercounty.texas.sheriffsaleauctions.com` (the site's own SWITCH call
+    for vendor 10026 answers that host); `tyler.texas...` redirected to the
+    vendor's marketing page and read INCOMPLETE on every run. A sweep of all
+    254 county names on both host patterns found five more instances
+    (Bexar, Brooks, Cherokee, Fort Bend, Rusk: template title "Sheriff or
+    Constable", absent from the Jump To list, no sale day in any sampled
+    month 2025-02..2027-01) and Hidalgo (its calendar is served only behind
+    the login page). None is in the roster - see the PR / docs for why.
+
     `limit`, when given, caps total rows returned across all counties
     (stops early) - same contract as harvest_lgbs()'s `limit`.
     """
@@ -1241,6 +1294,12 @@ def harvest_realauction(limit: int | None = None, stats: dict | None = None) -> 
                 parse_problems.append(f"calendar month {month_offset} carried no calendar")
             dates.extend(found)
         dates = sorted(set(dates))
+        # A sale day already past (earlier in the current month) is not read:
+        # its items sit in the Closed / Canceled area, never on the Waiting
+        # list, so it can only ever read "0 properties" (measured 2026-11-03
+        # on Atascosa, Llano, Orange, Victoria). Today's sale day is still read.
+        past_dates = [d for d in dates if (_realauction_date_to_iso(d) or "") < now.strftime("%Y-%m-%d")]
+        dates = [d for d in dates if d not in past_dates]
 
         county_kept = 0
         no_dates = not dates
@@ -1327,9 +1386,27 @@ def harvest_realauction(limit: int | None = None, stats: dict | None = None) -> 
                 if len(blocks) < REALAUCTION_PAGE_SIZE:
                     break  # a short page is the list's last page
                 if new_on_page == 0:
-                    # A full page of items already read: the pager did not
-                    # advance, so more items may exist that were not read.
-                    truncations.append(f"{date} page {page} repeated a full page")
+                    # A full page of items already read. Past the end the
+                    # pager repeats the last page, so a list of exactly
+                    # 10*N items ends this way too: ask the site's own status
+                    # refresh how many pages the Waiting list has. Only when
+                    # that count equals the pages already read is this the
+                    # list's end; otherwise more items may exist unread.
+                    ids = _realauction_rlist(txt)
+                    max_pages = None
+                    if ids:
+                        refresh = _get(
+                            f"https://{host}/index.cfm?zaction=AUCTION&ZMETHOD=UPDATE&FNC=UPDATE&ref={ids}",
+                            {
+                                "Accept": "application/json, text/javascript, */*; q=0.01",
+                                "X-Requested-With": "XMLHttpRequest",
+                                "Referer": preview_url,
+                            },
+                        )
+                        max_pages = _realauction_waiting_pages(refresh)
+                    if max_pages is None or max_pages != page:
+                        truncations.append(f"{date} page {page} repeated a full page"
+                                           + (f" (site reports {max_pages} page(s))" if max_pages is not None else ""))
                     break
                 time.sleep(0.2)  # polite pacing between pages, same rationale as harvest_lgbs()
             else:
@@ -1338,7 +1415,8 @@ def harvest_realauction(limit: int | None = None, stats: dict | None = None) -> 
                 break
 
         entry = {"source_id": "tx_realauction", "county": county_name, "row_count": county_kept,
-                 "sale_dates": len(dates), "transport_ok": not failures, "parse_ok": not parse_problems}
+                 "sale_dates": len(dates), "past_sale_dates": len(past_dates),
+                 "transport_ok": not failures, "parse_ok": not parse_problems}
         if failures:
             entry.update(status="FAILED", error_category="TRANSPORT_REQUEST_FAILED",
                          reason=f"{len(failures)} request(s) failed")
@@ -1349,7 +1427,7 @@ def harvest_realauction(limit: int | None = None, stats: dict | None = None) -> 
             entry.update(status="COMPLETE", reason="calendar and every sale date's waiting list read to the list's end")
         else:
             entry.update(status="EMPTY",
-                         empty_signal=("calendar lists no sale day in the next 3 months" if not dates
+                         empty_signal=("calendar lists no upcoming sale day in the next 3 months" if not dates
                                        else f"waiting list empty on all {len(dates)} sale date(s)"),
                          reason="every request succeeded")
         county_entries.append(entry)
@@ -1357,7 +1435,9 @@ def harvest_realauction(limit: int | None = None, stats: dict | None = None) -> 
         if no_dates:
             # With the read status and its reason (audit 2026-10-28 B42: one
             # county read INCOMPLETE every run and no line said which).
-            print(f"harvest_realauction: {county_name} - no auction days in the next 3 months, read {entry['status']}"
+            print(f"harvest_realauction: {county_name} - no upcoming auction days in the next 3 months"
+                  + (f" ({len(past_dates)} earlier this month, not read)" if past_dates else "")
+                  + f", read {entry['status']}"
                   + (f" ({entry.get('reason')})" if entry["status"] != "EMPTY" else ""), file=sys.stderr)
         if county_kept:
             counties_with_matches += 1
