@@ -140,6 +140,11 @@ const statVal = (pg, label) => pg.evaluate(l => { const st = Array.from(document
   const card = await cardText(pg, ROW.coCert.id);
   check('f16CoCardNoTda', card.length > 0 && !/TDA/i.test(card), card.slice(0, 200));
   await pg.context().close();
+  // Guided tier: the certificate stages name no Florida tax deed application outside Florida (no "N/A" filler).
+  const g = await open(ROW.coCert, '?fields=all&tier=beginner');
+  const gt = await pageText(g);
+  check('f16CoGuidedNoTdaFact', !/Tax deed application/i.test(gt.replace(/Apply for a tax deed[^\n]*/g, '')) && !/:\s*N\/A/.test(gt) && !/\bN\/A\b/.test(gt), gt.match(/.{0,60}(Tax deed application|N\/A).{0,60}/)?.[0]);
+  await g.context().close();
   // Florida fixture certificate keeps it.
   const ctx = await b.newContext({ viewport: { width: 1400, height: 900 } });
   const fl = await ctx.newPage();

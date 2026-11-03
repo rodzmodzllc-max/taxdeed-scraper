@@ -17153,7 +17153,9 @@ function guidedStages(p) {
     if (hasNum(p.interest_rate)) facts2.push({ title: "Interest rate", answer: p.interest_rate + "%" });
     const facts5 = [];
     if (p.expiration_date) facts5.push({ title: "Expires", answer: fmtDate(p.expiration_date) });
-    const tda = tdaEligibleText(p);
+    // TDA is Florida's rule only: tdaEligibleMs() is null elsewhere, and the
+    // stage then names no Tax deed application fact (never "N/A" filler).
+    const tda = tdaEligibleMs(p) !== null ? tdaEligibleText(p) : null;
     return [
       { key: "find", title: "Find it", facts: facts1, tasks: [] },
       { key: "price", title: "Know the amount", facts: facts2, tasks: facts2.length < 2 ? [{ key: "amount", title: "Confirm the amount and rate", how: "The tax collector's certificate list states both." }] : [] },

@@ -428,8 +428,10 @@ def test_a05_an_amount_of_unstated_kind_is_never_a_minimum_bid(tmp_path):
     mi = run("MI", tmp_path / "mi")["rows"]
     assert all(r["min_bid"] > 0 and "purchase_amount" not in r for r in mi)
     app = (REPO / "public/app.js").read_text(encoding="utf-8")
-    # 2026-10-05: one label function on every surface; Michigan's column is an opening bid, only LGBS is a minimum bid.
-    assert "function auctionBidLabel(p, titleCase)" in app and 'var MINIMUM_BID_SOURCES = ["tx_lgbs"];' in app
+    # 2026-10-05: one label function on every surface; Michigan county lists' column is an opening bid.
+    # 2026-11-03 (audit F104): Tax-Sale.info's Michigan catalogs publish a "Minimum Bid" column, so that
+    # source joins LGBS as a minimum-bid source; the county lists (Lenawee / Eaton) stay opening bids.
+    assert "function auctionBidLabel(p, titleCase)" in app and 'var MINIMUM_BID_SOURCES = ["tx_lgbs", "mi_tax_sale_info_auction"];' in app
     assert "Published amount (kind not stated)" in app
 
 
