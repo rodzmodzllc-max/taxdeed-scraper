@@ -5473,6 +5473,12 @@ function refreshWatchState() {
   });
   refreshSaleStripWatch();
   refreshWatchCounts();
+  // The Merged look (experience-tactile.js / -terrain.js) draws its own watch
+  // ribbons on the lot tiles and placards. Its draw() patches in place, so the
+  // last render payload is handed back to it - no full List render.
+  if (document.documentElement.dataset.experienceReady && window.__tdwLastRender) {
+    window.dispatchEvent(new CustomEvent("tdw:rendered", { detail: window.__tdwLastRender }));
+  }
 }
 // The Auctions sale-day strip counts watched lots per day (the .ss-watch dot)
 // and per county sale ("N watched"). render() builds it; the in-place Watch

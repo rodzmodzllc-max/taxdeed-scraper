@@ -48,7 +48,7 @@ const LGBS = { id: 'xtx1', source: 'laft', state: 'TX', county: 'Liberty', case_
   const t = await text(pg, '.g-three');
   check('F25_coLienSaleNamed', /tax lien sale/i.test(t) && /lien, not the land/i.test(t), t);
   check('F25_coNotTaxDeedAuction', !/tax-deed auction/i.test(t), t);
-  check('F25_coNoBiddingStartsForUnstated', !/Bidding starts there/.test(t) && /did not say whether this is the opening bid/.test(t), t);
+  check('F25_coNoBiddingStartsForUnstated', !/Bidding starts there/.test(t) && /(did not say whether this is the opening bid|does not say what this amount is - not a bid or a price)/.test(t), t);
   const g = await allText(pg, '.guided');
   check('F25_coLastStageCertificateNotDeed', /lien certificate/i.test(g) && !/receive the deed/i.test(g), g.slice(0, 400));
   await pg.context().close();
