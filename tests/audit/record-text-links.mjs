@@ -260,6 +260,30 @@ for (const [id, hash] of [['r-eaton', '#/auctions/r-eaton'], ['r-wright', '#/lan
   await cards.context().close();
 }
 
+// ---- F31: a Sarasota certificate's "Account <id>" is never a search ----
+{
+  const pg = await open('index.html', '?fields=all#/certificates/r-sarasota-cert', { width: 1400, height: 900 }, FL_ROWS);
+  const hrefs = await detailHrefs(pg);
+  check('sarasotaAccountNoSearch', !hrefs.some(x => /zillow\.com|google\.com\/maps/.test(x.h) && /Account(%20| )1147200410/.test(x.h)), hrefs.filter(x => /zillow|google/.test(x.h)));
+  await pg.context().close();
+}
+
+// ---- F83 / F93: Louisiana's basis never cites the retired dataset id; one read date ----
+{
+  const LA_ROWS = [{ id: 'r-la', state: 'LA', source: 'laft', county: 'East Baton Rouge', case_no: '0123456', parcel: '0123456', address: '1200 FIXTURE ST', bid: 0, status: 'active', sale_date: null,
+    source_id: 'la_ebr_adjudicated', harvester_source: 'la_ebr_adjudicated', source_authority: 'GOVERNMENT_DIRECT', inventory_type: 'ADJUDICATED_PROPERTY', purchase_amount: null, purchase_amount_kind: 'NOT_PUBLISHED',
+    list_as_of: '2026-05-06', publication_status: 'APPROVED', ledger_type: 'buy', lien_level: 'unscreened', lien_note: '',
+    otc_provenance: { source_id: 'la_ebr_adjudicated', harvester: 'la_ebr_adjudicated', inventory_type: 'Adjudicated property (dataset a4h4-zi7e description, read live 2026-09-30)',
+      source_match: { identifier: 'case_no', value: '0123456', read_at: '2026-10-26T08:00:00Z' } },
+    last_seen_at: '2026-10-28T08:00:00Z', updated_at: '2026-10-28T08:00:00Z' }];
+  const pg = await open('la.html', '?fields=all#/lands/r-la', { width: 1400, height: 900 }, LA_ROWS);
+  await openAllDetails(pg);
+  const txt = await detailText(pg);
+  check('laNoRetiredDatasetId', txt.length > 200 && !/a4h4|read live/i.test(txt), txt.match(/.{0,50}(a4h4|read live).{0,50}/gi));
+  check('laNoStaleListingRead', !/listing read Oct 26, 2026/.test(txt), txt.match(/.{0,40}listing (last )?read.{0,30}/g));
+  await pg.context().close();
+}
+
 check('noPageErrors', errs.length === 0, errs);
 await b.close();
 console.log(fail ? `FAIL: ${fail} check(s) failed` : 'PASS: all record-text-links checks passed');
