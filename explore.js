@@ -101,6 +101,9 @@ let svgLoaded = false;
 let centroids = new Map();     // county -> {cx, cy} in SVG user units
 let centroidsOk = false;       // false while the only measurements we have
                                // came from a hidden (unlaid-out) SVG
+let pendingAbsorb = null;      // a tdw:maprendered payload received while the
+                               // Map page was hidden (audit F28): kept, not
+                               // drawn, until the page is next shown
 let pendingDraw = false;       // a draw was asked for while the panel had no
                                // geometry yet; run it once it does
 let selectedCounty = null;     // county the map has filtered the list to
@@ -201,6 +204,7 @@ function watchForVisibility() {
 
   if (typeof ResizeObserver === "function") {
     const ro = new ResizeObserver(() => {
+      if (pendingAbsorb && canvas.clientWidth > 0) { const d = pendingAbsorb; pendingAbsorb = null; absorb(d); return; }
       if (canvas.clientWidth > 0 && (!centroidsOk || pendingDraw)) {
         if (computeCentroids(canvas)) { pendingDraw = false; draw(); }
       }
@@ -2018,6 +2022,26 @@ function absorb(detail) {
   // A re-render never re-announces the selection or moves a map: the open
   // card keeps its row (re-read from the new rows) and only its Watchlist
   // button is refreshed; a row the new filters dropped closes the card.
+  // Audit F28 (2026-11-02): app.js dispatches tdw:maprendered on every List
+  // render. While the Map page is hidden nothing here can be measured or
+  // seen, and the strip alone cost up to 1.5 s per List action in a large
+  // county - so the payload is kept and drawn when the page is next shown
+  // (showPage("map") re-dispatches; the ResizeObserver above catches the
+  // display flip as well). Only the open card's Watchlist button is
+  // refreshed now; a row the new filters dropped is closed when drawn.
+  // The basemap SVG is still fetched now (ensureMap is a one-time fetch,
+  // not a draw): it used to arrive during the first hidden absorb, and the
+  // first VISIBLE absorb relies on it being there to zoom to the county
+  // ("Show on the Map page" from a cold start found no SVG yet and never
+  // zoomed - ensureMap's own load-time draw() does not resync the county).
+  const pageMap = document.getElementById("pageMap");
+  if (pageMap && pageMap.hidden) {
+    ensureMap();
+    if (activeProp) { const still = propById(activeProp.id); if (still) { activeProp = still; refreshPeekWatch(); } }
+    pendingAbsorb = d;
+    return;
+  }
+  pendingAbsorb = null;
   // The Map page's own county select (#mapCountySelect) is the source of
   // truth for "am I filtered to one county" - the user can change it from the
   // dropdown itself or by clicking a bubble (applyCounty drives the same
