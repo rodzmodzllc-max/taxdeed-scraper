@@ -122,14 +122,25 @@ function customerEvidenceText(s) {
   let t = String(s || "");
   if (!t) return "";
   if (isOperatorView()) return t;
-  t = t.replace(/\b(?:scripts|harvesters|data|docs|tests|supabase)\/[\w./-]+/g, "")
-    .replace(/\b[\w-]+\.(?:py|csv|json|ps1|sql|md)\b/g, "")
+  // URLs are kept whole: their own paths (".../uploads/docs/x.pdf") are not
+  // repository paths. Only the text between URLs is cleaned.
+  const parts = t.split(/(https?:\/\/\S+)/i);
+  const clean = x => x
+    // "read ... by scripts/x.py", "see data/y.csv": the joining word goes with the path.
+    .replace(/(?:\s+(?:by|in|from|via|see|per))?\s*(?<![\w/.-])(?:scripts|harvesters|data|docs|tests|supabase)\/[\w./-]+/gi, "")
+    .replace(/(?:\s+(?:by|in|from|via|see|per))?\s*(?<![\w/.-])[\w-]+\.(?:py|csv|json|ps1|sql|md)\b/gi, "")
     .replace(/\bregistry\s+[a-z]{2}_[a-z0-9_]+\b/gi, "")
     .replace(/\(\s*[a-z]{2}_[a-z0-9_]+\s*\)/g, "")
-    .replace(/\b[A-Z][A-Z0-9_]+_[A-Z0-9_]+\s+notes\b/g, "")
+    .replace(/\b[A-Z][A-Z0-9_]+_[A-Z0-9_]+\s+notes\b/g, "");
+  t = parts.map((x, i) => i % 2 ? x : clean(x)).join("")
     .replace(/\(\s*[,;]\s*/g, "(").replace(/\s*[,;]\s*\)/g, ")").replace(/\(\s*\)/g, "")
-    .replace(/\s*;\s*(?=;|$)/g, "").replace(/^\s*[;:,·-]+\s*|\s*[;:,·-]+\s*$/g, "").replace(/\s{2,}/g, " ").trim();
+    .replace(/\s*;\s*(?=;|$)/g, "").replace(/^\s*[;:,·-]+\s*|\s*[;:,·-]+\s*$/g, "").replace(/\s{2,}/g, " ").replace(/\s+\)/g, ")").trim();
   return t;
+}
+// A bare numeric land use is the local assessor's code; name the unit the
+// page uses (County / Parish; an independent city is a City) - audit F55.
+function useCodeLabel(p) {
+  return /\bcity$/i.test(String((p && p.county) || "").trim()) ? "City use code" : `${UNIT_WORD} use code`;
 }
 // The customer-facing reading of otc_provenance.inventory_type: the
 // pipeline writes "harvester constant (F.S. 197.502(7) Lands Available list)"
@@ -2924,7 +2935,7 @@ const JUNK_ADDRESSES = new Set([
 // Prefix placeholders (audit F31 / F36): an identifier labelled as one
 // ("Account 1147200410", "Case 2025XX000042TDAXXX"), a legal-description
 // fragment ("SEC 30 TW"), or "No Address Assigned By City, Kansas City, MO".
-const JUNK_ADDRESS_PREFIX = /^(?:parcel|account|acct|case|apn|pin|folio)\b|^(?:sec|section)\s+\d+\b|^no address assigned\b/i;
+const JUNK_ADDRESS_PREFIX = /^(?:parcel|account|acct|case|apn|pin|folio)(?:\s*(?:id|#|no\.?|number))?\s*[#:]?\s*[a-z]{0,2}\d|^(?:sec|section)\s+\d+\b|^no address assigned\b/i;
 
 function realAddress(p) {
   const a = (p.address || "").trim();
@@ -8716,7 +8727,7 @@ function availableDecisionHtml(p) {
   // once, in Financial, not repeated here (2026-10-24).
   const known = [];
   if (hasNum(p.acreage)) known.push(acreageText(p.acreage, `${Number(p.acreage).toFixed(2)} ac`));
-  if (p.land_use) known.push(/^\d+$/.test(String(p.land_use).trim()) ? `County use code ${String(p.land_use).trim()}` : `Land use ${p.land_use}`);
+  if (p.land_use) known.push(/^\d+$/.test(String(p.land_use).trim()) ? `${useCodeLabel(p)} ${String(p.land_use).trim()}` : `Land use ${p.land_use}`);
   else if (p.dor_use_code && dorUseLabel(p.dor_use_code)) known.push(`State DOR use code ${p.dor_use_code} (${dorUseLabel(p.dor_use_code)})`);
   if (p.homestead === true) known.push("Homestead exemption on the roll");
   if (p.prop_type) known.push(`Type ${p.prop_type}`);
@@ -8782,7 +8793,7 @@ function auctionDecisionHtml(p) {
   // once, in Financial, not repeated here (2026-10-24).
   const known = [];
   if (hasNum(p.acreage)) known.push(acreageText(p.acreage, `${Number(p.acreage).toFixed(2)} ac`));
-  if (p.land_use) known.push(/^\d+$/.test(String(p.land_use).trim()) ? `County use code ${String(p.land_use).trim()}` : `Land use ${p.land_use}`);
+  if (p.land_use) known.push(/^\d+$/.test(String(p.land_use).trim()) ? `${useCodeLabel(p)} ${String(p.land_use).trim()}` : `Land use ${p.land_use}`);
   else if (p.dor_use_code && dorUseLabel(p.dor_use_code)) known.push(`State DOR use code ${p.dor_use_code} (${dorUseLabel(p.dor_use_code)})`);
   if (hasNum(p.year_built)) known.push(`Built ${p.year_built}`);
   if (hasNum(p.living_area)) known.push(`${fmtSqft(p.living_area)} living area`);
@@ -9737,7 +9748,7 @@ function inventoryCardHtml(p) {
   // the EBR Parish tax roll's STRUCTURE USE) is a classification, not a use
   // code: label it as the source publishes it.
   const luProv = (p.field_provenance && typeof p.field_provenance === "object") ? p.field_provenance.land_use : null;
-  const luLabel = luProv && luProv.source === "statewide_parcel" ? `${UNIT_WORD} assessor classification` : "County use code";
+  const luLabel = luProv && luProv.source === "statewide_parcel" ? `${UNIT_WORD} assessor classification` : useCodeLabel(p);
   const use = [p.land_use ? `${luLabel} ${p.land_use}` : null, p.dor_use_code ? `DOR use code ${p.dor_use_code}` : null, p.prop_type ? p.prop_type : null].filter(Boolean);
   prop.push(row("Land use", use.length ? esc(use.join(" · ")) : muted("Not on file")));
   if (!tx) prop.push(row("Homestead", p.homestead === true ? "Yes (per the list)" : muted("Not indicated by the list")));
@@ -10698,16 +10709,18 @@ function reopenGroups(root, keys) {
     if (keys.includes(k)) d.setAttribute("open", "");
   });
 }
-function refreshOpenDetail(pid) {
+// keepView=false (a tier switch: a different page body) starts at the top.
+function refreshOpenDetail(pid, keepView = true) {
   const modal = document.getElementById("detailModal");
   if (!modal || modal.hidden) return;
   const p = ALL.find(x => x.id === pid);
   if (!p) return;
   const inner = document.getElementById("detailModalInner");
-  const same = inner && inner.dataset.pid === String(pid);
+  const same = keepView && inner && inner.dataset.pid === String(pid);
   const keys = same ? openGroupsOf(inner) : [], top = same ? inner.scrollTop : 0;
   openDetail(p);
   if (same) { reopenGroups(inner, keys); inner.scrollTop = top; }
+  else if (!keepView && inner) inner.scrollTop = 0;
 }
 const detailModalEl = document.getElementById("detailModal");
 if (detailModalEl) detailModalEl.addEventListener("click", e => { if (e.target === detailModalEl) closeDetail(); });
@@ -15040,12 +15053,12 @@ function selectProperty(p) {
 // Same defensive no-op pattern as refreshOpenDetail() for the modal: called
 // after every fav/hide/bidlist toggle, it only touches the panel if the
 // property just changed is the one currently shown there.
-function refreshDetailPanel(pid) {
+function refreshDetailPanel(pid, keepView = true) {
   if (selectedPid == null || String(selectedPid) !== String(pid)) return;
   const p = ALL.find(x => String(x.id) === String(pid));
   if (!p) { clearDetailPanel(); return; }
   const panel = document.getElementById("detailPanel");
-  const keys = openGroupsOf(panel), top = panel ? panel.scrollTop : 0;
+  const keys = keepView ? openGroupsOf(panel) : [], top = keepView && panel ? panel.scrollTop : 0;
   selectProperty(p);
   reopenGroups(panel, keys);
   if (panel) panel.scrollTop = top;
@@ -17701,8 +17714,8 @@ document.addEventListener("click", e => {
     try { const u = new URL(location.href); if (u.searchParams.has("tier")) { u.searchParams.delete("tier"); history.replaceState(history.state, "", u.pathname + u.search + u.hash); } } catch { /* file:// etc */ }
     const host = set.closest("#detailModalInner, #detailPanel");
     const pid = host && host.id === "detailModalInner" ? host.dataset.pid : selectedPid;
-    if (host && host.id === "detailModalInner") refreshOpenDetail(pid);
-    else if (pid != null) refreshDetailPanel(pid);
+    if (host && host.id === "detailModalInner") refreshOpenDetail(pid, false);
+    else if (pid != null) refreshDetailPanel(pid, false);
     return;
   }
   const ff = e.target && e.target.closest && e.target.closest("[data-full-fields]");

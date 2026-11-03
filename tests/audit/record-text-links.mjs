@@ -9,7 +9,7 @@
 //  F40 / F67  http appraiser links are upgraded only on verified hosts, else labelled;
 //  F53 / F58 / F83 / F89  no internal provenance strings / repo paths / raw
 //     codes / harvester ids for customers;
-//  F55  a bare numeric land use is labelled "County use code";
+//  F55  a bare numeric land use is labelled "<County / Parish / City> use code";
 //  F90  the clean view folds "Not on file" additions into one line;
 //  F91  the tier chosen on the page survives Back restoring ?tier=;
 //  F92  a Watchlist toggle keeps the opened Research group and the scroll;
@@ -258,6 +258,67 @@ for (const [id, hash] of [['r-eaton', '#/auctions/r-eaton'], ['r-wright', '#/lan
   const cardHrefs = await cards.evaluate(() => Array.from(document.querySelectorAll('#main .prop-card a[href]')).map(a => a.getAttribute('href')));
   check(id + 'CardNoArcgisLinks', !cardHrefs.some(h => /arcgis\.com|FeatureServer/.test(h)), cardHrefs.filter(h => /arcgis|FeatureServer/.test(h)));
   await cards.context().close();
+}
+
+// ---- F31: a Sarasota certificate's "Account <id>" is never a search ----
+{
+  const pg = await open('index.html', '?fields=all#/certificates/r-sarasota-cert', { width: 1400, height: 900 }, FL_ROWS);
+  const hrefs = await detailHrefs(pg);
+  check('sarasotaAccountNoSearch', !hrefs.some(x => /zillow\.com|google\.com\/maps/.test(x.h) && /Account(%20| )1147200410/.test(x.h)), hrefs.filter(x => /zillow|google/.test(x.h)));
+  await pg.context().close();
+}
+
+// ---- F83 / F93: Louisiana's basis never cites the retired dataset id; one read date ----
+{
+  const LA_ROWS = [{ id: 'r-la', state: 'LA', source: 'laft', county: 'East Baton Rouge', case_no: '0123456', parcel: '0123456', address: '1200 FIXTURE ST', bid: 0, status: 'active', sale_date: null,
+    source_id: 'la_ebr_adjudicated', harvester_source: 'la_ebr_adjudicated', source_authority: 'GOVERNMENT_DIRECT', inventory_type: 'ADJUDICATED_PROPERTY', purchase_amount: null, purchase_amount_kind: 'NOT_PUBLISHED',
+    list_as_of: '2026-05-06', publication_status: 'APPROVED', ledger_type: 'buy', lien_level: 'unscreened', lien_note: '', land_use: '1100',
+    otc_provenance: { source_id: 'la_ebr_adjudicated', harvester: 'la_ebr_adjudicated', inventory_type: 'Adjudicated property (dataset a4h4-zi7e description, read live 2026-09-30)',
+      source_match: { identifier: 'case_no', value: '0123456', read_at: '2026-10-26T08:00:00Z' } },
+    last_seen_at: '2026-10-28T08:00:00Z', updated_at: '2026-10-28T08:00:00Z' }];
+  const pg = await open('la.html', '?fields=all#/lands/r-la', { width: 1400, height: 900 }, LA_ROWS);
+  await openAllDetails(pg);
+  const txt = await detailText(pg);
+  check('laNoRetiredDatasetId', txt.length > 200 && !/a4h4|read live/i.test(txt), txt.match(/.{0,50}(a4h4|read live).{0,50}/gi));
+  check('laUseCodeIsParish', /Parish use code 1100/.test(txt) && !/County use code/.test(txt), txt.match(/.{0,30}use code.{0,20}/g));
+  check('laNoStaleListingRead', !/listing read Oct 26, 2026/.test(txt), txt.match(/.{0,40}listing (last )?read.{0,30}/g));
+  await pg.context().close();
+}
+
+// ---- Review follow-ups: a street name that starts with PIN / CASE is an address ----
+{
+  const ROWS = [{ id: 'r-pinoak', state: 'FL', source: 'auction', county: 'Marion', case_no: '11622099', parcel: '59399', address: 'PIN OAK DR', bid: 1500, status: 'active', sale_date: '2026-12-09',
+    url_auction: 'https://marion.realtaxdeed.com/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=12/09/2026', url_auction_kind: 'sale', source_id: 'fl_realauction', lien_level: 'unscreened', lien_note: '',
+    last_seen_at: '2026-11-02T12:00:00Z', updated_at: '2026-11-02T12:00:00Z' }];
+  const pg = await open('index.html', '?fields=all#/auctions/r-pinoak', { width: 1400, height: 900 }, ROWS);
+  const title = await detailTitle(pg);
+  check('pinOakIsAnAddress', /PIN OAK DR/.test(title), title);
+  const hrefs = await detailHrefs(pg);
+  check('pinOakHasSearch', hrefs.some(x => /zillow\.com|google\.com\/maps/.test(x.h) && /PIN(%20|\+| )OAK/i.test(x.h)), hrefs.filter(x => /zillow|google/.test(x.h)));
+  await pg.context().close();
+}
+
+// ---- Review follow-ups: evidence text keeps URLs whole and drops "by <path>" ----
+{
+  const src = fs.readFileSync(new URL('../../public/app.js', import.meta.url), 'utf8');
+  const fn = src.slice(src.indexOf('function customerEvidenceText(s) {'), src.indexOf('// A bare numeric land use'));
+  const customerEvidenceText = new Function('isOperatorView', fn + '; return customerEvidenceText;')(() => false);
+  const a = customerEvidenceText('Struck-off list (read 2026-10-26 by scripts/harvest_tx_county_sales.py)');
+  check('evidenceNoDanglingBy', a === 'Struck-off list (read 2026-10-26)', a);
+  const u = 'https://www.dallascounty.org/Assets/uploads/docs/public-works/resale.pdf';
+  const c = customerEvidenceText('Published at ' + u + ' (data/purchase_path_evidence.csv)');
+  check('evidenceUrlKeptWhole', c === 'Published at ' + u, c);
+}
+
+// ---- Review follow-ups: a tier switch starts the new view at the top ----
+{
+  const pg = await open('index.html', '?profile=admin&tier=pro#/auctions/p1', { width: 390, height: 844 }, null);
+  const top0 = await pg.evaluate(() => { const i = document.getElementById('detailModalInner'); i.scrollTop = 600; return i.scrollTop; });
+  await pg.evaluate(() => document.querySelector('#detailModalInner [data-tier-set="beginner"]').click());
+  await pg.waitForTimeout(700);
+  const st = await pg.evaluate(() => ({ top: document.getElementById('detailModalInner').scrollTop, tier: window.__tdwPageTier() }));
+  check('tierSwitchStartsAtTop', top0 > 0 && st.top === 0 && st.tier === 'beginner', { top0, st });
+  await pg.context().close();
 }
 
 check('noPageErrors', errs.length === 0, errs);
