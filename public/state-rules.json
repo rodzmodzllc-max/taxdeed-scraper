@@ -187,11 +187,11 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "Douglas County's advertised tax lien sale list (approved, CC BY-SA 4.0) is read for the dated sale cycle - a sale of liens, not the land; Morgan County's treasurer's deed auctions are collected but unreviewed. No statute has been read.",
+     "eligibility_basis": "Saguache County's published tax lien sale list and Morgan County's Treasurer's deed option auctions are read in production (approved 2026-10-26); Douglas County's advertised tax lien sale list (approved, CC BY-SA 4.0) is read for the dated sale cycle - a sale of liens, not the land. No statute has been read.",
      "eligibility_source_url": "https://www.arcgis.com/home/item.html?id=87f9905d9faf4ae3a7a385c0707717b5",
      "eligibility_verified_on": "2026-10-01",
-     "meaning": "Shown here: the county's dated tax lien sale event (Douglas) - a sale of liens, not the land; Morgan's treasurer's deed auctions are collected but unreviewed.",
-     "note": "Douglas County's advertised tax lien sale list (a sale of liens, not land). Saguache County's 2026 tax sale list collected since 2026-10-26 (awaiting review).",
+     "meaning": "Shown here: Saguache's and (for the dated sale cycle) Douglas's tax lien sale lists - sales of liens, not the land - and Morgan's auctions of an option for a Treasurer's deed.",
+     "note": "Saguache County's tax lien sale list and Douglas County's advertised tax lien sale list (sales of liens, not land), and Morgan County's Treasurer's deed option auctions.",
      "office": "County Treasurer",
      "status": "TRACKED"
     },
@@ -4392,11 +4392,11 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "York County's published tax sale list (approved) is read in production and its tax sale fact sheet is a verified evidence row. S.C. Code 12-51-90 (redemption) has not been read (lead only).",
+     "eligibility_basis": "York County's published tax sale list (approved) is read in production and its tax sale fact sheet is a verified evidence row; Horry County's delinquent tax sale list and Oconee County's delinquent tax sale list are read in production (approved 2026-10-26). S.C. Code 12-51-90 (redemption) has not been read (lead only).",
      "eligibility_source_url": "https://www.yorkcountysc.gov/DocumentCenter/View/5241/Tax-Sale-Fact-Sheet",
      "eligibility_verified_on": "2026-10-01",
      "meaning": "A county tax sale of the property, subject to the former owner's redemption period.",
-     "note": "York County's tax sale list. Horry County's delinquent tax sale list collected since 2026-10-26 (awaiting review).",
+     "note": "York, Horry and Oconee counties' published tax sale lists (all approved for customer publication by the owner's 2026-10-26 decision; legal review pending).",
      "office": "County Treasurer / Delinquent Tax Collector",
      "status": "TRACKED"
     },
@@ -4428,11 +4428,11 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "Horry and Georgetown County Forfeited Land Commissions publish their own lists (collected; awaiting customer-publication review); Georgetown's procedures are verified.",
+     "eligibility_basis": "Horry and Georgetown County Forfeited Land Commissions publish their own lists (read in production; approved 2026-10-26); Georgetown's procedures are verified.",
      "eligibility_source_url": "https://www.gtcountysc.gov/415/Forfeited-Land-Commission",
      "eligibility_verified_on": "2026-10-02",
      "meaning": "Forfeited Land Commission property: parcels bid in by the county at the tax sale, offered after the redemption period.",
-     "note": "Horry and Georgetown Forfeited Land Commission lists (awaiting customer-publication review).",
+     "note": "Horry and Georgetown Forfeited Land Commission lists (approved for customer publication by the owner's 2026-10-26 decision; legal review pending).",
      "office": "Forfeited Land Commission (per county)",
      "status": "TRACKED"
     },
@@ -5869,7 +5869,7 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "Tax foreclosure sales are run county by county: 24 county sheriff-sale sites (tx_realauction) and LGBS sale listings are read on request, and Galveston County Sheriff's own sale procedures are a verified evidence row. Tex. Tax Code ch. 34 itself has not been read (lead only).",
+     "eligibility_basis": "Tax foreclosure sales are run county by county: 24 county sheriff-sale sites (tx_realauction) and LGBS sale listings are read daily, and Galveston County Sheriff's own sale procedures are a verified evidence row. Tex. Tax Code ch. 34 itself has not been read (lead only).",
      "eligibility_source_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
      "eligibility_verified_on": "2026-10-01",
      "meaning": "A sheriff's or constable's tax foreclosure sale of the property under a court judgment.",
@@ -6778,11 +6778,11 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "Green County's tax deed sale page (approved) is read in production and its bid form is a verified evidence row; Dane County's auction page is collected but unreviewed. Wis. Stat. 75.35 / 75.69 have not been read (lead only).",
+     "eligibility_basis": "Dane County's tax deed auction page and Green County's tax deed sale page (both approved) are read in production; Green's bid form is a verified evidence row. Wis. Stat. 75.35 / 75.69 have not been read (lead only).",
      "eligibility_source_url": "https://www.greencountywi.org/492/Current-Tax-Deed-Sales",
      "eligibility_verified_on": "2026-09-30",
-     "meaning": "A county sale of tax-deeded land by sealed bid.",
-     "note": "Green County tax deed sales (sealed bid).",
+     "meaning": "A county sale of tax-deeded land by bid on the county's form.",
+     "note": "Dane County's tax deed auction page and Green County's tax deed sales (bids on the county's form).",
      "office": "County Clerk",
      "status": "TRACKED"
     },

@@ -1119,22 +1119,15 @@ const LEDGERS = {
     tx: {
       title: "Event Terminal — Sheriff/Constable Sales",
       sub: "Open to competitive bidding at a county Sheriff's or Constable's sale.",
-      // Phase 72: name only the sources that actually supply rows today
-      // (LGBS listings and county RealAuction sheriff-sale sites - the two
-      // harvester_source values on production Texas rows). PBFCM, GovEase,
-      // MVBA and others are blocked or unimplemented in
-      // harvesters/governance/registry.py and supply nothing; naming them
-      // here read as if they did.
-      how: "You bid against other buyers, in person at the county's sale or on the county's designated online sale site. Current Texas sources: LGBS sale listings (taxsales.lgbs.com) and county RealAuction sheriff-sale sites. The figure shown is the court-ordered minimum bid, not the final price.",
-      // Phase 14A correction: the harvester/sync code has been real and run
-      // against production since 2026-09-09/09-14 (see
-      // harvesters/texas_harvester.py) - "isn't live yet" was stale and
-      // demonstrably false as a blanket technical claim. Texas harvesting
-      // runs on-demand only (no cron schedule yet - see
-      // docs/phase-14a-customer-safety-hardening.md's freshness contract),
-      // so an empty ledger here means no manual run has populated it
-      // recently, not that harvesting is unavailable.
-      empty: "No Texas sales match yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting. The Dashboard's Data sources panel shows when Texas was last harvested and whether that run was complete."
+      // Audit F72 (2026-11-03): rows come from several vendor listings (LGBS,
+      // PBFCM, MVBA, GovEase), county RealAuction sheriff-sale sites and
+      // county tax-office lists (Harris, Jefferson) - the ledger names no
+      // source list here; each record's Source truth names its own. Texas
+      // has read daily since 2026-10-26. A figure is named as its source
+      // names it (auctionBidLabel): a minimum bid, an opening bid, or a
+      // published amount whose kind the source did not state.
+      how: "You bid against other buyers, in person at the county's Sheriff's or Constable's sale or on the online sale site the county designates. Each record names the listing it came from. The figure shown is the amount the listing publishes - a minimum or opening bid where the source says so - never the final price.",
+      empty: "No Texas sales match. Texas listings are read daily; the Home page's data-sources line shows when the last read completed. Try clearing filters."
     },
     la: {
       sub: "No Louisiana auction source is tracked.",
@@ -1154,12 +1147,12 @@ const LEDGERS = {
     tx: {
       title: "OTC Catalog — Struck-Off Inventory",
       sub: "Failed to sell at auction; the taxing unit now holds it. Whether and how the unit resells it is set per taxing unit (Tex. Tax Code 34.05 - not verified against the statute's text): a struck-off listing is not automatically for sale, and not at a fixed price. Whether, and how long, the former owner can still redeem is Texas law that TAXACQ has not verified - see State rules.",
-      // Phase 72: see the auction ledger's note above - only LGBS supplies
-      // struck-off rows today.
-      how: "Where a taxing unit resells, there is no competitive bidding and the unit runs its own process; the figure shown is the listing's minimum, not a price the unit has agreed to. Rows here come from LGBS's struck-off and future-sale listings; the status on each card says which. Redemption after a resale is governed by Texas law, which has not been verified here - see State rules.",
-      // Phase 14A correction - see the parallel note on the auction ledger's
-      // `tx.empty` string above for why this changed.
-      empty: "No Texas struck-off inventory matches yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting. The Dashboard's Data sources panel shows when Texas was last harvested and whether that run was complete."
+      // Audit F72: rows come from vendor listings (LGBS, PBFCM, MVBA) and the
+      // counties' own trust / resale lists (Bexar, Montgomery, Orange,
+      // Trinity, Randall, Hood) - each record names its own listing. Read
+      // daily since 2026-10-26.
+      how: "Where a taxing unit resells, there is no competitive bidding and the unit runs its own process; a figure shown is the listing's own minimum or published amount, not a price the unit has agreed to, and some lists publish none. Rows come from vendor listings for the taxing units and from counties' own trust / resale lists; each record names its listing, and the status on each card is the listing's own. Redemption after a resale is governed by Texas law, which has not been verified here - see State rules.",
+      empty: "No Texas struck-off inventory matches. Texas listings are read daily; the Home page's data-sources line shows when the last read completed. Try clearing filters."
     },
     // 2026-09-30: East Baton Rouge Parish's open-data adjudicated-property
     // list (Public Domain). A DATED list - published only "as of" the
@@ -1186,9 +1179,8 @@ const LEDGERS = {
       question: "What redeemable deed am I looking at?",
       sub: "A deed you already own, still subject to the former owner's right to redeem it for a premium under Texas law (Tex. Tax Code §34.21 - not verified against the statute's text here).",
       how: "Not a lien purchase - you own the deed. Not verified against the statute's text: the former owner can redeem within 180 days (25% flat premium) or 2 years for homestead/agricultural/mineral property (25% year 1, 50% year 2), on the aggregate cost, not the bid alone. General summary for orientation only - this app does not track redemption status or deadlines; confirm terms with a Texas attorney.",
-      // Phase 14A correction - see the parallel note on the auction ledger's
-      // `tx.empty` string above for why this changed.
-      empty: "No Texas redeemable deeds match yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting. The Dashboard's Data sources panel shows when Texas was last harvested and whether that run was complete."
+      // Audit F72: no Texas source feeds this ledger; say so, not "no run yet".
+      empty: "No Texas redeemable deeds are tracked: no Texas source feeds this ledger. Texas auction and struck-off listings are read daily into the other two ledgers."
     },
     la: {
       sub: "No Louisiana lien or certificate source is tracked.",
@@ -1201,6 +1193,9 @@ const LEDGERS = {
 // ledgerCopy() exactly like the tx / la blocks above. Each sentence describes
 // only what that state's approved source publishes (docs/six-state-expansion.md);
 // a ledger with no source says so rather than borrowing Florida's wording.
+// Audit F37 / F57 / F73 (2026-11-03): the SC / CO / WI entries name the
+// sources that actually supply each ledger (data/county_source_registry.csv
+// production rows, all APPROVED since the owner's 2026-10-26 decision).
 const EXPANSION_LEDGER_COPY = {
   "auction": {
     "MI": {
@@ -1214,19 +1209,19 @@ const EXPANSION_LEDGER_COPY = {
       "empty": "No Wyoming sale parcels match. Wyoming coverage is Albany County's published tax sale list."
     },
     "SC": {
-      "sub": "Parcels on York County's published tax sale list and Horry County's delinquent real-estate tax sale list.",
-      "how": "You bid in person at the county's tax sale. York's fact sheet says the opening bid is all delinquent taxes, penalties and cost plus the current year's taxes, paid in full on the day; York's list itself publishes no amount, so none is shown. Horry's list publishes the opening bid the delinquent tax collector makes for the Forfeited Land Commission (FLC Bid Amount), shown as the opening bid.",
-      "empty": "No South Carolina sale parcels match. South Carolina auction coverage is York County's published tax sale list and Horry County's delinquent tax sale list."
+      "sub": "Parcels on the published tax sale lists of York, Horry and Oconee counties - each county's own list for its next tax sale.",
+      "how": "You bid in person at the county's tax sale, and the former owner keeps a redemption period. York's fact sheet says the opening bid is all delinquent taxes, penalties and cost plus the current year's taxes, paid in full on the day; York's list itself publishes no amount, so none is shown. Horry's list publishes the opening bid the delinquent tax collector makes for the Forfeited Land Commission (FLC Bid Amount), shown as the opening bid. Oconee's list publishes a 'Total Tax Due' the county does not call an opening bid, so it is shown as a published amount of unstated kind.",
+      "empty": "No South Carolina sale parcels match. South Carolina auction coverage is the published tax sale lists of York, Horry and Oconee counties."
     },
     "CO": {
-      "sub": "Accounts on Douglas County's advertised tax lien sale list, read only for the sale cycle the county has dated (the 2026 sale: November 5, 2026). Data: Douglas County, Colorado (CC BY-SA 4.0).",
-      "how": "Colorado's tax lien sale sells a lien on each account, not the land. The county runs the sale online through a vendor site it names (not linked here). The amount shown is the list's own 'Total Due' as published.",
-      "empty": "No Colorado sale accounts match. Douglas County's advertised list for the 2026 sale is posted in October; until then this ledger is empty rather than showing last year's list."
+      "sub": "Saguache County's published tax lien sale list, Morgan County's Treasurer's deed option auctions, and - for the sale cycle the county dates - Douglas County's advertised tax lien sale list (Douglas data: Douglas County, Colorado, CC BY-SA 4.0).",
+      "how": "Saguache and Douglas: Colorado's tax lien sale sells a lien on each account, not the land; the amount shown is the list's own 'Total Due' as published, which the county does not call an opening bid. Morgan: the county auctions an option for a Treasurer's deed on an unredeemed certificate, on the date its page states; no amount is published. Each county runs its own sale - its page states registration and payment.",
+      "empty": "No Colorado sale accounts match. Colorado auction coverage is Saguache County's tax lien sale list, Morgan County's Treasurer's deed option auctions and, when the county posts it for the dated sale, Douglas County's advertised tax lien sale list."
     },
     "WI": {
-      "sub": "Tax deeded property Green County offers by sealed bid, from the county's own sale page: current sales, and previous sales with the sale price the county published.",
-      "how": "Submit a sealed bid on the county's bid form to the County Clerk. The figure shown is the county's minimum bid; a previous sale shows the county's published sale price.",
-      "empty": "No Wisconsin tax deed sales match. Wisconsin coverage is Green County's tax deed sale page, which states when it has no current sales."
+      "sub": "Tax deeded property Dane County offers by bid on its own auction page, and Green County's tax deed sales by sealed bid (current sales, and previous sales with the sale price the county published).",
+      "how": "Dane: submit a bid on the county's bid form by the parcel's bid-due date; the county awards only bids at or above the appraised value, shown as the minimum bid. Green: submit a sealed bid on the county's bid form to the County Clerk; the figure shown is the county's minimum bid, and a previous sale shows the published sale price.",
+      "empty": "No Wisconsin tax deed sales match. Wisconsin coverage is Dane County's tax deed auction page and Green County's tax deed sale page; each states when it has no current sales."
     },
     "MO": {
       "sub": "No Missouri auction source is tracked.",
@@ -1266,19 +1261,19 @@ const EXPANSION_LEDGER_COPY = {
       "empty": "No Wyoming post-sale available records are tracked. Wyoming coverage is Albany County's published tax sale list (see Auctions)."
     },
     "SC": {
-      "sub": "Land the Horry and Georgetown County Forfeited Land Commissions list after their tax sales. Only land whose sale is past the redemption period is shown. Both sources await customer-publication review.",
+      "sub": "Land the Horry and Georgetown County Forfeited Land Commissions list after their tax sales. Only land whose sale is past the redemption period is shown.",
       "how": "Horry: bid on the Forfeited Land Commission's bid form. Georgetown: the Commission decides a bidder application and then states the total amount due; the property is offered as is and the deed is a quit claim deed. The figure shown is the amount the list publishes, named as the list names it.",
-      "empty": "No South Carolina forfeited land matches. South Carolina Available coverage is the Horry and Georgetown Forfeited Land Commission lists, which await customer-publication review."
+      "empty": "No South Carolina forfeited land matches. South Carolina Available coverage is the Horry and Georgetown Forfeited Land Commission lists."
     },
     "CO": {
       "sub": "No Colorado post-sale available source is tracked.",
       "how": "Colorado post-sale available inventory is not harvested by this app.",
-      "empty": "No Colorado post-sale available records are tracked. Colorado coverage is Morgan County's county-held tax lien sale certificates (see Liens & Certificates)."
+      "empty": "No Colorado post-sale available records are tracked. Colorado coverage is the Saguache, Morgan and Douglas county sale lists (see Auctions) and the Morgan and Douglas county-held certificates (see Liens & Certificates)."
     },
     "WI": {
       "sub": "No Wisconsin post-sale available source is tracked.",
       "how": "Wisconsin post-sale available inventory is not harvested by this app.",
-      "empty": "No Wisconsin post-sale available records are tracked. Wisconsin coverage is Green County's tax deed sale page (see Auctions)."
+      "empty": "No Wisconsin post-sale available records are tracked. Wisconsin coverage is Dane County's tax deed auction page and Green County's tax deed sale page (see Auctions)."
     },
     "MO": {
       "sub": "Parcels the St. Louis Land Reutilization Authority lists as Available in its own inventory (City of St. Louis open data; only rows whose own status reads 'Available'), and the Land Bank of Kansas City, Missouri's published inventory.",
@@ -1320,12 +1315,12 @@ const EXPANSION_LEDGER_COPY = {
     "SC": {
       "sub": "No South Carolina certificate source is tracked.",
       "how": "South Carolina certificate inventory is not harvested by this app.",
-      "empty": "No South Carolina certificate records are tracked. South Carolina coverage is York County's published tax sale list (see Auctions)."
+      "empty": "No South Carolina certificate records are tracked. South Carolina coverage is the York, Horry and Oconee county tax sale lists (see Auctions) and the Horry and Georgetown Forfeited Land Commission lists (see Available)."
     },
     "WI": {
       "sub": "No Wisconsin certificate source is tracked.",
       "how": "Wisconsin certificate inventory is not harvested by this app.",
-      "empty": "No Wisconsin certificate records are tracked. Wisconsin coverage is Green County's tax deed sale page (see Auctions)."
+      "empty": "No Wisconsin certificate records are tracked. Wisconsin coverage is Dane County's tax deed auction page and Green County's tax deed sale page (see Auctions)."
     },
     "CO": {
       "sub": "Tax liens the county itself holds and offers by assignment - Morgan County's certificate list and Douglas County's county-held liens (Douglas data: Douglas County, Colorado, CC BY-SA 4.0). A certificate is a lien on the property, not the property.",
@@ -4130,11 +4125,15 @@ async function showApp() {
     const p = ALL.find(x => String(x.id) === deepLinkedPid);
     if (p) openDetail(p);
     // Independent loading: the property can sit on a later page or in a
-    // background ledger - try once more when every ledger is in.
+    // background ledger - try once more when every ledger is in. Audit F102:
+    // an id no ledger has (a record that left the list, or a bad link) says
+    // so instead of silently landing on the bare list.
     else if (PROPERTIES_DONE) PROPERTIES_DONE.then(() => {
       const q = ALL.find(x => String(x.id) === deepLinkedPid);
       if (q && pidFromHash() == null) openDetail(q);
+      else if (!q) showErrorToast("This record is no longer listed - the link named a property that is not in " + STATE_INFO.name + "'s current records.");
     });
+    else showErrorToast("This record is no longer listed - the link named a property that is not in " + STATE_INFO.name + "'s current records.");
   }
 }
 
@@ -5074,6 +5073,11 @@ function textMatches(p, qRaw) {
   if ((p.address || "").toLowerCase().includes(q)) return true;
   if ((p.county || "").toLowerCase().includes(q)) return true;
   if ((p.owner_name || "").toLowerCase().includes(q)) return true;
+  // Audit F19: the row's own property type, as stored and as bucketed
+  // ("vacant lot" / "houses" / "condo" find the rows typed that way).
+  if ((p.prop_type || "").toLowerCase().includes(q)) return true;
+  const qType = nqTypeOnly(q);
+  if (qType && propType(p) === qType) return true;
 
   const qid = squashId(q);
   // A query of pure punctuation squashes to nothing, which would otherwise
@@ -7172,12 +7176,26 @@ async function renderCountyPage() {
   if (!COUNTY_INTEL) sec.innerHTML = `<p class="muted cty-loading">Loading county intelligence…</p>`;
   const doc = await loadCountyIntel();
   if (!doc) { sec.innerHTML = `<div class="cty"><p class="muted">County intelligence could not be loaded right now.</p><button type="button" class="detail-btn" data-action="countyretry">Retry</button></div>`; return; }
+  // Audit F18 / F102: a name the state does not have is never a county page.
+  // The index opens instead, saying which name was not found, and the URL
+  // follows so a reload or a share does not repeat the bad route.
+  // The name is kept on COUNTY_PAGE (cleared by the next explicit open), so
+  // a second, overlapping render of the index still carries the notice.
+  if (COUNTY_PAGE.view === "county" && COUNTY_PAGE.county && !knownCountyName(COUNTY_PAGE.county, st)) {
+    await loadCountyCentroidsOnce();
+    if (COUNTY_PAGE.view === "county" && COUNTY_PAGE.county && !knownCountyName(COUNTY_PAGE.county, st)) {
+      COUNTY_PAGE.notFound = COUNTY_PAGE.county;
+      COUNTY_PAGE.view = "index"; COUNTY_PAGE.county = null;
+      try { if (shellPage === "county") syncPageHash(); } catch { /* not routed yet */ }
+    }
+  }
   if (COUNTY_PAGE.view === "county" && COUNTY_PAGE.county) sec.innerHTML = countyPageHtml(countyIntelFor(doc, st, COUNTY_PAGE.county), st);
   else {
     if (COUNTY_PAGE.showAll && !COUNTY_PAGE.centroids) {
       try { COUNTY_PAGE.centroids = await (await fetch("county-centroids.json")).json(); } catch { COUNTY_PAGE.centroids = {}; }
     }
-    sec.innerHTML = countyIndexHtml(doc, st);
+    const notFound = COUNTY_PAGE.notFound || "";
+    sec.innerHTML = (notFound ? `<p class="cty-notfound" role="status">No ${esc(UNIT_WORD.toLowerCase())} named "${esc(notFound)}" in ${esc(STATE_META[st] ? STATE_META[st].name : st)}. Pick one below.</p>` : "") + countyIndexHtml(doc, st);
     const inp = sec.querySelector("#countyIndexSearch");
     if (inp) inp.addEventListener("input", () => {
       COUNTY_PAGE.filter = inp.value;
@@ -7196,7 +7214,7 @@ function countyPageHash() {
 }
 function openCountyPage(county, st) {
   countyPageState();
-  COUNTY_PAGE.view = "county"; COUNTY_PAGE.county = county; COUNTY_PAGE.st = st || PAGE_STATE;
+  COUNTY_PAGE.view = "county"; COUNTY_PAGE.county = county; COUNTY_PAGE.st = st || PAGE_STATE; COUNTY_PAGE.notFound = "";
   if (countyModalUi && document.getElementById("countyModal") && !document.getElementById("countyModal").hidden) countyModalUi.close();
   if (document.getElementById("detailModal") && !document.getElementById("detailModal").hidden) closeDetail();
   track("county_dossier_opened", { county_known: !!county });
@@ -7204,7 +7222,7 @@ function openCountyPage(county, st) {
 }
 function openCountyIndex() {
   countyPageState();
-  COUNTY_PAGE.view = "index"; COUNTY_PAGE.county = null; COUNTY_PAGE.st = PAGE_STATE;
+  COUNTY_PAGE.view = "index"; COUNTY_PAGE.county = null; COUNTY_PAGE.st = PAGE_STATE; COUNTY_PAGE.notFound = "";
   showPage("county");
 }
 window.__tdwOpenCountyPage = openCountyPage;
@@ -7541,7 +7559,7 @@ function rulesPageHash() {
   return RULES_PAGE.county ? "#/rules?county=" + encodeURIComponent(RULES_PAGE.county) : "#/rules";
 }
 function openRulesPage(county, ledger) {
-  RULES_PAGE.county = county || null;
+  RULES_PAGE.county = county || null; RULES_PAGE.notFound = "";
   RULES_PAGE.ledger = ledger && RULE_LEDGER_NAMES[ledger] ? ledger : null;
   if (document.getElementById("detailModal") && !document.getElementById("detailModal").hidden) closeDetail();
   showPage("rules");
@@ -7629,7 +7647,17 @@ async function renderRulesPage() {
   if (!STATE_RULES) sec.innerHTML = `<p class="muted">Loading state rules…</p>`;
   const doc = await loadStateRules();
   if (!doc) { sec.innerHTML = `<div class="rules"><p class="muted">State rules could not be loaded right now.</p><button type="button" class="detail-btn" data-action="rulesretry">Retry</button></div>`; return; }
-  sec.innerHTML = rulesPageHtml(doc, PAGE_STATE, RULES_PAGE.county);
+  // Audit F18 / F102: #/rules?county=<name> for a name this state does not
+  // have falls back to the statewide rules and says so.
+  if (RULES_PAGE.county && !knownCountyName(RULES_PAGE.county, PAGE_STATE)) {
+    await loadCountyCentroidsOnce();
+    if (RULES_PAGE.county && !knownCountyName(RULES_PAGE.county, PAGE_STATE)) {
+      RULES_PAGE.notFound = RULES_PAGE.county; RULES_PAGE.county = null;
+      try { if (shellPage === "rules") syncPageHash(); } catch { /* not routed yet */ }
+    }
+  }
+  const notFound = RULES_PAGE.notFound || "";
+  sec.innerHTML = (notFound ? `<p class="cty-notfound" role="status">No ${esc(UNIT_WORD.toLowerCase())} named "${esc(notFound)}" in ${esc(STATE_INFO.name)} - showing the statewide rules.</p>` : "") + rulesPageHtml(doc, PAGE_STATE, RULES_PAGE.county);
   if (RULES_PAGE.ledger) {
     const block = document.getElementById("rulesLedger" + RULES_PAGE.ledger);
     if (block && typeof block.scrollIntoView === "function") block.scrollIntoView({ block: "start" });
@@ -8361,15 +8389,22 @@ function availableDecisionHtml(p) {
   const listUrl0 = p.list_url || (p.url_auction_kind === "county" ? p.url_auction : null);
   const docUrl0 = p.document_url && p.document_url !== listUrl0 ? p.document_url : null;
   const listing = [];
-  if (listUrl0) listing.push(`<a href="${esc(listUrl0)}" target="_blank" rel="noopener">${esc(tx ? "Vendor list page" : `${UNIT_WORD} list page`)} →</a>`);
+  // Audit F74: a vendor listing (Texas LGBS / PBFCM / MVBA) is named as one;
+  // a Texas county's own trust / resale list is the county's.
+  const vendorList = /^VENDOR_/.test(String(p.source_authority || "")) || (tx && !p.source_authority);
+  if (listUrl0) listing.push(`<a href="${esc(listUrl0)}" target="_blank" rel="noopener">${esc(vendorList ? "Vendor list page" : `${UNIT_WORD} list page`)} →</a>`);
   if (docUrl0) listing.push(`<a href="${esc(docUrl0)}" target="_blank" rel="noopener">List document (PDF / file) →</a>`);
   const srcDate = p.list_as_of ? `list dated ${dateOnly(p.list_as_of)}` : (p.source_published_at ? `document dated ${dateOnly(p.source_published_at)}` : "source date not published");
   const sm = op.source_match && typeof op.source_match === "object" ? op.source_match : null;
   const matchText = sm && sm.value ? `Matched to the list by ${String(sm.identifier).replace("_", " ")} ${sm.value}${sm.parcel ? ` (parcel ${sm.parcel})` : ""}${sm.read_at ? ` · read ${dateOnly(sm.read_at)}` : ""}`
     : (causeInParcel(p) ? `Listed under account ${p.case_no || "?"}${causeOf(p) ? ` (tax suit cause ${causeOf(p)})` : ""}` : p.case_no ? `Listed under case ${p.case_no}${hasParcel(p) ? ` (parcel ${p.parcel})` : ""}` : (hasParcel(p) ? `Listed under parcel ${p.parcel}` : "Identity on the list not recorded"));
-  const listedLine = sub(`<span class="acq-scope" data-scope="listing">${esc(sm && sm.value ? "Property-specific: this parcel appears on the official county list." : (p.last_seen_at ? "This parcel was on the official county list when it was last read." : "Not yet matched to a read of the county list."))}</span>`);
+  // Audit F74: the list is named by who publishes it - a vendor's listing
+  // for the taxing units (Texas LGBS / PBFCM / MVBA) is never "the official
+  // county list", and a Parish list is the Parish's, never a county's.
+  const listNoun = vendorList ? "the vendor's listing for the taxing units" : `the official ${UNIT_WORD.toLowerCase()} list`;
+  const listedLine = sub(`<span class="acq-scope" data-scope="listing">${esc(sm && sm.value ? `Property-specific: this parcel appears on ${listNoun}.` : (p.last_seen_at ? `This parcel was on ${listNoun} when it was last read.` : `Not yet matched to a read of ${listNoun}.`))}</span>`);
   if (sourceUnderReview(p)) rows.push(q("review", "Is the source approved?", `<span class="prov-review">Source under review</span>${sub(esc(REVIEW_REQUIRED_TEXT))}`, "muted"));
-  rows.push(q("why", "Why is it in Available?", `${what}${listedLine}${sub(esc(op.inventory_type ? `Basis: ${op.inventory_type}` : (p.source_authority ? `Published by ${SOURCE_AUTHORITY_LABELS[p.source_authority] || p.source_authority}` : "Basis not recorded")))}${sub(`${listing.length ? listing.join(" · ") + " · " : `<span class="muted">No list URL published</span> · `}${esc(srcDate)}`)}${sub(`<span class="acq-match">${esc(matchText)}</span>`)}`));
+  rows.push(q("why", "Why is it in Available?", `${what}${listedLine}${sub(esc(op.inventory_type ? `Basis: ${op.inventory_type}` : (p.source_authority ? `Published by ${p.source_authority === "GOVERNMENT_DIRECT" ? `the ${UNIT_WORD.toLowerCase()}'s own site` : (SOURCE_AUTHORITY_LABELS[p.source_authority] || "the source")}` : "Basis not recorded")))}${sub(`${listing.length ? listing.join(" · ") + " · " : `<span class="muted">No list URL published</span> · `}${esc(srcDate)}`)}${sub(`<span class="acq-match">${esc(matchText)}</span>`)}`));
   // 2. Is it available now?
   let avail, availCls = "";
   if (isDatedList(p)) { avail = muted(`Not verified as available now - on the Parish's adjudicated-property list as of ${p.list_as_of ? dateOnly(p.list_as_of) : "an unpublished date"}; confirm current status with the Parish`); availCls = "muted"; }
@@ -10827,8 +10862,16 @@ document.addEventListener("click", async e => {
     if (countyModalUi) countyModalUi.close();
     if (document.getElementById("detailModal") && !document.getElementById("detailModal").hidden) closeDetail();
     goToLedger(k);
-    state.counties = new Set([county]);
-    updateBadge(); render();
+    // Audit F61: ONE county selection (CLAUDE.md) - the County dropdown, the
+    // Filters chips and the Map follow, instead of a bare state.counties
+    // write the controls never learn of. A sale-day entry (data-date) opens
+    // that day's sales only, through the List's own sale-date range.
+    const date = btn.dataset.date || "";
+    state.saleFrom = date; state.saleTo = date;
+    const sf = document.getElementById("saleFromFilter"), stt = document.getElementById("saleToFilter");
+    if (sf) sf.value = date;
+    if (stt) stt.value = date;
+    applyCountySelection(county);
     return;
   }
   if (action === "retryprovenance") {
@@ -11443,7 +11486,7 @@ function saleDayEventsHtml(day) {
   const li = e => {
     const facts = [`${e.bids} of ${e.count} with a published bid`, e.process ? "Sale process verified" : "Sale process not yet verified"];
     if (e.watched) facts.unshift(`${e.watched} watched`);
-    return `<li class="cc-event${e.days <= 3 ? " cc-soon" : ""}"><button type="button" class="desk-event sales-event" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction">
+    return `<li class="cc-event${e.days <= 3 ? " cc-soon" : ""}"><button type="button" class="desk-event sales-event" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction" data-date="${esc(String(e.date || day.date).slice(0, 10))}">
       <span class="desk-event-where">${esc(e.county)} ${esc(UNIT_WORD)} · ${esc(PAGE_STATE)}</span>
       <span class="desk-event-what">${esc(word)} sale</span>
       ${many ? `<span class="desk-event-n">${e.count} propert${e.count === 1 ? "y" : "ies"}</span>` : ""}
@@ -11969,7 +12012,41 @@ function syncPageHash() {
 function stateSwitchHash() {
   const r = routeFromHash();
   if (r && r.page === "list" && r.pid) return "#/" + (LEDGERS[r.ledger] || LEDGERS.auction).slug;
+  // Audit F18: a county belongs to one state exactly as a property does -
+  // a county, rules or guide route drops its county and lands on the new
+  // state's index / statewide page.
+  if (r && r.page === "county") return "#/counties";
+  if (r && r.page === "rules") return "#/rules";
+  if (r && r.page === "guide") return "#/guide" + (r.guideLedger ? "?ledger=" + encodeURIComponent(r.guideLedger) : "");
+  if (r && r.page === "map" && r.params && r.params.county) {
+    const q = new URLSearchParams(r.params); q.delete("county");
+    const qs = q.toString();
+    return "#/map" + (qs ? "?" + qs : "");
+  }
   return location.hash || "";
+}
+// Audit F18 / F102: a county name is accepted only when the open state has
+// it - the page's ALL_COUNTIES, a county the loaded rows or county
+// intelligence name, or (once loaded) the state's full county list from
+// county-centroids.json. Anything else is not a page.
+function knownCountyName(name, st) {
+  if (!name) return false;
+  const s = st || PAGE_STATE;
+  // ALL_COUNTIES is the open page's county universe (Florida's full list on
+  // the Florida page, the loaded rows' counties elsewhere).
+  if (s === PAGE_STATE && ALL_COUNTIES.includes(name)) return true;
+  if (ALL.some(p => regionOf(p) === s && p.county === name)) return true;
+  const doc = COUNTY_INTEL && Array.isArray(COUNTY_INTEL.states) ? COUNTY_INTEL.states.find(x => x.state === s) : null;
+  if (doc && doc.counties.some(c => c.county === name)) return true;
+  const cents = COUNTY_PAGE && COUNTY_PAGE.centroids && COUNTY_PAGE.centroids[s];
+  return !!(cents && Object.prototype.hasOwnProperty.call(cents, name));
+}
+async function loadCountyCentroidsOnce() {
+  countyPageState();
+  if (!COUNTY_PAGE.centroids) {
+    try { COUNTY_PAGE.centroids = await (await fetch("county-centroids.json")).json(); } catch { COUNTY_PAGE.centroids = {}; }
+  }
+  return COUNTY_PAGE.centroids;
 }
 function stateSwitchHref(st) {
   return STATE_META[st] ? STATE_META[st].page + (location.search || "") + stateSwitchHash() : null;
@@ -14008,6 +14085,7 @@ function applyPageTitle(propertyLabel) {
   else if (page === "map") head = "Map";
   else if (page === "county") head = "County Intelligence";
   else if (page === "guide") head = "Buyer's Guide";
+  else if (page === "rules") head = "State rules";   // audit F98
   else if (page === "research") head = "My Research";
   else if (page === "watchlist") head = "Watchlist";
   else { const cfg = ledgerCopy(state.ledger); head = (cfg && cfg.title) || "Properties"; }
@@ -15428,6 +15506,30 @@ const NQ_LEDGER_WORDS = [
   [/\b(auctions?|tax deeds?|deed sales?|sheriff sales?)\b/i, "auction"],
   [/\b(liens?|certificates?|tax certs?)\b/i, "certificate"]
 ];
+// Audit F19: plain-language property-type words become the List's own
+// property-type filter (TYPE_ORDER, the same buckets propType() sorts every
+// row's prop_type into) instead of free text that only ever matched an
+// address, county or identifier. One bucket per phrase; "vacant land" and
+// "vacant lot" are the same bucket, as propType() already treats them.
+var NQ_TYPE_WORDS = [
+  [/\b(vacant(?: (?:lots?|land|parcels?))?|empty lots?|lots?(?!\s*\d)|land)\b/i, "Vacant Lot"],
+  [/\b(mobile homes?|manufactured(?: homes?)?|mobile\/manuf\.?)\b/i, "Mobile/Manuf."],
+  [/\b(townho(?:me|use)s?)\b/i, "Townhome"],
+  [/\b(condos?|condominiums?)\b/i, "Condo"],
+  [/\b(houses?|homes?|single[- ]family|residential|residences?)\b/i, "House"],
+  [/\b(commercial|retail|offices?|industrial|warehouses?)\b/i, "Commercial"]
+];
+// The type bucket when the text is NOTHING BUT a type phrase ("vacant lot",
+// "houses"), so a plain text search reads it as a type; "lot 6 sunrise" stays
+// an address search.
+function nqTypeOnly(text) {
+  const q = " " + String(text || "") + " ";
+  for (const [re, t] of (NQ_TYPE_WORDS || [])) {
+    const m = q.match(re);
+    if (m && !q.replace(m[0], "").trim()) return t;
+  }
+  return null;
+}
 function nqMoney(s) {
   const m = String(s).replace(/[$,\s]/g, "").match(/^(\d+(?:\.\d+)?)(k|m)?$/i);
   if (!m) return null;
@@ -15435,7 +15537,7 @@ function nqMoney(s) {
 }
 function parseNaturalQuery(raw, counties) {
   let q = " " + String(raw || "").trim() + " ";
-  const out = { ledger: null, county: null, min: null, max: null, verified: false, text: "", chips: [], plain: false };
+  const out = { ledger: null, county: null, min: null, max: null, verified: false, type: null, text: "", chips: [], plain: false };
   // A query that starts with a number is an address, parcel or case number
   // ("15 Manatee Ln" is a street, not Manatee County): plain text search.
   if (/^\s*\d/.test(q) && !/^\s*\$/.test(q)) { out.plain = true; out.text = String(raw || "").trim(); return out; }
@@ -15455,6 +15557,11 @@ function parseNaturalQuery(raw, counties) {
     if ((m = q.match(re))) { out.ledger = k; q = q.replace(m[0], " "); break; }
   }
   if ((m = q.match(/\b(verified|with (?:a )?(?:verified )?(?:acquisition|purchase) path)\b/i))) { out.verified = true; q = q.replace(m[0], " "); }
+  // Property type (audit F19): "vacant lot", "houses", "condo" ... become the
+  // List's own type filter, never leftover free text.
+  for (const [re, t] of NQ_TYPE_WORDS) {
+    if ((m = q.match(re))) { out.type = t; q = q.replace(m[0], " "); break; }
+  }
   // Longest county name first, so "St. Lucie" wins over "Lucie" and
   // "East Baton Rouge" over "Baton Rouge".
   const names = (counties || []).slice().sort((a, b) => b.length - a.length);
@@ -15466,21 +15573,24 @@ function parseNaturalQuery(raw, counties) {
   out.text = q.replace(/\s+/g, " ").trim();
   return out;
 }
-function nqStructured(nq) { return !!(nq && !nq.plain && (nq.ledger || nq.county || nq.min !== null || nq.max !== null || nq.verified)); }
+function nqStructured(nq) { return !!(nq && !nq.plain && (nq.ledger || nq.county || nq.min !== null || nq.max !== null || nq.verified || nq.type)); }
 // The same predicates the List applies once these become its filters
-// (passes(): ledger, county, the bid range on p.bid, the verified path).
+// (passes(): ledger, county, the bid range on p.bid, the verified path, the
+// property type - propType(), the bucket the row's own prop_type sorts into).
 function nqMatches(p, nq) {
   if (nq.ledger && p.source !== nq.ledger) return false;
   if (nq.county && p.county !== nq.county) return false;
   if (nq.min !== null && Number(p.bid) < nq.min) return false;
   if (nq.max !== null && Number(p.bid) > nq.max) return false;
   if (nq.verified && !ssAcquisitionVerified(p)) return false;
+  if (nq.type && propType(p) !== nq.type) return false;
   return !nq.text || textMatches(p, nq.text);
 }
 function nqChipsHtml(nq) {
   const chips = [];
   if (nq.ledger) chips.push(ledgerNavName(nq.ledger));
   if (nq.county) chips.push(`${nq.county} ${UNIT_WORD}`);
+  if (nq.type) chips.push(`Property type ${nq.type}`);
   if (nq.min !== null && nq.max !== null) chips.push(`Amount ${fmtMoney(nq.min)} - ${fmtMoney(nq.max)}`);
   else if (nq.max !== null) chips.push(`Amount up to ${fmtMoney(nq.max)}`);
   else if (nq.min !== null) chips.push(`Amount from ${fmtMoney(nq.min)}`);
@@ -15696,9 +15806,16 @@ function applyNaturalQuery(nq) {
   state.acqState = nq.verified ? "verified" : "any";
   const acqSel = document.getElementById("acqStateFilter");
   if (acqSel) acqSel.value = state.acqState;
+  // Audit F19: a property-type word becomes the List's own type filter. That
+  // filter is applied on the Florida page only (passes()), so elsewhere the
+  // type stays in the text query, which textMatches() reads against the
+  // row's own property type.
+  let text = nq.text;
+  if (PAGE_STATE === "FL") { state.types = nq.type ? new Set([nq.type]) : new Set(TYPE_ORDER); buildChips("typeChips", TYPE_ORDER, state.types); }
+  else if (nq.type) text = (nq.type + " " + text).trim();
   const si = document.getElementById("searchInput");
-  if (si) si.value = nq.text;
-  state.search = nq.text;
+  if (si) si.value = text;
+  state.search = text;
   updateBadge();
   render();
   track("search_interpreted", { ledger: nq.ledger || "", county: !!nq.county, bounds: nq.min !== null || nq.max !== null, verified: nq.verified, text: !!nq.text });
@@ -15809,8 +15926,11 @@ function homeDeskRowHtml(p) {
   const amt = amountShort(p);
   const a = p.source === "laft" ? acquisitionOf(p) : null;
   const seen = p.last_seen_at ? `last read ${dateOnly(p.last_seen_at)}` : "read date not recorded";
+  // Audit F27: the row carries the same phase as the List kicker, so a dated
+  // Parish list or a Texas future-sale row never reads as available now.
+  const phase = p.source === "laft" ? kickerParts(p).phase : "";
   return `<button type="button" class="desk-row" data-ledger="${esc(p.source)}" data-home-pid="${esc(String(p.id))}">
-    <span class="desk-kicker">${esc(STATE_INFO.name)} · ${esc(p.county || "")} ${esc(UNIT_WORD)}</span>
+    <span class="desk-kicker">${esc(STATE_INFO.name)} · ${esc(p.county || "")} ${esc(UNIT_WORD)}${phase ? ` · <span class="desk-phase">${esc(phase)}</span>` : ""}</span>
     <span class="desk-title">${street ? esc(street) : lotTitle(p)}</span>
     <span class="desk-sub">${hasParcel(p) ? `Parcel ${esc(parcelOf(p))}` : "Parcel # not published"}</span>
     <span class="desk-money"><b class="${amt.state === "not_published" || amt.state === "official_expired" ? "unpublished" : ""}">${esc(amt.text)}</b><span>${esc(amt.label)}</span></span>
@@ -15830,11 +15950,14 @@ function renderHomeDesk() {
   const topCounties = Array.from(counties.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 6);
   const intelOf = c => COUNTY_INTEL ? countyIntelFor(COUNTY_INTEL, PAGE_STATE, c).intel : null;
   const head = (title, sub, more) => `<div class="home-desk-head"><h2>${esc(title)}</h2>${sub ? `<span class="home-desk-sub">${sub}</span>` : ""}${more || ""}</div>`;
-  const availHtml = `<section class="home-desk-block" id="homeAvailableNow" data-ledger="laft">${head("Available now", esc(`${STATE_INFO.name} · ${ledgerCountText("laft", live.filter(p => p.source === "laft").length, true)} listed`), `<button type="button" class="link-btn" data-home-ledger="laft">All Available &rarr;</button>`)}
+  // Audit F27: the block is headed by the ledger's own name ("Available",
+  // Texas "OTC Catalog — Struck-Off Inventory", Louisiana's dated list) -
+  // never "Available now", which a dated or future-sale row cannot claim.
+  const availHtml = `<section class="home-desk-block" id="homeAvailableNow" data-ledger="laft">${head(ledgerCopy("laft").title || "Available", esc(`${STATE_INFO.name} · ${ledgerCountText("laft", live.filter(p => p.source === "laft").length, true)} listed`), `<button type="button" class="link-btn" data-home-ledger="laft">All Available &rarr;</button>`)}
     ${avail.length ? avail.map(homeDeskRowHtml).join("") : `<p class="home-desk-empty">${esc(availLoading ? "Loading Available…" : `No Available properties are listed for ${STATE_INFO.name} right now.`)}</p>`}</section>`;
   const word = (ledgerCopy("auction").nav || "Auction").replace(/s$/, "");
   const salesHtml = `<section class="home-desk-block" id="homeUpcomingSales" data-ledger="auction">${head("Upcoming auctions", "", `<button type="button" class="link-btn" data-home-ledger="auction">All auctions &rarr;</button>`)}
-    ${sales.length ? sales.map(e => { const d = new Date(e.date + "T12:00:00"); return `<button type="button" class="desk-event" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction"><span class="desk-date"><b>${isNaN(d) ? "" : d.getDate()}</b><span>${isNaN(d) ? "" : esc(d.toLocaleString("en-US", { month: "short" }).toUpperCase())}</span></span><span class="desk-event-where">${esc(e.county)} ${esc(UNIT_WORD)} · ${esc(PAGE_STATE)}</span><span class="desk-event-what">${esc(word)} sale</span><span class="desk-event-n">${e.count} propert${e.count === 1 ? "y" : "ies"}</span></button>`; }).join("")
+    ${sales.length ? sales.map(e => { const d = new Date(e.date + "T12:00:00"); return `<button type="button" class="desk-event" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction" data-date="${esc(String(e.date).slice(0, 10))}"><span class="desk-date"><b>${isNaN(d) ? "" : d.getDate()}</b><span>${isNaN(d) ? "" : esc(d.toLocaleString("en-US", { month: "short" }).toUpperCase())}</span></span><span class="desk-event-where">${esc(e.county)} ${esc(UNIT_WORD)} · ${esc(PAGE_STATE)}</span><span class="desk-event-what">${esc(word)} sale</span><span class="desk-event-n">${e.count} propert${e.count === 1 ? "y" : "ies"}</span></button>`; }).join("")
       : `<p class="home-desk-empty">${esc(ledgerSettled("auction") ? `No upcoming sale dates are listed for ${STATE_INFO.name}.` : "Loading auctions…")}</p>`}</section>`;
   const countyHtml = `<section class="home-desk-block" id="homeCountyIntel">${head("County intelligence", "", `<button type="button" class="link-btn" id="homeAllCounties">All counties &rarr;</button>`)}
     <div class="desk-counties">${topCounties.length ? topCounties.map(([c, n]) => { const k = intelOf(c); return `<button type="button" class="desk-county" data-action="countyintel" data-county="${esc(c)}"><b>${esc(c)}</b>${k ? countyIntelChipHtml(k) : ""}<span class="n">${n.toLocaleString("en-US")} on file</span></button>`; }).join("") : `<p class="home-desk-empty">No county has records on file yet.</p>`}</div></section>`;
@@ -16059,7 +16182,12 @@ function pickerCacheWrite(v) {
   try { sessionStorage.setItem(PICKER_CACHE_KEY + ({ all: ":a", preview: ":p", paid: ":b" }[viewerScope()] || ":c"), JSON.stringify(v)); } catch { /* private mode */ }
 }
 async function probeStateLedger(st, k) {
-  let q = sb.from("properties").select("id").eq("state", st).eq("source", k).limit(1);
+  // Audit F62: a badge only where the ledger has a CURRENT row - the same
+  // rule shellActiveRows() applies on the state's own page: not closed /
+  // sold / gone, and for auctions a sale date that has not passed.
+  let q = sb.from("properties").select("id").eq("state", st).eq("source", k)
+    .not("status", "in", "(closed,sold,dropped,gone,withdrawn,cancelled)").limit(1);
+  if (k === "auction") q = q.or(`sale_date.is.null,sale_date.gte.${new Date().toISOString().slice(0, 10)}`);
   if (viewerScope() === "paid") q = q.eq("publication_status", "APPROVED").in("source_id", [...PAID_BETA_SOURCES]);
   else if (!IS_ADMIN && PUBLICATION_MODE !== "preview") q = q.or("publication_status.is.null,publication_status.in.(APPROVED,APPROVED_GRANDFATHERED)");
   const r = await q;
@@ -17002,10 +17130,66 @@ function tierSize(p) {
   if (hasNum(p.acreage) && Number(p.acreage) > 0) return `${Number(p.acreage) < 10 ? Number(p.acreage).toFixed(2) : Math.round(Number(p.acreage))} acres`;
   return lotSize(p);
 }
+// Audit F25 / F26 / F71 (2026-11-03): the Guided tier names the sale the way
+// the SOURCE runs it, never "tax-deed auction" for every auction row. One
+// entry per auction source with rows (registry source_terminology / the
+// adapter notes in harvesters/otc/adapters/expansion.py); a source not named
+// here falls back to its state's sale, then to a plain "tax sale". `lien`
+// marks a sale of the lien, not the land (CO / WY) - its stages end with a
+// certificate, not a deed. `how` is the way in, in the source's own terms.
+// var + function declarations: render() can reach this during module init.
+var AUCTION_SALE_KINDS = {
+  co_saguache_tax_sale: { kind: "Tax lien sale", lien: true, how: "The county sells a lien on the account, not the land. The County Treasurer's sale page states registration, bidding and payment." },
+  co_douglas_tax_sale_list: { kind: "Tax lien sale", lien: true, how: "The county sells a lien on the account, not the land, through the online sale site it names. Register there and bid on the lien." },
+  wy_albany_tax_sale: { kind: "Tax lien sale", lien: true, how: "Wyoming's tax sale sells a tax lien certificate on the parcel, not the land. The County Treasurer's sale page states registration and payment." },
+  co_morgan_treasurer_deed_auctions: { kind: "Treasurer's deed option auction", how: "The county auctions an option for a Treasurer's deed on an unredeemed certificate; the Treasurer's page states the auction date and terms." },
+  wi_dane_tax_deed_auction: { kind: "Tax deed sale (sealed bid)", how: "Submit a bid on the county's bid form by the bid-due date; only bids at or above the appraised value are awarded." },
+  wi_green_tax_deed_sales: { kind: "Tax deed sale (sealed bid)", how: "Submit a sealed bid on the county's bid form to the County Clerk by the date the sale page states." },
+  sc_york_tax_sale: { kind: "County tax sale", how: "Bid in person at the county's tax sale; the opening bid is all delinquent taxes, penalties and costs plus the current year's taxes, paid in full on the day. The former owner keeps a redemption period." },
+  sc_horry_tax_sale: { kind: "County tax sale", how: "Bid at the county's open-bid tax sale; its Tax Sale Information document states registration and payment. The former owner keeps a redemption period." },
+  sc_oconee_tax_sale_list: { kind: "County tax sale", how: "Bid in person at the county's tax sale; its sale-list page states the place, time and terms. The former owner keeps a redemption period." },
+  mi_eaton_treasurer_sale: { kind: "County treasurer's foreclosure sale", how: "Bid at the county treasurer's sale on the terms its sale page states." },
+  mi_lenawee_tax_sale: { kind: "County treasurer's foreclosure sale", how: "Bid at the county treasurer's sale on the terms its sale page states." },
+  mi_tax_sale_info_auction: { kind: "County treasurer's foreclosure auction", how: "Register and bid on the auction service the county treasurer uses (Tax-Sale.info), on the catalog's terms." },
+  mn_wright_tax_forfeit: { kind: "County tax-forfeited land auction", how: "Bid at the county's online auction (its Public Surplus page); the starting price is the opening bid, not the final price." },
+  tx_realauction: { kind: "Sheriff's / constable's tax sale", how: "Register on the county's designated online sale site, follow its deposit rules and bid on sale day." },
+  tx_govease: { kind: "Sheriff's / constable's tax sale (online)", how: "Register on the online sale site the county uses (GovEase), follow its deposit rules and bid on sale day." },
+  tx_hctax: { kind: "Constable's tax sale", how: "Bid in person at the county's monthly constable sale; the Tax Office listing states the place, time and terms." },
+  tx_jefferson_sheriff_sale: { kind: "Sheriff's tax sale", how: "Bid at the Sheriff's sale named in the Tax Office's Notice of Sale; the notice states the place, time and terms." },
+  tx_lgbs: { kind: "Sheriff's / constable's tax sale", how: "Bid at the county's Sheriff's or Constable's sale, in person or on the online site the listing names." },
+  tx_pbfcm: { kind: "Sheriff's / constable's tax sale", how: "Bid at the county's Sheriff's or Constable's sale on the terms the sale notice states." },
+  tx_mvba: { kind: "Sheriff's / constable's tax sale", how: "Bid at the county's Sheriff's or Constable's sale on the terms the sale notice states." }
+};
+var STATE_SALE_KINDS = {
+  FL: { kind: "Tax-deed auction", how: "Register on the county's auction site, follow its deposit rules and bid on sale day." },
+  TX: { kind: "Sheriff's / constable's tax sale", how: "Bid at the county's Sheriff's or Constable's sale, in person or on the county's designated online sale site." },
+  CO: { kind: "Tax lien sale", lien: true, how: "Colorado's tax lien sale sells a lien on the account, not the land. The County Treasurer's sale page states registration and payment." },
+  WY: { kind: "Tax lien sale", lien: true, how: "Wyoming's tax sale sells a tax lien certificate on the parcel, not the land. The County Treasurer's sale page states registration and payment." }
+};
+function saleKindOf(p) {
+  if (!p || p.source !== "auction") return null;
+  const sid = p.source_id || p.harvester_source || "";
+  const bySource = AUCTION_SALE_KINDS[sid];
+  if (bySource) return bySource;
+  return STATE_SALE_KINDS[regionOf(p)] || { kind: "Tax sale", how: "Follow the county's published sale process; its sale page states the registration, deposit and payment rules." };
+}
+// The office that holds and sells a county-held certificate: Florida's tax
+// collector; elsewhere the county office named on the list (a treasurer in
+// Colorado) - never Florida wording for another state.
+function certOffice(p) {
+  return regionOf(p) === "FL" ? "the tax collector" : "the county office that holds the certificate";
+}
+// The list an Available row is on, in that list's own name: Florida's Lands
+// Available for Taxes; a Texas vendor / county resale list with the vendor's
+// own status; a dated Parish list; every other state its program's name.
+function availableListName(p) {
+  return regionOf(p) === "FL" ? "Lands Available for Taxes" : availableProgram(p);
+}
 function tierKind(p) {
-  if (p.source === "certificate") return "Tax lien certificate";
-  if (p.source === "auction") return "Tax-deed auction";
-  return availableProgram(p);
+  if (p.source === "certificate") return regionOf(p) === "FL" ? "Tax lien certificate" : "County-held tax lien certificate";
+  if (p.source === "auction") return saleKindOf(p).kind;
+  if (isDatedList(p)) return "Adjudicated property (dated list)";
+  return availableListName(p);
 }
 function tierTitle(p) {
   if (p.source === "certificate") return `Certificate #${esc(p.certificate_no || "Unknown")}`;
@@ -17078,31 +17262,41 @@ function guidedStages(p) {
     const facts5 = [];
     if (p.expiration_date) facts5.push({ title: "Expires", answer: fmtDate(p.expiration_date) });
     const tda = tdaEligibleText(p);
+    // Audit F26: every certificate row here is county-held and sold by
+    // assignment (LEDGERS.certificate.sub) - nobody bids at a sale for it.
+    const office = certOffice(p);
+    const officeCap = office[0].toUpperCase() + office.slice(1);
     return [
       { key: "find", title: "Find it", facts: facts1, tasks: [] },
-      { key: "price", title: "Know the amount", facts: facts2, tasks: facts2.length < 2 ? [{ key: "amount", title: "Confirm the amount and rate", how: "The tax collector's certificate list states both." }] : [] },
+      { key: "price", title: "Know the amount", facts: facts2, tasks: facts2.length < 2 ? [{ key: "amount", title: "Confirm the amount and rate", how: `The county's certificate list states the amount; ask ${office} for the rate if the list does not publish it.` }] : [] },
       Object.assign({}, risks, { title: "Check the property", tasks: [{ key: "parcel", title: "Look up the property", how: "The appraiser's record shows what the certificate is on.", href: p.url_appraiser || null, hrefLabel: "Appraiser record" }].concat(risks.tasks.filter(t => t.key !== "see")) }),
-      { key: "buy", title: "Buy the certificate", facts: [], tasks: [{ key: "buy", title: "Bid at the certificate sale", how: "The tax collector's sale site lists the rules and dates.", href: auctionLinkInfo(p).href, hrefLabel: "County sale site" }] },
-      { key: "wait", title: "Wait for redemption", facts: facts5, tasks: [{ key: "track", title: "Track whether it is repaid", how: "The owner repays the amount with interest; the tax collector pays you." }] },
-      { key: "deed", title: "Apply for a tax deed", facts: tda ? [{ title: "Tax deed application", answer: tda }] : [], tasks: [{ key: "tda", title: "Apply for a tax deed if it is not repaid", how: "Ask the tax collector when you may apply." }] }
+      { key: "buy", title: "Buy the certificate", facts: [], tasks: [{ key: "buy", title: "Request an assignment from the county", how: `${officeCap} sells it by assignment for the amount it states - no sale, no bidding. Its list page states how to apply and pay.`, href: auctionLinkInfo(p).href, hrefLabel: "County certificate list" }] },
+      { key: "wait", title: "Wait for redemption", facts: facts5, tasks: [{ key: "track", title: "Track whether it is repaid", how: `The owner repays the amount with interest; ${office} pays you.` }] },
+      { key: "deed", title: "Apply for a tax deed", facts: tda ? [{ title: "Tax deed application", answer: tda }] : [], tasks: [{ key: "tda", title: "Apply for a tax deed if it is not repaid", how: `Ask ${office} when you may apply.` }] }
     ];
   }
 
   if (p.source === "auction") {
     const link = auctionLinkInfo(p);
+    const sale = saleKindOf(p);
     const facts1 = [];
     if (seen) facts1.push({ title: "On the county's sale list", answer: `Read ${seen}` });
     if (p.sale_date) facts1.push({ title: "Sale date", answer: fmtDate(String(p.sale_date).slice(0, 10)) });
     const facts2 = [];
     if (hasPublishedBid(p)) facts2.push({ title: auctionBidLabel(p, true), answer: fmtMoney(Number(p.bid)) });
     if (value) facts2.push(value);
+    // Audit F25: a lien sale ends with a certificate, never a deed; the way in
+    // is the source's own process, not Florida's online-auction wording.
+    const last = sale.lien
+      ? { key: "deed", title: "Pay and receive the certificate", facts: [], tasks: [{ key: "pay", title: "Pay and receive the lien certificate", how: "You hold a lien on the property, not the property. Ask the County Treasurer about redemption and when a deed may be applied for." }] }
+      : { key: "deed", title: "Pay and get the deed", facts: [], tasks: [{ key: "pay", title: "Pay the balance and receive the deed", how: "Follow the sale's payment deadline; ask the county when the deed is recorded." }] };
     return [
-      { key: "find", title: "Find it", facts: facts1, tasks: facts1.length ? [] : [{ key: "find", title: "Find the sale date", how: "The county's auction calendar lists it.", href: link.href, hrefLabel: "County auction site" }] },
-      { key: "price", title: "Know the bid", facts: facts2, tasks: [{ key: "ceiling", title: "Set your highest bid", how: "Add fees, back taxes and the cost of clearing title before you decide." }] },
+      { key: "find", title: "Find it", facts: facts1, tasks: facts1.length ? [] : [{ key: "find", title: "Find the sale date", how: "The county's sale page lists it.", href: link.href, hrefLabel: "County sale page" }] },
+      { key: "price", title: "Know the bid", facts: facts2, tasks: [{ key: "ceiling", title: "Set your highest bid", how: sale.lien ? "Decide the most you will pay for the lien; it is a debt secured by the property, not the property." : "Add fees, back taxes and the cost of clearing title before you decide." }] },
       risks,
-      { key: "register", title: "Register", facts: [], tasks: [{ key: "register", title: "Register and follow the deposit rules", how: "Do it on the county's auction site before sale day.", href: link.href, hrefLabel: "County auction site" }] },
-      { key: "bid", title: "Bid", facts: [], tasks: [{ key: "bid", title: "Bid on sale day", how: p.sale_date ? `The sale is ${fmtDate(String(p.sale_date).slice(0, 10))}.` : "Watch the county's calendar for the date." }] },
-      { key: "deed", title: "Pay and get the deed", facts: [], tasks: [{ key: "pay", title: "Pay the balance and receive the deed", how: "Follow the auction site's payment deadline; ask the clerk when the deed is recorded." }] }
+      { key: "register", title: "Register", facts: [], tasks: [{ key: "register", title: "Register for the sale", how: sale.how, href: link.href, hrefLabel: "County sale page" }] },
+      { key: "bid", title: "Bid", facts: [], tasks: [{ key: "bid", title: "Bid on sale day", how: p.sale_date ? `The sale is ${fmtDate(String(p.sale_date).slice(0, 10))}.` : "Watch the county's sale page for the date." }] },
+      last
     ];
   }
 
@@ -17115,7 +17309,15 @@ function guidedStages(p) {
   const office = a.verified && a.office ? a.office : `the ${p.county} ${UNIT_WORD} office`;
   const facts1 = [];
   if (isDatedList(p)) facts1.push({ title: "On a dated list", answer: p.list_as_of ? `Dated ${dateOnly(p.list_as_of)} - not confirmed as available today` : "List date not published" });
-  else if (seen) facts1.push({ title: "It is for sale", answer: `On the ${tierKind(p)} list, read ${seen}`, href: avail ? avail.href : null });
+  // Audit F71: "It is for sale" is asserted only when the source's own status
+  // says so (inventory_status available_otc); a Texas struck-off / future-sale
+  // row, or any other list presence, is a fact about the LIST, with the
+  // vendor's own status (kickerParts) where the row carries one.
+  else if (seen) {
+    const forSale = p.inventory_status === "available_otc";
+    const txPhase = regionOf(p) === "TX" ? kickerParts(p).phase : "";
+    facts1.push({ title: forSale ? "It is for sale" : "On the source's list", answer: `On the ${availableListName(p)} list, read ${seen}${txPhase ? ` · ${txPhase}` : ""}`, href: avail ? avail.href : null });
+  }
   if (a.verified) facts1.push({ title: "How it is sold", answer: a.label });
   if (a.verified && a.office) facts1.push({ title: "Who sells it", answer: a.office + (a.phone ? ` · ${a.phone.split(/\s+or\s+/)[0]}` : "") });
   const tasks1 = [];
@@ -17148,18 +17350,28 @@ function guidedStages(p) {
 }
 function guidedThree(p) {
   if (p.source === "certificate") {
+    // Audit F26: county-held, sold by assignment - no sale to bid at.
     return [
-      ["What it is", "A tax lien certificate: you pay the unpaid taxes, and the owner repays you with interest. It does not give you the property."],
-      ["What it costs", [hasPublishedBid(p) ? `Certificate amount ${bidDisplay(p)}` : "The certificate amount is not on file", hasNum(p.interest_rate) ? `interest rate ${p.interest_rate}%` : ""].filter(Boolean).join(", ") + "."],
-      ["How you buy it", "Bid at the county's certificate sale."]
+      ["What it is", "A county-held tax lien certificate: a debt secured by the property, not the property. The owner repays the amount with interest; only if nobody redeems can you apply for a deed."],
+      ["What it costs", [hasPublishedBid(p) ? `Certificate amount ${bidDisplay(p)}` : "The certificate amount is not on file", hasNum(p.interest_rate) ? `interest rate ${p.interest_rate}%` : "the interest rate is not published on the list"].filter(Boolean).join(", ") + "."],
+      ["How you buy it", `By assignment from ${certOffice(p)}, for the amount it states - no sale, no bidding.`]
     ];
   }
   if (p.source === "auction") {
-    return [
-      ["What it is", `A property the county will sell at its tax-deed auction${p.sale_date ? ` on ${fmtDate(String(p.sale_date).slice(0, 10))}` : ""}.`],
-      ["What it costs", hasPublishedBid(p) ? `${auctionBidLabel(p, true)} ${fmtMoney(Number(p.bid))}. Bidding starts there and can go higher.${hasValueNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : ""}` : "The opening bid is not published yet."],
-      ["How you buy it", "Register on the county's auction site, follow its deposit rules and bid on sale day."]
-    ];
+    // Audit F25: the sale is named per source / state (a Colorado or Wyoming
+    // lien sale is never a tax-deed auction); "Bidding starts there" only when
+    // the figure is a known opening / minimum bid, never for an amount whose
+    // kind the source did not state.
+    const sale = saleKindOf(p);
+    const when = p.sale_date ? ` on ${fmtDate(String(p.sale_date).slice(0, 10))}` : "";
+    const what = sale.lien
+      ? `A tax lien on this property, sold at the county's ${sale.kind.toLowerCase()}${when}. You would own the lien, not the land.`
+      : `A property offered at the county's ${sale.kind.toLowerCase()}${when}.`;
+    const unstated = p.purchase_amount_kind === "PUBLISHED_AMOUNT_KIND_UNSPECIFIED";
+    const cost = hasPublishedBid(p)
+      ? `${auctionBidLabel(p, true)} ${fmtMoney(Number(p.bid))}. ${unstated ? "The source did not say whether this is the opening bid." : "Bidding starts there and can go higher."}${hasValueNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : ""}`
+      : "The opening bid is not published yet.";
+    return [["What it is", what], ["What it costs", cost], ["How you buy it", sale.how]];
   }
   const a = acquisitionOf(p);
   const i = amountInfo(p);
