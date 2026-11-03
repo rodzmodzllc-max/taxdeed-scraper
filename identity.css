@@ -1,12 +1,14 @@
 /* =====================================================================
    TAXACQ IDENTITY (2026-10-05; customer-facing name TAXACQ since 2026-10-06)
    Public property acquisition intelligence: a light, editorial, record-
-   oriented design language. Warm stone paper, deep charcoal type, burnt
-   copper as the brand accent, and one muted semantic colour per ledger:
-   sage (Available), copper/rust (Auctions), plum (Liens & Certificates).
-   Thin rules and typographic hierarchy instead of floating cards, pills,
-   gradients and shadows. Serif display headings, a sans for reading, a
-   tabular mono for every figure.
+   oriented design language. Since 2026-11-03 it follows the TAXACQ brand
+   deck: ivory paper, ink type, mist hairlines and forest green as the
+   brand colour (the --copper* tokens hold forest), with sage accents, and
+   one muted semantic colour per ledger: sage (Available), rust (Auctions),
+   plum (Liens & Certificates). Thin rules and typographic hierarchy
+   instead of floating cards and gradients. Montserrat for display type,
+   the wordmark, navigation and buttons; Inter for reading, with tabular
+   figures. Section 14 holds the brand component rules.
 
    Loaded last (after styles.css and explore.css) on every page, so it
    re-skins the existing markup: no id, class or data attribute changes
