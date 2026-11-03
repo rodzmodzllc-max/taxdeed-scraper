@@ -4350,7 +4350,9 @@ await navMap.close();
   {
     const pg = await newPage({ viewport: { width: 1280, height: 900 } });
     pg.on('pageerror', e => errors.push('workflow pageerror: ' + e.message));
-    await pg.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+    // Audit F97 (2026-11-03): Home hides the header search (its hero search
+    // is the one box there), so the header-search checks start on the List.
+    await pg.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
     await pg.waitForTimeout(400);
     results.nqParse = await pg.evaluate(() => {
       const c = ['Citrus', 'St. Lucie', 'Bay', 'East Baton Rouge'];
@@ -4783,10 +4785,12 @@ await navMap.close();
     await cp.evaluate(() => window.__tdwOpenCountyPage('Citrus', 'FL'));
     await cp.waitForSelector('#pageCounty .cty[data-county="Citrus"]', { timeout: 5000 });
     results.countyCitrus = await pageFacts(cp);
-    // A county nothing is recorded for: no source, nothing invented.
+    // Audit F102 (2026-11-03): a name the state does not have is never a
+    // county page - the index opens with a notice naming it.
     await cp.evaluate(() => window.__tdwOpenCountyPage('Nowhere', 'FL'));
-    await cp.waitForSelector('#pageCounty .cty[data-county="Nowhere"]', { timeout: 5000 });
-    results.countyUnknown = await pageFacts(cp);
+    await cp.waitForSelector('#pageCounty .cty-notfound', { timeout: 5000 });
+    results.countyUnknown = await cp.evaluate(() => ({ hash: location.hash, page: !!document.querySelector('#pageCounty .cty[data-county="Nowhere"]'),
+      index: !!document.querySelector('#pageCounty .cty-index'), notice: /"Nowhere"/.test(document.querySelector('#pageCounty .cty-notfound').textContent) }));
     // Index from the County Intelligence nav entry; a row opens the county page.
     await gotoVia(cp, 'counties');
     await cp.waitForSelector('#pageCounty .cty-index', { timeout: 5000 });
@@ -5078,7 +5082,8 @@ await navMap.close();
   {
     const sp = await newPage({ viewport: { width: 1280, height: 900 } });
     sp.on('pageerror', e => errors.push('search groups pageerror: ' + e.message));
-    await sp.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+    // Audit F97: the header search is hidden on Home - start on the List.
+    await sp.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
     await sp.waitForFunction(() => typeof window.__tdwSearchGroups === 'function' && (window.__tdwLastRender || { rows: [] }).rows.length > 0, null, { timeout: 10000 });
     results.searchGroupVectors = await sp.evaluate(() => Object.fromEntries(['citrus', 'Alachua County', 'texas', 'tx', 'Florida', '15 Manatee', 'zz'].map(q => [q, window.__tdwSearchGroups(q)])));
     // A county name routes to the county page (first option, keyboard).
@@ -5107,7 +5112,7 @@ await navMap.close();
     await sp.close();
     // A state name opens that state.
     const ss = await newPage({ viewport: { width: 1280, height: 900 } });
-    await ss.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+    await ss.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
     await ss.waitForFunction(() => (window.__tdwLastRender || { rows: [] }).rows.length > 0, null, { timeout: 10000 });
     await openSearch(ss); await ss.fill('#globalSearchInput', 'texas');
     await ss.waitForSelector('#globalSearchResults [data-gs-state="TX"]', { timeout: 5000 });
@@ -5911,6 +5916,9 @@ await navMap.close();
     await pg.click('#detailModalInner .crumb[data-action="crumbhome"]');
     await pg.waitForTimeout(400);
     results.rdCrumbHome = { modalHidden: await pg.locator('#detailModal').evaluate(el => el.hidden), dashVisible: await pg.locator('#pageDashboard').evaluate(el => !el.hidden) };
+    // Audit F97: Home has its own search box and hides the header one, so
+    // the miss is checked from the List.
+    await pg.evaluate(() => { location.hash = '#/lands'; }); await pg.waitForTimeout(400);
     await openSearch(pg); await pg.fill('#globalSearchInput', 'zzzz-no-such');
     await pg.waitForTimeout(300);
     results.rdGlobalEmpty = await txt(pg, '#gsEmpty');
@@ -9097,7 +9105,8 @@ const EXPECTED = {
   countyVectors: [],
   countyAlachua: {"hash": "#/county/Alachua", "pageVisible": true, "listHidden": true, "title": "Alachua County", "reached": "SOURCE_VERIFIED", "steps": ["DISCOVERED=VERIFIED", "SOURCE_VERIFIED=VERIFIED", "INVENTORY_VERIFIED=PARTIAL", "ACQUISITION_PATH_VERIFIED=PARTIAL", "PROPERTY_DATA_VERIFIED=NOT_VERIFIED", "OUTCOME_DATA_VERIFIED=NOT_VERIFIED"], "sections": ["available", "auctions", "liens", "property", "truth", "gaps"], "nextSale": true, "outcomes": ["not_verified"], "gaps": ["coordinates", "auction_process", "outcomes"], "acqUnits": ["fl_laft_realtdm=VERIFIED"], "noScore": true, "navOn": true},
   countyCitrus: {"hash": "#/county/Citrus", "pageVisible": true, "listHidden": true, "title": "Citrus County", "reached": "SOURCE_VERIFIED", "steps": ["DISCOVERED=VERIFIED", "SOURCE_VERIFIED=VERIFIED", "INVENTORY_VERIFIED=PARTIAL", "ACQUISITION_PATH_VERIFIED=PARTIAL", "PROPERTY_DATA_VERIFIED=NOT_VERIFIED", "OUTCOME_DATA_VERIFIED=NOT_APPLICABLE"], "sections": ["available", "auctions", "liens", "property", "truth", "gaps"], "nextSale": false, "outcomes": [], "gaps": ["amount", "coordinates_source", "auction_process", "outcomes"], "acqUnits": ["fl_laft_pioneer=VERIFIED", "fl_laft_html=VERIFIED"], "noScore": true, "navOn": true},
-  countyUnknown: {"hash": "#/county/Nowhere", "pageVisible": true, "listHidden": true, "title": "Nowhere County", "reached": "NONE", "steps": ["DISCOVERED=NOT_VERIFIED", "SOURCE_VERIFIED=NOT_VERIFIED", "INVENTORY_VERIFIED=NOT_VERIFIED", "ACQUISITION_PATH_VERIFIED=NOT_APPLICABLE", "PROPERTY_DATA_VERIFIED=NOT_APPLICABLE", "OUTCOME_DATA_VERIFIED=NOT_APPLICABLE"], "sections": ["available", "auctions", "property", "truth", "gaps"], "nextSale": false, "outcomes": [], "gaps": ["no_source"], "acqUnits": [], "noScore": true, "navOn": true},
+  // Audit F102: an unknown county falls back to the index (was a made-up page).
+  countyUnknown: {"hash": "#/counties", "page": false, "index": true, "notice": true},
   countyIndex: {"hash": "#/counties", "rows": 66, "hasCitrus": true, "navOn": true},
   countyIndexFilter: ["Citrus"],
   countyIndexToPage: "#/county/Citrus",
@@ -9133,6 +9142,8 @@ const EXPECTED = {
   searchCountyRoute: {"hash": "#/county/Citrus", "named": true},
   searchResearchGroups: {"list": ["list:Gulf Lots"], "item": ["item:p15"]},
   searchResearchRoute: {"hash": "#/research", "tab": "Gulf Lots 1"},
+  // Audit F97: the search starts on the List (Home hides the header search);
+  // a state row still opens that state's Home.
   searchStateRoute: "tx.html#/dashboard",
   timelineVectors: {"p1": ["certificate:cert_issued", "auction:sale_scheduled:self", "certificate:cert_expiration"], "p2": ["auction:left_list:self", "auction:sale_last_published:self"], "p3": ["laft:last_read:self"], "p4": ["certificate:cert_issued:self", "auction:sale_scheduled", "certificate:cert_expiration:self"], "p13": ["auction:sale_passed:self"], "p15": ["laft:first_seen:self", "laft:last_read:self"]},
   timelineCert: {"items": ["certificate:cert_issued:self", "auction:sale_scheduled", "certificate:cert_expiration:self"], "note": true, "neverSold": true, "navPill": true, "countyLink": true},
