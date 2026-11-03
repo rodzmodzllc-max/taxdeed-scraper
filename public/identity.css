@@ -996,7 +996,14 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
    clipping at the edge, and the row no longer scrolls sideways. */
 @media (max-width:1023px){
   .ledger-tabs{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;overflow:visible!important;-webkit-mask-image:none!important;mask-image:none!important}
-  .ledger-tab{white-space:normal!important;text-align:center;line-height:1.2;min-height:44px}
+  .ledger-tab{white-space:normal!important;text-align:center;line-height:1.2;min-height:44px;min-width:0;flex-wrap:wrap;overflow-wrap:anywhere;padding-left:.4rem!important;padding-right:.4rem!important}
+  /* Small phones (2026-11-03): the uppercase, letter-spaced "CERTIFICATES" needs ~112px, but a
+     third of the row is narrower than that below ~410px. It used to spill past its tab, and on
+     a 320px screen Chrome 156 pushed it one pixel past the page edge, so the whole page scrolled
+     sideways. Tighter type keeps the word whole and inside its tab; overflow-wrap above is only
+     the last resort. */
+  @media (max-width:420px){.ledger-tab{letter-spacing:.02em;font-size:.68rem!important;padding-left:.3rem!important;padding-right:.3rem!important}}
+  @media (max-width:340px){.ledger-tab{letter-spacing:0;font-size:.64rem!important;padding-left:.25rem!important;padding-right:.25rem!important}}
 }
 
 /* Remediation (2026-10-10): the property page is also the desktop side panel
