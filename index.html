@@ -47,12 +47,12 @@ filter-bar classes above, which only win if it comes second. -->
 existing markup; no id, class or data attribute changes meaning in it. -->
 <link rel="stylesheet" href="identity.css">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#F3EFE8">
+<meta name="theme-color" content="#F8F8F5">
 <!-- ?v=2 cache-busts the re-logo'd icon files - see sw.js's comment on
      SHELL for why a filename-only swap wasn't enough for returning users. -->
-<link rel="icon" href="icons/icon-192.png?v=2">
+<link rel="icon" href="icons/icon-192.png?v=3">
 <!-- iOS has no manifest support for these; it needs its own tags. -->
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=3">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="TAXACQ">
@@ -77,7 +77,7 @@ existing markup; no id, class or data attribute changes meaning in it. -->
 </aside>
 <div class="auth-card">
 <div class="auth-brand">
-<img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=2" width="72" height="72" alt="" aria-hidden="true">
+<img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=3" width="72" height="72" alt="" aria-hidden="true">
 <h1>TAXACQ</h1>
 </div>
 <p class="auth-tagline">Tax Acquisition Intelligence</p>
@@ -126,7 +126,7 @@ owner approves it, so there'd be nothing to show here anyway. -->
 <div id="pendingGate" hidden>
 <div class="auth-card">
 <div class="auth-brand">
-<img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=2" width="72" height="72" alt="" aria-hidden="true">
+<img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=3" width="72" height="72" alt="" aria-hidden="true">
 <h1>TAXACQ</h1>
 </div>
 <p class="auth-lead">Account created — awaiting approval.</p>
@@ -144,7 +144,7 @@ own page; access is granted only by the verified stripe-webhook. -->
 <div id="planGate" hidden>
 <div class="auth-card">
 <div class="auth-brand">
-<img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=2" width="72" height="72" alt="" aria-hidden="true">
+<img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=3" width="72" height="72" alt="" aria-hidden="true">
 <h1>TAXACQ</h1>
 </div>
 <p class="auth-lead">Choose your plan</p>
@@ -224,7 +224,7 @@ about outcomes. -->
 <!-- ============ app ============ -->
 <div id="app" class="app-shell" hidden>
 <nav class="nav-rail" id="navRail" aria-label="Main">
-<div class="nav-rail-brand"><img src="icons/icon-192.png?v=2" width="44" height="44" alt="" aria-hidden="true"><span class="brand-lockup"><span class="brand-title">TAXACQ</span><span class="brand-sub">Tax Acquisition Intelligence</span></span></div>
+<div class="nav-rail-brand"><img src="icons/icon-192.png?v=3" width="44" height="44" alt="" aria-hidden="true"><span class="brand-lockup"><span class="brand-title">TAXACQ</span><span class="brand-sub">Tax Acquisition Intelligence</span></span></div>
 <!-- Shell redesign (2026-10-04). Home, Search (the List page), one entry per
      ledger (data-nav-ledger: opens the List on that ledger; the label is
      ledgerCopy(key).nav, written by app.js so a state's own ledger name is
@@ -263,7 +263,7 @@ about outcomes. -->
 below - see the note on .masthead for why the taller block isn't the
 one that pins itself. -->
 <div class="topbar">
-<img class="brand-mark" src="icons/icon-192.png?v=2" width="44" height="44" alt="" aria-hidden="true">
+<img class="brand-mark" src="icons/icon-192.png?v=3" width="44" height="44" alt="" aria-hidden="true">
 <span class="brand-name">TAXACQ</span>
 <!-- One account badge instead of three loose buttons. Theme, password and
 sign out were competing for width with the ledger tabs on a phone; they are

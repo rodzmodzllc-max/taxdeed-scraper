@@ -3854,3 +3854,21 @@ Findings are the FRONT END rows of `docs/review/audit-2026-10-28.md`; each theme
   an option); certificates are bought by assignment (`certOffice`), never bid; type words in search are read on the
   Florida page only; a sale-day pick carries `data-date` and the range is dropped on a ledger change.
 - `sw.js` -> `tdw-shell-v156` (the offline fallback stores non-redirected responses; the CACHE line moved once).
+
+## TAXACQ brand applied to the app (2026-11-03, PR open, frontend only)
+
+The owner's brand deck (artifact Jvuoq2Mrbb9MkeWauttYun) is now the app's look. Stable facts:
+- **Palette** (identity.css tokens + a one-to-one remap of the old stone/charcoal hex values in identity, explore,
+  experience-tactile / -terrain / -merged, buyers-guide and legal css): ivory `#F8F8F5` page, mist `#D8DED6` rules,
+  ink `#202925`, soft ink `#56695E` / `#4C685A`, forest `#1F3A2E` for brand roles (`--copper*` tokens now hold
+  forest; `--forest`, `--sage-brand`, `--sage-light`, `--mist`, `--ivory` added). Dark theme is forest-dark
+  (`#141C18`). **Ledger colours are unchanged** (Available sage `#4E6B54`, Auctions rust `#A4512A`, Liens plum
+  `#6B4A6E`) - a hard-coded `#A4512A` is the Auctions colour, never the brand. Every text colour passes WCAG AA.
+- **Type:** Montserrat (light 300 for h1 / statements, 400 h2, 500 h3, wordmark, navigation, tabs, eyebrows and
+  buttons - uppercase, tracked) and Inter for reading and figures (`--font-mono` is Inter; body uses tabular
+  figures). No Source Serif / IBM Plex remains; all fonts go through `--font-display` / `--font-sans` /
+  `--font-mono`. Section 14 of identity.css holds the brand component rules (`:not(#_)` lifts specificity over the
+  per-page `!important` rules above it).
+- **Mark:** the TA monogram (ivory Montserrat Light on forest, sage rule) is `icons/*.png`, referenced as `?v=3`;
+  theme colour `#F8F8F5`. Primary buttons are forest; search fields are pills with a sage hairline.
+- Screenshots: `tests/screenshots/brand-shots.mjs`. `sw.js` -> `tdw-shell-v157`.
