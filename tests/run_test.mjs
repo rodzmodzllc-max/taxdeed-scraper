@@ -5119,6 +5119,9 @@ await navMap.close();
     await sp.press('#globalSearchInput', 'ArrowDown');
     await sp.press('#globalSearchInput', 'Enter');
     await sp.waitForSelector('#pageCounty:not([hidden])', { timeout: 5000 });
+    // The page shows "Loading county intelligence..." while it fetches its data
+    // file; read it once that has finished (it raced on slower CI runs).
+    await sp.waitForFunction(() => !document.querySelector('#pageCounty .cty-loading'), null, { timeout: 10000 }).catch(() => {});
     results.searchCountyRoute = await sp.evaluate(() => ({ hash: location.hash, named: /Citrus/.test(document.getElementById('pageCounty').textContent) }));
     // A saved research list routes to My Research, on that list.
     await sp.goto(BASE_URL.replace('index.html', 'index.html?v=sg') + '#/lands/p15', { waitUntil: 'networkidle' });

@@ -1808,7 +1808,7 @@ a:focus-visible,button:focus-visible{outline-color:var(--forest)}
   .hdr-nav .nav-item:not(#_){letter-spacing:.04em!important}
   .hdr-brand .brand-name:not(#_){letter-spacing:.16em!important}
 }
-@media (max-width:1279.98px){
+@media (max-width:1365.98px){
   .hdr-nav .nav-item:not(#_){letter-spacing:.02em!important;font-size:.7rem!important;padding:0 .42rem!important}
   .hdr-brand .brand-name:not(#_){letter-spacing:.12em!important}
 }
