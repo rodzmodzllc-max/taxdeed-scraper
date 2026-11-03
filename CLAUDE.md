@@ -3835,3 +3835,22 @@ judge pass never ran, so each finding is reproduced before it is fixed). Stable 
   every county page (`data-action="buyersguide"`); `config.js buyersGuideAccess`: `all` (default) / `guided` / `admin`.
 - An assessed value of 0 is "not published" on every surface (`hasValueNum`); taxable 0 stays a real figure.
 - `sw.js` -> `tdw-shell-v155` (v154 is the launch PR, #257).
+
+## Audit round 2: list states, amounts, record text, Guided copy, legal / offline (2026-11-03, PR open, no migration)
+
+Findings are the FRONT END rows of `docs/review/audit-2026-10-28.md`; each theme has its own `tests/audit/<theme>.mjs`
+(list-loading, amounts-labels, record-text-links, guided-home-copy, shell-legal-sw). Stable facts:
+- **List states:** a ledger still loading shows `…`, never 0; a failed load shows `—` and says it could not be loaded,
+  never an empty claim. The toolbar Sort orders the whole list (groups follow the comparator). A Watch tap updates
+  buttons, counts and the sale-day strip in place (no full render).
+- **Amounts:** an amount of unstated kind is never called a bid (`isBidAmount`); Florida-only rules (tax-deed
+  application eligibility, Just Value) appear only on Florida rows; a 0 value is not published.
+- **Record text:** `realAddress()` rejects placeholder addresses (`JUNK_ADDRESS_PREFIX` needs a digit after the
+  prefix word, so "PIN OAK DR" stays an address); `unitLabelOf()` / `useCodeLabel()` name the unit (Parish, no word
+  after "St. Louis City"); `customerEvidenceText()` / `customerInventoryBasis()` keep repository paths and harvester
+  ids from customers (admins see them); `isDataServiceUrl()` never shows an ArcGIS REST / item URL as a county page;
+  `appraiserLink()` drops a link whose key is empty and upgrades http only for `APPRAISER_HTTPS_HOSTS`.
+- **Guided / Home:** `saleKindOf(p)` names the sale per source (a lien sale ends with a certificate, Morgan CO sells
+  an option); certificates are bought by assignment (`certOffice`), never bid; type words in search are read on the
+  Florida page only; a sale-day pick carries `data-date` and the range is dropped on a ledger change.
+- `sw.js` -> `tdw-shell-v156` (the offline fallback stores non-redirected responses; the CACHE line moved once).

@@ -116,7 +116,9 @@ def test_n06_map_county_select_is_scoped_to_state_and_ledger_and_counts_the_sele
     # clears the SHARED selection once that ledger's rows are settled (never a
     # Map-only fallback), and is kept while they are still loading.
     assert 'if (mapFilter.county !== "ALL" && !counts.has(mapFilter.county)) {' in block
-    assert 'if (mapLedgerSettled()) { applyCountySelection("ALL"); return; }' in block
+    # Audit F50 (2026-11-03): the clear runs only while the Map page is shown, so a
+    # List pick of a county with no rows in this ledger keeps its county and chip.
+    assert 'if (onMap && mapLedgerSettled()) { applyCountySelection("ALL"); return; }' in block
     assert "function mapLedgerSettled()" in block
     assert "countyCounts()" not in block                                # never the portfolio-wide count
     # The rows the map draws use the same ledger test.
@@ -165,6 +167,6 @@ def test_n09_watchlist_folds_the_same_parcel_across_ledgers_and_is_a_destination
 
 
 def test_n10_service_worker_bumped_and_root_mirror_matches_public():
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v155"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v156"') == 1
     for f in ("app.js", "styles.css", "sw.js", "index.html", "tx.html", "explore.css"):
         assert (REPO / f).read_bytes() == (REPO / "public" / f).read_bytes(), f
