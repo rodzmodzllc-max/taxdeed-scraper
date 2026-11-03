@@ -12,11 +12,11 @@
 <main>
 <header class="legal-head"><a href="index.html">&larr; Back to the app</a>
 <h1>Privacy Policy</h1>
-<p class="legal-meta">Operator: <span data-legal="operatorName"></span> · Effective: <span data-legal="effectiveDate"></span></p>
+<p class="legal-meta"><span data-legal-needs="operatorName">Operator: <span data-legal="operatorName"></span></span><span data-legal-sep> · </span><span data-legal-needs="effectiveDate">Effective: <span data-legal="effectiveDate"></span></span></p>
 <div class="legal-unconfigured" id="legalUnconfigured" role="note" hidden></div>
 </header>
 
-<p>This policy explains what information <span data-legal="operatorName"></span> collects when you use the TAXACQ service, and how it is used.</p>
+<p>This policy explains what information <span data-legal="operatorName" data-legal-fallback="the operator of the TAXACQ service"></span> collects when you use the TAXACQ service, and how it is used.</p>
 
 <h2>Account information</h2>
 <p>Your e-mail address and password (stored by our authentication provider, Supabase; the password is stored as a hash, never in readable form), and the profile details you enter at sign-up (name, company, address, phone). Your account's approval status and, if you subscribe, its subscription status.</p>
@@ -42,8 +42,8 @@
 <h2>Retention and deletion</h2>
 <p>You can delete your account from the account menu; this removes your profile, favourites, hidden listings, watchlist and notes. Billing records may be kept as long as the law requires.</p>
 
-<h2>Contact</h2>
-<p>Questions or requests about your information: <span data-legal="contactEmail"></span></p>
+<h2 data-legal-needs="contactEmail">Contact</h2>
+<p data-legal-needs="contactEmail">Questions or requests about your information: <span data-legal="contactEmail"></span></p>
 
 <nav class="legal-nav" aria-label="Legal documents"><a href="terms.html">Terms of Service</a><a href="privacy.html">Privacy Policy</a><a href="acceptable-use.html">Acceptable Use</a><a href="source-disclaimer.html">Source &amp; research disclaimer</a></nav>
 </main>

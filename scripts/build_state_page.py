@@ -67,21 +67,26 @@ PAGES = {
                       "certificate, not the land; the amount shown is the list's own 'Total' column as published. No fee, "
                       "interest or redemption rule is tracked, and none is shown. Confirm terms with the County Treasurer and "
                       "a title company or attorney before bidding."),
+    # Audit F57 (2026-11-03): each notice names the sources that supply the
+    # state's rows (data/county_source_registry.csv production rows).
     "SC": dict(name="South Carolina",
-               notice="<b>South Carolina coverage is York County's published tax sale list.</b> The list publishes no opening "
-                      "bid, and none is shown. No fee or redemption rule is tracked. Confirm terms with the county and a title "
-                      "company or attorney before bidding."),
+               notice="<b>South Carolina coverage is the published tax sale lists of York, Horry and Oconee counties, and "
+                      "the Horry and Georgetown Forfeited Land Commission lists.</b> A figure is shown only as each list "
+                      "publishes it, named as the list names it; York's list publishes no opening bid. No fee or redemption "
+                      "rule is tracked. Confirm terms with the county and a title company or attorney before bidding."),
     "CO": dict(name="Colorado",
-               notice="<b>Colorado coverage is Morgan County's county-held tax lien sale certificates.</b> The purchase amount "
-                      "is the Treasurer's own figure, good to the date in the list's header. Parcel details come from the "
-                      "State of Colorado's Colorado Public Parcels layer, matched by assessor account number only; the State "
-                      "states resale of that data is forbidden. No interest or redemption rule is tracked. Confirm with the "
-                      "County Treasurer and a title company or attorney before buying."),
+               notice="<b>Colorado coverage is Saguache and Douglas counties' tax lien sale lists, Morgan County's "
+                      "Treasurer's deed option auctions, and Morgan and Douglas counties' county-held tax lien "
+                      "certificates.</b> Amounts are each list's own figures as published; a lien sale sells the lien, not "
+                      "the land. Parcel details come from the State of Colorado's Colorado Public Parcels layer, matched by "
+                      "assessor account number only; the State states resale of that data is forbidden. No interest or "
+                      "redemption rule is tracked. Confirm with the County Treasurer and a title company or attorney before "
+                      "buying."),
     "WI": dict(name="Wisconsin",
-               notice="<b>Wisconsin coverage is Green County's tax deed sale page.</b> Minimum bids and the sale prices of "
-                      "previous sales are shown as the county publishes them; the county states when it has no current "
-                      "sales. No fee or closing-cost rule is tracked. Confirm terms with the County Clerk and a title company "
-                      "or attorney before bidding."),
+               notice="<b>Wisconsin coverage is Dane County's tax deed auction page and Green County's tax deed sale "
+                      "page.</b> Minimum bids and the sale prices of previous sales are shown as each county publishes them; "
+                      "each county states when it has no current sales. No fee or closing-cost rule is tracked. Confirm "
+                      "terms with the County Clerk and a title company or attorney before bidding."),
     # AVAILABLE expansion (2026-10-04): one county AVAILABLE source each, collected for admin
     # use while its publication review is pending (docs/available-expansion-2026-10.md).
     "MO": dict(name="Missouri",

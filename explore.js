@@ -92,6 +92,9 @@ const PAGE_STATE = STATE_ASSETS[document.body.dataset.state] ? document.body.dat
 const STATE_INFO = STATE_ASSETS[PAGE_STATE];
 // County (FL, TX) or parish (LA) - the unit this page's rows name.
 const UNIT_WORD = STATE_INFO.unit || "County";
+// The unit's display name: an independent city stored as its own unit
+// ("St. Louis City") is never "<city> County" (audit F35; app.js unitLabelOf).
+const unitLabelOf = c => (/\bcity$/i.test(String(c || "").trim()) ? String(c).trim() : `${c} ${UNIT_WORD}`);
 
 // Live state, all of it derived from the last tdw:maprendered event.
 let rows = [];
@@ -101,6 +104,9 @@ let svgLoaded = false;
 let centroids = new Map();     // county -> {cx, cy} in SVG user units
 let centroidsOk = false;       // false while the only measurements we have
                                // came from a hidden (unlaid-out) SVG
+let pendingAbsorb = null;      // a tdw:maprendered payload received while the
+                               // Map page was hidden (audit F28): kept, not
+                               // drawn, until the page is next shown
 let pendingDraw = false;       // a draw was asked for while the panel had no
                                // geometry yet; run it once it does
 let selectedCounty = null;     // county the map has filtered the list to
@@ -201,6 +207,7 @@ function watchForVisibility() {
 
   if (typeof ResizeObserver === "function") {
     const ro = new ResizeObserver(() => {
+      if (pendingAbsorb && canvas.clientWidth > 0) { const d = pendingAbsorb; pendingAbsorb = null; absorb(d); return; }
       if (canvas.clientWidth > 0 && (!centroidsOk || pendingDraw)) {
         if (computeCentroids(canvas)) { pendingDraw = false; draw(); }
       }
@@ -826,7 +833,7 @@ function draw() {
       g.setAttribute("tabindex", "0");
       g.setAttribute("role", "button");
       g.setAttribute("aria-label",
-        `${county} ${UNIT_WORD}, ${list.length} ${list.length === 1 ? "property" : "properties"}` +
+        `${unitLabelOf(county)}, ${list.length} ${list.length === 1 ? "property" : "properties"}` +
         (selectedCounty === county ? " - selected, activate to clear" : " - activate to filter the list"));
       g.setAttribute("aria-pressed", selectedCounty === county ? "true" : "false");
 
@@ -1775,7 +1782,7 @@ function watchCanvasResize() {
 function updateSummary(byCounty) {
   renderCountyRail(byCounty);
   const titleEl = document.querySelector(".explore-map-title");
-  if (titleEl) titleEl.textContent = zoomCounty ? `${zoomCounty} ${UNIT_WORD}` : "Where these are";
+  if (titleEl) titleEl.textContent = zoomCounty ? unitLabelOf(zoomCounty) : "Where these are";
   const countEl = $("exploreMapCount");
   if (countEl) {
     const inCounty = zoomCounty ? (byCounty.get(zoomCounty) || []).length : 0;
@@ -1922,7 +1929,7 @@ function bindMapInteraction() {
     const range = bids.length
       ? (bids.length === 1 ? fmtShort(bids[0]) : `${fmtShort(Math.min(...bids))} - ${fmtShort(Math.max(...bids))}`)
       : "no published amount";
-    tip.innerHTML = `<b>${county} ${UNIT_WORD}</b><span>${list.length} ${list.length === 1 ? "property" : "properties"} - ${bids.length ? `listed amounts ${range} (bids / listed figures, not purchase prices)` : range}</span>`;
+    tip.innerHTML = `<b>${unitLabelOf(county)}</b><span>${list.length} ${list.length === 1 ? "property" : "properties"} - ${bids.length ? `listed amounts ${range} (bids / listed figures, not purchase prices)` : range}</span>`;
     const box = canvas.getBoundingClientRect();
     // Flip the tooltip to the left of the cursor near the right edge so it
     // can't run off the panel.
@@ -2018,6 +2025,26 @@ function absorb(detail) {
   // A re-render never re-announces the selection or moves a map: the open
   // card keeps its row (re-read from the new rows) and only its Watchlist
   // button is refreshed; a row the new filters dropped closes the card.
+  // Audit F28 (2026-11-02): app.js dispatches tdw:maprendered on every List
+  // render. While the Map page is hidden nothing here can be measured or
+  // seen, and the strip alone cost up to 1.5 s per List action in a large
+  // county - so the payload is kept and drawn when the page is next shown
+  // (showPage("map") re-dispatches; the ResizeObserver above catches the
+  // display flip as well). Only the open card's Watchlist button is
+  // refreshed now; a row the new filters dropped is closed when drawn.
+  // The basemap SVG is still fetched now (ensureMap is a one-time fetch,
+  // not a draw): it used to arrive during the first hidden absorb, and the
+  // first VISIBLE absorb relies on it being there to zoom to the county
+  // ("Show on the Map page" from a cold start found no SVG yet and never
+  // zoomed - ensureMap's own load-time draw() does not resync the county).
+  const pageMap = document.getElementById("pageMap");
+  if (pageMap && pageMap.hidden) {
+    ensureMap();
+    if (activeProp) { const still = propById(activeProp.id); if (still) { activeProp = still; refreshPeekWatch(); } }
+    pendingAbsorb = d;
+    return;
+  }
+  pendingAbsorb = null;
   // The Map page's own county select (#mapCountySelect) is the source of
   // truth for "am I filtered to one county" - the user can change it from the
   // dropdown itself or by clicking a bubble (applyCounty drives the same

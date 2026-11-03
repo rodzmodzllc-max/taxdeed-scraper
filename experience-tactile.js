@@ -343,7 +343,7 @@ function auctionsHtml(rows, api) {
     <h2 class="xpt-dm">${g.day ? api.esc(api.fmtDateLong(g.day)) : "Sale date not scheduled"}</h2>
     <div class="xpt-chips">
       <span class="xpt-chip cd s-${stepCls(days)}">${api.esc(countdown(days))}</span>
-      ${oneCounty ? `<span class="xpt-chip fmt">${api.esc(oneCounty + " " + api.unitWord())}</span>` : ""}
+      ${oneCounty ? `<span class="xpt-chip fmt">${api.esc(unitName(api, oneCounty))}</span>` : ""}
     </div>
     <ol class="xpt-miles" aria-label="Sale milestones">
       <li class="mile ${proc ? "fill" : "hatch"}" style="--md:120ms"><span class="node" aria-hidden="true"></span><span class="xpt-caps">Sale process</span><span class="mv">${proc ? api.esc(proc) : "Not yet verified"}</span></li>
@@ -415,7 +415,7 @@ function placardHtml(p, idx, n, api, pf, countyInBanner) {
         <span class="lotrow"><span class="lotnum"><span class="xpt-caps">Lot</span><span class="numeral">${idx + 1}</span></span>
           <span class="xpt-mono-s">${api.esc(caseText)}</span></span>
         <span class="ctitle${t.parcel ? " parcel" : ""}">${t.html}</span>
-        <span class="ids xpt-mono-s">${pf.parcel ? api.esc(pf.parcelLabel + " " + pf.parcel) : "Parcel # not published"}${countyInBanner ? "" : " · " + api.esc(p.county + " " + api.unitWord())}</span>
+        <span class="ids xpt-mono-s">${pf.parcel ? api.esc(pf.parcelLabel + " " + pf.parcel) : "Parcel # not published"}${countyInBanner ? "" : " · " + api.esc(unitName(api, p.county))}</span>
         <span class="plate"><span class="plate-in">${api.propertyVisual(p, "prop-card-photo xpt-vis", countyInBanner ? { omitCounty: true } : undefined)}</span></span>
         <span class="figs">
           <span class="figure"><span class="xpt-caps">${api.esc(pf.bidLabel)}</span>${pf.bid ? `<span class="fig-xl">${api.esc(pf.bid)}</span>` : missing("Not published", api)}</span>
@@ -515,7 +515,7 @@ function availableHtml(rows, api) {
   if (S.folder && !shownIds.has(S.folder)) S.folder = null;
   let fi = 0;
   const drawers = Array.from(byCounty, ([c, ps]) => {
-    const name = c ? c + " " + api.unitWord() : api.unitWord() + " not published";
+    const name = c ? unitName(api, c) : api.unitWord() + " not published";
     const lim = Math.min(S.cLim.get(c) || CPAGE, ps.length);
     const more = lim < ps.length
       ? `<div class="xpt-more-wrap"><button type="button" class="xpt-more" data-xa="cmore" data-county="${api.esc(c)}" data-k="cmore-${api.esc(c)}">Show more in ${api.esc(name)}</button></div>`
@@ -563,7 +563,7 @@ function folderHtml(p, i, api) {
   if (!open) {
     return `<div class="xpt-fold" style="--i:${Math.min(i, 14)};--r0:${(i % 3) - 1}deg">
       <button type="button" class="fold-btn" data-xa="folder" data-pid="${api.esc(id)}" data-k="fold-${api.esc(id)}" aria-expanded="false"
-        aria-label="${api.esc(`${p.county} ${api.unitWord()}. ${amt.label}: ${fig}. ${a.verified ? "Verified acquisition path." : "Acquisition path not yet verified."} Open folder.`)}">
+        aria-label="${api.esc(`${unitName(api, p.county)}. ${amt.label}: ${fig}. ${a.verified ? "Verified acquisition path." : "Acquisition path not yet verified."} Open folder.`)}">
         <span class="face xpt-obj tab-${tabCls}">${face}</span>
       </button>
     </div>`;
@@ -727,7 +727,7 @@ function fanHtml(k, list, api) {
     const a = api.amountShort(p);
     return `<button type="button" class="fslip${lifted ? " lifted" : ""}" data-xa="slip" data-pid="${api.esc(id)}" data-k="slip-${api.esc(id)}" aria-pressed="${lifted}"
         style="--off:${off};--fd:${(i * 45)}ms;z-index:${lifted ? 30 : 10 + i}"
-        aria-label="${api.esc(`Certificate ${certNo(p) || "number not published"}, ${p.county} ${api.unitWord()}. ${a.label}: ${a.text}. Lift this slip.`)}">
+        aria-label="${api.esc(`Certificate ${certNo(p) || "number not published"}, ${unitName(api, p.county)}. ${a.label}: ${a.text}. Lift this slip.`)}">
       <span class="fb xpt-slip xpt-obj">
         <span class="xpt-caps">Cert</span><span class="xpt-mono-s ink tr">${api.esc(certNo(p) || "Not published")}</span>
         ${S.bundleBy === "county" ? "" : `<span class="slip-county tr">${api.esc(p.county)}</span>`}
@@ -769,7 +769,7 @@ function trayHtml(p, api) {
   const id = idOf(p);
   return `<div class="tray xpt-obj" aria-live="polite">
     <div class="tray-head"><div><div class="tray-cert xpt-mono">Cert ${api.esc(certNo(p) || "number not published")}</div>
-      <div class="xpt-small">${api.esc((S.bundleBy === "county" ? "" : p.county + " " + api.unitWord() + " · ") + api.officialStatusText(p, { omitLedger: true }))}</div></div>
+      <div class="xpt-small">${api.esc((S.bundleBy === "county" ? "" : unitName(api, p.county) + " · ") + api.officialStatusText(p, { omitLedger: true }))}</div></div>
       ${watchBtn(p, api, "xpt-watch ribbon")}</div>
     <div class="tray-fig"><span class="xpt-caps">${api.esc(a.label)}</span><span class="${a.state === "not_published" ? "nf" : "fig-xl"}">${api.esc(a.text)}</span></div>
     <div class="facts3">${facts.map(([k, v]) => `<div class="fact"><span class="xpt-caps">${k}</span>${v ? `<span class="v xpt-mono">${api.esc(v)}</span>` : missing("Not published", api)}</div>`).join("")}</div>
@@ -1020,3 +1020,7 @@ window.addEventListener("tdw:rendered", e => draw(e.detail));
 window.addEventListener("tdw:experience", () => { if (isActive()) { if (window.__tdwLastRender) draw(window.__tdwLastRender); } else deactivate(); });
 if (isActive() && window.__tdwLastRender) draw(window.__tdwLastRender);
 else if (!isActive()) deactivate();
+
+// The unit's display name: an independent city stored as its own unit ("St. Louis
+// City") is never "<city> County" (audit F35; app.js unitLabelOf).
+function unitName(api, c) { return api.unitLabel ? api.unitLabel(c) : (/\bcity$/i.test(String(c || "")) ? String(c) : c + " " + api.unitWord()); }

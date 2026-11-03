@@ -38,7 +38,7 @@
      ],
      "counties": [],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "Douglas County's advertised tax lien sale list (approved, CC BY-SA 4.0) is read for the dated sale cycle - a sale of liens, not the land; Morgan County's treasurer's deed auctions are collected but unreviewed. No statute has been read.",
+     "eligibility_basis": "Saguache County's published tax lien sale list and Morgan County's Treasurer's deed option auctions are read in production (approved 2026-10-26); Douglas County's advertised tax lien sale list (approved, CC BY-SA 4.0) is read for the dated sale cycle - a sale of liens, not the land. No statute has been read.",
      "eligibility_verified_on": "2026-10-01",
      "fields": {},
      "next_action": "Dispatch the source's job once (owner decision) and read its status file; a failure is a source problem, not an empty list.",
@@ -8972,7 +8972,7 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "York County's published tax sale list (approved) is read in production and its tax sale fact sheet is a verified evidence row. S.C. Code 12-51-90 (redemption) has not been read (lead only).",
+     "eligibility_basis": "York County's published tax sale list (approved) is read in production and its tax sale fact sheet is a verified evidence row; Horry County's delinquent tax sale list and Oconee County's delinquent tax sale list are read in production (approved 2026-10-26). S.C. Code 12-51-90 (redemption) has not been read (lead only).",
      "eligibility_verified_on": "2026-10-01",
      "fields": {
       "amount": {
@@ -9215,7 +9215,7 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "Horry and Georgetown County Forfeited Land Commissions publish their own lists (collected; awaiting customer-publication review); Georgetown's procedures are verified.",
+     "eligibility_basis": "Horry and Georgetown County Forfeited Land Commissions publish their own lists (read in production; approved 2026-10-26); Georgetown's procedures are verified.",
      "eligibility_verified_on": "2026-10-02",
      "fields": {
       "amount": {
@@ -10003,7 +10003,7 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "Tax foreclosure sales are run county by county: 24 county sheriff-sale sites (tx_realauction) and LGBS sale listings are read on request, and Galveston County Sheriff's own sale procedures are a verified evidence row. Tex. Tax Code ch. 34 itself has not been read (lead only).",
+     "eligibility_basis": "Tax foreclosure sales are run county by county: 24 county sheriff-sale sites (tx_realauction) and LGBS sale listings are read daily, and Galveston County Sheriff's own sale procedures are a verified evidence row. Tex. Tax Code ch. 34 itself has not been read (lead only).",
      "eligibility_verified_on": "2026-10-01",
      "fields": {
       "amount": {
@@ -13697,7 +13697,7 @@
      ],
      "counties": [],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "Green County's tax deed sale page (approved) is read in production and its bid form is a verified evidence row; Dane County's auction page is collected but unreviewed. Wis. Stat. 75.35 / 75.69 have not been read (lead only).",
+     "eligibility_basis": "Dane County's tax deed auction page and Green County's tax deed sale page (both approved) are read in production; Green's bid form is a verified evidence row. Wis. Stat. 75.35 / 75.69 have not been read (lead only).",
      "eligibility_verified_on": "2026-09-30",
      "fields": {},
      "next_action": "Nothing to publish; the next scheduled read re-checks the list.",

@@ -729,7 +729,10 @@ class MockQuery {
   limit(n) { this._limit = n; return this; }
   // PostgREST or=(...) - only the customer publication filter the state
   // picker sends is understood (see the properties branch below).
-  or(expr) { this._or = String(expr || ""); return this; }
+  // Several or() calls are separate filters (AND-ed), as in PostgREST.
+  or(expr) { this._or = (this._or ? this._or + ";" : "") + String(expr || ""); return this; }
+  // not(col, "in", "(a,b)"): SQL semantics - a NULL value is never "not in".
+  not(col, op, val) { if (op === "in") this._filters.push([col, String(val || "").replace(/^\(|\)$/g, "").split(","), "notin"]); return this; }
   gte() { return this; }
   gt() { return this; }
   maybeSingle() { this._single = true; return this; }
@@ -830,10 +833,17 @@ class MockQuery {
         else if (new URLSearchParams(location.search).get("probefail") === "1") result = { data: null, error: { message: "probe failed (stub)" } };
         else {
           window.__stubPropertyProbes = (window.__stubPropertyProbes || 0) + 1;
+          window.__stubProbeLog = (window.__stubProbeLog || []).concat([{ filters: this._filters.map(f => f.slice()), or: this._or || "" }]);
           let rows = FIXTURE_PROPERTIES.filter(r => this._filters.every(([c, v, kind]) => {
             const val = c === "state" ? (r.state || "FL") : r[c];
-            return kind === "in" ? (v || []).includes(val) : kind === "lt" ? String(val) < String(v) : val === v;
+            return kind === "in" ? (v || []).includes(val) : kind === "notin" ? (val != null && !(v || []).includes(val)) : kind === "lt" ? String(val) < String(v) : val === v;
           }));
+          // or=(status.is.null,status.not.in.(...)): the probe's current-row rule.
+          const statusCut = /status\.is\.null,status\.not\.in\.\(([^)]*)\)/.exec(this._or || "");
+          if (statusCut) { const gone = statusCut[1].split(","); rows = rows.filter(r => r.status == null || !gone.includes(r.status)); }
+          // or=(sale_date.is.null,sale_date.gte.<day>): a current auction row.
+          const saleCut = /sale_date\.is\.null,sale_date\.gte\.([^,);]+)/.exec(this._or || "");
+          if (saleCut) rows = rows.filter(r => !r.sale_date || String(r.sale_date).slice(0, 10) >= saleCut[1]);
           if (/publication_status\.is\.null/.test(this._or || "")) rows = rows.filter(r => !r.publication_status || ["APPROVED", "APPROVED_GRANDFATHERED"].includes(r.publication_status));
           // The admin "Needs attention" read of unconfirmed Available rows:
           // or=(last_seen_at.is.null,last_seen_at.lt.<iso>).
