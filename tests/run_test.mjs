@@ -576,26 +576,15 @@ results.satelliteCanvasHiddenByDefault =
   await page.locator('#satelliteMapCanvasGoogle').isHidden() &&
   await page.locator('#satelliteMapCanvasMaptiler').isHidden();
 
-await page.click('#mapStyleGoogle');
+// Customer basemaps (owner 2026-11-03): the default fixture user is not an
+// admin, so the Google button is hidden and a forced click does nothing; the
+// Google checks below run on an admin page (?profile=admin).
+results.googleBasemapHiddenForCustomer = await page.locator('#mapStyleGoogle').isHidden();
+results.viewerMarkedCustomer = await page.evaluate(() => document.documentElement.dataset.viewer);
+await page.locator('#mapStyleGoogle').evaluate(el => el.click());
 await page.waitForTimeout(150);
-results.mapStyleGoogleOnAfterClick = await page.locator('#mapStyleGoogle').evaluate(el => el.classList.contains('on'));
-results.outlineCanvasHiddenAfterGoogleClick = await page.locator('#exploreMapCanvas').isHidden();
-results.satelliteCanvasVisibleAfterGoogleClick = await page.locator('#satelliteMapCanvasGoogle').isVisible();
-// Scoped to Google's own canvas: with separate canvases per provider
-// (Phase 61), each keeps its own setup message once shown, so a bare
-// '.satellite-map-setup' locator matches both providers' (one hidden) once
-// both have been clicked at least once in this test run.
-results.satelliteSetupMessageShownWithNoGoogleKey = await page.locator('#satelliteMapCanvasGoogle .satellite-map-setup').isVisible();
-results.googleMapsNotLoadedWithNoKey = await page.evaluate(() => typeof window.google === 'undefined' || !(window.google.maps && window.google.maps.importLibrary));
-
-// Switching back restores the outline map exactly as it was - explore.js
-// never re-measures (centroidsOk stays true across the hide/show, see
-// satellite-map.js's header note), so this is really testing that hiding it
-// didn't corrupt anything, not that it recomputed.
-await page.click('#mapStyleOutline');
-await page.waitForTimeout(150);
-results.outlineCanvasVisibleAfterGoogleSwitchBack = await page.locator('#exploreMapCanvas').isVisible();
-results.mapClusterBubbleCountAfterGoogleSwitchBack = await page.locator('#exploreMapCanvas .cluster-bubble').count();
+results.googleRefusedForCustomer = await page.locator('#satelliteMapCanvasGoogle').isHidden() &&
+  await page.locator('#mapStyleOutline').evaluate(el => el.classList.contains('on'));
 
 // Same three checks again for the MapTiler button - independent provider,
 // independent state, same "not configured yet" path.
@@ -620,17 +609,49 @@ results.mapClusterBubbleCountAfterMaptilerSwitchBack = await page.locator('#expl
 // the bug (Google, then MapTiler, then back to Google) against the DOM-
 // level contract: each provider must own a visible/hidden state completely
 // independent of the other's.
-await page.click('#mapStyleGoogle');
-await page.waitForTimeout(150);
-await page.click('#mapStyleMaptiler');
-await page.waitForTimeout(150);
-await page.click('#mapStyleGoogle');
-await page.waitForTimeout(150);
-results.googleCanvasVisibleAfterGoogleMaptilerGoogleSequence = await page.locator('#satelliteMapCanvasGoogle').isVisible();
-results.maptilerCanvasHiddenAfterGoogleMaptilerGoogleSequence = await page.locator('#satelliteMapCanvasMaptiler').isHidden();
-results.mapStyleGoogleOnAfterReturningFromMaptiler = await page.locator('#mapStyleGoogle').evaluate(el => el.classList.contains('on'));
-await page.click('#mapStyleOutline');
-await page.waitForTimeout(150);
+// Admins keep all three basemaps (owner 2026-11-03).
+const gadm = await newPage({ viewport: { width: 390, height: 844 } });
+await gadm.goto(BASE_URL + '?profile=admin', { waitUntil: 'networkidle' });
+await gadm.waitForTimeout(400);
+await gadm.click('.nav-bottom-item[data-page="map"]');
+await gadm.waitForTimeout(300);
+results.googleBasemapVisibleForAdmin = await gadm.locator('#mapStyleGoogle').isVisible();
+results.viewerMarkedAdmin = await gadm.evaluate(() => document.documentElement.dataset.viewer);
+await gadm.click('#mapStyleGoogle');
+await gadm.waitForTimeout(150);
+results.mapStyleGoogleOnAfterClick = await gadm.locator('#mapStyleGoogle').evaluate(el => el.classList.contains('on'));
+results.outlineCanvasHiddenAfterGoogleClick = await gadm.locator('#exploreMapCanvas').isHidden();
+results.satelliteCanvasVisibleAfterGoogleClick = await gadm.locator('#satelliteMapCanvasGoogle').isVisible();
+// Scoped to Google's own canvas: with separate canvases per provider
+// (Phase 61), each keeps its own setup message once shown, so a bare
+// '.satellite-map-setup' locator matches both providers' (one hidden) once
+// both have been clicked at least once in this test run.
+results.satelliteSetupMessageShownWithNoGoogleKey = await gadm.locator('#satelliteMapCanvasGoogle .satellite-map-setup').isVisible();
+results.googleMapsNotLoadedWithNoKey = await gadm.evaluate(() => typeof window.google === 'undefined' || !(window.google.maps && window.google.maps.importLibrary));
+
+// Switching back restores the outline map exactly as it was - explore.js
+// never re-measures (centroidsOk stays true across the hide/show, see
+// satellite-map.js's header note), so this is really testing that hiding it
+// didn't corrupt anything, not that it recomputed.
+await gadm.click('#mapStyleOutline');
+await gadm.waitForTimeout(150);
+results.outlineCanvasVisibleAfterGoogleSwitchBack = await gadm.locator('#exploreMapCanvas').isVisible();
+results.mapClusterBubbleCountAfterGoogleSwitchBack = await gadm.locator('#exploreMapCanvas .cluster-bubble').count();
+
+await gadm.click('#mapStyleOutline');
+await gadm.waitForTimeout(150);
+await gadm.click('#mapStyleGoogle');
+await gadm.waitForTimeout(150);
+await gadm.click('#mapStyleMaptiler');
+await gadm.waitForTimeout(150);
+await gadm.click('#mapStyleGoogle');
+await gadm.waitForTimeout(150);
+results.googleCanvasVisibleAfterGoogleMaptilerGoogleSequence = await gadm.locator('#satelliteMapCanvasGoogle').isVisible();
+results.maptilerCanvasHiddenAfterGoogleMaptilerGoogleSequence = await gadm.locator('#satelliteMapCanvasMaptiler').isHidden();
+results.mapStyleGoogleOnAfterReturningFromMaptiler = await gadm.locator('#mapStyleGoogle').evaluate(el => el.classList.contains('on'));
+await gadm.click('#mapStyleOutline');
+await gadm.waitForTimeout(150);
+await gadm.close();
 
 // Return to the Auctions page - just the card list now, no embedded map and
 // no List/Split view-toggle (Marc: "auctions shoild be just the list").
@@ -2114,6 +2135,8 @@ results.minimapNeighborsDrawn = (await p5Vis.locator('svg .mm-neighbor').count()
 // same row always yields the same URL - cacheable by the browser.
 results.staticUrlMaptiler = await p67d.evaluate(() => { const r = window.__tdwImagery.staticImageUrl({ latitude: 26.9342, longitude: -82.0454 }, { maptilerKey: 'TESTKEY' }); return r && r.provider + '|' + /^https:\/\/api\.maptiler\.com\/maps\/hybrid\/static\/-82\.045400,26\.934200,17\/640x320\.png\?markers=-82\.045400,26\.934200,red&key=TESTKEY$/.test(r.url); });
 results.staticUrlGoogle = await p67d.evaluate(() => { const r = window.__tdwImagery.staticImageUrl({ latitude: 26.9342, longitude: -82.0454 }, { googleMapsApiKey: 'GKEY' }); return r && r.provider + '|' + /^https:\/\/maps\.googleapis\.com\/maps\/api\/staticmap\?center=26\.934200,-82\.045400&zoom=17&size=640x320&scale=2&maptype=hybrid&markers=color:red%7C26\.934200,-82\.045400&key=GKEY$/.test(r.url); });
+// Google static imagery is admin-only (owner 2026-11-03); a customer gets null above.
+results.staticUrlGoogleAdmin = await p67d.evaluate(() => { window.__tdwIsAdmin = true; const r = window.__tdwImagery.staticImageUrl({ latitude: 26.9342, longitude: -82.0454 }, { googleMapsApiKey: 'GKEY' }); window.__tdwIsAdmin = false; return r && r.provider + '|' + /^https:\/\/maps\.googleapis\.com\/maps\/api\/staticmap\?center=26\.934200,-82\.045400&zoom=17&size=640x320&scale=2&maptype=hybrid&markers=color:red%7C26\.934200,-82\.045400&key=GKEY$/.test(r.url); });
 results.staticUrlPrefersMaptiler = await p67d.evaluate(() => window.__tdwImagery.staticImageUrl({ latitude: 1, longitude: 2 }, { googleMapsApiKey: 'G', maptilerKey: 'M' }).provider);
 results.staticUrlNoCoords = await p67d.evaluate(() => window.__tdwImagery.staticImageUrl({ latitude: null, longitude: -82 }, { maptilerKey: 'M' }));
 results.staticUrlNoKey = await p67d.evaluate(() => window.__tdwImagery.staticImageUrl({ latitude: 1, longitude: 2 }, {}));
@@ -7890,7 +7913,7 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v157"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v158"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -8192,7 +8215,8 @@ const EXPECTED = {
   minimapCaption: "Location in this county", // 2026-10-27: one fact one place
   minimapNeighborsDrawn: true,
   staticUrlMaptiler: 'maptiler|true',
-  staticUrlGoogle: 'google|true',
+  staticUrlGoogle: null,
+  staticUrlGoogleAdmin: 'google|true',
   staticUrlPrefersMaptiler: 'maptiler',
   staticUrlNoCoords: null,
   staticUrlNoKey: null,
@@ -8486,13 +8510,18 @@ const EXPECTED = {
   // given provider's key is present. See satellite-map.js.
   mapStyleOutlineOnByDefault: true,
   satelliteCanvasHiddenByDefault: true,
+  googleBasemapHiddenForCustomer: true,
+  viewerMarkedCustomer: 'customer',
+  googleRefusedForCustomer: true,
+  googleBasemapVisibleForAdmin: true,
+  viewerMarkedAdmin: 'admin',
   mapStyleGoogleOnAfterClick: true,
   outlineCanvasHiddenAfterGoogleClick: true,
   satelliteCanvasVisibleAfterGoogleClick: true,
   satelliteSetupMessageShownWithNoGoogleKey: true,
   googleMapsNotLoadedWithNoKey: true,
   outlineCanvasVisibleAfterGoogleSwitchBack: true,
-  mapClusterBubbleCountAfterGoogleSwitchBack: 8,
+  mapClusterBubbleCountAfterGoogleSwitchBack: 9,
   mapStyleMaptilerOnAfterClick: true,
   outlineCanvasHiddenAfterMaptilerClick: true,
   satelliteCanvasVisibleAfterMaptilerClick: true,

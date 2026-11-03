@@ -11802,7 +11802,7 @@
    "source_id": "TX:Tyler:tx_realauction",
    "source_type": "AUCTION_VENDOR",
    "state": "TX",
-   "url": "https://tyler.texas.sheriffsaleauctions.com/index.cfm?zaction=USER&zmethod=CALENDAR"
+   "url": "https://tylercounty.texas.sheriffsaleauctions.com/index.cfm?zaction=USER&zmethod=CALENDAR"
   },
   {
    "access": "ACCESSIBLE",

@@ -189,10 +189,13 @@ const overlap = (a, c) => !!a && !!c && !(a.right <= c.left || a.left >= c.right
     const cfm = await factsMatch(pg);
     check('certificateFactsAreAppLabels', cfm.ok, cfm);
   } else check('certificateRowPresent', false, null);
-  // Google with no key: the setup message no longer points "on the left".
-  await pg.click('#mapStyleGoogle');
+  // Customers see no Google basemap (owner 2026-11-03: MapTiler until the
+  // Google key's permits change); the setup copy is checked on MapTiler, whose
+  // message uses the same wording, with no key: it no longer points "on the left".
+  check('googleHiddenForCustomer', await pg.locator('#mapStyleGoogle').isHidden(), null);
+  await pg.click('#mapStyleMaptiler');
   await pg.waitForTimeout(300);
-  const setup = ((await pg.locator('#satelliteMapCanvasGoogle .satellite-map-setup').textContent()) || '');
+  const setup = ((await pg.locator('#satelliteMapCanvasMaptiler .satellite-map-setup').textContent()) || '');
   check('satSetupCopyFixed', /The Outline map still works/.test(setup) && !/on the left/.test(setup), setup);
   // Satellite pin markup: a 44px hit box holding the visible teardrop.
   const hit = await pg.evaluate(() => {
