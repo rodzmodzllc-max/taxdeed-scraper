@@ -235,6 +235,67 @@ for (const look of ['classic', 'merged']) {
   await pg.context().close();
 }
 
+// ---------------------------------------------------------------- review: in-place Watch keeps the sale-day strip current
+{
+  const pg = await open('index.html#/auctions');
+  const info = await pg.evaluate(() => {
+    const btn = document.querySelector('#main .prop-card [data-action="bidlist"][data-pid].bid-btn:not(.on)');
+    if (!btn) return null;
+    let el = btn.closest('.prop-card'), date = null;
+    const divs = [...document.querySelectorAll('#main .date-divider')];
+    for (const d of divs) if (d.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) date = d.dataset.date;
+    return { pid: btn.dataset.pid, date };
+  });
+  const chip = info && info.date ? pg.locator(`#saleStrip .ss-day[data-date="${info.date}"]`) : null;
+  if (chip && await chip.count()) { await chip.click(); await pg.waitForTimeout(200); }
+  const dots0 = await pg.locator('#saleStrip .ss-watch').count();
+  await pg.evaluate(() => { window.__renders = 0; window.addEventListener('tdw:rendered', () => window.__renders++); });
+  await pg.evaluate(pid => document.querySelector(`#main [data-action="bidlist"][data-pid="${pid}"]`).click(), info && info.pid);
+  await pg.waitForTimeout(500);
+  const after = await pg.evaluate(() => ({ renders: window.__renders, dots: document.querySelectorAll('#saleStrip .ss-watch').length, panel: (document.querySelector('#saleStrip .ss-panel') || {}).textContent || '' }));
+  check('reviewStripDotAfterWatchTap', !!chip && after.renders === 0 && after.dots === dots0 + 1, { info, dots0, after });
+  check('reviewStripWatchedFactAfterWatchTap', /1 watched/.test(after.panel), after.panel.replace(/\s+/g, ' ').slice(0, 200));
+  // A second tap removes it again: the dot and the fact go.
+  await pg.evaluate(pid => document.querySelector(`#main [data-action="bidlist"][data-pid="${pid}"]`).click(), info && info.pid);
+  await pg.waitForTimeout(500);
+  const back = await pg.evaluate(() => ({ dots: document.querySelectorAll('#saleStrip .ss-watch').length, panel: (document.querySelector('#saleStrip .ss-panel') || {}).textContent || '' }));
+  check('reviewStripClearedAfterUnwatch', back.dots === dots0 && !/1 watched/.test(back.panel), back.dots);
+  // The Watchlist page's Remove / Cancel rows are not toggles.
+  await pg.evaluate(pid => document.querySelector(`#main [data-action="bidlist"][data-pid="${pid}"]`).click(), info && info.pid);
+  await pg.waitForTimeout(400);
+  // A Watchlist-page Remove row for that watched property (the page builds one
+  // for a saved item no longer listed), then another card's Watch tap.
+  await pg.evaluate(pid => { const r = document.createElement('button'); r.className = 'reset-btn'; r.dataset.action = 'bidlist'; r.dataset.pid = pid; r.type = 'button'; r.textContent = 'Remove'; r.id = 'reviewRemoveRow'; document.body.appendChild(r); r.addEventListener('click', e => e.stopPropagation(), true); }, info && info.pid);
+  await pg.evaluate(() => { const b = [...document.querySelectorAll('#main .bid-btn[data-action="bidlist"]:not(.on)')][0]; if (b) b.click(); });
+  await pg.waitForTimeout(400);
+  const stray = await pg.evaluate(() => ({ removeRows: document.querySelectorAll('.reset-btn[data-action="bidlist"]').length, stray: document.querySelectorAll('.reset-btn[data-action="bidlist"].on, .reset-btn[data-action="bidlist"].pending').length }));
+  check('reviewRemoveRowsNeverToggled', stray.removeRows > 0 && stray.stray === 0, stray);
+  await pg.context().close();
+}
+
+// ---------------------------------------------------------------- review: "Then by" alone keeps the default groups
+{
+  const pg = await open('index.html#/auctions');
+  const order = () => pg.evaluate(() => [...document.querySelectorAll('#main .county-group, #main [data-county-group], #main .group-head')].map(g => g.dataset.county || g.textContent.trim().slice(0, 30)));
+  const dates = () => pg.evaluate(() => [...document.querySelectorAll('#main .date-divider')].map(d => d.dataset.date || ''));
+  const d0 = await dates();
+  await setSelect(pg, 'sortSecondary', 'bidDesc'); await pg.waitForTimeout(300);
+  const d1 = await dates();
+  check('reviewThenByKeepsDateClusters', d1.length > 1 && JSON.stringify(d1) === JSON.stringify(d0) && d1.every((d, i) => i === 0 || d1[i - 1] <= d), { d0, d1 });
+  await pg.context().close();
+}
+
+// ---------------------------------------------------------------- review: a source picked on another ledger is reset
+{
+  const pg = await open('index.html#/lands');
+  const v = await pg.evaluate(() => { const o = [...document.querySelectorAll('#sourceFilter option')].find(o => o.value !== 'any'); return o && o.value; });
+  await setSelect(pg, 'sourceFilter', v); await pg.waitForTimeout(300);
+  await goLedger(pg, 'auction'); await pg.waitForTimeout(600);
+  const r = await pg.evaluate(() => ({ sel: document.getElementById('sourceFilter').value, cards: document.querySelectorAll('#main .prop-card').length, chips: (document.getElementById('filterChips') || {}).textContent || '' }));
+  check('reviewSourceResetOnLedgerChange', !!v && r.sel === 'any' && r.cards > 0 && !/Source:/.test(r.chips), { v, r });
+  await pg.context().close();
+}
+
 // ---------------------------------------------------------------- F28: same-parcel lookups through the index, map work gated
 {
   const pg = await open('mi.html?profile=admin&bigcounty=6000#/lands', { settle: 3000 });
