@@ -4058,7 +4058,7 @@ function renderPlanGate(ent) {
       ? `<div class="plan-card" id="planCard"><div class="plan-name">${esc(cfg.planName)}</div><div class="plan-price">${esc(cfg.priceDisplay)}</div>
            <p class="plan-scope">The paid beta covers the sources approved for paid customers - a deliberately small, reviewed set, not every state or source the service collects. Sources still under review are not included.</p></div>
          <button type="button" id="planSubscribeBtn">${hasSub ? "Subscribe again" : "Subscribe"}</button>`
-      : `<div class="plan-unconfigured" id="planUnconfigured"><b>Subscriptions are not open yet.</b> The plan name and price have not been configured for this deployment (config.js billing.planName / billing.priceDisplay).</div>`}
+      : `<div class="plan-unconfigured" id="planUnconfigured"><b>Subscriptions are not open yet.</b></div>`}
     ${hasSub ? `<button type="button" class="auth-mode-toggle" id="planManageBtn">Manage billing (update payment method)</button>` : ""}
     <p class="plan-tester-note">Testers and invited accounts: access is granted by an administrator - no payment needed. If you were invited, wait for approval.</p>
     <div class="auth-msg" id="planMsg" role="status"></div>`;
@@ -14190,7 +14190,7 @@ function renderSupportModal(ctx) {
   }).join("");
   body.innerHTML = `
     ${email ? `<p>Pick a topic - it opens an e-mail to <b>${esc(email)}</b> with the details below filled in.</p>`
-             : `<div class="support-unconfigured" id="supportUnconfigured"><b>No support address is configured for this deployment yet.</b> The deployment owner sets <code>supportEmail</code> in config.js (see docs/production-configuration.md). Until then, the topics below cannot be sent from here.</div>`}
+             : `<div class="support-unconfigured" id="supportUnconfigured"><b>E-mail support is not available from here yet.</b> The topics below cannot be sent from this page for now.${IS_ADMIN ? ` <span class="support-admin-note">Admin: set <code>supportEmail</code> in config.js (docs/production-configuration.md).</span>` : ""}</div>`}
     <div class="support-topics">${topics}</div>
     <p class="support-context" id="supportContext">Included with the report:<br>${context.map(esc).join("<br>")}</p>`;
 }
@@ -15540,7 +15540,7 @@ function monitorSectionHtml(p) {
   const watched = BIDLIST.has(p.id), fav = FAVS.has(p.id);
   const status = watched && fav ? "On your watchlist and in your favorites." : watched ? "On your watchlist." : fav ? "In your favorites." : "Not watched. Add it to your watchlist to check it for changes in this browser - there are no e-mail or push alerts.";
   const alertsLine = MONITOR.tables.user_alerts === true
-    ? `Alerts for watched properties are ${MONITOR.prefs && MONITOR.prefs.watch_changes === false ? "<b>off</b>" : "<b>on</b>"} (account menu → Alerts). They appear in the Alerts inbox; e-mail delivery is not configured on this deployment.`
+    ? `Alerts for watched properties are ${MONITOR.prefs && MONITOR.prefs.watch_changes === false ? "<b>off</b>" : "<b>on</b>"} (account menu → Alerts). They appear in the Alerts inbox; e-mail delivery is not available yet.`
     : "Server alerts are not enabled on this deployment yet. Changes to watched properties are compared in this browser each time you load the app (Watchlist → changes).";
   const body = `<div class="monitor-block">
     <p class="monitor-status"><b>${esc(status)}</b></p>
