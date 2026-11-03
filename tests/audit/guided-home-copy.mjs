@@ -65,8 +65,28 @@ const LGBS = { id: 'xtx1', source: 'laft', state: 'TX', county: 'Liberty', case_
   check('F26_certByAssignment', /assignment/i.test(t) && !/Bid at/i.test(t), t);
   const g = await allText(pg, '.guided');
   check('F26_noCertificateSaleBidding', !/Bid at the certificate sale/i.test(g) && !/tax collector/i.test(g) && /assignment/i.test(g), g.slice(0, 600));
-  check('F26_noRateClaimed', /interest rate is not published/i.test(t), t);
+  check('F26_noRateClaimed', /interest rate is not on file/i.test(t) && !/not published on the list/i.test(t), t);
   await pg.context().close();
+}
+
+// F25 (review): Morgan CO sells an OPTION for a Treasurer's deed - never "receive the deed".
+{
+  const MORGAN = Object.assign({}, SAGUACHE, { id: 'xmor1', county: 'Morgan', case_no: 'MO-1', harvester_source: 'co_morgan_treasurer_deed_auctions',
+    source_id: 'co_morgan_treasurer_deed_auctions', sale_date: '2027-03-01' });
+  const pg = await open('co.html?tier=beginner#/auctions/xmor1', { extra: [MORGAN] });
+  const t = await text(pg, '.g-three');
+  check('F25_morganOptionNamed', /option for a Treasurer's deed/i.test(t) && /not the deed/i.test(t), t);
+  const g = await allText(pg, '.guided');
+  check('F25_morganLastStageOption', /receive the option/i.test(g) && !/receive the deed/i.test(g) && !/get the deed/i.test(g), g.slice(-600));
+  await pg.context().close();
+}
+
+// SC redemption law is not verified here - copy never states it as fact.
+{
+  const sc = await open('sc.html#/auctions');
+  const t = await sc.evaluate(() => document.body.textContent.replace(/\s+/g, ' '));
+  check('SC_redemptionNotAsserted', !/former owner keeps a redemption period/i.test(t) && /redemption law has not been verified/i.test(t), t.slice(0, 500));
+  await sc.context().close();
 }
 
 // F71: a Texas future-sale row is a fact about the LIST, never "It is for sale".
@@ -143,6 +163,41 @@ for (const slug of ['auctions', 'lands']) {
   await pg.waitForTimeout(900);
   const main = await text(pg, '#main');
   check('F19_vacantLotsListed', /12 Searchable Blvd/.test(main), main.slice(0, 400));
+  // Place and street words are not type words.
+  const parsed = await pg.evaluate(() => ['land o lakes', 'land bank', 'commercial blvd', 'lots 4-6', 'office'].map(q => {
+    const n = window.__tdwParseNaturalQuery(q, []); return [q, n.type]; }));
+  check('F19_placeWordsNotTypes', parsed.every(([, t]) => !t), parsed);
+  await pg.context().close();
+}
+// F19 (review): no type filter outside Florida - the customer's own word stays the text.
+{
+  const TXRES = Object.assign({}, LGBS, { id: 'xtx2', case_no: '000016000777', parcel: '21DC-TX-00777', address: 'TRACT 7, Liberty, TX', prop_type: 'Residential' });
+  const pg = await open('tx.html#/lands', { extra: [LGBS, TXRES] });
+  const n = await pg.evaluate(() => window.__tdwParseNaturalQuery('residential sunrise', ['Liberty']));
+  check('F19_txNoTypeBucket', !n.type && n.text === 'residential sunrise', n);
+  await pg.fill('#globalSearchInput', 'residential'); await pg.waitForTimeout(400); await pg.press('#globalSearchInput', 'Enter');
+  await pg.waitForTimeout(700);
+  const m = await text(pg, '#main');
+  check('F19_txOwnWordMatchesPropType', /TRACT 7/.test(m) && !/TRACT 9/.test(m), m.slice(0, 400));
+  // A short fragment never pulls in a whole type class.
+  await pg.fill('#globalSearchInput', 'res'); await pg.waitForTimeout(400); await pg.press('#globalSearchInput', 'Enter');
+  await pg.waitForTimeout(700);
+  check('F19_shortFragmentNoTypeMatch', !/TRACT 7/.test(await text(pg, '#main')), (await text(pg, '#main')).slice(0, 300));
+  await pg.context().close();
+}
+// F19 (review): a structured query naming no type keeps the customer's type chips.
+{
+  const pg = await open('index.html#/auctions');
+  const before = await pg.evaluate(() => { const c = document.querySelectorAll('#typeChips .chip.on, #typeChips [aria-pressed="true"]').length; return c; });
+  await pg.evaluate(() => { const el = document.querySelector('#typeChips .chipx'); if (el) el.click(); });
+  await pg.waitForTimeout(300);
+  const narrowed = await pg.evaluate(() => document.querySelectorAll('#typeChips .chip.on, #typeChips [aria-pressed="true"]').length);
+  await pg.fill('#globalSearchInput', 'auctions under 10000');
+  await pg.waitForTimeout(500);
+  await pg.press('#globalSearchInput', 'Enter');
+  await pg.waitForTimeout(900);
+  const after = await pg.evaluate(() => document.querySelectorAll('#typeChips .chip.on, #typeChips [aria-pressed="true"]').length);
+  check('F19_typeChipsKept', narrowed !== before && after === narrowed, { before, narrowed, after });
   await pg.context().close();
 }
 
@@ -158,6 +213,19 @@ for (const slug of ['auctions', 'lands']) {
     from: (document.getElementById('saleFromFilter') || {}).value, hash: location.hash }));
   check('F61_countyQuickFollows', r.quick === county, { r, county });
   check('F61_saleDayOnly', !!date && r.from === date, { r, date });
+  // (review) the sale-day range belongs to the Auctions ledger: switching ledger drops it.
+  await pg.evaluate(() => { document.querySelector('[data-nav-ledger="laft"], #hdrNav [data-ledger="laft"], #ledgerTabs [data-ledger="laft"]').click(); });
+  await pg.waitForTimeout(700);
+  const r2 = await pg.evaluate(() => (document.getElementById('saleFromFilter') || {}).value);
+  check('F61_rangeDroppedOnLedgerChange', r2 === '', r2);
+  // (review) an entry with no date never wipes a range the customer set.
+  await pg.evaluate(() => {
+    const f = document.getElementById('saleFromFilter'); f.value = '2027-01-01'; f.dispatchEvent(new Event('change', { bubbles: true }));
+    const b = document.createElement('button'); b.dataset.action = 'dossierlist'; b.dataset.county = 'Duval'; b.dataset.ledger = 'auction'; document.body.appendChild(b); b.click(); b.remove();
+  });
+  await pg.waitForTimeout(700);
+  const r3 = await pg.evaluate(() => (document.getElementById('saleFromFilter') || {}).value);
+  check('F61_noDateKeepsUserRange', r3 === '2027-01-01', r3);
   await pg.context().close();
 }
 
@@ -169,7 +237,7 @@ for (const slug of ['auctions', 'lands']) {
   if (await card.count()) { await card.click(); await pg.waitForTimeout(1500); }
   const log = await pg.evaluate(() => window.__stubProbeLog || []);
   const auc = log.filter(l => l.filters.some(f => f[0] === 'source' && f[1] === 'auction'));
-  check('F62_probeExcludesClosed', auc.length > 0 && auc.every(l => l.filters.some(f => f[0] === 'status' && f[2] === 'notin' && f[1].includes('closed'))), log.slice(0, 2));
+  check('F62_probeExcludesClosed', auc.length > 0 && auc.every(l => /status\.is\.null,status\.not\.in\.\(dropped,sold,notfound,closed\)/.test(l.or)), log.slice(0, 2));
   check('F62_probeAuctionSaleNotPast', auc.length > 0 && auc.every(l => /sale_date\.is\.null,sale_date\.gte\./.test(l.or)), auc.slice(0, 2));
   await pg.context().close();
 }
@@ -221,6 +289,12 @@ for (const slug of ['auctions', 'lands']) {
   const toast = await bad.evaluate(() => (document.getElementById('errToast') || {}).textContent || '');
   check('F102_unknownRecordSaysSo', /no longer listed/.test(toast), toast);
   await bad.context().close();
+  // (review) a ledger that failed to load is never "no longer listed".
+  const fl = await open('index.html?failpage=lien:0#/auctions/doesnotexist');
+  await fl.waitForTimeout(4000);
+  const t2 = await fl.evaluate(() => (document.getElementById('errToast') || {}).textContent || '');
+  check('F102_failedLoadNotNoLongerListed', !/no longer listed/.test(t2) && /could not be opened/.test(t2), t2);
+  await fl.context().close();
 }
 
 check('noPageErrors', errs.length === 0, errs.slice(0, 5));

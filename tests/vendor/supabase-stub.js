@@ -731,7 +731,7 @@ class MockQuery {
   // picker sends is understood (see the properties branch below).
   // Several or() calls are separate filters (AND-ed), as in PostgREST.
   or(expr) { this._or = (this._or ? this._or + ";" : "") + String(expr || ""); return this; }
-  // not(col, "in", "(a,b)") - the state picker's current-row probe.
+  // not(col, "in", "(a,b)"): SQL semantics - a NULL value is never "not in".
   not(col, op, val) { if (op === "in") this._filters.push([col, String(val || "").replace(/^\(|\)$/g, "").split(","), "notin"]); return this; }
   gte() { return this; }
   gt() { return this; }
@@ -836,8 +836,11 @@ class MockQuery {
           window.__stubProbeLog = (window.__stubProbeLog || []).concat([{ filters: this._filters.map(f => f.slice()), or: this._or || "" }]);
           let rows = FIXTURE_PROPERTIES.filter(r => this._filters.every(([c, v, kind]) => {
             const val = c === "state" ? (r.state || "FL") : r[c];
-            return kind === "in" ? (v || []).includes(val) : kind === "notin" ? !(v || []).includes(val) : kind === "lt" ? String(val) < String(v) : val === v;
+            return kind === "in" ? (v || []).includes(val) : kind === "notin" ? (val != null && !(v || []).includes(val)) : kind === "lt" ? String(val) < String(v) : val === v;
           }));
+          // or=(status.is.null,status.not.in.(...)): the probe's current-row rule.
+          const statusCut = /status\.is\.null,status\.not\.in\.\(([^)]*)\)/.exec(this._or || "");
+          if (statusCut) { const gone = statusCut[1].split(","); rows = rows.filter(r => r.status == null || !gone.includes(r.status)); }
           // or=(sale_date.is.null,sale_date.gte.<day>): a current auction row.
           const saleCut = /sale_date\.is\.null,sale_date\.gte\.([^,);]+)/.exec(this._or || "");
           if (saleCut) rows = rows.filter(r => !r.sale_date || String(r.sale_date).slice(0, 10) >= saleCut[1]);
