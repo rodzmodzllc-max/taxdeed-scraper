@@ -3879,7 +3879,7 @@ function renderPlanGate(ent) {
       ? `<div class="plan-card" id="planCard"><div class="plan-name">${esc(cfg.planName)}</div><div class="plan-price">${esc(cfg.priceDisplay)}</div>
            <p class="plan-scope">The paid beta covers the sources approved for paid customers - a deliberately small, reviewed set, not every state or source the service collects. Sources still under review are not included.</p></div>
          <button type="button" id="planSubscribeBtn">${hasSub ? "Subscribe again" : "Subscribe"}</button>`
-      : `<div class="plan-unconfigured" id="planUnconfigured"><b>Subscriptions are not open yet.</b>${IS_ADMIN ? ` <span class="support-admin-note">Admin: set billing.planName / billing.priceDisplay in config.js.</span>` : ""}</div>`}
+      : `<div class="plan-unconfigured" id="planUnconfigured"><b>Subscriptions are not open yet.</b></div>`}
     ${hasSub ? `<button type="button" class="auth-mode-toggle" id="planManageBtn">Manage billing (update payment method)</button>` : ""}
     <p class="plan-tester-note">Testers and invited accounts: access is granted by an administrator - no payment needed. If you were invited, wait for approval.</p>
     <div class="auth-msg" id="planMsg" role="status"></div>`;

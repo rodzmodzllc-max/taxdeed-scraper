@@ -43,7 +43,11 @@ for (const f of ['terms', 'privacy', 'acceptable-use', 'source-disclaimer']) {
   const missing = await pg.evaluate(() => document.documentElement.getAttribute('data-legal-missing'));
   check('legalMissingStillRecorded_' + f, !!missing && missing.includes('operatorName'), missing);
   if (f === 'privacy') check('privacyNeutralOperatorWording', text.includes('what information the operator of the TAXACQ service collects'), null);
-  if (f === 'terms') check('termsSentenceIntact', text.includes('These terms govern your use of the TAXACQ service (the "Service"). By creating an account'), null);
+  if (f === 'terms') {
+    // "we" / "us" stay defined, and no sentence points at a date that is not on the page.
+    check('termsSentenceIntact', text.includes('These terms govern your use of the TAXACQ service (the "Service"), operated by the operator of the TAXACQ service ("we", "us"). By creating an account'), null);
+    check('termsNoDanglingEffectiveDate', !/effective date above/i.test(text) && text.includes('We may update these terms; material changes are announced in the Service.'), null);
+  }
   await pg.context().close();
 }
 
@@ -55,6 +59,7 @@ for (const f of ['terms', 'privacy', 'acceptable-use', 'source-disclaimer']) {
   check('legalConfiguredMeta', text.includes('Operator: Fixture Operator LLC · Effective: 2026-10-05'), text.slice(0, 200));
   check('legalConfiguredClauses', ['operated by Fixture Operator LLC', 'governed by Fixture law', '(TEST PRICE / month)', 'Tell us promptly at fixture@example.com'].every(s => text.includes(s)), null);
   check('legalConfiguredContactLink', (await pg.locator('[data-legal="contactEmail"] a').first().getAttribute('href')) === 'mailto:fixture@example.com', null);
+  check('legalConfiguredWording', text.includes('the effective date above changes when we do, and material changes') && !text.includes('operated by the operator of the TAXACQ service'), null);
   check('legalConfiguredNothingMissing', (await pg.evaluate(() => document.documentElement.getAttribute('data-legal-missing'))) === '', null);
   await pg.context().close();
 }
@@ -113,8 +118,15 @@ for (const f of ['terms', 'privacy', 'acceptable-use', 'source-disclaimer']) {
 // 6. Service worker offline fallback behind 308 "pretty URL" redirects (F70).
 {
   const dir = process.env.SERVE_DIR || '/tmp/serve'; // CI's serve dir (playwright-test.yml)
+  // The served sw.js must be this checkout's own public/sw.js: a stale
+  // /tmp/serve from another build would give a misleading FAIL (or PASS).
+  const ownSw = new URL('../../public/sw.js', import.meta.url);
+  const servedSw = path.join(dir || '', 'sw.js');
   if (!dir || !fs.existsSync(dir)) {
     console.log('FAIL swOfflineFallback -> set SERVE_DIR to the served directory');
+    fail++;
+  } else if (!fs.existsSync(servedSw) || fs.readFileSync(servedSw, 'utf8') !== fs.readFileSync(ownSw, 'utf8')) {
+    console.log('FAIL swServeDirCurrent -> ' + servedSw + ' is not this checkout\'s public/sw.js; rebuild it or set SERVE_DIR');
     fail++;
   } else {
     const types = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };

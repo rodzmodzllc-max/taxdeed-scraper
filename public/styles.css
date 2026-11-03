@@ -1604,6 +1604,8 @@ live here are removed with the #pageMap section itself - see the note by
 .support-topics a:hover,.support-topics button:hover{border-color:var(--accent);color:var(--accent)}
 .support-context{font-size:.74rem;color:var(--ink-soft);margin:.2rem 0 .6rem}
 .support-unconfigured{border:1px dashed var(--warn);border-radius:8px;padding:.6rem .8rem;font-size:.8rem;background:var(--warn-bg)}
+/* Admin-only setup hint inside the support notice (audit F66): its own line, quieter than the customer text. */
+.support-admin-note{display:block;margin-top:.35rem;font-size:.75rem;color:var(--ink-soft)}
 .danger-btn{background:var(--bad)!important;border-color:var(--bad)!important;color:#fff!important}
 .detail-report-btn{margin-top:.5rem}
 

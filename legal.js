@@ -3,7 +3,8 @@
 // not configured is never shown to a customer as a placeholder or as setup
 // text (audit F66 / F103): the clause that needs it is left out instead
 // (elements marked data-legal-needs="<key>"), or a span carrying
-// data-legal-fallback gets that neutral, true wording. Which values are
+// data-legal-fallback gets that neutral, true wording, and an element marked
+// data-legal-unless="<key>" is shown only while that key is NOT configured. Which values are
 // missing stays readable for the operator on <html data-legal-missing> and
 // in the console - never on the page.
 (function () {
@@ -41,6 +42,15 @@
     for (var k = 0; k < needs.length; k++) {
       if (needs[k] && !values[needs[k]]) { note(needs[k]); clauses[j].hidden = true; break; }
     }
+  }
+  // Neutral wording shown only while its value is NOT configured (so a
+  // sentence that needs a definition - e.g. who "we" are - still has one).
+  var unless = document.querySelectorAll("[data-legal-unless]");
+  for (var u = 0; u < unless.length; u++) {
+    var ukeys = unless[u].getAttribute("data-legal-unless").split(/\s+/);
+    var allSet = true;
+    for (var uk = 0; uk < ukeys.length; uk++) if (ukeys[uk] && !values[ukeys[uk]]) allSet = false;
+    unless[u].hidden = allSet;
   }
   // The "Operator · Effective" line: a separator only between two shown
   // parts, and no line at all when neither is configured.
