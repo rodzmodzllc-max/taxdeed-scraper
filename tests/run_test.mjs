@@ -8087,7 +8087,8 @@ const EXPECTED = {
   // outside the 14-day window, so it is not "read recently" and counts as stale.
   availFilterCounts: { pathNone: 1, pathOnline: 0, amountPublished: 1, amountUnpublished: 1, statusAvailable: 2, statusClosed: 0, acreageHalf: 1, acreageTwo: 0, seenRecently: 0, afterReset: 2 },   // p3 (Bay) + p15 (Citrus): p15 has an instructions link, no published amount, 0.3 ac
   flAvailabilityEvidence: [
-    'Availability evidence | LIST_PRESENCE: on the county\'s Lands Available list at the last read (F.S. 197.502(7)) · observed Aug 11, 2026',
+    // audit F58: customers read the basis in words, never the LIST_PRESENCE code.
+    'Availability evidence | List presence - on the county\'s Lands Available list at the last read (F.S. 197.502(7)) · observed Aug 11, 2026',
     'Last verified | Read from the source Aug 11, 2026',
     'Source date | List dated Aug 10, 2026',
     'Purchase link source | No online purchase link on file',
@@ -8267,7 +8268,8 @@ const EXPECTED = {
   rdNavAuction: {"hash": "#/auctions", "title": "Auctions in Florida 9"},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
   rdGlobal: {"rows": ["p15:Available"], "all": "See all 1 result in the list →", "expanded": "true"},
   rdGlobalOpen: {"modal": false, "crumbs": ["Home/Available/15 Manatee Ln"]},
-  rdDetail: {"tabs": ["How to acquire", "Financial position", "Decision", "Inventory", "Tax & Value", "Property", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago (Sep 20, 2026).", "Its source is approved for customer publication."], "acquire": 1},
+  // audit F94: 'because it appears on <source>' (never '... lists lists it').
+  rdDetail: {"tabs": ["How to acquire", "Financial position", "Decision", "Inventory", "Tax & Value", "Property", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because it appears on its source list.", "Last read from the source Nd ago (Sep 20, 2026).", "Its source is approved for customer publication."], "acquire": 1},
   rdCrumbHome: {"modalHidden": true, "dashVisible": true},
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
@@ -8806,7 +8808,8 @@ const EXPECTED = {
     'legal_desc|County list (Lands Available) fl_laft_pioneer|Published by the source|List as of Aug 10, 2026'
   ],
   flProvenanceLines: ['Availability evidence', 'Last verified', 'Source date', 'Purchase link source', 'Path evidence', 'Read by', 'List read from', 'Retrieved', 'List date', 'Amount', 'Purchase path', 'How to purchase', 'Inventory type', 'Status wording'],   // the availability-evidence block leads; 'How to purchase' = the source-level mode,
-  flProvenancePurchaseLine: "phone_mail (source-scope): Clerk's Lands Available page (fixture)",   // acquisition-path sprint: p3 carries a verified county process
+  // audit F58: the path type in words for customers (admins still see the raw "phone_mail (source-scope)").
+  flProvenancePurchaseLine: "Phone or mail process (published by the source; no online path) (source-level): Clerk's Lands Available page (fixture)",   // acquisition-path sprint: p3 carries a verified county process
   flProvenanceFresh: 'Last read from the source Aug 11, 2026 · list dated Aug 10, 2026',
   flProvenanceNoScoreWords: true,
   flInventoryType: "Lands Available - over the counter from the clerk, no bidding (F.S. 197.502(7))",
@@ -8847,7 +8850,8 @@ const EXPECTED = {
   decNavHasDecision: 1,
   decP3How: "Phone the county First step: Call or e-mail the Tax Deed Department for the current purchase amount Call or e-mail the Tax Deed Department for the current purchase amount Pay the quoted amount at the Clerk's office County process: the county publishes this acquisition process for the properties on its list. It is not an approval for this parcel, and being listed does not prove the county will still sell it today. Acquisition process last verified Sep 30, 2026 \u00b7 County source not fully read at the last attempt; retry pending - this is the last verified process.",
   decP3Contact: "Office Clerk of Court - Tax Deed Department (fixture) Phone (850) 555-0100 E-mail taxdeeds@bayclerk.example.gov",
-  decP3Why: "Lands Available - over the counter from the clerk, no bidding (F.S. 197.502(7)) Property-specific: this parcel appears on the official county list. Basis: harvester constant (F.S. 197.502(7) Lands Available list) County list page → · List document (PDF / file) → · list dated Aug 10, 2026 Matched to the list by case no C-1 (parcel 333) · read Aug 11, 2026",
+  // audit F53 / F93: a plain-words basis, and the match date is the first match (the last read is shown once, elsewhere).
+  decP3Why: "Lands Available - over the counter from the clerk, no bidding (F.S. 197.502(7)) Property-specific: this parcel appears on the official county list. Basis: Classified from the county's F.S. 197.502(7) Lands Available list County list page → · List document (PDF / file) → · list dated Aug 10, 2026 Matched to the list by case no C-1 (parcel 333) · first matched Aug 11, 2026",
   decP3Glance: "Phone the county First step: Call or e-mail the Tax Deed Department for the current purchase amount Call or e-mail the Tax Deed Department for the current purchase amount Pay the quoted amount at the Clerk's office County process: the county publishes this acquisition process for the properties on its list. It is not an approval for this parcel, and being listed does not prove the county will still sell it today. Acquisition process last verified Sep 30, 2026 · County source not fully read at the last attempt; retry pending - this is the last verified process.",
   decP3GapNamesAcquisition: true,
   purchasePathNoneAcquire: 'Not yet verified - no published acquisition process established from evidence',
@@ -8867,7 +8871,8 @@ const EXPECTED = {
   decP15HowSteps: ['Download and complete the application (fixture)', 'E-mail taxdeeds@example.gov with the case number (fixture)', 'Pay in certified funds at 1 Example Ave (fixture)'],
   decP15Contact: 'Office Fixture County Clerk - Tax Deed Division (fixture) Address (in person) 1 Example Ave, Inverness, FL 00000 (fixture) Phone (000) 000-0000 E-mail taxdeeds@example.gov Payment Certified funds (fixture) Instructions published by the source: Complete the application and pay at the Tax Deed office (fixture wording).',
   decP15ContactLinks: ['tel:0000000000', 'mailto:taxdeeds@example.gov'],
-  decP15Why: "Lands Available - over the counter from the clerk, no bidding (F.S. 197.502(7)) Property-specific: this parcel appears on the official county list. Basis: harvester constant (F.S. 197.502(7) Lands Available list) County list page → · list dated Sep 19, 2026 Matched to the list by case no CI-7 (parcel 1515) · read Sep 20, 2026",
+  // audit F53 / F93: a plain-words basis, and the match date is the first match (the last read is shown once, elsewhere).
+  decP15Why: "Lands Available - over the counter from the clerk, no bidding (F.S. 197.502(7)) Property-specific: this parcel appears on the official county list. Basis: Classified from the county's F.S. 197.502(7) Lands Available list County list page → · list dated Sep 19, 2026 Matched to the list by case no CI-7 (parcel 1515) · first matched Sep 20, 2026",
   decP15SourceDocHrefs: ['https://x/citrus-list', 'https://www.citrusclerk.example.gov/lands-available/how-to-purchase', 'https://www.citrusclerk.example.gov/lands-available/application.pdf'],
   decP15Glance: 'Multi-step county process First step: Download and complete the application (fixture) Download and complete the application (fixture) E-mail taxdeeds@example.gov with the case number (fixture) Pay in certified funds at 1 Example Ave (fixture) Application / instructions document → · County purchase-instructions page (published by the source) → County process: the county publishes this acquisition process for the properties on its list. It is not an approval for this parcel, and being listed does not prove the county will still sell it today. Acquisition process last verified Sep 18, 2026',
   decP15InvAcquire: 'Multi-step county process Fixture County Clerk - Tax Deed Division (fixture) - full process in "How do I acquire it?" above',
@@ -8885,7 +8890,7 @@ const EXPECTED = {
   decP15Fresh: 'Source date: list dated Sep 19, 2026 · Observation date: Sep 20, 2026 · Last verified: read from the source Sep 20, 2026 County source: current - last complete read 3h ago · 6 rows at the last complete read',
   decP15History: ['newly_observed|Jul 1, 2026|First observed on the list', 'removed|Aug 15, 2026|Removed from the list (closed - not a sale result)', 'reactivated|Sep 1, 2026|Back on the list (reactivated)', 'continued|Sep 20, 2026|Last read from the source (continued on the list)'],
   decP15HistoryNote: 'Append-only record. Absence from a list is recorded as a removal, never as a sale; a result appears only when the source published one.',
-  decP15PathEvidenceLine: "County purchase-instructions page (published by the source) · source-level · Clerk's 'How to purchase Lands Available' page names the application and payment steps (data/purchase_path_evidence.csv, observed 2026-09-18) · observed Sep 18, 2026",
+  decP15PathEvidenceLine: "County purchase-instructions page (published by the source) · source-level · Clerk's 'How to purchase Lands Available' page names the application and payment steps (observed 2026-09-18) · observed Sep 18, 2026",   // audit F58: no repository path for customers
   decP15GapsNamePathKind: true,
   decHistoryMissing: 'Lifecycle history is not available yet.',
   availLandUseOptions: ['Any', 'Vacant residential'],   // only values Available rows carry
@@ -9085,7 +9090,8 @@ const EXPECTED = {
   // Financial position + documents & links (2026-10-05).
   financialPositionVectors: [],
   acquisitionDocumentVectors: [],
-  financialPositionStates: {"p15": {"money": true, "acqBasis": "not_published", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "FORM", "SOURCE_PAGE"], "order": true, "noScore": true}, "p3": {"money": true, "acqBasis": "partial", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "DOCUMENT", "SOURCE_PAGE"], "order": true, "noScore": true}, "ptx3": {"money": true, "acqBasis": "vendor", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "SOURCE_PAGE"], "order": true, "noScore": true}, "pla1": {"money": true, "acqBasis": "not_published", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "DOCUMENT", "SOURCE_PAGE"], "order": true, "noScore": true}, "pmi_dlba1": {"money": true, "acqBasis": "program_price", "total": "none", "totalText": "Not published", "docs": ["SOURCE_PAGE"], "order": true, "noScore": true}, "psc_horry1": {"money": true, "acqBasis": "partial", "total": "none", "totalText": "Not published", "docs": ["FORM", "SOURCE_PAGE"], "order": true, "noScore": true}},
+  // audit F23: pmi_dlba1's only listing link is an ArcGIS Online item (a data service), never offered as a source page.
+  financialPositionStates: {"p15": {"money": true, "acqBasis": "not_published", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "FORM", "SOURCE_PAGE"], "order": true, "noScore": true}, "p3": {"money": true, "acqBasis": "partial", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "DOCUMENT", "SOURCE_PAGE"], "order": true, "noScore": true}, "ptx3": {"money": true, "acqBasis": "vendor", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "SOURCE_PAGE"], "order": true, "noScore": true}, "pla1": {"money": true, "acqBasis": "not_published", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "DOCUMENT", "SOURCE_PAGE"], "order": true, "noScore": true}, "pmi_dlba1": {"money": true, "acqBasis": "program_price", "total": "none", "totalText": "Not published", "docs": [], "order": true, "noScore": true}, "psc_horry1": {"money": true, "acqBasis": "partial", "total": "none", "totalText": "Not published", "docs": ["FORM", "SOURCE_PAGE"], "order": true, "noScore": true}},
   // Final visual refinement (2026-10-05).
   // County Intelligence page (2026-10-06).
   countyVectors: [],

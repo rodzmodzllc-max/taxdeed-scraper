@@ -413,11 +413,13 @@ function availableView(rows, api, enter) {
   }
   S.laft.groups = index;
   const unit = api.unitWord ? api.unitWord() : "County";
+  // An independent city stored as its own unit is never "<city> County" (audit F35).
+  const unitName = c => (api.unitLabel ? api.unitLabel(c) : (/\bcity$/i.test(String(c || "")) ? String(c) : `${c} ${unit}`));
 
   const stories = groups.map((g, si) => {
     g.headTrail = storyTrail(g, api);
     const lim = storyLimit(g, si);
-    const name = `${g.county} ${unit}`;
+    const name = unitName(g.county);
     const rail = lim > 0
       ? `<div class="xt-rail" data-xt-keep="rail-${api.esc(g.county)}" role="list">${storyCardsHtml(g, api, lim)}</div>`
       : `<div class="xt-rail xt-rail-lazy" data-xt-keep="rail-${api.esc(g.county)}" data-xt-lazy="${api.esc(g.county)}" role="list" aria-busy="true"></div>`;

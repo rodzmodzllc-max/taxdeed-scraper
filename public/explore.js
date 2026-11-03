@@ -92,6 +92,9 @@ const PAGE_STATE = STATE_ASSETS[document.body.dataset.state] ? document.body.dat
 const STATE_INFO = STATE_ASSETS[PAGE_STATE];
 // County (FL, TX) or parish (LA) - the unit this page's rows name.
 const UNIT_WORD = STATE_INFO.unit || "County";
+// The unit's display name: an independent city stored as its own unit
+// ("St. Louis City") is never "<city> County" (audit F35; app.js unitLabelOf).
+const unitLabelOf = c => (/\bcity$/i.test(String(c || "").trim()) ? String(c).trim() : `${c} ${UNIT_WORD}`);
 
 // Live state, all of it derived from the last tdw:maprendered event.
 let rows = [];
@@ -830,7 +833,7 @@ function draw() {
       g.setAttribute("tabindex", "0");
       g.setAttribute("role", "button");
       g.setAttribute("aria-label",
-        `${county} ${UNIT_WORD}, ${list.length} ${list.length === 1 ? "property" : "properties"}` +
+        `${unitLabelOf(county)}, ${list.length} ${list.length === 1 ? "property" : "properties"}` +
         (selectedCounty === county ? " - selected, activate to clear" : " - activate to filter the list"));
       g.setAttribute("aria-pressed", selectedCounty === county ? "true" : "false");
 
@@ -1779,7 +1782,7 @@ function watchCanvasResize() {
 function updateSummary(byCounty) {
   renderCountyRail(byCounty);
   const titleEl = document.querySelector(".explore-map-title");
-  if (titleEl) titleEl.textContent = zoomCounty ? `${zoomCounty} ${UNIT_WORD}` : "Where these are";
+  if (titleEl) titleEl.textContent = zoomCounty ? unitLabelOf(zoomCounty) : "Where these are";
   const countEl = $("exploreMapCount");
   if (countEl) {
     const inCounty = zoomCounty ? (byCounty.get(zoomCounty) || []).length : 0;
@@ -1926,7 +1929,7 @@ function bindMapInteraction() {
     const range = bids.length
       ? (bids.length === 1 ? fmtShort(bids[0]) : `${fmtShort(Math.min(...bids))} - ${fmtShort(Math.max(...bids))}`)
       : "no published amount";
-    tip.innerHTML = `<b>${county} ${UNIT_WORD}</b><span>${list.length} ${list.length === 1 ? "property" : "properties"} - ${bids.length ? `listed amounts ${range} (bids / listed figures, not purchase prices)` : range}</span>`;
+    tip.innerHTML = `<b>${unitLabelOf(county)}</b><span>${list.length} ${list.length === 1 ? "property" : "properties"} - ${bids.length ? `listed amounts ${range} (bids / listed figures, not purchase prices)` : range}</span>`;
     const box = canvas.getBoundingClientRect();
     // Flip the tooltip to the left of the cursor near the right edge so it
     // can't run off the panel.
