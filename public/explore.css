@@ -729,7 +729,7 @@ font-weight:700;color:var(--bad)}
 .mp-media .mp-locator{display:flex}
 .mp-locator .minimap{overflow:hidden;background:transparent}
 .mp-locator .minimap svg{position:static;width:100%;height:100%;display:block}
-.mp-locator .minimap .mm-neighbor{fill:#DCD5C8;stroke:#C8BFAF;stroke-width:.8}
+.mp-locator .minimap .mm-neighbor{fill:#D8DED6;stroke:#BCC7BD;stroke-width:.8}
 .mp-locator .minimap .mm-county{fill:var(--copper,#B5652E);stroke:var(--copper-deep,#8A3F1E);stroke-width:1.2}
 .mp-locator-text{font-size:.78rem;font-weight:600;color:var(--ink-soft);line-height:1.3}
 .mp-ledger{position:absolute;top:.45rem;left:.45rem;z-index:2;font-size:.62rem;font-weight:800;

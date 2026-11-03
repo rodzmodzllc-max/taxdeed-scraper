@@ -4516,7 +4516,8 @@ await navMap.close();
       const surfaces = { body: bg('body'), rail: bg('#navRail'), topbar: bg('.topbar'), masthead: bg('.masthead') };
       return { noNavy: Object.values(surfaces).every(c => !navy(c)), body: surfaces.body,
         ledgerAccent: getComputedStyle(document.documentElement).getPropertyValue('--led-accent').trim(),
-        display: getComputedStyle(document.querySelector('.list-title, .detail-address, h1') || document.body).fontFamily.includes('Serif') };
+        // TAXACQ brand (2026-11-03): display type is Montserrat (was Source Serif).
+        display: getComputedStyle(document.querySelector('.list-title, .detail-address, h1') || document.body).fontFamily.includes('Montserrat') };
     });
     // TAXACQ (2026-10-06): the signed-in app names the product TAXACQ and never
     // shows the repository's technical name - visible text, the tab title, the
@@ -5118,6 +5119,9 @@ await navMap.close();
     await sp.press('#globalSearchInput', 'ArrowDown');
     await sp.press('#globalSearchInput', 'Enter');
     await sp.waitForSelector('#pageCounty:not([hidden])', { timeout: 5000 });
+    // The page shows "Loading county intelligence..." while it fetches its data
+    // file; read it once that has finished (it raced on slower CI runs).
+    await sp.waitForFunction(() => !document.querySelector('#pageCounty .cty-loading'), null, { timeout: 10000 }).catch(() => {});
     results.searchCountyRoute = await sp.evaluate(() => ({ hash: location.hash, named: /Citrus/.test(document.getElementById('pageCounty').textContent) }));
     // A saved research list routes to My Research, on that list.
     await sp.goto(BASE_URL.replace('index.html', 'index.html?v=sg') + '#/lands/p15', { waitUntil: 'networkidle' });
@@ -7912,7 +7916,7 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v157"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v158"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -9116,8 +9120,9 @@ const EXPECTED = {
   brokenLinksTableAbsent: {"loaded": 0, "spans": 0, "anchors": true, "reads": 1},
   cardZeroSizeStats: {"stats": ["Not trackedBeds", "Not trackedBaths", "Not publishedBuilding sq ft", "Not publishedAcres"], "sizeOverlay": false, "zero": false},
   taxacqBrand: { title: true, rail: 'TAXACQ', sub: 'Tax Acquisition Intelligence', topbar: 'TAXACQ', noOldText: true, aboutWhy: true },
-  identityLogin: {"brand": "TAXACQ", "tagline": "Tax Acquisition Intelligence", "bg": "rgb(243, 239, 232)", "signupFields": 6},
-  identityPalette: {"noNavy": true, "body": "rgb(243, 239, 232)", "ledgerAccent": "#4E6B54", "display": true},
+  // TAXACQ brand (2026-11-03): ivory #F8F8F5 page (was stone #F3EFE8).
+  identityLogin: {"brand": "TAXACQ", "tagline": "Tax Acquisition Intelligence", "bg": "rgb(248, 248, 245)", "signupFields": 6},
+  identityPalette: {"noNavy": true, "body": "rgb(248, 248, 245)", "ledgerAccent": "#4E6B54", "display": true},
   // Opportunity finder + auction command center (2026-10-05).
   finderSortOptions: [["pathFirst", "amountFirst", "readRecent"], ["pathFirst", "amountFirst", "readRecent"]],
   finderBadges: {"p3": ["path", "amount"], "p15": ["path"], "auctionAmountBadges": 0, "noScoreWords": true},
