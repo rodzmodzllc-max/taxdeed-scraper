@@ -360,7 +360,12 @@ def _page(accs):
 
 
 EMPTY_PAGE = json.dumps({"retHTML": "", "rlist": ""})
-CAL_WITH_SALE = "<div class='CALBOX CALSELT' dayid='11/03/2026'>3</div>"
+# An upcoming sale day (the harvester skips sale days already past).
+import datetime as _dt  # noqa: E402
+
+SALE_DAY = (_dt.date.today() + _dt.timedelta(days=5)).strftime("%m/%d/%Y")
+PAST_DAY = (_dt.date.today() - _dt.timedelta(days=40)).strftime("%m/%d/%Y")
+CAL_WITH_SALE = f"<div class='CALBOX CALSELT' dayid='{SALE_DAY}'>3</div>"
 CAL_NO_SALE = "<div class='CALBOX'>4</div>"
 
 
@@ -428,6 +433,72 @@ def test_realauction_pager_that_repeats_a_full_page_is_incomplete(monkeypatch, t
 
     rows, entry, _ = _run_ra(monkeypatch, tmp_path, handler)
     assert len(rows) == 10 and entry["status"] == "INCOMPLETE"
+
+
+def _refresh(wm):
+    return json.dumps({"ADATA": {"COUNT": 0}, "WC": wm, "WM": wm, "CC": 1, "CM": 0})
+
+
+def test_realauction_list_of_exactly_ten_n_items_ends_on_the_sites_page_count(monkeypatch, tmp_path):
+    """Galveston, 2026-11-03: 30 waiting items; page 4 repeats page 3 and the
+    site's own status refresh reports WM=3 - the list's end, not a stuck pager."""
+    pages = [[f"P{p}-{i}" for i in range(10)] for p in range(3)]
+    state = {"page": 0}
+
+    def handler(url):
+        if "zmethod=calendar" in url:
+            return CAL_WITH_SALE
+        if "zmethod=PREVIEW" in url:
+            return "<html></html>"
+        if "FNC=UPDATE&ref=" in url:
+            return _refresh(3)
+        if "PageDir=0&doR=1" in url:
+            state["page"] = 0
+        elif "PageDir=1&doR=0&bypassPage=0" in url:
+            state["page"] = min(state["page"] + 1, 2)  # past the end: the last page again
+        return _page(pages[state["page"]])
+
+    rows, entry, log = _run_ra(monkeypatch, tmp_path, handler)
+    assert len(rows) == 30
+    assert entry["status"] == "COMPLETE" and entry["row_count"] == 30
+    assert sum("FNC=UPDATE&ref=" in u for u in log) == 1
+
+
+def test_realauction_repeated_page_with_more_pages_reported_is_incomplete(monkeypatch, tmp_path):
+    first = [f"A{i}" for i in range(10)]
+
+    def handler(url):
+        if "zmethod=calendar" in url:
+            return CAL_WITH_SALE
+        if "zmethod=PREVIEW" in url:
+            return "<html></html>"
+        if "FNC=UPDATE&ref=" in url:
+            return _refresh(4)
+        return _page(first)
+
+    rows, entry, _ = _run_ra(monkeypatch, tmp_path, handler)
+    assert len(rows) == 10 and entry["status"] == "INCOMPLETE" and "4 page(s)" in entry["reason"]
+
+
+def test_realauction_past_sale_day_is_not_read(monkeypatch, tmp_path):
+    """A sale day earlier this month lists its items under Closed / Canceled
+    only; it is not requested and the county reads EMPTY (no upcoming day)."""
+    def handler(url):
+        if "zmethod=calendar" in url:
+            return f"<div class='CALBOX CALSELT' dayid='{PAST_DAY}'>1</div>"
+        raise AssertionError(url)
+
+    rows, entry, log = _run_ra(monkeypatch, tmp_path, handler)
+    assert rows == [] and entry["status"] == "EMPTY" and entry["past_sale_dates"] == 1
+    assert entry["sale_dates"] == 0 and all("zmethod=calendar" in u for u in log)
+
+
+def test_realauction_waiting_pages_reader():
+    assert TH._realauction_waiting_pages(_refresh(3)) == 3
+    assert TH._realauction_waiting_pages(json.dumps({"WM": "2"})) == 2
+    for bad in ("", "<html>", json.dumps({"WM": True}), json.dumps({"WC": 1}), json.dumps([1])):
+        assert TH._realauction_waiting_pages(bad) is None
+    assert TH._realauction_rlist(json.dumps({"rlist": "12,34,x,"})) == "12,34"
 
 
 def test_realauction_no_sale_days_on_a_real_calendar_is_empty(monkeypatch, tmp_path):
@@ -516,3 +587,15 @@ def test_every_texas_county_name_normalizes_to_the_rosters_spelling():
     for name in TH.texas_counties():
         assert TH._lgbs_normalize_county(name.upper() + " COUNTY") == name
     assert TH._lgbs_normalize_county("DE WITT COUNTY") == "DeWitt"
+
+
+def test_realauction_roster_is_the_platforms_own_texas_site_list():
+    """The 24 sites the platform's own "Jump To" list names (2026-11-03), with
+    Tyler on its real host (the pattern-derived tyler.texas... redirected to
+    the vendor's marketing page)."""
+    import csv
+    with open(TH.REALAUCTION_COUNTIES_CSV, newline="", encoding="utf-8") as fh:
+        hosts = {r["County"]: r["Host"] for r in csv.DictReader(fh)}
+    assert len(hosts) == 24
+    assert hosts["Tyler"] == "tylercounty.texas.sheriffsaleauctions.com"
+    assert {c for c, h in hosts.items() if h.endswith(".texas.realforeclose.com")} == {"Montgomery", "Travis"}
