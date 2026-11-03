@@ -3,8 +3,9 @@
 // Since 2026-10-27 the Merged look draws Available with Terrain's module and
 // Auctions with Tactile's (app.js MERGED_ENGINES); this module draws only
 //   LIENS      certificate slips bundled by tax year (or county); the newest
-//              bundle is fanned out, a slip lifts (a highlight only) and its
-//              facts sit once, in the tray below, with the one Watch button.
+//              bundle is fanned out as a side-by-side scroll-snap row (every
+//              slip readable, its Watch strip reachable); a lifted slip
+//              rises in place and its full facts sit in the tray below.
 // The List title count is the only "certificates in view" number; the
 // sub-line names the number of bundles only when there is more than one.
 //
@@ -196,6 +197,14 @@ function moreButton(ledger, shown, total, what) {
 
 function whereText(p, api) { return `${p.county} ${api.unitWord()}, ${api.stateCode()}`; }
 
+// "County" -> "counties", "Parish" -> "parishes" (never "countys").
+function unitPlural(api) {
+  const w = String(api.unitWord() || "County").toLowerCase();
+  if (/[^aeiou]y$/.test(w)) return w.slice(0, -1) + "ies";
+  if (/(s|sh|ch|x|z)$/.test(w)) return w + "es";
+  return w + "s";
+}
+
 function factRows(rows, api) {
   return rows.map(r => `<div class="fact"><span class="k">${api.esc(r[0])}</span><span class="v">${api.esc(r[1])}</span></div>`).join("");
 }
@@ -247,7 +256,7 @@ function bundleLabels(k, list, api) {
   const caps = by === "year" ? "Tax year" : api.unitWord();
   const title = k === "" ? (by === "year" ? "Tax year not published" : "Not published") : k;
   const other = new Set(list.map(p => (by === "year" ? p.county : (p.tax_year ? String(p.tax_year) : "")))).size;
-  const sub = by === "year" ? `${other} ${api.unitWord().toLowerCase()}${other === 1 ? "" : "s"}` : `${other} tax year${other === 1 ? "" : "s"}`;
+  const sub = by === "year" ? `${other} ${other === 1 ? api.unitWord().toLowerCase() : unitPlural(api)}` : `${other} tax year${other === 1 ? "" : "s"}`;
   return { caps, title, sub };
 }
 
@@ -278,20 +287,16 @@ function fanHtml(k, list, api) {
   const slips = win.map((p, i) => {
     const id = idOf(p);
     const lifted = id === S.slip;
-    if (lifted) {
-      // The lifted slip is a highlight only: its facts and its Watch button
-      // sit once, in the tray below.
-      return `<div class="fslip lifted" style="--off:${i - mid};--fd:${i * 45}ms;z-index:30">
-      <button type="button" class="fb xpm-slip xpm-obj slip-hl" data-xa="slip" data-pid="${api.esc(id)}" data-k="slip-${api.esc(id)}" aria-pressed="true"
-        aria-label="${api.esc(`Certificate ${certNo(p) || "number not published"}: lifted, its facts are shown below.`)}"><span class="hl-mark" aria-hidden="true"></span></button>
-    </div>`;
-    }
+    // Every slip shows its own number, county and amount and keeps its own
+    // Watch strip; the lifted one is raised (translateY only) and its facts
+    // also sit in the tray below. Slips sit side by side in a scroll-snap
+    // row, so none covers a neighbour's text or Watch strip (audit F8).
     const pf = api.previewFacts(p);
     const a = api.amountShort(p);
     const amt = pf.bid || a.text;   // the exact published figure, under amountShort's label
-    return `<div class="fslip" style="--off:${i - mid};--fd:${i * 45}ms;z-index:${10 + i}">
-      <button type="button" class="fb xpm-slip xpm-obj" data-xa="slip" data-pid="${api.esc(id)}" data-k="slip-${api.esc(id)}" aria-pressed="false"
-        aria-label="${api.esc(`Certificate ${certNo(p) || "number not published"}, ${p.county} ${api.unitWord()}. ${a.label}: ${amt}. Lift this slip.`)}">
+    return `<div class="fslip${lifted ? " lifted" : ""}" style="--off:${i - mid};--fd:${i * 45}ms">
+      <button type="button" class="fb xpm-slip xpm-obj" data-xa="slip" data-pid="${api.esc(id)}" data-k="slip-${api.esc(id)}" aria-pressed="${lifted}"
+        aria-label="${api.esc(slipLabel(p, api, lifted))}">
         <span class="xpm-caps">Cert</span><span class="xpm-mono-s ink tr">${api.esc(certNo(p) || "Not published")}</span>
         <span class="slip-county tr">${api.esc(p.county)}</span>
         ${stampHtml(p, api, "slip")}
@@ -311,7 +316,7 @@ function fanHtml(k, list, api) {
     </div>` : "";
   return `<div class="xpm-bundle fanned">
     <div class="fan-wrap">
-      <div class="fan-stage${deal ? " deal" : ""}" role="group" aria-label="${api.esc(`${L.caps} ${L.title}, ${list.length} ${list.length === 1 ? "certificate" : "certificates"}, fanned out`)}">
+      <div class="fan-stage${deal ? " deal" : ""}" data-keep="fan-${api.esc(k)}" role="group" aria-label="${api.esc(`${L.caps} ${L.title}, ${list.length} ${list.length === 1 ? "certificate" : "certificates"}, fanned out`)}">
         <div class="fan-band" aria-hidden="true">${api.esc(L.title)}</div>
         ${slips}
       </div>
@@ -322,7 +327,23 @@ function fanHtml(k, list, api) {
   </div>`;
 }
 
+function slipLabel(p, api, lifted) {
+  const pf = api.previewFacts(p);
+  const a = api.amountShort(p);
+  const amt = a.state === "not_published" ? "not published" : (pf.bid || a.text);
+  return `Certificate ${certNo(p) || "number not published"}, ${p.county} ${api.unitWord()}. ${a.label}: ${amt}. ${lifted ? "Lifted, its facts are shown below." : "Lift this slip."}`;
+}
+
 function trayHtml(p, api) {
+  const id = idOf(p);
+  const anim = S.trayShown !== id;
+  S.trayShown = id;
+  return `<div class="tray xpm-obj${anim ? " anim" : ""}" aria-live="polite">${trayInner(p, api)}</div>`;
+}
+
+// The tray's content for a slip (no wrapper): a slip change swaps only this,
+// in place (liftInPlace).
+function trayInner(p, api) {
   const pf = api.previewFacts(p);
   const a = api.amountShort(p);
   const facts = [["Status", api.officialStatusText(p)]];
@@ -332,9 +353,7 @@ function trayHtml(p, api) {
   for (const r of pf.more || []) if (!["Interest rate", "Tax year", "Issued"].includes(r[0])) facts.push(r);
   if (pf.source) facts.push(["Source", pf.source]);
   const id = idOf(p);
-  const anim = S.trayShown !== id;
-  S.trayShown = id;
-  return `<div class="tray xpm-obj${anim ? " anim" : ""}" aria-live="polite">
+  return `
     <div class="tray-head"><div><div class="tray-cert xpm-mono">Cert ${api.esc(certNo(p) || "number not published")}</div>
       <div class="xpm-small">${api.esc(whereText(p, api))}</div></div>${stampHtml(p, api, "inline")}</div>
     <div class="tray-fig"><span class="xpm-caps">${api.esc(a.label)}</span>${a.state === "not_published" ? missing("Not published", api) : `<span class="fig-xl">${api.esc(pf.bid || a.text)}</span>`}</div>
@@ -343,8 +362,49 @@ function trayHtml(p, api) {
       <button type="button" class="xpm-cta plum" data-xa="open" data-pid="${api.esc(id)}" data-k="open-${api.esc(id)}">Open full record</button>
       ${watchBtn(p, api, "xpm-watch").replace(`data-k="w-`, `data-k="tw-`)}
     </div>
-    ${linkHtml(pf.link, api, "xpm-link plum")}
-  </div>`;
+    ${linkHtml(pf.link, api, "xpm-link plum")}`;
+}
+
+// Lift another slip without rebuilding the stage (audit F45): the slips move
+// by their own transition and the tray keeps its element, swapping only its
+// content. Falls back to a redraw when the fan is not on screen.
+function liftInPlace(pid) {
+  const stage = stageEl();
+  const api = apiOf(S.last);
+  const p = rowById(pid);
+  const fan = stage && stage.querySelector(".xpm-bundle.fanned");
+  const tray = fan && fan.querySelector(".tray");
+  const target = fan && fan.querySelector(`.fslip .fb[data-pid="${keyEsc(pid)}"]`);
+  if (!api || !p || !tray || !target) { redraw(); return; }
+  fan.querySelectorAll(".fslip").forEach(s => {
+    const fb = s.querySelector(".fb");
+    const on = fb === target;
+    s.classList.toggle("lifted", on);
+    fb.setAttribute("aria-pressed", String(on));
+    const row = rowById(fb.dataset.pid);
+    if (row) fb.setAttribute("aria-label", slipLabel(row, api, on));
+  });
+  S.pressed = null;
+  tray.classList.remove("anim", "opening");
+  tray.innerHTML = trayInner(p, api);
+  S.trayShown = pid;
+  try { api.hydrateVisuals(tray); } catch {}
+  watchStamps(stage);
+}
+
+// Keep the bundle the reader tapped where it was on screen (audit F9):
+// folding the fan above it would otherwise pull the page up under it.
+function redrawKeeping(key, fromEl) {
+  const stage = stageEl();
+  const b = fromEl && fromEl.closest(".xpm-bundle");
+  const before = b ? b.getBoundingClientRect().top : null;
+  redraw();
+  if (before === null || !stage) return;
+  const k = stage.querySelector(`[data-k="fan-${keyEsc(key)}"]`);
+  const nb = k && k.closest(".xpm-bundle");
+  if (!nb) return;
+  const d = nb.getBoundingClientRect().top - before;
+  if (Math.abs(d) > 1) window.scrollBy(0, d);
 }
 
 // ------------------------------------------------------------- interaction
@@ -387,13 +447,13 @@ function onClick(e) {
       const k = el.dataset.key;
       S.fan = S.fan === k ? null : k;
       S.fanStart = 0; S.slip = null; S.dealt = null; S.trayShown = null;
-      redraw();
+      redrawKeeping(k, el);
       break;
     }
     case "fanprev": S.fanStart = Math.max(0, S.fanStart - FAN); S.slip = null; redraw(); break;
     case "fannext": S.fanStart += FAN; S.slip = null; redraw(); break;
     case "slip":
-      if (S.slip !== pid) { S.slip = pid; redraw(); }
+      if (S.slip !== pid) { S.slip = pid; liftInPlace(pid); }
       break;
   }
 }

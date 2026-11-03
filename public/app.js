@@ -2566,7 +2566,9 @@ document.addEventListener("error", e => {
   img.remove();
   const cap = host.querySelector(".photo-caption");
   host.classList.remove("has-photo", "static-sat");
-  if (host.classList.contains("pv-visual")) { host.remove(); return; }
+  // The Map card puts its county locator in the failed picture's place
+  // (explore.js listens), so the card is never left without a picture.
+  if (host.classList.contains("pv-visual")) { host.dispatchEvent(new CustomEvent("tdw:visualfailed", { bubbles: true })); host.remove(); return; }
   host.classList.add("minimap");
   // Say the aerial image failed, never just "location" as if none was tried.
   if (cap) cap.textContent = `${host.dataset.imagery === "naip_failed" ? "Aerial image unavailable · " : ""}Location in ${host.dataset.county || ""} ${UNIT_WORD}`;
@@ -2621,6 +2623,11 @@ const marketOf = p => Number(p.market || p.assessed || 0);
 //    field renders only when present, and a row with none of them has to
 //    look deliberately lean rather than broken.
 const hasNum = v => v !== null && v !== undefined && v !== "" && isFinite(Number(v));
+// A county VALUE (market / assessed) is on file only when it is above zero:
+// East Baton Rouge's list carries FAIR MARKET VALUE 0 on every adjudicated
+// row (audit F11, 2026-10-28) - a zero there is "not published", never "$0".
+// Function declaration: render() runs during module init (TDZ).
+function hasValueNum(v) { return hasNum(v) && Number(v) > 0; }
 const fmtSqft = v => Number(v).toLocaleString("en-US") + " sq ft";
 // Lots are quoted in acres once they get big enough that a six-digit square
 // footage stops meaning anything to a reader.
@@ -2674,7 +2681,7 @@ function assessedSourceLabel(p) {
 // scalable replacement, so the Zillow link-out remains the only honest route
 // to a live estimate. Saying so here is the point of the relabel.
 function valueLabel(p) {
-  if (hasNum(p.market)) {
+  if (hasValueNum(p.market)) {
     // Louisiana's list carries the tax roll's FAIR MARKET VALUE, not a
     // Florida county "just value" - named as the source names it.
     if (regionOf(p) === "LA") return p.tax_year ? `${p.tax_year} Fair Market Value (tax roll)` : "Fair Market Value (tax roll)";
@@ -4096,6 +4103,7 @@ async function showApp() {
   else if (route && route.page === "county") { if (route.county) openCountyPage(route.county, PAGE_STATE); else openCountyIndex(); }
   else if (route && route.page === "research") openResearchPage();
   else if (route && route.page === "rules") openRulesPage(route.county);
+  else if (route && route.page === "guide") openGuidePage(route.county, route.guideLedger);
   // Landing (2026-10-13): a bare URL, or any route not named here, opens the
   // List on its landing ledger - Available first wherever it has rows (see
   // landingLedger). Home stays one click away (#/dashboard) and in the nav.
@@ -5131,7 +5139,7 @@ function passes(p) {
     if (state.availSeenRecently) { const d = daysSince(p.last_seen_at); if (d === null || d > 14) return false; }
     if (state.availLandUse !== "any" && String(p.land_use || "") !== state.availLandUse) return false;
     if (state.availGeocoded && !(hasNum(p.latitude) && hasNum(p.longitude))) return false;
-    if (state.availValues && !(hasNum(p.market) || hasNum(p.assessed))) return false;
+    if (state.availValues && !(hasValueNum(p.market) || hasValueNum(p.assessed))) return false;
   }
   if (PAGE_STATE === "FL" && p.source !== "certificate" && state.assessedMin !== null && Number(p.assessed || 0) < state.assessedMin) return false;
   // Customer monitoring filters (2026-10-01). An unknown value never passes
@@ -5430,15 +5438,17 @@ function previewFacts(p) {
     if (p.issued_date) more.push(["Issued", fmtDate(p.issued_date)]);
     if (isGone(p)) more.push(["Listing status", outcomeText(p)]);
     return {
-      kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls,
+      kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls, type: k.type, phase: k.phase,
       bidLabel: "Amount", bid: hasPublishedBid(p) ? fmtMoney(p.bid) : null,
       value: null, valueLabel: null,
-      parcelLabel: "Account", parcel: p.case_no || null, caseNo: null,
+      // The parcel / account the source publishes (parcelOf), never case_no:
+      // Sarasota's case_no is "<tax year>-<cert #>" (audit F46, 2026-10-28).
+      parcelLabel: "Parcel #", parcel: hasParcel(p) ? String(parcelOf(p)) : null, caseNo: null,
       source: harvesterSourceLabel(p), flood: null, more,
       link: auctionLinkInfo(p)
     };
   }
-  const hasMarket = hasNum(p.market), hasAssessed = hasNum(p.assessed);
+  const hasMarket = hasValueNum(p.market), hasAssessed = hasValueNum(p.assessed);
   if (hasMarket && hasAssessed) more.push([assessedSourceLabel(p), fmtShort(p.assessed)]);
   if (hasNum(p.land_value)) more.push(["Land value", fmtShort(p.land_value)]);
   if (p.prop_type) more.push(["Type", String(p.prop_type)]);
@@ -5471,12 +5481,13 @@ function previewFacts(p) {
   if (isGone(p)) more.push(["Listing status", outcomeText(p)]);
   if (p.legal_desc) more.push(["Legal", String(p.legal_desc).length > 140 ? String(p.legal_desc).slice(0, 137) + "…" : String(p.legal_desc)]);
   return {
-    kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls,
+    kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls, type: k.type, phase: k.phase,
     bidLabel: p.source === "laft" ? availableAmountLabel(p) : auctionBidLabel(p),
     bid: p.source === "laft" ? (amountInfo(p).value !== null && amountInfo(p).value !== undefined ? fmtMoney(amountInfo(p).value) : (amountInfo(p).display === "Not published" ? null : amountInfo(p).display)) : (hasPublishedBid(p) ? fmtMoney(p.bid) : null),
     bidNote: p.source === "laft" ? amountInfo(p).note : "",
     value: hasMarket ? fmtShort(p.market) : hasAssessed ? fmtShort(p.assessed) : null,
-    valueLabel: hasMarket ? valueLabel(p) : hasAssessed ? assessedSourceLabel(p) + " - no just value on file" : null,
+    // "Just value" is Florida's statutory term; elsewhere the market figure is named generically.
+    valueLabel: hasMarket ? valueLabel(p) : hasAssessed ? assessedSourceLabel(p) + (region === "FL" ? " - no just value on file" : " - no market value on file") : null,
     parcelLabel: "Parcel", parcel: hasParcel(p) ? String(parcelOf(p)) : null,
     caseNo: p.case_no ? String(p.case_no) : null,
     source: harvesterSourceLabel(p),
@@ -6156,7 +6167,7 @@ function dataGaps(p) {
   // "What is not known?" list reads complete while that question says not yet
   // verified (fixed 2026-10-23).
   if (p.source === "auction" && !acquisitionOf(p).verified) gaps.push("Registration, deposit and payment rules not verified");
-  if (!hasNum(p.market) && !hasNum(p.assessed)) gaps.push("No county value on file");
+  if (!hasValueNum(p.market) && !hasValueNum(p.assessed)) gaps.push("No county value on file");
   if (p.source === "auction" && !p.sale_date) gaps.push("Sale date not scheduled");
   // Phase 72: no url_auction means the source published no link this
   // pipeline could verify (every Texas LGBS row today). Said here as well as
@@ -6259,8 +6270,8 @@ function opportunitySummaryHtml(p) {
   }
   const bid = hasPublishedBid(p) ? fmtMoney(p.bid) : null;
   let value, valueCls = "";
-  if (hasNum(p.market)) value = `${fmtShort(p.market)}<span class="opp-sub">${esc(valueLabel(p))}${hasNum(p.assessed) ? ` · ${esc(assessedSourceLabel(p))} ${fmtShort(p.assessed)}` : ""}</span>`;
-  else if (hasNum(p.assessed)) value = `${fmtShort(p.assessed)}<span class="opp-sub">${esc(assessedSourceLabel(p))} - no just value on file</span>`;
+  if (hasValueNum(p.market)) value = `${fmtShort(p.market)}<span class="opp-sub">${esc(valueLabel(p))}${hasValueNum(p.assessed) ? ` · ${esc(assessedSourceLabel(p))} ${fmtShort(p.assessed)}` : ""}</span>`;
+  else if (hasValueNum(p.assessed)) value = `${fmtShort(p.assessed)}<span class="opp-sub">${esc(assessedSourceLabel(p))} - no just value on file</span>`;
   else { value = "No county value on file"; valueCls = "muted"; }
   const ratio = bid && marketOf(p) > 0 ? `<span class="opp-sub">Value ÷ bid ${valueRatio(p).toFixed(1)}× (screening ratio, not a return)</span>` : "";
   const gaps = dataGaps(p);
@@ -7004,7 +7015,7 @@ function countyPropertyIntelHtml(rows) {
   return `<section class="cty-section" data-county-section="property"><h3>Property intelligence</h3>
     ${countyKv([
       line("Parcel / account identifier", cnt(hasParcel)),
-      line("Assessed value", cnt(p => hasNum(p.assessed) && Number(p.assessed) > 0)),
+      line("Assessed value", cnt(p => hasValueNum(p.assessed))),
       line("Taxable value", cnt(p => hasNum(p.taxable_value))),
       line("Acreage or lot size", cnt(p => hasNum(p.acreage) || hasNum(p.lot_sqft))),
       line("Land use", cnt(p => !!p.land_use || !!p.dor_use_code)),
@@ -7085,7 +7096,7 @@ function countyPageHtml(c, st) {
     <header class="cty-head">
       <p class="cty-kicker">${esc(stName)} · County Intelligence</p>
       <h2 class="cty-title">${esc(c.county)} ${esc(UNIT_WORD)}</h2>
-      <p class="cty-lede">What this app knows before you buy tax-sale or government-held property here - and what it does not.</p>
+      <p class="cty-lede">What this app knows before you buy tax-sale or government-held property here - and what it does not. <button type="button" class="link-btn" data-action="buyersguide" data-county="${esc(c.county)}">Buyer's guide for ${esc(c.county)} ${esc(UNIT_WORD)} →</button></p>
       <div class="cty-ledger-strip">${["laft", "auction", "certificate"].map(k => `<button type="button" class="cty-ledger-count" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="${k}" ${counts[k] ? "" : "disabled"}><span class="cty-dot" data-ledger="${k}"></span>${esc(ledgerNavName(k))} <b>${counts[k].toLocaleString("en-US")}</b></button>`).join("")}</div>
     </header>
     ${countyLadderHtml(rs)}
@@ -7423,6 +7434,67 @@ async function researchAfterOpen(p) {
   if (typeof hydrateDiligence === "function") hydrateDiligence(p.id);
   hydrateGuided(p.id);
 }
+// ==================== Buyer's Guide page (#/guide, 2026-10-29) ====================
+// The owner's buyer's guide: per state, ledger and county, the questions a
+// buyer asks before acting, answered from official sources or marked not yet
+// verified (docs/buyers-guide-contract.md). The page itself lives in
+// buyers-guide.js, loaded on first open; this block only routes to it and
+// passes the page context. Access follows config.js buyersGuideAccess:
+// "all" (default while testing), "guided" (Guided tier and admins/testers),
+// "admin". var / function declarations: showPage() can run during init (TDZ).
+var GUIDE_PAGE = GUIDE_PAGE || { county: null, ledger: null };
+var GUIDE_LEDGER_FOR_SOURCE = { auction: "AUCTIONS", laft: "AVAILABLE", certificate: "LIENS_CERTIFICATES" };
+function ensureGuideSection() {
+  let sec = document.getElementById("pageGuide");
+  if (sec) return sec;
+  const map = document.getElementById("pageMap");
+  sec = document.createElement("section");
+  sec.className = "page guide-page";
+  sec.id = "pageGuide";
+  sec.hidden = true;
+  sec.setAttribute("aria-label", "Buyer's Guide");
+  if (map && map.parentNode) map.parentNode.insertBefore(sec, map.nextSibling);
+  else (document.getElementById("app") || document.body).appendChild(sec);
+  return sec;
+}
+function guidePageHash() {
+  const q = new URLSearchParams();
+  if (GUIDE_PAGE.ledger) q.set("ledger", GUIDE_PAGE.ledger);
+  if (GUIDE_PAGE.county) q.set("county", GUIDE_PAGE.county);
+  const qs = q.toString();
+  return "#/guide" + (qs ? "?" + qs : "");
+}
+function guideAccess() {
+  const mode = (window.TDW_CONFIG && window.TDW_CONFIG.buyersGuideAccess) || "all";
+  if (mode === "all" || IS_ADMIN) return true;
+  if (mode === "guided") return (typeof canSwitchTier === "function" && canSwitchTier()) || pageTier() === "beginner";
+  return false;
+}
+function openGuidePage(county, ledger) {
+  GUIDE_PAGE.county = county || null;
+  GUIDE_PAGE.ledger = ledger || (state && GUIDE_LEDGER_FOR_SOURCE[state.ledger]) || "AVAILABLE";
+  showPage("guide");
+}
+function renderGuidePage() {
+  const sec = ensureGuideSection();
+  if (!guideAccess()) {
+    sec.innerHTML = `<div class="bg-page"><p class="bg-eyebrow">Buyer's Guide</p><h1 class="bg-title">Answers before you buy</h1><p class="bg-lede">The Buyer's Guide answers the questions to settle before acting - how each sale works, what is added to the price, redemption, what you receive - for every ${esc(UNIT_WORD.toLowerCase())} we cover. It is included with the Guided view.</p><button type="button" class="detail-btn" data-action="support">Ask about access →</button></div>`;
+    return;
+  }
+  const meta = STATE_META[PAGE_STATE] || {};
+  const ctx = {
+    state: PAGE_STATE, stateName: meta.name || PAGE_STATE, unit: UNIT_WORD,
+    county: GUIDE_PAGE.county, ledger: GUIDE_PAGE.ledger,
+    counties: Array.isArray(ALL_COUNTIES) ? ALL_COUNTIES.slice() : [],
+    esc, fmtDate: d => (typeof fmtDate === "function" ? fmtDate(String(d).slice(0, 10)) : String(d)),
+    navigate: ({ ledger, county }) => { GUIDE_PAGE.ledger = ledger || GUIDE_PAGE.ledger; GUIDE_PAGE.county = county || null; syncPageHash(); renderGuidePage(); },
+  };
+  import("./buyers-guide.js").then(m => m.render(sec, ctx)).then(r => { window.__tdwGuideLast = r || null; }).catch(err => {
+    (window.__tdwBootErrors = window.__tdwBootErrors || []).push("buyers-guide: " + (err && err.message));
+    sec.innerHTML = `<div class="bg-page"><p class="muted">The Buyer's Guide could not be loaded right now.</p></div>`;
+  });
+}
+
 // ==================== State rules page (#/rules, 2026-10-10) ====================
 // public/state-rules.json (scripts/build_state_rules.py) holds, per state:
 // the three ledgers' tracking status, the recorded rules (statewide and
@@ -9202,7 +9274,7 @@ function sourceReviewText(p) {
 // A value figure is named as its source names it (valueLabel /
 // assessedSourceLabel) - never Florida's "just value" for another state.
 function provenanceFieldLabel(field, p) {
-  if (p && field === "market" && hasNum(p.market)) return valueLabel(p);
+  if (p && field === "market" && hasValueNum(p.market)) return valueLabel(p);
   if (p && field === "assessed" && regionOf(p) !== "FL") return assessedSourceLabel(p);
   return PROVENANCE_FIELD_LABELS[field] || field;
 }
@@ -9373,7 +9445,7 @@ function inventoryCardHtml(p) {
   if (causeOf(p)) prop.push(row("Tax suit cause #", esc(causeOf(p)), "mono"));
   prop.push(row("Legal description", p.legal_desc ? `<span class="kv-wrap">${esc(p.legal_desc)}</span>` : muted("Not on file")));
   prop.push(row(tx ? "Owner of record" : "Name in which assessed", p.owner_name ? esc(p.owner_name) : muted("Not on file")));
-  prop.push(row("Assessed value", hasNum(p.assessed) ? `${esc(fmtMoney(p.assessed))}${p.value_year ? `<span class="kv-sub">Tax year ${esc(String(p.value_year))}</span>` : ""}` : muted("Not on file")));
+  prop.push(row("Assessed value", hasValueNum(p.assessed) ? `${esc(fmtMoney(p.assessed))}${p.value_year ? `<span class="kv-sub">Tax year ${esc(String(p.value_year))}</span>` : ""}` : muted("Not on file")));
   prop.push(row("Taxable value", hasNum(p.taxable_value) ? esc(fmtMoney(p.taxable_value)) : muted("Not on file")));
   prop.push(row("Acreage", hasNum(p.acreage) ? esc(Number(p.acreage).toFixed(2) + " ac") : muted("Not on file")));
   // An assessor / tax-roll classification (statewide_parcel provenance, e.g.
@@ -9849,6 +9921,7 @@ function sourceTruthHtml(p) {
   rows.push(["Official listing", href ? `<a href="${esc(href)}" target="_blank" rel="noopener" data-acq-link="source">${esc(listing ? listing.label : "Open the source listing")} →</a>` : muted("No listing link on file")]);
   if (p.source !== "certificate") rows.push(["Imagery", imageryTruthHtml(p)]);
   rows.push([`${UNIT_WORD} intelligence`, `<button type="button" class="link-btn" data-action="countyintel" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">${esc(`${p.county} ${UNIT_WORD}: sources, coverage and process`)} →</button> <button type="button" class="link-btn county-page-link" data-action="countypage" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">${esc(p.source === "auction" ? "County auction intelligence" : "Full county page")} →</button>`]);
+  rows.push(["Buyer's guide", `<button type="button" class="link-btn" data-action="buyersguide" data-county="${esc(p.county)}" data-guide-ledger="${esc(GUIDE_LEDGER_FOR_SOURCE[p.source] || "AVAILABLE")}">${esc(`Buyer's guide for ${p.county} ${UNIT_WORD}`)} →</button>`]);
   rows.push(["State rules", `<button type="button" class="link-btn" data-action="staterules" data-county="${esc(p.county)}">${esc(`${STATE_META[regionOf(p)] ? STATE_META[regionOf(p)].name : regionOf(p)} tax-sale rules for ${p.county} ${UNIT_WORD}`)} →</button>`]);
   return detailSectionHtml("Source truth", `<p class="truth-lede">The record as its source publishes it. Nothing here is inferred or scored.</p><dl class="truth-dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`, "truth-card", "truth");
 }
@@ -9965,7 +10038,7 @@ function detailHtml(p) {
     // Named for what it is - the appraiser's own just value for a stated roll
     // year - rather than the old "Market Value", which implied a live
     // estimate this app has never had and cannot legitimately obtain.
-    if (hasNum(p.market)) stats.push([valueLabel(p), fmtShort(p.market), "financial"]);
+    if (hasValueNum(p.market)) stats.push([valueLabel(p), fmtShort(p.market), "financial"]);
     // Phase 36 fix: this used to hardcode the label "County Assessed Value"
     // here, bypassing assessedSourceLabel() (Phase 14A) which exists
     // specifically so a Texas row's p.assessed - LGBS's raw CAD value or
@@ -9973,7 +10046,7 @@ function detailHtml(p) {
     // isn't mislabeled with Florida's statutory AV_NSD concept. This is the
     // same field/value, just now routed through the label helper this
     // detail modal had never actually called.
-    stats.push([assessedSourceLabel(p), hasNum(p.assessed) ? fmtShort(p.assessed) : "N/A", "financial"]);
+    stats.push([assessedSourceLabel(p), hasValueNum(p.assessed) ? fmtShort(p.assessed) : "N/A", "financial"]);
     if (hasNum(p.land_value)) stats.push(["Land Value", fmtShort(p.land_value), "financial"]);
     // Just Value split into land vs. whatever's built on it - one FDOR-
     // sourced subtraction, not a new field. A bare lot reads as exactly
@@ -10736,6 +10809,12 @@ document.addEventListener("click", async e => {
     return;
   }
   if (action === "rulesretry") { STATE_RULES_PROMISE = null; renderRulesPage(); return; }
+  if (action === "buyersguide") {
+    const c = btn.dataset.county || null, l = btn.dataset.guideLedger || null;
+    if (document.getElementById("detailModal") && !document.getElementById("detailModal").hidden) { closeDetail(); afterSelfBack(() => openGuidePage(c, l)); }
+    else openGuidePage(c, l);
+    return;
+  }
   if (action === "countymap") {
     if (btn.dataset.county) applyCountySelection(btn.dataset.county);   // the shared county selection
     mapFilter.ledger = btn.dataset.ledger && LEDGERS[btn.dataset.ledger] ? btn.dataset.ledger : "all";
@@ -10761,8 +10840,11 @@ document.addEventListener("click", async e => {
   // closes first (its own Back layer), then the page changes.
   if (action === "crumbhome" || action === "crumbledger") {
     const inModal = btn.closest("#detailModal");
-    if (inModal) closeDetail(); else clearDetailPanel();
-    if (action === "crumbhome") showPage("dashboard"); else goToLedger(btn.dataset.ledger);
+    const go = () => { if (action === "crumbhome") showPage("dashboard"); else goToLedger(btn.dataset.ledger); };
+    // The modal's own history layer goes first; the page changes once that
+    // self-back has landed, so its popstate cannot pop the new state.
+    if (inModal) { closeDetail(); afterSelfBack(go); }
+    else { clearDetailPanel(); go(); }
     return;
   }
   if (action === "fav") {
@@ -10956,6 +11038,18 @@ function ledgerCountText(k, n, locale) {
 }
 // Tab, List-nav and sidebar ledger counts. Also called alone when a background
 // ledger's pages arrive while another ledger is on screen.
+function scrollStripTo(btn) {
+  let strip = btn.parentElement;
+  while (strip && strip !== document.body) {
+    const ox = getComputedStyle(strip).overflowX;
+    if ((ox === "auto" || ox === "scroll") && strip.scrollWidth > strip.clientWidth) break;
+    strip = strip.parentElement;
+  }
+  if (!strip || strip === document.body) return;
+  const sr = strip.getBoundingClientRect(), br = btn.getBoundingClientRect();
+  if (br.left >= sr.left && br.right <= sr.right) return;
+  strip.scrollLeft += (br.left + br.width / 2) - (sr.left + sr.width / 2);
+}
 function renderLedgerCounts(scrollActive) {
   const tabCounts = { auction: 0, laft: 0, certificate: 0 };
   const activeLedger = state.ledger;
@@ -10982,9 +11076,10 @@ function renderLedgerCounts(scrollActive) {
     // On a narrow phone the strip can still scroll. Whatever else is cut off,
     // the tab for the page you are actually on must be fully visible - a
     // half-clipped active tab is how the strip stops reading as navigation.
-    if (active && scrollActive && btn.scrollIntoView) {
-      try { btn.scrollIntoView({ block: "nearest", inline: "center" }); } catch { /* older engines */ }
-    }
+    // Only the strip scrolls, sideways (2026-10-29): scrollIntoView also
+    // scrolled the PAGE back up to the tabs on every render, so a watchlist
+    // tap while scrolled down a phone page jumped the page.
+    if (active && scrollActive) scrollStripTo(btn);
     const countEl = document.getElementById("tabCount" + src[0].toUpperCase() + src.slice(1));
     if (countEl) countEl.textContent = ledgerCountText(src, tabCounts[src] || 0, false);
   });
@@ -11000,6 +11095,12 @@ function renderLedgerCounts(scrollActive) {
   LEDGER_ORDER.forEach(k => {
     const el = document.getElementById("navCount" + k[0].toUpperCase() + k.slice(1));
     if (el) el.textContent = ledgerCountText(k, tabCounts[k] || 0, true);
+    // Phone ledger bar (2026-10-29): the same number, under the same rule
+    // ("…" while the ledger is still loading). Its full name and count are
+    // also its accessible name.
+    const txt = ledgerCountText(k, tabCounts[k] || 0, true);
+    document.querySelectorAll('[data-bar-count="' + k + '"]').forEach(b => { b.textContent = txt; });
+    document.querySelectorAll('#navBottom .nav-bottom-ledger[data-nav-ledger="' + k + '"]').forEach(b => barLedgerLabel(b, txt));
   });
   return tabCounts;
 }
@@ -11790,6 +11891,8 @@ function routeFromHash() {
   if (seg === "research") return { page: "research", ledger: null, pid: null, params };
   // State rules (2026-10-10): #/rules (statewide) and #/rules?county=<name>.
   if (seg === "rules") return { page: "rules", county: params.county || null, ledger: null, pid: null, params };
+  // Buyer's Guide (2026-10-29): #/guide?ledger=AUCTIONS&county=<name>.
+  if (seg === "guide") return { page: "guide", county: params.county || null, guideLedger: params.ledger || null, ledger: null, pid: null, params };
   if (seg === "county") {
     let county = null;
     try { county = sub ? decodeURIComponent(sub) : null; } catch { county = null; }
@@ -11837,6 +11940,7 @@ function pageHash(name) {
   if (name === "county") return countyPageHash();
   if (name === "research") return "#/research";
   if (name === "rules") return rulesPageHash();
+  if (name === "guide") return guidePageHash();
   if (name === "watchlist") return "#/watchlist";
   return "#/" + (LEDGERS[state.ledger] || LEDGERS.auction).slug;
 }
@@ -13340,7 +13444,7 @@ function watchSnapshotOf(p) {
     // simply has no value for them, and they are not compared (no change
     // is invented from a missing baseline).
     acq: p.purchase_path_type || "", acq_on: p.purchase_path_observed_on || "", src: p.list_url || p.url_auction || "",
-    assessed: hasNum(p.assessed) ? Number(p.assessed) : null, taxable: hasNum(p.taxable_value) ? Number(p.taxable_value) : null,
+    assessed: hasValueNum(p.assessed) ? Number(p.assessed) : null, taxable: hasNum(p.taxable_value) ? Number(p.taxable_value) : null,
     acreage: hasNum(p.acreage) ? Number(p.acreage) : null, land_use: p.land_use || "", flood: p.flood_zone || "" };
 }
 const WATCH_FIELD_LABELS = { acq: "Acquisition path", acq_on: "Acquisition last verified", src: "Source listing", assessed: "Assessed value",
@@ -13888,7 +13992,7 @@ let shellPage = "list";
 // Intelligence, My Research and State rules, and since the 2026-10-10 remediation the
 // Watchlist too - a page of its own (#/watchlist), no longer a layer over the
 // List. "auctions" is accepted as the List page's old name.
-const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch", rules: "pageRules", watchlist: "pageWatchlist" };
+const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch", rules: "pageRules", guide: "pageGuide", watchlist: "pageWatchlist" };
 
 // Browser title per route (remediation): the title follows the page on
 // screen - Home, Map, County, Research, the List's ledger, or an open
@@ -13903,6 +14007,7 @@ function applyPageTitle(propertyLabel) {
   else if (page === "dashboard") head = "Home";
   else if (page === "map") head = "Map";
   else if (page === "county") head = "County Intelligence";
+  else if (page === "guide") head = "Buyer's Guide";
   else if (page === "research") head = "My Research";
   else if (page === "watchlist") head = "Watchlist";
   else { const cfg = ledgerCopy(state.ledger); head = (cfg && cfg.title) || "Properties"; }
@@ -13914,6 +14019,7 @@ function showPage(name) {
   if (name === "county") ensureCountySection();
   if (name === "research") ensureResearchSection();
   if (name === "rules") ensureRulesSection();
+  if (name === "guide") ensureGuideSection();
   // Watchlist (remediation, 2026-10-10): a page of its own, reached from the
   // rail, the phone bar, the List chip and #/watchlist - no longer a modal
   // over the List. The page remembers where it was opened from so "Back"
@@ -13933,6 +14039,7 @@ function showPage(name) {
   if (name === "county") renderCountyPage();
   if (name === "research") renderResearchPage();
   if (name === "rules") renderRulesPage();
+  if (name === "guide") renderGuidePage();
   if (name === "watchlist") renderWatchlistPage();
   syncPageHash();
   applyPageTitle();
@@ -13966,7 +14073,7 @@ function syncLedgerNav(pageName) {
   let ledgerNow = null;
   try { ledgerNow = state.ledger; } catch { ledgerNow = null; }   // TDZ-safe, same as shellPage above
   const railLedger = name === "list" && document.querySelector(`.nav-item[data-nav-ledger="${ledgerNow}"]`);
-  document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page], .nav-item[data-nav-ledger]").forEach(btn => {
+  document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page], .nav-item[data-nav-ledger], .nav-bottom-item[data-nav-ledger]").forEach(btn => {
     let on;
     if (btn.dataset.navLedger) on = name === "list" && btn.dataset.navLedger === ledgerNow;
     else if (btn.classList.contains("nav-item") && btn.dataset.page === "list" && railLedger) on = false;
@@ -13980,6 +14087,18 @@ function syncLedgerNav(pageName) {
     cty.classList.toggle("on", name === "county");
     if (name === "county") cty.setAttribute("aria-current", "page"); else cty.removeAttribute("aria-current");
   }
+  syncBarMapFilter(name);
+}
+// On the Map page the phone bar lights Map; the ledger the map is filtered to
+// carries a small mark on its bar entry, so the map's own filter is visible
+// from the bar. A bar tap still opens the List (one meaning on every page).
+function syncBarMapFilter(pageName) {
+  let name = pageName, led = "all";
+  try { if (!name) name = shellPage; } catch { name = name || "list"; }
+  try { led = mapFilter.ledger; } catch { led = "all"; }
+  document.querySelectorAll("#navBottom .nav-bottom-ledger").forEach(b => {
+    b.classList.toggle("map-filter", name === "map" && led === b.dataset.navLedger);
+  });
 }
 document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page]").forEach(btn => {
   btn.addEventListener("click", () => showPage(btn.dataset.page));
@@ -14115,11 +14234,15 @@ function renderMapPage() {
   buildMapCountySelect();
   renderMapContext();
   let onMap = false; try { onMap = shellPage === "map"; } catch { onMap = false; }
-  if (onMap) syncPageHash();
+  if (onMap) { syncPageHash(); syncBarMapFilter("map"); }
   const rows = computeMapRows();
   // Phase 67: the preview panel renders with the cards' own label/visual
   // helpers - passed over the event so explore.js never duplicates a rule.
-  const rendered = { rows, ledger: mapFilter.ledger, openDetail, previewFacts, propertyVisual, hydrateVisuals, amountShort };
+  // Map peek card (2026-10-29): the card's stamp and Watchlist button come
+  // from the same helpers the List cards use (cardStamp, bidListBtnHtml), so
+  // the map never words a status or a watch state on its own.
+  const rendered = { rows, ledger: mapFilter.ledger, openDetail, previewFacts, propertyVisual, hydrateVisuals, amountShort,
+    cardStamp, watchBtn: p => bidListBtnHtml(p, "card"), isWatched: id => BIDLIST.has(id), unitWord: UNIT_WORD };
   window.__tdwMapLastRender = rendered;
   window.dispatchEvent(new CustomEvent("tdw:maprendered", { detail: rendered }));
 }
@@ -15273,6 +15396,7 @@ function syncLedgerNavNames() {
   document.querySelectorAll(".nav-item[data-nav-ledger] .nav-ledger-name").forEach(el => {
     el.textContent = ledgerNavName(el.closest("[data-nav-ledger]").dataset.navLedger);
   });
+  syncBarLedgerNames();   // the phone bar's short names and accessible names
 }
 syncLedgerNavNames();
 
@@ -16095,10 +16219,12 @@ function openStatePicker(returnEl) {
     // workspace entries at every width - the separate utility row is gone.
     // Each count appears once on screen: here.
     g.innerHTML = `<p class="account-goto-head">Go to</p>`
+      + `<button class="account-item" type="button" role="menuitem" data-goto="dashboard">Home</button>`
       + `<button class="account-item" type="button" role="menuitem" data-goto="searches">Saved searches</button>`
       + `<button class="account-item" type="button" role="menuitem" data-goto="research">My Research <b class="goto-count" id="gotoResearchCount">0</b></button>`
       + `<button class="account-item" type="button" role="menuitem" data-goto="watchlist">Watchlist <b class="goto-count" id="gotoWatchlistCount">0/10</b></button>`
       + `<button class="account-item" type="button" role="menuitem" data-goto="counties">County Intelligence</button>`
+      + `<button class="account-item" type="button" role="menuitem" data-goto="guide">Buyer's Guide</button>`
       + `<button class="account-item" type="button" role="menuitem" data-goto="about">About</button>`;
     head.after(g);
     // "About" opens the same guide "How to read this data" did; one entry.
@@ -16109,8 +16235,10 @@ function openStatePicker(returnEl) {
       if (!b) return;
       const go = b.dataset.goto;
       afterSelfBack(() => {
-        if (go === "research") openResearchPage("all");
+        if (go === "dashboard") showPage("dashboard");
+        else if (go === "research") openResearchPage("all");
         else if (go === "counties") openCountyIndex();
+        else if (go === "guide") openGuidePage(null, null);
         else if (go === "searches" && saved) saved.click();
         else if (go === "watchlist") showPage("watchlist");
         else if (go === "about" && about) about.click();
@@ -16348,10 +16476,29 @@ function countyNowGo(k) {
   if (!h || !h.isConnected) return;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   b.lockUntil = Date.now() + (reduce ? 150 : 900);
+  // A look that draws its county sections lazily (Terrain) fills every one
+  // above the target first, so nothing grows under the scroll after the
+  // target's position is measured (audit F48, 2026-10-28).
+  if (typeof b.beforeJump === "function") { try { b.beforeJump(h); } catch {} }
   // Scrolling only moves the page: a county the reader closed stays closed.
-  const y = h.getBoundingClientRect().top + window.scrollY - countyNowLine() + 4;
+  const target = () => h.getBoundingClientRect().top + window.scrollY - countyNowLine() + 4;
+  const y = target();
   try { window.scrollTo({ top: Math.max(0, y), behavior: reduce ? "auto" : "smooth" }); } catch { window.scrollTo(0, Math.max(0, y)); }
-  setTimeout(() => { b.lockUntil = 0; countyNowUpdate(); }, reduce ? 160 : 950);
+  // Once the scroll has settled, measure the head again and correct once if
+  // anything above it changed height while the page moved (pictures, rows).
+  let done = false;
+  const settle = () => {
+    if (done) return;
+    done = true;
+    window.removeEventListener("scrollend", settle);
+    if (h.isConnected && b.names[b.idx] === h.dataset.countyHead) {
+      const y2 = target();
+      if (Math.abs(y2 - window.scrollY) > 6) window.scrollTo(0, Math.max(0, y2));
+    }
+    setTimeout(() => { b.lockUntil = 0; countyNowUpdate(); }, 50);
+  };
+  if ("onscrollend" in window && !reduce) window.addEventListener("scrollend", settle);
+  setTimeout(settle, reduce ? 160 : 1200);
 }
 function countyNowBind() {
   if (COUNTY_BAR.bound) return;
@@ -16395,8 +16542,11 @@ function hideCountyNowBar() {
 // Install (or refresh) the one bar for the county heads inside scopeEl. The
 // bar is inserted just before the first head, inside the closest element that
 // holds every head, so its sticky range covers the whole list.
-function installCountyNowBar(scopeEl) {
+// opts.beforeJump(headEl): called before a jump measures its target, so a
+// look can draw any lazy section that sits above that head.
+function installCountyNowBar(scopeEl, opts) {
   const b = countyBarState();
+  b.beforeJump = opts && typeof opts.beforeJump === "function" ? opts.beforeJump : null;
   if (!scopeEl || !scopeEl.querySelectorAll) { hideCountyNowBar(); return null; }
   const all = Array.from(scopeEl.querySelectorAll("[data-county-head]"));
   const names = [], heads = new Map();
@@ -16622,7 +16772,141 @@ function installShellV3() {
   const tabs = document.getElementById("ledgerTabs");
   const availTab = tabs && tabs.querySelector('.ledger-tab[data-ledger="laft"]');
   if (availTab) tabs.insertBefore(availTab, tabs.firstChild);
+  // The Map's ledger pills in the same order as the List and the header:
+  // All Ledgers, Available, Auctions, Liens. The elements are moved, so their
+  // click listeners stay.
+  const pills = document.getElementById("mapLedgerPills");
+  if (pills) ["all", "laft", "auction", "certificate"].forEach(k => {
+    const p = pills.querySelector(`[data-ledger="${k}"]`);
+    if (p) pills.appendChild(p);
+  });
   installListToolbarV3();
+  installBottomBarV3();
+}
+
+// ---- Phone ledger bar (2026-10-29) ----
+// Below 1024px the fixed bottom bar is the one control always on screen, so
+// it carries the switch: Available, Auctions, Liens, then Map (the header's
+// own order). Home is the header logo and the account sheet's "Go to"; the
+// Watchlist is there too. Built here, like the header, so every state page
+// gets it without touching the generated HTML; the static markup stays as
+// the no-JS fallback. Each ledger entry runs goToLedger() (the header's own
+// path) and is lit by syncLedgerNav(); Map is the ORIGINAL button, so the
+// showPage listener bound to it at load still runs. No data attribute named
+// data-ledger on any of it: the delegated [data-ledger] rules must never
+// match a navigation button.
+function barLedgerShortName(k) {
+  return ledgerNavName(k).replace(/\s*&\s*Certificates$/i, "");
+}
+function barLedgerLabel(btn, countText) {
+  const full = ledgerNavName(btn.dataset.navLedger);
+  let label = full;
+  if (countText === "…") label = full + ", loading";
+  else if (countText && /…$/.test(countText)) label = full + ", " + countText.slice(0, -1) + " properties so far";
+  else if (countText) label = full + ", " + countText + (countText === "1" ? " property" : " properties");
+  btn.setAttribute("aria-label", label);
+  btn.title = full;
+}
+function syncBarLedgerNames() {
+  document.querySelectorAll("#navBottom .nav-bottom-ledger").forEach(btn => {
+    const nm = btn.querySelector(".nb-name");
+    if (nm) nm.textContent = barLedgerShortName(btn.dataset.navLedger);
+    const c = btn.querySelector(".nb-count");
+    barLedgerLabel(btn, c ? c.textContent : "");
+  });
+}
+function focusNavItem(btn) {
+  if (!btn || !btn.isConnected || document.activeElement === btn) return;
+  try { btn.focus({ preventScroll: true }); } catch { /* older engines */ }
+}
+var KB_TEXT_TYPES = /^(text|search|email|number|password|tel|url|date|datetime-local|month|time|week)$/;
+function isTextEntry(el) {
+  if (!el || el === document.body) return false;
+  if (el.isContentEditable || el.tagName === "TEXTAREA") return true;
+  return el.tagName === "INPUT" && KB_TEXT_TYPES.test(el.type || "text");
+}
+function installBottomBarV3() {
+  const bar = document.getElementById("navBottom");
+  if (!bar || bar.dataset.bar === "v3") return;
+  bar.dataset.bar = "v3";
+  bar.setAttribute("aria-label", "Ledgers and map");
+  bar.querySelectorAll('.nav-bottom-item[data-page="dashboard"], .nav-bottom-item[data-page="list"], .nav-bottom-item[data-page="watchlist"]').forEach(b => b.remove());
+  const mapBtn = bar.querySelector('.nav-bottom-item[data-page="map"]');
+  ["laft", "auction", "certificate"].forEach(k => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "nav-bottom-item nav-bottom-ledger";
+    b.dataset.navLedger = k;
+    const ico = document.createElement("span");
+    ico.className = "nb-ico"; ico.setAttribute("aria-hidden", "true");
+    const svg = document.querySelector(`#ledgerTabs .ledger-tab[data-ledger="${k}"] .ledger-tab-icon svg`);
+    if (svg) ico.appendChild(svg.cloneNode(true));
+    const nm = document.createElement("span");
+    nm.className = "nb-name"; nm.textContent = barLedgerShortName(k);
+    const ct = document.createElement("b");
+    ct.className = "nb-count"; ct.dataset.barCount = k;
+    b.append(ico, nm, ct);
+    barLedgerLabel(b, "");
+    b.addEventListener("click", () => {
+      let onList = false; try { onList = shellPage === "list"; } catch { onList = false; }
+      // The ledger already on screen: keep the reader's place.
+      if (!(onList && state.ledger === k)) goToLedger(k);
+      focusNavItem(b);
+    });
+    if (mapBtn) bar.insertBefore(b, mapBtn); else bar.appendChild(b);
+  });
+  if (mapBtn) {
+    bar.appendChild(mapBtn);
+    const label = Array.from(mapBtn.childNodes).find(n => n.nodeType === 3 && n.textContent.trim());
+    if (label) { const s = document.createElement("span"); s.className = "nb-name"; s.textContent = label.textContent.trim(); label.replaceWith(s); }
+    const svg = mapBtn.querySelector("svg");
+    if (svg && !svg.parentElement.classList.contains("nb-ico")) { const ico = document.createElement("span"); ico.className = "nb-ico"; ico.setAttribute("aria-hidden", "true"); svg.replaceWith(ico); ico.appendChild(svg); }
+    mapBtn.addEventListener("click", () => focusNavItem(mapBtn));
+  }
+  try { syncLedgerNav(); } catch { /* before the router is ready */ }
+  // The bar's real height drives the page's bottom padding, the toasts and the
+  // property sheet's bottom edge (--nav-bottom-h); 0 wherever it is not shown.
+  const root = document.documentElement;
+  const measure = () => {
+    const shown = bar.getClientRects().length && getComputedStyle(bar).display !== "none";
+    root.style.setProperty("--nav-bottom-h", (shown ? bar.offsetHeight : 0) + "px");
+  };
+  measure();
+  if (window.ResizeObserver) {
+    new ResizeObserver(measure).observe(bar);
+    // The header's height (it wraps on narrow screens) is where the desktop
+    // property modal and the county bar start: follow it too.
+    const tb = document.querySelector(".topbar");
+    if (tb) new ResizeObserver(() => { try { countyNowSyncTop(); } catch { /* not ready */ } }).observe(tb);
+  }
+  window.addEventListener("resize", measure);
+  try { countyNowSyncTop(); } catch { /* not ready */ }
+  // An open property (or the hidden-properties list) no longer covers the
+  // switch. One tap on it closes the overlay through its own history layer,
+  // then runs the tapped entry's own handler once that self-back has landed
+  // (never synchronously - the popstate would pop the new page).
+  document.addEventListener("click", e => {
+    const b = e.target && e.target.closest && e.target.closest("#navBottom .nav-bottom-item, #hdrNav .nav-item, #hdrHomeBtn");
+    if (!b) return;
+    const dm = document.getElementById("detailModal"), hm = document.getElementById("hiddenModal");
+    const dOpen = !!dm && !dm.hidden, hOpen = !!hm && !hm.hidden;
+    if (!dOpen && !hOpen) return;
+    e.stopPropagation(); e.preventDefault();
+    const run = () => { b.click(); focusNavItem(b); };
+    if (dOpen) { closeDetail(); afterSelfBack(hOpen ? () => { closeHiddenModal(); afterSelfBack(run); } : run); }
+    else { closeHiddenModal(); afterSelfBack(run); }
+  }, true);
+  // On-screen keyboard: the bar would ride on top of it. A text field focused
+  // on a touch screen is the signal; a much shorter visual viewport (at
+  // normal zoom) is the backstop.
+  const coarse = window.matchMedia ? window.matchMedia("(pointer: coarse)") : null;
+  const vv = window.visualViewport;
+  const kbUp = () => !!coarse && coarse.matches && (isTextEntry(document.activeElement)
+    || (!!vv && Math.abs((vv.scale || 1) - 1) < 0.01 && vv.height < window.innerHeight * 0.7));
+  const syncKb = () => root.classList.toggle("kb-open", kbUp());
+  document.addEventListener("focusin", syncKb);
+  document.addEventListener("focusout", () => setTimeout(syncKb, 60));
+  if (vv) vv.addEventListener("resize", syncKb);
 }
 // One toolbar over the List: county, Filters (with its active-filter count)
 // and Sort. Table view and Export move inside Filters; Collapse/Expand all
@@ -16783,7 +17067,7 @@ function guidedStages(p) {
   if (floodChecked) risks.facts.push({ title: "Flood zone", answer: fl.text + (p.flood_sfha === true ? " - a FEMA high-risk area" : "") });
   else risks.tasks.splice(1, 0, { key: "flood", title: "Check the flood zone", how: "Look the address up on FEMA's flood map.", href: fema, hrefLabel: "FEMA flood map" });
   const seen = p.last_seen_at ? dateOnly(p.last_seen_at) : "";
-  const value = hasNum(p.market) ? { title: valueLabel(p), answer: fmtMoney(Number(p.market)) } : null;
+  const value = hasValueNum(p.market) ? { title: valueLabel(p), answer: fmtMoney(Number(p.market)) } : null;
 
   if (p.source === "certificate") {
     const facts1 = [{ title: "On the county's certificate list", answer: seen ? `Read ${seen}` : "Listed by the county" }];
@@ -16873,7 +17157,7 @@ function guidedThree(p) {
   if (p.source === "auction") {
     return [
       ["What it is", `A property the county will sell at its tax-deed auction${p.sale_date ? ` on ${fmtDate(String(p.sale_date).slice(0, 10))}` : ""}.`],
-      ["What it costs", hasPublishedBid(p) ? `${auctionBidLabel(p, true)} ${fmtMoney(Number(p.bid))}. Bidding starts there and can go higher.${hasNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : ""}` : "The opening bid is not published yet."],
+      ["What it costs", hasPublishedBid(p) ? `${auctionBidLabel(p, true)} ${fmtMoney(Number(p.bid))}. Bidding starts there and can go higher.${hasValueNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : ""}` : "The opening bid is not published yet."],
       ["How you buy it", "Register on the county's auction site, follow its deposit rules and bid on sale day."]
     ];
   }
@@ -16881,7 +17165,7 @@ function guidedThree(p) {
   const i = amountInfo(p);
   const hasAmt = i.value !== null && i.value !== undefined;
   const cost = (hasAmt ? `${i.label} ${fmtMoney(i.value)}.` : `${i.display && i.display !== "Not published" ? i.display : "The list does not publish a price - ask the office"}.`) +
-    (hasNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : "");
+    (hasValueNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : "");
   const how = a.verified ? `${a.label}${a.office ? ` from ${a.office}` : ""}.${a.steps.length ? ` First: ${a.steps[0]}` : ""}` : "The county has not published how to buy it yet - the official listing names the office to ask.";
   return [["What it is", availableWhy(p).text + "."], ["What it costs", cost], ["How you buy it", how]];
 }

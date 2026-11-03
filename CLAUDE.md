@@ -3804,3 +3804,34 @@ Full description: `docs/coordinates-mi-pa-ok-2026-10-28.md`. Stable facts:
 - **PA Fayette (80) and OK Oklahoma County (27) have no deterministic fix**: the identifiers are not on the
   county layers (Fayette sub-accounts / undrawn map sections; Oklahoma PINs absent or stacked). Never trim a
   suffix to its base parcel.
+
+## Full audit + fixes: deck, map peek card, phone ledger bar, Buyer's Guide (2026-10-28 → 11-02, PR open, no migration)
+
+Audit report: `docs/review/audit-2026-10-28.md` (148 findings from 24 auditors, split FRONT END / BACKEND; the
+judge pass never ran, so each finding is reproduced before it is fixed). Stable facts:
+- **`tests/audit/*.mjs`** are standalone Playwright files (BASE_URL env, PASS/FAIL lines, exit 1), one per fix
+  theme; `playwright-test.yml` runs every one after `run_test.mjs`. Screenshot scripts live in `tests/screenshots/`.
+- **Look menu is Classic / Merged only** (`EXPERIENCES`); a stored or linked `tactile` / `terrain` choice reads
+  Classic. Merged still draws Available with experience-terrain.js and Auctions with experience-tactile.js.
+- **Merged Auctions deck** (experience-tactile.js): `updateDeck()` swaps only the top placard, pager and grid
+  highlight (never the stage); a horizontal drag on the top placard moves through the deck (`SWIPE_PX`), a short
+  drag springs back and is not a flip; the rail / grid scroll positions survive a redraw; the entrance animation
+  plays once per ledger (`S.key = ledger`), not per page of rows.
+- **Map peek card** (explore.js `showPreview()`): one compact card for the Outline, Google and MapTiler maps -
+  picture (never blank), ledger + stamp chips, address, at most three `previewFacts` facts, "Open property" +
+  Watchlist. Desktop: floats bottom-left of the stage and moves corners to keep the selected pin clear; phone: a
+  ~160px sheet, swipe down / Escape / Back / empty-map tap (`tdw:mapbackgroundtap`) closes it, lifted above the
+  bottom bar by `--mp-lift` (`liftPeekAboveBar()`). satellite-map.js separates marking the selected pin from
+  moving the camera; pins are 44px hit boxes; the provider popups are gone. The card's covered area travels in
+  `tdw:mapselection`. A county change under an open card closes the card without a draw (`absorb()`), so the
+  self-back never races the route.
+- **Phone ledger bar** (`installBottomBarV3()` in app.js, <1024px): Available / Auctions / Liens / Map with the
+  header counts; the open ledger's own count is hidden (the title carries it); Home moved into the account menu's
+  "Go to" group; the property modal stops above the bar and a bar tap from an open property closes it first.
+- **Buyer's Guide** (`#/guide`, `#/guide?ledger=AUCTIONS&county=<name>`): `public/buyers-guide.js` / `.css`
+  (loaded on first open; precached; in the mirror `FILES` and `DEPLOYED_BUNDLE_FILES`) render
+  `public/buyers-guide.json` (backend-built, contract `docs/buyers-guide-contract.md`) and fall back to
+  `state-rules.json` when that file is missing. Opened from the account menu, every property's Source truth row and
+  every county page (`data-action="buyersguide"`); `config.js buyersGuideAccess`: `all` (default) / `guided` / `admin`.
+- An assessed value of 0 is "not published" on every surface (`hasValueNum`); taxable 0 stays a real figure.
+- `sw.js` -> `tdw-shell-v155` (v154 is the launch PR, #257).

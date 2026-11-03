@@ -179,12 +179,13 @@ async function openCardDetails(card) {
   }
 }
 // The List itself: the header entry of the ledger in force (desktop) or the
-// phone bar's Properties entry. The rail's "Search" entry is gone.
+// phone bar's entry for that ledger (2026-10-29: the phone bar carries the
+// three ledgers; its Properties entry is gone). The rail's "Search" entry is gone.
 async function openListPage(pg) {
   const k = await pg.evaluate(() => document.documentElement.dataset.ledger || 'auction');
   const h = pg.locator(`.hdr-nav .nav-item[data-nav-ledger="${k}"]`);
   if (await h.isVisible().catch(() => false)) return h.click();
-  return pg.click('.nav-bottom-item[data-page="list"]');
+  return pg.click(`.nav-bottom-item[data-nav-ledger="${k}"]`);
 }
 const page = await newPage({ viewport: { width: 390, height: 844 } });
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));
@@ -517,11 +518,15 @@ results.bayPinCount = await page.locator('#exploreMapCanvas .pin').count();
 await page.locator('#exploreStrip .strip-card').first().click();
 await page.waitForTimeout(250);
 results.bayPreviewText = ((await page.locator('#explorePreview').textContent()) || '').replace(/\s+/g, ' ');
-results.bayPreviewHasAvailability = results.bayPreviewText.includes('Availability') && results.bayPreviewText.includes('Available over the counter');
+// Map peek card (2026-10-29): the card's Status fact is the row's own phase
+// (app.js kickerParts - "Lands Available list · over the counter"); the
+// "Availability" / "Amount kind" rows of the old panel are on the property
+// page. The amount kind is the amount's own label (the list's "Opening bid").
+results.bayPreviewHasAvailability = results.bayPreviewText.includes('Status') && results.bayPreviewText.includes('over the counter');
 // Acquisition sprint: the preview names the acquisition path, and an unverified one says so - never "no link".
 // Acquisition-path sprint: an unverified Available row never reaches the map (acquisition gate), so the preview names a verified path.
 results.bayPreviewHasPurchasePath = results.bayPreviewText.includes('How to acquire') && !results.bayPreviewText.includes('Not yet verified') && !results.bayPreviewText.includes('No online purchase link');
-results.bayPreviewHasAmountKind = results.bayPreviewText.includes('Amount kind') && results.bayPreviewText.includes('Opening bid');
+results.bayPreviewHasAmountKind = ((await page.locator('#explorePreview .mp-fact.bid dt').textContent()) || '').trim().startsWith('Opening bid');
 delete results.bayPreviewText;
 await page.locator('#exploreStrip .strip-card').first().click();
 await page.waitForTimeout(150);
@@ -629,7 +634,7 @@ await page.waitForTimeout(150);
 
 // Return to the Auctions page - just the card list now, no embedded map and
 // no List/Split view-toggle (Marc: "auctions shoild be just the list").
-await page.click('.nav-bottom-item[data-page="list"]');
+await openListPage(page);   // the phone bar's ledger entry (2026-10-29)
 await page.waitForTimeout(200);
 results.auctionsPageVisibleAfterReturnFromMap = await page.locator('#pageList').isVisible();
 results.viewToggleGoneFromAuctions = await page.locator('#viewToggle').count();
@@ -1567,7 +1572,7 @@ results.contextLabelsHiddenWhenZoomed = await page.evaluate(() => {
 });
 await page.click('#exploreZoomOut');
 await page.waitForTimeout(1100);
-await page.click('.nav-bottom-item[data-page="list"]');
+await openListPage(page);   // the phone bar's ledger entry (2026-10-29)
 await page.waitForTimeout(400);
 
 // --- the header is the logo and the title, and nothing else ---
@@ -2033,22 +2038,38 @@ results.stripInSidePanel = await p67d.locator('#mapSidePanel #exploreStrip').cou
 await p67d.locator('#exploreMapCanvas .map-pin[data-pid="p5"]').click({ force: true });
 await p67d.waitForTimeout(300);
 results.pinClickPreviewTitle = ((await p67d.locator('#explorePreview .preview-title').textContent()) || '').trim();
+// Map peek card (2026-10-29): the preview floats over the map stage (bottom-
+// left) instead of the top of the side panel, so the strip list stays on
+// screen - pinClickPreviewInSidePanel is now 0 (pinned below with a note).
 results.pinClickPreviewInSidePanel = await p67d.locator('#mapSidePanel #explorePreview').count();
 results.pinClickPinSel = await p67d.locator('#exploreMapCanvas .map-pin.sel').count();
 results.pinClickHalo = await p67d.locator('#exploreMapCanvas .map-pin.sel .pin-halo').count();
 results.pinClickStripSel = await p67d.locator('#exploreStrip .strip-card.sel[data-pid="p5"]').count();
-results.previewKicker = ((await p67d.locator('#explorePreview .pv-kicker').textContent()) || '').trim();
-results.previewCoords = ((await p67d.locator('#explorePreview .pv-coords').textContent()) || '').trim();
-results.previewBid = ((await p67d.locator('#explorePreview .pv-val.bid').textContent()) || '').trim();
-results.previewValueLabel = ((await p67d.locator('#explorePreview .pv-stat small').textContent()) || '').trim();
-results.previewIds = await p67d.locator('#explorePreview .pv-ids dd').allTextContents();
-results.previewFlood = ((await p67d.locator('#explorePreview .pv-risk span:nth-child(2)').textContent()) || '').trim();
-results.previewMoreClosed = await p67d.locator('#explorePreview details.pv-more').evaluate(el => !el.open);
-// Phase 72: the preview carries the same kind-driven auction link as the
-// card and the full page (p5: a sale-date page, kind 'sale').
-results.previewAuctionLinkText = ((await p67d.locator('#explorePreview .pv-auction a').textContent()) || '').trim();
-results.previewAuctionLinkKind = await p67d.locator('#explorePreview .pv-auction a').getAttribute('data-auction-link');
-results.previewAuctionLinkHref = await p67d.locator('#explorePreview .pv-auction a').getAttribute('href');
+// The peek card replaced the tall panel: kicker, coordinates, ids, flood and
+// the "More" list moved to the full property page (all already there). These
+// keys now read the card's new structure: the ledger chip + Status fact, the
+// county locator's position claim, the amount under its own label, the
+// value label, the fact labels (app.js previewFacts), and the absence of
+// the moved rows.
+results.previewKicker = await p67d.evaluate(() => (document.querySelector('#explorePreview .mp-ledger') || {}).textContent + ' · ' + (document.querySelector('#explorePreview .mp-fact.status dd') || {}).textContent);
+results.previewCoords = ((await p67d.locator('#explorePreview .mp-locator-text').textContent()) || '').trim();
+results.previewBid = ((await p67d.locator('#explorePreview .mp-fact.bid dd').textContent()) || '').trim();
+results.previewValueLabel = ((await p67d.locator('#explorePreview .mp-fact.value dt').textContent()) || '').trim();
+results.previewIds = await p67d.locator('#explorePreview .mp-fact dt').allTextContents();
+results.previewFlood = (await p67d.locator('#explorePreview').textContent()).includes('Flood') ? 'on the card' : 'on the property page';
+results.previewMoreClosed = (await p67d.locator('#explorePreview details, #explorePreview .pv-more, #explorePreview .pv-expand').count()) === 0;
+// Phase 72: the same kind-driven auction link as the card and the full page
+// (p5: a sale-date page, kind 'sale'). The peek card carries no link row of
+// its own (it named every list "Auction link" - wrong for certificates and
+// Available); the link is one tap away on the full property page.
+await p67d.click('#explorePreview .preview-open');
+await p67d.waitForTimeout(500);
+const p67AuctionLink = p67d.locator('#detailModal a[data-auction-link]').first();
+results.previewAuctionLinkText = ((await p67AuctionLink.textContent()) || '').trim();
+results.previewAuctionLinkKind = await p67AuctionLink.getAttribute('data-auction-link');
+results.previewAuctionLinkHref = await p67AuctionLink.getAttribute('href');
+await p67d.keyboard.press('Escape');
+await p67d.waitForTimeout(400);
 results.selectionEventPid = await p67d.evaluate(() => { const e = window.__selEvents; return e.length ? e[e.length - 1].pid : null; });
 results.selectionEventHasCoords = await p67d.evaluate(() => { const e = window.__selEvents; const d = e[e.length - 1]; return !!d && typeof d.lat === 'number' && typeof d.lng === 'number'; });
 // Close via the preview's own close button: pin highlight, strip highlight
@@ -2115,13 +2136,17 @@ await p67m.waitForTimeout(700);
 await p67m.locator('#exploreMapCanvas .map-pin[data-pid="p5"]').click({ force: true });
 await p67m.waitForTimeout(300);
 results.mobilePreviewInStage = await p67m.locator('#mapStage .explore-map-stage > #explorePreview').count();
-results.mobilePreviewCollapsed = await p67m.locator('#explorePreview').evaluate(el => !el.classList.contains('expanded'));
+// Map peek card (2026-10-29): the phone sheet has no collapsed / expanded
+// states any more - one fixed-height sheet with the picture and "Open
+// property" on it. These keys now check that: no expand state and no old
+// body (Collapsed / BodyHiddenCollapsed), under half the stage, the picture
+// never collapsed to 0px (Expanded) and the open button on screen
+// (BodyVisibleExpanded).
+results.mobilePreviewCollapsed = await p67m.locator('#explorePreview').evaluate(el => !el.classList.contains('expanded') && !el.querySelector('.pv-expand'));
 results.mobilePreviewBodyHiddenCollapsed = await p67m.locator('#explorePreview .pv-body').isHidden();
 results.mobilePreviewCoversLessThanHalfStage = await p67m.locator('#explorePreview').evaluate(el => el.getBoundingClientRect().height < el.closest('.explore-map-stage').getBoundingClientRect().height * 0.5);
-await p67m.click('#explorePreview .pv-expand');
-await p67m.waitForTimeout(200);
-results.mobilePreviewExpanded = await p67m.locator('#explorePreview').evaluate(el => el.classList.contains('expanded'));
-results.mobilePreviewBodyVisibleExpanded = await p67m.locator('#explorePreview .pv-body').isVisible();
+results.mobilePreviewExpanded = await p67m.locator('#explorePreview .mp-media').evaluate(el => el.getBoundingClientRect().height > 60);
+results.mobilePreviewBodyVisibleExpanded = await p67m.locator('#explorePreview .preview-open').isVisible();
 results.mobileStripStillReachable = await p67m.locator('#exploreStrip .strip-card').first().isVisible();
 results.mapNoOverflowMobileSelected = await p67m.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
 await p67m.close();
@@ -2209,6 +2234,8 @@ results.dashUnitBayUnavailable = await dashPage.locator('#dashUnitRows .unit-row
 // nav entry stays on "list" whichever ledger is showing.
 results.navRailItems = await dashPage.locator('.nav-list .nav-item[data-page]').evaluateAll(els => els.map(e => e.dataset.page + ':' + e.textContent.replace(/\s+/g, ' ').trim()));
 results.navBottomItems = await dashPage.locator('#navBottom .nav-bottom-item[data-page]').evaluateAll(els => els.map(e => e.dataset.page));
+// Phone ledger bar (2026-10-29): the three ledgers, in the header's order.
+results.navBottomLedgerEntries = await dashPage.locator('#navBottom .nav-bottom-item[data-nav-ledger]').evaluateAll(els => els.map(e => e.dataset.navLedger));
 results.navLedgerEntriesGone = await dashPage.locator('.nav-item[data-ledger], .nav-bottom-item[data-ledger]').count();
 results.navDashboardLit = await dashPage.locator('.nav-list .nav-item.on, #hdrNav .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navDashboardHash = await dashPage.evaluate(() => location.hash);
@@ -6204,7 +6231,7 @@ await navMap.close();
       value: document.getElementById('stateSelect').value
     };
   });
-  results.gsPhoneBottomNav = await ph.locator('.nav-bottom .nav-bottom-item').evaluateAll(els => els.map(e => e.dataset.page));
+  results.gsPhoneBottomNav = await ph.locator('.nav-bottom .nav-bottom-item').evaluateAll(els => els.map(e => e.dataset.page || e.dataset.navLedger));
   await ph.close();
 }
 
@@ -6275,7 +6302,8 @@ await navPhone.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await navPhone.waitForTimeout(500);
 results.navPhoneBottomItems = await navPhone.locator('#navBottom .nav-bottom-item').count();
 results.navPhoneBottomFits = await navPhone.locator('#navBottom').evaluate(el => el.scrollWidth <= el.clientWidth && Array.from(el.children).every(c => c.getBoundingClientRect().right <= window.innerWidth + 1));
-results.navPhoneBottomLabels = await navPhone.locator('#navBottom .nav-bottom-item').evaluateAll(els => els.map(e => e.textContent.trim()));
+// The visible name (a ledger entry also shows its count under the name).
+results.navPhoneBottomLabels = await navPhone.locator('#navBottom .nav-bottom-item').evaluateAll(els => els.map(e => (e.querySelector('.nb-name') || e).textContent.trim()));
 await navPhone.close();
 
 // Watchlist: the same parcel watched in two ledgers (p1 auction + p4
@@ -6400,7 +6428,7 @@ await monDetail.waitForTimeout(200);
 results.monAlertsBadgeAfterRead = await monDetail.locator('#alertsUnread').isHidden();
 await monDetail.click('#alertsCloseBtn');
 // 8. Watchlist modal lists server-detected changes for watched rows.
-await monDetail.click('.nav-bottom-item[data-page="watchlist"]');
+await gotoVia(monDetail, 'watchlist');   // the phone bar no longer carries Watchlist (2026-10-29)
 await monDetail.waitForTimeout(300);
 results.monWatchServerChanges = await monDetail.locator('#watchServerChanges li').count();
 // 9. Analytics: session_start + property_viewed; a search never sends its text.
@@ -7444,6 +7472,44 @@ await big.press('#globalSearchInput', 'Enter');
   results.mergedLookPerLedger = out;
   await pg.close();
 }
+// Merged -> Auctions deck (2026-10-28, owner: "you should be able to slide
+// them ... it's very glitchy"): Next / a swipe / a picked lot swap only the
+// top placard (the rail and lot grid stay the same nodes), a short drag is
+// neither a move nor a flip, and rows arriving later do not replay the
+// entrance animation. Six extra lots on one sale day (window.__stubExtraRows).
+{
+  const d = new Date(Date.now() + 9 * 864e5).toISOString().slice(0, 10);
+  const extra = Array.from({ length: 6 }, (_, i) => ({ id: 'dk' + i, source: 'auction', state: 'FL', county: 'Leon', case_no: 'DK-' + i, parcel: '99' + i, address: (i + 1) + ' Deck St', bid: 1000 + i * 100, status: 'active', sale_date: d, ledger_type: 'auctions', url_auction: 'https://leon.realtaxdeed.com/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=' + d, url_auction_kind: 'sale', last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString(), lien_level: 'unscreened', publication_status: 'APPROVED' }));
+  const pg = await newPage({ viewport: { width: 390, height: 844 } });
+  pg.on('pageerror', e => errors.push('deck pageerror: ' + e.message));
+  await pg.addInitScript(r => { window.__stubExtraRows = r; }, extra);
+  await pg.goto(BASE_URL + '?look=merged#/auctions', { waitUntil: 'networkidle' });
+  await pg.waitForTimeout(2500);
+  const st = () => pg.evaluate(() => ({ pager: (document.querySelector('.xpt-pager') || {}).textContent.replace(/\s+/g, ' ').trim(), top: (document.querySelector('.xpt-deck .xpt-placard') || { dataset: {} }).dataset.pid, flipped: !!document.querySelector('.xpt-deck .xpt-placard.flipped'), miniOn: (document.querySelector('.xpt-mini.on') || { dataset: {} }).dataset.pid }));
+  await pg.evaluate(dd => { document.querySelector(`.xpt-day[data-day="${dd}"]`).click(); }, d);
+  await pg.waitForTimeout(900);
+  await pg.evaluate(() => { window.__deckRail = document.querySelector('.xpt-rail'); window.__deckGrid = document.querySelector('.xpt-lot-grid'); });
+  const out = {};
+  out.day = await st();
+  await pg.click('#xpStage [data-xa="next"]'); await pg.waitForTimeout(800);
+  out.next = await st();
+  out.sameNodes = await pg.evaluate(() => document.querySelector('.xpt-rail') === window.__deckRail && document.querySelector('.xpt-lot-grid') === window.__deckGrid);
+  const box = await pg.locator('.xpt-deck .xpt-placard').boundingBox();
+  const drag = async (x0, dx) => { await pg.mouse.move(x0, box.y + 200); await pg.mouse.down(); for (let i = 1; i <= 10; i++) await pg.mouse.move(x0 + dx * i / 10, box.y + 202); await pg.mouse.up(); await pg.waitForTimeout(900); };
+  await drag(box.x + box.width * 0.8, -180); out.swipeLeft = await st();
+  await drag(box.x + 40, 180); out.swipeRight = await st();
+  await drag(box.x + 100, 25); out.shortDrag = await st();
+  await pg.click('.xpt-deck .xpt-placard .face.front'); await pg.waitForTimeout(800); out.tap = await st();
+  await pg.click('.xpt-deck .xpt-placard .back-head'); await pg.waitForTimeout(800);
+  await pg.click('.xpt-mini[data-pid="dk4"]'); await pg.waitForTimeout(800); out.pick = await st();
+  out.sameNodesAfterAll = await pg.evaluate(() => document.querySelector('.xpt-rail') === window.__deckRail);
+  await pg.evaluate(() => { const l = window.__tdwLastRender; window.dispatchEvent(new CustomEvent('tdw:rendered', { detail: { ...l, rows: l.rows.slice(0, -1) } })); });
+  await pg.waitForTimeout(300);
+  out.noReplayOnMoreRows = await pg.evaluate(() => !document.querySelector('#xpStage .xpt').classList.contains('xpt-enter'));
+  await pg.evaluate(() => localStorage.removeItem('tdw_experience_v1'));
+  results.mergedAuctionDeck = out;
+  await pg.close();
+}
 // Two looks only (owner's decision 2026-10-28): the menu offers Classic and
 // Merged; an old "tactile" / "terrain" link or stored choice reads Classic.
 {
@@ -7654,6 +7720,7 @@ const EXPECTED = {
   tierGuidedCertificate: ["find", "price", "risks", "buy", "wait", "deed"],
   miEmptyOneReason: {"reasons": 1, "label": "Source restricted or pending review.", "noCurrentCountZero": true, "titleCount": "0"},
   cardOutlineLazy: {"below": true, "before": 0, "after": 1},
+  mergedAuctionDeck: {"day": {"pager": "Lot 1 of 7", "top": "p7", "flipped": false, "miniOn": "p7"}, "next": {"pager": "Lot 2 of 7", "top": "dk0", "flipped": false, "miniOn": "dk0"}, "sameNodes": true, "swipeLeft": {"pager": "Lot 3 of 7", "top": "dk1", "flipped": false, "miniOn": "dk1"}, "swipeRight": {"pager": "Lot 2 of 7", "top": "dk0", "flipped": false, "miniOn": "dk0"}, "shortDrag": {"pager": "Lot 2 of 7", "top": "dk0", "flipped": false, "miniOn": "dk0"}, "tap": {"pager": "Lot 2 of 7", "top": "dk0", "flipped": true, "miniOn": "dk0"}, "pick": {"pager": "Lot 6 of 7", "top": "dk4", "flipped": false, "miniOn": "dk4"}, "sameNodesAfterAll": true, "noReplayOnMoreRows": true},  // 2026-10-28: swipeable, in-place deck
   lookMenuTwoOnly: {"items": ["classic", "merged"], "linked": "classic", "button": "Classic"},
   lookStoredTerrainReadsClassic: "classic",
   mergedLookPerLedger: {"lands": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}, "auctions": {"look": "merged", "drawn": "tactile", "stage": "tactile", "button": "Merged", "mainHidden": true}, "certificates": {"look": "merged", "drawn": "merged", "stage": "merged", "button": "Merged", "mainHidden": true}, "landsAgain": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}},
@@ -7812,7 +7879,7 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v154"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v155"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -8070,19 +8137,31 @@ const EXPECTED = {
   stripVerticalOnDesktop: true,
   stripInSidePanel: 1,
   pinClickPreviewTitle: '500 Elm Way',
-  pinClickPreviewInSidePanel: 1,
+  // Map peek card (2026-10-29): the card floats over the map stage, not in
+  // the side panel (was 1), so the panel's property list stays visible.
+  pinClickPreviewInSidePanel: 0,
   pinClickPinSel: 1,
   pinClickHalo: 1,
   pinClickStripSel: 1,
-  previewKicker: /^Charlotte County, FL · Auction · Sale [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
-  previewCoords: '26.93420, -82.04540',
+  // Map peek card (2026-10-29): ledger chip + Status fact (was the uppercase
+  // kicker; county and state are in the toolbar context and the sub-line).
+  previewKicker: /^Auction · Sale [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
+  // Raw coordinates moved to the property page; the card's picture states
+  // only what the row has: a pin in this county (was '26.93420, -82.04540').
+  previewCoords: 'Pinned in Charlotte County',
   previewBid: '$8,000.00',
   previewValueLabel: 'County Just Value',
-  previewIds: ['444', 'D-1'],
-  previewFlood: 'Not checked',
+  // The card's fact labels, from app.js previewFacts (was the parcel / case
+  // values, now on the property page).
+  previewIds: ['Opening bid', 'Status', 'County Just Value'],
+  // Flood moved to the property page (was 'Not checked').
+  previewFlood: 'on the property page',
+  // No disclosure on the card at all (was: the "More" disclosure closed).
   previewMoreClosed: true,
-  // Phase 72: the map preview's auction link (p5, kind 'sale')
-  previewAuctionLinkText: /^View sale listing for [A-Z][a-z]{2} \d{1,2}, \d{4} ↗$/,
+  // Phase 72: the auction link (p5, kind 'sale'), one tap away on the full
+  // property page now - the card has no link row (was the card's own link,
+  // with a trailing ↗).
+  previewAuctionLinkText: /^View sale listing for [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
   previewAuctionLinkKind: 'sale',
   previewAuctionLinkHref: /^https:\/\/charlotte\.realforeclose\.com\/index\.cfm\?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=\d{2}\/\d{2}\/\d{4}$/,
   selectionEventPid: 'p5',
@@ -8145,7 +8224,11 @@ const EXPECTED = {
   navMapBtnOnAfterMapNav: true,
   mapPageTitle: 'Map',
   navRailItems: ["dashboard:Home", "list:Search", "research:My Research 0", "watchlist:Watchlist 0/10"],   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
-  navBottomItems: ['dashboard', 'list', 'map', 'watchlist'],
+  // Phone ledger bar (2026-10-29): Home is the header logo and the account
+  // sheet's "Go to"; Watchlist is there too. The bar keeps Map as a page
+  // entry and carries the three ledgers (navBottomLedgerEntries).
+  navBottomItems: ['map'],
+  navBottomLedgerEntries: ['laft', 'auction', 'certificate'],
   navLedgerEntriesGone: 0,
   navDashboardLit: ['dashboard'],
   navDashboardHash: '#/dashboard',
@@ -8194,7 +8277,7 @@ const EXPECTED = {
   rdPickerEscape: true,
   rdPickerAdminMI: "MI=auction|laft",
   rdPickerProbeFail: "WY=auction|laft|certificate!unchecked",
-  rdPhoneBottom: ["Home", "Properties", "Map", "Watchlist"],
+  rdPhoneBottom: ["Available2", "Auctions9", "Liens1", "Map"],
   rdPhoneAccount: true,
   rdPhoneSearchVisible: false,   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
   landCO: { hash: '#/certificates', cards: 2, issue: 0 },
@@ -8316,7 +8399,7 @@ const EXPECTED = {
   gsDeepLinkTexas: {"state": "TX", "modal": true},
   gsDeepLinkSwitch: {"file": "index.html", "hash": "#/auctions", "state": "FL", "modal": false},
   gsPhone: {"bothVisible": true, "inViewport": true, "sameRow": true, "selectorFirst": true, "headerCompact": true, "noHorizontalScroll": true, "value": "TX"},
-  gsPhoneBottomNav: ["dashboard", "list", "map", "watchlist"],
+  gsPhoneBottomNav: ["laft", "auction", "certificate", "map"],   // phone ledger bar (2026-10-29)
   navMapHasNoOwnStateSelect: true,
   navMapAllLedgersLabel: 'All Ledgers',
   navMapCertPillLabel: 'Liens & Certificates',
@@ -8361,7 +8444,7 @@ const EXPECTED = {
   navDashTileHeading: 'Available',
   navPhoneBottomItems: 4,
   navPhoneBottomFits: true,
-  navPhoneBottomLabels: ['Home', 'Properties', 'Map', 'Watchlist'],
+  navPhoneBottomLabels: ['Available', 'Auctions', 'Liens', 'Map'],   // phone ledger bar (2026-10-29)
   navWlCards: ['p4'],
   navWlRelated: ['Currently listed in Auctions · also on your watchlist'],
   navWlCount: '2/10',
@@ -8954,7 +9037,7 @@ const EXPECTED = {
       "instructions": "known", "listing": "known", "contact": "known", "deadlines": "not_published", "verified": "known", "not_published": "summary"},
     "method": "Multi-step county process", "head": "10 of 13 on file", "firstInAcquire": true},
   acqChecklistNoInference: {"n": 14, "known": [], "summary": "summary"},
-  sourceTruth: {"labels": ["Source record", "Last read", "Source date", "Publication status", "Source health", "Acquisition path", "Customer actionability", "Price", "Official listing", "Imagery", "County intelligence", "State rules"], "health": "CURRENT", "dossierBtn": true, "navPill": true},
+  sourceTruth: {"labels": ["Source record", "Last read", "Source date", "Publication status", "Source health", "Acquisition path", "Customer actionability", "Price", "Official listing", "Imagery", "County intelligence", "Buyer's guide", "State rules"], "health": "CURRENT", "dossierBtn": true, "navPill": true},
   sourceHealthVectors: [],
   dossierCitrus: {"title": "Citrus County, FL", "intel": "VERIFIED", "ledgers": {"laft": "COVERED", "auction": "COVERED", "certificate": "COVERED"}, "acq": true, "terms": true, "listBtn": true},
   dossierToList: {"modal": true, "hash": "#/lands", "counties": ["Citrus"]},
@@ -9061,7 +9144,7 @@ const EXPECTED = {
   researchEmptyToCounties: "#/counties",
   researchPipeline: ["DISCOVERED=1", "RESEARCHING=0", "DUE_DILIGENCE=1", "ACQUISITION_READY=0", "PASSED=0", "ACQUIRED=0"],
   researchPipelineFilter: ["DUE_DILIGENCE"],
-  accountGotoPhone: {"labels": ["Saved searches", "My Research 0", "Watchlist 0/10", "County Intelligence", "About"], "research": {"hash": "#/research", "menuClosed": true}, "counties": {"hash": "#/counties", "menuClosed": true}, "desktopHidden": false},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
+  accountGotoPhone: {"labels": ["Home", "Saved searches", "My Research 0", "Watchlist 0/10", "County Intelligence", "Buyer's Guide", "About"], "research": {"hash": "#/research", "menuClosed": true}, "counties": {"hash": "#/counties", "menuClosed": true}, "desktopHidden": false},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
   countyRecords: {"auction": ["p1"], "certificate": ["p4"]},
   countyRecordOpens: "#/auctions/p1",
   // Current acquisition amounts (2026-10-06).

@@ -127,20 +127,23 @@ html[data-experience="merged"] .xpm .band-count{font-family:'IBM Plex Mono',mono
 html[data-experience="merged"] .xpm .band-sub{font-size:11.5px;line-height:14px;color:#4A2F4D}
 
 html[data-experience="merged"] .xpm .fan-wrap{position:relative;margin:0 -16px}
-html[data-experience="merged"] .xpm .fan-stage{position:relative;height:292px;overflow:hidden;perspective:900px;--fan-r:8deg;--fan-x:10px}
-html[data-experience="merged"] .xpm .fan-band{display:none;position:absolute;left:50%;top:20px;width:150px;height:50px;margin-left:-75px;background:var(--plum-mid);border-radius:4px;display:flex;align-items:center;justify-content:center;z-index:40;pointer-events:none;font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:18px;color:#3E2741;animation:xpm-band-off 260ms var(--ease-in) 60ms forwards}
+/* The fan is a side-by-side scroll-snap row (audit F8, 2026-10-28): no slip
+   covers a neighbour's number, amount or Watch strip, and a row wider than
+   the screen is swiped / scrolled sideways. A slight alternating tilt keeps
+   the fanned look; the lifted slip rises with translateY only. */
+html[data-experience="merged"] .xpm .fan-stage{position:relative;display:flex;align-items:flex-end;justify-content:safe center;gap:16px;padding:44px 16px 16px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-padding:0 16px;overscroll-behavior-x:contain;scrollbar-width:thin;--fan-r:1.2deg}
+html[data-experience="merged"] .xpm .fan-band{display:none;position:absolute;left:50%;top:60px;width:150px;height:50px;margin-left:-75px;background:var(--plum-mid);border-radius:4px;display:flex;align-items:center;justify-content:center;z-index:40;pointer-events:none;font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:18px;color:#3E2741;animation:xpm-band-off 260ms var(--ease-in) 60ms forwards}
 html[data-experience="merged"] .xpm .fan-stage.deal .fan-band{display:flex}
 @keyframes xpm-band-off{to{transform:translateX(190px) rotate(8deg);opacity:0}}
-html[data-experience="merged"] .xpm .fslip{--rot:calc(var(--off,0) * var(--fan-r));--part:calc(var(--off,0) * var(--fan-x));position:absolute;left:50%;bottom:14px;width:150px;height:220px;margin-left:-75px;transform-origin:50% calc(100% + 120px);transform:translateX(var(--part,0px)) translateY(var(--ly,0px)) rotate(var(--rot,0deg)) scale(var(--sc,1));transition:transform 520ms var(--spring-soft)}
+html[data-experience="merged"] .xpm .fslip{--rot:calc(var(--off,0) * var(--fan-r));position:relative;flex:0 0 150px;width:150px;height:220px;scroll-snap-align:center;transform-origin:50% 100%;transform:translateY(var(--ly,0px)) rotate(var(--rot,0deg)) scale(var(--sc,1));transition:transform 520ms var(--spring-soft)}
 html[data-experience="merged"] .xpm .fan-stage.deal .fslip{animation:xpm-fan-out 620ms var(--spring-soft) var(--fd) backwards}
 @keyframes xpm-fan-out{from{transform:translateY(70px) rotate(0deg) scale(.94)}}
-html[data-experience="merged"] .xpm .fslip.lifted{--ly:-26px;--sc:1.05}
+html[data-experience="merged"] .xpm .fslip.lifted{--ly:-26px;--sc:1.03;--rot:0deg}
 html[data-experience="merged"] .xpm .fslip .fb{position:absolute;left:0;top:0;bottom:0;right:44px;border-radius:10px 0 0 10px;border-right:0;padding:12px 6px 10px 16px;display:flex;flex-direction:column;gap:2px;min-width:0;overflow:hidden}
 html[data-experience="merged"] .xpm .fslip .fs{position:absolute;right:0;top:0;bottom:0;width:44px;border-radius:0 10px 10px 0;border-left:1.5px dashed var(--hair);background-color:#FAF5F6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;overflow:hidden;color:var(--plum)}
 html[data-experience="merged"] .xpm .fslip .fs.on{background:var(--plum-soft);color:var(--plum-deep)}
 html[data-experience="merged"] .xpm .fs-t{writing-mode:vertical-rl;transform:rotate(180deg);font-weight:600;font-size:10.5px;letter-spacing:.8px;text-transform:uppercase}
-html[data-experience="merged"] .xpm .fslip .slip-hl{right:0;border-radius:10px;border-right:1px solid #C9AFC8;background-color:var(--plum-soft);align-items:center;justify-content:center;padding:0}
-html[data-experience="merged"] .xpm .fslip .slip-hl .hl-mark{display:block;width:44px;height:6px;border-radius:999px;background:var(--plum);opacity:.55}
+html[data-experience="merged"] .xpm .fslip.lifted .fb{background-color:var(--plum-soft)}
 html[data-experience="merged"] .xpm .fslip.lifted .fb,html[data-experience="merged"] .xpm .fslip.lifted .fs{box-shadow:var(--lifted);border-color:#C9AFC8}
 html[data-experience="merged"] .xpm .fslip .fb:active{transform:scale(.985) rotate(-1deg)}
 html[data-experience="merged"] .xpm .fslip .xpm-caps{font-size:9.5px;letter-spacing:.6px;line-height:12px}
@@ -178,15 +181,11 @@ html[data-experience="merged"] .xpm.xpm-enter .xpm-line,html[data-experience="me
 @container xpm (min-width:600px){
   html[data-experience="merged"] .xpm .xpm-shelf{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 20px}
   html[data-experience="merged"] .xpm .xpm-bundle.fanned{grid-column:1 / -1}
-  html[data-experience="merged"] .xpm .fan-stage{--fan-r:9deg;--fan-x:14px}
 }
 @container xpm (min-width:760px){
   html[data-experience="merged"] .xpm .xpm-line{padding:16px 24px 0}
-  html[data-experience="merged"] .xpm .xpm-bundle.fanned .fan-wrap{margin:0;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);grid-template-areas:"stage tray" "pager tray" "back tray";align-items:start;column-gap:18px}
-  html[data-experience="merged"] .xpm .fan-stage{grid-area:stage}
-  html[data-experience="merged"] .xpm .fan-pager{grid-area:pager}
-  html[data-experience="merged"] .xpm .tray{grid-area:tray;margin:12px 0 0}
-  html[data-experience="merged"] .xpm .fold-back{grid-area:back}
+  html[data-experience="merged"] .xpm .xpm-bundle.fanned .fan-wrap{margin:0}
+  html[data-experience="merged"] .xpm .tray{max-width:640px;margin:12px auto 0}
   html[data-experience="merged"] .xpm .xpm-shelf{padding:14px 24px 8px}
 }
 @container xpm (min-width:980px){

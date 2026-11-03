@@ -116,7 +116,9 @@ function draw(detail, opts) {
   else if (STORY_IO) { STORY_IO.disconnect(); STORY_IO = null; }
   // The app's shared "Now showing" county bar follows the data-county-head
   // marks; called on every ledger so it hides where there are none.
-  if (typeof api.installCountyNowBar === "function") { try { api.installCountyNowBar(stage); } catch {} }
+  if (typeof api.installCountyNowBar === "function") {
+    try { api.installCountyNowBar(stage, ledger === "laft" ? { beforeJump: head => fillStoriesBefore(stage, head) } : undefined); } catch {}
+  }
   document.documentElement.dataset.experienceReady = NAME;
 }
 
@@ -452,6 +454,17 @@ function fillStory(stage, rail) {
   rail.removeAttribute("data-xt-lazy");
   rail.removeAttribute("aria-busy");
   try { api.hydrateVisuals(rail); } catch {}
+}
+
+// The county bar's jump: fill every lazy story that sits above the target
+// head, so its real height is in place before the jump measures (audit F48).
+function fillStoriesBefore(stage, head) {
+  const lazy = stage.querySelectorAll(".xt-rail-lazy[data-xt-lazy]");
+  lazy.forEach(rail => {
+    if (!(rail.compareDocumentPosition(head) & Node.DOCUMENT_POSITION_FOLLOWING)) return;
+    if (STORY_IO) STORY_IO.unobserve(rail);
+    fillStory(stage, rail);
+  });
 }
 
 function watchLazyStories(stage) {
