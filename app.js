@@ -1828,7 +1828,9 @@ function staticImageUrl(p, cfg) {
       url: `https://api.maptiler.com/maps/hybrid/static/${lng},${lat},${STATIC_IMG_ZOOM}/${STATIC_IMG_W}x${STATIC_IMG_H}.png?markers=${lng},${lat},red&key=${encodeURIComponent(mt)}`
     };
   }
-  const g = typeof c.googleMapsApiKey === "string" ? c.googleMapsApiKey.trim() : "";
+  // Google is admin-only for now (owner 2026-11-03: customers see MapTiler
+  // until the Google key's permits are changed after launch).
+  const g = typeof c.googleMapsApiKey === "string" && window.__tdwIsAdmin === true ? c.googleMapsApiKey.trim() : "";
   if (g) {
     return {
       provider: "google", label: "Satellite · Google",
@@ -3763,6 +3765,12 @@ async function checkApprovalAndEnter(session) {
   // the server again and refuses anyone the server does not call an admin).
   const adminLink = document.getElementById("adminAreaLink");
   if (adminLink) adminLink.hidden = !IS_ADMIN;
+  // Who is viewing, for modules that do not import app.js (satellite-map.js:
+  // the Google basemap is admin-only until the Google key's permits change,
+  // owner 2026-11-03). Visibility only - nothing here grants data access.
+  window.__tdwIsAdmin = IS_ADMIN;
+  document.documentElement.dataset.viewer = IS_ADMIN ? "admin" : "customer";
+  window.dispatchEvent(new CustomEvent("tdw:viewer", { detail: { admin: IS_ADMIN } }));
   // Same rule for the Source Publication Governance entry (visibility only -
   // openGovernance() refuses a non-admin and RLS admits admins only).
   const govItem = document.getElementById("governanceMenuItem");
