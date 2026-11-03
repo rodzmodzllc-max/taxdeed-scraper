@@ -5916,6 +5916,9 @@ await navMap.close();
     await pg.click('#detailModalInner .crumb[data-action="crumbhome"]');
     await pg.waitForTimeout(400);
     results.rdCrumbHome = { modalHidden: await pg.locator('#detailModal').evaluate(el => el.hidden), dashVisible: await pg.locator('#pageDashboard').evaluate(el => !el.hidden) };
+    // Audit F97: Home has its own search box and hides the header one, so
+    // the miss is checked from the List.
+    await pg.evaluate(() => { location.hash = '#/lands'; }); await pg.waitForTimeout(400);
     await openSearch(pg); await pg.fill('#globalSearchInput', 'zzzz-no-such');
     await pg.waitForTimeout(300);
     results.rdGlobalEmpty = await txt(pg, '#gsEmpty');
@@ -9132,8 +9135,9 @@ const EXPECTED = {
   searchCountyRoute: {"hash": "#/county/Citrus", "named": true},
   searchResearchGroups: {"list": ["list:Gulf Lots"], "item": ["item:p15"]},
   searchResearchRoute: {"hash": "#/research", "tab": "Gulf Lots 1"},
-  // Audit F97: the search starts on the List (Home hides the header search).
-  searchStateRoute: "tx.html#/auctions",
+  // Audit F97: the search starts on the List (Home hides the header search);
+  // a state row still opens that state's Home.
+  searchStateRoute: "tx.html#/dashboard",
   timelineVectors: {"p1": ["certificate:cert_issued", "auction:sale_scheduled:self", "certificate:cert_expiration"], "p2": ["auction:left_list:self", "auction:sale_last_published:self"], "p3": ["laft:last_read:self"], "p4": ["certificate:cert_issued:self", "auction:sale_scheduled", "certificate:cert_expiration:self"], "p13": ["auction:sale_passed:self"], "p15": ["laft:first_seen:self", "laft:last_read:self"]},
   timelineCert: {"items": ["certificate:cert_issued:self", "auction:sale_scheduled", "certificate:cert_expiration:self"], "note": true, "neverSold": true, "navPill": true, "countyLink": true},
   timelineCrossLink: "#/auctions/p1",

@@ -1214,7 +1214,7 @@ const EXPANSION_LEDGER_COPY = {
       "empty": "No South Carolina sale parcels match. South Carolina auction coverage is the published tax sale lists of York, Horry and Oconee counties."
     },
     "CO": {
-      "sub": "Saguache County's published tax lien sale list, Morgan County's Treasurer's deed option auctions, and - for the sale cycle the county dates - Douglas County's advertised tax lien sale list (Douglas data: Douglas County, Colorado, CC BY-SA 4.0).",
+      "sub": "Saguache County's published tax lien sale list, Morgan County's Treasurer's deed option auctions, and Douglas County's advertised tax lien sale list, read only for the sale cycle the county has dated (the 2026 sale: November 5, 2026) (Douglas data: Douglas County, Colorado, CC BY-SA 4.0).",
       "how": "Saguache and Douglas: Colorado's tax lien sale sells a lien on each account, not the land; the amount shown is the list's own 'Total Due' as published, which the county does not call an opening bid. Morgan: the county auctions an option for a Treasurer's deed on an unredeemed certificate, on the date its page states; no amount is published. Each county runs its own sale - its page states registration and payment.",
       "empty": "No Colorado sale accounts match. Colorado auction coverage is Saguache County's tax lien sale list, Morgan County's Treasurer's deed option auctions and, when the county posts it for the dated sale, Douglas County's advertised tax lien sale list."
     },
