@@ -8924,7 +8924,8 @@ const EXPECTED = {
   adminPubNoTableReviewText: 'Latest decision: Review history unavailable (migration 023 not applied)',
   adminPubNoTableFormDisabled: true,
   // ---- Customer-value / evidence sprint ----
-  aucDecQuestions: ['What property?', 'When is the sale?', 'Opening / minimum bid, if published?', 'What property intelligence is available?', 'How do I register and bid?', 'What is the source?', 'Is an explicit auction result available?', 'Has this parcel appeared in another ledger?', 'What is not known?'],
+  // Audit F5 (2026-11-02): the bid question carries the row's own label (auctionBidLabel), not a fixed "Opening / minimum bid".
+  aucDecQuestions: ['What property?', 'When is the sale?', 'Opening bid, if published?', 'What property intelligence is available?', 'How do I register and bid?', 'What is the source?', 'Is an explicit auction result available?', 'Has this parcel appeared in another ledger?', 'What is not known?'],
   aucDecP1When: /^[A-Z][a-z]{2} \d{1,2}, \d{4} · in 3d$/,
   aucDecP1Bid: '$5,000.00 Value ÷ bid 18.0× - a screening ratio, not a return',
   aucDecP1Related: 'Currently in Liens & Certificates (certificate #CERT-42). Same state, county and parcel number; why a record moved between ledgers is not recorded.',
@@ -9176,7 +9177,8 @@ const EXPECTED = {
   gateEnforcedHome: "2 pending verification",
   gateEnforcedFreshCustomer: {"cards": ["pgate1"], "notice": null},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
   gateEnforcedAdmin: {"cards": 4, "chipped": ["p14", "p15", "p3"], "chip": {"cls": "metadata_gap", "text": "Withheld from customers: Missing record metadata"}, "freshChip": false},
-  gateTruthRow: {"cls": "metadata_gap", "verdict": "Missing record metadata", "subs": ["The record was not read from its source in the last 14 days · No acquisition-evidence status exists for this source and county", "Gate not enforced on this deployment: shown for information."]},
+  // Audit F32 (2026-11-02): a row whose own typed path is verified while the county-level gate is not names the two scopes apart.
+  gateTruthRow: {"cls": "metadata_gap", "verdict": "Missing record metadata", "subs": ["The record was not read from its source in the last 14 days · No acquisition-evidence status exists for this source and county", "This record's own path is verified; the county-level process the gate checks is not yet.", "Gate not enforced on this deployment: shown for information."]},
   refineLedgerQuestions: {"laft": "About this list", "auction": "About this list", "certificate": "About this list"}, // 2026-10-27: one fact one place
   refineDossier: {"status": ["Ledger", "Status", "Last read", "Your research (your label, not an official status)"], "lastRead": "Sep 20, 2026", "order": ["dossier-status", "acquire", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},
   refineViewports: [],
