@@ -7836,14 +7836,16 @@ const EXPECTED = {
   paidPlanRowsLoaded: 0,
   paidCheckoutCall: {"calls": [{"name": "billing-checkout", "fields": []}], "redirects": ["#stub-stripe-checkout"]},
   paidCheckoutUnavailable: "Subscriptions are not open yet.",
-  paidPlanIncomplete: {"subscribe": 0, "text": "Subscriptions are not open yet. The plan name and price have not been configured for this deployment (config.js billing.planName / billing.priceDisplay)."},
+  // Audit F66: customers never see config.js setup text; the admin-only note is not rendered for this customer.
+  paidPlanIncomplete: {"subscribe": 0, "text": "Subscriptions are not open yet."},
   paidPaymentFailed: {"screens": {"app": false, "pending": false, "plan": true, "auth": false}, "state": "payment_failed", "text": "Your last payment failed and paid access is paused. Update your payment method to restore access.", "manage": 1},
   paidCancelled: {"app": false, "text": "Your subscription has ended. Subscribe again to restore access."},
   paidRedirectAloneNoAccess: {"app": false, "plan": true},
   paidActivatedAfterWebhook: {"app": true, "billingOpen": true, "role": "customer"},
   paidSupportTopics: ["support", "data", "source", "account", "billing", "technical", "deletion"],
   paidSupportUnconfigured: true,
-  paidLegalPages: {"terms": {"h1": "Terms of Service", "unconfigured": true, "missing": "operatorName,effectiveDate,contactEmail,priceDisplay,governingLaw"}, "privacy": {"h1": "Privacy Policy", "unconfigured": true, "missing": "operatorName,effectiveDate,contactEmail"}, "acceptable-use": {"h1": "Acceptable Use Policy", "unconfigured": true, "missing": "operatorName,effectiveDate,contactEmail"}, "source-disclaimer": {"h1": "Source & Research Disclaimer", "unconfigured": true, "missing": "operatorName,effectiveDate"}},
+  // Audit F66/F103: the "not complete" notice is never shown to visitors; missing values stay on <html data-legal-missing>.
+  paidLegalPages: {"terms": {"h1": "Terms of Service", "unconfigured": false, "missing": "operatorName,effectiveDate,contactEmail,priceDisplay,governingLaw"}, "privacy": {"h1": "Privacy Policy", "unconfigured": false, "missing": "operatorName,effectiveDate,contactEmail"}, "acceptable-use": {"h1": "Acceptable Use Policy", "unconfigured": false, "missing": "operatorName,effectiveDate,contactEmail"}, "source-disclaimer": {"h1": "Source & Research Disclaimer", "unconfigured": false, "missing": "operatorName,effectiveDate"}},
   paidLegalConfigured: {"unconfigured": false, "operator": "Fixture Operator LLC", "contactHref": "mailto:fixture@example.com"},
   paidAuthLegalLinks: ["terms.html", "privacy.html", "acceptable-use.html", "source-disclaimer.html"],
   paidAdminNoEmailBeforeReveal: true,

@@ -1281,7 +1281,7 @@ html[data-experience-ready="tactile"] #main,html[data-experience-ready="terrain"
    (same ids) and sets html[data-shell="v3"]; every rule below is scoped to it. */
 
 /* ---- One header ---- */
-html[data-shell="v3"] .hdr-brand{display:inline-flex;align-items:center;gap:.55rem;flex:0 0 auto;min-height:44px;padding:0;margin:0;border:0;background:none;color:var(--ink);cursor:pointer;text-align:left}
+html[data-shell="v3"] .hdr-brand{display:inline-flex;align-items:center;justify-content:center;gap:.55rem;flex:0 0 auto;min-height:44px;min-width:44px;padding:0;margin:0;border:0;background:none;color:var(--ink);cursor:pointer;text-align:left}
 html[data-shell="v3"] .hdr-brand .brand-mark{display:block!important;width:32px;height:32px;filter:grayscale(1) contrast(1.1)}
 html[data-shell="v3"] .hdr-brand .brand-name{display:block!important;font-family:var(--font-display)!important;font-weight:700!important;font-size:1.2rem!important;letter-spacing:-.01em;color:var(--ink)!important;line-height:1}
 html[data-shell="v3"] .hdr-brand-sub{display:none}
@@ -1405,7 +1405,7 @@ html[data-shell="v3"] .prop-card .pc-actions .detail-btn:not(.detail-btn-primary
 html[data-shell="v3"] .prop-card .pc-actions .auction-link-none{flex:1 1 100%;font-size:.8rem;color:var(--ink-soft);border:1px dashed var(--rule);padding:0 .6rem}
 html[data-shell="v3"][data-theme="dark"] .prop-card .pc-actions .cta-btn,html[data-shell="v3"][data-theme="dark"] .prop-card .pc-actions .detail-btn-primary{color:#1C1B19!important}
 html[data-shell="v3"] .card-details{border-top:1px solid var(--rule);margin-top:.4rem}
-html[data-shell="v3"] .card-details>summary{list-style:none;cursor:pointer;min-height:40px;display:flex;align-items:center;font-size:.76rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+html[data-shell="v3"] .card-details>summary{list-style:none;cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:.76rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
 html[data-shell="v3"] .card-details>summary::-webkit-details-marker{display:none}
 html[data-shell="v3"] .card-details>summary::after{content:"+";margin-left:auto;font-weight:400;font-size:1rem}
 html[data-shell="v3"] .card-details[open]>summary::after{content:"−"}

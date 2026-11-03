@@ -1147,17 +1147,20 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
 }
 @media (prefers-reduced-motion:reduce){.chevron{transition:none}}
 
-#changePasswordModal input{
+/* Audit F101: the password-reset form and the Delete account confirmation
+   use the same touch-sized fields (and, for reset, the same primary button)
+   as Change password - they were browser-default ~21px fields. */
+#changePasswordModal input,#recoveryModal input,#deleteAccountModal input{
   width:100%;padding:.65rem .75rem;margin-bottom:.6rem;font-size:.95rem;
   border:1px solid var(--card-line);border-radius:3px;background:var(--paper);color:var(--ink);
 }
-#changePasswordModal input:focus{outline:2px solid var(--accent);outline-offset:1px}
-#changePasswordModal button[type="submit"]{
+#changePasswordModal input:focus,#recoveryModal input:focus,#deleteAccountModal input:focus{outline:2px solid var(--accent);outline-offset:1px}
+#changePasswordModal button[type="submit"],#recoveryModal button[type="submit"]{
   width:100%;padding:.7rem;font-size:.92rem;font-weight:700;border:none;border-radius:3px;
   background:var(--header-bg);color:#fff;cursor:pointer;margin-top:.2rem;letter-spacing:.01em;
 }
-#changePasswordModal button[type="submit"]:hover{background:var(--ok)}
-#changePasswordModal button[type="submit"]:disabled{opacity:.5;cursor:default;background:var(--header-bg)}
+#changePasswordModal button[type="submit"]:hover,#recoveryModal button[type="submit"]:hover{background:var(--ok)}
+#changePasswordModal button[type="submit"]:disabled,#recoveryModal button[type="submit"]:disabled{opacity:.5;cursor:default;background:var(--header-bg)}
 
 /* ---- Price range sliders ---- */
 .price-range-section{flex:1 1 100%;display:flex;flex-direction:column;gap:.5rem}

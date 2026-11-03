@@ -271,13 +271,32 @@ const SHELL = [
 ];
 const STATE_PAGES = SHELL.filter(u => /^\/[a-z]{2}\.html$/.test(u));
 
+// Audit F70: Cloudflare Pages answers "/tx.html" with a 308 to "/tx" (and
+// "/index.html" with one to "/"). cache.add() follows that redirect and
+// stores a response flagged redirected=true, and Chromium refuses a
+// redirected response for a navigation (net::ERR_FAILED) - so every offline
+// fallback shell was unusable. Store (and serve) a fresh copy of the final
+// response instead: same body, status and headers, redirected=false.
+function unredirect(res) {
+  if (!res || !res.redirected) return Promise.resolve(res);
+  return res.blob().then(body => new Response(body, { status: res.status, statusText: res.statusText, headers: res.headers }));
+}
+function precache(c, u) {
+  return fetch(u, { redirect: "follow", cache: "reload" })
+    .then(res => {
+      if (!res || !res.ok) return;
+      return unredirect(res).then(r => c.put(u, r));
+    })
+    .catch(() => {});
+}
+
 
 self.addEventListener("install", e => {
   e.waitUntil(
     caches.open(CACHE)
       // addAll is atomic - one 404 would reject the whole install, so add
       // individually and tolerate misses.
-      .then(c => Promise.all(SHELL.map(u => c.add(u).catch(() => {}))))
+      .then(c => Promise.all(SHELL.map(u => precache(c, u))))
       .then(() => self.skipWaiting())
   );
 });
@@ -315,7 +334,7 @@ self.addEventListener("fetch", e => {
     const statePage = m ? `/${m[1].toLowerCase()}.html` : null;
     const fallbackPath = statePage && STATE_PAGES.includes(statePage) ? statePage : "/index.html";
     e.respondWith(
-      fetch(req).catch(() => caches.match(fallbackPath).then(r => r || Response.error()))
+      fetch(req).catch(() => caches.match(fallbackPath).then(r => (r ? unredirect(r) : Response.error())))
     );
     return;
   }
