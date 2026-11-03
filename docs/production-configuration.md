@@ -183,13 +183,27 @@ It changes nothing in collection or in the database. Set it back to
 
 ## 4. Support contact (`config.js`)
 
-`window.TDW_CONFIG.supportEmail` - blank in the repository on purpose. When
-blank, every "Contact support" entry point (account menu, footer, the
-"Report a data problem" / "Report a source problem" buttons on a property
+`window.TDW_CONFIG.supportEmail` - set to `info@taxacq.com` on 2026-11-02
+(launch), the shared mailbox the approval and sign-up alert e-mails already
+use. When blank, every "Contact support" entry point (account menu, footer,
+the "Report a data problem" / "Report a source problem" buttons on a property
 page) shows "No support address is configured for this deployment yet"
-instead of an invented address. Set it to a mailbox the business actually
-reads. It is a public, client-side value (it is a mailto: link); do not put a
-personal address there if a shared one exists.
+instead of an invented address. It is a public, client-side value (it is a
+mailto: link); do not put a personal address there if a shared one exists.
+
+## 4b. Signed-out page, search engines and share previews (2026-11-02)
+
+- Every state page carries a `<meta name="description">`, a canonical URL on
+  `https://taxacq.com`, and Open Graph / Twitter tags (`scripts/build_state_page.py`
+  writes the generated pages' own state name and URL).
+- `index.html` carries a product section below the sign-in split (`#landing`),
+  shown only while signed out. It names the three ledgers, what a record
+  carries, what the product does not do, the states covered and the free
+  beta account. No count, score or promise appears in it.
+- `sitemap.xml` and `robots.txt` live at the repository root only (the mirror
+  guard refuses an unlisted file under `public/`). `_headers` adds
+  `X-Robots-Tag: noindex` to the repository directories Cloudflare Pages
+  serves; moving the deploy to an output folder is a Pages project setting.
 
 ## 5. Artifact encryption key (repository variable + secret)
 

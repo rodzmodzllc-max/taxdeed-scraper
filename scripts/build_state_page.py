@@ -33,6 +33,29 @@ TX_TERMS_COMMENT = """<!-- Texas terms. The Florida fee/statute copy that used t
 it is not Texas law and no Texas equivalent has been researched. Do not add
 Texas statutory copy here without counsel review. -->"""
 
+# Launch (2026-11-02): the <head> carries a description, a canonical URL and
+# share-preview (Open Graph / Twitter card) tags. They name the page's own
+# state and URL; every other tag is the product's and stays as in tx.html.
+SITE = "https://taxacq.com"
+
+
+def meta_description(state: str) -> str:
+    return (f"TAXACQ — tax sale property research for {state}: auctions, county-held and land bank "
+            "properties, and liens and certificates where the state offers them. Every record names its "
+            "source and the county's published acquisition process. No scores, no estimates.")
+
+
+def page_meta(state: str, page: str) -> list[tuple[str, str]]:
+    """(tx.html anchor, this state's replacement) for the four state-specific head tags."""
+    tx, me = meta_description("Texas"), meta_description(state)
+    return [
+        (f'<meta name="description" content="{tx}">', f'<meta name="description" content="{me}">'),
+        (f'<meta property="og:description" content="{tx}">', f'<meta property="og:description" content="{me}">'),
+        (f'<meta name="twitter:description" content="{tx}">', f'<meta name="twitter:description" content="{me}">'),
+        (f'<link rel="canonical" href="{SITE}/tx.html">', f'<link rel="canonical" href="{SITE}/{page}">'),
+        (f'<meta property="og:url" content="{SITE}/tx.html">', f'<meta property="og:url" content="{SITE}/{page}">'),
+    ]
+
 PAGES = {
     "MI": dict(name="Michigan",
                notice="<b>Michigan coverage is two county treasurers' published tax-sale lists (Eaton, Lenawee).</b> Minimum bids "
@@ -103,6 +126,7 @@ def render(code: str, template: str) -> str:
          '<span class="pill-dot pill-dot-certificate" aria-hidden="true"></span>Liens &amp; Certificates</button>'),
         (TX_TERMS_COMMENT, f"<!-- {cfg['name']} terms (2026-09-30, six-state expansion). No {cfg['name']} statutory copy\n"
                            "is stated here: none has been reviewed with counsel. Do not add it without counsel review. -->"),
+        *page_meta(cfg["name"], f"{code.lower()}.html"),
     ):
         if out.count(old) != 1:
             raise SystemExit(f"{code}: template anchor not found exactly once: {old[:60]!r}")
