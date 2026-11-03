@@ -5248,7 +5248,10 @@ function refreshWatchCounts() {
 function refreshWatchState() {
   // Every watch button on the page, touched only where its state disagrees
   // (a removal can also promote a queued property - promoteNextPending).
-  document.querySelectorAll('[data-action="bidlist"][data-pid]').forEach(btn => {
+  // Toggles only: the card / property-page buttons (.bid-btn) and the looks'
+  // buttons (.xt-btn, data-k). The Watchlist page's Remove / Cancel rows also
+  // carry data-action="bidlist" but are not on/off toggles.
+  document.querySelectorAll('.bid-btn[data-action="bidlist"][data-pid], .xt-btn[data-action="bidlist"][data-pid], [data-action="bidlist"][data-pid][data-k]').forEach(btn => {
     const pid = btn.dataset.pid;
     const on = BIDLIST.has(pid), pending = !on && BID_LIST_PENDING.includes(pid);
     if (btn.classList.contains("on") === on && btn.classList.contains("pending") === pending && !btn.disabled) return;
@@ -5273,7 +5276,29 @@ function refreshWatchState() {
     if (span) swap(span);
     else Array.from(btn.childNodes).filter(n => n.nodeType === 3 && n.textContent.trim()).forEach(swap);
   });
+  refreshSaleStripWatch();
   refreshWatchCounts();
+}
+// The Auctions sale-day strip counts watched lots per day (the .ss-watch dot)
+// and per county sale ("N watched"). render() builds it; the in-place Watch
+// path refreshes those two facts here, keeping the strip's scroll position and
+// selected day (review of audit F47).
+function refreshSaleStripWatch() {
+  const strip = document.getElementById("saleStrip");
+  if (!strip) return;
+  const days = saleDays(ALL.filter(p => p.source === "auction" && passes(p)));
+  const byDate = new Map(days.map(d => [d.date, d]));
+  strip.querySelectorAll(".ss-day").forEach(chip => {
+    const d = byDate.get(chip.dataset.date);
+    const dot = chip.querySelector(".ss-watch");
+    if (d && d.watched && !dot) chip.insertAdjacentHTML("beforeend", `<span class="ss-watch" aria-hidden="true"></span>`);
+    else if (!(d && d.watched) && dot) dot.remove();
+  });
+  const panel = strip.querySelector(".ss-panel");
+  if (panel && panel.dataset.date) {
+    const sel = byDate.get(panel.dataset.date);
+    if (sel) panel.innerHTML = saleDayEventsHtml(sel);
+  }
 }
 
 // Phase 65: the card's first line answers "what kind of listing is this, and
@@ -11772,14 +11797,16 @@ function section(container, title, sub, rows, kind) {
   });
 
   // Sort (audit F13, 2026-11-02): with the default "county" order the groups
-  // follow groupSortKey (date, then county). Once a Sort or "Then by" is
+  // follow groupSortKey (date, then county). Once a primary Sort is
   // chosen, the groups follow it too - each group takes the place of its
   // first card in the sorted list (`shown` is already in that order), so
   // "Opening bid, high to low" puts the county holding the highest bid first
   // and "Sale date, latest first" reverses the date clusters. Before this,
   // the sort only reordered cards INSIDE each group, so on Auctions (one
   // sale date per group) every sort produced the same page.
-  const customSort = !!(SORT_COMPARATORS[state.sortBy] || SORT_COMPARATORS[state.sortSecondary]);
+  // The primary Sort only: "Then by" is a tiebreaker and orders cards within
+  // the default date/county groups, never the groups themselves.
+  const customSort = !!SORT_COMPARATORS[state.sortBy];
   const orderedKeys = Array.from(groups.keys()).sort((ka, kb) => {
     const ga = groups.get(ka), gb = groups.get(kb);
     if (customSort) return ga.first - gb.first;
@@ -12206,7 +12233,18 @@ function applyLedgerChrome() {
   const acqModeField = acqModeEl && acqModeEl.closest(".field");
   if (acqModeField) acqModeField.hidden = key !== "laft";
   if (key !== "laft" && state.acqMode !== "any") { state.acqMode = "any"; if (acqModeEl) acqModeEl.value = "any"; }
-  // The Source filter lists this ledger's sources only (audit F51).
+  // The Source filter lists this ledger's sources only (audit F51); a source
+  // picked on another ledger is reset, as the acquisition method is above,
+  // rather than kept as a "(0)" choice that empties this ledger. A source with
+  // no loaded rows anywhere yet (still loading) is kept.
+  if (state.sourceId !== "any") {
+    const ofSource = p => (p.source_id || p.harvester_source) === state.sourceId;
+    if (!ALL.some(p => p.source === key && ofSource(p)) && ALL.some(ofSource)) {
+      state.sourceId = "any";
+      const sf = document.getElementById("sourceFilter");
+      if (sf) sf.value = "any";
+    }
+  }
   buildSourceFilterOptions();
 
   // The CSV export is the same file either way - only the label changes, so
