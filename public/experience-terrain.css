@@ -216,15 +216,14 @@ html[data-experience="terrain"] #xpStage[hidden]{display:none}
 .xp-terrain .xt-story-head::after{content:"";position:absolute;right:-40px;top:-40px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(157,191,160,.35),rgba(157,191,160,0) 70%);pointer-events:none}
 .xp-terrain .xt-story-contour{position:absolute;right:0;top:0;width:62%;height:100%;pointer-events:none}
 .xp-terrain .xt-story-contour path{fill:none;stroke:#C9D8C8;stroke-width:1.4}
-.xp-terrain .xt-flag{position:absolute;right:28px;top:52px;width:0;height:0}
-.xp-terrain .xt-flag i{position:absolute;display:block}
-.xp-terrain .xt-flag .pole{left:-1px;top:-34px;width:2.5px;height:34px;border-radius:2px;background:var(--sage-deep)}
-.xp-terrain .xt-flag .pf{left:1px;top:-34px;width:0;height:0;border-top:7px solid transparent;border-bottom:7px solid transparent;border-left:16px solid var(--sage-pop);filter:drop-shadow(0 3px 4px rgba(78,107,84,.35))}
-.xp-terrain .xt-flag .base{left:-6px;top:-4px;width:12px;height:8px;border-radius:50%;background:var(--sage);box-shadow:0 0 0 2px #FDFDFB}
-.xp-terrain .xt-story-t{margin-top:4px;font:600 24px/28px var(--font-display);letter-spacing:-.01em;padding-right:44px}
+/* The county head's locator (owner, 2026-11-04): the state outline with this
+   county shaded, where the flag used to stand - so you know where you are
+   buying. Drawn by the app's renderMinimapInto (data-frame="state"). */
+.xp-terrain .xt-locator{position:absolute;right:14px;top:10px;width:64px;height:64px;z-index:1}
+.xp-terrain .xt-story-t{margin-top:4px;font:600 24px/28px var(--font-display);letter-spacing:-.01em;padding-right:76px;min-height:52px}
 .xp-terrain.xt-enter .xt-story{animation:xtRise 520ms var(--ease-out) calc(var(--s,0) * 90ms) backwards}
-.xp-terrain.xt-enter .xt-flag{animation:xtFlag 560ms var(--spring) calc(500ms + var(--s,0) * 90ms) backwards}
-@keyframes xtFlag{from{opacity:0;transform:translateY(-18px) scale(.55)}to{opacity:1;transform:none}}
+.xp-terrain.xt-enter .xt-locator{animation:xtLoc 520ms var(--ease-out) calc(420ms + var(--s,0) * 90ms) backwards}
+@keyframes xtLoc{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:none}}
 .xp-terrain .xt-rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding:0 12px;padding:12px 2px 14px;margin:0 -12px;padding-left:12px;padding-right:12px;scrollbar-width:thin;overscroll-behavior-x:contain}
 .xp-terrain .xt-acard{flex:0 0 min(86vw,330px);scroll-snap-align:start;display:flex;flex-direction:column;border-radius:22px;background:rgba(253,253,251,.92);border:1px solid rgba(216,222,214,.85);box-shadow:inset 0 1px 0 #fff,0 14px 30px -18px rgba(78,107,84,.5);overflow:hidden;
   transition:box-shadow 320ms var(--ease-std),transform 200ms var(--ease-std)}

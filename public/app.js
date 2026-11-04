@@ -5161,6 +5161,31 @@ function countyPickerOptionsHtml(names, counts, allLabel) {
   return `<option value="ALL">${esc(allLabel)}</option>` +
     names.map(v => `<option value="${esc(v)}">${esc(v)}${counts ? ` (${counts.get(v) || 0})` : ""}</option>`).join("");
 }
+// The List's county dropdown (owner, 2026-11-04): counties with properties
+// in this ledger first, A-Z, no numbers; then every county with none, A-Z,
+// in italics and marked "no properties" so nobody has to click through them.
+// While the ledger is still loading no county is called empty.
+function countyQuickOptionsHtml(counts) {
+  const az = (a, b) => a.localeCompare(b);
+  const settled = !state.ledger || typeof ledgerSettled !== "function" || ledgerSettled(state.ledger);
+  const has = ALL_COUNTIES.filter(v => !settled || counts.get(v)).sort(az);
+  const none = settled ? ALL_COUNTIES.filter(v => !counts.get(v)).sort(az) : [];
+  return `<option value="ALL">All ${esc(UNITS_WORD.replace(/^./, c => c.toUpperCase()))}</option>` +
+    has.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("") +
+    none.map(v => `<option value="${esc(v)}" class="cq-empty">${esc(v)} · no properties</option>`).join("");
+}
+// Rebuilt on every List render (renderListHead): the ledger, its load state
+// and the status view all change which counties have properties. Only a
+// changed list is written, so an open dropdown is never redrawn under the reader.
+function refreshCountyQuick() {
+  const el = document.getElementById("countyQuick");
+  if (!el) return;
+  const html = countyQuickOptionsHtml(countyCounts());
+  if (el.__tdwBuilt === html) return;
+  el.innerHTML = html;
+  el.__tdwBuilt = html;
+  el.value = selectedCountyOrAll();
+}
 function selectedCountyOrAll() {
   return state.counties.size === 1 && state.counties.size < ALL_COUNTIES.length ? Array.from(state.counties)[0] : "ALL";
 }
@@ -5202,8 +5227,7 @@ function buildAllChips() {
   buildChips("countyChips", names, state.counties, v => `${v} (${counts.get(v) || 0})`, v => (counts.get(v) ? "" : "chip-empty"));
   buildChips("typeChips", TYPE_ORDER, state.types);
   buildChips("lienChips", LIEN_ORDER, state.liens, v => LIEN_LABEL[v], v => "lien-" + v);
-  const countyQuickEl = document.getElementById("countyQuick");
-  if (countyQuickEl) countyQuickEl.innerHTML = countyPickerOptionsHtml(names, null, "All Counties");
+  refreshCountyQuick();
   syncCountyPickers();
   // "N of M selected" badges on the Advanced Filters dropdown summaries.
   const typeCountEl = document.getElementById("typeCount");
@@ -12190,6 +12214,7 @@ function section(container, title, sub, rows, kind) {
       </div>
       <div class="county-right">
         ${freshnessBadge}
+        ${kind === "laft" ? `<span class="county-locator minimap minimap-county" data-county="${esc(county)}" data-frame="state" aria-hidden="true"></span>` : ""}
         <span class="county-chevron"></span>
       </div>`;
     det.appendChild(summary);
@@ -16497,6 +16522,22 @@ function renderHome() {
 })();
 
 // ---- List head + filter chips ----
+// Available's "N properties" line (owner, 2026-11-04): right under the List
+// toolbar, so it sits just above the county bar. Empty (and hidden) on the
+// other ledgers, whose title carries the count, and while nothing is loaded.
+function renderListTotal(count, n) {
+  let el = document.getElementById("listTotal");
+  if (!el) {
+    const qc = document.getElementById("quickControls");
+    if (!qc || !qc.parentNode) return;
+    el = document.createElement("p");
+    el.id = "listTotal";
+    el.className = "list-total";
+    qc.parentNode.insertBefore(el, qc.nextSibling);
+  }
+  el.innerHTML = count ? `<span class="list-count" id="listCount">${esc(count)}</span> ${n === 1 ? "property" : "properties"}` : "";
+  el.hidden = !count;
+}
 function renderListHead(shown, k, tabCounts) {
   const t = document.getElementById("listTitle");
   const sub = document.getElementById("listSubtitle");
@@ -16510,25 +16551,34 @@ function renderListHead(shown, k, tabCounts) {
   // A ledger whose read failed with nothing loaded shows no number at all -
   // the status strip says "Count unavailable - load failed" (audit F30).
   const count = !PROPERTIES_LOADED ? "" : !ledgerSettled(k) ? `${n.toLocaleString("en-US")}…` : (LEDGER_LOAD[k] === "error" && !n ? "" : n.toLocaleString("en-US"));
-  t.innerHTML = `${esc(name)} in ${esc(STATE_INFO.name)}${count ? ` <span class="list-count" id="listCount">${esc(count)}</span>` : ""}`;
+  // Available (owner, 2026-11-04): the title is the ledger and state only;
+  // the count sits on its own line just above the county bar (#listTotal).
+  const countBelow = k === "laft";
+  t.innerHTML = `${esc(name)} in ${esc(STATE_INFO.name)}${count && !countBelow ? ` <span class="list-count" id="listCount">${esc(count)}</span>` : ""}`;
+  renderListTotal(countBelow ? count : "", n);
+  refreshCountyQuick();
   if (sub) {
     // One subtitle line (2026-10-27): the ledger's question, its program
     // (listProgramLine - once per page, not on every county head) and how
     // many counties are in view. The number of properties in view is the
     // title count only; a filtered view names the ledger total it came from.
     const parts = [];
-    if (!PROPERTIES_LOADED) parts.push(LOAD_FAILED ? `${STATE_INFO.name} property data could not be loaded` : `Loading ${STATE_INFO.name}…`);
+    if (!PROPERTIES_LOADED) parts.push(esc(LOAD_FAILED ? `${STATE_INFO.name} property data could not be loaded` : `Loading ${STATE_INFO.name}…`));
     else {
       const cfg = ledgerCopy(k) || {};
-      if (cfg.question) parts.push(cfg.question);
+      // The ledger's question opens the Buyer's Guide for that ledger when the
+      // viewer has the guide (owner, 2026-11-04); otherwise it stays text.
+      if (cfg.question) parts.push(guideAccess()
+        ? `<button type="button" class="link-btn list-guide-link" data-action="buyersguide" data-guide-ledger="${esc(GUIDE_LEDGER_FOR_SOURCE[k] || "AVAILABLE")}">${esc(cfg.question)}</button>`
+        : esc(cfg.question));
       const prog = listProgramLine(k);
-      if (prog) parts.push(prog);
+      if (prog) parts.push(esc(prog));
       const counties = new Set(shown.map(p => p.county).filter(Boolean)).size;
-      if (counties) parts.push(`${counties.toLocaleString("en-US")} ${counties === 1 ? UNIT_WORD.toLowerCase() : UNITS_WORD}`);
+      if (counties) parts.push(esc(`${counties.toLocaleString("en-US")} ${counties === 1 ? UNIT_WORD.toLowerCase() : UNITS_WORD}`));
       if (!ledgerSettled(k)) parts.push("Loading the rest…");
-      else if (n < total) parts.push(`Filtered from ${total.toLocaleString("en-US")}`);
+      else if (n < total) parts.push(esc(`Filtered from ${total.toLocaleString("en-US")}`));
     }
-    sub.textContent = parts.join(" · ");
+    sub.innerHTML = parts.join(" · ");
     sub.hidden = !sub.textContent;
   }
   // The header's ledger tab carries the ledger total; while it equals the
@@ -16993,7 +17043,7 @@ function countyNowBarHtml() {
     <button type="button" class="cnb-step cnb-prev" data-cnb="prev" aria-label="Previous ${esc(lw)}">‹</button>
     <button type="button" class="cnb-mid" data-cnb="toggle" aria-expanded="false" aria-controls="countyNowList">
       <span class="cnb-eyebrow" data-cnb-eyebrow>Now showing · ${esc(word)} <span data-cnb-pos>${n ? i + 1 : 0}</span> of ${n} <span aria-hidden="true">▾</span></span>
-      <span class="cnb-name" data-cnb-name>${esc(name)} ${esc(word)}</span>
+      <span class="cnb-name-row"><span class="cnb-name" data-cnb-name>${esc(name)} ${esc(word)}</span><span class="cnb-count" data-cnb-count></span></span>
     </button>
     <button type="button" class="cnb-step cnb-next" data-cnb="next" aria-label="Next ${esc(lw)}">›</button>
   </div>
@@ -17042,6 +17092,15 @@ function countyNowPaint() {
     ? `${esc(word === "Parish" ? "Parishes" : "Counties")} in this list <span aria-hidden="true">▾</span>`
     : `Now showing · ${esc(word)} <span data-cnb-pos>${b.idx + 1}</span> of ${b.names.length} <span aria-hidden="true">▾</span>`;
   if (nm) nm.textContent = docked ? `Jump to a ${word.toLowerCase()}` : `${b.names[b.idx] || ""} ${word}`;
+  // The county in view carries its own count (owner, 2026-11-04), so scrolling
+  // county to county shows how many properties each one has.
+  const ct = bar.querySelector("[data-cnb-count]");
+  if (ct) {
+    const counts = docked ? null : countyNowCounts();
+    const c = counts && counts.get(b.names[b.idx]);
+    ct.textContent = c ? `${c.toLocaleString("en-US")} ${c === 1 ? "property" : "properties"}` : "";
+    ct.hidden = !c;
+  }
   bar.dataset.county = b.names[b.idx] || "";
   bar.querySelectorAll(".cnb-pick").forEach(x => { if (x.dataset.cnbPick === b.names[b.idx]) x.setAttribute("aria-current", "true"); else x.removeAttribute("aria-current"); });
 }

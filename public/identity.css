@@ -1812,3 +1812,23 @@ a:focus-visible,button:focus-visible{outline-color:var(--forest)}
   .hdr-nav .nav-item:not(#_){letter-spacing:.02em!important;font-size:.7rem!important;padding:0 .42rem!important}
   .hdr-brand .brand-name:not(#_){letter-spacing:.12em!important}
 }
+
+/* ==================== 15. Available list head (owner, 2026-11-04) ==================== */
+/* The ledger question opens the Buyer's Guide. */
+.list-sub .list-guide-link:not(#_){font:inherit;color:var(--forest,#1F3A2E);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;padding:0;background:none;border:0;cursor:pointer;min-height:0}
+/* "N properties": its own line, just above the county bar. */
+.list-total{margin:.7rem 0 .2rem;font:400 .95rem/1.3 var(--font-sans);color:var(--ink-soft,#56695E)}
+.list-total[hidden]{display:none}
+.list-total .list-count:not(#_){font:500 1.05rem/1 var(--font-sans);color:var(--ink,#202925);margin:0;padding:0;background:none}
+/* The bar names the county in view and its count. */
+.county-now .cnb-name-row{display:flex;align-items:baseline;gap:.6rem;min-width:0;flex-wrap:wrap}
+.county-now .cnb-count{font:500 .8rem/1 var(--font-sans);letter-spacing:.02em;opacity:.85;white-space:nowrap}
+.county-now .cnb-count[hidden]{display:none}
+/* County dropdown: counties with no properties, in italics, after the rest. */
+#countyQuick option.cq-empty{font-style:italic;color:#56695E}
+/* The county head's locator: the state outline, this county shaded. */
+.county-locator{display:block;position:relative;overflow:hidden;background:transparent;width:52px;height:52px;flex:0 0 52px;aspect-ratio:auto}
+.county-locator > svg{position:static!important;inset:auto!important;width:100%!important;height:100%!important;max-width:none!important;opacity:1!important;display:block}
+.county-locator .mm-neighbor{fill:#D8DED6;stroke:#A9B5AA;stroke-width:.6;vector-effect:non-scaling-stroke}
+.county-locator .mm-county{fill:var(--forest,#1F3A2E);stroke:var(--forest,#1F3A2E);stroke-width:1;vector-effect:non-scaling-stroke}
+.county-head .county-right{display:flex;align-items:center;gap:.7rem}

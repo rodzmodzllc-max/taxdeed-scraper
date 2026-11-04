@@ -430,7 +430,7 @@ function availableView(rows, api, enter) {
           <path class="xt-draw" pathLength="1" d="M-10 100 C 90 60, 170 120, 270 70 S 380 10, 420 40" style="--dl:120ms"/>
           <path class="xt-draw" pathLength="1" d="M-10 70 C 100 30, 180 90, 280 40 S 380 -10, 420 10" style="--dl:240ms"/>
         </svg>
-        <span class="xt-flag" aria-hidden="true"><i class="pole"></i><i class="pf"></i><i class="base"></i></span>
+        <span class="xt-locator county-locator minimap minimap-county" data-county="${api.esc(g.county)}" data-frame="state" aria-hidden="true"></span>
         <h3 class="xt-story-t">${api.esc(name)}</h3>
         ${g.headTrail ? `<div class="xt-story-trail">${g.headTrail}</div>` : ""}
       </div>
