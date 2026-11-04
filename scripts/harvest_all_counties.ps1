@@ -76,6 +76,27 @@ function Get-Href($block, $label) {
     if ($m.Success) { return ($m.Groups[1].Value -replace '&amp;','&') }
     return $null
 }
+# Labels under which some county skins publish the property appraiser's OWN
+# key for the property instead of a "Parcel ID" (confirmed live 2026-09-18 by
+# a value-free label read, Actions run 35402576827): Citrus "Alternate Key",
+# Hernando "Parcel Key". Neither is the county's parcel-number format, so
+# neither is ever written to `parcel`; the cell's link is the appraiser's own
+# page for the property and becomes url_appraiser. The key itself rides in
+# the harvest artifact as alt_key (evidence only, not synced). (PR #18)
+$AltKeyLabels = @('Alternate Key', 'Parcel Key')
+function Get-ParcelFields($block) {
+    $parcel = Get-Field $block 'Parcel ID'
+    if ($parcel) {
+        return [pscustomobject]@{ parcel = ($parcel -replace '<[^>]+>','').Trim(); appraiser = Get-Href $block 'Parcel ID'; alt_key = $null }
+    }
+    foreach ($label in $AltKeyLabels) {
+        $key = Get-Field $block $label
+        if ($key) {
+            return [pscustomobject]@{ parcel = ''; appraiser = Get-Href $block $label; alt_key = ($key -replace '<[^>]+>','').Trim() }
+        }
+    }
+    return [pscustomobject]@{ parcel = ''; appraiser = $null; alt_key = $null }
+}
 # The tax certificate that opened the deed application. Most RealAuction
 # county skins label it "Certificate #"; a county skin may word the label
 # differently. (2026-10-26, Orange: 0 of 69 active rows carried a certificate
@@ -370,6 +391,7 @@ $ci = 0
                 $city = if ($cityM.Success) { ($cityM.Groups[1].Value -replace '\s+',' ').Trim() } else { "" }
                 $addr = (($addrLine + ", " + $city) -replace '^,\s*','' -replace ',\s*$','').Trim()
 
+                $pf = Get-ParcelFields $b
                 $all.Add([pscustomobject]@{
                     # Use the CSV's County column as-is - it already matches the
                     # frontend's canonical spelling (e.g. "Miami-Dade", "St. Lucie").
@@ -388,8 +410,12 @@ $ci = 0
                     cert        = (Get-CertificateNumber $b)
                     bid         = $bid
                     assessed    = ToNum (Get-Field $b 'Assessed Value')
-                    parcel      = ((Get-Field $b 'Parcel ID') -replace '<[^>]+>','').Trim()
-                    appraiser   = Get-Href $b 'Parcel ID'
+                    parcel      = $pf.parcel
+                    appraiser   = $pf.appraiser
+                    # Appraiser-side key a skin publishes instead of a parcel
+                    # number (Citrus, Hernando) - see Get-ParcelFields. Not a
+                    # parcel and not synced; carried in the artifact as evidence.
+                    alt_key     = $pf.alt_key
                     address     = $addr
                     auction_url = "https://$hostName/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date"
                 })
@@ -463,7 +489,7 @@ Write-Host ("Completeness: {0} COMPLETE, {1} INCOMPLETE (of {2} counties attempt
 # keys instead), so there is nothing left to exclude here - the emitted JSON is
 # byte-for-byte the same shape it always was.
 $all | ConvertTo-Json -Depth 4 | Set-Content $outJson -Encoding utf8
-$all | Select-Object county,sale_date,case,bid,assessed,parcel,address,appraiser,auction_url |
+$all | Select-Object county,sale_date,case,bid,assessed,parcel,address,appraiser,alt_key,auction_url |
     Export-Csv $outCsv -NoTypeInformation -Encoding utf8
 
 Write-Host ""
@@ -474,6 +500,7 @@ Write-Host ("With bid amount: {0}" -f ($all | Where-Object { $_.bid }).Count)
 Write-Host ("With assessed value from the feed: {0}" -f ($all | Where-Object { $_.assessed }).Count)
 Write-Host ("With parcel ID: {0}" -f ($all | Where-Object { $_.parcel }).Count)
 Write-Host ("With appraiser deep-link: {0}" -f ($all | Where-Object { $_.appraiser }).Count)
+Write-Host ("With appraiser key but no parcel ID published: {0}" -f ($all | Where-Object { $_.alt_key }).Count)
 Write-Host ("With certificate number: {0}" -f ($all | Where-Object { $_.cert }).Count)
 foreach ($cn in @($all.county | Select-Object -Unique)) {
     $cRows = @($all | Where-Object { $_.county -eq $cn })
