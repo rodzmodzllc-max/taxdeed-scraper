@@ -63,9 +63,12 @@ jobs:
           # fixture stub instead of hitting the network. tx.html added
           # Phase 34, alongside run_test.mjs's tx.html navigation - same
           # sed, same anchor line, both files share that exact script tag.
-          sed -i 's#<script src="config.js"></script>#<script src="config.js"></script>\n<script type="importmap">{"imports":{"https://esm.sh/@supabase/supabase-js@2":"./vendor/supabase-stub.js"}}</script>#' /tmp/serve/index.html /tmp/serve/tx.html
+          sed -i 's#<script src="config.js"></script>#<script src="config.js"></script>\n<script type="importmap">{"imports":{"https://esm.sh/@supabase/supabase-js@2":"./vendor/supabase-stub.js"}}</script>#' /tmp/serve/index.html /tmp/serve/tx.html /tmp/serve/la.html /tmp/serve/mi.html /tmp/serve/wy.html /tmp/serve/sc.html /tmp/serve/co.html /tmp/serve/wi.html /tmp/serve/mo.html /tmp/serve/ok.html /tmp/serve/pa.html /tmp/serve/mn.html /tmp/serve/tn.html /tmp/serve/admin.html
           grep -q 'importmap' /tmp/serve/index.html
           grep -q 'importmap' /tmp/serve/tx.html
+          grep -q 'importmap' /tmp/serve/la.html
+          for st in mi wy sc co wi mo ok pa mn tn; do grep -q 'importmap' /tmp/serve/$st.html; done
+          grep -q 'importmap' /tmp/serve/admin.html
 
       - name: Serve app
         run: |
@@ -75,3 +78,47 @@ jobs:
 
       - name: Run regression test
         run: node tests/run_test.mjs
+
+      # 2026-10-29: one standalone file per audit fix theme (tests/audit/*.mjs).
+      - name: Run audit fix tests
+        env:
+          BASE_URL: http://localhost:8934/index.html
+        run: |
+          set -e
+          for f in tests/audit/*.mjs; do echo "== $f"; node "$f"; done
+
+      # Password recovery against the REAL supabase-js (the site's own
+      # supabase-js.umd.js) and a fake Supabase Auth server - no network,
+      # no e-mail (tests/recovery_flow_test.mjs).
+      - name: Run password-recovery test
+        env:
+          BASE_URL: http://localhost:8934/index.html
+        run: node tests/recovery_flow_test.mjs
+
+  # Read-only check of what a signed-out visitor is actually SERVED by a
+  # deployment (scripts/check_deployed_branding.py): the sign-in block and
+  # title of every state page must name the product, never one state. On a
+  # pull request it reads the Cloudflare branch preview (when one exists) and
+  # reports production as it stands; on a push to main it waits for the
+  # production build and fails if the deployed shell is still state-branded.
+  deployed-login:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Branch preview deployment
+        if: github.event_name == 'pull_request'
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: python3 scripts/check_deployed_branding.py --preview-branch "$BRANCH" --require --wait 600
+
+      - name: Production deployment
+        env:
+          REQUIRE: ${{ github.event_name == 'push' && '--require --wait 900' || '' }}
+        run: python3 scripts/check_deployed_branding.py --base https://rodz-taxdeeds.pages.dev $REQUIRE
+
+      # Sign-up runs through the self-signup Edge Function (2026-10-04). Only
+      # refused payloads are sent: no account is ever created by this check.
+      - name: Self-signup Edge Function reachable (CORS + validation)
+        run: python3 scripts/check_self_signup.py --origin https://rodz-taxdeeds.pages.dev

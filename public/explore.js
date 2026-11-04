@@ -69,7 +69,32 @@ const CANVAS_ID = "exploreMapCanvas";
 // Which state desk this page is. Mirrors app.js's own PAGE_STATE constant
 // (read from the same <body data-state="FL|TX"> app.js sets) - this module
 // never reaches into app.js for it, same rule as everything else here.
-const PAGE_STATE = document.body.dataset.state === "TX" ? "TX" : "FL";
+// STATE_ASSETS mirrors app.js's STATE_META for the same reason: the states
+// this map has a basemap, city and zip file (and a PROJ fit) for. A state
+// outside it gets no Florida assets in its place - the page falls back to
+// FL only so it still loads, and app.js logs the mismatch.
+const STATE_ASSETS = {
+  FL: { basemap: "fl-counties.svg", cities: "fl-cities.json", zips: "fl-zips.json" },
+  TX: { basemap: "tx-counties.svg", cities: "tx-cities.json", zips: "tx-zips.json" },
+  LA: { basemap: "la-parishes.svg", cities: "la-cities.json", zips: "la-zips.json", unit: "Parish" },
+  MI: { basemap: "mi-counties.svg", cities: "mi-cities.json", zips: "mi-zips.json" },
+  WY: { basemap: "wy-counties.svg", cities: "wy-cities.json", zips: "wy-zips.json" },
+  SC: { basemap: "sc-counties.svg", cities: "sc-cities.json", zips: "sc-zips.json" },
+  CO: { basemap: "co-counties.svg", cities: "co-cities.json", zips: "co-zips.json" },
+  WI: { basemap: "wi-counties.svg", cities: "wi-cities.json", zips: "wi-zips.json" },
+  MO: { basemap: "mo-counties.svg", cities: "mo-cities.json", zips: "mo-zips.json" },
+  OK: { basemap: "ok-counties.svg", cities: "ok-cities.json", zips: "ok-zips.json" },
+  PA: { basemap: "pa-counties.svg", cities: "pa-cities.json", zips: "pa-zips.json" },
+  MN: { basemap: "mn-counties.svg", cities: "mn-cities.json", zips: "mn-zips.json" },
+  TN: { basemap: "tn-counties.svg", cities: "tn-cities.json", zips: "tn-zips.json" }
+};
+const PAGE_STATE = STATE_ASSETS[document.body.dataset.state] ? document.body.dataset.state : "FL";
+const STATE_INFO = STATE_ASSETS[PAGE_STATE];
+// County (FL, TX) or parish (LA) - the unit this page's rows name.
+const UNIT_WORD = STATE_INFO.unit || "County";
+// The unit's display name: an independent city stored as its own unit
+// ("St. Louis City") is never "<city> County" (audit F35; app.js unitLabelOf).
+const unitLabelOf = c => (/\bcity$/i.test(String(c || "").trim()) ? String(c).trim() : `${c} ${UNIT_WORD}`);
 
 // Live state, all of it derived from the last tdw:maprendered event.
 let rows = [];
@@ -79,6 +104,9 @@ let svgLoaded = false;
 let centroids = new Map();     // county -> {cx, cy} in SVG user units
 let centroidsOk = false;       // false while the only measurements we have
                                // came from a hidden (unlaid-out) SVG
+let pendingAbsorb = null;      // a tdw:maprendered payload received while the
+                               // Map page was hidden (audit F28): kept, not
+                               // drawn, until the page is next shown
 let pendingDraw = false;       // a draw was asked for while the panel had no
                                // geometry yet; run it once it does
 let selectedCounty = null;     // county the map has filtered the list to
@@ -105,7 +133,7 @@ async function ensureMap() {
   svgLoaded = true;                       // set first: a slow fetch must not
                                           // queue a second one behind it
   try {
-    const res = await fetch(PAGE_STATE === "TX" ? "tx-counties.svg" : "fl-counties.svg");
+    const res = await fetch(STATE_INFO.basemap);
     if (!res.ok) throw new Error("HTTP " + res.status);
     canvas.innerHTML = await res.text();
     // Start watching now that there is a map to re-measure.
@@ -136,13 +164,25 @@ async function ensureMap() {
 // That shipped to the preview and is what this flag exists to stop - we only
 // trust a measurement pass that produced at least one real box, and redraw
 // once the panel is actually on screen (see watchForVisibility below).
+// Phase 67: the county boxes are cached alongside the centroids. With the
+// Google or MapTiler basemap showing, the outline SVG is display:none and
+// getBBox() returns zeros - countyViewBox() then fell back to "no such
+// county" and the county zoom (and with it the strip/preview in the side
+// panel) silently never happened on those basemaps. The cached box lets the
+// zoom state, the property list and the preview work whichever basemap is
+// on screen; the outline map itself simply redraws when shown again.
+let countyBoxes = new Map();
 function computeCentroids(canvas) {
   const next = new Map();
+  const boxes = new Map();
   let sawRealGeometry = false;
   canvas.querySelectorAll("path[data-county]").forEach(p => {
     try {
       const b = p.getBBox();
-      if (b.width > 0 || b.height > 0) sawRealGeometry = true;
+      if (b.width > 0 || b.height > 0) {
+        sawRealGeometry = true;
+        boxes.set(p.dataset.county, { x: b.x, y: b.y, width: b.width, height: b.height });
+      }
       next.set(p.dataset.county, { cx: b.x + b.width / 2, cy: b.y + b.height / 2 });
     } catch { /* not laid out yet - retried once the panel is visible */ }
   });
@@ -150,6 +190,7 @@ function computeCentroids(canvas) {
   // this pass happened to run while hidden again (e.g. a mode switch).
   if (sawRealGeometry) {
     centroids = next;
+    countyBoxes = boxes;
     centroidsOk = true;
   }
   return sawRealGeometry;
@@ -166,6 +207,7 @@ function watchForVisibility() {
 
   if (typeof ResizeObserver === "function") {
     const ro = new ResizeObserver(() => {
+      if (pendingAbsorb && canvas.clientWidth > 0) { const d = pendingAbsorb; pendingAbsorb = null; absorb(d); return; }
       if (canvas.clientWidth > 0 && (!centroidsOk || pendingDraw)) {
         if (computeCentroids(canvas)) { pendingDraw = false; draw(); }
       }
@@ -233,11 +275,81 @@ const PROJ = {
     y: { lon: 0, lat: -0.066666276, c: 2.493318735 },
     baseW: 1000,
     baseH: 1006
+  },
+  // la-parishes.svg (2026-09-30) was generated from us-atlas with exactly
+  // this linear projection (cos 31deg), so the fit is exact by construction.
+  LA: {
+    x: { lon: 0.175438596, lat: 0, c: 16.543859649 },
+    y: { lon: 0, lat: -0.227161516, c: 7.541762328 },
+    baseW: 1000,
+    baseH: 901
+  },
+  // Six-state expansion (2026-09-30): <code>-counties.svg generated by
+  // scripts/build_state_basemap.py with this exact linear projection.,
+  MI: {
+    x: { lon: 0.119991956, lat: 0, c: 10.869241064 },
+    y: { lon: 0, lat: -0.148577311, c: 7.177557321 },
+    baseW: 1000,
+    baseH: 1141
+  },
+  WY: {
+    x: { lon: 0.137019503, lat: 0, c: 15.237171277 },
+    y: { lon: 0, lat: -0.236855008, c: 10.685194997 },
+    baseW: 1000,
+    baseH: 791
+  },
+  SC: {
+    x: { lon: 0.199449716, lat: 0, c: 16.644666914 },
+    y: { lon: 0, lat: -0.298662094, c: 10.542429635 },
+    baseW: 1000,
+    baseH: 802
+  },
+  CO: {
+    x: { lon: 0.136809243, lat: 0, c: 14.940306052 },
+    y: { lon: 0, lat: -0.235972008, c: 9.702332433 },
+    baseW: 1000,
+    baseH: 746
+  },
+  WI: {
+    x: { lon: 0.158355281, lat: 0, c: 14.728962896 },
+    y: { lon: 0, lat: -0.209887398, c: 9.899736672 },
+    baseW: 1000,
+    baseH: 1063
+  },
+  MO: {
+    x: { lon: 0.143951598, lat: 0, c: 13.805962504 },
+    y: { lon: 0, lat: -0.206811222, c: 8.421914195 },
+    baseW: 1000,
+    baseH: 887
+  },
+  OK: {
+    x: { lon: 0.112002542, lat: 0, c: 11.556716219 },
+    y: { lon: 0, lat: -0.271783884, c: 10.096205637 },
+    baseW: 1000,
+    baseH: 505
+  },
+  PA: {
+    x: { lon: 0.164794867, lat: 0, c: 13.289401314 },
+    y: { lon: 0, lat: -0.365727205, c: 15.492773054 },
+    baseW: 1000,
+    baseH: 597
+  },
+  MN: {
+    x: { lon: 0.123882385, lat: 0, c: 12.066279913 },
+    y: { lon: 0, lat: -0.163731421, c: 8.104039826 },
+    baseW: 1000,
+    baseH: 1098
+  },
+  TN: {
+    x: { lon: 0.110842134, lat: 0, c: 10.030011741 },
+    y: { lon: 0, lat: -0.50263163, c: 18.509220566 },
+    baseW: 1000,
+    baseH: 272
   }
 };
 
 function projectLatLng(lat, lon) {
-  const p = PROJ[PAGE_STATE] || PROJ.FL;
+  const p = PROJ[PAGE_STATE];   // every STATE_ASSETS key has its own fit; never another state's
   return {
     x: (p.x.lon * lon + p.x.lat * lat + p.x.c) * p.baseW,
     y: (p.y.lon * lon + p.y.lat * lat + p.y.c) * p.baseH
@@ -278,7 +390,7 @@ async function loadCities() {
     // fl-tx-region-switcher.md) - this 404s and falls into the catch below,
     // same as being offline with a cold cache. The map is fine without city
     // labels; this is not a silent failure to fix, it's the designed fallback.
-    const res = await fetch(PAGE_STATE === "TX" ? "tx-cities.json" : "fl-cities.json");
+    const res = await fetch(STATE_INFO.cities);
     if (!res.ok) return;
     cities = await res.json();
     // Statewide we only want the handful that orient you at a glance.
@@ -305,7 +417,7 @@ async function loadCities() {
 async function loadZips() {
   try {
     // tx-zips.json is likewise deferred - see loadCities() above.
-    const res = await fetch(PAGE_STATE === "TX" ? "tx-zips.json" : "fl-zips.json");
+    const res = await fetch(STATE_INFO.zips);
     if (!res.ok) return;
     zips = await res.json();
     if (zoomCounty) draw();
@@ -337,12 +449,24 @@ function drawZipAreas(svg, county, pins) {
     return hit;
   };
 
+  // Counts are computed once per county / row set (pinCache.zipCounts) with a
+  // bounding-box pre-filter - point-in-polygon for every pin against every
+  // ZIP was quadratic, and a 30,000-pin county made it hang.
+  const counts = pinCache.county === county && pinCache.pts === pins && pinCache.zipCounts ? pinCache.zipCounts : new Map();
+  const fresh = !counts.size;
   list.forEach(([zip, ring]) => {
     const pts = ring.map(([lon, lat]) => {
       const q = projectLatLng(lat, lon);
       return [q.x, q.y];
     });
-    const n = (pins || []).filter(q => pointIn(q.x, q.y, pts)).length;
+    let n = counts.get(zip);
+    if (n === undefined) {
+      let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+      pts.forEach(([x, y]) => { if (x < x1) x1 = x; if (x > x2) x2 = x; if (y < y1) y1 = y; if (y > y2) y2 = y; });
+      n = 0;
+      (pins || []).forEach(q => { if (q.x >= x1 && q.x <= x2 && q.y >= y1 && q.y <= y2 && pointIn(q.x, q.y, pts)) n++; });
+      counts.set(zip, n);
+    }
 
     const poly = document.createElementNS(NS, "polygon");
     poly.setAttribute("points", pts.map(q => q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" "));
@@ -366,6 +490,7 @@ function drawZipAreas(svg, county, pins) {
     t.textContent = n ? `${zip} · ${n}` : zip;
     layer.appendChild(t);
   });
+  if (fresh && pinCache.county === county && pinCache.pts === pins) pinCache.zipCounts = counts;
 }
 
 // Labels are placed largest-first and any that would collide with one already
@@ -532,8 +657,10 @@ function countyViewBox(svg, county) {
   const path = svg.querySelector(`path[data-county="${cssEscape(county)}"]`);
   if (!path) return null;
   let b;
-  try { b = path.getBBox(); } catch { return null; }
-  if (!(b.width > 0 && b.height > 0)) return null;
+  try { b = path.getBBox(); } catch { b = null; }
+  // Hidden (another basemap is showing): use the box measured while visible.
+  if (!(b && b.width > 0 && b.height > 0)) b = countyBoxes.get(county) || null;
+  if (!b) return null;
   // Deliberately the HOME aspect, not the panel's.
   //
   // Matching the panel was tried, to stop the county letterboxing inside a
@@ -564,14 +691,50 @@ const back = {
   pop: n => { if (window.tdwBack) window.tdwBack.pop(n); }
 };
 
+// Activating a cluster frames its members (home aspect, padded); pins that
+// still share a cell there cluster again until they separate.
+function zoomIntoCluster(boxStr) {
+  const canvas = $(CANVAS_ID);
+  const svg = canvas && canvas.querySelector("svg");
+  if (!svg || !zoomCounty) return;
+  const [x1, y1, x2, y2] = String(boxStr).split(",").map(Number);
+  if (![x1, y1, x2, y2].every(isFinite)) return;
+  const home = readHomeViewBox(svg);
+  const aspect = home.w / home.h;
+  const minW = home.w / 1500;
+  let w = Math.max(x2 - x1, minW), h = Math.max(y2 - y1, minW / aspect);
+  const pad = Math.max(w, h) * 0.25;
+  w += pad * 2; h += pad * 2;
+  if (w / h > aspect) h = w / aspect; else w = h * aspect;
+  const box = { x: (x1 + x2) / 2 - w / 2, y: (y1 + y2) / 2 - h / 2, w, h };
+  if (!subZoomBox) back.push("map-subzoom", () => zoomBackToCounty());
+  subZoomBox = box;
+  previewNudge = null;
+  setBackVisible(true);
+  animateViewBox(svg, box, () => draw());
+}
+function zoomBackToCounty() {
+  const canvas = $(CANVAS_ID);
+  const svg = canvas && canvas.querySelector("svg");
+  subZoomBox = null;
+  previewNudge = null;
+  back.pop("map-subzoom");
+  setBackVisible(!!zoomCounty);
+  if (svg && zoomCounty) animateViewBox(svg, countyViewBox(svg, zoomCounty) || readHomeViewBox(svg), () => draw());
+}
+
 function zoomTo(county) {
+  subZoomBox = null;
+  back.pop("map-subzoom");
   const canvas = $(CANVAS_ID);
   const svg = canvas && canvas.querySelector("svg");
   if (!svg) return;
   readHomeViewBox(svg);
   const box = county && countyViewBox(svg, county);
   zoomCounty = box ? county : null;
-  activeProp = null;
+  // A different county (or statewide): the open card belongs to the old view.
+  if (activeProp) { activeProp = null; back.pop("map-preview"); }
+  showPreviewHidden();
   if (zoomCounty) back.push("map-county", () => zoomOut());
   else back.pop("map-county");
   animateViewBox(svg, box || homeViewBox, () => draw());
@@ -670,10 +833,24 @@ function draw() {
       g.setAttribute("tabindex", "0");
       g.setAttribute("role", "button");
       g.setAttribute("aria-label",
-        `${county} County, ${list.length} ${list.length === 1 ? "property" : "properties"}` +
+        `${unitLabelOf(county)}, ${list.length} ${list.length === 1 ? "property" : "properties"}` +
         (selectedCounty === county ? " - selected, activate to clear" : " - activate to filter the list"));
       g.setAttribute("aria-pressed", selectedCounty === county ? "true" : "false");
 
+      // Touch target (2026-10-24): a small bubble is well under 44px on a phone.
+      // A transparent hit circle behind it guarantees a 44px target on screen,
+      // sized from the SVG's current scale (viewBox units per rendered pixel).
+      const vbW = (svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number)[2] || svg.clientWidth || 1;
+      const unitsPerPx = vbW / Math.max(1, svg.clientWidth || vbW);
+      const hitR = Math.max(r, 22 * unitsPerPx);
+      if (hitR > r) {
+        const hit = document.createElementNS(NS, "circle");
+        hit.setAttribute("class", "bubble-hit");
+        hit.setAttribute("cx", c.cx);
+        hit.setAttribute("cy", c.cy);
+        hit.setAttribute("r", hitR);
+        g.appendChild(hit);
+      }
       const circle = document.createElementNS(NS, "circle");
       circle.setAttribute("cx", c.cx);
       circle.setAttribute("cy", c.cy);
@@ -697,7 +874,7 @@ function draw() {
   if (refocusCounty) {
     const again = layer.querySelector(
       `.cluster-bubble[data-county="${window.CSS && CSS.escape ? CSS.escape(refocusCounty) : refocusCounty}"]`);
-    if (again) again.focus();
+    if (again) again.focus({ preventScroll: true });
   }
 
   updateSummary(byCounty, max);
@@ -709,6 +886,57 @@ function draw() {
 // Pin geometry is divided by viewScale throughout. The viewBox shrinks as we
 // zoom, so anything sized in user units would balloon on screen - a pin has
 // to stay pin-sized however far in we are.
+// Scale (2026-10-02): a county can hold tens of thousands of geocoded rows
+// (Detroit Land Bank, Wayne MI: 30,000+). Drawing one SVG pin per row is not
+// viable, so pins in view are CLUSTERED on a screen-space grid once there are
+// more than PIN_CLUSTER_MIN of them: a cluster is one circle with its exact
+// count; activating it zooms into its extent, where it splits again, until
+// individual pins appear. Nothing is sampled or dropped - every row is in a
+// cluster or a pin, and the selected property is always drawn as its own pin.
+const PIN_CLUSTER_MIN = 250;
+const CLUSTER_CELL_PX = 56;
+let pinCache = { rows: null, county: null, len: -1, placed: [], pts: [], zipCounts: null };
+let subZoomBox = null;   // a viewBox inside the zoomed county (after a cluster tap)
+function projectedPins(list) {
+  if (pinCache.rows === rows && pinCache.county === zoomCounty && pinCache.len === list.length) return pinCache;
+  const placed = list.filter(hasPin);
+  const pts = placed.map(p => projectLatLng(p.latitude, p.longitude));
+  pinCache = { rows, county: zoomCounty, len: list.length, placed, pts, zipCounts: null };
+  return pinCache;
+}
+function currentViewBox(svg) {
+  const vb = (svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
+  return vb.length === 4 && vb.every(isFinite) ? { x: vb[0], y: vb[1], w: vb[2], h: vb[3] } : readHomeViewBox(svg);
+}
+function makePin(p, x, y, r) {
+  const g = document.createElementNS(NS, "g");
+  g.setAttribute("class", "map-pin" + (activeProp && activeProp.id === p.id ? " sel" : ""));
+  g.dataset.pid = String(p.id);
+  g.setAttribute("tabindex", "0");
+  g.setAttribute("role", "button");
+  g.setAttribute("aria-label", `${pinLabel(p)} - activate for details`);
+  // A teardrop, drawn so its POINT is the coordinate - a circle centred on
+  // the spot reads as "somewhere around here", which is the opposite of
+  // what a geocoded parcel deserves.
+  const path = document.createElementNS(NS, "path");
+  path.setAttribute("d",
+    `M ${x} ${y} l ${-r * 0.72} ${-r * 1.25} a ${r} ${r} 0 1 1 ${r * 1.44} 0 Z`);
+  g.appendChild(path);
+  const dot = document.createElementNS(NS, "circle");
+  dot.setAttribute("cx", x); dot.setAttribute("cy", y - r * 1.25);
+  dot.setAttribute("r", r * 0.32);
+  dot.setAttribute("class", "pin-dot");
+  g.appendChild(dot);
+  // Phase 66: a halo ring under the SELECTED pin only.
+  if (activeProp && activeProp.id === p.id) {
+    const halo = document.createElementNS(NS, "circle");
+    halo.setAttribute("cx", x); halo.setAttribute("cy", y - r * 1.25);
+    halo.setAttribute("r", r * 2.1);
+    halo.setAttribute("class", "pin-halo");
+    g.insertBefore(halo, g.firstChild);
+  }
+  return g;
+}
 function drawPins(svg, layer, list) {
   svg.querySelectorAll("path[data-county]").forEach(path => {
     path.classList.toggle("zoom-focus", path.dataset.county === zoomCounty);
@@ -718,43 +946,91 @@ function drawPins(svg, layer, list) {
   const home = readHomeViewBox(svg);
   const upp = unitsPerPixel(svg);
   layer.innerHTML = "";
-  const placed = list.filter(hasPin);
-
-  const pinR = 7 * upp;
-  const pinPts = placed.map(p => projectLatLng(p.latitude, p.longitude));
+  const pc = projectedPins(list);
+  const placed = pc.placed, pinPts = pc.pts;
+  const r = 7 * upp;
+  const vb = currentViewBox(svg);
+  const m = 24 * upp;
+  const inView = [];
+  for (let i = 0; i < pinPts.length; i++) {
+    const q = pinPts[i];
+    if (q.x >= vb.x - m && q.x <= vb.x + vb.w + m && q.y >= vb.y - m && q.y <= vb.y + vb.h + m) inView.push(i);
+  }
+  // At the deepest zoom, pins that still share a cell are shown individually.
+  const maxZoom = vb.w <= home.w / 1500;
+  const clustered = inView.length > PIN_CLUSTER_MIN && !maxZoom;
   drawZipAreas(svg, zoomCounty, pinPts);
-  drawCities(svg, cities && cities[zoomCounty], placed.map(p => {
-    const q = projectLatLng(p.latitude, p.longitude);
-    return { x1: q.x - pinR, y1: q.y - pinR * 2.4, x2: q.x + pinR, y2: q.y };
-  }));
 
-  placed.forEach(p => {
-    const { x, y } = projectLatLng(p.latitude, p.longitude);
-    const g = document.createElementNS(NS, "g");
-    g.setAttribute("class", "map-pin" + (activeProp && activeProp.id === p.id ? " sel" : ""));
-    g.dataset.pid = String(p.id);
-    g.setAttribute("tabindex", "0");
-    g.setAttribute("role", "button");
-    g.setAttribute("aria-label", `${pinLabel(p)} - activate for details`);
-
-    const r = 7 * upp;
-    // A teardrop, drawn so its POINT is the coordinate - a circle centred on
-    // the spot reads as "somewhere around here", which is the opposite of
-    // what a geocoded parcel deserves.
-    const path = document.createElementNS(NS, "path");
-    path.setAttribute("d",
-      `M ${x} ${y} l ${-r * 0.72} ${-r * 1.25} a ${r} ${r} 0 1 1 ${r * 1.44} 0 Z`);
-    g.appendChild(path);
-    const dot = document.createElementNS(NS, "circle");
-    dot.setAttribute("cx", x); dot.setAttribute("cy", y - r * 1.25);
-    dot.setAttribute("r", r * 0.32);
-    dot.setAttribute("class", "pin-dot");
-    g.appendChild(dot);
-    layer.appendChild(g);
-  });
+  const boxes = [];
+  const activeIdx = activeProp ? placed.findIndex(p => p.id === activeProp.id) : -1;
+  let clusterCount = 0, pinCount = 0;
+  if (!clustered) {
+    inView.forEach(i => {
+      if (i === activeIdx) return;
+      const q = pinPts[i];
+      layer.appendChild(makePin(placed[i], q.x, q.y, r));
+      boxes.push({ x1: q.x - r, y1: q.y - r * 2.4, x2: q.x + r, y2: q.y });
+      pinCount++;
+    });
+  } else {
+    const cell = CLUSTER_CELL_PX * upp;
+    const cells = new Map();
+    inView.forEach(i => {
+      if (i === activeIdx) return;
+      const q = pinPts[i];
+      const key = Math.floor((q.x - vb.x) / cell) + "," + Math.floor((q.y - vb.y) / cell);
+      let c = cells.get(key);
+      if (!c) { c = { n: 0, sx: 0, sy: 0, x1: q.x, y1: q.y, x2: q.x, y2: q.y, first: i }; cells.set(key, c); }
+      c.n++; c.sx += q.x; c.sy += q.y;
+      if (q.x < c.x1) c.x1 = q.x; if (q.x > c.x2) c.x2 = q.x;
+      if (q.y < c.y1) c.y1 = q.y; if (q.y > c.y2) c.y2 = q.y;
+    });
+    cells.forEach(c => {
+      if (c.n === 1) {
+        const q = pinPts[c.first];
+        layer.appendChild(makePin(placed[c.first], q.x, q.y, r));
+        boxes.push({ x1: q.x - r, y1: q.y - r * 2.4, x2: q.x + r, y2: q.y });
+        pinCount++;
+        return;
+      }
+      const cx = c.sx / c.n, cy = c.sy / c.n;
+      const cr = (11 + 5 * Math.log10(c.n)) * upp;
+      const g = document.createElementNS(NS, "g");
+      g.setAttribute("class", "pin-cluster");
+      g.dataset.box = [c.x1, c.y1, c.x2, c.y2].join(",");
+      g.dataset.count = String(c.n);
+      g.setAttribute("tabindex", "0");
+      g.setAttribute("role", "button");
+      g.setAttribute("aria-label", `${c.n} properties here - activate to zoom in`);
+      const circle = document.createElementNS(NS, "circle");
+      circle.setAttribute("cx", cx); circle.setAttribute("cy", cy); circle.setAttribute("r", cr);
+      g.appendChild(circle);
+      const text = document.createElementNS(NS, "text");
+      text.setAttribute("x", cx); text.setAttribute("y", cy);
+      text.setAttribute("font-size", Math.max(10, Math.min(15, cr / upp * 0.8)) * upp);
+      text.textContent = c.n.toLocaleString("en-US");
+      g.appendChild(text);
+      layer.appendChild(g);
+      boxes.push({ x1: cx - cr, y1: cy - cr, x2: cx + cr, y2: cy + cr });
+      clusterCount++;
+    });
+  }
+  // The selected property is always its own pin, on top.
+  if (activeIdx >= 0) {
+    const q = pinPts[activeIdx];
+    layer.appendChild(makePin(placed[activeIdx], q.x, q.y, r));
+    pinCount++;
+  }
+  drawCities(svg, cities && cities[zoomCounty], boxes);
 
   const canvas = $(CANVAS_ID);
-  if (canvas) canvas.classList.add("zoomed");
+  if (canvas) {
+    canvas.classList.add("zoomed");
+    canvas.dataset.pinMode = clustered ? "clusters" : "pins";
+    canvas.dataset.pinNodes = String(pinCount);
+    canvas.dataset.clusterNodes = String(clusterCount);
+    canvas.dataset.pinsInView = String(inView.length);
+  }
   // Zooming destroys the bubble that was just activated. For a mouse that is
   // invisible; for the keyboard it drops focus to the top of the document, so
   // the county you just opened becomes unreachable without tabbing back
@@ -772,11 +1048,35 @@ function drawPins(svg, layer, list) {
   setBackVisible(true);
   if (cameFromBubble || hadFocus === document.body) {
     const back = $("exploreZoomOut");
-    if (back) back.focus();
+    if (back) back.focus({ preventScroll: true });
   }
   renderStrip(list, placed.length);
   updateSummary(new Map([[zoomCounty, list]]));
+  applyPendingSelect();
 }
+
+// Phase 66: app.js's "Show on the Map page" (showOnMap) asks for a property
+// to be selected once the map has zoomed into its county and drawn its
+// pins/strip. The request arrives (tdw:mapselect, plus the
+// window.__tdwMapSelectPid stash for the same module-load-order reason
+// tdw:maprendered has __tdwMapLastRender) before the zoom animation and
+// the redraw it triggers, so it is parked here and consumed by drawPins()
+// - the one place that knows the strip and pins now exist. Ignored if the
+// row is not in the zoomed county's list (filtered out, or the county
+// select rejected the value); a stale request never selects a wrong row.
+let pendingSelectPid = null;
+function applyPendingSelect() {
+  if (pendingSelectPid == null) return;
+  const p = propById(pendingSelectPid);
+  if (!p || p.county !== zoomCounty) return;
+  pendingSelectPid = null;
+  showPreview(p);
+}
+window.addEventListener("tdw:mapselect", e => {
+  pendingSelectPid = e.detail && e.detail.pid != null ? String(e.detail.pid) : null;
+  window.__tdwMapSelectPid = null;
+});
+if (window.__tdwMapSelectPid != null) { pendingSelectPid = String(window.__tdwMapSelectPid); window.__tdwMapSelectPid = null; }
 
 function pinLabel(p) {
   const a = (p.address || "").trim();
@@ -788,25 +1088,54 @@ function pinLabel(p) {
 // The strip is built here rather than in index.html so the whole county-detail
 // view stays inside this module - app.js and the page markup know nothing
 // about it, same as the rest of the explore view.
+// Phase 67: the strip and the preview live in the side panel (#mapSideBody,
+// see index.html's Phase 67 note) when the page has one, so the map stage
+// keeps its full height and the list reads as the panel's property list.
+// The old placement (inside .explore-map / the canvas) is the fallback so
+// nothing breaks if the markup ever lacks the panel.
+function sideHost() {
+  return $("mapSideBody") || document.querySelector(".explore-map");
+}
+// The element that contains BOTH the stage and the side panel - delegated
+// strip/preview listeners and the pin<->card lookups scope to it, since the
+// strip and the pins now live in different columns of the workspace.
+function workspaceEl() {
+  return $("mapWorkspace") || document.querySelector(".explore-map");
+}
 function stripEl() {
-  const map = document.querySelector(".explore-map");
-  if (!map) return null;
+  const host = sideHost();
+  if (!host) return null;
   let strip = $("exploreStrip");
   if (!strip) {
     strip = document.createElement("div");
     strip.id = "exploreStrip";
     strip.className = "explore-strip";
     strip.hidden = true;
-    const foot = map.querySelector(".explore-map-foot");
-    map.insertBefore(strip, foot || null);
+    const anchor = host.querySelector(".explore-map-note") || host.querySelector(".explore-map-foot");
+    host.insertBefore(strip, anchor || null);
   }
   return strip;
 }
 
+// Scale (2026-10-02): the strip lists STRIP_PAGE cards at a time with the
+// true total and a "Show next" control - a 30,000-row county never builds
+// 30,000 buttons. The selected property is always within the listed page.
+const STRIP_PAGE = 100;
+let stripLimit = { key: null, n: STRIP_PAGE };
+let lastStrip = { list: null, placed: 0 };
 function renderStrip(list, placedCount) {
   const strip = stripEl();
   if (!strip) return;
+  lastStrip = { list, placed: placedCount || 0 };
   if (!list) { strip.hidden = true; strip.innerHTML = ""; return; }
+  const key = zoomCounty + "|" + list.length;
+  if (stripLimit.key !== key) stripLimit = { key, n: STRIP_PAGE };
+  if (activeProp) {
+    const idx = list.findIndex(p => p.id === activeProp.id);
+    if (idx >= stripLimit.n) stripLimit.n = Math.ceil((idx + 1) / STRIP_PAGE) * STRIP_PAGE;
+  }
+  const shownN = Math.min(stripLimit.n, list.length);
+  const page = shownN < list.length ? list.slice(0, shownN) : list;
 
   const missing = list.length - (placedCount || 0);
   // Say plainly how many could not be placed. Showing 8 pins for a county of
@@ -817,17 +1146,46 @@ function renderStrip(list, placedCount) {
       ? `<p class="strip-note"><b>${placedCount}</b> of ${list.length} are mapped. The rest are listed here.</p>`
       : `<p class="strip-note">All ${list.length} mapped.</p>`;
 
-  strip.innerHTML = note + '<div class="strip-rail">' + list.map(p => `
+  const more = shownN < list.length
+    ? `<button class="strip-more" type="button" data-act="strip-more">Show next ${Math.min(STRIP_PAGE, list.length - shownN).toLocaleString("en-US")} · ${shownN.toLocaleString("en-US")} of ${list.length.toLocaleString("en-US")} listed</button>`
+    : "";
+  strip.dataset.listed = String(shownN);
+  strip.dataset.total = String(list.length);
+  strip.innerHTML = note + '<div class="strip-rail">' + page.map(p => `
     <button class="strip-card${hasPin(p) ? " mapped" : ""}${activeProp && activeProp.id === p.id ? " sel" : ""}"
             type="button" data-pid="${escAttr(p.id)}">
       <span class="strip-title">${escHtml(pinLabel(p))}</span>
+      <span class="strip-sub">${escHtml(stripSubText(p))}</span>
       <span class="strip-bid">${bidText(p)}</span>
       ${hasPin(p) ? '<span class="strip-flag" aria-label="on the map">◉</span>' : ""}
-    </button>`).join("") + "</div>";
+    </button>`).join("") + more + "</div>";
   strip.hidden = false;
 }
 
+// Phase 67: one quiet line under each strip card - ledger word and the one
+// date that matters - so the list in the side panel can be scanned without
+// opening each preview. Wording matches the cards' own kicker (app.js).
+function stripSubText(p) {
+  const f = facts(p);
+  if (f) return f.kicker;
+  if (p.source === "certificate") return "Certificate" + (p.expiration_date ? " · expires " + p.expiration_date : "");
+  // A Texas "laft" row is struck-off / future-sale inventory (LGBS), never
+  // Florida's statutory fixed-price list - same rule as app.js's kickerParts().
+  if (p.source === "laft") return p.state === "TX" ? "Struck-off inventory" : "Lands Available · over the counter";
+  return "Auction" + (p.sale_date ? " · sale " + p.sale_date : " · not scheduled");
+}
+// app.js hands over previewFacts() with each render (see absorb()); this is
+// the one place explore.js reads a property's labels from, so the honest
+// wording (value-year labels, "Not published", flood states) is defined in
+// app.js exactly once. Null when the payload predates Phase 67.
+function facts(p) {
+  return typeof previewFacts === "function" ? previewFacts(p) : null;
+}
+
 function bidText(p) {
+  // 2026-10-05: always with its label (app.js amountShort) - an Available
+  // opening bid is never a bare figure that reads as the price.
+  if (typeof amountShort === "function") { const a = amountShort(p); return escHtml(`${a.label}: ${a.text}`); }
   const n = Number(p.bid);
   return p.bid !== null && p.bid !== undefined && n > 0 ? fmtShort(n) : "Not published";
 }
@@ -838,49 +1196,459 @@ function escHtml(v) {
 }
 const escAttr = escHtml;
 
-// The preview card: enough to judge a property without leaving the map, and
-// one button through to the full page that already exists in app.js.
+// ---------------------------------------------------------------------------
+// The map peek card (2026-10-29)
+// ---------------------------------------------------------------------------
+// One compact card for all three basemaps (outline pins, strip cards,
+// showOnMap, and the Google / MapTiler pins through tdw:pinselect). It holds
+// a picture (never blank), the ledger, the stamp, the address, at most three
+// facts and one way in ("Open property") beside the Watchlist button. Every
+// word comes from app.js over the tdw:maprendered payload (previewFacts,
+// cardStamp, propertyVisual, bidListBtnHtml); a fact with no value is left
+// out - the full property page owns the honest gap lists. Parcel, case,
+// source, coordinates, flood and the "More" list live on that page.
+//
+// Where it sits: over the map STAGE on every width (bottom-left on desktop,
+// so the side panel's property list stays on screen; a fixed-height sheet
+// on a phone). It never covers the selected pin: once laid out it publishes
+// the stage area it covers (window.__tdwPreviewInset, and `inset` on
+// tdw:mapselection), the outline map flips the card or nudges its viewBox,
+// and the satellite maps pad their camera (satellite-map.js).
+const PEEK_PHONE_MQ = "(max-width:1023px)";
+const ZERO_INSET = { top: 0, right: 0, bottom: 0, left: 0 };
+const PEEK_QUIET_STAMPS = new Set(["scheduled", "soon", "today", "unscheduled", "noresult"]);
+let peekSeq = 0;
+let previewNudge = null;   // temporary viewBox offset (SVG units) the open card asked for
+function isPhone() { return !!(window.matchMedia && window.matchMedia(PEEK_PHONE_MQ).matches); }
+function reducedMotion() { return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion:reduce)").matches); }
+function stageEl() { return document.querySelector("#mapStage .explore-map-stage"); }
+function previewHost() {
+  return stageEl() || sideHost() || $(CANVAS_ID);
+}
 function previewEl() {
-  const map = $(CANVAS_ID);
-  if (!map) return null;
+  const host = previewHost();
+  if (!host) return null;
   let card = $("explorePreview");
+  if (card && card.parentNode !== host) host.appendChild(card);
   if (!card) {
     card = document.createElement("div");
     card.id = "explorePreview";
-    card.className = "explore-preview";
+    card.className = "explore-preview mp";
     card.hidden = true;
-    map.appendChild(card);
+    card.setAttribute("role", "dialog");
+    host.appendChild(card);
+    let swallowClick = false;
     card.addEventListener("click", e => {
+      if (swallowClick) { swallowClick = false; e.preventDefault(); e.stopPropagation(); return; }
       if (e.target.closest("[data-act='close']")) { showPreview(null); return; }
+      const step = e.target.closest("[data-act='prev'],[data-act='next']");
+      if (step) { stepPreview(step.dataset.act === "next" ? 1 : -1, e.detail === 0); return; }
+      if (e.target.closest("a")) return;
+      // The button or the picture: one tap to the full property page. The
+      // Watchlist button (data-action="bidlist") is left to app.js's own
+      // document-level handler - no stopPropagation here.
       if (e.target.closest("[data-act='open']") && activeProp && openDetail) openDetail(activeProp);
+    }, true);
+    card.addEventListener("keydown", e => {
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      if (e.target.closest && e.target.closest("input,select,textarea")) return;
+      if (stepPreview(e.key === "ArrowRight" ? 1 : -1, true)) e.preventDefault();
     });
+    // A provider snapshot that fails to load removes itself (app.js); the
+    // card puts the county locator in its place, so the picture is never blank.
+    card.addEventListener("tdw:visualfailed", () => {
+      setTimeout(() => {
+        const media = card.querySelector(".mp-media");
+        if (!media || !activeProp || media.querySelector(".pv-visual")) return;
+        media.insertAdjacentHTML("afterbegin", locatorHtml(activeProp));
+        if (typeof hydrateVisuals === "function") hydrateVisuals(media);
+      }, 0);
+    });
+    bindPeekSwipe(card, () => { swallowClick = true; setTimeout(() => { swallowClick = false; }, 400); });
+    watchPeekCredit(card);
   }
   return card;
 }
 
-function showPreview(p) {
+// Phone: drag the sheet down past 56px to close it; less snaps back.
+function bindPeekSwipe(card, onDragged) {
+  let y0 = null, dy = 0, pid = null;
+  card.addEventListener("pointerdown", e => {
+    if (!isPhone() || card.hidden || (e.button !== undefined && e.button > 0)) return;
+    if (e.target.closest && e.target.closest("button,a,input,select,textarea,summary")) return;
+    y0 = e.clientY; dy = 0; pid = e.pointerId;
+    card.classList.add("dragging");
+    try { card.setPointerCapture(pid); } catch { /* synthetic events */ }
+  });
+  card.addEventListener("pointermove", e => {
+    if (y0 == null || e.pointerId !== pid) return;
+    dy = Math.max(0, e.clientY - y0);
+    card.style.transform = dy ? `translateY(${dy}px)` : "";
+  });
+  const end = () => {
+    if (y0 == null) return;
+    y0 = null;
+    card.classList.remove("dragging");
+    card.style.transform = "";
+    if (dy > 8 && onDragged) onDragged();
+    if (dy > 56) showPreview(null);
+    dy = 0;
+  };
+  card.addEventListener("pointerup", end);
+  card.addEventListener("pointercancel", end);
+}
+
+// The parcel-outline credit (app.js boundaryCreditHtml) lands after the
+// picture. On the card it is kept visible as one line under the actions,
+// with the full credit in its title - never hidden (its conditions need it).
+function watchPeekCredit(card) {
+  if (typeof MutationObserver !== "function") return;
+  new MutationObserver(() => {
+    const media = card.querySelector(".mp-media");
+    const body = card.querySelector(".mp-body");
+    if (!media || !body) return;
+    const fresh = media.querySelector(":scope > [data-pb-credit]");
+    if (!fresh) return;
+    body.querySelectorAll(":scope > [data-pb-credit]").forEach(n => n.remove());
+    fresh.classList.add("mp-credit");
+    fresh.title = (fresh.textContent || "").replace(/\s+/g, " ").trim();
+    body.appendChild(fresh);
+  }).observe(card, { childList: true, subtree: true });
+}
+
+// The picture when the row has no stored photo, live aerial or provider
+// snapshot: the county on the app's own basemap. "Pinned in" only when the
+// row has coordinates - never a position the row does not have.
+function locatorHtml(p) {
+  const unit = unitWordFromApp || UNIT_WORD;
+  return `<div class="pv-visual mp-locator" data-imagery="locator"><span class="minimap minimap-county" data-county="${escAttr(p.county)}" data-frame="state" aria-hidden="true"></span><span class="mp-locator-text">${hasPin(p) ? "Pinned in " : "Listed in "}${escHtml(p.county)} ${escHtml(unit)}</span></div>`;
+}
+
+// At most three facts, each only when it has a value: the amount under its
+// own label (previewFacts.bidLabel - an opening or minimum bid is never
+// "Price"), the status, then the county value or the identifier.
+function peekFacts(p, f) {
+  if (!f) {
+    const a = typeof amountShort === "function" ? amountShort(p) : null;
+    return a && a.text ? [{ label: a.label, value: a.text, cls: "bid" + (/\$/.test(a.text) ? "" : " text"), title: a.label }] : [];
+  }
+  const out = [];
+  if (f.bid) out.push({ label: f.bidLabel, value: f.bid, cls: "bid" + (/\$/.test(f.bid) ? "" : " text"), title: f.bidNote || "", note: !!f.bidNote });
+  if (f.phase) out.push({ label: "Status", value: f.phase, cls: "status " + (f.phaseCls || "") });
+  if (f.value) out.push({ label: f.valueLabel || "Value on file", value: f.value, cls: "value", title: f.valueLabel || "" });
+  else if (f.parcel) out.push({ label: f.parcelLabel, value: f.parcel, cls: "id" });
+  return out.slice(0, 3);
+}
+// Available rows: how to acquire, only when a verified path is on file.
+function peekAcquire(p, f) {
+  if (!f || p.source !== "laft" || !Array.isArray(f.more)) return "";
+  const m = f.more.find(x => x && x[0] === "How to acquire");
+  if (!m || !m[1] || /^Not yet verified/.test(m[1])) return "";
+  return `<p class="mp-acq" title="${escAttr(m[1])}"><span>How to acquire</span> ${escHtml(m[1])}</p>`;
+}
+function peekPager(p) {
+  const list = lastStrip.list;
+  if (!list || list.length < 2) return "";
+  const i = list.findIndex(x => x.id === p.id);
+  if (i < 0) return "";
+  return `<div class="mp-pager" role="group" aria-label="Step through this ${escAttr((unitWordFromApp || UNIT_WORD).toLowerCase())}'s properties">` +
+    `<button type="button" data-act="prev" aria-label="Previous property"${i === 0 ? " disabled" : ""}>‹</button>` +
+    `<span class="mp-pager-pos">${(i + 1).toLocaleString("en-US")} of ${list.length.toLocaleString("en-US")}</span>` +
+    `<button type="button" data-act="next" aria-label="Next property"${i === list.length - 1 ? " disabled" : ""}>›</button></div>`;
+}
+function stepPreview(dir, keyboard) {
+  const list = lastStrip.list;
+  if (!list || !activeProp) return false;
+  const i = list.findIndex(x => x.id === activeProp.id);
+  const next = i < 0 ? null : list[i + dir];
+  if (!next) return false;
+  showPreview(next, { keyboard: !!keyboard, focusSel: keyboard ? (dir > 0 ? "[data-act='next']" : "[data-act='prev']") : null });
+  return true;
+}
+
+// Side-effect free: builds the card's markup from the row and nothing else.
+// A tdw:maprendered re-render refreshes the Watchlist button through
+// refreshPeekWatch(); it never re-announces the selection or moves a map.
+function renderPeek(card, p) {
+  const f = facts(p);
+  const st = typeof cardStamp === "function" ? cardStamp(p) : null;
+  const vis = typeof propertyVisual === "function" ? propertyVisual(p, "pv-visual") : "";
+  const picture = vis || locatorHtml(p);
+  const type = f && f.type ? f.type : "";
+  const showStamp = st && !PEEK_QUIET_STAMPS.has(st.key);
+  const factsHtml = peekFacts(p, f).map(x =>
+    `<div class="mp-fact ${escAttr(x.cls || "")}"><dt${x.title ? ` title="${escAttr(x.title)}"` : ""}>${escHtml(x.label)}${x.note ? ' <span class="mp-note" aria-hidden="true">ⓘ</span>' : ""}</dt><dd>${escHtml(x.value)}</dd></div>`).join("");
+  const pager = peekPager(p);
+  const head = showStamp || pager ? `<div class="mp-head${showStamp ? "" : " no-stamp"}">${showStamp ? `<span class="pc-stamp mp-stamp ${escAttr(st.cls)}" title="${escAttr(st.title || "")}">${escHtml(st.label)}</span>` : "<span></span>"}${pager}</div>` : "";
+  const title = pinLabel(p);
+  card.setAttribute("aria-label", "Property preview: " + title);
+  card.innerHTML = `
+    <article class="mp-inner" data-ledger="${escAttr(p.source)}">
+      <div class="mp-media" data-act="open" role="button" tabindex="-1" aria-hidden="true">${picture}${type ? `<span class="mp-ledger">${escHtml(type)}</span>` : ""}</div>
+      <button class="preview-close" type="button" data-act="close" aria-label="Close preview">✕</button>
+      <div class="mp-body">
+        ${head}
+        ${type ? `<span class="sr-only">${escHtml(type)}.</span>` : ""}
+        <p class="preview-title" title="${escAttr(title)}">${escHtml(title)}</p>
+        <p class="preview-sub">${escHtml(f ? f.where : `${p.county} ${unitWordFromApp || UNIT_WORD}`)}</p>
+        ${factsHtml ? `<dl class="mp-facts">${factsHtml}</dl>` : ""}
+        ${peekAcquire(p, f)}
+        <div class="mp-actions">
+          <button class="preview-open" type="button" data-act="open">Open property <span aria-hidden="true">→</span></button>
+          <span class="mp-watch">${typeof watchBtn === "function" ? watchBtn(p) : ""}</span>
+        </div>
+      </div>
+    </article>`;
+}
+function refreshPeekWatch() {
+  const card = $("explorePreview");
+  if (!card || card.hidden || !activeProp || typeof watchBtn !== "function") return;
+  const slot = card.querySelector(".mp-watch");
+  if (slot) slot.innerHTML = watchBtn(activeProp);
+}
+
+function hidePeek(card) {
+  if (card) {
+    card.hidden = true;
+    card.classList.remove("mp-right", "mp-top", "dragging", "expanded");
+    card.style.transform = "";
+    card.style.removeProperty("--mp-lift");
+  }
+  const stage = stageEl();
+  if (stage) stage.classList.remove("mp-open");
+  window.__tdwPreviewInset = Object.assign({}, ZERO_INSET);
+}
+
+// Short phones (375x667, 360x640): the stage (56-58vh, min 320px) runs
+// under the fixed ledger bar, and the card is pinned to the STAGE's bottom
+// edge - so its Open property / Watchlist buttons sat under the bar. The
+// card is lifted by exactly how far the stage runs under the bar at this
+// scroll position (--mp-lift, read by explore.css), re-measured on scroll
+// and resize while it is open, 0 on desktop (merged-work review,
+// 2026-11-02). The page itself is never scrolled.
+function navBottomHeight() {
+  const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nav-bottom-h"));
+  return isFinite(v) && v > 0 ? v : 0;
+}
+function liftPeekAboveBar(card) {
+  card = card || $("explorePreview");
+  const stage = stageEl();
+  if (!card || !stage) return 0;
+  let lift = 0;
+  if (isPhone() && !card.hidden) {
+    const s = stage.getBoundingClientRect();
+    const limit = window.innerHeight - navBottomHeight();
+    lift = Math.max(0, Math.round(s.bottom - limit));
+    // Never lift the card off the top of the stage: at worst it fills it.
+    lift = Math.min(lift, Math.max(0, Math.round(s.height - card.offsetHeight - 8)));
+  }
+  if (lift) card.style.setProperty("--mp-lift", lift + "px");
+  else card.style.removeProperty("--mp-lift");
+  return lift;
+}
+let liftWatching = false;
+function onPeekViewportMove() {
+  const card = $("explorePreview");
+  if (!card || card.hidden || !activeProp) return;
+  const before = card.style.getPropertyValue("--mp-lift");
+  liftPeekAboveBar(card);
+  if (card.style.getPropertyValue("--mp-lift") !== before) window.__tdwPreviewInset = computeInset(card);
+}
+function watchPeekViewport() {
+  if (liftWatching) return;
+  liftWatching = true;
+  window.addEventListener("scroll", onPeekViewportMove, { passive: true });
+  window.addEventListener("resize", onPeekViewportMove);
+}
+
+function showPreview(p, opts) {
+  const prev = activeProp;
   activeProp = p;
   const card = previewEl();
   if (!card) return;
-  if (!p) { card.hidden = true; back.pop("map-preview"); draw(); return; }
-  back.push("map-preview", () => showPreview(null));
-
-  const market = Number(p.market || p.assessed || 0);
-  const rows2 = [
-    ["Opening bid", bidText(p)],
-    [p.market ? "Est. market" : "Assessed", market ? fmtShort(market) : "N/A"],
-    [p.source === "certificate" ? "Expires" : "Sale date",
-      (p.source === "certificate" ? p.expiration_date : p.sale_date) || "Not scheduled"]
-  ];
-  card.innerHTML = `
-    <button class="preview-close" type="button" data-act="close" aria-label="Close preview">✕</button>
-    <p class="preview-title">${escHtml(pinLabel(p))}</p>
-    <p class="preview-sub">${escHtml(p.county)} County${hasPin(p) ? "" : " · location not mapped"}</p>
-    <dl class="preview-stats">${rows2.map(([k, v]) =>
-      `<div><dt>${escHtml(k)}</dt><dd>${escHtml(v)}</dd></div>`).join("")}</dl>
-    <button class="preview-open" type="button" data-act="open">View full property page →</button>`;
+  if (!p) {
+    peekSeq++;
+    hidePeek(card);
+    back.pop("map-preview");
+    restoreNudge();
+    draw();
+    announceSelection(null);
+    return;
+  }
+  if (!prev) back.push("map-preview", () => showPreview(null));
+  renderPeek(card, p);
+  card.classList.remove("mp-right", "mp-top", "dragging");
+  card.style.transform = "";
   card.hidden = false;
+  card.dataset.pid = String(p.id);
+  liftPeekAboveBar(card);
+  watchPeekViewport();
+  const stage = stageEl();
+  if (stage) stage.classList.add("mp-open");
+  if (typeof hydrateVisuals === "function") hydrateVisuals(card);
   draw();
+  syncSelection();
+  // Focus moves into the card only for a keyboard selection; a pointer
+  // selection never steals focus (or scrolls the page).
+  if (opts && opts.keyboard) {
+    const target = (opts.focusSel && card.querySelector(`${opts.focusSel}:not([disabled])`)) || card.querySelector(".preview-open");
+    if (target) target.focus({ preventScroll: true });
+  }
+  // Measure once laid out, keep the pin clear of the card, then tell the
+  // other basemaps (with the covered area) - in that order.
+  const token = ++peekSeq;
+  requestAnimationFrame(() => {
+    if (token !== peekSeq || activeProp !== p || card.hidden) return;
+    keepPinClear(card, p);
+    window.__tdwPreviewInset = computeInset(card);
+    announceSelection(p, false);
+  });
+}
+
+// The stage area the card covers, as padding the satellite maps apply.
+function computeInset(card) {
+  const stage = stageEl();
+  if (!stage || !card || card.hidden) return Object.assign({}, ZERO_INSET);
+  const s = stage.getBoundingClientRect(), c = card.getBoundingClientRect();
+  const out = Object.assign({}, ZERO_INSET);
+  if (!s.width || !c.width) return out;
+  if (isPhone()) out.bottom = Math.max(0, Math.round(s.bottom - c.top + 16));
+  else if (card.classList.contains("mp-top")) out.top = Math.max(0, Math.round(c.bottom - s.top + 16));
+  else if (card.classList.contains("mp-right")) out.right = Math.max(0, Math.round(s.right - c.left + 24));
+  else out.left = Math.max(0, Math.round(c.right - s.left + 24));
+  return out;
+}
+
+// Outline map only: the selected pin must not sit under (or within 24px of)
+// the card. Desktop first moves the CARD (bottom-right, then top-right) so
+// the reader's view does not move; a phone sheet, or a desktop pin no corner
+// clears, nudges the viewBox instead - a temporary offset, undone when the
+// card closes, never a new county / cluster zoom box.
+function selectedPinRect() {
+  const canvas = $(CANVAS_ID);
+  if (!canvas || canvas.hidden || !activeProp) return null;
+  const g = canvas.querySelector(`.map-pin.sel[data-pid="${cssEscape(String(activeProp.id))}"]`);
+  const shape = g && g.querySelector("path");
+  const r = shape && shape.getBoundingClientRect();
+  return r && r.width ? r : null;
+}
+function rectsNear(a, b, m) {
+  return !(a.right + m < b.left || a.left - m > b.right || a.bottom + m < b.top || a.top - m > b.bottom);
+}
+function keepPinClear(card, p) {
+  if (!zoomCounty || !hasPin(p)) return;
+  const pin = selectedPinRect();
+  if (!pin) return;
+  const stage = stageEl();
+  if (!stage) return;
+  if (!rectsNear(pin, card.getBoundingClientRect(), 24)) return;
+  if (!isPhone()) {
+    card.classList.add("mp-right");
+    if (!rectsNear(pin, card.getBoundingClientRect(), 24)) return;
+    card.classList.remove("mp-right");
+    card.classList.add("mp-top");
+    if (!rectsNear(pin, card.getBoundingClientRect(), 24)) return;
+    card.classList.remove("mp-top");
+  }
+  const s = stage.getBoundingClientRect(), c = card.getBoundingClientRect();
+  const px = pin.left + pin.width / 2, py = pin.top + pin.height / 2;
+  let dx = 0, dy = 0;
+  if (isPhone()) dy = py - (s.top + (c.top - s.top) / 2);
+  else dx = px - (c.right + (s.right - c.right) / 2);
+  nudgeOutline(dx, dy);
+}
+function nudgeOutline(dxPx, dyPx) {
+  const canvas = $(CANVAS_ID);
+  const svg = canvas && canvas.querySelector("svg");
+  if (!svg || (!dxPx && !dyPx)) return;
+  const upp = unitsPerPixel(svg);
+  const vb = currentViewBox(svg);
+  const dx = dxPx * upp, dy = dyPx * upp;
+  previewNudge = { dx: (previewNudge ? previewNudge.dx : 0) + dx, dy: (previewNudge ? previewNudge.dy : 0) + dy, county: zoomCounty };
+  animateViewBox(svg, { x: vb.x + dx, y: vb.y + dy, w: vb.w, h: vb.h }, () => draw());
+}
+function restoreNudge() {
+  const n = previewNudge;
+  previewNudge = null;
+  if (!n || n.county !== zoomCounty || !zoomCounty) return;
+  const canvas = $(CANVAS_ID);
+  const svg = canvas && canvas.querySelector("svg");
+  if (!svg) return;
+  const vb = currentViewBox(svg);
+  animateViewBox(svg, { x: vb.x - n.dx, y: vb.y - n.dy, w: vb.w, h: vb.h }, () => draw());
+}
+
+// Phase 67: the one selection, told to the other basemaps. satellite-map.js
+// listens for this to mark its own marker for the same property and, when
+// it is the active basemap, to bring it into the part of the stage the card
+// leaves clear (`inset`). `focus` asks for a closer look even on a
+// re-selection. pid null = cleared.
+function announceSelection(p, focus) {
+  const inset = p ? Object.assign({}, ZERO_INSET, window.__tdwPreviewInset || {}) : Object.assign({}, ZERO_INSET);
+  const detail = p
+    ? { pid: String(p.id), county: p.county, lat: hasPin(p) ? p.latitude : null, lng: hasPin(p) ? p.longitude : null, focus: !!focus, inset }
+    : { pid: null, county: null, lat: null, lng: null, focus: false, inset };
+  window.__tdwMapSelection = detail;
+  window.dispatchEvent(new CustomEvent("tdw:mapselection", { detail }));
+}
+// ...and the reverse: a pin tapped on Google/MapTiler selects here, so all
+// three basemaps share the one card instead of each opening its own popup.
+window.addEventListener("tdw:pinselect", e => {
+  const pid = e.detail && e.detail.pid;
+  if (pid == null) return;
+  const p = propById(pid);
+  if (!p) return;
+  if (activeProp && String(activeProp.id) === String(pid)) { announceSelection(p, true); return; }
+  showPreview(p, { keyboard: !!(e.detail && e.detail.keyboard) });
+});
+// A tap on empty Google / MapTiler map closes the card, as the outline does.
+window.addEventListener("tdw:mapbackgroundtap", () => { if (activeProp) showPreview(null); });
+
+// Phase 65: one property, three views - the pin on the map, its card in the
+// strip, the card over the map. draw() already rebuilds pins and the strip
+// with `.sel` on the active one; this brings the selected strip card into
+// view by scrolling the strip's OWN scroller only (the horizontal rail on a
+// phone, the side panel on desktop) - never the page, so the map does not
+// jump under the header - and lifts the selected pin above its neighbours.
+function syncSelection() {
+  const map = workspaceEl();
+  if (!map) return;
+  const id = activeProp ? String(activeProp.id) : null;
+  if (!id) return;
+  const card = map.querySelector(`.strip-card[data-pid="${cssEscape(id)}"]`);
+  if (card) scrollStripTo(card);
+  const pin = map.querySelector(`.map-pin[data-pid="${cssEscape(id)}"]`);
+  if (pin && pin.parentNode) pin.parentNode.appendChild(pin);
+}
+function scrollStripTo(card) {
+  const behavior = reducedMotion() ? "auto" : "smooth";
+  const rail = card.closest(".strip-rail");
+  const c = card.getBoundingClientRect();
+  if (rail && getComputedStyle(rail).flexDirection === "row") {
+    if (rail.scrollWidth <= rail.clientWidth) return;
+    const r = rail.getBoundingClientRect();
+    const left = rail.scrollLeft + (c.left - r.left) - (rail.clientWidth - c.width) / 2;
+    rail.scrollTo({ left: Math.max(0, left), behavior });
+    return;
+  }
+  const sc = $("mapSideBody");
+  if (!sc || sc.scrollHeight <= sc.clientHeight + 1) return;
+  const s = sc.getBoundingClientRect();
+  if (c.top >= s.top && c.bottom <= s.bottom) return;
+  sc.scrollTo({ top: Math.max(0, sc.scrollTop + (c.top - s.top) - sc.clientHeight / 3), behavior });
+}
+
+// Phase 65: hover linkage between the strip and the pins, in both directions.
+// `.hover` is a class rather than :hover because the two elements live in
+// different subtrees (an SVG <g> and a <button>) and only one of them can
+// actually be under the pointer.
+function setHoverLink(id) {
+  const map = workspaceEl();
+  if (!map) return;
+  map.querySelectorAll(".strip-card.hover, .map-pin.hover").forEach(el => el.classList.remove("hover"));
+  if (!id) return;
+  const sel = `[data-pid="${cssEscape(String(id))}"]`;
+  map.querySelectorAll(`.strip-card${sel}, .map-pin${sel}`).forEach(el => el.classList.add("hover"));
 }
 
 function setBackVisible(on) {
@@ -892,10 +1660,10 @@ function setBackVisible(on) {
     btn.id = "exploreZoomOut";
     btn.className = "explore-zoom-out";
     btn.type = "button";
-    btn.textContent = "← All counties";
-    btn.addEventListener("click", () => zoomOut());
+    btn.addEventListener("click", () => (subZoomBox ? zoomBackToCounty() : zoomOut()));
     map.appendChild(btn);
   }
+  btn.textContent = subZoomBox && zoomCounty ? `← All of ${zoomCounty}` : "← All counties";
   btn.hidden = !on;
 }
 
@@ -909,12 +1677,15 @@ function setBackVisible(on) {
 function handleEscapeToExitTopLayer(e) {
   if (e.key !== "Escape") return false;
   if (activeProp) { e.preventDefault(); showPreview(null); return true; }
+  if (subZoomBox) { e.preventDefault(); zoomBackToCounty(); return true; }
   if (zoomCounty) { e.preventDefault(); zoomOut(); return true; }
   return false;
 }
 
 function zoomOut() {
   const wasFiltered = selectedCounty;
+  subZoomBox = null;
+  back.pop("map-subzoom");
   zoomCounty = null;
   activeProp = null;
   back.pop("map-preview");
@@ -936,7 +1707,14 @@ function zoomOut() {
 
 function showPreviewHidden() {
   const card = $("explorePreview");
-  if (card) card.hidden = true;
+  if (card && !card.hidden) peekSeq++;
+  hidePeek(card);
+  // The zoom that came through here set its own viewBox; a card's nudge no
+  // longer applies to it.
+  previewNudge = null;
+  // Phase 67: the other basemaps must drop their highlight too (zoomOut()
+  // and a statewide redraw both come through here with activeProp cleared).
+  if (!activeProp && window.__tdwMapSelection && window.__tdwMapSelection.pid != null) announceSelection(null);
 }
 
 // The counties in view, most first. This is the part of the map's job that
@@ -1004,14 +1782,14 @@ function watchCanvasResize() {
 function updateSummary(byCounty) {
   renderCountyRail(byCounty);
   const titleEl = document.querySelector(".explore-map-title");
-  if (titleEl) titleEl.textContent = zoomCounty ? `${zoomCounty} County` : "Where these are";
+  if (titleEl) titleEl.textContent = zoomCounty ? unitLabelOf(zoomCounty) : "Where these are";
   const countEl = $("exploreMapCount");
   if (countEl) {
     const inCounty = zoomCounty ? (byCounty.get(zoomCounty) || []).length : 0;
     countEl.innerHTML = zoomCounty
       ? `<b>${inCounty}</b> ${inCounty === 1 ? "property" : "properties"}`
       : byCounty.size
-        ? `<b>${rows.length}</b> shown across <b>${byCounty.size}</b> ${byCounty.size === 1 ? "county" : "counties"}`
+        ? `<b>${rows.length}</b> shown across <b>${byCounty.size}</b> ${byCounty.size === 1 ? UNIT_WORD.toLowerCase() : (UNIT_WORD === "Parish" ? "parishes" : "counties")}`
         : "Nothing matches the current filters";
   }
   const resetBtn = $("exploreMapReset");
@@ -1023,7 +1801,7 @@ function updateSummary(byCounty) {
   if (note) {
     note.textContent = zoomCounty
       ? "Pins are the geocoded parcel locations we hold. Properties without coordinates are listed above but not pinned."
-      : "Bubbles are county-level counts, sized by how many properties match your filters \u2014 not exact parcel locations.";
+      : "Bubbles are county totals of the records that match your filters, listings, auctions and liens together when All ledgers is selected. They are not exact parcel locations, and records without coordinates are counted here but not pinned.";
   }
   const hint = $("exploreMapHint");
   if (hint) {
@@ -1057,7 +1835,7 @@ function renderBubbleLegend(byCounty) {
   const steps = min === max ? [max] : [min, max];
   el.hidden = false;
   el.innerHTML =
-    '<span class="map-legend-label">Bubble size = properties in that county</span>' +
+    '<span class="map-legend-label">Bubble size = matching records in that county</span>' +
     steps.map(n => `
       <span class="map-legend-item">
         <i class="map-legend-dot" style="--d:${dot(n)}px"></i>${n}
@@ -1105,7 +1883,9 @@ function bindMapInteraction() {
     if (handleEscapeToExitTopLayer(e)) { e.stopPropagation(); return; }
     if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
     const pin = e.target.closest && e.target.closest(".map-pin");
-    if (pin) { e.preventDefault(); showPreview(propById(pin.dataset.pid)); return; }
+    if (pin) { e.preventDefault(); showPreview(propById(pin.dataset.pid), { keyboard: true }); return; }
+    const cluster = e.target.closest && e.target.closest(".pin-cluster");
+    if (cluster) { e.preventDefault(); zoomIntoCluster(cluster.dataset.box); return; }
     const bubble = e.target.closest && e.target.closest(".cluster-bubble");
     if (!bubble) return;
     e.preventDefault();
@@ -1120,6 +1900,8 @@ function bindMapInteraction() {
     if (e.target.closest("#explorePreview") || e.target.closest("#exploreZoomOut")) return;
     const pin = e.target.closest(".map-pin");
     if (pin) { showPreview(propById(pin.dataset.pid)); return; }
+    const cluster = e.target.closest(".pin-cluster");
+    if (cluster) { zoomIntoCluster(cluster.dataset.box); return; }
     const bubble = e.target.closest(".cluster-bubble");
     if (bubble) { applyCounty(bubble.dataset.county); return; }
     // Zoomed in, a tap on empty space dismisses the preview rather than
@@ -1132,7 +1914,13 @@ function bindMapInteraction() {
   });
 
   canvas.addEventListener("mousemove", e => {
-    if (zoomCounty) { if (tip) tip.classList.remove("show"); return; }
+    if (zoomCounty) {
+      if (tip) tip.classList.remove("show");
+      // Phase 65: pointer over a pin lights up that property's strip card.
+      const pin = e.target.closest && e.target.closest(".map-pin");
+      setHoverLink(pin ? pin.dataset.pid : null);
+      return;
+    }
     const bubble = e.target.closest(".cluster-bubble");
     if (!bubble || !tip) { if (tip) tip.classList.remove("show"); return; }
     const county = bubble.dataset.county;
@@ -1140,8 +1928,8 @@ function bindMapInteraction() {
     const bids = list.map(p => Number(p.bid)).filter(n => n > 0);
     const range = bids.length
       ? (bids.length === 1 ? fmtShort(bids[0]) : `${fmtShort(Math.min(...bids))} - ${fmtShort(Math.max(...bids))}`)
-      : "no published price";
-    tip.innerHTML = `<b>${county} County</b><span>${list.length} ${list.length === 1 ? "property" : "properties"} - ${range}</span>`;
+      : "no published amount";
+    tip.innerHTML = `<b>${unitLabelOf(county)}</b><span>${list.length} ${list.length === 1 ? "property" : "properties"} - ${bids.length ? `listed amounts ${range} (bids / listed figures, not purchase prices)` : range}</span>`;
     const box = canvas.getBoundingClientRect();
     // Flip the tooltip to the left of the cursor near the right edge so it
     // can't run off the panel.
@@ -1153,6 +1941,7 @@ function bindMapInteraction() {
 
   canvas.addEventListener("mouseleave", () => {
     if (tip) tip.classList.remove("show");
+    setHoverLink(null);
   });
 }
 
@@ -1162,18 +1951,40 @@ function propById(id) {
 
 // Delegated on the panel, because the strip is rebuilt on every draw.
 function bindStrip() {
-  const map = document.querySelector(".explore-map");
+  const map = workspaceEl();
   if (!map) return;
   // Escape from anywhere in the panel - a strip card, the preview, the back
   // button - is the way out of a county without reaching for the mouse.
   map.addEventListener("keydown", e => { handleEscapeToExitTopLayer(e); });
   map.addEventListener("click", e => {
+    if (e.target.closest(".strip-more")) {
+      stripLimit.n += STRIP_PAGE;
+      renderStrip(lastStrip.list, lastStrip.placed);
+      return;
+    }
     const card = e.target.closest(".strip-card");
     if (!card) return;
     const p = propById(card.dataset.pid);
     if (!p) return;
-    showPreview(activeProp && activeProp.id === p.id ? null : p);
+    // e.detail 0: Enter / Space on the card, not a pointer.
+    showPreview(activeProp && activeProp.id === p.id ? null : p, { keyboard: e.detail === 0 });
   });
+  // Phase 65: pointer over a strip card lights up that property's pin (and
+  // vice versa - see the canvas mousemove handler in bindMapInteraction).
+  // Delegated for the same reason the click is: the strip is rebuilt on
+  // every draw. Keyboard focus gets the same link so tabbing the rail
+  // shows where each card sits on the map.
+  const linkFrom = e => {
+    const card = e.target.closest && e.target.closest(".strip-card");
+    setHoverLink(card ? card.dataset.pid : null);
+  };
+  map.addEventListener("mouseover", e => { if (e.target.closest && e.target.closest("#exploreStrip")) linkFrom(e); });
+  map.addEventListener("mouseout", e => {
+    const strip = e.target.closest && e.target.closest("#exploreStrip");
+    if (strip && !(e.relatedTarget && strip.contains(e.relatedTarget))) setHoverLink(null);
+  });
+  map.addEventListener("focusin", e => { if (e.target.closest && e.target.closest("#exploreStrip")) linkFrom(e); });
+  map.addEventListener("focusout", e => { if (e.target.closest && e.target.closest("#exploreStrip")) setHoverLink(null); });
 }
 
 function bindReset() {
@@ -1185,11 +1996,55 @@ function bindReset() {
 // ---------------------------------------------------------------------------
 // wiring
 // ---------------------------------------------------------------------------
+// Phase 67: app.js also passes its label/visual helpers over the same
+// event, so the preview renders with the cards' own honest wording and the
+// same photo -> satellite still -> county context -> placeholder imagery.
+let previewFacts = null;
+let amountShort = null;
+let propertyVisual = null;
+let hydrateVisuals = null;
+// Map peek card: the List cards' own stamp and Watchlist button.
+let cardStamp = null;
+let watchBtn = null;
+let isWatched = null;
+let unitWordFromApp = null;
+
 function absorb(detail) {
   const d = detail || {};
   rows = Array.isArray(d.rows) ? d.rows : [];
   ledger = d.ledger || ledger;
   openDetail = d.openDetail || openDetail;
+  previewFacts = d.previewFacts || previewFacts;
+  amountShort = d.amountShort || amountShort;
+  propertyVisual = d.propertyVisual || propertyVisual;
+  hydrateVisuals = d.hydrateVisuals || hydrateVisuals;
+  cardStamp = d.cardStamp || cardStamp;
+  watchBtn = d.watchBtn || watchBtn;
+  isWatched = d.isWatched || isWatched;
+  unitWordFromApp = d.unitWord || unitWordFromApp;
+  // A re-render never re-announces the selection or moves a map: the open
+  // card keeps its row (re-read from the new rows) and only its Watchlist
+  // button is refreshed; a row the new filters dropped closes the card.
+  // Audit F28 (2026-11-02): app.js dispatches tdw:maprendered on every List
+  // render. While the Map page is hidden nothing here can be measured or
+  // seen, and the strip alone cost up to 1.5 s per List action in a large
+  // county - so the payload is kept and drawn when the page is next shown
+  // (showPage("map") re-dispatches; the ResizeObserver above catches the
+  // display flip as well). Only the open card's Watchlist button is
+  // refreshed now; a row the new filters dropped is closed when drawn.
+  // The basemap SVG is still fetched now (ensureMap is a one-time fetch,
+  // not a draw): it used to arrive during the first hidden absorb, and the
+  // first VISIBLE absorb relies on it being there to zoom to the county
+  // ("Show on the Map page" from a cold start found no SVG yet and never
+  // zoomed - ensureMap's own load-time draw() does not resync the county).
+  const pageMap = document.getElementById("pageMap");
+  if (pageMap && pageMap.hidden) {
+    ensureMap();
+    if (activeProp) { const still = propById(activeProp.id); if (still) { activeProp = still; refreshPeekWatch(); } }
+    pendingAbsorb = d;
+    return;
+  }
+  pendingAbsorb = null;
   // The Map page's own county select (#mapCountySelect) is the source of
   // truth for "am I filtered to one county" - the user can change it from the
   // dropdown itself or by clicking a bubble (applyCounty drives the same
@@ -1197,6 +2052,20 @@ function absorb(detail) {
   ensureMap();
   const select = $("mapCountySelect");
   selectedCounty = select && select.value !== "ALL" ? select.value : null;
+  if (activeProp) {
+    const still = propById(activeProp.id);
+    if (still) { activeProp = still; refreshPeekWatch(); }
+    // The county moved on under the open card (Brevard -> Bay from the
+    // dropdown): close the card WITHOUT a draw() - zoomTo() below redraws
+    // for the new county. Before the resync above ran first, showPreview(
+    // null)'s draw() still saw zoomCounty = Brevard with no Brevard rows,
+    // called zoomOut() -> applyCounty(selectedCounty = Brevard) which
+    // TOGGLED the select to All Counties, and its second history.back()
+    // raced the route: the pick landed on "#/map" / ALL (merged-work
+    // review, 2026-11-02).
+    else if (zoomCounty !== selectedCounty) { activeProp = null; back.pop("map-preview"); showPreviewHidden(); }
+    else showPreview(null);
+  }
   // The county can also change straight from the dropdown (the Filters
   // panel), not just by tapping a bubble. computeMapRows() in app.js already
   // narrows `rows` to that one county whenever mapFilter.county isn't "ALL"

@@ -159,11 +159,16 @@ def test_harvester_always_writes_the_status_file_even_when_nothing_harvested():
 
 
 def test_harvester_never_uses_certificate_number_as_the_row_identity():
-    """case_no must come from account_number, not certificate_number - the
-    identity the sync's upsert and this phase's reconciliation both key
-    on."""
+    """case_no is never the bare certificate number (numbers repeat across
+    tax years). Since 2026-10-29 (audit B2) it is '<tax year>-<certificate #>'
+    - one row per certificate - rather than the account, which kept only one
+    certificate per parcel; the account stays in `parcel` (and is the
+    fallback key when either part is missing)."""
     src = _harvester_src()
-    assert "case_no         = $d.account_number" in src
+    assert "case_no         = $certKey" in src
+    assert "$certKey = $d.account_number" in src
+    assert '$certKey = "$(([string]$d.tax_year).Trim())-$(([string]$d.certificate_number).Trim())"' in src
+    assert "case_no         = $d.certificate_number" not in src
     assert "certificate_no  = [string]$d.certificate_number" in src
 
 
@@ -174,7 +179,7 @@ def test_reconciliation_runs_after_the_upsert_section():
     """Implementation prompt requirement: 'perform scoped reconciliation
     after successful upsert'."""
     src = _sync_src()
-    upsert_idx = src.index("Done. $sent certificates upserted to Supabase.")
+    upsert_idx = src.index("certificates upserted to Supabase")
     reconcile_idx = src.index("# ---- Reconcile certificates absent from a COMPLETE county's harvest ----")
     assert upsert_idx < reconcile_idx
 
@@ -193,10 +198,16 @@ def test_reconciliation_fails_closed_when_status_file_is_unparseable():
 
 
 def test_reconciliation_only_considers_counties_explicitly_marked_complete():
+    # Since 2026-10-14 the eligible counties come from the ledger health
+    # reader (scripts/ledger_gate.py -> harvesters/ledgers/health.py); run end
+    # to end under PowerShell in test_ledger_ps_syncs.py.
+    import sys
+    sys.path.insert(0, str(REPO_ROOT))
+    from harvesters.ledgers import Ledger, health
     section = _sync_reconciliation_section()
-    assert 'if ($cs.status -eq "COMPLETE")' in section
-    # No other status string is ever treated as eligible.
-    assert '$cs.status -eq "INCOMPLETE"' not in section
+    assert 'Get-LedgerCloseableCounties "LIENS_CERTIFICATES" $statusPath' in section
+    assert "$cs.status" not in section
+    assert health.CLOSEABLE[Ledger.LIENS_CERTIFICATES] == frozenset({"COMPLETE", "EMPTY"})
 
 
 def test_reconciliation_query_is_scoped_to_state_source_status_and_complete_counties():

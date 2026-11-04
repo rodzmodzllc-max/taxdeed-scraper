@@ -1,0 +1,48 @@
+name: Harvest schedule watchdog
+
+# 2026-10-27: GitHub never started the 03:37 and 04:13 UTC scheduled runs of
+# harvest-and-sync.yml (a schedule drop - no run, no error). Every hour, off
+# the harvest crons (:13 / :37), scripts/schedule_watchdog.py checks each
+# scheduled harvest job against its last expected slot (with a 100-minute
+# grace for GitHub's own delays) and, when a slot was missed and nothing is
+# queued or running, dispatches harvest-and-sync.yml ONCE with the matching
+# `job` input. See the script's docstring for the rules (never twice for the
+# same slot, never while a harvest run is queued or in progress). Hourly, so a
+# dropped watchdog tick is covered by the next one.
+
+on:
+  schedule:
+    - cron: '49 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Decide and print only; never dispatch.
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  actions: write     # read the harvest workflow's runs / jobs and dispatch it
+  contents: read
+
+concurrency:
+  group: schedule-watchdog
+  cancel-in-progress: false
+
+jobs:
+  watchdog:
+    name: Check for missed harvest schedules
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/schedule_watchdog.py
+          sparse-checkout-cone-mode: false
+
+      - name: Check and dispatch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WATCHDOG_REF: ${{ github.event.repository.default_branch }}
+        run: python3 scripts/schedule_watchdog.py ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'true') && '--dry-run' || '' }}

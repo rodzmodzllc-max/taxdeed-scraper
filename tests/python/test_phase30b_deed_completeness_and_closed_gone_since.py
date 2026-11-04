@@ -95,8 +95,10 @@ def test_deed_harvester_checks_curl_exit_code_not_just_content():
     --fail plus an explicit $LASTEXITCODE check is what makes a real failure
     observable at all."""
     src = _deed_harvester_src()
-    assert src.count("--fail") >= 3  # calendar fetch, preview fetch, paginated fetch
-    assert src.count("if ($LASTEXITCODE -ne 0) {") == 3
+    # calendar fetch, preview fetch, paginated fetch, and (2026-10-26) the
+    # page-count refresh that tells the harvester how many pages a sale day has
+    assert src.count("--fail") >= 4
+    assert src.count("if ($LASTEXITCODE -ne 0) {") == 4
 
 
 def test_deed_harvester_marks_calendar_failure_incomplete_not_no_auction_days():
@@ -141,6 +143,7 @@ def test_deed_harvester_every_failure_path_sets_county_not_ok():
         'calendar fetch failed for month offset',
         'preview/referer warm-up fetch failed for $date',
         'paginated fetch failed for $date page $page',
+        'page-count refresh failed for $date',
     ]:
         idx = src.index(marker)
         preceding = src[max(0, idx - 200):idx]
@@ -163,7 +166,7 @@ def test_deed_harvester_always_writes_status_file_unconditionally():
     early-exit condition - it always runs once the county loop finishes,
     matching harvest_lienhub_certificates.ps1's 'always written' discipline."""
     src = _deed_harvester_src()
-    write_idx = src.index("$countyStatus | ConvertTo-Json -Depth 3 | Set-Content $outStatus")
+    write_idx = src.index("$countyStatus | ConvertTo-Json -Depth 5 | Set-Content $outStatus")
     loop_end_idx = src.rindex("\n}\n", 0, write_idx)  # the county loop's closing brace
     assert loop_end_idx < write_idx
     json_write_idx = src.index('$all | ConvertTo-Json -Depth 4 | Set-Content $outJson')
@@ -257,7 +260,7 @@ def test_okaloosa_status_write_replaces_not_duplicates_its_own_prior_entry():
 
 def test_closeout_runs_after_the_upsert_section():
     src = _sync_src()
-    upsert_idx = src.index("Done. $sent properties upserted to Supabase")
+    upsert_idx = src.index("properties upserted to Supabase")
     closeout_idx = src.index("# ---- Close out properties that fell off the Waiting feed ----")
     assert upsert_idx < closeout_idx
 
@@ -276,9 +279,17 @@ def test_closeout_fails_closed_when_status_file_is_unparseable():
 
 
 def test_closeout_only_considers_counties_explicitly_marked_complete():
+    # Since 2026-10-14 the eligible counties come from the ledger health
+    # reader (scripts/ledger_gate.py -> harvesters/ledgers/health.py): COMPLETE
+    # or a validly signalled EMPTY, never INCOMPLETE / FAILED / a broken read.
+    # Run end to end under PowerShell in test_ledger_ps_syncs.py.
+    import sys
+    sys.path.insert(0, str(REPO_ROOT))
+    from harvesters.ledgers import Ledger, health
     section = _closeout_section()
-    assert 'if ($cs.status -eq "COMPLETE")' in section
-    assert '$cs.status -eq "INCOMPLETE"' not in section
+    assert 'Get-LedgerCloseableCounties "AUCTIONS" $statusPath' in section
+    assert "$cs.status" not in section          # no status string is compared here any more
+    assert health.CLOSEABLE[Ledger.AUCTIONS] == frozenset({"COMPLETE", "EMPTY"})
 
 
 def test_closeout_query_is_scoped_to_state_source_status_and_complete_counties():
@@ -286,9 +297,12 @@ def test_closeout_query_is_scoped_to_state_source_status_and_complete_counties()
     reconciliation query: never touch another state, another source, a
     still-upcoming sale date, or a county this run didn't confirm complete.
     The `state=eq.FL` clause is the Phase 30B cross-state fix - it was
-    absent before this phase."""
+    absent before this phase. The date clause is `lt.$floridaToday` since
+    the 2026-09-28 remediation (it was `lte.$today` on the runner's UTC
+    clock, which closed out same-day sales the evening before in Florida -
+    see test_phase_b_remediation.py for that rule's own tests)."""
     section = _closeout_section()
-    assert "state=eq.FL&source=eq.auction&status=eq.active&sale_date=lte.$today&county=in.($encodedCounties)" in section
+    assert "state=eq.FL&source=eq.auction&status=eq.active&sale_date=lt.$floridaToday&county=in.($encodedCounties)" in section
 
 
 def test_closeout_rechecks_county_membership_defensively():
@@ -334,15 +348,23 @@ def test_a_run_with_zero_complete_counties_closes_out_nothing():
     assert "Zero COMPLETE counties this run - stale-property closeout skipped entirely" in section
 
 
-def test_upsert_section_still_never_sends_status():
-    """The upsert step must remain exactly as safe-merge as before this
-    phase - status is only ever written by the separate closeout PATCH."""
+def test_upsert_section_sends_status_only_as_active_and_never_hand_research():
+    """The upsert step must remain safe-merge for hand research. Since the
+    2026-09-28 remediation it DOES send `status = "active"` - every harvested
+    row was read off a scheduled feed this run, and omitting status had left
+    re-listed rows falsely 'closed' (see test_phase_b_remediation.py). It
+    still never sends gone_since (trigger-managed, migration 006) or any
+    hand-researched column; 'closed' is still written only by the separate
+    closeout PATCH."""
     src = _sync_src()
     upsert_section = src[:src.index("# ---- Close out properties that fell off")]
     row_literal_start = upsert_section.index("$rows += [ordered]@{")
     row_literal = upsert_section[row_literal_start:upsert_section.index("}", row_literal_start)]
-    assert "status" not in row_literal
+    assert 'status        = "active"' in row_literal
+    assert '"closed"' not in row_literal
     assert "gone_since" not in row_literal
+    for hand_researched in ("owner_name", "lien_level", "lien_note", "notes", "homestead"):
+        assert hand_researched not in row_literal
 
 
 def test_whole_run_threshold_check_is_untouched_and_not_a_substitute():
@@ -623,9 +645,9 @@ def test_part6_no_workflow_schedule_change():
     byte-identical to before this phase."""
     workflow = _read(".github", "workflows", "harvest-and-sync.yml")
     assert "0 10,22 * * *" not in workflow  # this schedule string was never in this file to begin with; see next line
-    assert "'0 10 * * *'" in workflow
-    assert "'0 22 * * *'" in workflow
-    assert "'0 12 * * *'" in workflow
+    assert "'13 10 * * *'" in workflow
+    assert "'13 4 * * *'" in workflow
+    assert "'37 11 * * *'" in workflow
 
 
 def test_part6_deed_job_step_order_unchanged():

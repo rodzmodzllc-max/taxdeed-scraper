@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+"""Build a state's page (public/<code>.html) from public/tx.html - the
+non-Florida page template - plus the state's own copy (six-state expansion,
+2026-09-30). A state page differs from tx.html in exactly three places:
+<body data-state>, the footer's coverage notice and the terms-modal comment.
+The <title> and the sign-in tagline are the product's, the same on every page
+(2026-10-02: the sign-in screen never claims a single state; app.js names the
+selected state in the tab title once signed in). Everything else (markup, ids, scripts)
+is shared, so a fix to tx.html reaches every state page by re-running this.
+
+    python3 scripts/build_state_page.py            # every state in PAGES
+    python3 scripts/build_state_page.py --check    # exit 1 if a page is stale
+
+The copy names only what the state's approved source publishes
+(docs/six-state-expansion.md). No statutory copy is stated for any state:
+none has been reviewed with counsel.
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+TEMPLATE = REPO / "public" / "tx.html"
+
+TX_BODY = '<body data-state="TX">'
+TX_NOTICE = ("<b>Fees, closing costs and lien notes are not tracked for Texas.</b> No Texas fee or closing-cost formula "
+             "exists in this app, so none is shown. This app does not run a title search. Confirm title and costs with a "
+             "title company or attorney before bidding.")
+TX_TERMS_COMMENT = """<!-- Texas terms. The Florida fee/statute copy that used to be carried over here
+(doc stamps, Fla. Stat. 197.x, the homestead half-assessed minimum) was removed:
+it is not Texas law and no Texas equivalent has been researched. Do not add
+Texas statutory copy here without counsel review. -->"""
+
+# Launch (2026-11-02): the <head> carries a description, a canonical URL and
+# share-preview (Open Graph / Twitter card) tags. They name the page's own
+# state and URL; every other tag is the product's and stays as in tx.html.
+SITE = "https://taxacq.com"
+
+
+def meta_description(state: str) -> str:
+    return (f"TAXACQ — tax sale property research for {state}: auctions, county-held and land bank "
+            "properties, and liens and certificates where the state offers them. Every record names its "
+            "source and the county's published acquisition process. No scores, no estimates.")
+
+
+def page_meta(state: str, page: str) -> list[tuple[str, str]]:
+    """(tx.html anchor, this state's replacement) for the four state-specific head tags."""
+    tx, me = meta_description("Texas"), meta_description(state)
+    return [
+        (f'<meta name="description" content="{tx}">', f'<meta name="description" content="{me}">'),
+        (f'<meta property="og:description" content="{tx}">', f'<meta property="og:description" content="{me}">'),
+        (f'<meta name="twitter:description" content="{tx}">', f'<meta name="twitter:description" content="{me}">'),
+        (f'<link rel="canonical" href="{SITE}/tx.html">', f'<link rel="canonical" href="{SITE}/{page}">'),
+        (f'<meta property="og:url" content="{SITE}/tx.html">', f'<meta property="og:url" content="{SITE}/{page}">'),
+    ]
+
+PAGES = {
+    "MI": dict(name="Michigan",
+               notice="<b>Michigan coverage is two county treasurers' published tax-sale lists (Eaton, Lenawee).</b> Minimum bids "
+                      "and Eaton's own 'Has Been Sold' flag are shown as each county publishes them. No Michigan fee, closing-cost "
+                      "or redemption rule is tracked, and none is shown. Confirm terms with the county treasurer and a title "
+                      "company or attorney before bidding."),
+    "WY": dict(name="Wyoming",
+               notice="<b>Wyoming coverage is Albany County's published tax sale list.</b> Wyoming's sale sells a tax lien "
+                      "certificate, not the land; the amount shown is the list's own 'Total' column as published. No fee, "
+                      "interest or redemption rule is tracked, and none is shown. Confirm terms with the County Treasurer and "
+                      "a title company or attorney before bidding."),
+    # Audit F57 (2026-11-03): each notice names the sources that supply the
+    # state's rows (data/county_source_registry.csv production rows).
+    "SC": dict(name="South Carolina",
+               notice="<b>South Carolina coverage is the published tax sale lists of York, Horry and Oconee counties, and "
+                      "the Horry and Georgetown Forfeited Land Commission lists.</b> A figure is shown only as each list "
+                      "publishes it, named as the list names it; York's list publishes no opening bid. No fee or redemption "
+                      "rule is tracked. Confirm terms with the county and a title company or attorney before bidding."),
+    "CO": dict(name="Colorado",
+               notice="<b>Colorado coverage is Saguache and Douglas counties' tax lien sale lists, Morgan County's "
+                      "Treasurer's deed option auctions, and Morgan and Douglas counties' county-held tax lien "
+                      "certificates.</b> Amounts are each list's own figures as published; a lien sale sells the lien, not "
+                      "the land. Parcel details come from the State of Colorado's Colorado Public Parcels layer, matched by "
+                      "assessor account number only; the State states resale of that data is forbidden. No interest or "
+                      "redemption rule is tracked. Confirm with the County Treasurer and a title company or attorney before "
+                      "buying."),
+    "WI": dict(name="Wisconsin",
+               notice="<b>Wisconsin coverage is Dane County's tax deed auction page and Green County's tax deed sale "
+                      "page.</b> Minimum bids and the sale prices of previous sales are shown as each county publishes them; "
+                      "each county states when it has no current sales. No fee or closing-cost rule is tracked. Confirm "
+                      "terms with the County Clerk and a title company or attorney before bidding."),
+    # AVAILABLE expansion (2026-10-04): one county AVAILABLE source each, collected for admin
+    # use while its publication review is pending (docs/available-expansion-2026-10.md).
+    "MO": dict(name="Missouri",
+               notice="<b>Missouri coverage is the City of St. Louis Land Reutilization Authority inventory.</b> Only parcels "
+                      "the inventory itself marks Available are read. It publishes no price, and none is shown. No fee or "
+                      "closing-cost rule is tracked. Confirm terms with the Land Reutilization Authority and a title company or "
+                      "attorney before applying."),
+    "OK": dict(name="Oklahoma",
+               notice="<b>Oklahoma coverage is Oklahoma County's county-owned property list.</b> The figure shown is the list's "
+                      "own suggested initial bid, not a minimum or a price; the county's list says 'BUYER BEWARE'. No fee or "
+                      "closing-cost rule is tracked. Confirm terms with the County Treasurer and a title company or attorney "
+                      "before bidding."),
+    "PA": dict(name="Pennsylvania",
+               notice="<b>Pennsylvania coverage is Fayette County's repository list, shown with the list's own date.</b> "
+                      "Minimum bids are shown as the list publishes them; a repository sale needs the taxing bodies' consent. "
+                      "No fee or closing-cost rule is tracked. Confirm with the Tax Claim Bureau and a title company or "
+                      "attorney before bidding."),
+    "MN": dict(name="Minnesota",
+               notice="<b>Minnesota coverage is Ramsey County's tax-forfeited land layer.</b> Only parcels the county marks "
+                      "Available for purchase are read; minimum bids are shown as published. No fee or closing-cost rule is "
+                      "tracked. Confirm terms with the county and a title company or attorney before buying."),
+    # Tennessee (2026-10-08): the Shelby County Land Bank, collected for admin use while its
+    # publication review is pending (docs/tennessee-survey.md).
+    "TN": dict(name="Tennessee",
+               notice="<b>Tennessee coverage is the Shelby County Land Bank's inventory.</b> Only parcels the Land Bank's own "
+                      "portal marks for sale and available are read. The figure shown is the portal's asking price, before "
+                      "any offer; it is not a fixed price. No fee or closing-cost rule is tracked. Confirm terms with the "
+                      "Land Bank and a title company or attorney before making an offer."),
+}
+
+
+def render(code: str, template: str) -> str:
+    cfg = PAGES[code]
+    out = template
+    for old, new in (
+        (TX_BODY, f'<body data-state="{code}">'),
+        (TX_NOTICE, cfg["notice"]),
+        # The third ledger's static labels: "Redeemable Deeds" is Texas's own name for
+        # that slot (ledgerCopy's tx block); every other state keeps the base name.
+        ('</svg></span>Redeemable Deeds</button>', '</svg></span>Liens &amp; Certificates</button>'),
+        ('<span class="pill-dot pill-dot-certificate" aria-hidden="true"></span>Redeemable Deeds</button>',
+         '<span class="pill-dot pill-dot-certificate" aria-hidden="true"></span>Liens &amp; Certificates</button>'),
+        (TX_TERMS_COMMENT, f"<!-- {cfg['name']} terms (2026-09-30, six-state expansion). No {cfg['name']} statutory copy\n"
+                           "is stated here: none has been reviewed with counsel. Do not add it without counsel review. -->"),
+        *page_meta(cfg["name"], f"{code.lower()}.html"),
+    ):
+        if out.count(old) != 1:
+            raise SystemExit(f"{code}: template anchor not found exactly once: {old[:60]!r}")
+        out = out.replace(old, new)
+    return out
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--check", action="store_true")
+    a = ap.parse_args(argv)
+    template = TEMPLATE.read_text(encoding="utf-8")
+    stale = []
+    for code in PAGES:
+        page = REPO / "public" / f"{code.lower()}.html"
+        html = render(code, template)
+        if a.check:
+            if not page.exists() or page.read_text(encoding="utf-8") != html:
+                stale.append(page.name)
+        else:
+            page.write_text(html, encoding="utf-8")
+    if stale:
+        print("stale state pages: " + ", ".join(stale))
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

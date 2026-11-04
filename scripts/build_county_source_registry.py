@@ -1,0 +1,956 @@
+#!/usr/bin/env python3
+"""Build data/county_source_registry.csv - the county-level OTC / LAFT /
+struck-off SOURCE registry (Phase 3 of the 2026-09-29 implementation that
+followed the master LAFT / OTC / struck-off audit).
+
+Why a generator: the nine Florida harvesters already keep their production
+source lists in four CSVs (data/laft_pdf_sources.csv, laft_html_sources.csv,
+laft_pioneer_counties.csv, laft_realtdm_counties.csv) plus five single-county
+scripts. Those files stay the operational truth - the harvesters read them.
+This script derives the registry's PRODUCTION rows from them (so the two can
+never drift; tests/python/test_county_source_registry.py asserts the committed
+CSV equals this script's output) and adds the CANDIDATE rows the audit found
+but did not verify, from the hand-maintained tables below.
+
+Nothing here fetches anything. Candidate rows carry the audit's evidence
+level verbatim (SEARCH_EVIDENCE_ONLY, SOURCE_EXISTS_ACCESS_UNKNOWN,
+HISTORICAL_ONLY, NOT_FOUND_AFTER_SEARCH, BLOCKED_VENDOR_ONLY) and can never
+be run by a harvester: harvesters/otc/gate.py refuses every row whose
+verification_status is not PRODUCTION_VERIFIED, and the four blocked Texas
+vendors are refused by name regardless.
+
+Run:  python3 scripts/build_county_source_registry.py   (rewrites the CSV)
+"""
+from __future__ import annotations
+
+import csv
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(1, str(Path(__file__).resolve().parent))
+import laft_purchase_paths as PP  # noqa: E402
+
+DATA = REPO / "data"
+OUT = DATA / "county_source_registry.csv"
+
+COLUMNS = [
+    "state", "county", "source_id", "harvester", "inventory_type", "source_authority",
+    "canonical_url", "document_url", "purchase_url", "purchase_url_kind",
+    "access_method", "machine_format", "verification_status", "governance_status",
+    "last_checked", "completeness_status", "evidence_ref", "notes",
+    # 2026-09-29 (Alabama onboarding): the publishing-unit and semantics
+    # columns - county_source_registry.EXTENDED_COLUMNS. Every FL/TX row is
+    # COUNTY-level with the other four blank; migration 020 (NOT applied)
+    # adds them to the table.
+    "publishing_unit", "publishing_unit_name", "amount_kind", "update_frequency", "source_terminology",
+    # 2026-09-30 (three ledgers): which customer ledger(s) the source feeds -
+    # AUCTIONS, AVAILABLE, LIENS_CERTIFICATES, "|"-joined. The registry now
+    # holds every production source of every ledger, not only the AVAILABLE
+    # (LAFT / struck-off) ones; harvesters/ledgers/__init__.py SOURCE_LEDGERS
+    # is the same mapping on the harvest side and a test pins the two equal.
+    "ledgers",
+    # 2026-09-30 (AVAILABLE commercialization): customer publication, per
+    # source. APPROVED_GRANDFATHERED = the production sources customers
+    # already see today (carried forward; no separate review record);
+    # UNREVIEWED = every candidate; RESTRICTED = under legal review (with the
+    # reason); BLOCKED = the blocked vendors. harvesters/governance/publication.py.
+    "publication_status", "restrictions",
+    # 2026-09-30: what the source publishes as the way to buy (scripts/
+    # laft_purchase_paths.PURCHASE_PATH_MODES). Derived from purchase_url_kind
+    # where a source-level URL is recorded; blank (= unknown) everywhere else -
+    # no Florida county page has been read from this repository, so no mode
+    # is asserted for a production source.
+    "purchase_path_mode", "purchase_path_evidence",
+]
+
+AUCTIONS, AVAILABLE, LIENS = "AUCTIONS", "AVAILABLE", "LIENS_CERTIFICATES"
+
+FL_INVENTORY = "POST_SALE_FIXED_PRICE"
+
+# Per-county completeness as the 2026-09-29 production run (workflow run
+# 185) reported it, under the OLD harvesters' semantics: rows > 0 ->
+# COMPLETE, an ERROR line -> FAILED, a bare zero -> UNKNOWN (the old code
+# could not distinguish empty from broken - which is what this whole change
+# fixes). The next production run rewrites these from the status file.
+RUN_185 = {
+    "COMPLETE": {"Marion", "Pasco", "Volusia", "Escambia", "Indian River", "Putnam", "Gadsden",
+                 "Alachua", "Highlands", "Lee", "Sarasota", "Polk", "Miami-Dade",
+                 "Citrus", "Bay", "Duval", "Hernando", "Palm Beach", "Levy",
+                 "Orange", "St. Lucie", "Osceola", "Hillsborough", "Leon"},
+    "FAILED": {"Hendry", "Union", "Walton"},
+}
+
+
+def _completeness(county: str) -> str:
+    for status, names in RUN_185.items():
+        if county in names:
+            return status
+    return "UNKNOWN"
+
+
+MODE_FOR_KIND = {"online_purchase": "online_property", "offer_form": "online_property", "bid_form": "online_property",
+                 "purchase_instructions": "online_instructions", "application_form": "application"}
+
+
+def _row(**kw) -> dict:
+    row = {c: "" for c in COLUMNS}
+    row["publishing_unit"] = "COUNTY"
+    row.update(kw)
+    if row.get("purchase_url") and row.get("purchase_url_kind") and not row.get("purchase_path_mode"):
+        # A downloadable form (application / bid-form PDF) is an application,
+        # never online_property (scripts/laft_purchase_paths.mode_for_kind).
+        row["purchase_path_mode"] = ("application" if PP.is_document_url(row["purchase_url"])
+                                     else MODE_FOR_KIND.get(row["purchase_url_kind"], ""))
+    return row
+
+
+def _read(name: str) -> list[dict]:
+    with open(DATA / name, newline="", encoding="utf-8") as fh:
+        return list(csv.DictReader(fh))
+
+
+# 2026-10-11 (source metadata completion): every FL Lands Available row names
+# its publishing unit (the Clerk of the Circuit Court, or the Comptroller in
+# Orange County, per each harvester's own notes), what the list's figure is
+# (data/available_financial_terms.csv: OPENING_BID_PLUS_ADDITIONS for every
+# source but RealTDM, whose figure is the vendor's 'base purchase price' and is
+# not called a bid), and the read cadence. The lists publish no update cadence.
+def _fl_laft_meta(county: str, source_id: str) -> dict:
+    unit = "Orange County Comptroller" if county == "Orange" else f"{county} County Clerk of the Circuit Court"
+    if source_id == "fl_laft_realtdm":
+        kind, term = "PUBLISHED_AMOUNT_KIND_UNSPECIFIED", "realTDM 'base purchase price' (statutory additions apply; not an opening bid)"
+    else:
+        kind, term = "OPENING_BID", "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply)"
+    return dict(publishing_unit_name=unit, amount_kind=kind,
+                update_frequency="not published by the source; read daily by the laft job (12:00 UTC)",
+                source_terminology=term + " (AVAILABLE)")
+
+
+def fl_production_rows() -> list[dict]:
+    rows: list[dict] = []
+    common = dict(state="FL", inventory_type=FL_INVENTORY, verification_status="PRODUCTION_VERIFIED",
+                  governance_status="APPROVED_GRANDFATHERED", last_checked="2026-09-29", ledgers=AVAILABLE,
+                  publication_status="APPROVED_GRANDFATHERED")
+    for src in _read("laft_pdf_sources.csv"):
+        municode = "mcclibraryfunctions.azurewebsites.us" in src["Url"]
+        rows.append(_row(**common, county=src["County"], source_id="fl_laft_pdfs", harvester="harvest_laft_pdfs.py",
+                         source_authority="GOVERNMENT_PLATFORM" if municode else "GOVERNMENT_DIRECT",
+                         canonical_url=src["SourcePage"], document_url=src["Url"],
+                         access_method="HTTP_GET_PDF", machine_format="PDF",
+                         completeness_status=_completeness(src["County"]), evidence_ref="data/laft_pdf_sources.csv",
+                         notes="Clerk PDF" + (" published through Municode (third-party document host)" if municode else "")))
+    for src in _read("laft_html_sources.csv"):
+        rows.append(_row(**common, county=src["County"], source_id="fl_laft_html", harvester="harvest_laft_html.py",
+                         source_authority="GOVERNMENT_DIRECT", canonical_url=src["SourcePage"], document_url=src["Url"],
+                         access_method="HTTP_GET_HTML", machine_format="HTML_CARDS" if src["County"] == "Putnam" else "HTML_TABLE",
+                         completeness_status=_completeness(src["County"]), evidence_ref="data/laft_html_sources.csv",
+                         notes="Clerk page; static HTML" + (" (WAF blocks runner IPs; ScraperAPI fallback)" if src["County"] in ("Escambia", "Columbia", "Union") else "")))
+    for src in _read("laft_pioneer_counties.csv"):
+        rows.append(_row(**common, county=src["County"], source_id="fl_laft_pioneer", harvester="harvest_laft_pioneer.py",
+                         source_authority="GOVERNMENT_PLATFORM", canonical_url=src["BaseUrl"],
+                         access_method="JSON_ENDPOINT", machine_format="JSON",
+                         completeness_status=_completeness(src["County"]), evidence_ref="data/laft_pioneer_counties.csv",
+                         notes="Pioneer Technology Group TaxSmartWeb portal contracted by the Clerk; GridSearchData JSON"))
+    for src in _read("laft_realtdm_counties.csv"):
+        rows.append(_row(**common, county=src["County"], source_id="fl_laft_realtdm", harvester="harvest_laft_realtdm.py",
+                         source_authority="GOVERNMENT_PLATFORM", canonical_url=f"https://{src['Subdomain']}.realtdm.com/public/cases/list",
+                         access_method="HTTP_POST_FORM", machine_format="HTML_CARDS",
+                         completeness_status=_completeness(src["County"]), evidence_ref="data/laft_realtdm_counties.csv",
+                         notes="realTDM case-management portal (RealAuction family) contracted by the Clerk; vendor domain"))
+    for src in _read("laft_portal_sources.csv"):
+        rows.append(_row(**common, county=src["County"], source_id="fl_laft_portals", harvester="harvest_laft_portals.py",
+                         source_authority="GOVERNMENT_DIRECT", canonical_url=src["BaseUrl"].rstrip("/") + "/TaxDeed/Lands",
+                         document_url=src["BaseUrl"].rstrip("/") + "/TaxDeed/GetTaxDeedViewByLandsAvailable",
+                         access_method="JSON_ENDPOINT", machine_format="JSON",
+                         completeness_status=_completeness(src["County"]), evidence_ref="data/laft_portal_sources.csv",
+                         notes="Clerk tax-deed portal (" + src["Platform"] + "); the Lands Available grid's own JSON read"))
+    singles = [
+        ("Orange", "fl_laft_orange", "harvest_laft_orange.py", "GOVERNMENT_DIRECT",
+         "https://occompt.com/158/Land-Available-For-Taxes", "HTTP_POST_FORM", "HTML_TABLE",
+         "Comptroller-run TDSM search (guest disclaimer acknowledged, no credentials)"),
+        ("St. Lucie", "fl_laft_stlucie", "harvest_laft_stlucie.py", "GOVERNMENT_PLATFORM",
+         "https://acclaimweb.stlucieclerk.gov/TributeWeb/", "HEADLESS_BROWSER", "PORTAL",
+         "AcclaimWeb/TributeWeb search on the Clerk's domain; Playwright"),
+        ("Osceola", "fl_laft_osceola", "harvest_laft_osceola.py", "GOVERNMENT_PLATFORM",
+         "https://officialrecords.osceolaclerk.org/browserviewtd/", "JSON_ENDPOINT", "JSON",
+         "NewVision Systems search API on the Clerk's domain"),
+        ("Hillsborough", "fl_laft_hillsborough", "harvest_laft_hillsborough.py", "GOVERNMENT_PLATFORM",
+         "https://publicaccess.hillsclerk.com/TD/", "HEADLESS_BROWSER", "PORTAL",
+         "OnBase Public Access View on the Clerk's domain; Playwright"),
+        ("Leon", "fl_laft_leon", "harvest_laft_leon.py", "GOVERNMENT_DIRECT",
+         "https://lforms.leonclerk.com/tax_deeds/lands-available.html", "JSON_ENDPOINT", "JSON",
+         "Clerk portal's own JSON data file (listoflands.txt)"),
+    ]
+    for county, sid, script, authority, url, access, fmt, note in singles:
+        rows.append(_row(**common, county=county, source_id=sid, harvester=script, source_authority=authority,
+                         canonical_url=url, document_url=("https://lforms.leonclerk.com/tax_deeds/listoflands.txt" if county == "Leon" else ""),
+                         access_method=access, machine_format=fmt, completeness_status=_completeness(county),
+                         evidence_ref=f"scripts/{script}", notes=note))
+    for r in rows:
+        for k, v in _fl_laft_meta(r["county"], r["source_id"]).items():
+            if not r.get(k):
+                r[k] = v
+        if r["county"] in FL_ADDED_2026_10_26:
+            r["notes"] = r["notes"] + ". " + FL_ADDED_2026_10_26[r["county"]]
+            r["last_checked"] = "2026-10-26"
+            r["completeness_status"] = "UNKNOWN"
+            if r["source_id"] == "fl_laft_portals":
+                # A NEW source, published by the owner's 2026-10-26 decision
+                # ("post their shit"; docs/publish-all-sources.md): APPROVED
+                # with the same restriction text as every other owner-approved
+                # source, and INTERIM display / link records. Publication is
+                # decided per source, so a county added to an existing platform
+                # source (Lake, DeSoto, Wakulla) carries that source's decision.
+                r["publication_status"] = "APPROVED"
+                r["restrictions"] = OWNER_APPROVED_2026_10_26
+    for r in rows:
+        if r["source_id"] == "fl_laft_orange":
+            # The Orange County Comptroller's written reply (relayed 2026-11-04;
+            # data/office_replies.csv) prohibits automated collection and
+            # commercial incorporation without prior written authorization: not
+            # read and withheld from every customer view - the tester preview
+            # included (harvesters/governance/commercial_scope.py,
+            # office_replies.prohibits_reuse) - until such an authorization is on
+            # file. Admins still see the rows already stored.
+            # governance stays the production fact; collection is stopped by the
+            # RESTRICTED fetch / store records in data/source_permissions.csv.
+            r["publication_status"] = "RESTRICTED"
+            r["restrictions"] = ORANGE_COMPTROLLER_2026_11_04
+            r["last_checked"] = "2026-11-04"
+    return rows
+
+
+ORANGE_COMPTROLLER_2026_11_04 = ("Orange County Comptroller written reply (relayed by the owner 2026-11-04): links and "
+                                 "individual record viewing permitted; automated collection and commercial incorporation "
+                                 "prohibited without prior written authorization. Not read and not shown to customers "
+                                 "until such an authorization is on file.")
+
+
+# The owner's customer-publication decision of 2026-10-26, the same text
+# harvesters/otc/adapters/expansion.py records for the expansion sources
+# (docs/publish-all-sources.md).
+OWNER_APPROVED_2026_10_26 = ("Owner approved customer publication 2026-10-26; legal review pending. The source publishes no "
+                             "explicit reuse licence; this is the owner's internal risk acceptance, not the source's "
+                             "permission. Show only what the source publishes; no inferred results.")
+
+# 2026-10-26 (owner decision: find every property and every source, legal
+# review afterwards): counties added to a Lands Available harvester after a
+# live read from the sandbox. Each carries interim INTERNAL_RISK_ACCEPTANCE
+# permission records (data/source_permissions.csv); the new portal source is
+# customer-published by the same day's owner decision;
+# docs/county-sources-2026-10-26.md.
+FL_ADDED_2026_10_26 = {
+    "Lake": "Added 2026-10-26: the Clerk's Tax Deed Record Search links its 'Accept and Search' disclaimer button to "
+            "lake.realtdm.com/public/cases/list (realTDM).",
+    "DeSoto": "Added 2026-10-26: the Clerk's Tax Deeds page carries the list inline; read live it said 'There are no "
+              "properties on the list of lands available at this time.'",
+    "Wakulla": "Added 2026-10-26: the Clerk's Tax Deed Sales page carries the list inline; read live it said 'Currently, "
+               "there are no parcels available on the List of Lands.'",
+    "Charlotte": "Added 2026-10-26: the Clerk's Tax Deed Services portal (taxdeeds.charlotteclerk.com) Lands Available grid, "
+                 "read live (4 rows, Status 'LANDS AVAILABLE').",
+}
+
+
+AUDIT = "MASTER LAFT/OTC/STRUCK-OFF AUDIT 2026-09-29"
+
+# Florida counties with no production harvester - one row each, the audit's
+# own evidence level, never runnable. County names must match the app's
+# canonical spelling (fl-counties.svg).
+FL_CANDIDATES = [
+    # county, verification, authority, canonical_url, machine_format, notes
+    # Re-checked LIVE 2026-10-26 from the sandbox (docs/county-sources-2026-10-26.md). Lake, DeSoto, Wakulla and
+    # Charlotte moved to production harvesters the same day.
+    ("Broward", "SEARCH_EVIDENCE_ONLY", "GOVERNMENT_DIRECT",
+     "https://www.broward.org/RecordsTaxesTreasury/TaxesFees/Pages/LandsAvailableforTaxes.aspx", "HTML_TABLE",
+     "County Records, Taxes & Treasury (not the Clerk) LAFT list. 2026-10-26: broward.org answers a Cloudflare 'Attention "
+     "Required' challenge to a plain request - not bypassed; probed from GitHub Actions (evidence_scope=county_sources)."),
+    ("Okaloosa", "NOT_FOUND_AFTER_SEARCH", "GOVERNMENT_DIRECT",
+     "https://okaloosaclerk.com/board-services/tax-deed-sales/lands-available-for-taxes/", "NONE",
+     "Read live 2026-10-26: the Clerk's Lands Available page publishes the purchase PROCESS only (contact Tax Deeds for "
+     "the amount due; certified funds) - no list of parcels."),
+    ("Collier", "NOT_FOUND_AFTER_SEARCH", "GOVERNMENT_DIRECT", "https://www.collierclerk.com/tax-deed-sales/", "UNKNOWN",
+     "Read live 2026-10-26: Tax Deed Sales / Surplus pages and a Laserfiche document browser; no Lands Available list."),
+    ("Gilchrist", "NOT_FOUND_AFTER_SEARCH", "GOVERNMENT_DIRECT", "https://gilchristclerk.com/tax-deeds/", "UNKNOWN",
+     "Read live 2026-10-26: auction links to gilchrist.realtaxdeed.com only; no Lands Available list."),
+    ("Monroe", "NOT_FOUND_AFTER_SEARCH", "GOVERNMENT_DIRECT", "https://www.monroe-clerk.com/tax-deeds", "UNKNOWN",
+     "Read live 2026-10-26: 'Online Tax Deed' page links monroe.realtaxdeed.com only; no Lands Available list."),
+    ("Nassau", "NOT_FOUND_AFTER_SEARCH", "GOVERNMENT_DIRECT", "https://www.nassauclerk.com/190/View-Tax-Deed-Sales-and-Foreclosures", "UNKNOWN",
+     "Read live 2026-10-26: taxdeeds.nassauclerk.com lists upcoming realtaxdeed sale dates only; no Lands Available list."),
+    ("Suwannee", "NOT_FOUND_AFTER_SEARCH", "GOVERNMENT_DIRECT", "https://www.suwgov.org/tax-deed-sales/", "UNKNOWN",
+     "Read live 2026-10-26: process text says unsold properties go on the List of Lands Available; no list published."),
+    ("Jefferson", "HISTORICAL_ONLY", "GOVERNMENT_DIRECT", "https://www.jeffersonclerk.com/clerk-services/property-sales/tax-deed-sales/", "PDF",
+     "Only a 2022/03 'Lands Available' PDF indexed; read live 2026-10-26: the page carries no current list."),
+    ("Baker", "SOURCE_EXISTS_ACCESS_UNKNOWN", "GOVERNMENT_DIRECT", "https://www.bakerclerk.com", "UNKNOWN",
+     "2026-10-26: bakerclerk.com answers a Cloudflare 'Attention Required' challenge to a plain request - not bypassed; "
+     "probed from GitHub Actions (evidence_scope=county_sources)."),
+    ("Jackson", "NOT_FOUND_AFTER_SEARCH", "GOVERNMENT_DIRECT", "https://www.jacksonclerk.com/clerk-services/tax-deed-sales/", "UNKNOWN",
+     "Read live 2026-10-26: auction links to jackson.realtaxdeed.com only; no Lands Available list."),
+    ("Liberty", "NOT_FOUND_AFTER_SEARCH", "GOVERNMENT_DIRECT", "https://libertyclerk.com/courts/tax-deeds/", "UNKNOWN",
+     "Read live 2026-10-26: brochure and surplus XLS only; no Lands Available list."),
+]
+
+
+def fl_candidate_rows() -> list[dict]:
+    rows = []
+    for county, verification, authority, url, fmt, note in FL_CANDIDATES:
+        found = verification != "NOT_FOUND_AFTER_SEARCH"
+        rows.append(_row(state="FL", county=county, source_id=FL_CANDIDATE_SOURCE_IDS.get(county, ""), harvester="",
+                         inventory_type=FL_INVENTORY if found else "",
+                         ledgers=AVAILABLE if found else "", publication_status="UNREVIEWED",
+                         source_authority=authority, canonical_url=url, access_method="UNKNOWN" if url else "NONE",
+                         machine_format=fmt, verification_status=verification, governance_status="TERMS_NOT_VERIFIED" if url else "NOT_APPLICABLE",
+                         last_checked="2026-10-26", completeness_status="UNKNOWN",
+                         evidence_ref=f"{AUDIT} s5; LIVE RE-CHECK 2026-10-26 (docs/county-sources-2026-10-26.md)", notes=note))
+    return rows
+
+
+# Candidates that carry a source id. Empty since fl_laft_portals was published
+# (2026-10-26): publication is decided per SOURCE and the strictest row wins
+# (harvesters/governance/publication.py decisions_by_source), so an UNREVIEWED
+# Broward / Baker candidate row under that id would withhold Charlotte's
+# published rows. Both were probed once (Cloudflare challenge / redirect, not
+# bypassed; docs/county-sources-2026-10-26.md) and carry no source id now.
+FL_CANDIDATE_SOURCE_IDS: dict[str, str] = {}
+
+
+# Texas counties whose struck-off / future-resale rows are in production
+# today, all supplied by LGBS (delinquent-tax counsel), none from a county
+# document. inventory_type is left blank on purpose: the 421 rows predate
+# the raw tx_sale_status writer, so struck-off cannot be told from
+# future-resale for them (migration 017 classifies only rows that carry the
+# raw status).
+TX_LGBS_PRODUCTION = ["Galveston", "Liberty", "Leon", "Maverick", "Jim Wells", "Hardin", "Van Zandt", "Goliad"]
+
+# Government-published Texas struck-off / resale / trust lists the audit
+# found in search results and could NOT fetch (sandbox egress blocked).
+# Every row is SEARCH_EVIDENCE_ONLY; inventory_type is blank because a
+# "resale list" may hold struck-off and future-resale inventory alike and
+# nothing has been read. Harris keeps the registry's LEGAL_REVIEW_REQUIRED.
+TX_CANDIDATES = [
+    # county, url, machine_format, governance, notes[, source_id]
+    # Re-checked LIVE 2026-10-26 from the sandbox (docs/county-sources-2026-10-26.md). The lists that could be read
+    # and parsed moved to TX_COUNTY_SOURCES below (Harris, Bexar, Montgomery, Orange, Trinity, Randall, Hood).
+    ("Dallas", "https://www.dallascounty.org/departments/pubworks/property-division.php", "NONE", "TERMS_NOT_VERIFIED",
+     "Public Works Property Division 'Tax Foreclosure Resales'. Read live 2026-10-26: the page links only the LGBS map "
+     "(already harvested as tx_lgbs) and the RealAuction sheriff-sale site; no county struck-off list is posted."),
+    ("Travis", "https://tax-office.traviscountytx.gov/properties/foreclosed", "PORTAL", "TERMS_NOT_VERIFIED",
+     "Read live 2026-10-26: the 'Resales' card links travis.texas.realforeclose.com (RealAuction, harvested as "
+     "tx_realauction); no ResaleList.xlsx is linked any more."),
+    ("Collin", "https://www.collincountytx.gov/courts/constables/constable-sales", "PDF", "TERMS_NOT_VERIFIED",
+     "Read live 2026-10-26: one 'Notice of Constable Sale' PDF per case (tax suits and mortgage judgments mixed); no list. "
+     "Not implemented: a per-notice reader would have to tell a tax suit from a mortgage judgment.", "tx_collin_constable_sale"),
+    ("Brazoria", "https://www.brazoriacountytx.gov/departments/tax-office/property-taxes/sheriff-sale-tax-resales", "HTML_TABLE",
+     "TERMS_NOT_VERIFIED", "Tax Office 'Sheriff Sale & Tax Resales'. 2026-10-26: 403 'Access Denied' to the sandbox; probed "
+     "from GitHub Actions (evidence_scope=county_sources).", "tx_brazoria_tax_resale"),
+    ("Jefferson", "https://www.jeffersoncountytx.gov", "PDF", "TERMS_NOT_VERIFIED",
+     "Dated 'Resale List' PDFs (2026-06-02, 2026-03-03, 2025-09-09) under Documents/Sales. 2026-10-26: TLS chain not "
+     "verifiable from the sandbox; probed from GitHub Actions.", "tx_jefferson_county_resale"),
+    ("Grayson", "https://taxsearch.co.grayson.tx.us:8443/Sales/Struck-Off-Properties", "PORTAL", "TERMS_NOT_VERIFIED",
+     "County tax portal 'Struck Off Properties'. 2026-10-26: port 8443 unreachable from the sandbox; probed from GitHub Actions.",
+     "tx_grayson_struck_off"),
+    ("Gregg", "https://www.greggcounty.texas.gov/assets/main/tax-assessor-collector/tax-resale-property.pdf", "PDF", "TERMS_NOT_VERIFIED",
+     "Tax Assessor-Collector 'tax resale property' PDF. 2026-10-26: TLS chain not verifiable from the sandbox; probed from "
+     "GitHub Actions.", "tx_gregg_tax_resale"),
+    ("Johnson", "https://www.johnsoncountytx.org/public-safety/constables/constable-sale", "PDF", "TERMS_NOT_VERIFIED",
+     "Constable sale page with per-precinct sale-list PDFs (search index 2026-10-26). 403 to the sandbox; probed from "
+     "GitHub Actions.", "tx_johnson_constable_sale"),
+    ("Camp", "https://campcad.org/struck-off-list/", "PDF", "TERMS_NOT_VERIFIED",
+     "Read live 2026-10-26: the page is gone (404); the newest linked list is dated 06-06-2023 - historical, not read."),
+    ("Fayette", "https://fayettecad.org/trust-properties-offered-for-sale", "PDF", "TERMS_NOT_VERIFIED",
+     "Read live 2026-10-26: 'Trust Properties Offered For Sale' PDF dated 2024-03 and scanned (no text layer) - not "
+     "readable without OCR; not implemented."),
+    ("Jim Wells", "https://www.co.jim-wells.tx.us", "PDF", "TERMS_NOT_VERIFIED",
+     "County 'JWC Resale List' PDF (search index). Home page read 2026-10-26: no resale link found; not implemented."),
+    ("Tom Green", "https://www.tomgreencountytx.gov/page/cck.TrusteeTaxSales", "PDF", "TERMS_NOT_VERIFIED",
+     "Read live 2026-10-26: the page's 'NOTICE n' PDFs are Notices of Substitute Trustee Sale (mortgage foreclosures), "
+     "not tax resales; no tax list found."),
+    ("Bandera", "https://www.banderacounty.gov/page/open/1095/0/Purchasing%20Land%20Held%20in%20Trust", "PDF", "TERMS_NOT_VERIFIED",
+     "Read live 2026-10-26: the 'Purchasing Land Held in Trust' PDF is the procedure and blank bid forms; no list of parcels."),
+    ("Bee", "https://www.beecounty.texas.gov", "DOCX", "TERMS_NOT_VERIFIED", "'TAX FORECLOSURE RESALE' DOCX; list or procedure unknown."),
+]
+
+# Texas county-published lists read LIVE and parsed on 2026-10-26 by
+# scripts/harvest_tx_county_sales.py and synced by scripts/sync_state_inventory.py
+# (texas job). Customer-published by the owner's 2026-10-26 decision ("post
+# their shit"): APPROVED with OWNER_APPROVED_2026_10_26, INTERIM fetch / parse /
+# store / display / link permission records - legal review pending.
+# county, source_id, canonical_url, access, format, ledger, inventory_type, live read
+TX_COUNTY_SOURCES = [
+    ("Harris", "tx_hctax", "https://www.hctax.net/Property/listings/taxsalelisting", "HTTP_GET_HTML", "HTML_TABLE", AUCTIONS, "",
+     "Harris County Delinquent Tax Sale Property Listing (next monthly constable sale). LIVE READ 2026-10-26: Sale Date "
+     "2026-11-03, 182 listings, 149-150 'For Sale' (the rest Cancelled), types SALE / RESALE / EOS / EXE."),
+    ("Bexar", "tx_bexar_resale", "https://www.bexar.org/DocumentCenter/View/41852/Bexar-County-Resale-Properties-Distribution-List",
+     "HTTP_GET_PDF", "PDF", AVAILABLE, "STRUCK_OFF_HELD_IN_TRUST",
+     "Bexar County Resale Properties Distribution List (struck-off amount without interim tax / fees). LIVE READ 2026-10-26: "
+     "list updated 2026-10-06, 46 properties (44 single-account, 2 multiple-account groups)."),
+    ("Jefferson", "tx_jefferson_sheriff_sale", "https://jeffcotax.com/property-tax/delinquent-tax-sale/", "HTTP_GET_PDF", "PDF",
+     AUCTIONS, "", "Jefferson County Tax Office 'Notice of Sale' PDF for the next Sheriff's sale (2026-12-01): 131 properties "
+     "parsed from a copy read 2026-10-26. The page itself answers a plain request with a Sucuri bot challenge, which is not "
+     "bypassed - the reader fails closed ACCESS_DENIED when it is served."),
+    ("Montgomery", "tx_montgomery_tax_trust", "https://www.mctx.org/departments/departments_q_-_z/tax_office/tax_trust_property.php",
+     "HTTP_GET_PDF", "PDF", AVAILABLE, "STRUCK_OFF_HELD_IN_TRUST",
+     "Montgomery County Tax Trust Listing ('PDF Format' link; headed JUNE 2024, file modified 2026-04-15). LIVE READ "
+     "2026-10-26: 240 trust properties; no price published (appraisal value and base tax due only)."),
+    ("Orange", "tx_orange_trust_property", "https://www.co.orange.tx.us/departments/TaxAssessor-Collector/PropertyTaxSales",
+     "HTTP_GET_PDF", "PDF", AVAILABLE, "STRUCK_OFF_HELD_IN_TRUST",
+     "Orange County (TX) Trust Property list ('Date as of' February 2026). LIVE READ 2026-10-26: 17 properties; only bids at "
+     "the original tax-sale minimum are accepted (the list's own wording)."),
+    ("Trinity", "tx_trinity_cad_resale", "https://trinitycad.net/resale-property-information/", "HTTP_GET_PDF", "PDF", AVAILABLE,
+     "STRUCK_OFF_HELD_IN_TRUST",
+     "Trinity CAD Resale Property Lists (two PDFs dated 2026-09-22). LIVE READ 2026-10-26: 343 trustee-held parcels; no "
+     "price published (bid form)."),
+    ("Randall", "tx_randall_trustee_property", "https://www.randallcounty.gov/293/Sheriff-Sale", "HTTP_GET_PDF", "PDF", AVAILABLE,
+     "STRUCK_OFF_HELD_IN_TRUST",
+     "Randall County Trustee Property Listing (updated 2025-10-02). LIVE READ 2026-10-26: 3 struck-off properties with the "
+     "minimum bid at the original sale."),
+    ("Hood", "tx_hood_cad_struck_off", "https://hoodcad.net/struck-off-property-list/", "HTTP_GET_HTML", "HTML_TABLE", AVAILABLE,
+     "STRUCK_OFF_HELD_IN_TRUST",
+     "Hood CAD 'Struck off' Property List. LIVE READ 2026-10-26: the column headings with no property under them (EMPTY)."),
+]
+
+# What each Texas county list publishes (production rows name it - registry
+# validator): publisher, the kind of its figure (harvesters/otc/model.py
+# AmountKind), cadence and the list's own wording.
+TX_COUNTY_META = {
+    "tx_hctax": ("Harris County Tax Assessor-Collector", "MINIMUM_PURCHASE_AMOUNT",
+                 "rewritten for each monthly constable sale (first Tuesday); read daily",
+                 "'Delinquent Tax Sale Property Listing': Account#, Cause#, Type, For Sale / Cancelled, Adjudged Value, Minimum Bid"),
+    "tx_bexar_resale": ("Bexar County (Tax Assessor-Collector / Commissioners Court resale list)", "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+                        "updated when the county revises the list ('List Updated <date>'); read daily",
+                        "'Resale Properties Distribution List': Suit No., Account No., 'Struck off amt w/o interim tax / fees'"),
+    "tx_jefferson_sheriff_sale": ("Jefferson County Tax Assessor-Collector", "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+                                  "one Notice of Sale per monthly Sheriff's sale; read daily",
+                                  "'Notice of Sale': Sale #, Cause #, Acct #, Adjudged Value, 'Estimated Minimum Bid'"),
+    "tx_montgomery_tax_trust": ("Montgomery County Tax Assessor-Collector", "NOT_PUBLISHED",
+                                "revised irregularly (the list names its own month); read daily",
+                                "'Tax Trust Listing': Account #, Strike-Off Unit, Cause No., Appraisal Value, Base Tax Due"),
+    "tx_orange_trust_property": ("Orange County (TX) Tax Assessor-Collector", "MINIMUM_PURCHASE_AMOUNT",
+                                 "revised irregularly ('Date as of <date>'); read daily",
+                                 "'Trust Property Tax Sales': suit, account, 'Minimum* Bid Amount' (bids at the original minimum only)"),
+    "tx_trinity_cad_resale": ("Trinity Central Appraisal District", "NOT_PUBLISHED",
+                              "revised irregularly (each PDF carries its own date); read daily",
+                              "'Resale Property List': PID, trustee (file_as_name), legal description, state code"),
+    "tx_randall_trustee_property": ("Randall County Tax Assessor-Collector", "ORIGINAL_OPENING_BID",
+                                    "revised irregularly ('Updated <date>'); read daily",
+                                    "'Trustee Property Listing' / 'Struck Off Property': Account Number, Description, 'Minimum Bid at Sale'"),
+    "tx_hood_cad_struck_off": ("Hood Central Appraisal District", "NOT_PUBLISHED",
+                               "revised irregularly; read daily",
+                               "'Current Properties on the struck off property list': Account Number, Legal Description, Address"),
+}
+
+# 2026-10-26 (owner decision, verbatim: "Do not block vendors. Post their shit
+# and we'll figure out the legal shit afterwards."): PBFCM, MVBA and GovEase are
+# harvested (harvesters/texas_vendors.py). data/tx_vendor_counties.csv is the
+# county roster each one published when read live that day; the harvester
+# re-reads the vendors' own indexes every run, so a county the vendor adds
+# later is harvested before it appears here.
+TX_VENDOR_META = {
+    "tx_pbfcm": dict(
+        publishing_unit_name="Perdue Brandon Fielder Collins & Mott, LLP (delinquent-tax counsel to the taxing units; vendor listing)",
+        source_authority="VENDOR_COUNSEL",
+        source_terminology="PBFCM tax sale lists (taxsale.html, AUCTIONS) and resale lists of struck-off property "
+                           "(taxresale.html, AVAILABLE): cause, CAD account, legal description, adjudged value, "
+                           "'Minimum Bid' / 'Estimated Minimum' / judgment amount"),
+    "tx_mvba": dict(
+        publishing_unit_name="McCreary, Veselka, Bragg & Allen, P.C. (delinquent-tax counsel to the taxing units; vendor listing)",
+        source_authority="VENDOR_COUNSEL",
+        source_terminology="MVBA monthly sale bid sheets and online auctions (mvbataxsales.com) (AUCTIONS) and trust "
+                           "property lists (AVAILABLE): suit #, account #, property description, 'MIN BID'"),
+    "tx_govease": dict(
+        publishing_unit_name="GovEase online auction platform (sale conducted for the county's sheriff / constable)",
+        source_authority="VENDOR_AUCTION",
+        source_terminology="GovEase Texas online tax-deed auction: parcel #, cause number, minimum bid / face value, "
+                           "parcel address, legal description (AUCTIONS)"),
+}
+TX_VENDOR_LEDGERS = {"tx_pbfcm": f"{AUCTIONS}|{AVAILABLE}", "tx_mvba": f"{AUCTIONS}|{AVAILABLE}", "tx_govease": AUCTIONS}
+TX_VENDOR_OWNER_DECISION = (
+    "Owner decision 2026-10-26: vendor unblocked, terms-of-service / robots.txt risk accepted by the owner, legal "
+    "review pending (interim internal risk acceptance in data/source_permissions.csv, expires 2027-04-12)")
+
+
+def tx_rows() -> list[dict]:
+    rows = []
+    for county in TX_LGBS_PRODUCTION:
+        rows.append(_row(state="TX", county=county, source_id="tx_lgbs", harvester="harvesters/texas_harvester.py",
+                         inventory_type="", source_authority="VENDOR_COUNSEL", canonical_url="https://taxsales.lgbs.com/",
+                         access_method="VENDOR_API", machine_format="JSON", verification_status="PRODUCTION_VERIFIED",
+                         governance_status="APPROVED", last_checked="2026-09-23", completeness_status="FAILED",
+                         ledgers=f"{AUCTIONS}|{AVAILABLE}", publication_status="APPROVED_GRANDFATHERED",
+                         evidence_ref="harvesters/governance/registry.py tx_lgbs; data/tx_lgbs_observed_county_roster.csv",
+                         notes="Delinquent-tax counsel publication (not the county); rows carry no per-property URL; feed INCOMPLETE on 2026-09-29, last success 2026-09-23. Do not retry.",
+                         # 2026-10-11: the publisher is the taxing units' delinquent-tax
+                         # counsel (a vendor listing, never the county); its figure is
+                         # the firm's own 'Minimum Bid' column (data/available_financial_terms.csv
+                         # MINIMUM_BID); the feed is read only by hand and is not retried.
+                         publishing_unit_name="Linebarger Goggan Blair & Sampson, LLP (delinquent-tax counsel to the taxing units; vendor listing)",
+                         amount_kind="PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+                         update_frequency="not published by the vendor; read only when the texas job is dispatched by hand (never on cron); not retried after the 2026-09-29 INCOMPLETE read",
+                         source_terminology="LGBS struck-off / resale listing: 'Minimum Bid', cause number, account (AVAILABLE and AUCTIONS by the vendor's own sale status)"))
+    for county, url, fmt, governance, note, *sid in TX_CANDIDATES:
+        rows.append(_row(state="TX", county=county, source_id=(sid[0] if sid else ""), harvester="",
+                         inventory_type="", source_authority="GOVERNMENT_DIRECT", canonical_url=url, ledgers=AVAILABLE,
+                         publication_status="UNREVIEWED", access_method="UNKNOWN", machine_format=fmt,
+                         verification_status="SEARCH_EVIDENCE_ONLY", governance_status=governance, last_checked="2026-10-26",
+                         completeness_status="UNKNOWN", evidence_ref=f"{AUDIT} s5; LIVE RE-CHECK 2026-10-26 (docs/county-sources-2026-10-26.md)",
+                         notes=note + " Not harvested."))
+    for county, sid, url, access, fmt, ledger, inv, note in TX_COUNTY_SOURCES:
+        unit_name, amount_kind, cadence, terms = TX_COUNTY_META[sid]
+        rows.append(_row(state="TX", county=county, source_id=sid, harvester="scripts/harvest_tx_county_sales.py",
+                         inventory_type=inv, source_authority="GOVERNMENT_DIRECT", canonical_url=url, ledgers=ledger,
+                         publication_status="APPROVED", restrictions=OWNER_APPROVED_2026_10_26,
+                         access_method=access, machine_format=fmt, verification_status="PRODUCTION_VERIFIED",
+                         governance_status="APPROVED", last_checked="2026-10-26", completeness_status="UNKNOWN",
+                         evidence_ref="LIVE READ 2026-10-26 by scripts/harvest_tx_county_sales.py (docs/county-sources-2026-10-26.md)",
+                         notes=note + " Synced by scripts/sync_state_inventory.py; closed only by scripts/texas_closeout.py "
+                                      "after a COMPLETE / EMPTY read of this source.",
+                         publishing_unit_name=unit_name, amount_kind=amount_kind, update_frequency=cadence,
+                         source_terminology=terms))
+    for src in _read("tx_vendor_counties.csv"):
+        meta = TX_VENDOR_META[src["source_id"]]
+        fmt = src["machine_format"]
+        rows.append(_row(state="TX", county=src["county"], source_id=src["source_id"],
+                         harvester="harvesters/texas_harvester.py", inventory_type="",
+                         source_authority=meta["source_authority"], canonical_url=src["canonical_url"],
+                         access_method={"PDF": "HTTP_GET_PDF", "JSON": "JSON_ENDPOINT"}.get(fmt, "HTTP_GET_HTML"),
+                         machine_format=fmt, verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
+                         last_checked=src["observed_on"], completeness_status=src["observed_status"],
+                         # The source's full ledger set (as for tx_lgbs): a county's rows are
+                         # told apart by the document they came from, never by this row.
+                         ledgers=TX_VENDOR_LEDGERS[src["source_id"]], publication_status="APPROVED_GRANDFATHERED",
+                         restrictions=TX_VENDOR_OWNER_DECISION,
+                         evidence_ref=f"data/tx_vendor_counties.csv; harvesters/governance/registry.py {src['source_id']}",
+                         notes=f"Read live {src['observed_on']} by harvesters/texas_vendors.py: {src['observed_rows']} row(s) "
+                               f"(lists observed: {src['ledgers']}) "
+                               f"from {src['documents']} document(s), status {src['observed_status']}. Vendor listing, not the county.",
+                         publishing_unit_name=meta["publishing_unit_name"],
+                         amount_kind="PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+                         update_frequency="not published by the vendor; read daily by the texas job (07:37 ET)",
+                         source_terminology=meta["source_terminology"]))
+    return rows
+
+
+# Alabama (2026-09-29): ONE state-level candidate row for the researched
+# concept - tax-delinquent land held by the State and sold by the Alabama
+# Department of Revenue, Property Tax Division (State Land Commissioner),
+# reported (search index only) as per-county transcripts updated weekly,
+# with the purchase price quoted on application. Every field that would
+# need a fetched page to fill (URL, access method, machine format) is blank
+# or UNKNOWN on purpose: no URL is recorded until one has been read from
+# this repository, and SEARCH_EVIDENCE_ONLY / TERMS_NOT_VERIFIED keep the
+# gate shut (harvesters/otc/gate.py refuses the state before it even looks
+# at the row). See docs/alabama-onboarding.md for the activation checklist.
+# 2026-09-30: the Alabama Department of Revenue source, configured in
+# harvesters/otc/adapters/alabama.py (ADOR_SOURCE / ADOR_EVIDENCE). The
+# URLs, the query parameter names and the process wording were seen in a
+# web search's index of revenue.alabama.gov (page titles, URLs, snippets)
+# - concrete, but STILL search-index evidence: nothing was fetched from
+# this repository. So the row stays SEARCH_EVIDENCE_ONLY / TERMS_NOT_VERIFIED
+# with no harvester named (a non-production row may not name one) and can
+# never be run (harvesters/otc/gate.py refuses the state before the row).
+sys.path.insert(0, str(REPO))
+from harvesters.otc.adapters.alabama import ADOR_SOURCE, EVIDENCE_DATE  # noqa: E402
+
+AL_STATE_LAND = dict(
+    state="AL", county="STATEWIDE", source_id=ADOR_SOURCE.source_id, harvester="",
+    inventory_type=ADOR_SOURCE.inventory_type.value, source_authority=ADOR_SOURCE.source_authority.value,
+    canonical_url=ADOR_SOURCE.list_url, document_url="",
+    purchase_url=ADOR_SOURCE.application_url, purchase_url_kind=ADOR_SOURCE.application_url_kind.value,
+    access_method="HTTP_GET_HTML", machine_format="PORTAL",
+    verification_status="SEARCH_EVIDENCE_ONLY", governance_status="TERMS_NOT_VERIFIED",
+    last_checked=EVIDENCE_DATE, completeness_status="UNKNOWN",
+    evidence_ref="WEB SEARCH 2026-09-30 (revenue.alabama.gov page titles, URLs, query strings, snippets - "
+                 "harvesters/otc/adapters/alabama.py ADOR_EVIDENCE); " + AUDIT,
+    notes="State-held tax-delinquent land ('tax delinquent properties currently in State inventory') sold by ADOR Property Tax "
+          "Division. canonical_url = the 'Tax Delinquent Properties for Sale Search' page (county / CS Number / Parcel Number / "
+          "assessed-name search); purchase_url = the 'Tax Delinquent Property and Land Sales' process page (application for "
+          "purchase; price quoted on application) - an instructions page, never a property link. Per-property application "
+          "links are the CS Number links on the results page (read from the page by the adapter, never constructed). "
+          "Transcript document URL/format unknown (document_url blank). Nothing fetched from this repository; search-index "
+          "evidence only; not activated.",
+    publishing_unit="STATE",
+    publishing_unit_name=ADOR_SOURCE.publishing_unit_name,
+    amount_kind=ADOR_SOURCE.amount_kind.value,
+    update_frequency="weekly (the Land Sales page says county transcripts are 'updated weekly', per the search index 2026-09-30; not read directly)",
+    source_terminology=ADOR_SOURCE.source_terminology + " (search-index wording)",
+    ledgers=AVAILABLE, publication_status="UNREVIEWED",
+)
+
+
+def al_rows() -> list[dict]:
+    return [_row(**AL_STATE_LAND)]
+
+
+# 2026-09-30: Arkansas (COSL Post Auction Sales List) and Louisiana (East
+# Baton Rouge adjudicated property), configured in
+# harvesters/otc/adapters/arkansas.py / louisiana.py from search-index
+# evidence. Same standing as the Alabama row: SEARCH_EVIDENCE_ONLY /
+# TERMS_NOT_VERIFIED, no harvester, never runnable (states not activated).
+from harvesters.otc.adapters.arkansas import COSL_SOURCE  # noqa: E402
+from harvesters.otc.adapters.louisiana import EBR_SOURCE  # noqa: E402
+
+AR_COSL = dict(
+    state="AR", county="STATEWIDE", source_id=COSL_SOURCE.source_id, harvester="",
+    inventory_type=COSL_SOURCE.tabular.inventory_type.value, source_authority=COSL_SOURCE.tabular.source_authority.value,
+    canonical_url=COSL_SOURCE.list_url, document_url="",
+    purchase_url=COSL_SOURCE.application_url, purchase_url_kind=COSL_SOURCE.application_url_kind.value,
+    access_method="HTTP_GET_HTML", machine_format="UNKNOWN",
+    verification_status="SEARCH_EVIDENCE_ONLY", governance_status="TERMS_NOT_VERIFIED",
+    last_checked="2026-09-30", completeness_status="UNKNOWN",
+    evidence_ref="WEB SEARCH 2026-09-30 (cosl.org page titles, URLs, query string, snippets - harvesters/otc/adapters/arkansas.py COSL_EVIDENCE); " + AUDIT,
+    notes="Commissioner of State Lands 'Post Auction Sales List': parcels certified to the State that did not sell at the initial "
+          "public auction, offered per county (canonical_url + ?county=<NAME>; one value observed) 30 days after the offering; the "
+          "tax due is the minimum bid; bids are placed through the State's own online auction (auction.cosl.org - not a per-parcel "
+          "link, not recorded as purchase_url); purchase_url = the State's buyer-instructions page. 10-business-day redemption after "
+          "the post auction sale. Nothing fetched from this repository; search-index evidence only; not activated.",
+    publishing_unit="STATE", publishing_unit_name=COSL_SOURCE.publishing_unit_name,
+    amount_kind=COSL_SOURCE.tabular.amount_kind.value,
+    update_frequency="daily (reported by the 2026-09-29 audit; not corroborated by the 2026-09-30 search; not read directly)",
+    source_terminology=COSL_SOURCE.source_terminology + " (search-index wording)",
+    ledgers=AVAILABLE, publication_status="UNREVIEWED",
+)
+LA_EBR = dict(
+    state="LA", county=EBR_SOURCE.county, source_id=EBR_SOURCE.source_id, harvester="harvest_state_inventory.py --state LA",
+    inventory_type=EBR_SOURCE.inventory_type.value, source_authority=EBR_SOURCE.source_authority.value,
+    canonical_url=EBR_SOURCE.list_url, document_url=EBR_SOURCE.document_url, purchase_url="", purchase_url_kind="",
+    access_method="JSON_ENDPOINT", machine_format="CSV",
+    # 2026-09-30 (state-expansion sprint): a4h4-zi7e read LIVE by the manual
+    # evidence job (runs 36752875012, 36753767965) and approved for customer
+    # publication by the owner, dated. 2026-10-26: the owner switched
+    # production to the Parish's newer list shrr-fsqq ("Yes close 6,643"),
+    # read live 2026-10-25 (louisiana.py EBR_PARCEL_EVIDENCE):
+    # licence PUBLIC_DOMAIN, provenance official, rows updated 2026-05-06.
+    # docs/la-tx-acquisition-paths.md.
+    verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
+    last_checked="2026-10-25", completeness_status="UNKNOWN",
+    evidence_ref="LIVE READ 2026-10-25 of dataset shrr-fsqq (metadata licenseId=PUBLIC_DOMAIN, provenance=official, attribution "
+                 "'East Baton Rouge Parish Assessor', Update Frequency 'Annually', rowsUpdatedAt 2026-05-06; CSV header = the 21 "
+                 "EBR_PARCEL_HEADER columns, 4,527 rows, STATUS 'AJ' on every row, ASSESSMENT NO. shape 999-9999-9); OWNER DECISION "
+                 "2026-10-26 to switch from a4h4-zi7e and close the 6,643 numbers not on the newer list; earlier: LIVE CAPTURE "
+                 "2026-09-30 of a4h4-zi7e (runs 36752875012, 36753767965) and OWNER PUBLICATION DECISION 2026-09-30 (dated list only); "
+                 "docs/la-tx-acquisition-paths.md, docs/state-expansion.md",
+    notes="East Baton Rouge Parish open-data dataset shrr-fsqq 'Adjudicated Parcel' - 'adjudicated tax parcels in East Baton Rouge "
+          "Parish', STATUS 'AJ' ('Status of the parcel (adjudicated)'; only AJ rows are read). Public Domain licence (the dataset's own "
+          "metadata). The rows were last updated 2026-05-06: every row is published as 'adjudicated inventory as of' that date "
+          "(list_as_of, read from the dataset metadata on every run), never as available now. Identity = ASSESSMENT NO. as published "
+          "(the same assessor's number the earlier a4h4-zi7e list published as PROPERTY NUMBER). Replaced a4h4-zi7e 'Adjudicated "
+          "Property' (rows updated 2024-02-27) on 2026-10-26 by owner decision. No price and no purchase link in the dataset "
+          "(NOT_PUBLISHED; no purchase path); its geometry is a polygon, not a point.",
+    publishing_unit="PARISH", publishing_unit_name=EBR_SOURCE.publishing_unit_name,
+    amount_kind="NOT_PUBLISHED",
+    update_frequency="Annually (the dataset's own 'Update Frequency'); rows last updated 2026-05-06 (dataset metadata rowsUpdatedAt)",
+    source_terminology=EBR_SOURCE.source_terminology,
+    ledgers=AVAILABLE, publication_status="APPROVED",
+    restrictions="Dated list: shown only as adjudicated inventory as of the dataset's rows-updated date (2024-02-27 when approved; "
+                 "2026-05-06 since the owner's 2026-10-26 switch to shrr-fsqq); never as available now. Owner decisions 2026-09-30, "
+                 "2026-10-26.",
+)
+
+
+# ---------------------------------------------------------------------------
+# Six-state expansion (2026-10-01): MI, WY, SC, CO, WI. Generated from the
+# live-verified configurations in harvesters/otc/adapters/expansion.py (the
+# one place their URLs and columns live). Every source was read LIVE by the
+# manual evidence job and approved for publication by the owner on
+# 2026-09-30 knowing no explicit reuse licence is published - the
+# restriction column says so on every row.
+
+def expansion_rows() -> list[dict]:
+    from harvesters.governance.states import EXPANSION_EVIDENCE
+    from harvesters.otc.adapters import expansion as EX
+    rows, seen = [], set()
+    for state, sources in EX.SOURCES.items():
+        for src in sources:
+            cfg = src.config
+            if (cfg.source_id, cfg.county) in seen:
+                continue                      # WI: one source, two tables on one page
+            seen.add((cfg.source_id, cfg.county))
+            ev = EXPANSION_EVIDENCE[state]
+            ledger = {"auction": AUCTIONS, "certificate": LIENS, "laft": AVAILABLE}[cfg.record_source]
+            arcgis = src.kind == "arcgis"
+            publication, restrictions = EX.PUBLICATION[cfg.source_id]
+            five = cfg.source_id in EX.AVAILABLE_FIVE_SOURCE_IDS   # AVAILABLE expansion 2026-10-04
+            tn = cfg.source_id in EX.TN_SOURCE_IDS                  # Tennessee 2026-10-08
+            nsrc = cfg.source_id in EX.NEW_SOURCE_IDS               # new-sources sprint 2026-10-26 (owner decision)
+            available = cfg.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS or five or tn or (nsrc and cfg.record_source == "laft")
+            # The six PR #57 sources were read in the expansion passes; the
+            # five-state sprint's sources in its own three passes; the AVAILABLE
+            # sprint's in the available_sources / sc_available captures.
+            new = cfg.source_id not in EX.SIX_STATE_SOURCE_IDS
+            runs = (EX.NEW_SOURCES_EVIDENCE_RUNS if nsrc else EX.TN_EVIDENCE_RUNS if tn else EX.AVAILABLE_FIVE_EVIDENCE_RUNS if five else EX.AVAILABLE_SPRINT_EVIDENCE_RUNS if available
+                    else EX.FIVE_STATE_EVIDENCE_RUNS if new else EX.EVIDENCE_RUNS)
+            decision = ("OWNER DECISION 2026-10-26 (collect and publish every source; legal review pending; INTERIM permission)" if nsrc
+                        else "OWNER PUBLICATION DECISION 2026-10-26 (legal review pending)"
+                        if cfg.source_id in EX.OWNER_APPROVED_2026_10_26_SOURCE_IDS else
+                        ("LICENCE STATED BY THE SOURCE (quoted in restrictions)" if publication == "APPROVED"
+                         else "NO PUBLICATION DECISION YET (UNREVIEWED)") if new else "OWNER PUBLICATION DECISION 2026-09-30")
+            latest = cfg is EX.PA_FAYETTE_REPOSITORY    # Fayette PA: newest dated file, read live 2026-10-26
+            day = "2026-10-26" if nsrc else "2026-10-08" if tn else "2026-10-04" if five else "2026-10-02" if available else "2026-10-01" if new else "2026-09-30"
+            doc = {"arcgis": getattr(cfg, "layer_url", ""), "sc_flc_pdf": getattr(cfg, "document_url", ""),
+                   "csv": getattr(cfg, "document_url", ""), "pdf_table": getattr(cfg, "document_url", ""),
+                   # The page's newest dated file as of the last live read (the harvester follows the newest on every run).
+                   "latest_dated_document": (EX.PA_FAYETTE_LATEST_READ[1] if cfg is EX.PA_FAYETTE_REPOSITORY
+                                             else EX.SC_HORRY_LATEST_READ[1] if cfg is EX.SC_HORRY_TAX_SALE
+                                             else getattr(cfg, "document_url", "")),
+                   "epropertyplus": getattr(cfg, "portal", "") + "/landmgmtpub/remote/public/property/getPublishedProperties",
+                   # Each catalog's spreadsheet is /catalog/getCsv/id/<catalog id>; the id changes per sale, so
+                   # no single document URL exists. The template with an empty id is a dead link (audit B41) and
+                   # is never stored - the canonical (county catalog list) page is the source link.
+                   "tax_sale_info": ""}.get(src.kind, "")
+            access, fmt = {"arcgis": ("JSON_ENDPOINT", "JSON"), "epropertyplus": ("JSON_ENDPOINT", "JSON"),
+                           "tax_sale_info": ("HTTP_GET_HTML", "CSV"), "paged_table": ("HTTP_GET_HTML", "HTML_TABLE"), "sc_flc_pdf": ("HTTP_GET_PDF", "PDF"),
+                           "pdf_table": ("HTTP_GET_PDF", "PDF"), "csv": ("HTTP_GET_HTML", "CSV"),
+                           "latest_dated_document": ("HTTP_GET_HTML", "XLSX"),
+                           "xlsx_flc_lists": ("HTTP_GET_HTML", "XLSX")}.get(src.kind, ("HTTP_GET_HTML", "HTML_TABLE"))
+            unit_name = cfg.county if cfg.county.endswith(" City") else f"{cfg.county} County"
+            purchase = getattr(cfg, "purchase_url", None) or getattr(cfg, "application_url", None) or ""
+            pkind = getattr(cfg, "purchase_url_kind", None) or getattr(cfg, "application_kind", None)
+            rows.append(_row(
+                state=state, county=cfg.county, source_id=cfg.source_id, harvester=f"harvest_expansion.py --state {state}",
+                inventory_type=cfg.inventory_type.value if (available and cfg.inventory_type) else "",
+                source_authority=cfg.source_authority.value,
+                canonical_url=cfg.list_url, document_url=doc, purchase_url=purchase if available else "",
+                purchase_url_kind=pkind.value if (available and pkind) else "",
+                access_method=access, machine_format=fmt,
+                verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
+                last_checked=EX.PA_FAYETTE_LATEST_READ[0] if latest else day, completeness_status="UNKNOWN",
+                evidence_ref=((f"LIVE CAPTURE {day} ({'; '.join(runs)}): " if nsrc else f"LIVE CAPTURE {day} (GitHub Actions runs {', '.join(runs)}): ")
+                              + (f"{unit_name} - {cfg.source_id}; " if new else f"{ev['source_of_record_identified']}; ")
+                              + (f"LIVE READ {EX.PA_FAYETTE_LATEST_READ[0]} of the Repository Sale page: newest dated file "
+                                 f"{EX.PA_FAYETTE_LATEST_READ[1].rsplit('/', 1)[-1]} (XLSX, sheets Active + Completed; only Active read); "
+                                 if latest else "")
+                              + f"{decision}; docs/{'new-sources-2026-10-26' if nsrc else 'tennessee-survey' if tn else 'available-expansion-2026-10' if five else 'available-inventory' if available else 'five-state-enrichment' if new else 'six-state-expansion'}.md"),
+                notes=cfg.notes, publishing_unit="COUNTY", publishing_unit_name=unit_name,
+                amount_kind=cfg.amount_kind.value, update_frequency="not published by the source (read on each run)",
+                source_terminology=ev["inventory_semantics_established"] if not new else {
+                    "auction": "parcels on the county's published tax / tax-deed sale list (AUCTIONS)",
+                    "certificate": "county-held tax lien certificates (LIENS & CERTIFICATES)",
+                    "laft": "government-held property the source itself offers for acquisition (AVAILABLE)"}[cfg.record_source],
+                ledgers=ledger, publication_status=publication, restrictions=restrictions,
+            ))
+    return rows
+
+
+def ar_rows() -> list[dict]:
+    return [_row(**AR_COSL)]
+
+
+def la_rows() -> list[dict]:
+    return [_row(**LA_EBR)]
+
+
+# ---------------------------------------------------------------------------
+# AUCTIONS and LIENS & CERTIFICATES production sources (2026-09-30, three
+# ledgers). Until now the registry only knew the AVAILABLE ledger's sources;
+# the deed-auction and certificate harvesters kept their county lists in
+# their own CSVs (data/realauction_counties.csv,
+# data/florida_certificate_sale_platforms.csv, data/tx_realauction_counties.csv)
+# and the governance registry (harvesters/governance/registry.py) knew the
+# platforms. Same derivation rule as the LAFT rows: the harvesters' own
+# CSVs stay the operational truth, the registry rows are generated from
+# them, and a test pins the two equal. Every URL below is the exact form
+# the shipped harvester requests (read from the script, not invented):
+#   harvest_all_counties.ps1     https://<Host>/index.cfm?zaction=USER&zmethod=CALENDAR
+#   harvest_okaloosa_bid4assets.ps1  https://www.bid4assets.com/OkaloosaFLTax/listings
+#   harvest_lienhub_certificates.ps1 https://lienhub.com/county/<slug>/countyheld/certificates
+#   harvesters/texas_harvester.py (tx_realauction)  https://<Host>/index.cfm?zaction=USER&zmethod=CALENDAR
+# completeness_status is UNKNOWN for all of them here: these ledgers'
+# per-county freshness lives in their own status files
+# (harvest_all_status.json / harvest_certificates_status.json /
+# harvest_texas_status.json - harvesters/ledgers/domains.py) and the
+# registry patch (scripts/unit_freshness.py) is what rewrites it after a
+# run. No inventory_type: an auction row and a certificate row carry none.
+
+REALAUCTION_CALENDAR = "https://{host}/index.cfm?zaction=USER&zmethod=CALENDAR"
+
+
+def _lienhub_slug(county: str) -> str:
+    """harvest_lienhub_certificates.ps1 Get-Slug: lowercase, letters only."""
+    return "".join(ch for ch in county.lower() if "a" <= ch <= "z")
+
+
+def fl_auction_rows() -> list[dict]:
+    rows = []
+    common = dict(state="FL", inventory_type="", verification_status="PRODUCTION_VERIFIED",
+                  governance_status="APPROVED_GRANDFATHERED", last_checked="2026-09-30",
+                  completeness_status="UNKNOWN", ledgers=AUCTIONS, source_authority="VENDOR_AUCTION",
+                  publication_status="APPROVED_GRANDFATHERED")
+    # 2026-10-11 (source metadata completion): the publishing unit, what the
+    # published figure is, the read cadence and the source's own terminology
+    # were blank on every FL auction row. Tax deed sales are the Clerk's
+    # (data/state_rules.csv FL purchaser_costs / opening_bid, F.S. 197.502 /
+    # 197.542, VERIFIED 2026-10-05); the harvested figure is the sale's
+    # opening bid (the rule's own definition). Nothing about the vendor
+    # platform's own update cadence is published, so only the pipeline's read
+    # schedule is stated.
+    auction_meta = dict(
+        amount_kind="OPENING_BID",
+        update_frequency="not published by the source; the sale calendar is read twice daily by the deeds job (10:00 / 22:00 UTC)",
+        source_terminology="the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
+    )
+    for src in _read("realauction_counties.csv"):
+        rows.append(_row(**common, **auction_meta, county=src["County"], source_id="fl_realauction", harvester="harvest_all_counties.ps1",
+                         canonical_url=REALAUCTION_CALENDAR.format(host=src["Host"]),
+                         access_method="HTTP_GET_HTML", machine_format="HTML_TABLE",
+                         publishing_unit_name=f"{src['County']} County Clerk of the Circuit Court (RealAuction platform)",
+                         evidence_ref="data/realauction_counties.csv; harvesters/governance/registry.py fl_realauction",
+                         notes="RealAuction / RealForeclose / RealTaxDeed tax-deed sale calendar contracted by the Clerk; per-sale "
+                               "auction pages carry the case, bid, parcel and the county appraiser deep-link."))
+    rows.append(_row(**common, **auction_meta, county="Okaloosa", source_id="fl_bid4assets_okaloosa", harvester="harvest_okaloosa_bid4assets.ps1",
+                     canonical_url="https://www.bid4assets.com/OkaloosaFLTax/listings",
+                     access_method="HTTP_GET_HTML", machine_format="HTML_CARDS",
+                     publishing_unit_name="Okaloosa County Clerk of the Circuit Court (Bid4Assets platform)",
+                     evidence_ref="scripts/harvest_okaloosa_bid4assets.ps1",
+                     notes="Bid4Assets tax-deed listings for Okaloosa County (the only FL county on this platform, per the "
+                           "script's own header); per-auction detail pages read one at a time."))
+    return rows
+
+
+def fl_certificate_rows() -> list[dict]:
+    rows = []
+    for src in _read("florida_certificate_sale_platforms.csv"):
+        if src["Platform"] != "LienHub":
+            continue
+        rows.append(_row(state="FL", county=src["County"], source_id="fl_lienhub_certificates",
+                         harvester="harvest_lienhub_certificates.ps1", inventory_type="", source_authority="VENDOR_AUCTION",
+                         canonical_url=f"https://lienhub.com/county/{_lienhub_slug(src['County'])}/countyheld/certificates",
+                         access_method="JSON_ENDPOINT", machine_format="JSON",
+                         verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED_GRANDFATHERED",
+                         last_checked="2026-09-30", completeness_status="UNKNOWN", publication_status="APPROVED_GRANDFATHERED",
+                         evidence_ref="data/florida_certificate_sale_platforms.csv; harvesters/governance/registry.py fl_lienhub_certificates",
+                         notes="LienHub county-held tax certificates (the certificate itself, never the parcel): DataTables JSON "
+                               "endpoint behind the county-held certificates page; certificate number, account, purchase "
+                               "amount, expiration, interest rate.",
+                         # 2026-10-11: county-held certificates are the Tax Collector's
+                         # (the page is the county's 'countyheld' list on the vendor
+                         # platform); LienHub labels the figure 'purchase amount' and
+                         # says nothing about its composition, so its kind is
+                         # unspecified rather than guessed. The source has answered
+                         # HTTP 403 to the runner for all 32 counties on every
+                         # certificates run since 2026-10-01 (CLAUDE.md, data-quality
+                         # fixes; no certificate row has a last_seen_at stamp) - a
+                         # source-availability fact the coverage report must carry.
+                         publishing_unit_name=f"{src['County']} County Tax Collector (LienHub platform)",
+                         amount_kind="PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+                         update_frequency="not published by the source; the county-held list is read daily by the certificates job (12:00 UTC)",
+                         source_terminology="LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
+                         restrictions="SOURCE_UNAVAILABLE since 2026-10-01: lienhub.com returns HTTP 403 to the GitHub runner for all 32 counties "
+                                      "on every scheduled read (no certificate row has been re-read or stamped since); not a usage restriction - "
+                                      "an access failure awaiting the owner's decision (contact the platform or change the read path)",
+                         ledgers=LIENS))
+    # 2026-10-26: the Sarasota Tax Collector publishes its county-held list on its
+    # own site (docs/review/fl-certificate-sources-2026-10-26.md). Collected and
+    # published on the owner's decision of 2026-10-26 ("stop asking for approval");
+    # the permission records are an interim internal risk acceptance, never the
+    # Tax Collector's permission (data/source_permissions.csv).
+    rows.append(_row(state="FL", county="Sarasota", source_id="fl_sarasota_tc_certificates",
+                     harvester="harvest_sarasota_certificates.py", inventory_type="", source_authority="GOVERNMENT_DIRECT",
+                     canonical_url="https://www.sarasotataxcollector.gov/services/tax-services/property-tax/tax-cert-sale",
+                     document_url="https://www.sarasotataxcollector.gov/files/docs/CountyHeldCertificates.pdf",
+                     access_method="HTTP_GET_PDF", machine_format="PDF",
+                     verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
+                     last_checked="2026-10-26", completeness_status="UNKNOWN", publication_status="APPROVED",
+                     evidence_ref="docs/review/fl-certificate-sources-2026-10-26.md; scripts/harvest_sarasota_certificates.py; "
+                                  "data/source_permissions.csv fl_sarasota_tc_certificates (owner decision 2026-10-26, interim)",
+                     notes="The Tax Collector's own 'County-Held Certificates for Purchase' PDF (one row per certificate: "
+                           "account, certificate year and number, tax year, assessed value, face amount, interest, purchase "
+                           "price). Live runner read 2026-10-26: 232 certificates on 94 accounts. Published on the owner's "
+                           "decision of 2026-10-26; the permission records are interim (expire 2027-04-12).",
+                     publishing_unit_name="Sarasota County Tax Collector",
+                     amount_kind="PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+                     update_frequency="not published by the source; read daily by the certificates job (12:00 UTC)",
+                     source_terminology="'County-Held Certificates for Purchase': certificate number, tax year, 'purchase price', "
+                                        "interest (LIENS & CERTIFICATES)",
+                     restrictions="Approved for publication by the owner on 2026-10-26 (\"stop asking for approval\"); the "
+                                  "permission records are an interim internal risk acceptance expiring 2027-04-12, not the "
+                                  "Tax Collector's permission; excluded from the paid tier",
+                     ledgers=LIENS))
+    return rows
+
+
+def tx_auction_rows() -> list[dict]:
+    rows = []
+    for src in _read("tx_realauction_counties.csv"):
+        rows.append(_row(state="TX", county=src["County"], source_id="tx_realauction", harvester="harvesters/texas_harvester.py",
+                         inventory_type="", source_authority="VENDOR_AUCTION",
+                         canonical_url=REALAUCTION_CALENDAR.format(host=src["Host"]),
+                         access_method="HTTP_GET_HTML", machine_format="HTML_TABLE",
+                         verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
+                         last_checked="2026-09-30", completeness_status="UNKNOWN", publication_status="APPROVED_GRANDFATHERED",
+                         evidence_ref="data/tx_realauction_counties.csv; harvesters/governance/registry.py tx_realauction",
+                         notes="RealAuction sheriff-sale / tax-sale calendar (sheriffsaleauctions.com or realforeclose.com) "
+                               "for the county's tax foreclosure sales; AUCTIONS only - Texas has no certificate ledger.",
+                         # 2026-10-11: the sale authority (sheriff / constable / the
+                         # taxing units' counsel) is not verified per county (TX
+                         # AUCTIONS eligibility is COUNTY_DEPENDENT), so only the
+                         # county is named. The calendar's figure is an opening /
+                         # minimum bid of unverified definition.
+                         publishing_unit_name=f"{src['County']} County (RealAuction platform; sale authority not verified per county)",
+                         amount_kind="PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+                         update_frequency="not published by the source; read only when the texas job is dispatched by hand (never on cron)",
+                         source_terminology="RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
+                         ledgers=AUCTIONS))
+    return rows
+
+
+# Arizona (2026-09-30): ONE county-level LIENS & CERTIFICATES candidate - the
+# Maricopa County Treasurer's "State CP" list (certificates of purchase held
+# by the State, sold by assignment), configured in
+# harvesters/otc/adapters/arizona.py from search-index evidence. Same
+# standing as AL/AR/LA: SEARCH_EVIDENCE_ONLY / TERMS_NOT_VERIFIED, no
+# harvester, never runnable (state not activated). It is the first
+# non-AVAILABLE candidate; its inventory_type is blank because a lien is not
+# purchasable land.
+from harvesters.otc.adapters.arizona import MARICOPA_SOURCE  # noqa: E402
+
+AZ_MARICOPA_CP = dict(
+    state="AZ", county=MARICOPA_SOURCE.county, source_id=MARICOPA_SOURCE.source_id, harvester="",
+    inventory_type="", source_authority="GOVERNMENT_DIRECT",
+    canonical_url=MARICOPA_SOURCE.list_url, document_url=MARICOPA_SOURCE.document_url,
+    purchase_url=MARICOPA_SOURCE.application_url, purchase_url_kind=MARICOPA_SOURCE.application_url_kind.value,
+    access_method="HTTP_GET_HTML", machine_format="CSV",
+    verification_status="SEARCH_EVIDENCE_ONLY", governance_status="TERMS_NOT_VERIFIED",
+    last_checked="2026-09-30", completeness_status="UNKNOWN",
+    evidence_ref="WEB SEARCH 2026-09-30 (treasurer.maricopa.gov page titles, URLs, snippets - harvesters/otc/adapters/arizona.py MARICOPA_EVIDENCE); " + AUDIT,
+    notes="Maricopa County Treasurer 'Current State CP Listing': tax-lien certificates of purchase struck to the State, sold by "
+          "assignment (Assignments Purchase Form; by mail from 2026-03-02 per the index). canonical_url = the download page; "
+          "document_url = its CSV; purchase_url = the Treasurer's Tax Assignment page (instructions, never a per-lien link). "
+          "The CSV's columns, the CP number and parcel formats and what the amount column is have NOT been read. Nothing "
+          "fetched from this repository; search-index evidence only; not activated. Arizona's tax-deeded land (an AVAILABLE "
+          "source) is not represented - nothing located.",
+    publishing_unit="COUNTY", publishing_unit_name="Maricopa County Treasurer",
+    amount_kind=MARICOPA_SOURCE.amount_kind.value,
+    update_frequency="not established",
+    source_terminology=MARICOPA_SOURCE.source_terminology + " (search-index wording)",
+    ledgers=LIENS, publication_status="UNREVIEWED",
+)
+
+
+def az_rows() -> list[dict]:
+    return [_row(**AZ_MARICOPA_CP)]
+
+
+def build_rows() -> list[dict]:
+    rows = (fl_production_rows() + fl_candidate_rows() + fl_auction_rows() + fl_certificate_rows()
+            + tx_rows() + tx_auction_rows() + al_rows() + ar_rows() + la_rows() + az_rows() + expansion_rows())
+    rows.sort(key=lambda r: (r["state"], r["county"], r["source_id"]))
+    return rows
+
+
+def render(rows: list[dict]) -> str:
+    import io
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=COLUMNS, lineterminator="\n")
+    w.writeheader()
+    w.writerows(rows)
+    return buf.getvalue()
+
+
+def main() -> int:
+    OUT.write_text(render(build_rows()), encoding="utf-8")
+    print(f"wrote {OUT} ({len(build_rows())} rows)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

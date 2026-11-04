@@ -1,0 +1,21 @@
+{
+  "_comment": "Shared vectors for scripts/unit_freshness.customer_health() and app.js sourceHealthState(); both are evaluated at `now`.",
+  "now": "2026-10-05T12:00:00Z",
+  "cases": [
+    {"name": "no unit", "unit": null, "review": false, "state": "NOT_RECORDED", "checked_zero": false},
+    {"name": "no unit, review", "unit": null, "review": true, "state": "NEEDS_REVIEW", "checked_zero": false},
+    {"name": "current", "unit": {"source_id": "fl_laft_pdfs", "last_attempt_status": "COMPLETE", "last_success_at": "2026-10-05T02:00:00Z", "last_success_row_count": 12}, "review": false, "state": "CURRENT", "checked_zero": false},
+    {"name": "checked zero", "unit": {"source_id": "fl_laft_pdfs", "last_attempt_status": "EMPTY", "last_success_at": "2026-10-05T02:00:00Z", "last_success_row_count": 0}, "review": false, "state": "CURRENT", "checked_zero": true},
+    {"name": "complete with zero rows", "unit": {"source_id": "fl_laft_html", "last_attempt_status": "COMPLETE", "last_success_at": "2026-10-04T20:00:00Z", "last_success_row_count": 0}, "review": false, "state": "CURRENT", "checked_zero": true},
+    {"name": "recent", "unit": {"source_id": "fl_laft_pdfs", "last_attempt_status": "COMPLETE", "last_success_at": "2026-10-02T12:00:00Z", "last_success_row_count": 4}, "review": false, "state": "RECENT", "checked_zero": false},
+    {"name": "stale", "unit": {"source_id": "fl_laft_pdfs", "last_attempt_status": "COMPLETE", "last_success_at": "2026-09-20T12:00:00Z", "last_success_row_count": 4}, "review": false, "state": "STALE", "checked_zero": false},
+    {"name": "never read", "unit": {"source_id": "fl_laft_pdfs", "last_attempt_status": "FAILED", "last_error_category": "PARSE_FORMAT_CHANGE", "last_success_at": null}, "review": false, "state": "STALE", "checked_zero": false},
+    {"name": "unavailable (transport)", "unit": {"source_id": "fl_laft_html", "last_attempt_status": "FAILED", "last_error_category": "TRANSPORT_TIMEOUT", "last_success_at": "2026-10-05T02:00:00Z", "last_success_row_count": 9}, "review": false, "state": "SOURCE_UNAVAILABLE", "checked_zero": false},
+    {"name": "unavailable (reader-side)", "unit": {"source_id": "fl_lienhub_certificates", "last_attempt_status": "SOURCE_UNAVAILABLE", "last_success_at": null}, "review": false, "state": "SOURCE_UNAVAILABLE", "checked_zero": false},
+    {"name": "partial", "unit": {"source_id": "fl_laft_realtdm", "last_attempt_status": "INCOMPLETE", "last_success_at": "2026-10-05T02:00:00Z", "last_success_row_count": 3}, "review": false, "state": "PARTIAL", "checked_zero": false},
+    {"name": "review beats freshness", "unit": {"source_id": "mi_oceana_landbank", "last_attempt_status": "COMPLETE", "last_success_at": "2026-10-05T02:00:00Z", "last_success_row_count": 7}, "review": true, "state": "NEEDS_REVIEW", "checked_zero": false},
+    {"name": "unavailable beats review", "unit": {"source_id": "mi_oceana_landbank", "last_attempt_status": "FAILED", "last_error_category": "ACCESS_FORBIDDEN", "last_success_at": "2026-10-05T02:00:00Z"}, "review": true, "state": "SOURCE_UNAVAILABLE", "checked_zero": false},
+    {"name": "manual only", "unit": {"source_id": "tx_lgbs", "last_attempt_status": "COMPLETE", "last_success_at": "2026-09-01T12:00:00Z", "last_success_row_count": 80}, "review": false, "state": "MANUAL", "checked_zero": false},
+    {"name": "nothing recorded", "unit": {"source_id": "fl_laft_pdfs", "last_attempt_status": null, "last_success_at": null}, "review": false, "state": "NOT_RECORDED", "checked_zero": false}
+  ]
+}

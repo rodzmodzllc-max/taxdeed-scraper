@@ -149,7 +149,11 @@ def test_B_no_new_read_path_bypass_was_introduced_around_get_properties():
     get_properties()/select("*") - Phase 14A must not have accidentally
     added a second, parallel read path this phase's audit didn't cover."""
     app_js = _read("public", "app.js")
-    assert app_js.count('sb.rpc("get_properties"') == 1
+    # 2026-10-05: one property-list call site, through LIST_RPC (get_properties_list,
+    # falling back to get_properties), plus the one id-scoped detail read.
+    assert app_js.count('sb.rpc(LIST_RPC') == 1
+    assert app_js.count('sb.rpc("get_properties"') == 0
+    assert app_js.count('sb.rpc("get_property_provenance", { p_id: p.id })') == 1
     # Count only non-comment lines - the fallback pattern is also named once
     # in a `//` comment (fetchProperties()'s own explanatory header, which
     # quotes the old pattern by name to explain why the RPC replaced it),
@@ -196,11 +200,18 @@ def test_D_florida_assessed_writers_are_unchanged():
     fl_cert_sync = _read("scripts", "sync-certificates-to-supabase.ps1")
     # Fill-blank-only enrichment path, unchanged since Phase 13.
     assert '_num(row.get("assessed")) is None' in fl_enrich
-    # The two FL sync scripts still forward whatever the harvester itself
-    # scraped, unconditionally (not fill-blank at the sync layer - only
-    # enrich_property_details.py is fill-blank).
+    # The two FL sync scripts still build `assessed` from what the harvester
+    # itself scraped...
     assert "assessed      = $p.assessed" in fl_deed_sync
     assert "assessed = ToNum $p.assessed" in fl_cert_sync
+    # ...but, deliberately changed 2026-10-26, no longer forward it
+    # unconditionally: a blank listing cell used to erase the FDOR tax-roll
+    # value (146 active FL auction rows). The stored-value guard
+    # (scripts/sync_value_guard.py, tests/python/test_fl_field_fixes.py) puts
+    # the stored value back for a blank, and for a value of a higher-ranked
+    # field_provenance source, before the upsert.
+    assert '$rows = @(Protect-StoredValues "auction" $rows)' in fl_deed_sync
+    assert '$rows = @(Protect-StoredValues "certificate" $rows)' in fl_cert_sync
 
 
 def test_D_non_texas_rows_still_get_the_original_generic_label():
@@ -210,7 +221,11 @@ def test_D_non_texas_rows_still_get_the_original_generic_label():
     fn_body = app_js[fn_start:fn_end]
     # First branch (FL/any non-TX state) must return the pre-existing
     # label text, unchanged - this phase corrects the TX case, not FL's.
-    assert fn_body.splitlines()[1].strip() == 'if (regionOf(p) !== "TX") return "County Assessed Value";'
+    # (Six-state expansion: a state whose source names its assessed figure -
+    # STATE_META.assessedLabel, e.g. Michigan's SEV - is checked first; Florida
+    # carries no such label, so it still reaches this line unchanged.)
+    assert 'if (regionOf(p) !== "TX") return "County Assessed Value";' in [l.strip() for l in fn_body.splitlines()]
+    assert "assessedLabel" not in app_js[app_js.index("const STATE_META = {"):app_js.index("const STATE_META = {") + 400].split("FL:")[1].split("\n")[0]
 
 
 # ==================== E: Texas valuation regression ====================
@@ -289,13 +304,20 @@ def test_G_two_parcels_sharing_one_cause_number_are_not_treated_as_duplicate_pro
 # ==================== H: freshness contract ====================
 
 
-def test_H_texas_job_remains_manual_only_this_phase_did_not_schedule_it():
+def test_H_texas_job_runs_daily_in_the_0737_run_and_on_dispatch():
+    # Daily since 2026-10-26 (owner approval). Was manual dispatch only.
     workflow = _read(".github", "workflows", "harvest-and-sync.yml")
     texas_block_start = workflow.index("\n  texas:")
     next_job_start = workflow.index("\n  backup:", texas_block_start)
     texas_block = workflow[texas_block_start:next_job_start]
     if_line = next(line for line in texas_block.splitlines() if line.strip().startswith("if:"))
-    assert if_line.strip() == "if: github.event_name == 'workflow_dispatch'"
+    # Audit B25 (2026-10-29): wrapped by the schedule guard.
+    assert if_line.strip() == (
+        "if: ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || "
+        "github.event.inputs.job == 'texas' || github.event.inputs.job == '')) || "
+        "github.event.schedule == '37 11 * * *') && !contains(needs.schedule_guard.outputs.covered, 'texas') }}"
+    )
+    assert "cron: '37 11 * * *'" in workflow
 
 
 def test_H_texas_harvest_main_now_isolates_one_vendors_unexpected_failure_from_the_other():
@@ -336,15 +358,18 @@ def test_I_source_statuses_unchanged_this_phase():
     assert SOURCE_REGISTRY["tx_lgbs"].legal_status == SourceStatus.APPROVED
     assert SOURCE_REGISTRY["tx_realauction"].legal_status == SourceStatus.APPROVED
     assert SOURCE_REGISTRY["tx_hctax"].legal_status == SourceStatus.LEGAL_REVIEW_REQUIRED
-    for blocked in ("tx_pbfcm", "tx_govease", "tx_mvba", "tx_ctsa"):
+    for blocked in ("tx_ctsa",):  # tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner on 2026-10-26; tx_ctsa stays BLOCKED
         assert SOURCE_REGISTRY[blocked].legal_status == SourceStatus.BLOCKED
+    for vendor in ("tx_pbfcm", "tx_govease", "tx_mvba"):
+        assert SOURCE_REGISTRY[vendor].legal_status == SourceStatus.APPROVED
 
 
 def test_I_gate_decisions_unchanged_for_every_registered_source():
     assert check_ingestion_gate("tx_lgbs").allowed is True
     assert check_ingestion_gate("tx_realauction").allowed is True
     assert check_ingestion_gate("tx_hctax").allowed is False
-    assert check_ingestion_gate("tx_pbfcm").allowed is False
+    assert check_ingestion_gate("tx_ctsa").allowed is False
+    assert check_ingestion_gate("tx_pbfcm").allowed is True  # tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner on 2026-10-26; tx_ctsa stays BLOCKED
     assert check_ingestion_gate("unknown_source_xyz").allowed is False
 
 
@@ -352,10 +377,12 @@ def test_I_gate_decisions_unchanged_for_every_registered_source():
 
 
 def test_J_florida_ps1_pipeline_still_has_zero_governance_coupling():
-    ps1_dir = REPO_ROOT / "scripts"
-    for ps1_file in ps1_dir.glob("*.ps1"):
-        text = ps1_file.read_text(errors="ignore")
-        assert "governance" not in text.lower(), f"{ps1_file.name} now references governance - Florida must stay decoupled"
+    # 2026-10-12: the gap this assertion documented is closed - the Florida
+    # PowerShell pipeline now consults governance through the source-permission
+    # guard. Pinned instead: governance appears ONLY inside that guard, which
+    # runs first (tests/python/ps1_permission_guard.py).
+    from ps1_permission_guard import assert_ps1_governance_only_through_guard
+    assert_ps1_governance_only_through_guard()
 
 
 def test_J_the_new_label_helper_never_special_cases_florida_by_county_name_only_by_state():

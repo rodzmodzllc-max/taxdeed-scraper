@@ -2,15 +2,77 @@
 // so the filters-panel wiring can be exercised in a real browser without a
 // live Supabase project. Not shipped - test harness only.
 
+// Phase 72: the RealAuction sale-event page for a county host and ISO sale
+// date - the exact template harvest_all_counties.ps1 (FL) stores and
+// harvest_realauction() (TX) fetches: AuctionDate is MM/DD/YYYY.
+const txSaleUrl = (host, iso) => `https://${host}/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=${iso.slice(5, 7)}/${iso.slice(8, 10)}/${iso.slice(0, 4)}`;
+
 const FIXTURE_PROPERTIES = [
   // harvester_source added Phase 35 (regression coverage for the new
   // "Data source" provenance line) - a plausible FL harvester id, chosen
   // freely since assessedSourceLabel() only branches on harvester_source
   // for TX rows; on FL it's ignored entirely, so this can't affect any
   // pre-existing FL assertion.
-  { id: "p1", source: "auction", county: "Alachua", case_no: "A-1", parcel: "111", address: "1 Main St", owner_name: "Jane Doe", bid: 5000, assessed: 80000, market: 90000, value_year: 2025, year_built: 1958, living_area: 1840, lot_sqft: 16456, num_buildings: 1, land_value: 22000, last_sale_price: 41500, last_sale_year: 2011, legal_desc: "BEG 418 FT S AND 110 FT W OF INTER OF E AND W HALF SEC LI AND L AND N RR W 100 FT N 50 FT E 100 FT S 50 FT TO POB", status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(3), homestead: false, harvester_source: "fl_realauction_alachua", url_streetview: "https://x", url_appraiser: "https://x", url_zillow: "https://x", url_taxcoll: "https://x", url_auction: "https://x", url_title: "https://x", updated_at: "2026-08-10T00:00:00Z" },
-  { id: "p2", source: "auction", county: "Baker", case_no: "B-1", parcel: "222", address: "", owner_name: null, bid: 15000, assessed: 40000, market: 42000, status: "dropped", lien_level: "serious", lien_note: "lien", prop_type: "Vacant Lot", sale_date: futureDate(30), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z", gone_since: "2026-08-01T00:00:00Z" },
-  { id: "p3", source: "laft", county: "Bay", case_no: "C-1", parcel: "333", address: "3 Oak Ave", owner_name: "Bob", bid: 2000, assessed: 60000, market: 61000, value_year: 2024, land_value: 61000, lot_sqft: 43560, last_sale_price: 100, last_sale_year: 2007, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Condo", sale_date: null, homestead: true, url_auction: "https://x", updated_at: "2026-08-11T00:00:00Z" },
+  // Phase 72: url_auction_kind (migration 013) on every row that has a
+  // url_auction, matching what the real writers store: FL deed rows carry
+  // the RealAuction sale-date page ('sale'), LAFT rows the county list
+  // ('county'), certificates LienHub's county-held list ('county'). p7/p8
+  // exercise the two remaining kinds; p9 keeps a URL with NO kind (a row
+  // written before migration 013) so the neutral fallback label is covered.
+  { id: "p1", source: "auction", county: "Alachua", case_no: "A-1", parcel: "111", address: "1 Main St", owner_name: "Jane Doe", bid: 5000, assessed: 80000, market: 90000, value_year: 2025, year_built: 1958, living_area: 1840, lot_sqft: 16456, num_buildings: 1, land_value: 22000, last_sale_price: 41500, last_sale_year: 2011, legal_desc: "BEG 418 FT S AND 110 FT W OF INTER OF E AND W HALF SEC LI AND L AND N RR W 100 FT N 50 FT E 100 FT S 50 FT TO POB", status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(3), homestead: false, harvester_source: "fl_realauction_alachua", url_streetview: "https://x", url_appraiser: "https://x", url_zillow: "https://x", url_taxcoll: "https://x", url_auction: txSaleUrl("alachua.realtaxdeed.com", futureDate(3)), url_auction_kind: "sale", url_title: "https://x", updated_at: "2026-08-10T00:00:00Z" },
+  { id: "p2", source: "auction", county: "Baker", case_no: "B-1", parcel: "222", address: "", owner_name: null, bid: 15000, assessed: 40000, market: 42000, status: "dropped", lien_level: "serious", lien_note: "lien", prop_type: "Vacant Lot", sale_date: futureDate(30), homestead: false, url_auction: "https://x", url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z", gone_since: "2026-08-01T00:00:00Z" },
+  // p3 also carries migration 017's OTC columns as the FL LAFT lifecycle
+  // writes them (inventory_type, source_authority/source_id, list_url,
+  // purchase_amount + purchase_amount_kind, last_seen_at).
+  { id: "p3", source: "laft", county: "Bay", case_no: "C-1", parcel: "333", address: "3 Oak Ave", owner_name: "Bob", bid: 2000, assessed: 60000, market: 61000, value_year: 2024, land_value: 61000, lot_sqft: 43560, last_sale_price: 100, last_sale_year: 2007, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Condo", sale_date: null, homestead: true, url_auction: "https://x", url_auction_kind: "county", updated_at: "2026-08-11T00:00:00Z",
+    inventory_type: "POST_SALE_FIXED_PRICE", source_authority: "GOVERNMENT_PLATFORM", source_id: "fl_laft_pioneer", list_url: "https://x", purchase_amount: 2000, purchase_amount_kind: "OPENING_BID", last_seen_at: "2026-08-11T00:00:00Z",
+    // AVAILABLE commercialization (2026-09-30): the source's publication
+    // decision (migration 022) and an FDOR acreage, so the Available filters
+    // and the withholding path have real fields to read.
+    publication_status: "APPROVED_GRANDFATHERED", acreage: 1.0,
+    // Migration 023 projects the purchase-path columns as NULL on a row the
+    // engine has not evaluated - the "not yet verified" state the decision
+    // page and the provenance card must render honestly (p15 is the typed one).
+    // Acquisition-path sprint (2026-10-01): p3 carries a verified county-level
+    // phone/e-mail process from a FIXTURE evidence page (the "complete" HOW TO
+    // ACQUIRE state). The acquisition path is enrichment: the not-yet-verified
+    // state is ptx6 (Liberty TX), which stays published.
+    purchase_path_type: "phone_mail", purchase_path_scope: "source", purchase_path_observed_on: "2026-09-30",
+    purchase_path_evidence: "Clerk's Lands Available page: call or e-mail the Tax Deed department for the current amount (fixture)",
+    otc_provenance: { harvester: "fl_laft_pioneer", source_id: "fl_laft_pioneer", list_url: "https://x", retrieved_at: "2026-08-11T06:00:00Z", purchase_path_mode: "phone_mail",
+      purchase_amount: "source column/field: OPENING_BID", list_as_of: "stated by the list document/filename",
+      purchase_url: "phone_mail (source-scope): Clerk's Lands Available page (fixture)",
+      status_terminology: "active = on the county list this run; closed = absent from a COMPLETE/EMPTY harvest",
+      inventory_type: "harvester constant (F.S. 197.502(7) Lands Available list)",
+      purchase_evidence_url: "https://www.bayclerk.example.gov/tax-deeds/lands-available", purchase_evidence_type: "county_page",
+      purchase_evidence_title: "Lands Available for Taxes (fixture)", purchase_path_observed_on: "2026-09-30",
+      source_match: { identifier: "case_no", value: "C-1", parcel: "333", source: "https://x/list.pdf", read_at: "2026-08-11T06:00:00Z",
+                      basis: "row read from the source list / document by the harvester; identity as the sync upserts it" },
+      acquisition: { mode: "phone", channels: ["email", "phone"], phone: "(850) 555-0100", email: "taxdeeds@bayclerk.example.gov",
+                     office: "Clerk of Court - Tax Deed Department (fixture)", observed_on: "2026-09-30",
+                     evidence_url: "https://www.bayclerk.example.gov/tax-deeds/lands-available",
+                     steps: ["Call or e-mail the Tax Deed Department for the current purchase amount", "Pay the quoted amount at the Clerk's office"] } },
+    // Enrichment phase: the list-published fields scripts/laft_source_fields.py
+    // carries (certificate number, migration 019's two dates) plus the
+    // document/currentness columns the lifecycle writes. purchase_url stays
+    // absent on purpose - no Florida county has a verified purchase link.
+    document_url: "https://x/list.pdf", certificate_no: "2019-0042", escheatment_date: "2029-07-01", available_date: "2026-06-15",
+    list_as_of: "2026-08-10", source_published_at: "2026-08-10T14:03:00Z",
+    // Production-readiness (migration 021): the normalized status the
+    // inventory-status writer sets from list presence, plus the per-field
+    // (009) and per-row (017) provenance the RPC now projects.
+    inventory_status: "available_otc", inventory_status_raw: null,
+    inventory_status_basis: "LIST_PRESENCE: on the county's Lands Available list at the last read (F.S. 197.502(7))",
+    inventory_status_observed_at: "2026-08-11T06:00:00Z",
+    field_provenance: {
+      legal_desc: { source: "county_list", source_id: "fl_laft_pioneer", recorded_at: "2026-08-11T06:00:00Z", list_as_of: "2026-08-10" },
+      assessed: { source: "fdor_nal", recorded_at: "2026-08-12T10:00:00Z", matched_field: "PARCEL_ID" },
+      acreage: { source: "fdor_nal", recorded_at: "2026-08-12T10:00:00Z", matched_field: "ALT_KEY" }
+    },
+    // Phase 66: photo_url '' is the pipeline's "checked, no Street View
+    // coverage" sentinel (see CLAUDE.md "Property photos") - distinct from
+    // NULL/absent (not checked yet), which every other row here has.
+    photo_url: "" },
   // interest_rate was null here originally; set to a real figure so the
   // yield-desk math (accruedInterestEst/tdaEligibleText) has something to
   // compute against instead of only exercising its N/A branch. issued_date
@@ -18,20 +80,82 @@ const FIXTURE_PROPERTIES = [
   // because the TDA-eligibility assertion depends on it landing more than
   // CERT_TDA_WAIT_YEARS (2) in the past - true today and for the life of
   // this fixture, unlike a rolling offset.
-  { id: "p4", source: "certificate", county: "Alachua", case_no: "ACC-999", certificate_no: "CERT-42", tax_year: "2022", bid: 1234.56, interest_rate: 18, issued_date: "2023-06-01", expiration_date: futureDate(20), url_auction: "https://lienhub.com/county/alachua/countyheld/certificates", updated_at: "2026-08-12T00:00:00Z" },
-  { id: "p5", source: "auction", county: "Charlotte", case_no: "D-1", parcel: "444", address: "500 Elm Way", owner_name: "Sam Lee", bid: 8000, assessed: 70000, market: 95000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(5), homestead: false, url_streetview: "https://x", url_appraiser: "https://x", url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
-  { id: "p6", source: "auction", county: "Duval", case_no: "E-1", parcel: "555", address: "77 Pine Ct", owner_name: "Pat Kim", bid: 12000, assessed: 130000, market: 140000, status: "active", lien_level: "flag", lien_note: "code lien", prop_type: "Commercial", sale_date: futureDate(7), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
-  { id: "p7", source: "auction", county: "Duval", case_no: "F-1", parcel: "666", address: "12 Searchable Blvd", owner_name: "Ana Ruiz", bid: 3000, assessed: 20000, market: 21000, status: "active", lien_level: "clean", lien_note: "", prop_type: "Vacant Lot", sale_date: futureDate(9), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
-  { id: "p8", source: "auction", county: "Escambia", case_no: "G-1", parcel: "777", address: "9 Bayview Dr", owner_name: "Lee Chan", bid: 6000, assessed: 55000, market: 60000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(11), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
+  // Three ledgers (2026-09-30): p4 carries parcel "111" - the same parcel as
+  // auction row p1 - so the shared-property linkage ("same parcel in other
+  // ledgers") has one real pair to render in both directions.
+  { id: "p4", source: "certificate", county: "Alachua", case_no: "ACC-999", certificate_no: "CERT-42", tax_year: "2022", parcel: "111", bid: 1234.56, interest_rate: 18, issued_date: "2023-06-01", expiration_date: futureDate(20), url_auction: "https://lienhub.com/county/alachua/countyheld/certificates", url_auction_kind: "county", updated_at: "2026-08-12T00:00:00Z" },
+  // Phase 67: p5 and p12 carry real-shaped coordinates (inside Charlotte and
+  // Brevard respectively) so the map's pin/selection/imagery paths can be
+  // exercised - every other row stays un-geocoded, which is the honest
+  // production picture (~2% coverage).
+  { id: "p5", source: "auction", county: "Charlotte", case_no: "D-1", parcel: "444", address: "500 Elm Way", owner_name: "Sam Lee", bid: 8000, assessed: 70000, market: 95000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(5), homestead: false, url_streetview: "https://x", url_appraiser: "https://x", url_auction: txSaleUrl("charlotte.realforeclose.com", futureDate(5)), url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z", latitude: 26.9342, longitude: -82.0454 },
+  { id: "p6", source: "auction", county: "Duval", case_no: "E-1", parcel: "555", address: "77 Pine Ct", owner_name: "Pat Kim", bid: 12000, assessed: 130000, market: 140000, status: "active", lien_level: "flag", lien_note: "code lien", prop_type: "Commercial", sale_date: futureDate(7), homestead: false, url_auction: "https://x", url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z",
+    // Phase 66: the one fixture row WITH a photo. A same-origin data: URI
+    // (CSP allows data: in img-src) drawn as a plainly-labelled grey
+    // placard, so the photo layout can be exercised and screenshotted
+    // without a real Street View image - it is not a real property photo
+    // and is labelled as such in the image itself.
+    // Every stored image in production is USDA NAIP aerial imagery
+    // (photo_source usda_naip), so the fixture mirrors that source - the
+    // card must caption it as aerial imagery, never as Street View.
+    photo_source: "usda_naip",
+    photo_url: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400'><rect width='100%' height='100%' fill='%2394a3b8'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='30' fill='%23ffffff'>FIXTURE PHOTO</text></svg>" },
+  { id: "p7", source: "auction", county: "Duval", case_no: "F-1", parcel: "666", address: "12 Searchable Blvd", owner_name: "Ana Ruiz", bid: 3000, assessed: 20000, market: 21000, status: "active", lien_level: "clean", lien_note: "", prop_type: "Vacant Lot", sale_date: futureDate(9), homestead: false, url_auction: "https://notices.collierclerk.com/notice/notice-of-application-for-tax-deed-26004/", url_auction_kind: "property", updated_at: "2026-08-10T00:00:00Z" },
+  { id: "p8", source: "auction", county: "Escambia", case_no: "G-1", parcel: "777", address: "9 Bayview Dr", owner_name: "Lee Chan", bid: 6000, assessed: 55000, market: 60000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(11), homestead: false, url_auction: "https://www.escambiaclerk.com/tax-deed-sales", url_auction_kind: "info", updated_at: "2026-08-10T00:00:00Z" },
   { id: "p9", source: "auction", county: "Escambia", case_no: "H-1", parcel: "888", address: "21 Harbor Ln", owner_name: "Nia Frost", bid: 4500, assessed: 48000, market: 52000, status: "active", lien_level: "clean", lien_note: "", prop_type: "Condo", sale_date: futureDate(13), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
-  { id: "p10", source: "auction", county: "Marion", case_no: "I-1", parcel: "999", address: "3 Ridge Rd", owner_name: "Omar Diaz", bid: 7000, assessed: 65000, market: 72000, status: "active", lien_level: "unscreened", lien_note: "", prop_type: "House", sale_date: futureDate(15), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
-  { id: "p11", source: "auction", county: "Marion", case_no: "J-1", parcel: "1010", address: "88 Cedar Ct", owner_name: "Priya Shah", bid: 9000, assessed: 85000, market: 91000, status: "active", lien_level: "clean", lien_note: "", prop_type: "Vacant Lot", sale_date: futureDate(17), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
-  { id: "p12", source: "auction", county: "Brevard", case_no: "K-1", parcel: "1111", address: "42 Palm Ave", owner_name: "Kim Ng", bid: 11000, assessed: 100000, market: 118000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(2), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
+  { id: "p10", source: "auction", county: "Marion", case_no: "I-1", parcel: "999", address: "3 Ridge Rd", owner_name: "Omar Diaz", bid: 7000, assessed: 65000, market: 72000, status: "active", lien_level: "unscreened", lien_note: "", prop_type: "House", sale_date: futureDate(15), homestead: false, url_auction: "https://x", url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z" },
+  { id: "p11", source: "auction", county: "Marion", case_no: "J-1", parcel: "1010", address: "88 Cedar Ct", owner_name: "Priya Shah", bid: 9000, assessed: 85000, market: 91000, status: "active", lien_level: "clean", lien_note: "", prop_type: "Vacant Lot", sale_date: futureDate(17), homestead: false, url_auction: "https://x", url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z" },
+  { id: "p12", source: "auction", county: "Brevard", case_no: "K-1", parcel: "1111", address: "42 Palm Ave", owner_name: "Kim Ng", bid: 11000, assessed: 100000, market: 118000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(2), homestead: false, url_auction: "https://x", url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z", latitude: 28.3922, longitude: -80.6077 },
   // Past-due: sale date already came and went, but the scraper hasn't (yet)
   // re-visited the county site to flip status to dropped/sold/notfound - the
   // exact "still shows as active for a week after the auction" bug report.
   // Must NOT appear in the default ledger view even though status is "active".
-  { id: "p13", source: "auction", county: "Alachua", case_no: "L-1", parcel: "1212", address: "6 Past Due Ln", owner_name: "Lin Cho", bid: 5000, assessed: 60000, market: 70000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(-6), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
+  { id: "p13", source: "auction", county: "Alachua", case_no: "L-1", parcel: "1212", address: "6 Past Due Ln", owner_name: "Lin Cho", bid: 5000, assessed: 60000, market: 70000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(-6), homestead: false, url_auction: "https://x", url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z" },
+  // AVAILABLE commercialization (2026-09-30): an Available row whose SOURCE is
+  // RESTRICTED (migration 022's publication_status, propagated from the
+  // registry - here a source under legal review). The frontend must withhold
+  // it from the list, the counts, the map and the export, and say so on the
+  // Available ledger page ("1 record withheld"). Never rendered as inventory.
+  { id: "p14", source: "laft", county: "Broward", case_no: "R-1", parcel: "777", address: "7 Restricted Rd", owner_name: "Withheld Source", bid: 3000, assessed: 40000, market: 41000, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Vacant", sale_date: null, homestead: false, url_auction: "https://x", url_auction_kind: "county", updated_at: "2026-08-11T00:00:00Z",
+    inventory_type: "POST_SALE_FIXED_PRICE", source_authority: "GOVERNMENT_DIRECT", source_id: "fl_laft_broward_candidate", publication_status: "RESTRICTED" },
+  // Available commercial release (2026-09-30, migration 023): an Available
+  // row whose purchase path the engine established from evidence (a
+  // source-level county instructions page, with its evidence and observed
+  // date), with coordinates, a land use and a county value - so the typed
+  // path, the decision page's "how / where / known" answers and the new
+  // land-use / coordinates / value filters have one real row each way
+  // (p3 stays untyped: "not yet verified"). No published amount on purpose.
+  { id: "p15", source: "laft", county: "Citrus", case_no: "CI-7", parcel: "1515", address: "15 Manatee Ln", owner_name: "Lee Park", bid: 0, assessed: 25000, market: 26000, value_year: 2025, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Vacant Lot", sale_date: null, homestead: false, url_auction: "https://x", url_auction_kind: "county", updated_at: "2026-09-20T00:00:00Z",
+    latitude: 28.8886, longitude: -82.4520, land_use: "Vacant residential", acreage: 0.3,
+    inventory_type: "POST_SALE_FIXED_PRICE", source_authority: "GOVERNMENT_DIRECT", source_id: "fl_laft_html", list_url: "https://x/citrus-list",
+    purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", first_seen_at: "2026-07-01T06:00:00Z", last_seen_at: "2026-09-20T06:00:00Z", list_as_of: "2026-09-19",
+    publication_status: "APPROVED_GRANDFATHERED",
+    purchase_url: "https://www.citrusclerk.example.gov/lands-available/how-to-purchase", purchase_url_kind: "purchase_instructions",
+    purchase_path_type: "county_instructions", purchase_path_scope: "source",
+    purchase_path_evidence: "Clerk's 'How to purchase Lands Available' page names the application and payment steps (data/purchase_path_evidence.csv, observed 2026-09-18)",
+    purchase_path_observed_on: "2026-09-18",
+    inventory_status: "available_otc", inventory_status_raw: null,
+    inventory_status_basis: "LIST_PRESENCE: on the county's Lands Available list at the last read (F.S. 197.502(7))",
+    inventory_status_observed_at: "2026-09-20T06:00:00Z",
+    otc_provenance: { harvester: "fl_laft_html", list_url: "https://x/citrus-list", retrieved_at: "2026-09-20T06:00:00Z", purchase_path_mode: "online_instructions",
+      purchase_amount: "not published by the source", list_as_of: "stated by the list document/filename",
+      purchase_url: "county_instructions (source-scope): Clerk's 'How to purchase Lands Available' page",
+      inventory_type: "harvester constant (F.S. 197.502(7) Lands Available list)",
+      status_terminology: "active = on the county list this run; closed = absent from a COMPLETE/EMPTY harvest",
+      // Acquisition sprint: what the LAFT lifecycle writes from the verified
+      // evidence record (scripts/purchase_path_engine.PurchasePath.provenance()) -
+      // FIXTURE values on the fixture's own example.gov domain, not a real county's.
+      purchase_evidence_url: "https://www.citrusclerk.example.gov/lands-available/how-to-purchase", purchase_evidence_type: "county_page",
+      purchase_evidence_title: "How to purchase Lands Available (fixture)", purchase_path_observed_on: "2026-09-18",
+      purchase_instructions: "Complete the application and pay at the Tax Deed office (fixture wording).",
+      source_match: { identifier: "case_no", value: "CI-7", parcel: "1515", source: "https://x/citrus-list", read_at: "2026-09-20T06:00:00Z",
+                      basis: "row read from the source list / document by the harvester; identity as the sync upserts it" },
+      acquisition: { mode: "multi_step", channels: ["instructions", "email", "phone", "in_person"],
+                     office: "Fixture County Clerk - Tax Deed Division (fixture)", address: "1 Example Ave, Inverness, FL 00000 (fixture)",
+                     phone: "(000) 000-0000", email: "taxdeeds@example.gov", payment: "Certified funds (fixture)",
+                     application_url: "https://www.citrusclerk.example.gov/lands-available/application.pdf",
+                     steps: ["Download and complete the application (fixture)", "E-mail taxdeeds@example.gov with the case number (fixture)", "Pay in certified funds at 1 Example Ave (fixture)"],
+                     evidence_url: "https://www.citrusclerk.example.gov/lands-available/how-to-purchase", observed_on: "2026-09-18" } } },
   // Phase 34: a TX row with no url_zillow/url_streetview and no
   // latitude/longitude - the exact shape (harvester-synced, no
   // hand-researched link, no geocode yet) that forces app.js's
@@ -40,7 +164,226 @@ const FIXTURE_PROPERTIES = [
   // those two functions used to hardcode "County, FL" for every property
   // regardless of state. `state: "TX"` is what makes this row TX instead of
   // the implicit-FL every other row above gets (see the rpc() filter below).
-  { id: "ptx1", source: "auction", state: "TX", county: "Harris", case_no: "TX-1", parcel: "TX999", address: "100 Longhorn Rd", owner_name: "Tex Owner", bid: 5000, assessed: 90000, market: 95000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", tx_category: "A1", sale_date: futureDate(4), homestead: false, harvester_source: "tx_lgbs", url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" }
+  // Phase 72: ptx1 is an LGBS auction row, and LGBS rows carry NO auction
+  // link in production (the audit found no verified per-property or
+  // per-sale LGBS URL anywhere) - so no url_auction here; the UI must say
+  // "Auction link not published". tx_sale_status is LGBS's raw status.
+  { id: "ptx1", source: "auction", state: "TX", county: "Harris", case_no: "TX-1", parcel: "TX999", address: "100 Longhorn Rd", owner_name: "Tex Owner", bid: 5000, assessed: 90000, market: 95000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", tx_category: "A1", sale_date: futureDate(4), homestead: false, harvester_source: "tx_lgbs", tx_sale_status: "Scheduled for Online Auction", updated_at: "2026-08-10T00:00:00Z" },
+  // Phase 72 Texas shapes, each the exact form migration 013 / the Texas
+  // sync produce (case_no = account number, parcel = cause number):
+  //   ptx2  RealAuction, upcoming sale: the county sale-date page, kind 'sale'
+  //   ptx3  LGBS struck-off (laft ledger), raw status kept, no link
+  //   ptx4  RealAuction whose sale date has passed: link is not current
+  //   ptx5  RealAuction with no URL (county host not on the verified roster)
+  //   ptx6  LGBS "Available for Future Sale" (laft ledger), no link
+  { id: "ptx2", source: "auction", state: "TX", county: "Nueces", case_no: "9377-0051-0100", parcel: "2021DCV-4034-H (5)", address: "4013 Tilden St, Corpus Christi, TX", bid: 21800, min_bid: 21800, assessed: 25000, status: "active", sale_date: futureDate(12), harvester_source: "tx_realauction", url_auction: txSaleUrl("nueces.texas.sheriffsaleauctions.com", futureDate(12)), url_auction_kind: "sale", updated_at: "2026-09-24T00:00:00Z" },
+  // ptx3 / ptx6 carry migration 017's classification exactly as its backfill
+  // derives it from tx_sale_status: STRUCK_OFF_HELD_IN_TRUST vs FUTURE_RESALE,
+  // VENDOR_COUNSEL / tx_lgbs, no list/document/purchase URL (LGBS publishes
+  // none), purchase_amount untouched (null - min_bid keeps its own meaning).
+  { id: "ptx3", source: "laft", state: "TX", county: "Galveston", case_no: "129500040015000", parcel: "23-TX-0644", address: "VACANT LOT IN 6500 BLOCK OF OBRIEN ST, Hitchcock, TX 77563", bid: 4451.95, min_bid: 4451.95, status: "active", sale_date: null, harvester_source: "tx_lgbs", tx_sale_status: "Struck off to Jurisdiction", updated_at: "2026-09-23T00:00:00Z",
+    inventory_status: "struck_off", inventory_status_raw: "Struck off to Jurisdiction", inventory_status_basis: "SOURCE_STATUS: the vendor's own sale status (LGBS)", inventory_status_observed_at: "2026-09-23T06:00:00Z",
+    inventory_type: "STRUCK_OFF_HELD_IN_TRUST", source_authority: "VENDOR_COUNSEL", source_id: "tx_lgbs", document_url: null, purchase_amount: null, purchase_amount_kind: null,
+    // Acquisition-path sprint (2026-10-01): what scripts/apply_acquisition_paths.py
+    // writes for a Texas row - the registry listing, the identity match and the
+    // verified COUNTY-level process (FIXTURE page on an example.gov domain).
+    list_url: "https://taxsales.lgbs.com/", purchase_url: "https://www.galveston.example.gov/sheriff-sale-information", purchase_url_kind: "purchase_instructions",
+    purchase_path_type: "county_instructions", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-01",
+    purchase_path_evidence: "County Tax Assessor-Collector's Sheriff Sale Information page: struck-off property is re-offered at future Sheriff Sales (fixture)",
+    otc_provenance: { source_id: "tx_lgbs", harvester: "tx_lgbs", list_url: "https://taxsales.lgbs.com/", purchase_path_mode: "online_instructions",
+      purchase_evidence_url: "https://www.galveston.example.gov/sheriff-sale-information", purchase_evidence_type: "county_page",
+      purchase_evidence_title: "Sheriff Sale Information (fixture)", purchase_path_observed_on: "2026-10-01",
+      source_match: { identifier: "case_no", value: "129500040015000", parcel: "23-TX-0644", source: "https://taxsales.lgbs.com/", read_at: "2026-09-23",
+                      basis: "row read from the source listing by the harvester (tx_lgbs); identity as the sync upserts it; last successful source read 2026-09-23" },
+      acquisition: { mode: "multi_step", channels: ["instructions", "phone"], phone: "(409) 555-0101", office: "Tax Assessor-Collector (fixture)", observed_on: "2026-10-01",
+                     evidence_url: "https://www.galveston.example.gov/sheriff-sale-information",
+                     steps: ["Watch for the property on a future Sheriff's resale", "Submit the county's bid form with the deposit it names", "Bid at the Sheriff's sale"] } } },
+  { id: "ptx4", source: "auction", state: "TX", county: "Llano", case_no: "R000020419", parcel: "23101 (6)", address: "LOT 6 SUNRISE BEACH, Llano, TX", bid: 3942.08, min_bid: 3942.08, status: "active", sale_date: futureDate(-3), harvester_source: "tx_realauction", url_auction: txSaleUrl("llano.texas.sheriffsaleauctions.com", futureDate(-3)), url_auction_kind: "sale", updated_at: "2026-09-24T00:00:00Z" },
+  { id: "ptx5", source: "auction", state: "TX", county: "Atascosa", case_no: "17854", parcel: "20-11-0957-CVA (1)", address: "200 Oak St, Pleasanton, TX", bid: 1200, min_bid: 1200, status: "active", sale_date: futureDate(12), harvester_source: "tx_realauction", updated_at: "2026-09-24T00:00:00Z" },
+  { id: "ptx6", source: "laft", state: "TX", county: "Liberty", case_no: "000016000361003", parcel: "21DC-TX-00185", address: "TRACT 3, Liberty, TX", bid: 900, min_bid: 900, status: "active", sale_date: null, harvester_source: "tx_lgbs", tx_sale_status: "Available for Future Sale", updated_at: "2026-09-23T00:00:00Z",
+    // As scripts/lgbs_available_refresh.py writes it: a fill from a REVIEW_REQUIRED source.
+    field_provenance: { legal_desc: { source: "vendor_listing", source_id: "tx_lgbs", field: "legal_description", governance: "REVIEW_REQUIRED",
+      dataset: "taxsales.lgbs.com property_sales API", matched_on: "county + account number (case_no), exact", recorded_at: "2026-10-01T12:00:00Z" } },
+    inventory_type: "FUTURE_RESALE", source_authority: "VENDOR_COUNSEL", source_id: "tx_lgbs", document_url: null, purchase_url: null, purchase_amount: null, purchase_amount_kind: null,
+    // Acquisition-path sprint (2026-10-01): a Texas county with NO verified
+    // acquisition record (Liberty) - exactly what scripts/apply_acquisition_paths.py
+    // writes then: the registry listing and the identity match, no path. Still
+    // published; its page reads "Acquisition path: Not yet verified".
+    list_url: "https://taxsales.lgbs.com/",
+    otc_provenance: { source_id: "tx_lgbs", list_url: "https://taxsales.lgbs.com/",
+      source_match: { identifier: "case_no", value: "000016000361003", source: "https://taxsales.lgbs.com/", read_at: "2026-09-23" } } },
+  // 2026-09-30 (state-expansion sprint): a Louisiana row in the shape
+  // scripts/sync_state_inventory.py writes - East Baton Rouge's DATED
+  // adjudicated-property list (list_as_of = the dataset's own rows-updated
+  // date), no price, no purchase path. Values are SYNTHETIC.
+  { id: "pla1", source: "laft", state: "LA", county: "East Baton Rouge", case_no: "012-3456-7", parcel: "012-3456-7", address: "10 FIXTURE AVE", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "la_ebr_adjudicated", source_id: "la_ebr_adjudicated", source_authority: "GOVERNMENT_DIRECT", inventory_type: "ADJUDICATED_PROPERTY",
+    list_url: "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e", document_url: "https://data.brla.gov/api/views/a4h4-zi7e/rows.csv?accessType=DOWNLOAD",
+    url_auction: "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e", url_auction_kind: "county",
+    purchase_url: null, purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", list_as_of: "2024-02-27", source_published_at: "2024-02-27T18:54:28Z",
+    assessed: 2500, market: 25000, tax_year: "2023", latitude: 30.4515, longitude: -91.1871, publication_status: "APPROVED", ledger_type: "buy", updated_at: "2026-09-30T12:00:00Z",
+    purchase_path_type: "in_person", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-01",
+    purchase_path_evidence: "The Parish Attorney's office handles sales of adjudicated property (fixture)",
+    otc_provenance: { source_id: "la_ebr_adjudicated", purchase_evidence_url: "https://www.brla.gov/Faq.aspx?QID=286", purchase_path_observed_on: "2026-10-01",
+      source_match: { identifier: "case_no", value: "012-3456-7", source: "https://data.brla.gov/api/views/a4h4-zi7e/rows.csv?accessType=DOWNLOAD", read_at: "2026-10-01T08:50:04Z",
+                      basis: "row read from the source list / document by the harvester; identity as the sync upserts it" },
+      acquisition: { mode: "in_person", channels: ["in_person"], office: "Office of the Parish Attorney (fixture)", observed_on: "2026-10-01", evidence_url: "https://www.brla.gov/Faq.aspx?QID=286" } } },
+  // 2026-10-01 (property-enrichment sprint): a second East Baton Rouge row in the
+  // shape the LA lifecycle + enrichment write once the Parish Attorney's process
+  // (data/purchase_path_evidence.csv) and the EBR Tax Parcel land value
+  // (la_ebr_tax_parcels, Public Domain) apply. SYNTHETIC values.
+  { id: "pla2", source: "laft", state: "LA", county: "East Baton Rouge", case_no: "012-3456-8", parcel: "012-3456-8", address: "12 FIXTURE AVE", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "la_ebr_adjudicated", source_id: "la_ebr_adjudicated", source_authority: "GOVERNMENT_DIRECT", inventory_type: "ADJUDICATED_PROPERTY",
+    list_url: "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e", url_auction: "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e", url_auction_kind: "county",
+    purchase_url: "https://www.brla.gov/455/Adjudicated-Property", purchase_url_kind: "purchase_instructions", purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", list_as_of: "2024-02-27",
+    assessed: 2600, market: 26000, land_value: 9000, tax_year: "2023", latitude: 30.4521, longitude: -91.1875,
+    purchase_path_type: "county_instructions", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-01",
+    purchase_path_evidence: "The Parish Attorney's Adjudicated Property page and FAQ say the Office of the Parish Attorney handles sales of adjudicated property",
+    otc_provenance: { source_match: { identifier: "case_no", value: "012-3456-8", source: "https://data.brla.gov/api/views/a4h4-zi7e/rows.csv?accessType=DOWNLOAD", read_at: "2026-10-01T08:50:04Z",
+                                      basis: "row read from the source list / document by the harvester; identity as the sync upserts it" },
+      acquisition: { mode: "multi_step", channels: [], office: "Office of the Parish Attorney, City of Baton Rouge / Parish of East Baton Rouge",
+      evidence_url: "https://www.brla.gov/Faq.aspx?QID=286", observed_on: "2026-10-01",
+      steps: ["Confirm with the East Baton Rouge Parish Sheriff that the property remains adjudicated (properties are redeemed during the year)",
+              "Request to purchase directly through the Office of the Parish Attorney, using its Request to Purchase form (see the Parish Attorney's Memorandum)"] } },
+    field_provenance: { land_value: { source: "statewide_parcel", source_id: "la_ebr_tax_parcels", dataset: "Tax Parcel (data.brla.gov ei2c-krsr)", agency: "East Baton Rouge Parish Assessor (Open Data BR)",
+      matched_id_field: "assessment_num", matched_row_column: "parcel", matched_parcel_id: "012-3456-8", recorded_at: "2026-10-01T12:00:00Z" } },
+    publication_status: "APPROVED", ledger_type: "buy", updated_at: "2026-10-01T12:00:00Z" },
+  // 2026-10-02 (collection vs customer publication): AVAILABLE rows from
+  // sources still awaiting customer-publication review, in the shape the sync
+  // now writes them (publication_status UNREVIEWED, the source's own program
+  // wording in inventory_status_raw). Admins - and every user in
+  // publicationMode "preview" - see them labelled; customers in the default
+  // enforced mode do not. Values are SYNTHETIC.
+  { id: "pmi_dlba1", source: "laft", state: "MI", county: "Wayne", case_no: "99000001.", parcel: "99000001.", address: "1 FIXTURE LOT ST", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mi_detroit_landbank_lots", source_id: "mi_detroit_landbank_lots", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction_kind: "county",
+    purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", inventory_status_raw: "Side Lot For Sale", latitude: 42.36, longitude: -83.08,
+    last_seen_at: "2026-10-02T12:00:00Z", first_seen_at: "2026-10-02T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-02T12:00:00Z",
+    otc_provenance: { source_id: "mi_detroit_landbank_lots", source_match: { identifier: "case_no", value: "99000001.", source: "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/DLBA_Owned_Properties/FeatureServer/0", read_at: "2026-10-02T12:00:00Z", basis: "row read from the source list / document by the harvester; identity as the sync upserts it" } } },
+  { id: "pmi_dlba2", source: "laft", state: "MI", county: "Wayne", case_no: "99000002.", parcel: "99000002.", address: "2 FIXTURE PROGRAM AVE", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mi_detroit_landbank_programs", source_id: "mi_detroit_landbank_programs", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.arcgis.com/home/item.html?id=e0c4f46a09b9405cb18837e66e85c622", url_auction: "https://www.arcgis.com/home/item.html?id=e0c4f46a09b9405cb18837e66e85c622", url_auction_kind: "county",
+    purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", inventory_status_raw: "Own It Now",
+    last_seen_at: "2026-10-02T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-02T12:00:00Z" },
+  // Detroit customer subset (2026-10-03): four SYNTHETIC rows with the DLBA's own
+  // offered-structure status. By the subset rule (harvesters/otc/detroit_subset.py)
+  // pmi_dlbs1/2 (99000102. / 99000105.) are IN the ~50% subset and pmi_dlbs3/4
+  // (99000101. / 99000103.) are not; pmi_dlba1 (a Side Lot) and pmi_dlba2 (a program
+  // record) carry no structure indicator.
+  { id: "pmi_dlbs1", source: "laft", state: "MI", county: "Wayne", case_no: "99000102.", parcel: "99000102.", address: "102 FIXTURE HOUSE AVE", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mi_detroit_landbank_lots", source_id: "mi_detroit_landbank_lots", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction_kind: "county",
+    purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", inventory_status_raw: "Marketed Structure For Sale", latitude: 42.37, longitude: -83.1,
+    last_seen_at: "2026-10-03T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-03T12:00:00Z" },
+  { id: "pmi_dlbs2", source: "laft", state: "MI", county: "Wayne", case_no: "99000105.", parcel: "99000105.", address: "105 FIXTURE HOUSE AVE", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mi_detroit_landbank_lots", source_id: "mi_detroit_landbank_lots", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction_kind: "county",
+    purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", inventory_status_raw: "Marketed Structure For Sale", latitude: 42.38, longitude: -83.12,
+    last_seen_at: "2026-10-03T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-03T12:00:00Z" },
+  { id: "pmi_dlbs3", source: "laft", state: "MI", county: "Wayne", case_no: "99000101.", parcel: "99000101.", address: "101 FIXTURE HOUSE AVE", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mi_detroit_landbank_lots", source_id: "mi_detroit_landbank_lots", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction_kind: "county",
+    purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", inventory_status_raw: "Marketed Structure For Sale", latitude: 42.39, longitude: -83.05,
+    last_seen_at: "2026-10-03T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-03T12:00:00Z" },
+  { id: "pmi_dlbs4", source: "laft", state: "MI", county: "Wayne", case_no: "99000103.", parcel: "99000103.", address: "103 FIXTURE HOUSE AVE", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mi_detroit_landbank_lots", source_id: "mi_detroit_landbank_lots", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction_kind: "county",
+    purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", inventory_status_raw: "Marketed Structure For Sale", latitude: 42.35, longitude: -83.14,
+    last_seen_at: "2026-10-03T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-03T12:00:00Z" },
+  { id: "psc_horry1", source: "laft", state: "SC", county: "Horry", case_no: "99999999901", parcel: "99999999901", address: null, legal_desc: "FIXTURE LOT 9", bid: 1500, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "sc_horry_forfeited_land", source_id: "sc_horry_forfeited_land", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/", url_auction: "https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/", url_auction_kind: "county",
+    purchase_url: "https://horrycountysc.gov/media/sinbmsz5/horrycountyflcguidelines.pdf", purchase_url_kind: "bid_form", purchase_amount: 1500, purchase_amount_kind: "OPENING_BID",
+    // The typed path the engine writes after the 2026-10-03 fix: the county's one
+    // FLC bid-form PDF is a SOURCE-level application download, never a
+    // direct_property_url. No otc_provenance.acquisition on purpose: the
+    // frontend's type-only fallback must also say "bid", never "online".
+    purchase_path_type: "application_download", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-02",
+    purchase_path_evidence: "source-level bid_form page verified for this source (data/county_source_registry.csv, last_checked 2026-10-02)",
+    last_seen_at: "2026-10-02T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-02T12:00:00Z" },
+  // 2026-10-06 (acquisition evidence / coordinates / amounts sprint): one row per
+  // MO / PA / MN / OK AVAILABLE source, in the shapes their syncs write. Values
+  // are SYNTHETIC. All four sources are UNREVIEWED (admin / preview only).
+  { id: "pmo1", source: "laft", state: "MO", county: "St. Louis City", case_no: "99999000100", parcel: "99999000100", address: "1 FIXTURE LRA ST", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mo_stl_lra_inventory", source_id: "mo_stl_lra_inventory", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=82", url_auction: "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=82", url_auction_kind: "county",
+    purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", land_use: "Lot", inventory_status_raw: "Available",
+    last_seen_at: "2026-10-04T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-04T12:00:00Z" },
+  { id: "ppa1", source: "laft", state: "PA", county: "Fayette", case_no: "99-99-9999", parcel: "99-99-9999", address: null, legal_desc: "FIXTURE LOT 2", bid: 500, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "pa_fayette_repository", source_id: "pa_fayette_repository", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.fayettecountypa.org/930/Repository-Sale", document_url: "https://www.fayettecountypa.org/DocumentCenter/View/9761", url_auction: "https://www.fayettecountypa.org/930/Repository-Sale", url_auction_kind: "county",
+    purchase_amount: 500, purchase_amount_kind: "OPENING_BID", list_as_of: "2025-10-07",
+    last_seen_at: "2026-10-04T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-04T12:00:00Z" },
+  // 2026-10-09 (Tennessee): one Shelby County Land Bank row in the shape the
+  // ePropertyPlus adapter + sync write. SYNTHETIC values; UNREVIEWED source.
+  { id: "ptn1", source: "laft", state: "TN", county: "Shelby", case_no: "99999A99999999", parcel: "99999A99999999", address: "3 FIXTURE LAND BANK RD", bid: 4500, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "tn_shelby_landbank", source_id: "tn_shelby_landbank", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://public-sctn.epropertyplus.com/landmgmtpub/app/base/landing", url_auction: "https://public-sctn.epropertyplus.com/landmgmtpub/app/base/landing", url_auction_kind: "county",
+    purchase_amount: 4500, purchase_amount_kind: "PUBLISHED_AMOUNT_KIND_UNSPECIFIED", land_use: "Residential Vacant", assessed: 1001, inventory_status_raw: "FOR SALE",
+    latitude: 35.1, longitude: -90.0,
+    field_provenance: { latitude: { source: "county_list", evidence: "the Shelby County Land Bank portal's own latitude / longitude" }, longitude: { source: "county_list", evidence: "the Shelby County Land Bank portal's own latitude / longitude" } },
+    last_seen_at: "2026-10-08T23:23:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-08T23:23:00Z" },
+  { id: "pmn1", source: "laft", state: "MN", county: "Ramsey", case_no: "999999999999", parcel: "999999999999", address: "2 FIXTURE FORFEIT AVE", legal_desc: "FIXTURE LOT 3", bid: 15000, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mn_ramsey_tax_forfeit", source_id: "mn_ramsey_tax_forfeit", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties", url_auction: "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties", url_auction_kind: "county",
+    purchase_amount: 15000, purchase_amount_kind: "OPENING_BID", latitude: 44.95, longitude: -93.09,
+    field_provenance: { latitude: { source: "county_list", evidence: "layer point geometry" }, longitude: { source: "county_list", evidence: "layer point geometry" } },
+    last_seen_at: "2026-10-04T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-04T12:00:00Z" },
+  { id: "pok1", source: "laft", state: "OK", county: "Oklahoma", case_no: "9999-99-999-9999", parcel: "9999-99-999-9999", address: null, legal_desc: "FIXTURE BLOCK 4", bid: 350, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "ok_oklahoma_county_owned", source_id: "ok_oklahoma_county_owned", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.oklahomacounty.org/departments/treasurer/county-owned-property", url_auction: "https://www.oklahomacounty.org/departments/treasurer/county-owned-property", url_auction_kind: "county",
+    purchase_url: "https://www.oklahomacounty.org/Portals/0/fixture-bid-form.pdf", purchase_url_kind: "bid_form", purchase_amount: 350, purchase_amount_kind: "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+    purchase_path_type: "application_download", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-04",
+    last_seen_at: "2026-10-04T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-04T12:00:00Z" },
+  // 2026-09-30 (six-state expansion): rows in the shapes scripts/harvest_expansion.py
+  // + sync_state_inventory.py write. Values are SYNTHETIC.
+  { id: "pmi1", source: "auction", state: "MI", county: "Eaton", case_no: "100-200-300-400-50", parcel: "100-200-300-400-50", address: "100 FIXTURE ST", bid: 4200, min_bid: 4200, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mi_eaton_treasurer_sale", source_id: "mi_eaton_treasurer_sale", source_authority: "GOVERNMENT_DIRECT",
+    list_url: "https://www.arcgis.com/home/item.html?id=5b973732a9e84fdd94fa225f8160650d", url_auction: "https://www.arcgis.com/home/item.html?id=5b973732a9e84fdd94fa225f8160650d", url_auction_kind: "county",
+    legal_desc: "FIXTURE LOT 1", acreage: 0.23, land_use: "Residential", assessed: 41200, taxable_value: 38100, publication_status: "APPROVED", ledger_type: "auctions", updated_at: "2026-09-30T12:00:00Z" },
+  // Release visibility gate (2026-10-02): a York SC auction row in the shape the
+  // expansion runner + purchase-path engine write - the county's published sale
+  // process (in person, steps, office phone) at source scope. Values are SYNTHETIC.
+  { id: "psc1", source: "auction", state: "SC", county: "York", case_no: "FIXTURE-SC-1", parcel: "0000000001", address: "1 FIXTURE LN", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "sc_york_tax_sale", source_id: "sc_york_tax_sale", source_authority: "GOVERNMENT_DIRECT",
+    list_url: "https://www.yorkcountysc.gov/216/Tax-Collection", url_auction: "https://www.yorkcountysc.gov/216/Tax-Collection", url_auction_kind: "county",
+    purchase_path_type: "in_person", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-01",
+    purchase_path_evidence: "FIXTURE: the county fact sheet says the sale is held in person",
+    otc_provenance: { purchase_evidence_url: "https://www.yorkcountysc.gov/DocumentCenter/View/5241/Tax-Sale-Fact-Sheet", purchase_evidence_title: "Tax Sale Fact Sheet and Disclaimer (York County, SC)",
+      acquisition: { mode: "in_person", channels: ["in_person", "phone"], office: "York County Tax Collector", phone: "803-000-0000", observed_on: "2026-10-01",
+        steps: ["FIXTURE: register as a bidder before the sale", "FIXTURE: bid in person at the published location"] } },
+    publication_status: "APPROVED", ledger_type: "auctions", updated_at: "2026-10-01T12:00:00Z" },
+  { id: "pco1", source: "certificate", state: "CO", county: "Morgan", case_no: "2023-00123", certificate_no: "2023-00123", parcel: "R012345", address: "1 FIXTURE RD", bid: 1234.56, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "co_morgan_county_held_certificates", source_id: "co_morgan_county_held_certificates", source_authority: "GOVERNMENT_DIRECT",
+    list_url: "https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates", url_auction: "https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates", url_auction_kind: "county",
+    owner_name: "FIXTURE OWNER", legal_desc: "FIXTURE SUBD BLK 2", purchase_amount: 1234.56, purchase_amount_kind: "FIXED_PURCHASE_PRICE", list_as_of: "2026-10-31",
+    market: 150000, taxable_value: 10500, acreage: 2.5, latitude: 40.255, longitude: -103.795,
+    purchase_path_type: "quoted_amount", purchase_path_scope: "source", purchase_path_observed_on: "2026-09-30",
+    purchase_path_evidence: "The Treasurer's county-held certificate page says the listed certificates may be purchased from Morgan County for the amount shown (data/purchase_path_evidence_expansion.csv, observed 2026-09-30)",
+    otc_provenance: { acquisition: { mode: "multi_step", channels: [], office: "Morgan County Treasurer", evidence_url: "https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates", observed_on: "2026-09-30",
+      steps: ["Review the county-held tax lien sale certificate list", "Purchase the certificate from the Morgan County Treasurer for the amount shown", "The amount shown is good to the date in the amount column's header"] } },
+    field_provenance: { market: { source: "statewide_parcel", source_id: "co_oit_public_parcels", dataset: "Colorado Public Parcels (Colorado_Public_Parcel_Composite)", matched_id_field: "account", matched_parcel_id: "R012345", recorded_at: "2026-09-30T12:00:00Z" } },
+    publication_status: "APPROVED", ledger_type: "lien", updated_at: "2026-09-30T12:00:00Z" },
+  // 2026-10-01 (five-state sprint): a Douglas County CO county-held lien (CC BY-SA 4.0
+  // open data) in the shape harvest_expansion.py + sync_state_inventory.py write. SYNTHETIC.
+  { id: "pco2", source: "certificate", state: "CO", county: "Douglas", case_no: "2023-10001", certificate_no: "2023-10001", parcel: "R0000001", address: "Parcel R0000001", bid: 1234.56, status: "active", sale_date: null, issued_date: "2023-11-02", tax_year: "2022", lien_level: "unscreened", lien_note: "",
+    harvester_source: "co_douglas_county_held_liens", source_id: "co_douglas_county_held_liens", source_authority: "GOVERNMENT_DIRECT",
+    list_url: "https://www.arcgis.com/home/item.html?id=950fd2c3a9bf4e0e92fa4a64f1859fec", url_auction: "https://www.arcgis.com/home/item.html?id=950fd2c3a9bf4e0e92fa4a64f1859fec", url_auction_kind: "county",
+    purchase_amount: 1234.56, purchase_amount_kind: "PUBLISHED_AMOUNT_KIND_UNSPECIFIED", last_seen_at: "2026-10-01T12:00:00Z",
+    inventory_status: "certificate_listed", inventory_status_basis: "LIST_PRESENCE: on the county's list of certificates purchasable from the Treasurer at the last read",
+    purchase_path_type: "application_download", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-01",
+    purchase_path_evidence: "Douglas County's 'Request for Assignment of County-Held Tax Lien' (data/purchase_path_evidence_expansion.csv, observed 2026-10-01)",
+    otc_provenance: { adapter: "arcgis", acquisition: { mode: "multi_step", channels: ["application"], office: "Douglas County Treasurer", observed_on: "2026-10-01",
+      evidence_url: "https://www.douglasco.gov/documents/request-for-assignment-of-county-held.pdf/", application_url: "https://www.douglasco.gov/documents/request-for-assignment-of-county-held.pdf/",
+      steps: ["Complete the county's Request for Assignment of County-Held Tax Lien", "All county-held liens on the parcel must be redeemed if the assignment is granted", "Call the Douglas County Treasurer's office for the current payoff amount"] } },
+    publication_status: "APPROVED", ledger_type: "lien", updated_at: "2026-10-01T12:00:00Z" },
+  // 2026-10-04 (landing ledger): an auctions-only state's row - Albany WY's tax sale list
+  // publishes no sale date for the list's rows, so it is visible in the live view.
+  { id: "pwy1", source: "auction", state: "WY", county: "Albany", case_no: "R0099001", parcel: "99-00-001", address: "1 FIXTURE WY ST",
+    bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "wy_albany_tax_sale", source_id: "wy_albany_tax_sale", source_authority: "GOVERNMENT_DIRECT",
+    purchase_amount: 1500, purchase_amount_kind: "PUBLISHED_AMOUNT_KIND_UNSPECIFIED", last_seen_at: "2026-10-03T12:00:00Z",
+    publication_status: "APPROVED", ledger_type: "auctions", updated_at: "2026-10-03T12:00:00Z" }
 ];
 // Brevard has a county_calendar row so the "Auction {date}" label test can
 // cover the CALENDAR-lookup path, not just the per-property sale_date
@@ -61,7 +404,145 @@ function futureDate(days) {
 //                                               one other account pending
 //   notable    approved=true,  is_admin=false, profiles table absent - the
 //              "migration not run yet" fallback (falls back to showApp())
+// ?offlist=1 (2026-10-06 off-current-list regression): Escambia's p8 carries a
+// fresh last_seen_at (the county's latest read) while p9, same county and
+// future-dated, was never read - so p9 is "not on the county's current sale
+// list". Off by default so every other pin is unchanged.
+if (new URLSearchParams(location.search).get("offlist") === "1") {
+  const p8 = FIXTURE_PROPERTIES.find(r => r.id === "p8");
+  if (p8) p8.last_seen_at = new Date(Date.now() - 3600 * 1000).toISOString();
+}
+
+// ?unconfirmed=1 (2026-10-27 unconfirmed Available records): every Florida
+// Available row is read back an hour ago, except Bay's p3 (never confirmed:
+// last_seen_at NULL, like production's Hendry row) and Citrus' p15 (last
+// confirmed ten days ago). tests/config.js turns the gate on for this knob
+// only - the fixture's other rows carry historical dates.
+if (new URLSearchParams(location.search).get("unconfirmed") === "1") {
+  const fresh = new Date(Date.now() - 3600 * 1000).toISOString();
+  FIXTURE_PROPERTIES.forEach(r => { if (r.source === "laft") r.last_seen_at = fresh; });
+  const p3 = FIXTURE_PROPERTIES.find(r => r.id === "p3");
+  if (p3) { p3.last_seen_at = null; p3.first_seen_at = null; }
+  const p15 = FIXTURE_PROPERTIES.find(r => r.id === "p15");
+  if (p15) p15.last_seen_at = new Date(Date.now() - 10 * 86400 * 1000).toISOString();
+}
+// ?brokenlinks=1 (2026-10-27 source link checks, migration 036): the table
+// holds p15's list page BROKEN on two daily checks (hidden as a link), its
+// purchase page BROKEN once (still a link) and p3's list BLOCKED (still a
+// link). Absent = the table is not deployed (PGRST205).
+const LINK_CHECKS = new URLSearchParams(location.search).get("brokenlinks") === "1" ? [
+  { url: "https://x/citrus-list", host: "x", status: "BROKEN", http_code: 404, detail: "HTTP_404", checked_at: "2026-10-27T11:55:00Z", first_failed_at: "2026-10-26T11:55:00Z", consecutive_failures: 2, referenced_by: ["properties.list_url"] },
+  { url: "https://www.citrusclerk.example.gov/lands-available/how-to-purchase", status: "BROKEN", http_code: 404, checked_at: "2026-10-27T11:55:00Z", first_failed_at: "2026-10-27T11:55:00Z", consecutive_failures: 1 },
+  { url: "https://x", status: "BLOCKED", http_code: 403, checked_at: "2026-10-27T11:55:00Z", first_failed_at: null, consecutive_failures: 0 }
+] : null;
+
+// ?zerosize=1 (2026-10-22 card facts): p1 carries a stored living area and lot
+// size of zero. The card must read "Not published", never "0 sq ft".
+if (new URLSearchParams(location.search).get("zerosize") === "1") {
+  const p1 = FIXTURE_PROPERTIES.find(r => r.id === "p1");
+  if (p1) { p1.living_area = 0; p1.lot_sqft = 0; }
+}
+
+// ?storedphoto=1 (2026-10-21 stored-aerial outline regression): p5 carries a
+// stored USDA NAIP aerial, as 62 of the 64 production properties with an
+// outline did. The image is a labelled fixture placard, never a real aerial.
+if (new URLSearchParams(location.search).get("storedphoto") === "1") {
+  const p5 = FIXTURE_PROPERTIES.find(r => r.id === "p5");
+  if (p5) {
+    p5.photo_source = "usda_naip";
+    p5.photo_url = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400'><rect width='100%' height='100%' fill='%2364748b'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='26' fill='%23ffffff'>FIXTURE STORED AERIAL</text></svg>";
+  }
+}
+
+// ?txcause=1 (2026-10-10 Texas cause-number regression): a second LGBS row in
+// Galveston listed under the SAME tax-suit cause as ptx3 but a different CAD
+// account (production: one cause on up to 26 different properties). The two
+// are different parcels and must never be shown as the same parcel. Off by
+// default so every other pin is unchanged.
+if (new URLSearchParams(location.search).get("txcause") === "1") {
+  const ptx3 = FIXTURE_PROPERTIES.find(r => r.id === "ptx3");
+  if (ptx3) FIXTURE_PROPERTIES.push(Object.assign({}, ptx3, { id: "ptx8", case_no: "129500040016000",
+    address: "VACANT LOT IN 6600 BLOCK OF OBRIEN ST, Hitchcock, TX 77563", bid: 3100, min_bid: 3100 }));
+}
+
+// ?gatefresh=1 (2026-10-10, acquisition-path gate): one extra Florida
+// Available row that PASSES the gate - a customer-published source
+// (fl_laft_html), Calhoun County (a VERIFIED unit with a county process
+// record in public/acquisition-evidence.json), read today, no list date, no
+// typed path of its own. Every other fixture Available row fails the gate
+// for a documented reason (stale read, never stamped, dated list, unit not
+// verified), so this is the one positive case. Off by default.
+if (new URLSearchParams(location.search).get("gatefresh") === "1") {
+  FIXTURE_PROPERTIES.push({ id: "pgate1", source: "laft", state: "FL", county: "Calhoun", case_no: "CAL-GATE-1", parcel: "0099001", address: "9 FIXTURE GATE RD",
+    owner_name: "", bid: 0, assessed: 12000, market: 12500, value_year: 2025, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Vacant Lot", sale_date: null,
+    homestead: false, url_auction: null, url_auction_kind: null, updated_at: new Date().toISOString(), last_seen_at: new Date().toISOString(), first_seen_at: "2026-10-01T00:00:00Z",
+    source_id: "fl_laft_html", harvester_source: "fl_laft_html", publication_status: "APPROVED_GRANDFATHERED", inventory_type: "LANDS_AVAILABLE",
+    purchase_amount: null, purchase_amount_kind: null, purchase_url: null, purchase_url_kind: null, list_url: "https://calhounclerk.com/court-services/", latitude: null, longitude: null });
+}
+
 const PROFILE_MODE = new URLSearchParams(location.search).get("profile") || "default";
+
+// ?pubgate=1 (2026-10-10 mandatory acquisition-path gate, migration 031): the
+// SERVER side of the customer-publication gate. Every fixture row carries a
+// publication decision - the ones below are withheld, every other active row
+// is CUSTOMER_PUBLISHED - and, as the real access policy does, a non-admin
+// caller's property RPCs (get_properties, get_properties_list,
+// get_property_provenance) return only CUSTOMER_PUBLISHED rows while an admin
+// (?profile=admin) reads every row. count_publication_states() answers every
+// approved caller with counts only; get_withheld_states() answers an admin
+// with the withheld rows' decisions and a customer with nothing (RLS).
+// Without the knob both RPCs are "not deployed" (PGRST202): today's behaviour.
+const PUB_GATE = new URLSearchParams(location.search).get("pubgate") === "1";
+const PUB_PATH_FL_CERT = { ledger: "LIENS_CERTIFICATES", inventory_type: "certificate", state: "FL", county: "Alachua",
+  authority: "Alachua County Tax Collector", source_url: "https://alachua.county-held.example.gov/certificates", source_type: "county_held_list",
+  destination_url: "https://alachua.county-held.example.gov/certificates", path_type: "certificate_purchase", scope: "county",
+  verification_status: "VERIFIED", last_verified: "2026-10-01" };
+const PUB_DECISIONS = {
+  // AUCTIONS: the only link is the county's homepage - not a route to the process
+  // (p11 is active; p2's "dropped" lifecycle status makes it CLOSED here).
+  p11: { publication_state: "ADMIN_ONLY_NO_PATH", publication_progress: "RULES_VERIFIED", publication_reasons: ["PATH_UNTRUSTED"],
+    publication_remediation: "Record the actual process page or published procedure, not the homepage.",
+    publication_path: { ledger: "AUCTIONS", state: "FL", county: "Marion", path_type: "auction_bidding", scope: "record", verification_status: "UNTRUSTED", missing_reason: "PATH_UNTRUSTED" } },
+  // AVAILABLE: no official acquisition page found for the county yet.
+  p3: { publication_state: "ADMIN_ONLY_NO_PATH", publication_progress: "RULES_VERIFIED", publication_reasons: ["PATH_NOT_FOUND"],
+    publication_remediation: "Add candidate pages (data/acquisition_candidate_pages.csv) and capture them.",
+    publication_path: { ledger: "AVAILABLE", state: "FL", county: "Bay", scope: "county", verification_status: "NOT_FOUND", missing_reason: "PATH_NOT_FOUND" } },
+  // LIENS: a county-level certificate purchase page is verified, but the record was not observed in the last 7 days.
+  p4: { publication_state: "ADMIN_ONLY_STALE", publication_progress: "PATH_VERIFIED", publication_reasons: ["OBSERVATION_STALE"],
+    publication_remediation: "Run the source's harvest; a successful read refreshes the observation.", publication_path: PUB_PATH_FL_CERT },
+  // AUCTIONS: sale date passed, no result published.
+  p13: { publication_state: "ADMIN_ONLY_STALE", publication_progress: "PATH_VERIFIED", publication_reasons: ["SALE_DATE_PASSED"],
+    publication_remediation: "The lifecycle closes past sales; verify the outcome or wait for the close-out.",
+    publication_path: { ledger: "AUCTIONS", state: "FL", county: "Alachua", path_type: "auction_bidding", scope: "record", verification_status: "VERIFIED" } },
+  // AVAILABLE: a RESTRICTED source.
+  p14: { publication_state: "ADMIN_ONLY_SOURCE_REVIEW", publication_progress: "DISCOVERED", publication_reasons: ["SOURCE_RESTRICTED"],
+    publication_remediation: "Resolve the legal review and record the publication decision.", publication_path: null },
+  // AVAILABLE outside Florida: unreviewed sources / unverified state rules.
+  ptn1: { publication_state: "ADMIN_ONLY_SOURCE_REVIEW", publication_progress: "DISCOVERED", publication_reasons: ["SOURCE_UNREVIEWED"],
+    publication_remediation: "Record an admin publication review for the source (Admin > Source publication).", publication_path: null },
+  ptx3: { publication_state: "ADMIN_ONLY_SOURCE_REVIEW", publication_progress: "DISCOVERED", publication_reasons: ["RULES_NOT_VERIFIED"],
+    publication_remediation: "Read the governing statute or county procedure and record it in data/state_ledgers.csv / state_rules.csv.", publication_path: null },
+  ptx6: { publication_state: "ADMIN_ONLY_SOURCE_REVIEW", publication_progress: "DISCOVERED", publication_reasons: ["RULES_NOT_VERIFIED"],
+    publication_remediation: "Read the governing statute or county procedure and record it in data/state_ledgers.csv / state_rules.csv.", publication_path: null }
+};
+function pubDecisionOf(row) {
+  const d = PUB_DECISIONS[row.id];
+  if (d) return Object.assign({ publication_state_at: "2026-10-10T12:00:00Z" }, d);
+  // The engine decides active rows (the writer reads status=eq.active); the
+  // fixture's legacy Florida Available rows carry "available" where
+  // production carries "active" (one legacy row aside), so both count here.
+  const active = ["active", "available"].includes(String(row.status || "active"));
+  return { publication_state: active ? "CUSTOMER_PUBLISHED" : "CLOSED", publication_progress: active ? "CUSTOMER_PUBLISHED" : "DISCOVERED",
+    publication_reasons: active ? [] : ["NOT_ACTIVE"], publication_remediation: null, publication_path: null, publication_state_at: "2026-10-10T12:00:00Z" };
+}
+// The access policy's customer rule: approved AND (customer-published OR admin).
+function pubVisibleTo(row, callerIsAdmin) {
+  if (!PUB_GATE || callerIsAdmin) return true;
+  return pubDecisionOf(row).publication_state === "CUSTOMER_PUBLISHED";
+}
+function stubCallerIsAdmin() {
+  return PROFILE_MODE === "admin";
+}
 
 const PROFILES_TABLE = PROFILE_MODE === "notable" ? null : [
   PROFILE_MODE === "pending"
@@ -72,12 +553,188 @@ const PROFILES_TABLE = PROFILE_MODE === "notable" ? null : [
   ] : [])
 ];
 
+// SaaS hardening (2026-09-29): Phase B event history for the fixture, read
+// by the full property page. p1 has one scheduled event with two
+// observations (an opening-bid change between them); p13 (past-due) has a
+// completed event whose outcome is - as in production, always - 'unknown'.
+const EVENT_ROWS = [
+  { id: "ev1", property_id: "p1", scheduled_sale_date: futureDate(3), lifecycle: "scheduled", outcome: "unknown", opening_bid: 5000, first_seen_at: "2026-09-01T10:00:00Z", last_seen_at: "2026-09-28T10:00:00Z", source: "auction", harvester_source: "fl_realauction_alachua", event_url_kind: "sale" },
+  { id: "ev2", property_id: "p13", case_no: "L-1", scheduled_sale_date: futureDate(-6), lifecycle: "completed", outcome: "unknown", opening_bid: 5000, first_seen_at: "2026-08-20T10:00:00Z", last_seen_at: "2026-09-20T10:00:00Z", source: "auction", harvester_source: "fl_realauction_alachua", event_url_kind: "sale" },
+  { id: "ev3", property_id: "p13", scheduled_sale_date: futureDate(-40), lifecycle: "superseded", outcome: "unknown", opening_bid: 4800, first_seen_at: "2026-07-01T10:00:00Z", last_seen_at: "2026-08-10T10:00:00Z", source: "auction", harvester_source: "fl_realauction_alachua", event_url_kind: "sale" },
+  // Production-readiness: an event whose result the SOURCE published (the
+  // writer's outcome_for_source path) - shown with the source's own wording.
+  { id: "ev4", property_id: "p10", scheduled_sale_date: futureDate(-20), lifecycle: "completed", outcome: "struck_off", outcome_raw: "Struck off to Jurisdiction", outcome_observed_at: "2026-09-20T10:00:00Z", opening_bid: 7000, first_seen_at: "2026-08-25T10:00:00Z", last_seen_at: "2026-09-20T10:00:00Z", source: "auction", harvester_source: "fl_realauction_alachua", event_url_kind: "sale" }
+];
+const OBSERVATION_ROWS = [
+  { id: 1, event_id: "ev1", observed_at: "2026-09-01T10:00:00Z", feed: "county_auction_site", raw_status: "scheduled", lifecycle: "scheduled", outcome: "unknown", opening_bid: 4500 },
+  { id: 2, event_id: "ev1", observed_at: "2026-09-28T10:00:00Z", feed: "county_auction_site", raw_status: "scheduled", lifecycle: "scheduled", outcome: "unknown", opening_bid: 5000 },
+  { id: 3, event_id: "ev2", observed_at: "2026-08-20T10:00:00Z", feed: "county_auction_site", raw_status: "scheduled", lifecycle: "scheduled", outcome: "unknown", opening_bid: 5000 },
+  { id: 4, event_id: "ev2", observed_at: "2026-09-20T10:00:00Z", feed: "county_auction_site", raw_status: null, lifecycle: "completed", outcome: "unknown", opening_bid: 5000 },
+  { id: 5, event_id: "ev3", observed_at: "2026-07-01T10:00:00Z", feed: "county_auction_site", raw_status: "scheduled", lifecycle: "scheduled", outcome: "unknown", opening_bid: 4800 },
+  { id: 6, event_id: "ev4", observed_at: "2026-09-20T10:00:00Z", feed: "api", raw_status: "Struck off to Jurisdiction", lifecycle: "completed", outcome: "struck_off", opening_bid: 7000 },
+  // Auction-outcome evidence: the sale day's Closed or Canceled listing was
+  // read (scripts/auction_outcomes.py) and printed no result line for p13's
+  // item - "Outcome not published", never a guess.
+  { id: 7, event_id: "ev2", observed_at: "2026-09-25T10:00:00Z", feed: "closed", raw_status: null, lifecycle: "completed", outcome: "unknown", opening_bid: null, evidence_url: "https://alachua.realtaxdeed.com/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=09/24/2026" }
+];
+// Lifecycle history rows (migration 021's inventory_status_observations +
+// 022/023's transition and result columns): p15 was observed, left the
+// list, and came back - the append-only record the decision page shows.
+// `?history=none` simulates the table not existing yet.
+const HISTORY_MODE = new URLSearchParams(location.search).get("history") || "default";
+const INVENTORY_HISTORY_ROWS = HISTORY_MODE === "none" ? null : [
+  { id: 1, property_id: "p15", observed_at: "2026-07-01T06:00:00Z", source_id: "fl_laft_html", raw_status: null, inventory_status: "available_otc", basis: "LIST_PRESENCE: on the county's Lands Available list at the last read (F.S. 197.502(7))", transition: "newly_observed" },
+  { id: 2, property_id: "p15", observed_at: "2026-08-15T06:00:00Z", source_id: "fl_laft_html", raw_status: null, inventory_status: "closed", basis: "LIST_PRESENCE: absent from the county's Lands Available list at a COMPLETE/EMPTY read; why is not published", transition: "removed" },
+  { id: 3, property_id: "p15", observed_at: "2026-09-01T06:00:00Z", source_id: "fl_laft_html", raw_status: null, inventory_status: "available_otc", basis: "LIST_PRESENCE: on the county's Lands Available list at the last read (F.S. 197.502(7))", transition: "reactivated" }
+];
+// Admin publication reviews (migration 023's source_publication_reviews):
+// one prior decision, appended to by the admin panel's form in the test.
+// `?reviews=none` simulates the table not existing yet.
+const REVIEWS_MODE = new URLSearchParams(location.search).get("reviews") || "default";
+const REVIEW_ROWS = REVIEWS_MODE === "none" ? null : [
+  { id: 1, state: "FL", source_id: "fl_laft_pioneer", publication_status: "APPROVED_GRANDFATHERED", restrictions: null, decision_note: "carried forward", evidence: "served to customers before the gate existed", decided_by: "u1", decided_at: "2026-09-29T10:00:00Z", next_review: "2027-03-01" }
+];
+// Dataset health rows (migration 016) - one healthy scheduled source, one
+// INCOMPLETE, one FAILED, one manual Texas source, one stale. `?health=none`
+// simulates the table not existing yet.
+const HEALTH_MODE = new URLSearchParams(location.search).get("health") || "default";
+const hoursAgo = h => new Date(Date.now() - h * 3600000).toISOString();
+// Per-county freshness rows (county_source_registry + migration 021's
+// columns). `?registry=none` simulates the columns not existing yet.
+const REGISTRY_MODE = new URLSearchParams(location.search).get("registry") || "default";
+const REGISTRY_ROWS = REGISTRY_MODE === "none" ? null : [
+  { state: "FL", county: "Alachua", source_id: "fl_laft_realtdm", last_attempt_at: hoursAgo(2), last_attempt_status: "COMPLETE", last_success_at: hoursAgo(2), last_success_row_count: 14, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" },
+  { state: "FL", county: "Bay", source_id: "fl_laft_pioneer", last_attempt_at: hoursAgo(2), last_attempt_status: "FAILED", last_success_at: hoursAgo(74), last_success_row_count: 3, consecutive_failures: 3, last_error_category: "TRANSPORT_HTTP_403_BLOCKED", publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" },
+  { state: "FL", county: "Bradford", source_id: "fl_laft_pdfs", last_attempt_at: null, last_attempt_status: null, last_success_at: null, last_success_row_count: null, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" },
+  // Citrus (p15's county): a current, complete read of the HTML source.
+  { state: "FL", county: "Citrus", source_id: "fl_laft_html", last_attempt_at: hoursAgo(3), last_attempt_status: "COMPLETE", last_success_at: hoursAgo(3), last_success_row_count: 6, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" },
+  // A RESTRICTED candidate (p14's source): the admin panel must show its reason.
+  { state: "FL", county: "Broward", source_id: "fl_laft_broward_candidate", last_attempt_at: null, last_attempt_status: null, last_success_at: null, last_success_row_count: null, consecutive_failures: 0, publication_status: "RESTRICTED", restrictions: "terms of use under legal review", governance_status: "LEGAL_REVIEW_REQUIRED", verification_status: "CANDIDATE" },
+  // Dixie: a complete read in which the source listed nothing (checked zero) -
+  // never shown like Bay's unreachable source.
+  // ?certunit=1 (2026-10-10): a certificate unit read completely - the Liens &
+  // Certificates zero case "no current inventory" needs a successful read on
+  // record. Opt-in so the dashboard / admin unit counts stay as pinned.
+  ...(new URLSearchParams(location.search).get("certunit") === "1" ? [
+    { state: "FL", county: "Walton", source_id: "fl_lienhub_certificates", last_attempt_at: hoursAgo(5), last_attempt_status: "COMPLETE", last_success_at: hoursAgo(5), last_success_row_count: 9, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" }
+  ] : []),
+  { state: "FL", county: "Dixie", source_id: "fl_laft_html", last_attempt_at: hoursAgo(4), last_attempt_status: "EMPTY", last_success_at: hoursAgo(4), last_success_row_count: 0, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" },
+  { state: "TX", county: "Galveston", source_id: "tx_lgbs", last_attempt_at: hoursAgo(30), last_attempt_status: "INCOMPLETE", last_success_at: hoursAgo(54), last_success_row_count: 120, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" }
+];
+const SOURCE_HEALTH_ROWS = HEALTH_MODE === "none" ? null : [
+  { source: "fl_deeds", label: "Florida deed auctions (county auction sites)", state: "FL", mode: "scheduled", cadence_hours: 12, last_attempt_at: hoursAgo(2), last_attempt_status: "SUCCESS", last_success_at: hoursAgo(2), last_run_id: "1001", row_count: 812, units_total: 46, units_complete: 46, units_incomplete: 0, incomplete_units: [], completeness: "COMPLETE", error: null },
+  { source: "fl_certificates", label: "Florida county-held certificates (LienHub)", state: "FL", mode: "scheduled", cadence_hours: 24, last_attempt_at: hoursAgo(3), last_attempt_status: "INCOMPLETE", last_success_at: hoursAgo(3), last_run_id: "1002", row_count: 391, units_total: 32, units_complete: 30, units_incomplete: 2, incomplete_units: ["Baker", "Gulf"], completeness: "INCOMPLETE", error: "2 unit(s) INCOMPLETE: Baker, Gulf" },
+  { source: "fl_laft", label: "Florida Lands Available for Taxes (county lists)", state: "FL", mode: "scheduled", cadence_hours: 24, last_attempt_at: hoursAgo(1), last_attempt_status: "FAILED", last_success_at: hoursAgo(25), last_run_id: "1003", row_count: 0, units_total: null, units_complete: null, units_incomplete: null, incomplete_units: [], completeness: "UNKNOWN", error: "sync step outcome: failure" },
+  { source: "tx_sales", label: "Texas tax sales (LGBS + county sheriff-sale sites) - manual runs", state: "TX", mode: "manual", cadence_hours: null, last_attempt_at: hoursAgo(200), last_attempt_status: "INCOMPLETE", last_success_at: hoursAgo(200), last_run_id: "1004", row_count: 531, units_total: 2, units_complete: 1, units_incomplete: 1, incomplete_units: ["lgbs"], completeness: "INCOMPLETE", error: "1 unit(s) INCOMPLETE: lgbs" },
+  { source: "db_backup", label: "Database backup export", state: "ALL", mode: "scheduled", cadence_hours: 24, last_attempt_at: hoursAgo(80), last_attempt_status: "SUCCESS", last_success_at: hoursAgo(80), last_run_id: "1005", row_count: 3000, units_total: 3, units_complete: 3, units_incomplete: 0, incomplete_units: [], completeness: "COMPLETE", error: null }
+];
+
+// Customer monitoring (migration 024): saved searches, alerts, preferences,
+// server change events and analytics. `?monitor=none` simulates 024 not being
+// applied (every table answers PGRST205), the production state until it is.
+const MONITOR_MODE = new URLSearchParams(location.search).get("monitor") || "default";
+const MONITOR_DB = MONITOR_MODE === "none" ? null : {
+  saved_searches: [],
+  alert_preferences: [],
+  user_alerts: [
+    { id: 11, user_id: "u1", kind: "watched_acquisition", property_id: "p15", saved_search_id: null, change_event_id: 101, title: "Acquisition path changed", detail: "Acquisition path: not on file → phone_mail", created_at: "2026-09-30T12:00:00Z", read_at: null },
+    { id: 12, user_id: "u1", kind: "saved_search_new_match", property_id: "p3", saved_search_id: null, change_event_id: 102, title: "New match: Bay lots", detail: "Newly listed in Bay County", created_at: "2026-09-29T12:00:00Z", read_at: "2026-09-29T13:00:00Z" }
+  ],
+  property_change_events: [
+    { id: 101, property_id: "p15", state: "FL", county: "Citrus", source: "laft", kind: "acquisition_path_changed", field: "purchase_path_type", old_value: null, new_value: "phone_mail", observed_at: "2026-09-30T12:00:00Z" },
+    { id: 103, property_id: "p15", state: "FL", county: "Citrus", source: "laft", kind: "removed", field: "status", old_value: "active", new_value: "closed", observed_at: "2026-08-15T06:00:00Z" },
+    { id: 102, property_id: "p3", state: "FL", county: "Bay", source: "laft", kind: "opening_bid_changed", field: "opening_bid", old_value: "1800", new_value: "2000", observed_at: "2026-09-29T12:00:00Z" }
+  ],
+  product_events: [],
+  source_observation_runs: [
+    { id: 1, state: "FL", source_id: "fl_laft_html", ledger: "laft", run_at: "2026-10-01T06:00:00Z", rows_observed: 120, rows_added: 3, rows_changed: 5, rows_closed: 2, rows_reactivated: 1 },
+    { id: 2, state: "FL", source_id: "fl_laft_html", ledger: "laft", run_at: "2026-09-30T06:00:00Z", rows_observed: 119, rows_added: 0, rows_changed: 1, rows_closed: 0, rows_reactivated: 0 },
+    { id: 3, state: "FL", source_id: "fl_realauction", ledger: "auction", run_at: "2026-10-01T10:00:00Z", rows_observed: 812, rows_added: 14, rows_changed: 40, rows_closed: 9, rows_reactivated: 0 }
+  ]
+};
+const MONITOR_TABLES = new Set(["saved_searches", "alert_preferences", "user_alerts", "property_change_events", "product_events", "source_observation_runs"]);
+function monitorQuery(q) {
+  if (MONITOR_DB === null) return { data: null, error: { message: `Could not find the table 'public.${q.table}' in the schema cache`, code: "PGRST205" } };
+  const rows = MONITOR_DB[q.table];
+  const matches = row => q._filters.every(([c, v, kind]) => kind === "in" ? (v || []).includes(row[c]) : row[c] === v);
+  if (q._op === "insert") {
+    const row = Object.assign({ user_id: "u1", created_at: new Date().toISOString() }, q._row);
+    rows.push(row);
+    if (q.table === "product_events") window.__stubProductEvents = (window.__stubProductEvents || []).concat([row]);
+    return { data: null, error: null };
+  }
+  if (q._op === "upsert") { rows.length = 0; rows.push(Object.assign({ user_id: "u1" }, q._row)); window.__stubPrefUpserts = (window.__stubPrefUpserts || 0) + 1; return { data: null, error: null }; }
+  if (q._op === "update") {
+    rows.filter(matches).forEach(r => Object.assign(r, q._row));
+    if (q.table === "user_alerts") window.__stubAlertUpdates = (window.__stubAlertUpdates || 0) + 1;
+    return { data: null, error: null };
+  }
+  if (q._op === "delete") { const keep = rows.filter(r => !matches(r)); rows.length = 0; rows.push(...keep); return { data: null, error: null }; }
+  if (q.table === "product_events") return { data: [], error: null };
+  const out = rows.filter(matches).map(r => Object.assign({}, r));
+  if (q.table === "source_observation_runs") out.sort((a, b) => String(b.run_at).localeCompare(String(a.run_at)));
+  if (q.table === "property_change_events" || q.table === "user_alerts") out.sort((a, b) => String(b.observed_at || b.created_at).localeCompare(String(a.observed_at || a.created_at)));
+  return { data: q._single ? (out[0] || null) : out, error: null };
+}
+
+// Research workspace (migration 029, written and not applied). `?research=none`
+// simulates 029 not being applied (PGRST205 - the app keeps the lists in the
+// browser); the default emulates the tables with the migration's own checks:
+// the customer workflow vocabulary and one row per (list, property).
+const RESEARCH_MODE = new URLSearchParams(location.search).get("research") || "default";
+const RESEARCH_DB = RESEARCH_MODE === "none" ? null : { research_lists: [], research_items: [] };
+const RESEARCH_TABLES = new Set(["research_lists", "research_items"]);
+const RESEARCH_STATE_CHECK = ["DISCOVERED", "RESEARCHING", "DUE_DILIGENCE", "ACQUISITION_READY", "PASSED", "ACQUIRED"];
+let RESEARCH_SEQ = 0;
+function researchQuery(q) {
+  window.__stubResearchCalls = (window.__stubResearchCalls || 0) + 1;
+  if (RESEARCH_DB === null) return { data: null, error: { message: `Could not find the table 'public.${q.table}' in the schema cache`, code: "PGRST205" } };
+  const rows = RESEARCH_DB[q.table];
+  const matches = row => q._filters.every(([c, v]) => String(row[c]) === String(v));
+  const bad = r => r && r.research_state !== undefined && !RESEARCH_STATE_CHECK.includes(r.research_state);
+  if (q._op === "insert") {
+    if (bad(q._row)) return { data: null, error: { message: "new row violates check constraint \"research_items_research_state_check\"", code: "23514" } };
+    const now = new Date().toISOString();
+    const row = Object.assign({ id: "rs-" + (++RESEARCH_SEQ), user_id: "u1", created_at: now, updated_at: now }, q.table === "research_items"
+      ? { research_state: "DISCOVERED", note: null, diligence: {}, saved_at: now, state_changed_at: now } : {}, q._row);
+    if (q.table === "research_items" && rows.some(r => r.list_id === row.list_id && String(r.property_id) === String(row.property_id)))
+      return { data: null, error: { message: "duplicate key value violates unique constraint", code: "23505" } };
+    rows.push(row);
+    return { data: [Object.assign({}, row)], error: null };
+  }
+  if (q._op === "update") {
+    if (bad(q._row)) return { data: null, error: { message: "new row violates check constraint \"research_items_research_state_check\"", code: "23514" } };
+    rows.filter(matches).forEach(r => Object.assign(r, q._row));
+    window.__stubResearchUpdates = (window.__stubResearchUpdates || []).concat([Object.assign({ table: q.table }, q._row)]);
+    return { data: null, error: null };
+  }
+  if (q._op === "delete") {
+    const gone = rows.filter(matches).map(r => r.id);
+    const keep = rows.filter(r => !matches(r)); rows.length = 0; rows.push(...keep);
+    if (q.table === "research_lists") { const it = RESEARCH_DB.research_items; const k2 = it.filter(i => !gone.includes(i.list_id)); it.length = 0; it.push(...k2); }
+    return { data: null, error: null };
+  }
+  return { data: rows.filter(matches).map(r => Object.assign({}, r)), error: null };
+}
+window.__stubResearchDb = () => RESEARCH_DB ? JSON.parse(JSON.stringify(RESEARCH_DB)) : null;
+
 class MockQuery {
   constructor(table) { this.table = table; this._op = "select"; this._filters = []; this._single = false; }
   select() { return this; }
   order() { return this; }
   eq(col, val) { this._filters.push([col, val]); return this; }
+  in(col, vals) { this._filters.push([col, vals, "in"]); return this; }
+  lt(col, val) { this._filters.push([col, val, "lt"]); return this; }
+  range() { return this; }
+  limit(n) { this._limit = n; return this; }
+  // PostgREST or=(...) - only the customer publication filter the state
+  // picker sends is understood (see the properties branch below).
+  // Several or() calls are separate filters (AND-ed), as in PostgREST.
+  or(expr) { this._or = (this._or ? this._or + ";" : "") + String(expr || ""); return this; }
+  // not(col, "in", "(a,b)"): SQL semantics - a NULL value is never "not in".
+  not(col, op, val) { if (op === "in") this._filters.push([col, String(val || "").replace(/^\(|\)$/g, "").split(","), "notin"]); return this; }
   gte() { return this; }
+  gt() { return this; }
   maybeSingle() { this._single = true; return this; }
   insert(row) { this._op = "insert"; this._row = row; return this; }
   update(patch) { this._op = "update"; this._row = patch; return this; }
@@ -85,7 +742,34 @@ class MockQuery {
   upsert(row) { this._op = "upsert"; this._row = row; return this; }
   then(resolve) {
     let result = { data: [], error: null };
-    if (this.table === "profiles") {
+    if (RESEARCH_TABLES.has(this.table)) {
+      result = researchQuery(this);
+    } else if (MONITOR_TABLES.has(this.table)) {
+      result = monitorQuery(this);
+    } else if (this.table === "profiles" && STUB_AUTH) {
+      // Row-level security, as the real policies: "profiles: read own row"
+      // (SELECT, auth.uid() = id) and "profiles: admin full access" (ALL,
+      // is_admin()). No INSERT/UPDATE policy exists for anyone else, so a
+      // non-admin's update matches zero rows and changes nothing - the
+      // same silent 200 PostgREST returns.
+      const me = stubSessionUser();
+      const users = stubUsers();
+      const caller = me ? users.find(u => u.id === me.id) : null;
+      const callerIsAdmin = !!(caller && caller.is_admin === true);
+      const visible = users.filter(u => caller && (callerIsAdmin || u.id === caller.id));
+      const matches = u => this._filters.every(([c, v]) => u[c] === v);
+      if (this._op === "update") {
+        const changed = callerIsAdmin ? visible.filter(matches) : [];
+        changed.forEach(u => Object.assign(u, this._row));
+        if (changed.length) stubSaveUsers(users);
+        window.__stubProfileUpdates = (window.__stubProfileUpdates || []).concat([{ rows: changed.length }]);
+        result = { data: null, error: null };
+      } else {
+        const rows = visible.filter(matches)
+          .map(u => ({ id: u.id, email: u.email, approved: u.approved, is_admin: u.is_admin, requested_at: u.requested_at || null }));
+        result = { data: this._single ? (rows[0] || null) : rows, error: null };
+      }
+    } else if (this.table === "profiles") {
       if (PROFILES_TABLE === null) {
         // Simulates schema-v6-approvals.sql not having been run yet.
         result = { data: null, error: { message: 'relation "public.profiles" does not exist', code: "42P01" } };
@@ -99,35 +783,268 @@ class MockQuery {
           result = { data: this._single ? (rows[0] || null) : rows, error: null };
         }
       }
+    } else if (this._op === "insert" && this.table === "source_publication_reviews") {
+      // Append-only, like the real table (RLS admits admins only).
+      if (REVIEW_ROWS === null) result = { data: null, error: { message: "Could not find the table 'public.source_publication_reviews' in the schema cache", code: "PGRST205" } };
+      else {
+        const row = { id: REVIEW_ROWS.length + 1, decided_by: "u1", decided_at: new Date().toISOString(), ...this._row };
+        REVIEW_ROWS.push(row);
+        window.__stubReviewInserts = (window.__stubReviewInserts || []).concat([row]);
+        result = { data: null, error: null };
+      }
+    } else if (this.table === "bid_list" && BIDLIST_SEED) {
+      // ?bidlist=<id>,<id>: one account's watchlist, the same rows whichever
+      // state's page reads it (the table has no state column). Deletes are
+      // counted so a test can prove a state switch never removes anything.
+      if (this._op === "select") result = { data: BIDLIST_SEED.map(id => ({ property_id: id })), error: null };
+      else if (this._op === "delete") window.__stubBidListDeletes = (window.__stubBidListDeletes || 0) + 1;
+    } else if (this._op === "select" && this.table === "source_link_checks") {
+      // Like the server read: BROKEN on 2+ separate daily checks only.
+      window.__stubLinkCheckReads = (window.__stubLinkCheckReads || 0) + 1;
+      if (!LINK_CHECKS) result = { data: null, error: { message: "Could not find the table 'public.source_link_checks' in the schema cache", code: "PGRST205" } };
+      else result = { data: LINK_CHECKS.filter(r => r.status === "BROKEN" && r.consecutive_failures >= 2), error: null };
+    } else if (this._op === "select" && this.table === "parcel_boundaries") {
+      // Which properties carry an outline (cards ask only for those). Follows
+      // ?boundary=: absent = table not deployed (PGRST205); none = no rows;
+      // error = read failure; any other mode = every fixture row with
+      // coordinates in the requested state, or only ?boundaryids=<id>,<id>.
+      const qs = new URLSearchParams(location.search);
+      const mode = qs.get("boundary");
+      window.__stubBoundaryIdReads = (window.__stubBoundaryIdReads || 0) + 1;
+      if (!mode) result = { data: null, error: { message: "Could not find the table 'public.parcel_boundaries' in the schema cache", code: "PGRST205" } };
+      else if (mode === "error") result = { data: null, error: { message: "stub: boundary id read failed", code: "XX000" } };
+      else if (mode === "none") result = { data: [], error: null };
+      else {
+        const only = qs.get("boundaryids") ? qs.get("boundaryids").split(",") : null;
+        const st = (this._filters.find(([c]) => c === "state") || [])[1];
+        result = { data: FIXTURE_PROPERTIES
+          .filter(r => typeof r.latitude === "number" && (!st || (r.state || "FL") === st) && (!only || only.includes(r.id)))
+          .map(r => ({ property_id: r.id })), error: null };
+      }
     } else if (this._op === "select") {
-      if (this.table === "properties") result.data = FIXTURE_PROPERTIES;
+      const matches = row => this._filters.every(([c, v, kind]) => kind === "in" ? (v || []).includes(row[c]) : kind === "lt" ? String(row[c]) < String(v) : row[c] === v);
+      if (this.table === "properties") {
+        // The legacy unscoped fallback (no filters) still gets every row. A
+        // filtered read - the state picker's "does this ledger have a row you
+        // may see" probe - applies eq() on state (implicitly FL, as the RPC
+        // does), source, the customer publication filter and the limit.
+        // ?probefail=1 makes every probe fail, like a network error.
+        if (!this._filters.length && !this._or) result.data = FIXTURE_PROPERTIES;
+        else if (new URLSearchParams(location.search).get("probefail") === "1") result = { data: null, error: { message: "probe failed (stub)" } };
+        else {
+          window.__stubPropertyProbes = (window.__stubPropertyProbes || 0) + 1;
+          window.__stubProbeLog = (window.__stubProbeLog || []).concat([{ filters: this._filters.map(f => f.slice()), or: this._or || "" }]);
+          let rows = FIXTURE_PROPERTIES.filter(r => this._filters.every(([c, v, kind]) => {
+            const val = c === "state" ? (r.state || "FL") : r[c];
+            return kind === "in" ? (v || []).includes(val) : kind === "notin" ? (val != null && !(v || []).includes(val)) : kind === "lt" ? String(val) < String(v) : val === v;
+          }));
+          // or=(status.is.null,status.not.in.(...)): the probe's current-row rule.
+          const statusCut = /status\.is\.null,status\.not\.in\.\(([^)]*)\)/.exec(this._or || "");
+          if (statusCut) { const gone = statusCut[1].split(","); rows = rows.filter(r => r.status == null || !gone.includes(r.status)); }
+          // or=(sale_date.is.null,sale_date.gte.<day>): a current auction row.
+          const saleCut = /sale_date\.is\.null,sale_date\.gte\.([^,);]+)/.exec(this._or || "");
+          if (saleCut) rows = rows.filter(r => !r.sale_date || String(r.sale_date).slice(0, 10) >= saleCut[1]);
+          if (/publication_status\.is\.null/.test(this._or || "")) rows = rows.filter(r => !r.publication_status || ["APPROVED", "APPROVED_GRANDFATHERED"].includes(r.publication_status));
+          // The admin "Needs attention" read of unconfirmed Available rows:
+          // or=(last_seen_at.is.null,last_seen_at.lt.<iso>).
+          const seenCut = /last_seen_at\.is\.null,last_seen_at\.lt\.([^,)]+)/.exec(this._or || "");
+          if (seenCut) rows = rows.filter(r => !r.last_seen_at || String(r.last_seen_at) < seenCut[1]);
+          result.data = this._limit ? rows.slice(0, this._limit) : rows;
+        }
+      }
+      else if (this.table === "auction_events") result.data = EVENT_ROWS.filter(matches);
+      else if (this.table === "auction_event_observations") result.data = OBSERVATION_ROWS.filter(matches);
+      else if (this.table === "source_health") {
+        result = SOURCE_HEALTH_ROWS === null
+          ? { data: null, error: { message: "Could not find the table 'public.source_health' in the schema cache", code: "PGRST205" } }
+          : { data: SOURCE_HEALTH_ROWS, error: null };
+      }
+      else if (this.table === "county_source_registry") {
+        // ?unitstatus=<source_id>:<STATUS>[,...] (2026-10-10 zero-count
+        // semantics): that source's units answer with this last_attempt_status
+        // (COMPLETE / EMPTY also mark a success now), so a ledger's read health
+        // can be set independently of the fixture's default rows.
+        const us = (new URLSearchParams(location.search).get("unitstatus") || "").split(",").filter(Boolean).map(x => x.split(":"));
+        const rows = REGISTRY_ROWS === null ? null : REGISTRY_ROWS.map(r => {
+          const o = us.find(x => x[0] === r.source_id);
+          if (!o) return r;
+          const success = o[1] === "COMPLETE" || o[1] === "EMPTY";
+          return { ...r, last_attempt_at: hoursAgo(1), last_attempt_status: o[1], last_success_at: success ? hoursAgo(1) : r.last_success_at,
+            last_success_row_count: success ? (o[2] !== undefined ? Number(o[2]) : r.last_success_row_count) : r.last_success_row_count, last_error_category: success ? null : r.last_error_category };
+        });
+        result = rows === null
+          ? { data: null, error: { message: "column county_source_registry.last_attempt_at does not exist", code: "42703" } }
+          : { data: rows, error: null };
+      }
+      else if (this.table === "inventory_status_observations") {
+        result = INVENTORY_HISTORY_ROWS === null
+          ? { data: null, error: { message: "Could not find the table 'public.inventory_status_observations' in the schema cache", code: "PGRST205" } }
+          : { data: INVENTORY_HISTORY_ROWS.filter(matches), error: null };
+      }
+      else if (this.table === "source_publication_reviews") {
+        result = REVIEW_ROWS === null
+          ? { data: null, error: { message: "Could not find the table 'public.source_publication_reviews' in the schema cache", code: "PGRST205" } }
+          : { data: REVIEW_ROWS.filter(matches).slice().sort((a, b) => (a.decided_at < b.decided_at ? 1 : -1)), error: null };
+      }
       else if (this.table === "notes") result.data = [];
       else if (this.table === "favorites") result.data = [];
       else if (this.table === "hidden") result.data = [];
       else if (this.table === "county_calendar") result.data = CALENDAR_ROWS;
     }
+    // ?tabledelay=auction_events:3000 (2026-10-05): that table answers late -
+    // proves a secondary read never gates the first paint.
+    const td = (new URLSearchParams(location.search).get("tabledelay") || "").split(",").map(x => x.split(":")).find(x => x[0] === this.table);
+    if (td) return new Promise(r => setTimeout(r, Number(td[1]) || 0)).then(() => { (window.__stubTableDone = window.__stubTableDone || {})[this.table] = true; resolve(result); return result; });
     resolve(result);
     return Promise.resolve(result);
   }
 }
 
+// ?stripacq=1 (2026-10-05): pla2 in the shape production's 3,500 East Baton
+// Rouge rows had after an adapter sync replaced otc_provenance wholesale.
+function stubVariant(p) {
+  return new URLSearchParams(location.search).get("stripacq") === "1" && p.id === "pla2"
+    ? { ...p, otc_provenance: { adapter: "la_ebr_adjudicated", identifier: "case_no", amount: null, coordinates: "published" } } : p;
+}
+// Migration 028's list projection, mirrored (tests/python/test_property_list_payload.py
+// pins these key lists equal to the SQL's).
+const LIST_OTC_DROPPED_KEYS = ["purchase_instructions", "query_where", "attributes", "layer_url", "columns", "id_field", "object_id_field"];
+const LIST_REVIEW_SOURCE_IDS = ["tx_lgbs", "tx_realauction"];
+function slimForList(p) {
+  const out = { ...p, provenance_scope: "list" };
+  const op = p.otc_provenance;
+  if (op && typeof op === "object" && !Array.isArray(op)) {
+    out.otc_provenance = Object.fromEntries(Object.entries(op).filter(([k]) => !LIST_OTC_DROPPED_KEYS.includes(k)));
+  }
+  const fp = p.field_provenance;
+  if (fp && typeof fp === "object" && !Array.isArray(fp)) {
+    const f = {};
+    for (const [k, v] of Object.entries(fp)) {
+      if (!v || typeof v !== "object" || Array.isArray(v)) continue;
+      if (!("governance" in v) && !LIST_REVIEW_SOURCE_IDS.includes(v.source_id)) continue;
+      f[k] = Object.fromEntries(Object.entries({ source: v.source, source_id: v.source_id, governance: v.governance }).filter(([, x]) => x != null));
+    }
+    out.field_provenance = Object.keys(f).length ? f : null;
+  } else out.field_provenance = null;
+  return out;
+}
+
+// ?bidlist=p1,ptx1 seeds the account's watchlist (see MockQuery.then).
+const BIDLIST_SEED = (() => {
+  const v = new URLSearchParams(location.search).get("bidlist");
+  return v ? v.split(",").filter(Boolean) : null;
+})();
+
 // ?authtest=1 forces the sign-in gate to show (no session) instead of
 // auto-signing-in, so the sign-up/sign-in toggle can be screenshot-tested.
 const FORCE_GATE = new URLSearchParams(location.search).get("authtest") === "1";
+
+// ?stubauth=1 (2026-09-30, admin area): a stand-in for the SERVER side of
+// Supabase Auth + row-level security, for the sign-in / role tests. The
+// user table below lives only in this module's closure (a page cannot read
+// or edit it - the way the real auth.users / public.profiles cannot be
+// edited from the browser); signInWithPassword checks the password here,
+// the session is an opaque id in sessionStorage (supabase-js keeps its
+// signed token there too), and a profiles read returns only the signed-in
+// user's own row with the server's is_admin. The passwords are FIXTURE
+// values for these fake accounts - not any real credential.
+//
+// Sign-up (2026-09-30): signUp creates a new server user the way Supabase
+// Auth + the handle_new_user trigger do - a profile with approved = false and
+// is_admin = false, whatever metadata the caller sends. An admin (and only an
+// admin) can read other users' rows and approve them. So that a sign-up in
+// one tab is visible to the admin in another tab of the same browser context
+// (the way one database serves every client), the user table is persisted
+// under STUB_DB_KEY. That key stands for the server's database: the
+// application never reads it, and the tamper checks never touch it.
+// ?signupdisabled=1 makes signUp answer the way a project with "Allow new
+// users to sign up" turned off does.
+const STUB_AUTH = new URLSearchParams(location.search).get("stubauth") === "1";
+const STUB_SIGNUP_DISABLED = new URLSearchParams(location.search).get("signupdisabled") === "1";
+// ?emaillimit=1: Supabase's built-in e-mail sender is over its hourly limit -
+// signUp / resend / resetPasswordForEmail answer 429 and nothing is created.
+// ?unconfirmed=1: signInWithPassword answers "Email not confirmed".
+const STUB_EMAIL_LIMIT = new URLSearchParams(location.search).get("emaillimit") === "1";
+const STUB_UNCONFIRMED = new URLSearchParams(location.search).get("unconfirmed") === "1";
+const STUB_RATE_ERR = { message: "email rate limit exceeded", status: 429, code: "over_email_send_rate_limit" };
+const STUB_SESSION_KEY = "stub-auth-session";
+const STUB_DB_KEY = "stub-server-db";
+const STUB_SERVER_USERS = [
+  { id: "n1", email: "normal@example.com", password: "fixture-normal-pass", approved: true, is_admin: false },
+  { id: "a1", email: "admin@example.com", password: "fixture-admin-pass", approved: true, is_admin: true }
+];
+// ?provideruser=1: also an account a provider sign-in created (Google / Apple /
+// Microsoft) - pending, its metadata only the name the provider shared. The
+// password is a FIXTURE stand-in for the provider round trip.
+const STUB_PROVIDER_USER = { id: "o1", email: "provider-user@example.com", password: "fixture-provider-pass", approved: false, is_admin: false, user_metadata: { full_name: "Jordan Q Tester" } };
+if (new URLSearchParams(location.search).get("provideruser") === "1") STUB_SERVER_USERS.push(STUB_PROVIDER_USER);
+function stubUsers() {
+  try { const saved = JSON.parse(localStorage.getItem(STUB_DB_KEY)); if (Array.isArray(saved)) return saved; } catch { /* seed below */ }
+  return STUB_SERVER_USERS.map(u => ({ ...u }));
+}
+function stubSaveUsers(list) { try { localStorage.setItem(STUB_DB_KEY, JSON.stringify(list)); } catch { /* ignore */ } }
+const stubListeners = [];
+function stubSessionUser() {
+  let id = null;
+  try { id = sessionStorage.getItem(STUB_SESSION_KEY); } catch { id = null; }
+  const u = stubUsers().find(x => x.id === id);
+  return u ? { id: u.id, email: u.email, user_metadata: u.user_metadata || {} } : null;
+}
+function stubEmit(event, user) { stubListeners.forEach(cb => setTimeout(() => cb(event, user ? { user } : null), 0)); }
 
 export function createClient() {
   return {
     auth: {
       async getSession() {
+        if (STUB_AUTH) { const u = stubSessionUser(); return { data: { session: u ? { user: u } : null } }; }
         if (FORCE_GATE) return { data: { session: null } };
         return { data: { session: { user: { id: "u1", email: "test@example.com" } } } };
       },
       onAuthStateChange(cb) {
+        if (STUB_AUTH) { stubListeners.push(cb); return { data: { subscription: { unsubscribe() {} } } }; }
         if (!FORCE_GATE) setTimeout(() => cb("SIGNED_IN", { user: { id: "u1", email: "test@example.com" } }), 0);
+        // ?recovery=1: what supabase-js emits after a password-reset link
+        // lands (detectSessionInUrl consumed the recovery token).
+        if (!FORCE_GATE && new URLSearchParams(location.search).get("recovery") === "1") {
+          setTimeout(() => cb("PASSWORD_RECOVERY", { user: { id: "u1", email: "test@example.com" } }), 10);
+        }
         return { data: { subscription: { unsubscribe() {} } } };
       },
-      async signInWithPassword() { return { error: null }; },
-      async signUp({ email }) {
+      async signInWithPassword(creds) {
+        if (STUB_AUTH && STUB_UNCONFIRMED) return { data: { user: null, session: null }, error: { message: "Email not confirmed", status: 400, code: "email_not_confirmed" } };
+        if (STUB_AUTH) {
+          const u = stubUsers().find(x => creds && x.email === creds.email && x.password === creds.password);
+          if (!u) return { data: { user: null, session: null }, error: { message: "Invalid login credentials", status: 400 } };
+          sessionStorage.setItem(STUB_SESSION_KEY, u.id);
+          const user = { id: u.id, email: u.email, user_metadata: u.user_metadata || {} };
+          stubEmit("SIGNED_IN", user);
+          return { data: { user, session: { user } }, error: null };
+        }
+        return { error: null };
+      },
+      async signUp(creds) {
+        const email = creds && creds.email;
+        // Counted (fields only, never values) so a test can prove a refused
+        // sign-up never reached Supabase Auth.
+        window.__stubSignUpCalls = (window.__stubSignUpCalls || []).concat([{ fields: Object.keys(creds || {}).sort() }]);
+        if (STUB_AUTH) {
+          if (STUB_SIGNUP_DISABLED) return { data: { user: null, session: null }, error: { message: "Signups not allowed for this instance", status: 422 } };
+          if (STUB_EMAIL_LIMIT) return { data: { user: null, session: null }, error: STUB_RATE_ERR };
+          const users = stubUsers();
+          if (!email || !creds.password || users.some(x => x.email === email)) {
+            return { data: { user: null, session: null }, error: { message: "User already registered", status: 422 } };
+          }
+          // handle_new_user(): (id, email) only - approved and is_admin take
+          // the column defaults (false), never anything from the metadata.
+          const created = { id: "s" + (users.length + 1), email, password: creds.password, approved: false, is_admin: false, requested_at: new Date().toISOString(),
+                            user_metadata: (creds.options && creds.options.data) || {} };
+          users.push(created);
+          stubSaveUsers(users);
+          sessionStorage.setItem(STUB_SESSION_KEY, created.id);
+          const user = { id: created.id, email, user_metadata: created.user_metadata };
+          stubEmit("SIGNED_IN", user);
+          return { data: { user, session: { user } }, error: null };
+        }
         // Simulate the "check your email" (no immediate session) outcome -
         // the more interesting UI path to verify, since the auto-confirmed
         // path just reuses the existing onAuthStateChange->showApp flow.
@@ -136,7 +1053,81 @@ export function createClient() {
         }
         return { data: { user: { id: "u2", email }, session: null }, error: null };
       },
-      async signOut() { return {}; }
+      async signOut() {
+        if (STUB_AUTH) { try { sessionStorage.removeItem(STUB_SESSION_KEY); } catch { /* ignore */ } stubEmit("SIGNED_OUT", null); }
+        return {};
+      },
+      // SaaS hardening: the two supported-pattern calls the account
+      // lifecycle uses. ?resetfail=1 makes the reset request fail so the
+      // error path is exercised too.
+      async resend(args) {
+        window.__stubResendCalls = (window.__stubResendCalls || []).concat([args]);
+        if (STUB_EMAIL_LIMIT) return { data: null, error: STUB_RATE_ERR };
+        return { data: {}, error: null };
+      },
+      // Sign in with a provider: recorded, never navigates (the real
+      // supabase-js leaves for the provider). ?oauthfail=1 refuses.
+      async signInWithOAuth(args) {
+        window.__stubOAuthCalls = (window.__stubOAuthCalls || []).concat([{ provider: args && args.provider,
+          redirectTo: args && args.options && args.options.redirectTo, scopes: (args && args.options && args.options.scopes) || null }]);
+        if (new URLSearchParams(location.search).get("oauthfail") === "1") return { data: null, error: { message: "stub: provider refused" } };
+        return { data: { provider: args && args.provider, url: "#stub-oauth" }, error: null };
+      },
+      async resetPasswordForEmail(email, opts) {
+        window.__stubResetCalls = (window.__stubResetCalls || []).concat([{ email, redirectTo: opts && opts.redirectTo }]);
+        if (new URLSearchParams(location.search).get("resetfail") === "1") return { data: null, error: { message: "stub: reset refused" } };
+        return { data: {}, error: null };
+      },
+      async updateUser(attrs) {
+        window.__stubUpdateUserCalls = (window.__stubUpdateUserCalls || []).concat([attrs]);
+        if (STUB_AUTH && attrs && attrs.data) {
+          const users = stubUsers();
+          const u = users.find(x => x.id === (stubSessionUser() || {}).id);
+          if (u) {
+            u.user_metadata = { ...(u.user_metadata || {}), ...attrs.data };
+            stubSaveUsers(users);
+            return { data: { user: { id: u.id, email: u.email, user_metadata: u.user_metadata } }, error: null };
+          }
+        }
+        return { data: { user: { id: "u1", email: "test@example.com", user_metadata: (attrs && attrs.data) || {} } }, error: null };
+      }
+    },
+    // Edge Functions (2026-10-04): self-signup creates the account server-side,
+    // already confirmed, with no e-mail. ?selfsignup=1 deploys it in the stub
+    // (STUB_AUTH: a real stub server user, approved = false, no session -
+    // the app then signs in); ?selfsignup=bad answers a validation refusal.
+    // Without the flag the function is "not deployed" (404) and the app falls
+    // back to auth.signUp, which is what every older sign-up check exercises.
+    functions: {
+      async invoke(name, opts) {
+        // Paid beta: billing-checkout / billing-portal. ?billingfn=ok answers
+        // with a same-document URL (the test reads window.__tdwBillingRedirects
+        // - the page never leaves); ?billingfn=down answers 503 not configured.
+        if (name === "billing-checkout" || name === "billing-portal") {
+          const bf = new URLSearchParams(location.search).get("billingfn");
+          window.__stubBillingCalls = (window.__stubBillingCalls || []).concat([{ name, fields: Object.keys((opts && opts.body) || {}).sort() }]);
+          if (bf === "ok") return { data: { url: "#stub-stripe-" + (name === "billing-checkout" ? "checkout" : "portal") }, error: null };
+          return { data: null, error: { name: "FunctionsHttpError", message: "Edge Function returned a non-2xx status code",
+            context: { status: 503, json: async () => ({ error: "billing_not_configured", message: "Subscriptions are not open yet." }) } } };
+        }
+        const mode = new URLSearchParams(location.search).get("selfsignup");
+        const body = (opts && opts.body) || {};
+        window.__stubFnCalls = (window.__stubFnCalls || []).concat([{ name, email: body.email, fields: Object.keys(body).sort() }]);
+        const res = (status, json) => ({ data: null, error: { name: "FunctionsHttpError", message: "Edge Function returned a non-2xx status code", context: { status, json: async () => json } } });
+        if (name !== "self-signup" || !mode) return res(404, {});
+        if (mode === "bad") return res(400, { error: "weak_password", message: "Please choose a password of at least 8 characters." });
+        // Same rule as supabase/functions/_shared/signup_password.js.
+        const pw = typeof body.password === "string" ? body.password : "";
+        if (!pw.trim()) return res(400, { error: "missing_password", message: "Enter a password for your new account." });
+        if (pw.length < 8 || pw.length > 72) return res(400, { error: "weak_password", message: "Please choose a password of at least 8 characters." });
+        const users = stubUsers();
+        if (users.some(x => x.email === body.email)) return res(409, { error: "already_registered", message: "An account with this email already exists. Choose “Already have an account? Sign in”, or “Forgot password?” to set a new password." });
+        const meta = {};
+        ["first_name", "last_name", "company", "address", "phone"].forEach(k => { if (typeof body[k] === "string") meta[k] = body[k]; });
+        users.push({ id: "s" + (users.length + 1), email: body.email, password: body.password, approved: false, is_admin: false, requested_at: new Date().toISOString(), user_metadata: meta });
+        stubSaveUsers(users);
+        return { data: { ok: true }, error: null };
+      }
     },
     from(table) { return new MockQuery(table); },
     // Added Phase 15 (Customer Surface Security Audit): app.js's
@@ -154,7 +1145,85 @@ export function createClient() {
     // found" shape (PGRST202) so app.js's own missingFn fallback-detection
     // logic can be exercised too if a future test needs it.
     async rpc(fnName, args) {
-      if (fnName === "get_properties") {
+      // Parcel boundary (2026-10-20, migration 034 get_property_boundary).
+      // Deterministic FIXTURE geometry built around the row's own point,
+      // labelled as a fixture - never parcel data. Modes via ?boundary=:
+      // absent = not deployed (PGRST202); ok = one polygon with a UGRC-shaped
+      // attribution (credit, CC BY 4.0 link, change notice, disclaimer link,
+      // metadata link); fl = one polygon with a DOR-shaped attribution (no
+      // licence link, no disclaimer); multi = two components and a hole;
+      // none = zero rows; unauth = not display-permitted; invalid = an open
+      // ring; nolicencelink = a licence named without its link; error = a
+      // read failure. ?boundarydelay=ms delays the answer.
+      if (fnName === "get_property_boundary") {
+        const qs = new URLSearchParams(location.search);
+        const mode = qs.get("boundary");
+        if (!mode) return { data: null, error: { message: "Could not find the function public.get_property_boundary(p_property_id) in the schema cache", code: "PGRST202" } };
+        window.__stubBoundaryCalls = (window.__stubBoundaryCalls || []).concat([String(args && args.p_property_id)]);
+        const delay = Number(qs.get("boundarydelay") || 0);
+        if (delay) await new Promise(res => setTimeout(res, delay));
+        if (mode === "error") return { data: null, error: { message: "stub: boundary read failed", code: "XX000" } };
+        const row = FIXTURE_PROPERTIES.find(r => r.id === String(args && args.p_property_id));
+        if (mode === "none" || !row || typeof row.latitude !== "number") return { data: [], error: null };
+        const cx = row.longitude, cy = row.latitude, h = 0.0004;
+        const sq = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+        let coordinates = [[sq(cx - h, cy - h, cx + h, cy + h)]];
+        if (mode === "multi") {
+          coordinates = [
+            [sq(cx - h, cy - h, cx + h, cy + h), sq(cx - h / 3, cy - h / 3, cx + h / 3, cy + h / 3)],
+            [sq(cx + h * 1.4, cy - h / 2, cx + h * 2.2, cy + h / 2)]
+          ];
+        }
+        if (mode === "invalid") coordinates = [[[[cx - h, cy - h], [cx + h, cy - h], [cx + h, cy + h], [cx - h, cy + h]]]];
+        const fl = mode === "fl";
+        const attrib = fl
+          ? { attribution: "FIXTURE Florida Department of Revenue, Property Tax Oversight", license_name: "", license_url: "",
+              change_notice: "FIXTURE: boundaries simplified for display", disclaimer: "", disclaimer_url: "", metadata_url: "" }
+          : { attribution: "FIXTURE Utah Geospatial Resource Center (UGRC)", license_name: "CC BY 4.0",
+              license_url: mode === "nolicencelink" ? "" : "https://creativecommons.org/licenses/by/4.0/",
+              change_notice: "FIXTURE: boundaries reprojected and simplified", disclaimer: "",
+              disclaimer_url: "https://gis.utah.gov/documentation/policy/license/",
+              metadata_url: "https://example.org/fixture-metadata" };
+        const boundary = { type: "MultiPolygon", coordinates };
+        return { data: [Object.assign({ property_id: row.id, boundary, display_permitted: mode !== "unauth",
+          source_id: fl ? "fl_dor_pto_parcel_gis" : "ut_ugrc_lir_saltlake", source_dataset: "FIXTURE", source_feature_id: "fixture-1",
+          match_method: qs.get("boundarymatch") === "listing" ? "PARCEL_NUMBER_LOCATION_CONFIRMED" : "EXACT_PARCEL_ID",
+          source_observed_at: "2026-10-01T00:00:00Z",
+          source_last_successful_refresh_at: mode === "norefresh" ? null : "2026-10-02T06:00:00Z",
+          source_expected_cadence: fl ? "Annual, about mid-August to early September" : "Generally monthly" }, attrib)], error: null };
+      }
+      // SaaS hardening: self-service account deletion (migration 015).
+      // ?rpcmissing=1 mimics a deployment where 015 has not been applied.
+      if (fnName === "delete_my_account") {
+        window.__stubDeleteCalls = (window.__stubDeleteCalls || 0) + 1;
+        if (new URLSearchParams(location.search).get("rpcmissing") === "1") {
+          return { data: null, error: { message: "Could not find the function public.delete_my_account without parameters in the schema cache", code: "PGRST202" } };
+        }
+        return { data: null, error: null };
+      }
+      if (fnName === "product_usage_summary") {
+        if (MONITOR_DB === null) return { data: null, error: { message: "Could not find the function public.product_usage_summary(p_days) in the schema cache", code: "PGRST202" } };
+        const counts = {};
+        MONITOR_DB.product_events.forEach(e => { counts[e.event] = (counts[e.event] || 0) + 1; });
+        return { data: Object.entries(counts).map(([event, events]) => ({ event, events, users: 1, first_at: null, last_at: null })), error: null };
+      }
+      // Migration 028 (2026-10-05): get_properties_list() is the same page with
+      // the list projection of otc_provenance / field_provenance (slimForList,
+      // the stub mirror of the SQL) plus provenance_scope 'list';
+      // get_property_provenance() returns one row's full pair.
+      //   ?nolistrpc=1            028 not applied (PGRST202) - the app falls back to get_properties
+      //   ?ledgerdelay=buy:1500   every page of that ledger takes that long (independent loading)
+      // Every properties RPC is logged to window.__stubRpcLog (fn, ledger, offset).
+      if (fnName === "get_property_provenance") {
+        window.__stubProvenanceCalls = (window.__stubProvenanceCalls || 0) + 1;
+        if (new URLSearchParams(location.search).get("nolistrpc") === "1") return { data: null, error: { message: "Could not find the function public.get_property_provenance(p_id) in the schema cache", code: "PGRST202" } };
+        const row = FIXTURE_PROPERTIES.map(stubVariant).filter(r => pubVisibleTo(r, stubCallerIsAdmin())).find(r => String(r.id) === String(args.p_id));
+        return { data: row ? [{ id: row.id, otc_provenance: row.otc_provenance ?? null, field_provenance: row.field_provenance ?? null }] : [], error: null };
+      }
+      if (fnName === "get_properties_list" && new URLSearchParams(location.search).get("nolistrpc") === "1") {
+        return { data: null, error: { message: "Could not find the function public.get_properties_list(p_ledger_type, p_limit, p_offset, p_state) in the schema cache", code: "PGRST202" } };
+      }
+      if (fnName === "get_properties" || fnName === "get_properties_list") {
         const pState = args && args.p_state;
         // This suite mostly loads index.html (data-state="FL", see
         // PAGE_STATE in app.js) and FIXTURE_PROPERTIES has never carried an
@@ -167,7 +1236,125 @@ export function createClient() {
         // also correctly serving the one `state: "TX"` row (Phase 34,
         // fixture id "ptx1") to a real p_state:"TX" request, the way the
         // real get_properties() RPC's `where state = p_state` does.
-        return { data: FIXTURE_PROPERTIES.filter(p => (p.state || "FL") === pState), error: null };
+        // Customer-value sprint: mimic the real RPC's ledger filter, ORDER BY,
+        // limit/offset AND PostgREST's max-rows cap (?maxrows=N, default
+        // 1000) so the frontend's paging is exercised - a single call can
+        // never return more than the cap, exactly as in production.
+        const LEDGER_FOR_SOURCE = { auction: "auctions", laft: "buy", certificate: "lien" };
+        const cap = Number(new URLSearchParams(location.search).get("maxrows")) || 1000;
+        window.__stubGetPropertiesCalls = (window.__stubGetPropertiesCalls || 0) + 1;
+        // ?emptystate=1: a registered state that currently has no rows at all.
+        const EMPTY_STATE = new URLSearchParams(location.search).get("emptystate") === "1";
+        // ?bigcounty=N (2026-10-02 scale regression): N SYNTHETIC Available rows in
+        // Wayne MI, shaped like the Detroit Land Bank sync rows, every one
+        // geocoded inside the county - the List and Map must page / cluster
+        // them, never build N cards or N pins at once.
+        const BIG = Number(new URLSearchParams(location.search).get("bigcounty")) || 0;
+        if (BIG && !window.__stubBigRows) {
+          let seed = 7;
+          const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+          window.__stubBigRows = Array.from({ length: BIG }, (_, i) => ({
+            id: "pbig" + i, source: "laft", state: "MI", county: "Wayne", case_no: String(90000000 + i) + ".", parcel: String(90000000 + i) + ".",
+            address: (100 + i) + " SYNTHETIC ST", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+            harvester_source: "mi_detroit_landbank_lots", source_id: "mi_detroit_landbank_lots", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+            purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", inventory_status_raw: "Side Lot For Sale",
+            latitude: 42.30 + rnd() * 0.12, longitude: -83.20 + rnd() * 0.22, publication_status: "UNREVIEWED", ledger_type: "buy",
+            last_seen_at: "2026-10-02T12:00:00Z", updated_at: "2026-10-02T12:00:00Z" }));
+        }
+        const rows = FIXTURE_PROPERTIES.concat(window.__stubExtraRows || []).concat(pState === "MI" && window.__stubBigRows ? window.__stubBigRows : [])
+          .filter(p => !EMPTY_STATE && (p.state || "FL") === pState)
+          .filter(p => !args.p_ledger_type || (p.ledger_type || LEDGER_FOR_SOURCE[p.source]) === args.p_ledger_type)
+          .slice().sort((a, b) => String(a.county).localeCompare(String(b.county)) || String(a.case_no).localeCompare(String(b.case_no)))
+          // ?stripacq=1 (2026-10-05): pla2 in the shape production's 3,500 East
+          // Baton Rouge rows had after an adapter sync replaced otc_provenance
+          // wholesale - the typed path columns stay, the acquisition record is gone.
+          .map(stubVariant)
+          // ?pubgate=1: the access policy - a customer reads customer-published rows only.
+          .filter(p => pubVisibleTo(p, stubCallerIsAdmin()));
+        const offset = Number(args.p_offset) || 0, limit = Math.min(Number(args.p_limit) || 20000, cap);
+        // ?emptyledger=<ledger>[,...] (2026-10-10 zero-count semantics): that
+        // ledger answers with no rows at all, so the zero-case copy can be
+        // exercised for a state whose fixture otherwise holds rows.
+        if ((new URLSearchParams(location.search).get("emptyledger") || "").split(",").includes(args.p_ledger_type)) return { data: [], error: null };
+        // Load-resilience fixtures (2026-10-04):
+        //   ?failpage=<ledger>:<offset>[,...]   that page always fails (statement timeout)
+        //   ?flakypage=<ledger>:<offset>:<n>     that page fails n times, then succeeds
+        //   ?pagedelay=<ms>                      every page takes <ms>; peak concurrency is recorded
+        const qs = new URLSearchParams(location.search);
+        const key = `${args.p_ledger_type}:${offset}`;
+        const calls = window.__stubPageCalls = window.__stubPageCalls || {};
+        calls[key] = (calls[key] || 0) + 1;
+        (window.__stubRpcLog = window.__stubRpcLog || []).push({ fn: fnName, ledger: args.p_ledger_type, offset, t: Math.round(performance.now()) });
+        const ledgerDelay = (qs.get("ledgerdelay") || "").split(",").map(x => x.split(":")).find(x => x[0] === args.p_ledger_type);
+        if (ledgerDelay) await new Promise(r => setTimeout(r, Number(ledgerDelay[1]) || 0));
+        const delay = Number(qs.get("pagedelay")) || 0;
+        if (delay) {
+          window.__stubInflight = (window.__stubInflight || 0) + 1;
+          window.__stubPeakInflight = Math.max(window.__stubPeakInflight || 0, window.__stubInflight);
+          await new Promise(r => setTimeout(r, delay));
+          window.__stubInflight--;
+        }
+        const timeout = { data: null, error: { message: "canceling statement due to statement timeout", code: "57014" } };
+        //   window.__stubHealPages = true                   failpage stops failing (a later retry succeeds)
+        if (!window.__stubHealPages && (qs.get("failpage") || "").split(",").includes(key)) return timeout;
+        const flaky = (qs.get("flakypage") || "").split(",").map(x => x.split(":")).find(x => `${x[0]}:${x[1]}` === key);
+        if (flaky && calls[key] <= Number(flaky[2] || 1)) return timeout;
+        const pageRows = rows.slice(offset, offset + limit);
+        return { data: fnName === "get_properties_list" ? pageRows.map(slimForList) : pageRows, error: null };
+      }
+      // Paid beta (migration 027). Without ?entitlement= the function is
+      // "not deployed" (PGRST202) and the app keeps the approval-record path -
+      // which is what every pre-existing check exercises.
+      //   ?entitlement=tester|admin|customer|manual|cancelling|grace|inactive|payment_failed|cancelled|activating
+      // Migration 031 (2026-10-10): the customer-publication gate's two RPCs.
+      if (fnName === "count_publication_states" || fnName === "get_withheld_states") {
+        if (!PUB_GATE) return { data: null, error: { message: `Could not find the function public.${fnName}(p_state) in the schema cache`, code: "PGRST202" } };
+        const LEDGER_FOR_SOURCE = { auction: "auctions", laft: "buy", certificate: "lien" };
+        const active = FIXTURE_PROPERTIES.filter(p => (p.state || "FL") === (args && args.p_state))
+          .filter(p => ["active", "available"].includes(String(p.status || "active")));
+        if (fnName === "count_publication_states") {
+          const counts = {};
+          active.forEach(p => {
+            const k = `${p.ledger_type || LEDGER_FOR_SOURCE[p.source]}|${pubDecisionOf(p).publication_state}`;
+            counts[k] = (counts[k] || 0) + 1;
+          });
+          return { data: Object.entries(counts).sort().map(([k, n]) => ({ ledger: k.split("|")[0], publication_state: k.split("|")[1], n })), error: null };
+        }
+        if (!stubCallerIsAdmin()) return { data: [], error: null };   // RLS: a customer reads no withheld row
+        return { data: active.filter(p => pubDecisionOf(p).publication_state !== "CUSTOMER_PUBLISHED")
+          .map(p => Object.assign({ id: p.id, ledger: p.ledger_type || LEDGER_FOR_SOURCE[p.source] }, pubDecisionOf(p))), error: null };
+      }
+      if (fnName === "my_entitlement") {
+        const mode = new URLSearchParams(location.search).get("entitlement");
+        if (!mode) return { data: null, error: { message: "Could not find the function public.my_entitlement without parameters in the schema cache", code: "PGRST202" } };
+        const end = new Date(Date.now() + 20 * 86400000).toISOString();
+        const sub = (state, status, extra) => ({ subscription_state: state, subscription_status: status, current_period_end: end, plan_key: "monthly", cancel_at_period_end: false, last_payment_status: "paid", ...(extra || {}) });
+        window.__stubEntitlementCalls = (window.__stubEntitlementCalls || 0) + 1;
+        const paid = { role: "customer", state: "active", access: true, scope: "approved", reason: "Paid subscription", ...sub("active", "active") };
+        const table = {
+          admin: { role: "admin", state: "admin_override", access: true, scope: "all", reason: "Administrator", subscription_state: null, subscription_status: null },
+          tester: { role: "tester", state: "tester_beta", access: true, scope: "preview", reason: "Approved tester (beta) - no subscription needed", subscription_state: null, subscription_status: null },
+          customer: paid,
+          manual: { role: "customer", state: "manual_customer", access: true, scope: "approved", reason: "Customer access granted by an administrator", subscription_state: null, subscription_status: null },
+          cancelling: { ...paid, state: "cancelling", ...sub("cancelling", "active", { cancel_at_period_end: true }) },
+          grace: { ...paid, state: "payment_failed_grace", reason: "Payment failed - access continues during the 7-day grace period", ...sub("payment_failed_grace", "past_due", { last_payment_status: "failed" }) },
+          inactive: { role: "inactive", state: "inactive", access: false, scope: "none", reason: "No approval and no active subscription", subscription_state: null, subscription_status: null },
+          payment_failed: { role: "inactive", state: "payment_failed", access: false, scope: "none", reason: "Payment failed - the grace period has ended", ...sub("payment_failed", "past_due", { last_payment_status: "failed" }) },
+          cancelled: { role: "inactive", state: "cancelled", access: false, scope: "none", reason: "Subscription cancelled", ...sub("cancelled", "canceled") }
+        };
+        // activating: the webhook has not landed for the first two reads.
+        if (mode === "activating") return { data: window.__stubEntitlementCalls > 2 ? paid : table.inactive, error: null };
+        return { data: table[mode] || table.inactive, error: null };
+      }
+      if (fnName === "admin_billing_overview") {
+        if (!new URLSearchParams(location.search).get("entitlement")) return { data: null, error: { message: "Could not find the function public.admin_billing_overview without parameters in the schema cache", code: "PGRST202" } };
+        return { data: [
+          { email: "admin@example.com", role: "admin", state: "admin_override", access: true, reason: "Administrator", subscription_status: null },
+          { email: "tester@example.com", role: "tester", state: "tester_beta", access: true, reason: "Approved tester (beta) - no subscription needed", subscription_status: null },
+          { email: "paid@example.com", role: "customer", state: "active", access: true, reason: "Paid subscription", subscription_status: "active", stripe_subscription_id: "sub_FIXTURE1", current_period_end: "2026-11-05T00:00:00Z", cancel_at_period_end: false, last_payment_status: "paid" },
+          { email: "late@example.com", role: "customer", state: "payment_failed_grace", access: true, reason: "Payment failed - access continues during the 7-day grace period", subscription_status: "past_due", stripe_subscription_id: "sub_FIXTURE2", current_period_end: "2026-10-03T00:00:00Z", last_payment_status: "failed", payment_failed_at: "2026-10-03T00:00:00Z" },
+          { email: "pending@example.com", role: "inactive", state: "inactive", access: false, reason: "No approval and no active subscription", subscription_status: null }
+        ], error: null };
       }
       return { data: null, error: { message: `stub: unhandled rpc "${fnName}"`, code: "PGRST202" } };
     }

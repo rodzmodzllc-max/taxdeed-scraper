@@ -42,14 +42,50 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # set ever changes - and the guard step below will fail the build if you
 # forget"). This test is that same guard, run locally instead of in CI.
 DEPLOYED_BUNDLE_FILES = (
+    # 2026-10-05 paid beta: the paid-beta source scope and the legal pages.
+    "commercial-scope.json",
+    "legal.css",
+    "legal.js",
+    "terms.html",
+    "privacy.html",
+    "acceptable-use.html",
+    "source-disclaimer.html",
     "_headers",
+    "admin.html",   # 2026-09-30 admin area (/admin) and its module
+    "admin.js",
     "app.js",
+    # 2026-10-20 parcel boundaries from the approved parcel-geometry sources.
+    "parcel-boundary.js",
+    # 2026-10-25 look switch: the two trial List experiences (app.js loads
+    # them only when picked).
+    "experience-tactile.css",
+    "experience-tactile.js",
+    "experience-terrain.css",
+    "experience-terrain.js",
+    "experience-merged.css",
+    "experience-merged.js",
+    # 2026-10-29 Buyer's Guide page module (loaded by app.js on #/guide).
+    "buyers-guide.js",
+    "buyers-guide.css",
+    # 2026-10-03 boot resilience: startup watchdog + supabase-js loader and
+    # its same-origin fallback copy.
+    "boot.js",
+    "supabase-loader.js",
+    "supabase-js.umd.js",
     # Added Phase 54/55 (map page rebuild + satellite basemap toggle). Both
     # went into sync-public-to-root.yml's FILES list at the time but not into
     # this one, which turned main red on every push until it was noticed -
     # which is the exact drift the companion test below exists to catch.
     "county-centroids.json",
     "satellite-map.js",
+    "source-inventory.json",
+    "available-coverage.json",
+    "available-terms.json",
+    "county-intelligence.json",   # 2026-10-05 county intelligence dossier
+    "buyers-guide.json",          # 2026-10-29 Buyer's Guide (scripts/build_buyers_guide.py)
+    "state-rules.json",           # 2026-10-10 state rules page (scripts/build_state_rules.py)
+    "identity.css",               # 2026-10-05 identity design language (TAXACQ)
+    "acquisition-evidence.json",
     "explore.css",
     "explore.js",
     "fl-cities.json",
@@ -60,6 +96,16 @@ DEPLOYED_BUNDLE_FILES = (
     "sw.js",
     "tx.html",
     "tx-counties.svg",
+    "la.html",           # 2026-09-30 state-expansion sprint: Louisiana page
+    "la-parishes.svg",   # and its parish basemap
+    # 2026-09-30 six-state expansion: each state's page and county basemap.
+    "mi.html", "mi-counties.svg",
+    "wy.html", "wy-counties.svg",
+    "sc.html", "sc-counties.svg",
+    "co.html", "co-counties.svg",
+    "wi.html", "wi-counties.svg",
+    "mo.html", "mo-counties.svg", "ok.html", "ok-counties.svg",
+    "pa.html", "pa-counties.svg", "mn.html", "mn-counties.svg", "tn.html", "tn-counties.svg",
 )
 
 

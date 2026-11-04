@@ -1,0 +1,25 @@
+{
+  "_comment": "Shared vectors for harvesters/sources/county_research.research_status() and app.js countyResearchStatus(). Change both together.",
+  "cases": [
+    {"name": "unknown_county", "facts": {},
+     "states": ["NOT_VERIFIED", "NOT_VERIFIED", "NOT_VERIFIED", "NOT_APPLICABLE", "NOT_APPLICABLE", "NOT_APPLICABLE"], "reached": null},
+    {"name": "candidate_only", "facts": {"known": true},
+     "states": ["VERIFIED", "NOT_VERIFIED", "NOT_VERIFIED", "NOT_APPLICABLE", "NOT_APPLICABLE", "NOT_APPLICABLE"], "reached": "DISCOVERED"},
+    {"name": "source_never_read", "facts": {"known": true, "production_sources": 1, "available_units": 1, "rows": 3},
+     "states": ["VERIFIED", "VERIFIED", "NOT_VERIFIED", "NOT_VERIFIED", "NOT_VERIFIED", "NOT_APPLICABLE"], "reached": "SOURCE_VERIFIED"},
+    {"name": "read_but_path_unverified", "facts": {"known": true, "production_sources": 1, "sources_read": 1, "available_units": 1, "rows": 4, "rows_property_ok": 4},
+     "states": ["VERIFIED", "VERIFIED", "VERIFIED", "NOT_VERIFIED", "VERIFIED", "NOT_APPLICABLE"], "reached": "INVENTORY_VERIFIED"},
+    {"name": "one_of_two_sources_unavailable", "facts": {"known": true, "production_sources": 2, "sources_read": 1, "sources_unavailable": 1, "available_units": 1, "available_units_verified": 1},
+     "states": ["VERIFIED", "VERIFIED", "PARTIAL", "VERIFIED", "NOT_APPLICABLE", "NOT_APPLICABLE"], "reached": "SOURCE_VERIFIED"},
+    {"name": "available_verified_property_partial", "facts": {"known": true, "production_sources": 1, "sources_read": 1, "available_units": 1, "available_units_verified": 1, "rows": 10, "rows_property_ok": 6},
+     "states": ["VERIFIED", "VERIFIED", "VERIFIED", "VERIFIED", "PARTIAL", "NOT_APPLICABLE"], "reached": "ACQUISITION_PATH_VERIFIED"},
+    {"name": "auction_process_missing", "facts": {"known": true, "production_sources": 2, "sources_read": 2, "available_units": 1, "available_units_verified": 1, "auction_ledger": true, "auction_process_verified": false, "rows": 2, "rows_property_ok": 2},
+     "states": ["VERIFIED", "VERIFIED", "VERIFIED", "PARTIAL", "VERIFIED", "NOT_APPLICABLE"], "reached": "INVENTORY_VERIFIED"},
+    {"name": "all_verified_with_outcomes", "facts": {"known": true, "production_sources": 1, "sources_read": 1, "auction_ledger": true, "auction_process_verified": true, "rows": 5, "rows_property_ok": 5, "past_auctions": 2, "past_auctions_outcome": 2},
+     "states": ["VERIFIED", "VERIFIED", "VERIFIED", "VERIFIED", "VERIFIED", "VERIFIED"], "reached": "OUTCOME_DATA_VERIFIED"},
+    {"name": "outcomes_partial", "facts": {"known": true, "production_sources": 1, "sources_read": 1, "auction_ledger": true, "auction_process_verified": true, "rows": 5, "rows_property_ok": 5, "past_auctions": 3, "past_auctions_outcome": 1},
+     "states": ["VERIFIED", "VERIFIED", "VERIFIED", "VERIFIED", "VERIFIED", "PARTIAL"], "reached": "PROPERTY_DATA_VERIFIED"},
+    {"name": "rows_without_known_source", "facts": {"rows": 3, "rows_property_ok": 3},
+     "states": ["NOT_VERIFIED", "NOT_VERIFIED", "NOT_VERIFIED", "NOT_APPLICABLE", "VERIFIED", "NOT_APPLICABLE"], "reached": null}
+  ]
+}

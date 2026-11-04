@@ -1,0 +1,19 @@
+/* Legal pages (terms / privacy / acceptable use / source disclaimer). Plain,
+   readable, same palette as the app; light and dark. */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;500&family=Inter:wght@400;500;600&display=swap');
+:root{--ink:#202925;--ink-soft:#4C685A;--paper:#F8F8F5;--card:#FFFFFF;--line:#D8DED6;--warn-bg:#FEF3C7;--warn-ink:#78350F;--link:#1F3A2E;--brand:#1F3A2E}
+@media (prefers-color-scheme:dark){:root{--ink:#E8EDE9;--ink-soft:#A3B3A8;--paper:#141C18;--card:#1B2620;--line:#2C3A33;--warn-bg:#3A2A08;--warn-ink:#FDE68A;--link:#A9BDB0;--brand:#A9BDB0}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.6 'Inter',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:46rem;margin:0 auto;padding:2rem 1rem 4rem}
+header.legal-head{margin-bottom:1.5rem}
+header.legal-head a{color:var(--link);font-size:.9rem}
+h1{font-family:'Montserrat',Arial,sans-serif;font-weight:300;font-size:1.9rem;line-height:1.2;margin:.6rem 0 .3rem;color:var(--brand)}
+h2{font-family:'Montserrat',Arial,sans-serif;font-weight:500;font-size:1.05rem;letter-spacing:.04em;margin:1.8rem 0 .4rem}
+p,li{color:var(--ink)}
+.legal-meta{color:var(--ink-soft);font-size:.88rem;margin:0}
+.legal-unconfigured{background:var(--warn-bg);color:var(--warn-ink);border-radius:8px;padding:.8rem 1rem;margin:1rem 0;font-size:.9rem}
+.legal-unconfigured[hidden]{display:none}
+nav.legal-nav{border-top:1px solid var(--line);margin-top:2.5rem;padding-top:1rem;font-size:.88rem}
+nav.legal-nav a{color:var(--link);margin-right:1rem}
+.legal-missing{font-style:italic;color:var(--ink-soft)}
