@@ -17202,7 +17202,10 @@ function currentExperience() {
     if (q && EXPERIENCES[q]) { try { localStorage.setItem(EXPERIENCE_KEY, q); } catch {} return q; }
   } catch {}
   try { const v = localStorage.getItem(EXPERIENCE_KEY); if (v && EXPERIENCES[v]) return v; } catch {}
-  return "classic";
+  // No choice in the URL or this browser: the site's default (config.js
+  // defaultLook; Merged since 2026-11-04), else Classic.
+  const d = (window.TDW_CONFIG || {}).defaultLook;
+  return d && EXPERIENCES[d] ? d : "classic";
 }
 function ensureExperienceStage() {
   let stage = document.getElementById("xpStage");

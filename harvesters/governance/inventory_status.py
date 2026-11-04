@@ -140,7 +140,7 @@ def fl_auction_status(row: dict, *, today: date) -> StatusObservation:
     return feed_auction_status(row, today=today, feed="the county's auction feed")
 
 
-def tx_lgbs_status(row: dict) -> StatusObservation:
+def tx_lgbs_status(row: dict, today: date | None = None) -> StatusObservation:
     """A Texas LGBS row: the vendor's raw sale status is the only state it
     publishes (properties.tx_sale_status, verbatim)."""
     raw = str(row.get("tx_sale_status") or "").strip()
@@ -159,7 +159,7 @@ def tx_lgbs_status(row: dict) -> StatusObservation:
         return StatusObservation("unknown", "SOURCE_STATUS", raw=raw, note="vendor status wording outside the mapped vocabulary; kept verbatim")
     if status == "upcoming":
         sale = _date_of(row.get("sale_date"))
-        if sale is not None and sale < date.today():
+        if sale is not None and sale < (today or date.today()):
             # Vendor still says scheduled but the date passed: the feed has
             # not been re-read since; do not claim a result.
             return StatusObservation("unknown", "SOURCE_STATUS", raw=raw,
@@ -349,7 +349,7 @@ def status_for_row(row: dict, *, today: date, sold_column_present: bool = False)
     if state == "FL" and source == "certificate":
         return fl_certificate_status(row)
     if sid == "tx_lgbs":
-        return tx_lgbs_status(row)
+        return tx_lgbs_status(row, today=today)
     if sid == "tx_realauction" and source == "auction":
         return feed_auction_status(row, today=today, feed="the county's RealAuction sale calendar")
     if sid in TX_COUNTY_AUCTION_SOURCE_IDS and source == "auction":
