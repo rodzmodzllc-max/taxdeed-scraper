@@ -30,6 +30,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections import defaultdict
@@ -116,6 +117,31 @@ def _query_failure(exc) -> str:
     if isinstance(exc, ValueError):
         return "bad_json"
     return type(exc).__name__
+
+
+def query_json(url: str, *, attempts: int = 3, pause: float = 2.0, http=None, sleep=time.sleep):
+    """One layer query: an ArcGIS /query URL is sent as a form POST
+    (P.post_form), anything else as a GET. A transport error, a 5xx or a 429
+    is retried up to `attempts` times with a growing pause; any other HTTP
+    error is final. Raises the last error - the caller withholds that batch."""
+    http = http or http_json
+    form = P.post_form(url)
+    last: Exception | None = None
+    for n in range(max(1, attempts)):
+        try:
+            if form:
+                return http(form[0], method="POST", body=form[1],
+                            headers={"Content-Type": "application/x-www-form-urlencoded"})
+            return http(url)
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code < 500 and e.code != 429:
+                raise
+        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as e:
+            last = e
+        if n + 1 < attempts:
+            sleep(pause * (n + 1))
+    raise last  # type: ignore[misc]
 
 
 def _fetch_with_retry(fetch_json, url, retries: int, sleep, kinds: dict):
@@ -410,7 +436,8 @@ def _main_all_layers(a) -> int:
 
     def fetch_json(url):
         time.sleep(0.3)
-        return http_json(url)
+        # One attempt here: the runner's _fetch_with_retry retries the batch.
+        return query_json(url, attempts=1)
 
     for st in [s.strip().upper() for s in a.state.split(",") if s.strip()]:
         if not states.is_activated(st):
@@ -494,7 +521,8 @@ def main(argv=None) -> int:
 
     def fetch_json(url):
         time.sleep(0.3)
-        return http_json(url)
+        # One attempt here: the runner's _fetch_with_retry retries the batch.
+        return query_json(url, attempts=1)
 
     for cfg in cleared:
         rows = [r for r in all_rows if cfg.covers(r.get("county") or "") and r.get(cfg.row_id_column) not in (None, "")]

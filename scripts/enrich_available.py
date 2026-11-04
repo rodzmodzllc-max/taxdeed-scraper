@@ -433,7 +433,7 @@ def main(argv=None) -> int:
 
     def fetch_json(url):
         time.sleep(0.3)
-        return ESP.http_json(url)
+        return ESP.query_json(url)
 
     write = (lambda i, f: ESP.patch(base, key, i, f)) if a.apply else None
     parcels, outcomes = parcel_plan(rows, fetch_json, write=write, recorded_at=FP.now_iso())
