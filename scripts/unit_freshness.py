@@ -198,10 +198,15 @@ def lookup(record: dict, state: str, source_id: str, county: str) -> dict | None
 
 
 def read_status(path: Path) -> list:
+    # utf-8-sig: a PowerShell-written file may start with a byte-order mark.
     try:
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        data = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     except (OSError, ValueError):
         return []
+    # PowerShell's ConvertTo-Json writes a one-element array as a bare object
+    # (one county in the status file); that object is one unit entry.
+    if isinstance(data, dict) and "county" in data and "status" in data:
+        return [data]
     # The Texas harvester's status file is {"retrieved_at", "sources",
     # "counties": [...]} - its per-(source, county) entries are the units.
     if isinstance(data, dict) and isinstance(data.get("counties"), list):

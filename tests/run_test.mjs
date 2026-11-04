@@ -5458,6 +5458,22 @@ await navMap.close();
       blocks: [...document.querySelectorAll('.rules-ledger')].map(l => [l.dataset.ledger, l.dataset.eligibility, l.dataset.status]),
       strips: document.querySelectorAll('#rulesPage .ledger-status').length, noScores: !/\b(score|confidence)\b/i.test(document.getElementById('rulesPage').textContent) }));
     await pgA.close();
+    // ==================== Certificate read health on the card (2026-11-04) ====================
+    // p4 (Alachua certificate): no stamp while its county source has no read on
+    // record; "Source unavailable" when the last attempt was refused (403);
+    // "Not recently read" when the last complete read is 9 days old.
+    const certStamp = async (q) => {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      await pg.goto(BASE_URL + q + '#/certificates', { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(700);
+      const out = await pg.evaluate(() => { const e = document.querySelector('#main .prop-card[data-pid="p4"] .pc-stamp');
+        return e ? { key: e.dataset.stamp, label: e.textContent, keptNotClosed: /nothing was closed|check the source before acting/.test(e.title) } : null; });
+      await pg.close();
+      return out;
+    };
+    results.certStampNoRecord = await certStamp('');
+    results.certStampBlocked = await certStamp('?certunit=blocked');
+    results.certStampStale = await certStamp('?certunit=stale');
     // ==================== Mandatory acquisition-path gate (2026-10-10, migration 031, ?pubgate=1) ====================
     // The stub plays the SERVER: a customer's property RPCs return only
     // CUSTOMER_PUBLISHED rows, an admin's return every row, and the two RPCs
@@ -7824,6 +7840,9 @@ const EXPECTED = {
   boundaryLayout_phone: {"overlayFills": true, "attribInside": true, "outlineInside": true, "captionClearsAttrib": true, "creditBelow": true, "noPageOverflow": true},
   zeroOfferedNoInventory: {"eligibility": "OFFERED", "zeroCase": "NO_CURRENT_INVENTORY", "tracked": "1", "count": "title", "whyLabel": "No current inventory.", "read": "Last complete read N ago · 1 source read", "saysExists": true, "links": ["State rules and sources →", "Official reference →"]}, // 2026-10-27: one fact one place
   zeroNoneWhenRows: {"zeroCase": "", "eligibility": "OFFERED", "whyLabel": null, "countEndsWith": "title"}, // 2026-10-27: one fact one place
+  certStampNoRecord: null,
+  certStampBlocked: { key: 'source-unavailable', label: 'Source unavailable', keptNotClosed: true },
+  certStampStale: { key: 'source-stale', label: 'Not recently read', keptNotClosed: true },
   zeroLoadFailure: { zeroCase: 'SOURCE_FAILURE', eligibility: 'OFFERED', count: 'Count unavailable - load failed', whyLabel: 'Source read failed or incomplete.', lastKnown: true, bareZero: false },
   zeroPartialRead: {"zeroCase": "SOURCE_FAILURE", "eligibility": "COUNTY_DEPENDENT", "health": "DEGRADED", "lastKnown": true, "count": "title"}, // 2026-10-27: one fact one place
   // 2026-10-27: #213 made Texas Available COUNTY_DEPENDENT, and no tracked ledger
@@ -7938,7 +7957,7 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v161"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v162"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
