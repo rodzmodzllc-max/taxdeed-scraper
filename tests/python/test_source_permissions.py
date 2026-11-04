@@ -27,6 +27,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "harvesters"))
 
 from harvesters.governance import permissions as PERM  # noqa: E402
+from harvesters.governance import office_replies as OR  # noqa: E402
 from harvesters.otc.adapters import expansion as EX  # noqa: E402
 from harvesters.governance.county_source_registry import BLOCKED_SOURCE_IDS, load_registry  # noqa: E402
 from harvesters.governance.publication import PUBLISHABLE_STATUSES, effective_publication  # noqa: E402
@@ -285,6 +286,8 @@ def test_parity_every_currently_collected_registry_source_keeps_fetch_and_store(
     for row in load_registry():
         if not row.source_id or not row.is_production or not _publication_rule(row):
             continue
+        if OR.prohibits_reuse(row.source_id, row.state, row.county):
+            continue        # an office prohibited it in writing (data/office_replies.csv)
         if row.source_id in ("tx_lgbs", "tx_realauction"):
             ds = None
         elif row.source_id == "fl_realauction":
@@ -305,7 +308,8 @@ def test_parity_every_currently_collected_registry_source_keeps_fetch_and_store(
 def test_parity_every_currently_publishable_source_keeps_display():
     p = PERM.Permissions.from_file()
     for row in load_registry():
-        if row.source_id and effective_publication(row) in PUBLISHABLE_STATUSES:
+        if row.source_id and effective_publication(row) in PUBLISHABLE_STATUSES \
+                and not OR.prohibits_reuse(row.source_id, row.state, row.county):
             d = p.authorize(row.source_id, "display", state=row.state, county=row.county, today=_day(row.source_id))
             ds_d = p.authorize(row.source_id, "display", state=row.state, county=row.county,
                                dataset={"fl_realauction": "sale_calendar", "fl_lienhub_certificates": "county_held_certificates",

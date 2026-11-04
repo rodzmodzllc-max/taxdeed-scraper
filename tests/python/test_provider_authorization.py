@@ -363,7 +363,10 @@ def test_real_realauction_records_are_county_scoped_not_provider_wide():
 # The only granted records, each backed by an owner-relayed written response
 # and an "approved" audit entry (2026-10-20). Adding one is a deliberate,
 # reviewed change to this set - never a side effect.
-GRANTED_RECORDS = frozenset({"fl_dor_pto_parcel_gis__provider__dor_pto"})
+# 2026-11-04: the Orange County Comptroller record is granted for LINKS ONLY - every use
+# dimension stays unauthorized (tests/python/test_office_replies.py).
+GRANTED_RECORDS = frozenset({"fl_dor_pto_parcel_gis__provider__dor_pto",
+                             "fl_laft_orange__county__orange_comptroller"})
 
 
 def test_no_authorization_record_claims_written_permission():

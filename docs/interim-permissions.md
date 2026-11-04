@@ -9,9 +9,9 @@ current practice continue until `expires_on`, and `permissions.authorize()` deni
 after (`EXPIRED`), with no fallback to a broader record. A window longer than
 210 days is a configuration error that denies every request.
 
-- Records: 384 across 109 sources
-- By expiry: 2027-04-12 (384)
-- Findings: REVIEWER_IS_NOT_A_DECISION (77)
+- Records: 380 across 108 sources
+- By expiry: 2027-04-12 (380)
+- Findings: REVIEWER_IS_NOT_A_DECISION (73)
 - Configuration: valid
 
 `REVIEWER_IS_NOT_A_DECISION`: the record's reviewer column says no reviewer decision is on file;
@@ -83,10 +83,6 @@ found in the code for that source.
 | fl_laft_leon | FL | lands_available | fetch | UNKNOWN | GRANDFATHERED_PRACTICE | 2026-09-29 | 2027-04-12 | - | scripts/harvest_laft_leon.py<br>scripts/sync-laft-to-supabase.ps1<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display)<br>scripts/laft_lifecycle.py (apply_store_permission) | REVIEWER_IS_NOT_A_DECISION |
 | fl_laft_leon | FL | lands_available | parse | UNKNOWN | GRANDFATHERED_PRACTICE | 2026-09-29 | 2027-04-12 | - | scripts/harvest_laft_leon.py<br>scripts/sync-laft-to-supabase.ps1<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display)<br>scripts/laft_lifecycle.py (apply_store_permission) | REVIEWER_IS_NOT_A_DECISION |
 | fl_laft_leon | FL | lands_available | store | UNKNOWN | GRANDFATHERED_PRACTICE | 2026-09-29 | 2027-04-12 | - | scripts/harvest_laft_leon.py<br>scripts/sync-laft-to-supabase.ps1<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display)<br>scripts/laft_lifecycle.py (apply_store_permission) | REVIEWER_IS_NOT_A_DECISION |
-| fl_laft_orange | FL | lands_available | display | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-29 | 2027-04-12 | - | scripts/harvest_laft_orange.py<br>scripts/sync-laft-to-supabase.ps1<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display)<br>scripts/laft_lifecycle.py (apply_store_permission) | REVIEWER_IS_NOT_A_DECISION |
-| fl_laft_orange | FL | lands_available | fetch | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-29 | 2027-04-12 | - | scripts/harvest_laft_orange.py<br>scripts/sync-laft-to-supabase.ps1<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display)<br>scripts/laft_lifecycle.py (apply_store_permission) | REVIEWER_IS_NOT_A_DECISION |
-| fl_laft_orange | FL | lands_available | parse | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-29 | 2027-04-12 | - | scripts/harvest_laft_orange.py<br>scripts/sync-laft-to-supabase.ps1<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display)<br>scripts/laft_lifecycle.py (apply_store_permission) | REVIEWER_IS_NOT_A_DECISION |
-| fl_laft_orange | FL | lands_available | store | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-29 | 2027-04-12 | - | scripts/harvest_laft_orange.py<br>scripts/sync-laft-to-supabase.ps1<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display)<br>scripts/laft_lifecycle.py (apply_store_permission) | REVIEWER_IS_NOT_A_DECISION |
 | fl_laft_osceola | FL | lands_available | display | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-29 | 2027-04-12 | - | scripts/harvest_laft_osceola.py<br>scripts/sync-laft-to-supabase.ps1<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display)<br>scripts/laft_lifecycle.py (apply_store_permission) | REVIEWER_IS_NOT_A_DECISION |
 | fl_laft_osceola | FL | lands_available | fetch | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-29 | 2027-04-12 | - | scripts/harvest_laft_osceola.py<br>scripts/sync-laft-to-supabase.ps1<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display)<br>scripts/laft_lifecycle.py (apply_store_permission) | REVIEWER_IS_NOT_A_DECISION |
 | fl_laft_osceola | FL | lands_available | parse | LEGAL_REVIEW_REQUIRED | GRANDFATHERED_PRACTICE | 2026-09-29 | 2027-04-12 | - | scripts/harvest_laft_osceola.py<br>scripts/sync-laft-to-supabase.ps1<br>scripts/source_publication.py (collectable / publishable)<br>harvesters/governance/publication_state.py (display)<br>scripts/laft_lifecycle.py (apply_store_permission) | REVIEWER_IS_NOT_A_DECISION |

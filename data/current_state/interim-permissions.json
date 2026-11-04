@@ -1298,102 +1298,6 @@
   },
   {
    "call_sites": [
-    "scripts/harvest_laft_orange.py",
-    "scripts/sync-laft-to-supabase.ps1",
-    "scripts/source_publication.py (collectable / publishable)",
-    "harvesters/governance/publication_state.py (display)",
-    "scripts/laft_lifecycle.py (apply_store_permission)"
-   ],
-   "conditions": [],
-   "dataset": "lands_available",
-   "effective_on": "2026-09-29",
-   "evidence_date": "2026-09-29",
-   "evidence_ref": "data/county_source_registry.csv fl_laft_orange; docs/legal/pre-sale-blockers.md",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
-   "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
-   "jurisdiction": "FL",
-   "operation": "display",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
-   "source_id": "fl_laft_orange",
-   "status": "LEGAL_REVIEW_REQUIRED"
-  },
-  {
-   "call_sites": [
-    "scripts/harvest_laft_orange.py",
-    "scripts/sync-laft-to-supabase.ps1",
-    "scripts/source_publication.py (collectable / publishable)",
-    "harvesters/governance/publication_state.py (display)",
-    "scripts/laft_lifecycle.py (apply_store_permission)"
-   ],
-   "conditions": [],
-   "dataset": "lands_available",
-   "effective_on": "2026-09-29",
-   "evidence_date": "2026-09-29",
-   "evidence_ref": "data/county_source_registry.csv fl_laft_orange; docs/legal/pre-sale-blockers.md",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
-   "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
-   "jurisdiction": "FL",
-   "operation": "fetch",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
-   "source_id": "fl_laft_orange",
-   "status": "LEGAL_REVIEW_REQUIRED"
-  },
-  {
-   "call_sites": [
-    "scripts/harvest_laft_orange.py",
-    "scripts/sync-laft-to-supabase.ps1",
-    "scripts/source_publication.py (collectable / publishable)",
-    "harvesters/governance/publication_state.py (display)",
-    "scripts/laft_lifecycle.py (apply_store_permission)"
-   ],
-   "conditions": [],
-   "dataset": "lands_available",
-   "effective_on": "2026-09-29",
-   "evidence_date": "2026-09-29",
-   "evidence_ref": "data/county_source_registry.csv fl_laft_orange; docs/legal/pre-sale-blockers.md",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
-   "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
-   "jurisdiction": "FL",
-   "operation": "parse",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
-   "source_id": "fl_laft_orange",
-   "status": "LEGAL_REVIEW_REQUIRED"
-  },
-  {
-   "call_sites": [
-    "scripts/harvest_laft_orange.py",
-    "scripts/sync-laft-to-supabase.ps1",
-    "scripts/source_publication.py (collectable / publishable)",
-    "harvesters/governance/publication_state.py (display)",
-    "scripts/laft_lifecycle.py (apply_store_permission)"
-   ],
-   "conditions": [],
-   "dataset": "lands_available",
-   "effective_on": "2026-09-29",
-   "evidence_date": "2026-09-29",
-   "evidence_ref": "data/county_source_registry.csv fl_laft_orange; docs/legal/pre-sale-blockers.md",
-   "evidence_type": "GRANDFATHERED_PRACTICE",
-   "expires_on": "2027-04-12",
-   "findings": [
-    "REVIEWER_IS_NOT_A_DECISION"
-   ],
-   "jurisdiction": "FL",
-   "operation": "store",
-   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
-   "source_id": "fl_laft_orange",
-   "status": "LEGAL_REVIEW_REQUIRED"
-  },
-  {
-   "call_sites": [
     "scripts/harvest_laft_osceola.py",
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
@@ -7756,12 +7660,12 @@
  "interim_max_days": 210,
  "summary": {
   "by_expiry": {
-   "2027-04-12": 384
+   "2027-04-12": 380
   },
   "by_finding": {
-   "REVIEWER_IS_NOT_A_DECISION": 77
+   "REVIEWER_IS_NOT_A_DECISION": 73
   },
-  "records": 384,
-  "sources": 109
+  "records": 380,
+  "sources": 108
  }
 }

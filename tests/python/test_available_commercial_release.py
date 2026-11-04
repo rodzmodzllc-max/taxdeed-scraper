@@ -376,7 +376,9 @@ def test_g03_registry_only_run_takes_no_reviews_and_writes_the_report(tmp_path, 
     data = json.loads(report.read_text(encoding="utf-8"))
     assert data["mode"] == "registry-only (no credentials)" and "reviews" not in data
     # fl_laft_portals (2026-10-26) is a new source, published by the owner's decision (legal review pending).
-    assert all(d["publication"] == ("APPROVED" if k == "fl_laft_portals" else "APPROVED_GRANDFATHERED")
+    # fl_laft_orange (2026-11-04): restricted by the Comptroller's written reply (data/office_replies.csv).
+    assert all(d["publication"] == ("APPROVED" if k == "fl_laft_portals" else
+                                    "RESTRICTED" if k == "fl_laft_orange" else "APPROVED_GRANDFATHERED")
                for k, d in data["sources"].items() if k.startswith("fl_laft_") and "candidate" not in k)
 
 
@@ -523,6 +525,8 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
                 assert eff == "UNREVIEWED" and expected in r.restrictions, (r.state, r.source_id)
         elif r.is_production and r.restrictions.startswith("Owner approved customer publication 2026-10-26"):
             assert eff == "APPROVED", (r.state, r.source_id)   # new sources 2026-10-26 (Charlotte portal, TX county lists)
+        elif r.is_production and r.restrictions.startswith("Orange County Comptroller written reply"):
+            assert eff == "RESTRICTED", (r.state, r.source_id)   # 2026-11-04: data/office_replies.csv
         elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.source_id)
         elif r.source_id in BLOCKED_SOURCE_IDS:

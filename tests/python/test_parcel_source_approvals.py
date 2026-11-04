@@ -193,9 +193,13 @@ def test_dor_authorization_record_claims_no_document_it_does_not_have():
         assert r.scope.get(granted).authorized, granted
     for not_granted in ("customer_export", "api_redistribution", "document_use", "image_download"):
         assert not r.scope.get(not_granted).authorized, not_granted
-    # Only the DOR record is granted; no other source gains a grant.
-    assert {a.source_id for a in PROVIDER_AUTHORIZATIONS.values()
-            if a.authorization_status in AUTHORIZATION_GRANTED_STATUSES} == {FL}
+    # Only the DOR record grants a use. The Orange County Comptroller record (2026-11-04)
+    # is granted for links only and authorizes no use dimension.
+    granted = [a for a in PROVIDER_AUTHORIZATIONS.values() if a.authorization_status in AUTHORIZATION_GRANTED_STATUSES]
+    assert {a.source_id for a in granted} == {FL, "fl_laft_orange"}
+    assert {a.source_id for a in granted
+            if any(getattr(a.scope, d).authorized for d in ("automated_access", "commercial_use", "storage",
+                                                             "customer_display", "customer_export"))} == {FL}
 
 
 # --- Utah UGRC: permission gate ----------------------------------------------

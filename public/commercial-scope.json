@@ -181,11 +181,11 @@
   {
    "source_id": "fl_laft_orange",
    "state": "FL",
-   "publication_status": "APPROVED_GRANDFATHERED",
-   "commercial_scope": "REQUIRES_PUBLICATION_DECISION",
+   "publication_status": "RESTRICTED",
+   "commercial_scope": "BLOCKED",
    "collected": true,
    "paid_beta": false,
-   "tester_preview": true,
+   "tester_preview": false,
    "active_rows": 3,
    "checks": {
     "provenance": "ok",

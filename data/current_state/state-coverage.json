@@ -3068,7 +3068,7 @@
       ]
      },
      "sources": {
-      "approved_for_customers": 56,
+      "approved_for_customers": 55,
       "counties": [
        "Alachua",
        "Bay",
@@ -3129,7 +3129,7 @@
       ],
       "implemented": 56,
       "known": 59,
-      "restricted": 1,
+      "restricted": 2,
       "rows": [
        {
         "amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
@@ -3813,17 +3813,17 @@
        },
        {
         "amount_kind": "OPENING_BID",
-        "approved_for_customers": true,
+        "approved_for_customers": false,
         "canonical_url": "https://occompt.com/158/Land-Available-For-Taxes",
         "county": "Orange",
         "governance_status": "APPROVED_GRANDFATHERED",
         "harvester": "harvest_laft_orange.py",
         "has_evidence": true,
         "implemented": true,
-        "last_checked": "2026-09-29",
-        "publication_status": "APPROVED_GRANDFATHERED",
+        "last_checked": "2026-11-04",
+        "publication_status": "RESTRICTED",
         "publishing_unit_name": "Orange County Comptroller",
-        "restrictions": "",
+        "restrictions": "Orange County Comptroller written reply (relayed by the owner 2026-11-04): links and individual record viewing permitted; automated collection and commercial incorporation prohibited without prior written authorization. Not read and not shown to customers until such an authorization is on file.",
         "source_id": "fl_laft_orange",
         "update_frequency": "not published by the source; read daily by the laft job (12:00 UTC)",
         "verification_status": "PRODUCTION_VERIFIED"
@@ -4139,8 +4139,8 @@
      },
      "tracked": "TRACKED",
      "withheld": {
-      "basis": "every production source of the ledger is customer-approved",
-      "source_not_approved": 0
+      "basis": "the ledger mixes approved and unreviewed sources; the snapshot does not split rows by source",
+      "source_not_approved": null
      }
     },
     "LIENS_CERTIFICATES": {

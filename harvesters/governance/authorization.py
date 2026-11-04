@@ -1122,6 +1122,172 @@ _DOR_PTO_PARCEL_GIS = ProviderAuthorization(
 )
 
 
+# Office replies relayed by the product owner on 2026-11-04 (inbox review).
+# The original e-mails are not in this repository and their received dates
+# were not supplied, so neither is recorded. data/office_replies.csv lists
+# each reply with the question it actually answered: a reply that permits a
+# link, or that only routes a records request, is never permission to collect
+# or to reuse the records commercially (docs/source-permissions.md).
+_ORANGE_COMPTROLLER = ProviderAuthorization(
+    authorization_id="fl_laft_orange__county__orange_comptroller",
+    source_id="fl_laft_orange",
+    provider="Orange County Comptroller",
+    government_entity="Orange County Comptroller (publisher of the Land Available for Taxes list)",
+    state="FL",
+    county="Orange",
+    deployment_scope="county",
+    requested_by="Product owner",
+    request_date=None,
+    contact_name=None,     # not supplied; never invented
+    contact_email=None,
+    request_status=AuthorizationStatus.RECEIVED,
+    # Granted for links only: every use dimension below stays unauthorized.
+    authorization_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS,
+    document=AuthorizationDocument(
+        document_name="Written reply from the Orange County Comptroller (email)",
+        document_location=None,
+        document_hash=None,
+        effective_date="2026-11-04",
+        expiration_date=None,
+        reviewer="Product owner",
+        review_date="2026-11-04",
+        scope_summary=(
+            "Relayed by the product owner on 2026-11-04; the original email is not in this repository and its "
+            "received date was not supplied. As relayed: links to the Comptroller's pages and individual record "
+            "viewing are expressly permitted; automated collection and commercial incorporation of its records "
+            "are prohibited without prior written authorization."
+        ),
+        is_pending=True,
+    ),
+    agreement_url=None,
+    agreement_version=None,
+    agreement_date=None,
+    effective_date="2026-11-04",
+    expiration_date=None,
+    review_due_date="2027-11-04",
+    scope=AuthorizationScope(
+        automated_access=UsePermission(requested=True, authorized=False),
+        commercial_use=UsePermission(requested=True, authorized=False),
+        storage=UsePermission(requested=True, authorized=False),
+        customer_display=UsePermission(requested=True, authorized=False),
+    ),
+    attribution_required=None,
+    rate_limit=None,
+    retention_requirement=None,
+    privacy_restrictions=None,
+    technical_restrictions=(
+        "Automated collection is prohibited without prior written authorization. harvest_laft_orange.py (a scripted "
+        "guest-disclaimer acknowledgement and search) is exactly that, and is no longer scheduled."
+    ),
+    written_permission=False,
+    reviewed_by="Product owner",
+    reviewed_at="2026-11-04",
+    notes=(
+        "Scope: the Comptroller's own websites (occompt.com, or.occompt.com). Links only - data/source_permissions.csv "
+        "records link as APPROVED and fetch / parse / store / display as RESTRICTED. Not covered: Orange tax deed "
+        "sales collected from RealAuction (fl_realauction) and Orange certificates from LienHub - separate sources "
+        "with their own terms. Restoring collection needs a prior written authorization from the Comptroller."
+    ),
+    last_terms_check="2026-11-04",
+    audit_log=(
+        AuditLogEntry(
+            event="approved",
+            who="Product owner",
+            when="2026-11-04",
+            old_status=None,
+            new_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS.value,
+            reason="Links to the Comptroller's pages and individual record viewing, as permitted in its written reply.",
+            document_reference=None,
+        ),
+        AuditLogEntry(
+            event="restricted",
+            who="Product owner",
+            when="2026-11-04",
+            old_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS.value,
+            new_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS.value,
+            reason="Written reply from the Orange County Comptroller, relayed by the product owner: links permitted; "
+                   "automated collection and commercial incorporation prohibited without prior written authorization.",
+            document_reference=None,
+        ),
+    ),
+)
+
+_PALM_BEACH_CLERK = ProviderAuthorization(
+    authorization_id="fl_laft_pioneer__county__palm_beach_clerk",
+    source_id="fl_laft_pioneer",
+    provider="Palm Beach County Clerk of the Circuit Court & Comptroller",
+    government_entity="Palm Beach County Clerk of the Circuit Court & Comptroller (tax deed site on the Pioneer platform)",
+    state="FL",
+    county="Palm Beach",
+    deployment_scope="county",
+    requested_by="Product owner",
+    request_date=None,
+    contact_name=None,     # not supplied; never invented
+    contact_email=None,
+    request_status=AuthorizationStatus.RECEIVED,
+    # A technical answer: it says what is technically acceptable and does not
+    # answer the commercial-use question, so nothing here is granted.
+    authorization_status=AuthorizationStatus.RECEIVED,
+    document=AuthorizationDocument(
+        document_name="Technical reply from the Palm Beach County Clerk (email)",
+        document_location=None,
+        document_hash=None,
+        effective_date="2026-11-04",
+        expiration_date=None,
+        reviewer="Product owner",
+        review_date="2026-11-04",
+        scope_summary=(
+            "Relayed by the product owner on 2026-11-04; the original email is not in this repository and its "
+            "received date was not supplied. As relayed: direct links to Official Records, limited factual display "
+            "and retention of published outcomes are technically acceptable; court-case deep links are restricted; "
+            "the website is intended for human interaction. Commercial use was not answered."
+        ),
+        is_pending=True,
+    ),
+    agreement_url=None,
+    agreement_version=None,
+    agreement_date=None,
+    effective_date="2026-11-04",
+    expiration_date=None,
+    review_due_date="2027-11-04",
+    scope=AuthorizationScope(
+        automated_access=UsePermission(requested=True, authorized=False),
+        commercial_use=UsePermission(requested=True, authorized=False),
+        customer_display=UsePermission(requested=True, authorized=False),
+        historical_storage=UsePermission(requested=True, authorized=False),
+    ),
+    attribution_required=None,
+    rate_limit=None,
+    retention_requirement="Retention of published outcomes described as technically acceptable (not a grant).",
+    privacy_restrictions=None,
+    technical_restrictions=(
+        "Court-case deep links are restricted (enforced: office_replies.restricted_link_reason refuses them as a "
+        "customer link). The website is intended for human interaction - automated reading is not endorsed."
+    ),
+    written_permission=False,
+    reviewed_by="Product owner",
+    reviewed_at="2026-11-04",
+    notes=(
+        "Scope: the Clerk's own sites for Palm Beach only, never another Pioneer county. The Palm Beach Lands "
+        "Available rows keep their existing interim records in data/source_permissions.csv; the only new record is "
+        "a link-only row. Not covered: Palm Beach tax deed sales collected from RealAuction (fl_realauction)."
+    ),
+    last_terms_check="2026-11-04",
+    audit_log=(
+        AuditLogEntry(
+            event="document_received",
+            who="Product owner",
+            when="2026-11-04",
+            old_status=None,
+            new_status=AuthorizationStatus.RECEIVED.value,
+            reason="Technical reply from the Palm Beach County Clerk, relayed by the product owner; commercial use "
+                   "not answered, so nothing is granted.",
+            document_reference=None,
+        ),
+    ),
+)
+
+
 PROVIDER_AUTHORIZATIONS: dict[str, ProviderAuthorization] = {
     r.authorization_id: r
     for r in (
@@ -1129,5 +1295,7 @@ PROVIDER_AUTHORIZATIONS: dict[str, ProviderAuthorization] = {
         _REALAUCTION_ALACHUA,
         _REALAUCTION_VOLUSIA,
         _DOR_PTO_PARCEL_GIS,
+        _ORANGE_COMPTROLLER,
+        _PALM_BEACH_CLERK,
     )
 }

@@ -204,7 +204,27 @@ def fl_production_rows() -> list[dict]:
                 # source (Lake, DeSoto, Wakulla) carries that source's decision.
                 r["publication_status"] = "APPROVED"
                 r["restrictions"] = OWNER_APPROVED_2026_10_26
+    for r in rows:
+        if r["source_id"] == "fl_laft_orange":
+            # The Orange County Comptroller's written reply (relayed 2026-11-04;
+            # data/office_replies.csv) prohibits automated collection and
+            # commercial incorporation without prior written authorization: not
+            # read and withheld from every customer view - the tester preview
+            # included (harvesters/governance/commercial_scope.py,
+            # office_replies.prohibits_reuse) - until such an authorization is on
+            # file. Admins still see the rows already stored.
+            # governance stays the production fact; collection is stopped by the
+            # RESTRICTED fetch / store records in data/source_permissions.csv.
+            r["publication_status"] = "RESTRICTED"
+            r["restrictions"] = ORANGE_COMPTROLLER_2026_11_04
+            r["last_checked"] = "2026-11-04"
     return rows
+
+
+ORANGE_COMPTROLLER_2026_11_04 = ("Orange County Comptroller written reply (relayed by the owner 2026-11-04): links and "
+                                 "individual record viewing permitted; automated collection and commercial incorporation "
+                                 "prohibited without prior written authorization. Not read and not shown to customers "
+                                 "until such an authorization is on file.")
 
 
 # The owner's customer-publication decision of 2026-10-26, the same text

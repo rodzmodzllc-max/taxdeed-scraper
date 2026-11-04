@@ -2682,6 +2682,22 @@ Full description: `docs/tx-enrichment-2026-10-27.md`. Stable facts:
   complete record; the cleaned default is pinned by `fullRecord*` checks (`?fields=clean`).
 - `sw.js` -> `tdw-shell-v150`.
 
+## Office replies: a link is not permission to reuse (2026-11-04, PR open, no migration)
+
+Full description: `docs/source-permissions.md` "Office replies". Stable facts:
+- **`data/office_replies.csv`** (`harvesters/governance/office_replies.py`) lists each reply from a county office.
+  It records the question the reply actually answered (`ROUTING_ONLY` / `TECHNICAL_ONLY` / `COMMERCIAL_USE`) and
+  what it said about commercial use. A link permission, a routing answer or a technical answer never backs a
+  documented reuse record (`problems()`, tested).
+- **Orange County Comptroller (`fl_laft_orange`):** links are approved; automated collection and commercial
+  incorporation are prohibited without prior written authorization.
+  - fetch / parse / store / display are RESTRICTED.
+  - The step is out of the daily job and out of the Lands Available sync guard.
+  - Its rows read `BLOCKED` for every customer view, the tester preview included.
+- **Palm Beach County Clerk:** a technical answer only. There is a `FL:Palm Beach` link-only row, and court-case
+  deep links are refused as customer links. Everything else is unchanged.
+- Neither reply covers RealAuction or LienHub for those counties.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
