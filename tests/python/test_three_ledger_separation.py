@@ -334,12 +334,17 @@ def test_sync_refuses_a_row_with_another_ledgers_fields(tmp_path):
 
 def test_blocked_vendors_feed_no_ledger_and_stay_denied():
     from harvesters.ledgers import ledgers_for_source_id
-    for sid in ("tx_govease", "tx_pbfcm", "tx_mvba", "tx_ctsa"):
-        assert ledgers_for_source_id(sid) == frozenset()
-        assert not PERM.authorize(sid, "fetch", state="TX").allowed
-    row = {"state": "TX", "source": "auction", "harvester_source": "tx_govease", "county": "Bexar", "case_no": "1"}
+    # tx_ctsa is the one blocked vendor left (paywall); the owner unblocked the other three on 2026-10-26.
+    assert ledgers_for_source_id("tx_ctsa") == frozenset()
+    assert not PERM.authorize("tx_ctsa", "fetch", state="TX").allowed
+    for sid in ("tx_govease", "tx_pbfcm", "tx_mvba"):
+        assert ledgers_for_source_id(sid) and PERM.authorize(sid, "fetch", state="TX").allowed
+    row = {"state": "TX", "source": "auction", "harvester_source": "tx_ctsa", "county": "Harris", "case_no": "1"}
     assert ledger_for_row(row) is Ledger.AUCTIONS
     assert LR.problems(row) == []    # the vendor gate, not the ledger contract, refuses it
+    # A GovEase row may only be an auction.
+    ge = {"state": "TX", "source": "laft", "harvester_source": "tx_govease", "county": "Denton", "case_no": "1"}
+    assert any("does not feed AVAILABLE" in p for p in LR.problems(ge))
 
 
 # ------------------------------------------------ 13. customer wording and contracts intact

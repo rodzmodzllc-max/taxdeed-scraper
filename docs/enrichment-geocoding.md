@@ -150,6 +150,14 @@ Flagler's county layer returns no centroid, so it is not a coordinate source.
 * There is **no address matching, no fuzzy or partial match, no nearest
   feature, and no other property's point**. A record with an address but no
   identifier is `NO_IDENTIFIER`.
+* An account whose own published form says it is not a land parcel
+  (`NON_PARCEL_IDENTIFIERS`, today only Walton's "MINR" mineral-rights
+  accounts) is planned `NOT_A_PARCEL` and never looked up: no parcel polygon
+  exists for it. A shape shared with real parcels is never skipped. The
+  2026-10-28 check of the Santa Rosa / Volusia / Alachua / Hillsborough
+  certificates without coordinates found no further deterministic re-spelling
+  (findings in the comment above `county_format_candidates` in
+  `scripts/enrich_property_details.py`).
 * The point is the matched polygon's centroid. A point outside the record's
   state (a projection error or swapped x / y) is a `PARSER_FAILURE`, never a
   pin.

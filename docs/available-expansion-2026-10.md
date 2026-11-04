@@ -60,10 +60,21 @@ Fields read per source:
 **Owner and taxpayer columns are never mapped.** Fayette's `OWNER` column is read
 by no field, and a test proves no owner text reaches a row or the log.
 
-**Fayette is a dated document.** The configuration pins DocumentCenter item 9761.
-If the county publishes a newer repository file under another id, that file is not
-followed, and rows keep showing the 2025-10-07 date. Re-capture the new document
-before re-pointing the config.
+**Fayette is a dated document - the newest one is read (2026-10-26).** Until
+2026-10-26 the configuration pinned DocumentCenter item 9761 (the 10-7-2025 PDF).
+The Bureau's Repository Sale page (`/930/Repository-Sale`) now links one file per
+update, "Repository Update M-D-YYYY"; the 2026 files are XLSX workbooks with an
+`Active` and a `Completed` sheet. The harvester kind `latest_dated_document`
+(`scripts/harvest_expansion.py`) reads the page, follows the https link on the
+county's own host whose file name carries the newest date, reads that file by its
+magic bytes (XLSX: the `Active` sheet only; PDF: the existing table reader) and
+sets `list_as_of` from the file name. A page with no dated link, a file that is
+neither format, lacks the `Active` sheet or yields no offered identifier row, and
+any transport error are FAILED, never EMPTY. The identifier pattern now also
+accepts a segment that leads with one letter (two such parcels on the 10-7-2026
+list). Live read 2026-10-26 of the 10-7-2026 workbook (counts only): 271 rows on
+the Active sheet, 247 offered, 24 `Bid Received` excluded, 0 malformed
+identifiers.
 
 ## 3. What changed in the shared code
 

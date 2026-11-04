@@ -161,6 +161,18 @@ def coverage(inventory=None) -> list[dict]:
     return [state_coverage(st, inv) for st in INV.supported_states()]
 
 
+def _owner_decision_recorded(sid: str, review: dict) -> bool:
+    """An APPROVED review without a published grant or written permission
+    stands only on a recorded owner decision (2026-10-26): the review says so
+    AND an in-date INTERIM `display` permission (the owner's internal risk
+    acceptance, never documented permission) is on file for the source."""
+    if "Owner approved customer publication" not in (review.get("reason") or ""):
+        return False
+    from harvesters.governance import permissions as PERM  # noqa: PLC0415
+    d = PERM.authorize(sid, "display", state=review.get("state") or "")
+    return d.allowed and d.basis == "INTERIM"
+
+
 def problems() -> list[str]:
     """Discovery pages and catalog rows must agree; a research finding must
     name a supported state."""
@@ -205,7 +217,7 @@ def problems() -> list[str]:
         c = catalog.get(sid)
         if c and r["availability"] in REJECTED_AVAILABILITY and "availability" in c["roles"].split("|"):
             out.append(f"{sid}: a page rejected as {r['availability']} keeps the availability role")
-        if c and c["governance"] != "REVIEW_REQUIRED":
+        if c and c["governance"] != "REVIEW_REQUIRED" and reviews().get(sid, {}).get("classification") != c["governance"]:
             out.append(f"{sid}: a read page stays REVIEW_REQUIRED until a publication review")
     for sid, r in reviews().items():
         c = catalog.get(sid)
@@ -217,8 +229,9 @@ def problems() -> list[str]:
         # The review IS the source's governance: the catalog may never say more.
         if c["governance"] != r["classification"]:
             out.append(f"{sid}: catalog governance {c['governance']} disagrees with its publication review")
-        if r["classification"] == "APPROVED" and r["commercial_use_permitted"] != "yes" and r["written_permission_needed"] != "no":
-            out.append(f"{sid}: APPROVED needs a published reuse grant or recorded written permission")
+        if (r["classification"] == "APPROVED" and r["commercial_use_permitted"] != "yes" and r["written_permission_needed"] != "no"
+                and not _owner_decision_recorded(sid, r)):
+            out.append(f"{sid}: APPROVED needs a published reuse grant, recorded written permission or a recorded owner decision")
         for k in ("commercial_use_permitted", "attribution_required", "republication_prohibited", "written_permission_needed"):
             if r[k] not in REVIEW_FLAGS:
                 out.append(f"{sid}: {k} must be one of {REVIEW_FLAGS}")

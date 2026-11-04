@@ -6,6 +6,12 @@
 // "no support address configured" path; run_test.mjs also loads a page
 // with ?support=1 to cover the configured path via the stub.
 window.TDW_CONFIG = { supabaseUrl: "https://fake-project.supabase.co", supabasePublishableKey: "sb_publishable_fake", supportEmail: "", naipLiveImagery: false };
+// The unconfirmed-Available gate (app.js) compares last_seen_at with today;
+// the fixture's rows carry historical dates, so it is off here except under
+// ?unconfirmed=1, where the stub re-dates every Available row.
+try {
+  window.TDW_CONFIG.unconfirmedAvailableGate = new URLSearchParams(location.search).get("unconfirmed") === "1";
+} catch (e) { window.TDW_CONFIG.unconfirmedAvailableGate = false; }
 // ?oauth=google,apple,azure turns the "Continue with ..." buttons on for the
 // sign-in tests (fixture only; the stub's signInWithOAuth never navigates).
 try {

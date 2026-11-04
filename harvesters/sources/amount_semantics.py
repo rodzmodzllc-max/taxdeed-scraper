@@ -54,7 +54,10 @@ KIND_SEMANTIC = {
     "PUBLISHED_AMOUNT_KIND_UNSPECIFIED": "OTHER_PUBLISHED_AMOUNT",
 }
 # A source whose OWN field is a minimum bid, stored without an amount kind.
-MINIMUM_BID_SOURCES = ("tx_lgbs",)
+# Tax-Sale.info's Michigan catalogs read their amount from the CSV column
+# "Minimum Bid" (harvesters/otc/adapters/tax_sale_info.py; audit F104). Mirrors
+# app.js AMOUNT_MINIMUM_BID_SOURCES (shared vectors: amount_semantics_cases.json).
+MINIMUM_BID_SOURCES = ("tx_lgbs", "mi_tax_sale_info_auction")
 CLOSED = ("closed", "sold", "gone", "expired", "redeemed", "cancelled", "canceled", "withdrawn")
 
 

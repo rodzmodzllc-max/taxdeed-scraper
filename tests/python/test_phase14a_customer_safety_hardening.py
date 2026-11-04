@@ -200,11 +200,18 @@ def test_D_florida_assessed_writers_are_unchanged():
     fl_cert_sync = _read("scripts", "sync-certificates-to-supabase.ps1")
     # Fill-blank-only enrichment path, unchanged since Phase 13.
     assert '_num(row.get("assessed")) is None' in fl_enrich
-    # The two FL sync scripts still forward whatever the harvester itself
-    # scraped, unconditionally (not fill-blank at the sync layer - only
-    # enrich_property_details.py is fill-blank).
+    # The two FL sync scripts still build `assessed` from what the harvester
+    # itself scraped...
     assert "assessed      = $p.assessed" in fl_deed_sync
     assert "assessed = ToNum $p.assessed" in fl_cert_sync
+    # ...but, deliberately changed 2026-10-26, no longer forward it
+    # unconditionally: a blank listing cell used to erase the FDOR tax-roll
+    # value (146 active FL auction rows). The stored-value guard
+    # (scripts/sync_value_guard.py, tests/python/test_fl_field_fixes.py) puts
+    # the stored value back for a blank, and for a value of a higher-ranked
+    # field_provenance source, before the upsert.
+    assert '$rows = @(Protect-StoredValues "auction" $rows)' in fl_deed_sync
+    assert '$rows = @(Protect-StoredValues "certificate" $rows)' in fl_cert_sync
 
 
 def test_D_non_texas_rows_still_get_the_original_generic_label():
@@ -297,13 +304,20 @@ def test_G_two_parcels_sharing_one_cause_number_are_not_treated_as_duplicate_pro
 # ==================== H: freshness contract ====================
 
 
-def test_H_texas_job_remains_manual_only_this_phase_did_not_schedule_it():
+def test_H_texas_job_runs_daily_in_the_0737_run_and_on_dispatch():
+    # Daily since 2026-10-26 (owner approval). Was manual dispatch only.
     workflow = _read(".github", "workflows", "harvest-and-sync.yml")
     texas_block_start = workflow.index("\n  texas:")
     next_job_start = workflow.index("\n  backup:", texas_block_start)
     texas_block = workflow[texas_block_start:next_job_start]
     if_line = next(line for line in texas_block.splitlines() if line.strip().startswith("if:"))
-    assert if_line.strip() == "if: github.event_name == 'workflow_dispatch'"
+    # Audit B25 (2026-10-29): wrapped by the schedule guard.
+    assert if_line.strip() == (
+        "if: ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || "
+        "github.event.inputs.job == 'texas' || github.event.inputs.job == '')) || "
+        "github.event.schedule == '37 11 * * *') && !contains(needs.schedule_guard.outputs.covered, 'texas') }}"
+    )
+    assert "cron: '37 11 * * *'" in workflow
 
 
 def test_H_texas_harvest_main_now_isolates_one_vendors_unexpected_failure_from_the_other():
@@ -344,15 +358,18 @@ def test_I_source_statuses_unchanged_this_phase():
     assert SOURCE_REGISTRY["tx_lgbs"].legal_status == SourceStatus.APPROVED
     assert SOURCE_REGISTRY["tx_realauction"].legal_status == SourceStatus.APPROVED
     assert SOURCE_REGISTRY["tx_hctax"].legal_status == SourceStatus.LEGAL_REVIEW_REQUIRED
-    for blocked in ("tx_pbfcm", "tx_govease", "tx_mvba", "tx_ctsa"):
+    for blocked in ("tx_ctsa",):  # tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner on 2026-10-26; tx_ctsa stays BLOCKED
         assert SOURCE_REGISTRY[blocked].legal_status == SourceStatus.BLOCKED
+    for vendor in ("tx_pbfcm", "tx_govease", "tx_mvba"):
+        assert SOURCE_REGISTRY[vendor].legal_status == SourceStatus.APPROVED
 
 
 def test_I_gate_decisions_unchanged_for_every_registered_source():
     assert check_ingestion_gate("tx_lgbs").allowed is True
     assert check_ingestion_gate("tx_realauction").allowed is True
     assert check_ingestion_gate("tx_hctax").allowed is False
-    assert check_ingestion_gate("tx_pbfcm").allowed is False
+    assert check_ingestion_gate("tx_ctsa").allowed is False
+    assert check_ingestion_gate("tx_pbfcm").allowed is True  # tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner on 2026-10-26; tx_ctsa stays BLOCKED
     assert check_ingestion_gate("unknown_source_xyz").allowed is False
 
 

@@ -6,6 +6,7 @@
    "source_id": "co_douglas_county_held_liens",
    "county": "Douglas",
    "path_type": "application_download",
+   "process_url": "https://www.douglasco.gov/documents/request-for-assignment-of-county-held.pdf/",
    "purchase_evidence_url": "https://www.douglasco.gov/documents/request-for-assignment-of-county-held.pdf/",
    "purchase_evidence_type": "county_document",
    "purchase_evidence_title": "Request for Assignment of County-Held Tax Lien (Douglas County, CO)",
@@ -289,11 +290,11 @@
    "source_id": "fl_laft_pdfs",
    "county": "Brevard",
    "path_type": "phone_mail",
-   "purchase_evidence_url": "https://www.brevardclerk.us/lands-available",
+   "purchase_evidence_url": "https://www.brevardclerk.us/services/clerk-services/property-sales/tax-deeds-auctions/",
    "purchase_evidence_type": "county_page",
-   "purchase_evidence_title": "Lands Available - Tax Deeds / Auctions - Brevard County, Florida - Clerk of the Court",
+   "purchase_evidence_title": "Tax Deeds & Auctions | Brevard County Clerk of Court",
    "purchase_instructions": "If, after review, you are interested in purchasing a property from the List of Lands Available, please submit a request in writing for the current minimum bid. Requests for bid amounts must be in writing and can be sent via email to taxdeedclerks@brevardclerk.us, fax to 321-637-2011, or by mail to Brevard County Clerk of Court, PO Box 219, Titusville, FL 32781-0219 Attn: Tax Deed Clerks. Please allow up to 30 days for a response. Payments are accepted in our Titusville office only; payment must be in certified funds. Properties on the List of Lands Available are sold on a first come, first serve basis.",
-   "purchase_path_observed_on": "2026-09-30",
+   "purchase_path_observed_on": "2026-10-29",
    "acquisition": {
     "mode": "multi_step",
     "channels": [
@@ -310,8 +311,8 @@
      "Allow up to 30 days for the bid amount (the amounts shown online are not the current bid)",
      "Pay in certified funds at the Titusville office - payments are accepted there only; first come, first served"
     ],
-    "evidence_url": "https://www.brevardclerk.us/lands-available",
-    "observed_on": "2026-09-30"
+    "evidence_url": "https://www.brevardclerk.us/services/clerk-services/property-sales/tax-deeds-auctions/",
+    "observed_on": "2026-10-29"
    }
   },
   {
@@ -589,6 +590,7 @@
    "source_id": "la_ebr_adjudicated",
    "county": "East Baton Rouge",
    "path_type": "county_instructions",
+   "process_url": "https://www.brla.gov/455/Adjudicated-Property",
    "purchase_evidence_url": "https://www.brla.gov/DocumentCenter/View/795/Adjudicated-Memo-PDF",
    "purchase_evidence_type": "county_document",
    "purchase_evidence_title": "MEMORANDUM - Office of the Parish Attorney, Property Division (purchase of adjudicated property)",
@@ -616,6 +618,32 @@
     ],
     "evidence_url": "https://www.brla.gov/DocumentCenter/View/795/Adjudicated-Memo-PDF",
     "observed_on": "2026-10-01"
+   }
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_detroit_landbank_lots",
+   "county": "Wayne",
+   "path_type": "county_instructions",
+   "process_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/Land-reuse/SECOND-AMENDED-AND-RESTATED-VACANT-LAND-POLICY.pdf",
+   "purchase_evidence_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/Land-reuse/SECOND-AMENDED-AND-RESTATED-VACANT-LAND-POLICY.pdf",
+   "purchase_evidence_type": "county_document",
+   "purchase_evidence_title": "DETROIT LAND BANK AUTHORITY SECOND AMENDED AND RESTATED VACANT LAND POLICY (Adopted by Board of Directors 11/11/2025)",
+   "purchase_instructions": "A purchase is made by a 'Complete Application' - 'a copy of the then in force version of an application to purchase property under this Policy with all required information filled-in by the person applying to purchase the property, including in the case of a Neighborhood Lot the endorsement required by Section V(C)(6)'. The DLBA holds applications for at least ten days from the date the first Complete Application is received before a purchaser is selected.",
+   "purchase_path_observed_on": "2026-10-26",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "instructions"
+    ],
+    "office": "Detroit Land Bank Authority",
+    "steps": [
+     "Meet the policy's eligibility for the lot type (Side / Oversize Lot: the adjacent owner-occupant; Neighborhood Lot: within the policy's distance, with the endorsement Section V(C)(6) requires)",
+     "Submit a Complete Application to purchase the lot under the DLBA Vacant Land Policy",
+     "The DLBA holds applications for at least ten days after the first Complete Application is received, then selects a purchaser by the policy's priority order"
+    ],
+    "evidence_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/Land-reuse/SECOND-AMENDED-AND-RESTATED-VACANT-LAND-POLICY.pdf",
+    "observed_on": "2026-10-26"
    }
   },
   {
@@ -649,6 +677,7 @@
    "source_id": "mi_lenawee_tax_sale",
    "county": "Lenawee",
    "path_type": "county_instructions",
+   "process_url": "https://www.lenawee.mi.us/712/Tax-Sale",
    "purchase_evidence_url": "https://www.lenawee.mi.us/712/Tax-Sale",
    "purchase_evidence_type": "county_page",
    "purchase_evidence_title": "Tax Sale | Lenawee County, MI",
@@ -668,6 +697,160 @@
     ],
     "evidence_url": "https://www.lenawee.mi.us/712/Tax-Sale",
     "observed_on": "2026-10-01"
+   }
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_oceana_landbank",
+   "county": "Oceana",
+   "path_type": "application_download",
+   "process_url": "https://oceana.mi.us/wp-content/uploads/2022/12/Purchase-Application-Land-Bank.pdf",
+   "purchase_path_observed_on": "2026-10-02",
+   "acquisition": {
+    "mode": "application",
+    "channels": [
+     "application"
+    ],
+    "observed_on": "2026-10-02"
+   }
+  },
+  {
+   "state": "MN",
+   "source_id": "mn_ramsey_tax_forfeit",
+   "county": "Ramsey",
+   "path_type": "county_instructions",
+   "process_url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list",
+   "purchase_evidence_url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list",
+   "purchase_evidence_type": "county_page",
+   "purchase_evidence_title": "Over-the-Counter Property List | Ramsey County, Minnesota",
+   "purchase_instructions": "Properties listed below are available for immediate purchase through Ramsey County's over-the-counter sale process. These tax-forfeited properties did not sell at the public auction and are now offered on a first-come, first-served basis. Browse the available properties and review the purchase requirements before submitting an inquiry.",
+   "purchase_path_observed_on": "2026-10-26",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "instructions",
+     "phone",
+     "in_person"
+    ],
+    "office": "Ramsey County Productive Properties",
+    "address": "Plato Building, 90 Plato Blvd. West, Saint Paul, MN 55107",
+    "phone": "651-266-2080",
+    "steps": [
+     "Find the parcel on the county's Over-the-Counter Property List",
+     "Review the purchase requirements and submit an inquiry to Productive Properties (651-266-2080)",
+     "Parcels sell first-come, first-served to eligible purchasers at the appraised price plus taxes and fees"
+    ],
+    "evidence_url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list",
+    "observed_on": "2026-10-26"
+   }
+  },
+  {
+   "state": "MO",
+   "source_id": "mo_stl_lra_inventory",
+   "county": "St. Louis City",
+   "path_type": "application_download",
+   "process_url": "https://www.lrastl.org/s/LRA-Offer-Submission-Form-5224.pdf",
+   "purchase_evidence_url": "https://www.lrastl.org/offer-to-purchase",
+   "purchase_evidence_type": "county_page",
+   "purchase_evidence_title": "Offer to Purchase — LRA, Land Reutilization Authority",
+   "purchase_instructions": "All offers, excluding the Side Lot and Temporary Use Applications, must be submitted using the Offer Submission Form. At this time, all offers must be submitted in-person to: [the LRA office]. All offers are taken by appointment. If you do not provide a complete offer submission, your application will not be processed.",
+   "purchase_path_observed_on": "2026-10-26",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "application",
+     "phone",
+     "in_person"
+    ],
+    "office": "St. Louis Development Corporation | Land Reutilization Authority (LRA)",
+    "address": "1520 Market St., Suite 221, St. Louis, MO 63103",
+    "phone": "314.657.3721",
+    "application_url": "https://www.lrastl.org/s/LRA-Offer-Submission-Form-5224.pdf",
+    "steps": [
+     "Open the property's page on the City's Available City-Owned Property Search and choose a program under which to purchase it",
+     "Complete the LRA Offer Submission Form (and the Offer Submission Checklist)",
+     "Submit the offer in person at the LRA office, by appointment",
+     "LRA staff review the offer and contact the offeror; the LRA commission decides"
+    ],
+    "evidence_url": "https://www.lrastl.org/offer-to-purchase",
+    "observed_on": "2026-10-26"
+   }
+  },
+  {
+   "state": "OK",
+   "source_id": "ok_oklahoma_county_owned",
+   "county": "Oklahoma",
+   "path_type": "application_download",
+   "process_url": "https://www.oklahomacounty.org/Portals/0/DNNGalleryPro/uploads/2021/4/28/BidForm.pdf",
+   "purchase_path_observed_on": "2026-10-04",
+   "acquisition": {
+    "mode": "bid",
+    "channels": [
+     "application"
+    ],
+    "observed_on": "2026-10-04"
+   }
+  },
+  {
+   "state": "PA",
+   "source_id": "pa_fayette_repository",
+   "county": "Fayette",
+   "path_type": "application_download",
+   "process_url": "https://www.fayettecountypa.org/DocumentCenter/View/5599/Repository-Bid-Form",
+   "purchase_evidence_url": "https://www.fayettecountypa.org/269/Tax-Claim-Bureau",
+   "purchase_evidence_type": "county_page",
+   "purchase_evidence_title": "Tax Sale Information | Fayette County, PA",
+   "purchase_instructions": "If the property still does not sell, it is put on our Repository List and can be bid on at any time. We keep the sealed bids in a lockbox. We open the envelopes on the first Tuesday of the month at 10:00 a.m. It is the decision of the authorities to accept or reject your bid. (Municipality and School District) We will notify you by mail within 30-45 days of the decision.",
+   "purchase_path_observed_on": "2026-10-26",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "application",
+     "phone",
+     "in_person"
+    ],
+    "office": "Fayette County Tax Claim Bureau",
+    "address": "2 West Main Street, Uniontown, PA 15401",
+    "phone": "724-430-1208",
+    "application_url": "https://www.fayettecountypa.org/DocumentCenter/View/5599/Repository-Bid-Form",
+    "payment": "money order, certified check, or cashier's check for the bid amount",
+    "steps": [
+     "Complete one Repository Sale Sealed Bid Form per parcel, with the Affidavit of Bidder(s)",
+     "Enclose a money order, certified check, or cashier's check for the bid amount in an envelope marked 'Sealed Repository Bid'",
+     "Bids are opened on the first Tuesday of the month at 10:00 a.m.; the municipality and school district accept or reject the bid, and the bureau notifies by mail within 30-45 days"
+    ],
+    "evidence_url": "https://www.fayettecountypa.org/269/Tax-Claim-Bureau",
+    "observed_on": "2026-10-26"
+   }
+  },
+  {
+   "state": "SC",
+   "source_id": "sc_georgetown_forfeited_land",
+   "county": "Georgetown",
+   "path_type": "application_download",
+   "process_url": "https://www.gtcountysc.gov/DocumentCenter/View/1587/FLC-Procedures-and-Bid-Apps-PDF",
+   "purchase_path_observed_on": "2026-10-02",
+   "acquisition": {
+    "mode": "application",
+    "channels": [
+     "application"
+    ],
+    "observed_on": "2026-10-02"
+   }
+  },
+  {
+   "state": "SC",
+   "source_id": "sc_horry_forfeited_land",
+   "county": "Horry",
+   "path_type": "application_download",
+   "process_url": "https://horrycountysc.gov/media/sinbmsz5/horrycountyflcguidelines.pdf",
+   "purchase_path_observed_on": "2026-10-02",
+   "acquisition": {
+    "mode": "bid",
+    "channels": [
+     "application"
+    ],
+    "observed_on": "2026-10-02"
    }
   },
   {
@@ -702,8 +885,68 @@
   {
    "state": "TX",
    "source_id": "tx_lgbs",
+   "county": "Bexar",
+   "path_type": "county_instructions",
+   "process_url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information",
+   "purchase_evidence_url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information",
+   "purchase_evidence_type": "county_document",
+   "purchase_evidence_title": "Bexar County - Tax Foreclosure Struck Off Properties General Information",
+   "purchase_instructions": "Struck Off properties are available for Private Sale. Struck Off properties deeded to the County will either be sold as a Private Sale by the Asset Management Division of the Public Works Department or during the semi-annual Commissioners Court Resale auction. The purchase file will then be reviewed for preliminary approval and the purchaser will be asked to sign a Purchase Agreement form that will include all associated costs and conveyance information. The file will then be taken to Commissioners Court for formal approval and issuance of a Court Order authorizing the sale. Payment for Property: After formal approval by the Commissioner's Court, the purchaser will first make payment to Bexar County Tax Assessor/Collector's office, for the interim taxes due. The last payment is for the recording fee, of the Quitclaim Deed. The Auctions are conducted by the Bexar County Sheriff's Office. In order to participate in the Resale Auction you must be registered prior to the public auction.",
+   "purchase_path_observed_on": "2026-10-27",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "instructions",
+     "phone"
+    ],
+    "office": "Bexar County Public Works - Asset Management Division",
+    "phone": "210-335-6700",
+    "payment": "Interim taxes to the Bexar County Tax Office; the struck-off amount and liens by cashier's check; the Quitclaim Deed recording fee to the Bexar County Clerk",
+    "steps": [
+     "Contact the Bexar County Public Works Asset Management Division about a struck-off property (private sale), or register for the Commissioners Court Resale auction",
+     "Sign the Purchase Agreement form listing all associated costs after preliminary approval",
+     "The Commissioners Court formally approves the sale and issues a Court Order",
+     "Pay the interim taxes to the Tax Assessor-Collector, then the struck-off amount and any code-compliance liens, then the deed recording fee"
+    ],
+    "evidence_url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information",
+    "observed_on": "2026-10-27"
+   }
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_lgbs",
+   "county": "Dallas",
+   "path_type": "county_instructions",
+   "process_url": "https://www.dallascounty.org/Assets/uploads/docs/public-works/TaxFCResaleFAQ_2024_Bids.pdf",
+   "purchase_evidence_url": "https://www.dallascounty.org/Assets/uploads/docs/public-works/TaxFCResaleFAQ_2024_Bids.pdf",
+   "purchase_evidence_type": "county_document",
+   "purchase_evidence_title": "Dallas County Property Division - Tax Foreclosure Resales FAQ (Sealed Bids)",
+   "purchase_instructions": "Q: THE STRUCK-OFF LIST SHOWS THE PROPERTY STATUS AS 'HOLD FOR SEALED BIDS'. The properties listed on the website will be advertised for sale via sealed bid solicitation at a future date. Once the date has been determined, the website will be updated with an announcement of the pending bid solicitation and a link to instructions for submitting your bid. There is no regularly scheduled time to accept bids. All properties will be sold in compliance with the Dallas County Tax Foreclosure Resale Policy included in the County Code and Section 34.05 of Texas Tax Code. The Commissioners Court is briefed and the highest, qualified bids are recommended for approval. The Court approves the sale to the highest bidders and issues a Court Order. A Property Award Notification email is sent to the successful purchaser with instructions to pay the balance.",
+   "purchase_path_observed_on": "2026-10-27",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "instructions",
+     "phone"
+    ],
+    "office": "Dallas County Public Works - Property Division",
+    "phone": "214-653-6400",
+    "steps": [
+     "Watch the Dallas County Property Division's struck-off list - a property marked 'Hold for Sealed Bids' cannot be bid on yet",
+     "When the county announces a sealed bid solicitation, follow the bid instructions linked from that announcement",
+     "The highest, qualified bids are recommended to the Commissioners Court, which approves the sale and issues a Court Order",
+     "The successful purchaser receives a Property Award Notification email with instructions to pay the balance"
+    ],
+    "evidence_url": "https://www.dallascounty.org/Assets/uploads/docs/public-works/TaxFCResaleFAQ_2024_Bids.pdf",
+    "observed_on": "2026-10-27"
+   }
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_lgbs",
    "county": "Galveston",
    "path_type": "county_instructions",
+   "process_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
    "purchase_evidence_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
    "purchase_evidence_type": "county_document",
    "purchase_evidence_title": "Galveston County Sheriff's Office - Sheriff Sales Information & Procedures",
@@ -732,10 +975,116 @@
    }
   },
   {
+   "state": "TX",
+   "source_id": "tx_lgbs",
+   "county": "Harris",
+   "path_type": "county_instructions",
+   "process_url": "https://www.hctax.net/Property/TaxSales",
+   "purchase_evidence_url": "https://www.hctax.net/Property/TaxSales",
+   "purchase_evidence_type": "county_page",
+   "purchase_evidence_title": "Harris County Tax Office - Harris County Tax Sales",
+   "purchase_instructions": "The Harris County Delinquent Tax Sale is the monthly public auction of real estate for past due property taxes. There are three types of sales: 1) Execution Sale, 2) Tax Sales, and 3) Tax Resales. Registration is required to participate in the Harris County Tax Sale and must be renewed annually. Bidders may pre-register online, by mail or in person at the Tax Sale. Bidders must have valid identification and must not owe any delinquent taxes on any property in Harris County. Property is sold to the highest bidder and full payment for the purchase is required immediately after the sale. Only cash and certified funds are accepted as payment. A receipt for the purchase payment is issued on the day of the sale and the deed is issued within 4-6 weeks.",
+   "purchase_path_observed_on": "2026-10-27",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "application",
+     "instructions",
+     "email",
+     "phone",
+     "mail",
+     "in_person"
+    ],
+    "office": "Harris County Tax Office - Special Tax Services",
+    "address": "1001 Preston, Houston, TX 77002",
+    "phone": "713-274-8120",
+    "email": "taxofficespecialtaxservices@hctx.net",
+    "mailing_address": "Box 3746, Houston, TX 77253",
+    "application_url": "https://www.hctax.net/Forms/TaxSaleBidderRegistration.pdf",
+    "payment": "Cash and certified funds only, in full immediately after the sale",
+    "steps": [
+     "Register as a bidder with the Harris County Tax Office (online, by mail or in person at the Tax Sale); registration is renewed annually",
+     "You must not owe delinquent taxes on any property in Harris County",
+     "Bid at the monthly Tax Sale (first Tuesday) - properties are offered as Executions, Tax Sales and Tax Resales",
+     "Pay in full immediately after the sale in cash or certified funds; the deed is issued within 4-6 weeks"
+    ],
+    "evidence_url": "https://www.hctax.net/Property/TaxSales",
+    "observed_on": "2026-10-27"
+   }
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_lgbs",
+   "county": "Jefferson",
+   "path_type": "county_instructions",
+   "process_url": "https://jeffcotax.com/property-tax/delinquent-tax-sale/",
+   "purchase_evidence_url": "https://jeffcotax.com/property-tax/delinquent-tax-sale/",
+   "purchase_evidence_type": "county_page",
+   "purchase_evidence_title": "Jefferson County Tax Office - Delinquent Tax Sale",
+   "purchase_instructions": "(1) A bidder must request a Statement of No Delinquent Taxes Owed from the Jefferson County Tax Office. (2) The property will be sold at public auction and will be sold for cash to the highest bidder, based on oral bids. Purchasers must pay for their property with cash or a cashier's check payable to the Jefferson County Sheriff's Department by 4:00 p.m. The amount of the opening bid is set out next to each tract, and the bidding must start at that figure or higher. The amount of the suggested opening bid is set out next to each tract or will be stated by the auctioneer at the time the property is offered for sale. Bids less than the suggested starting bid may be accepted at the discretion of the tax assessor-collector. (5) Purchasers at this tax foreclosure sale will receive an ordinary type of sheriff's deed, which is without warranty, express or implied.",
+   "purchase_path_observed_on": "2026-10-27",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "application",
+     "instructions",
+     "phone"
+    ],
+    "office": "Jefferson County Tax Office",
+    "phone": "(409) 835-8516",
+    "application_url": "https://jeffcotax.com/wp-content/uploads/2025/12/Request-statement-no-taxes-12.4.25.pdf",
+    "payment": "Cash or cashier's check payable to the Jefferson County Sheriff's Department by 4:00 p.m. on the day of the sale",
+    "steps": [
+     "Request a Statement of No Delinquent Taxes Owed from the Jefferson County Tax Office before the sale",
+     "When buying for a company, bring the Assumed Name Certificate or Franchise Tax Account Status (and a signed authorization letter if you are not an officer)",
+     "Bid at the public auction (original Sheriff sale or re-sale) - cash to the highest oral bidder",
+     "Pay with cash or a cashier's check payable to the Jefferson County Sheriff's Department by 4:00 p.m. on the sale day; a sheriff's deed without warranty is issued"
+    ],
+    "evidence_url": "https://jeffcotax.com/property-tax/delinquent-tax-sale/",
+    "observed_on": "2026-10-27"
+   }
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_lgbs",
+   "county": "Orange",
+   "path_type": "application_download",
+   "process_url": "https://www.co.orange.tx.us/media/TaxAssessorCollector/2025/TRUST_All%20forms%20combined%201.pdf",
+   "purchase_evidence_url": "https://www.co.orange.tx.us/media/TaxAssessorCollector/2025/TRUST_All%20forms%20combined%201.pdf",
+   "purchase_evidence_type": "county_document",
+   "purchase_evidence_title": "Orange County Tax Assessor-Collector - Submitting a Bid on Trust Property",
+   "purchase_instructions": "Trust Property refers to real estate that did not sell at a tax foreclosure auction. These properties are available for purchase through a written bid process. At this time, only minimum bid amounts are being accepted. To submit an open bid: Complete a Bid Submission Form (a separate form is required for each property you wish to bid on); obtain a Written Statement of Delinquent Taxes; submit your completed Bid Submission Form, Written Statement of Delinquent Taxes, and payment in person to the Orange County Tax Office. Payment must be made by cashier's check or money order payable to: Orange County Tax Office. All bids are processed on a first-come, first-served basis. Once a qualifying bid is approved and accepted, the sale is final.",
+   "purchase_path_observed_on": "2026-10-27",
+   "acquisition": {
+    "mode": "multi_step",
+    "channels": [
+     "application",
+     "email",
+     "phone",
+     "mail"
+    ],
+    "office": "Orange County Tax Assessor-Collector",
+    "phone": "(409) 882-7971",
+    "email": "taxpc@co.orange.tx.us",
+    "mailing_address": "P.O. Box 1568, Orange, TX 77631",
+    "application_url": "https://www.co.orange.tx.us/media/TaxAssessorCollector/2025/TRUST_All%20forms%20combined%201.pdf",
+    "payment": "Cashier's check or money order payable to Orange County Tax Office",
+    "steps": [
+     "Complete a Bid Submission Form - a separate form for each property",
+     "Request a Written Statement of Delinquent Taxes (notarized request; notary available at the Tax Office)",
+     "Submit the Bid Submission Form, the Written Statement and payment in person at the Orange County Tax Office",
+     "Only bids at the trust list's minimum bid amount are accepted; bids are processed first-come, first-served and an approved bid is final"
+    ],
+    "evidence_url": "https://www.co.orange.tx.us/media/TaxAssessorCollector/2025/TRUST_All%20forms%20combined%201.pdf",
+    "observed_on": "2026-10-27"
+   }
+  },
+  {
    "state": "WI",
    "source_id": "wi_dane_tax_deed_auction",
    "county": "Dane",
    "path_type": "county_instructions",
+   "process_url": "https://treasurer.danecounty.gov/Tax-Deed-Details",
    "purchase_evidence_url": "https://treasurer.danecounty.gov/Tax-Deed-Details",
    "purchase_evidence_type": "county_page",
    "purchase_evidence_title": "Tax Deed Details | Dane County Treasurer Office",
@@ -763,6 +1112,7 @@
    "source_id": "wi_green_tax_deed_sales",
    "county": "Green",
    "path_type": "application_download",
+   "process_url": "https://www.greencountywi.org/DocumentCenter/View/2103/Tax-Deed-Bid-Form",
    "purchase_evidence_url": "https://www.greencountywi.org/492/Current-Tax-Deed-Sales",
    "purchase_evidence_type": "county_page",
    "purchase_evidence_title": "Current Tax Deed Sales | Green County, WI",
@@ -826,6 +1176,17 @@
    "state": "FL",
    "source_id": "fl_laft_html",
    "county": "Columbia",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "county_clerk",
+   "authority": "Clerk of the Circuit Court",
+   "scope": "source"
+  },
+  {
+   "state": "FL",
+   "source_id": "fl_laft_html",
+   "county": "DeSoto",
    "status": "NOT_FOUND",
    "basis": "search_index",
    "reason": "No official acquisition page identified yet",
@@ -1059,6 +1420,17 @@
   },
   {
    "state": "FL",
+   "source_id": "fl_laft_html",
+   "county": "Wakulla",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "county_clerk",
+   "authority": "Clerk of the Circuit Court",
+   "scope": "source"
+  },
+  {
+   "state": "FL",
    "source_id": "fl_laft_leon",
    "county": "Leon",
    "status": "VERIFIED",
@@ -1119,8 +1491,8 @@
    "county": "Brevard",
    "status": "VERIFIED",
    "basis": "evidence_table",
-   "reason": "Lands Available - Tax Deeds / Auctions - Brevard County, Florida - Clerk of the Court",
-   "attempted_on": "2026-09-30",
+   "reason": "Tax Deeds & Auctions | Brevard County Clerk of Court",
+   "attempted_on": "2026-10-29",
    "authority_type": "county_clerk",
    "authority": "Clerk of the Circuit Court",
    "path_type": "phone_mail",
@@ -1352,6 +1724,17 @@
   },
   {
    "state": "FL",
+   "source_id": "fl_laft_portals",
+   "county": "Charlotte",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "county_clerk",
+   "authority": "Clerk of the Circuit Court",
+   "scope": "source"
+  },
+  {
+   "state": "FL",
    "source_id": "fl_laft_realtdm",
    "county": "Alachua",
    "status": "VERIFIED",
@@ -1385,6 +1768,17 @@
    "authority_type": "county_clerk",
    "authority": "Clerk of the Circuit Court",
    "path_type": "quoted_amount",
+   "scope": "source"
+  },
+  {
+   "state": "FL",
+   "source_id": "fl_laft_realtdm",
+   "county": "Lake",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "county_clerk",
+   "authority": "Clerk of the Circuit Court",
    "scope": "source"
   },
   {
@@ -1545,12 +1939,23 @@
   },
   {
    "state": "MI",
+   "source_id": "mi_calhoun_landbank",
+   "county": "Calhoun",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "county_land_bank",
+   "authority": "Calhoun County Land Bank Authority",
+   "scope": "source"
+  },
+  {
+   "state": "MI",
    "source_id": "mi_detroit_landbank_lots",
    "county": "Wayne",
    "status": "VERIFIED",
    "basis": "evidence_table",
-   "reason": "DETROIT LAND BANK AUTHORITY AMENDED AND RESTATED VACANT LAND POLICY (FINAL Oct 2023)",
-   "attempted_on": "2026-10-03",
+   "reason": "DETROIT LAND BANK AUTHORITY SECOND AMENDED AND RESTATED VACANT LAND POLICY (Adopted by Board of Directors 11/11/2025)",
+   "attempted_on": "2026-10-26",
    "authority_type": "county_land_bank",
    "authority": "Detroit Land Bank Authority",
    "path_type": "county_instructions",
@@ -1584,51 +1989,183 @@
    "attempted_on": "2026-10-02",
    "authority_type": "county_land_bank",
    "authority": "Oceana County Land Bank Authority",
+   "path_type": "application_download",
+   "scope": "source"
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_saginaw_landbank",
+   "county": "Saginaw",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "county_land_bank",
+   "authority": "Saginaw County Land Bank Authority",
+   "scope": "source"
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_tax_sale_info_surplus",
+   "county": "Arenac",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "other_government",
+   "authority": "Michigan county treasurer (foreclosing governmental unit) via Tax-Sale.info",
+   "scope": "source"
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_tax_sale_info_surplus",
+   "county": "Bay",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "other_government",
+   "authority": "Michigan county treasurer (foreclosing governmental unit) via Tax-Sale.info",
+   "scope": "source"
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_tax_sale_info_surplus",
+   "county": "Jackson",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "other_government",
+   "authority": "Michigan county treasurer (foreclosing governmental unit) via Tax-Sale.info",
+   "scope": "source"
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_tax_sale_info_surplus",
+   "county": "Monroe",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "other_government",
+   "authority": "Michigan county treasurer (foreclosing governmental unit) via Tax-Sale.info",
+   "scope": "source"
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_tax_sale_info_surplus",
+   "county": "Montcalm",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "other_government",
+   "authority": "Michigan county treasurer (foreclosing governmental unit) via Tax-Sale.info",
+   "scope": "source"
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_tax_sale_info_surplus",
+   "county": "Oceana",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "other_government",
+   "authority": "Michigan county treasurer (foreclosing governmental unit) via Tax-Sale.info",
+   "scope": "source"
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_tax_sale_info_surplus",
+   "county": "Otsego",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "other_government",
+   "authority": "Michigan county treasurer (foreclosing governmental unit) via Tax-Sale.info",
+   "scope": "source"
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_tax_sale_info_surplus",
+   "county": "Presque Isle",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "other_government",
+   "authority": "Michigan county treasurer (foreclosing governmental unit) via Tax-Sale.info",
+   "scope": "source"
+  },
+  {
+   "state": "MI",
+   "source_id": "mi_wayne_county_landbank",
+   "county": "Wayne",
+   "status": "NEEDS_REVIEW",
+   "basis": "search_index",
+   "reason": "Official pages identified; no capture recorded yet",
+   "authority_type": "county_land_bank",
+   "authority": "Wayne County Land Bank Corporation",
+   "scope": "source",
+   "candidates": [
+    {
+     "url": "https://buildingdetroit.org/purchase_property",
+     "doc_kind": "PROCEDURE"
+    }
+   ]
+  },
+  {
+   "state": "MN",
+   "source_id": "mn_hubbard_tfl_otc",
+   "county": "Hubbard",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "other_government",
+   "authority": "Hubbard County Tax-Forfeited Land",
    "scope": "source"
   },
   {
    "state": "MN",
    "source_id": "mn_ramsey_tax_forfeit",
    "county": "Ramsey",
-   "status": "NEEDS_REVIEW",
-   "basis": "search_index",
-   "reason": "Ramsey County's over-the-counter property list and sale terms pages were found through the search index only - not read",
-   "attempted_on": "2026-10-06",
+   "status": "VERIFIED",
+   "basis": "evidence_table",
+   "reason": "Over-the-Counter Property List | Ramsey County, Minnesota",
+   "attempted_on": "2026-10-26",
    "authority_type": "other_government",
    "authority": "Ramsey County Tax-Forfeited Land",
-   "scope": "source",
-   "candidates": [
-    {
-     "url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list",
-     "doc_kind": "PROCEDURE"
-    },
-    {
-     "url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/ramsey-county-tax-forfeited-land-online-sales-terms-conditions",
-     "doc_kind": "INSTRUCTIONS"
-    }
-   ]
+   "path_type": "county_instructions",
+   "scope": "source"
+  },
+  {
+   "state": "MN",
+   "source_id": "mn_stpaul_hra_properties",
+   "county": "Ramsey",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "other_government",
+   "authority": "Saint Paul Housing and Redevelopment Authority",
+   "scope": "source"
+  },
+  {
+   "state": "MO",
+   "source_id": "mo_kc_landbank",
+   "county": "Jackson",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "county_land_bank",
+   "authority": "Land Bank of Kansas City, Missouri",
+   "scope": "source"
   },
   {
    "state": "MO",
    "source_id": "mo_stl_lra_inventory",
    "county": "St. Louis City",
-   "status": "NEEDS_REVIEW",
-   "basis": "search_index",
-   "reason": "The LRA's Offer to Purchase page and the City's Purchase City-Owned Property page were found through the search index only (offer submitted in person by appointment) - not read",
-   "attempted_on": "2026-10-06",
+   "status": "VERIFIED",
+   "basis": "evidence_table",
+   "reason": "Offer to Purchase — LRA, Land Reutilization Authority",
+   "attempted_on": "2026-10-26",
    "authority_type": "county_land_bank",
    "authority": "Land Reutilization Authority (St. Louis Development Corporation)",
-   "scope": "source",
-   "candidates": [
-    {
-     "url": "https://www.lrastl.org/offer-to-purchase",
-     "doc_kind": "PROCEDURE"
-    },
-    {
-     "url": "https://www.stlouis-mo.gov/government/property/purchase-city-owned-property.cfm",
-     "doc_kind": "INSTRUCTIONS"
-    }
-   ]
+   "path_type": "application_download",
+   "scope": "source"
   },
   {
    "state": "OK",
@@ -1640,33 +2177,32 @@
    "attempted_on": "2026-10-04",
    "authority_type": "county_treasurer",
    "authority": "Oklahoma County Treasurer",
+   "path_type": "application_download",
    "scope": "source"
   },
   {
    "state": "PA",
    "source_id": "pa_fayette_repository",
    "county": "Fayette",
-   "status": "NEEDS_REVIEW",
-   "basis": "search_index",
-   "reason": "The Tax Claim Bureau's Repository Sale page and repository FAQ were found through the search index only (sealed bid form and notarized affidavit) - not read",
-   "attempted_on": "2026-10-06",
+   "status": "VERIFIED",
+   "basis": "evidence_table",
+   "reason": "Tax Sale Information | Fayette County, PA",
+   "attempted_on": "2026-10-26",
    "authority_type": "county_tax_collector",
    "authority": "Fayette County Tax Claim Bureau",
-   "scope": "source",
-   "candidates": [
-    {
-     "url": "https://www.fayettecountypa.org/930/Repository-Sale",
-     "doc_kind": "PROCEDURE"
-    },
-    {
-     "url": "https://www.fayettecountypa.org/DocumentCenter/View/5600/repository-FAQ",
-     "doc_kind": "INSTRUCTIONS"
-    },
-    {
-     "url": "https://www.fayettecountypa.org/269/Tax-Claim-Bureau",
-     "doc_kind": "CONTACT"
-    }
-   ]
+   "path_type": "application_download",
+   "scope": "source"
+  },
+  {
+   "state": "PA",
+   "source_id": "pa_pittsburgh_city_property",
+   "county": "Allegheny",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "authority_type": "other_government",
+   "authority": "City of Pittsburgh (city-owned property)",
+   "scope": "source"
   },
   {
    "state": "SC",
@@ -1678,6 +2214,7 @@
    "attempted_on": "2026-10-02",
    "authority_type": "other_government",
    "authority": "Georgetown County Forfeited Land Commission",
+   "path_type": "application_download",
    "scope": "source"
   },
   {
@@ -1690,6 +2227,7 @@
    "attempted_on": "2026-10-02",
    "authority_type": "other_government",
    "authority": "Horry County Forfeited Land Commission",
+   "path_type": "application_download",
    "scope": "source"
   },
   {
@@ -1713,8 +2251,71 @@
   },
   {
    "state": "TX",
-   "source_id": "tx_hctax",
-   "county": "Harris",
+   "source_id": "tx_bexar_resale",
+   "county": "Bexar",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_brazoria_tax_resale",
+   "county": "Brazoria",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_collin_constable_sale",
+   "county": "Collin",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_grayson_struck_off",
+   "county": "Grayson",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_gregg_tax_resale",
+   "county": "Gregg",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_hood_cad_struck_off",
+   "county": "Hood",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_jefferson_county_resale",
+   "county": "Jefferson",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_johnson_constable_sale",
+   "county": "Johnson",
    "status": "NOT_FOUND",
    "basis": "search_index",
    "reason": "No official acquisition page identified yet",
@@ -1738,9 +2339,9 @@
    "source_id": "tx_lgbs",
    "county": "Goliad",
    "status": "NOT_FOUND",
-   "basis": "capture",
-   "reason": "Tax office page only - no resale process",
-   "attempted_on": "2026-10-01",
+   "basis": "document_read",
+   "reason": "The Tax Assessor-Collector page and the Trustee / Foreclosure Sales notices page carry no struck-off or resale text",
+   "attempted_on": "2026-10-25",
    "run_id": "36858070184 36865836152",
    "authority_type": "county_tax_collector",
    "authority": "County tax assessor-collector / taxing units",
@@ -1757,9 +2358,9 @@
    "source_id": "tx_lgbs",
    "county": "Hardin",
    "status": "NOT_FOUND",
-   "basis": "capture",
-   "reason": "A commissioners-court resale resolution only - no buyer instructions",
-   "attempted_on": "2026-10-01",
+   "basis": "document_read",
+   "reason": "The county site moved to hardincountytx.gov; its Foreclosure Sales and Tax Assessor-Collector pages carry no struck-off, resale or buyer text. Only a 2024 commissioners-court resale resolution exists",
+   "attempted_on": "2026-10-25",
    "run_id": "36858070184 36865836152",
    "authority_type": "county_tax_collector",
    "authority": "County tax assessor-collector / taxing units",
@@ -1780,9 +2381,9 @@
    "source_id": "tx_lgbs",
    "county": "Jim Wells",
    "status": "NOT_FOUND",
-   "basis": "capture",
-   "reason": "County pages carry foreclosure notices only; the city page points to the delinquent-tax counsel",
-   "attempted_on": "2026-10-01",
+   "basis": "document_read",
+   "reason": "The City of Alice Property Tax Sales page sends buyers to the delinquent-tax counsel's site; the county site carries foreclosure notices only. No county list or buyer procedure",
+   "attempted_on": "2026-10-25",
    "run_id": "36858070184 36865836152",
    "authority_type": "county_tax_collector",
    "authority": "County tax assessor-collector / taxing units",
@@ -1803,9 +2404,9 @@
    "source_id": "tx_lgbs",
    "county": "Leon",
    "status": "NOT_FOUND",
-   "basis": "capture",
-   "reason": "Only an old sale notice and the Comptroller's office directory - no resale process",
-   "attempted_on": "2026-10-01",
+   "basis": "document_read",
+   "reason": "The Tax Assessor-Collector page says to visit the delinquent-tax counsels' sites to view current tax-sale listings; no county list or buyer procedure",
+   "attempted_on": "2026-10-25",
    "run_id": "36858070184 36865836152",
    "authority_type": "county_tax_collector",
    "authority": "County tax assessor-collector / taxing units",
@@ -1818,6 +2419,10 @@
     {
      "url": "https://www.co.leon.tx.us/upload/page/4935/docs/TAC/Oct%202020%20Tax%20Sale.pdf",
      "doc_kind": "SOURCE_PAGE"
+    },
+    {
+     "url": "https://www.co.leon.tx.us/page/leon.County.Assessor.Collector",
+     "doc_kind": "CONTACT"
     }
    ]
   },
@@ -1826,9 +2431,9 @@
    "source_id": "tx_lgbs",
    "county": "Liberty",
    "status": "NOT_FOUND",
-   "basis": "capture",
-   "reason": "County pages carry foreclosure notices only - no resale process",
-   "attempted_on": "2026-10-01",
+   "basis": "document_read",
+   "reason": "The Tax Assessor-Collector page links a 'Tax Sale Property Listing' document (Last-Modified 2017) that only says to contact a delinquent-tax counsel or obtain a list from the Tax Office; commissioners-court agendas approve resale bids requested through the counsel. No county list or buyer procedure",
+   "attempted_on": "2026-10-25",
    "run_id": "36858070184 36865836152",
    "authority_type": "county_tax_collector",
    "authority": "County tax assessor-collector / taxing units",
@@ -1841,6 +2446,10 @@
     {
      "url": "https://notices.libertycountytx.com/auctions",
      "doc_kind": "SOURCE_PAGE"
+    },
+    {
+     "url": "https://www.co.liberty.tx.us/page/liberty.County.Assessor.Collector",
+     "doc_kind": "CONTACT"
     }
    ]
   },
@@ -1849,9 +2458,9 @@
    "source_id": "tx_lgbs",
    "county": "Maverick",
    "status": "NOT_FOUND",
-   "basis": "capture",
-   "reason": "Appraisal-district portal only; the trust-property list is a blocked vendor's",
-   "attempted_on": "2026-10-01",
+   "basis": "document_read",
+   "reason": "The county site listed in directories (co.maverick.tx.us) returned 404; the City of Eagle Pass Tax Office page carries no tax-sale text; the trust-property list is a blocked vendor's",
+   "attempted_on": "2026-10-25",
    "run_id": "36858070184 36865836152",
    "authority_type": "county_tax_collector",
    "authority": "County tax assessor-collector / taxing units",
@@ -1868,9 +2477,9 @@
    "source_id": "tx_lgbs",
    "county": "Van Zandt",
    "status": "NOT_FOUND",
-   "basis": "capture",
-   "reason": "The county page read carries no struck-off or resale text",
-   "attempted_on": "2026-10-01",
+   "basis": "document_read",
+   "reason": "The Tax Assessor-Collector page refers property-tax questions to the Van Zandt County Appraisal District; no struck-off or resale text",
+   "attempted_on": "2026-10-25",
    "run_id": "36858070184 36865836152",
    "authority_type": "county_tax_collector",
    "authority": "County tax assessor-collector / taxing units",
@@ -1885,6 +2494,567 @@
      "doc_kind": "SOURCE_PAGE"
     }
    ]
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_montgomery_tax_trust",
+   "county": "Montgomery",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Bandera",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Bastrop",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Bell",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Brown",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Cherokee",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Comal",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Gregg",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Panola",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Runnels",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_mvba",
+   "county": "Val Verde",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_orange_trust_property",
+   "county": "Orange",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Archer",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Austin",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Brazoria",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Brewster",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Caldwell",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Cameron",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Chambers",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Childress",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Clay",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Dickens",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Dimmit",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Foard",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Fort Bend",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Galveston",
+   "status": "NEEDS_REVIEW",
+   "basis": "search_index",
+   "reason": "Official pages identified; no capture recorded yet",
+   "scope": "source",
+   "candidates": [
+    {
+     "url": "https://www.galvestoncountytx.gov/our-county/tax-assessor-collector/property-tax/sheriff-sale-information",
+     "doc_kind": "SOURCE_PAGE"
+    },
+    {
+     "url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/sheriff_sale_rules.pdf",
+     "doc_kind": "SOURCE_PAGE"
+    },
+    {
+     "url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
+     "doc_kind": "SOURCE_PAGE"
+    }
+   ]
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Hardeman",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Harris",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Hays",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Hill",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Houston",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Hunt",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Jack",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Jasper",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Johnson",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Knox",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Liberty",
+   "status": "NEEDS_REVIEW",
+   "basis": "search_index",
+   "reason": "Official pages identified; no capture recorded yet",
+   "scope": "source",
+   "candidates": [
+    {
+     "url": "https://www.co.liberty.tx.us/page/liberty.foreclosures",
+     "doc_kind": "SOURCE_PAGE"
+    },
+    {
+     "url": "https://notices.libertycountytx.com/auctions",
+     "doc_kind": "SOURCE_PAGE"
+    }
+   ]
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Matagorda",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Maverick",
+   "status": "NEEDS_REVIEW",
+   "basis": "search_index",
+   "reason": "Official pages identified; no capture recorded yet",
+   "scope": "source",
+   "candidates": [
+    {
+     "url": "https://www.maverickcad.org/",
+     "doc_kind": "SOURCE_PAGE"
+    }
+   ]
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Milam",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Montague",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Montgomery",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Nacogdoches",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Newton",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Palo Pinto",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Reeves",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "San Jacinto",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Tarrant",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Throckmorton",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Uvalde",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Walker",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Waller",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Washington",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Wichita",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Wilbarger",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Young",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_pbfcm",
+   "county": "Zavala",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_randall_trustee_property",
+   "county": "Randall",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
+   "state": "TX",
+   "source_id": "tx_trinity_cad_resale",
+   "county": "Trinity",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
   }
  ]
 }

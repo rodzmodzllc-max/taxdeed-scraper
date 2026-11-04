@@ -196,6 +196,14 @@ def row_publication(row: dict, decisions: dict[str, PublicationDecision]) -> str
     sid = source_id_of(row)
     if not sid or sid not in decisions:
         return None
+    # An office that prohibited collection / commercial incorporation in
+    # writing (data/office_replies.csv; 2026-11-04 Orange County Comptroller)
+    # withholds its rows from every customer view - the tester preview
+    # included, which shows every row that is not BLOCKED. The row is not
+    # deleted; admins still see it.
+    from .office_replies import prohibits_reuse  # noqa: PLC0415
+    if prohibits_reuse(sid, row.get("state") or "", row.get("county")):
+        return "BLOCKED"
     return decisions[sid].publication
 
 

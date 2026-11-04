@@ -73,11 +73,14 @@ def applicable_evidence(tables=EVIDENCE_TABLES) -> list[tuple[str, PPE.EvidenceR
     return out
 
 
-def rule_for(table: str, e: PPE.EvidenceRow, *, ledgers: dict[str, str], changed_on: str) -> SR.Rule:
+def rule_for(table: str, e: PPE.EvidenceRow, *, ledgers: dict[str, str], changed_on: str, scope: dict | None = None) -> SR.Rule:
     """The rule one evidence row establishes. Nothing here is invented: every
     field is the evidence row's own, or a fixed description of what depends
-    on it."""
-    ledger = ledgers.get(e.source_id, "AVAILABLE")
+    on it. The ledger is the evidence row's own scope when
+    data/acquisition_evidence_ledgers.csv names one (2026-10-27), else the
+    source's registry ledgers."""
+    scoped = (scope or {}).get((e.state, e.source_id, e.county))
+    ledger = "|".join(sorted(scoped)) if scoped else ledgers.get(e.source_id, "AVAILABLE")
     return SR.Rule(
         state=e.state, county=e.county, topic=topic_for(ledger), kind="PROCEDURE", status="VERIFIED",
         statement=e.evidence,
@@ -93,12 +96,13 @@ def rule_for(table: str, e: PPE.EvidenceRow, *, ledgers: dict[str, str], changed
 
 def expected_rules(*, changed_on: str, tables=EVIDENCE_TABLES, registry: Path = REGISTRY) -> list[SR.Rule]:
     ledgers = source_ledgers(registry)
+    scope = PPE.load_ledger_scope()
     rules: dict[tuple, SR.Rule] = {}
     for table, e in applicable_evidence(tables):
         # One rule per county AND ledger (Morgan CO: county-held certificates
         # and treasurer-deed auctions are two procedures). A second evidence
         # row for the same county and ledger keeps the first table's row.
-        r = rule_for(table, e, ledgers=ledgers, changed_on=changed_on)
+        r = rule_for(table, e, ledgers=ledgers, changed_on=changed_on, scope=scope)
         rules.setdefault((e.state, e.county, r.topic), r)
     return [rules[k] for k in sorted(rules)]
 

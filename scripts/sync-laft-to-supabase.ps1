@@ -11,7 +11,7 @@ if (-not $permPython) {
     Write-Host "::error title=source_permission::Python not found - permission cannot be checked; stopping before any request"
     exit 3
 }
-& $permPython.Source (Join-Path $PSScriptRoot "source_permission_check.py") --source fl_laft_pdfs --source fl_laft_html --source fl_laft_realtdm --source fl_laft_pioneer --source fl_laft_orange --source fl_laft_stlucie --source fl_laft_osceola --source fl_laft_hillsborough --source fl_laft_leon --operation store --state FL --dataset lands_available
+& $permPython.Source (Join-Path $PSScriptRoot "source_permission_check.py") --source fl_laft_pdfs --source fl_laft_html --source fl_laft_realtdm --source fl_laft_pioneer --source fl_laft_stlucie --source fl_laft_osceola --source fl_laft_hillsborough --source fl_laft_leon --source fl_laft_portals --operation store --state FL --dataset lands_available
 if (0 -ne $LASTEXITCODE) {
     Write-Host "::error title=source_permission::LAFT sync not permitted (see the decision above) - stopping before any request or write"
     exit 3
@@ -59,6 +59,66 @@ function Get-LedgerCloseableCounties([string]$Ledger, [string]$StatusPath) {
     return @((($out -join "`n") | ConvertFrom-Json))
 }
 # --- end three-ledger contract -------------------------------------------------
+# --- Stored-value guard (2026-10-26) -------------------------------------------
+# PostgREST's bulk upsert needs one key set per batch, so a column the list did
+# not publish is sent as null - and merge-duplicates used to write that null
+# over the stored value (146 FL auction rows lost their FDOR tax-roll
+# `assessed`). scripts/sync_value_guard.py reads the stored rows and puts the
+# stored value back wherever a blank or placeholder would replace it, or where
+# field_provenance names another source of equal or higher rank
+# (scripts/field_provenance.py). Fail closed: if the stored rows cannot be
+# read, nothing is written.
+function Protect-StoredValues([string]$Source, $Rows) {
+    $all = @($Rows)
+    if ($all.Count -eq 0) { return }
+    $in = [System.IO.Path]::GetTempFileName()
+    $out = [System.IO.Path]::GetTempFileName()
+    try {
+        $json = $all | ConvertTo-Json -Depth 6
+        if ($all.Count -eq 1) { $json = "[$json]" }
+        [System.IO.File]::WriteAllText($in, $json, [System.Text.UTF8Encoding]::new($false))
+        & (Get-LedgerPython) (Join-Path $PSScriptRoot "sync_value_guard.py") --source $Source --state FL --in $in --out $out
+        if (0 -ne $LASTEXITCODE) { throw "sync_value_guard.py could not guard the $Source rows (exit $LASTEXITCODE) - nothing is written." }
+        $guarded = @((Get-Content $out -Raw -Encoding utf8) | ConvertFrom-Json)
+        if ($guarded.Count -ne $all.Count) { throw "sync_value_guard.py returned $($guarded.Count) of $($all.Count) rows - nothing is written." }
+        $guarded
+    } finally {
+        Remove-Item $in, $out -ErrorAction SilentlyContinue
+    }
+}
+# --- end stored-value guard ----------------------------------------------------
+# --- Write only what changed (2026-10-26) --------------------------------------
+# Every run used to upsert every harvested row again, changed or not: each
+# UPDATE bumps updated_at (properties_touch) and leaves a dead tuple, and one
+# run rewrote ~15,770 rows in ten minutes on 2026-10-26 (production overload).
+# scripts/write_diff_filter.py applies scripts/write_diff.py's one rule - a row
+# whose stored copy already holds the same values is not sent - never a second
+# copy of it here. Fail OPEN: if the filter cannot run or the stored rows cannot
+# be read, every row is sent, exactly as before. Only the upsert uses the result;
+# close-out decides on what was harvested, never on what was written.
+function Select-ChangedRows([string]$Source, $Rows) {
+    $all = @($Rows)
+    if ($all.Count -eq 0) { return }
+    $in = [System.IO.Path]::GetTempFileName()
+    $out = [System.IO.Path]::GetTempFileName()
+    try {
+        $json = $all | ConvertTo-Json -Depth 6
+        if ($all.Count -eq 1) { $json = "[$json]" }
+        [System.IO.File]::WriteAllText($in, $json, [System.Text.UTF8Encoding]::new($false))
+        & (Get-LedgerPython) (Join-Path $PSScriptRoot "write_diff_filter.py") --state FL --source $Source --in $in --out $out
+        if (0 -ne $LASTEXITCODE) {
+            Write-Warning "write_diff_filter.py exited $LASTEXITCODE - sending all $($all.Count) $Source row(s) (fail open)."
+            return $all
+        }
+        return @((Get-Content $out -Raw -Encoding utf8) | ConvertFrom-Json)
+    } catch {
+        Write-Warning "Unchanged-row filter failed ($($_.Exception.Message)) - sending all $($all.Count) $Source row(s) (fail open)."
+        return $all
+    } finally {
+        Remove-Item $in, $out -ErrorAction SilentlyContinue
+    }
+}
+# --- end write only what changed -----------------------------------------------
 
 
 # Pushes the Lands Available for Taxes harvest (harvest_laft.json, produced
@@ -126,11 +186,14 @@ $optionalSources = @(
     @{ Path = Join-Path $here "../out/harvest_laft_html.json"; Label = "HTML-table counties (harvest_laft_html.json)" },
     @{ Path = Join-Path $here "../out/harvest_laft_realtdm.json"; Label = "RealTDM-platform counties (harvest_laft_realtdm.json)" },
     @{ Path = Join-Path $here "../out/harvest_laft_pioneer.json"; Label = "Pioneer/TaxSmartWeb-platform counties (harvest_laft_pioneer.json)" },
-    @{ Path = Join-Path $here "../out/harvest_laft_orange.json"; Label = "Orange County TDSM (harvest_laft_orange.json)" },
+    # Orange County TDSM is not read since 2026-11-04 (the Comptroller's written reply prohibits automated
+    # collection without prior written authorization; data/office_replies.csv), so it is neither guarded
+    # nor synced here - a restricted Orange record must never block the other counties' sync.
     @{ Path = Join-Path $here "../out/harvest_laft_stlucie.json"; Label = "St. Lucie County AcclaimWeb (harvest_laft_stlucie.json)" },
     @{ Path = Join-Path $here "../out/harvest_laft_osceola.json"; Label = "Osceola County NewVision (harvest_laft_osceola.json)" },
     @{ Path = Join-Path $here "../out/harvest_laft_hillsborough.json"; Label = "Hillsborough County PAV (harvest_laft_hillsborough.json)" },
-    @{ Path = Join-Path $here "../out/harvest_laft_leon.json"; Label = "Leon County (harvest_laft_leon.json)" }
+    @{ Path = Join-Path $here "../out/harvest_laft_leon.json"; Label = "Leon County (harvest_laft_leon.json)" },
+    @{ Path = Join-Path $here "../out/harvest_laft_portals.json"; Label = "Clerk tax-deed portals (harvest_laft_portals.json)" }
 )
 
 $supabaseUrl = $env:SUPABASE_URL
@@ -305,6 +368,11 @@ if ($dupeCount -gt 0) {
 $rows = @(Select-LedgerRows "AVAILABLE" $rows)
 if ($rows.Count -eq 0) { Write-Output "No row passed the AVAILABLE ledger contract - nothing to sync."; exit 0 }
 Write-Output "Prepared $($rows.Count) LAFT properties ($skipped skipped for missing case_no/parcel)."
+# A blank cell or an address / 0-bid placeholder never erases a stored value.
+$rows = @(Protect-StoredValues "laft" $rows)
+# Only new / changed rows are upserted (scripts/laft_lifecycle.py reads the
+# harvest files, never this payload, for its close-out and last-seen stamp).
+$writeRows = @(Select-ChangedRows "laft" $rows)
 
 $headers = @{
     "apikey"        = $serviceRoleKey
@@ -323,8 +391,8 @@ $useFallback = $false
 
 $batchSize = 40
 $sent = 0
-for ($i = 0; $i -lt $rows.Count; $i += $batchSize) {
-    $batch = $rows[$i..([math]::Min($i + $batchSize - 1, $rows.Count - 1))]
+for ($i = 0; $i -lt $writeRows.Count; $i += $batchSize) {
+    $batch = @($writeRows[$i..([math]::Min($i + $batchSize - 1, $writeRows.Count - 1))])
     $json = $batch | ConvertTo-Json -Depth 5
     if ($batch.Count -eq 1) { $json = "[$json]" }
     $body = [System.Text.Encoding]::UTF8.GetBytes($json)
@@ -345,8 +413,8 @@ for ($i = 0; $i -lt $rows.Count; $i += $batchSize) {
         }
     }
     $sent += $batch.Count
-    Write-Output "  synced $sent / $($rows.Count)"
+    Write-Output "  synced $sent / $($writeRows.Count)"
 }
 
-Write-Output "Done. $sent LAFT properties upserted to Supabase (existing owner/lien research untouched)."
+Write-Output "Done. $sent of $($rows.Count) LAFT properties upserted to Supabase ($($rows.Count - $writeRows.Count) unchanged, not rewritten; existing owner/lien research untouched)."
 Write-Output "Counties covered: $((($rows | ForEach-Object { $_.county }) | Select-Object -Unique).Count)"

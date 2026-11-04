@@ -144,18 +144,118 @@ def runnable_sources(state: str, reg: dict) -> tuple[list, list[tuple[str, str]]
     return run, gated
 
 
-def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None = None, fetch_bytes=None):
+XLSX_MAGIC = b"PK"          # an XLSX workbook is a zip archive
+PDF_MAGIC = b"%PDF-"
+
+
+def document_rows(data: bytes, cfg) -> tuple[list[list[str]], str]:
+    """(table rows, format) of a downloaded list file, by its own magic
+    bytes - never by its URL or name: an XLSX workbook (only the config's
+    `document_sheet`) or a text PDF. Anything else raises ValueError."""
+    from harvesters.otc.adapters.tabular import pdf_table_rows, workbook_sheet_rows  # noqa: PLC0415
+    if data[:2] == XLSX_MAGIC:
+        return workbook_sheet_rows(data, cfg.document_sheet), "XLSX"
+    if data[:5] == PDF_MAGIC:
+        return pdf_table_rows(data), "PDF"
+    raise ValueError("neither an XLSX workbook nor a PDF")
+
+
+def run_latest_dated_document(src, fetch_text, fetch_bytes, *, retrieved_at, fixture: str | None = None):
+    """A list page that links one dated file per update (Fayette PA's
+    'Repository Update M-D-YYYY'): read the page, follow the link whose file
+    name carries the NEWEST date (config list_as_of_pattern), read that file
+    (XLSX sheet or PDF) - list_as_of = that name's date. Offline (`fixture`)
+    the fixture IS the document and its file name is the dated name.
+
+    FAILED, never EMPTY: a transport error (TRANSPORT_CONNECTION), a page with
+    no dated link (PARSE_NO_TABLE), a file that is neither XLSX nor PDF, lacks
+    the configured sheet, or yields no identifier row (PARSE_FORMAT_CHANGE).
+    EMPTY only when every row read is a well-formed identifier carrying the
+    source's own not-offered status (no malformed identifier at all). -> (status, records, category, detail, empty_signal)."""
+    import dataclasses  # noqa: PLC0415
+    cfg = src.config
+    doc_url = None
+    try:
+        if fixture:
+            data, name = Path(fixture).read_bytes(), Path(fixture).name
+        else:
+            from harvesters.otc.adapters.tabular import latest_dated_link  # noqa: PLC0415
+            picked = latest_dated_link(fetch_text(src.url), src.url, cfg)
+            if picked is None:
+                return "FAILED", [], "PARSE_NO_TABLE", "no dated document linked on the list page", None
+            doc_url = picked[0]
+            data = fetch_bytes(doc_url)          # requests follows redirects
+            name = doc_url.rstrip("/").rsplit("/", 1)[-1]
+    except Exception as exc:  # noqa: BLE001 - transport failure is FAILED, never zero
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        return "FAILED", [], "TRANSPORT_CONNECTION", f"{type(exc).__name__}" + (f" HTTP {status}" if status else ""), None
+    run_cfg = dataclasses.replace(cfg, document_url=doc_url) if doc_url else cfg
+    adapter = TabularListAdapter(run_cfg)
+    try:
+        rows, fmt = document_rows(data, cfg)
+        recs = adapter.parse_rows(rows, retrieved_at=retrieved_at, document_name=name)
+    except Exception as exc:  # noqa: BLE001 - an unreadable file is a format change, never "empty"
+        return "FAILED", [], "PARSE_FORMAT_CHANGE", type(exc).__name__, None
+    for r in recs:
+        r.provenance["document"] = f"the list page's newest dated file ({fmt}" + (f", sheet {cfg.document_sheet!r})" if fmt == "XLSX" else ")")
+    # Counts and the public file name only - never a row value.
+    print(f"{cfg.source_id}: file={name} format={fmt} offered={len(recs)} excluded={adapter.excluded_status} "
+          f"bad-id={adapter.rejected_ids}")
+    if recs:
+        return "COMPLETE", recs, None, None, None
+    if adapter.excluded_status and not adapter.rejected_ids:
+        # Every row a well-formed identifier carrying a not-offered status: the source's own statement.
+        return "EMPTY", [], None, None, "no_offered_status"
+    return "FAILED", [], "PARSE_FORMAT_CHANGE", f"no offered identifier row in {name} ({fmt})", None
+
+def link_property_pages(cfg, recs, fetch_text, *, offline: bool) -> int:
+    """The source's own per-property page on each record (tabular.attach_property_pages).
+    When the config names the source's listed-on-page file, it is read first; a
+    failed read links nothing and drops nothing (the rows keep their listing page
+    as the acquisition path). Offline (fixture) runs make no request. Counts only."""
+    from harvesters.otc.adapters.tabular import attach_property_pages, listed_ids  # noqa: PLC0415
+    if getattr(cfg, "property_page", None) is None or not recs:
+        return 0
+    listed = None
+    if cfg.property_page_listed_url:
+        if offline or fetch_text is None:
+            print(f"{cfg.source_id}: per-property pages not linked (offline run; the listed-on-page file is not read)")
+            return 0
+        try:
+            listed = listed_ids(fetch_text(cfg.property_page_listed_url), cfg.property_page_listed_column)
+        except Exception as exc:  # noqa: BLE001 - never fatal: the rows stay, unlinked
+            print(f"{cfg.source_id}: per-property pages not linked ({type(exc).__name__} reading the listed-on-page file)")
+            return 0
+    n = attach_property_pages(recs, cfg, listed)
+    print(f"{cfg.source_id}: per-property page linked on {n} of {len(recs)} row(s)"
+          + (f" (listed-on-page file: {len(listed)} identifier(s))" if listed is not None else ""))
+    return n
+
+
+def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None = None, fetch_bytes=None, post_text=None):
     """-> (status, records, category, detail, empty_signal)."""
     cfg = src.config
+    if getattr(cfg, "superseded", None) and not fixture:
+        # The county's own pages say this list's sale is over and name the
+        # next one (Albany WY: the 2026 sale; owner decision 2026-10-26 to
+        # close its rows). No request is made; the read is EMPTY with its own
+        # signal, so the sync's close-out closes the stored rows - closed, never
+        # sold (no result is published).
+        return "EMPTY", [], None, None, "superseded_list"
     if src.kind == "arcgis":
         if fixture:
             payload = json.loads(Path(fixture).read_text(encoding="utf-8"))
             fj = lambda url: payload  # noqa: E731 - one page fixture
+            if getattr(cfg, "keyset", False):
+                import dataclasses  # noqa: PLC0415 - a one-page fixture has no object-id batches to walk
+                cfg = dataclasses.replace(cfg, keyset=False)
         else:
             fj = fetch_json
         res = AG.fetch_all(cfg, fj, retrieved_at=retrieved_at)
         if res.outcome == "FAILED":
             return "FAILED", [], CATEGORY_MAP.get(res.error_category, res.error_category), res.error_detail, None
+        if res.duplicates_collapsed:
+            print(f"  {cfg.source_id}: {res.duplicates_collapsed} identical repeat listing(s) on one page collapsed (count only)")
         if res.outcome == "EMPTY" and res.skipped_cycle:
             # Every row belongs to a sale cycle the county has published no date
             # for (e.g. last year's list): no current inventory - its own signal.
@@ -174,10 +274,47 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
         if res.outcome == "FAILED":
             return "FAILED", [], res.error_category, res.error_detail, None
         print(f"{cfg.source_id}: portal size={res.size} read={res.rows_read} offered={len(res.records)} "
-              f"not-offered={res.excluded_status} bad-id={res.rejected_ids} duplicate={res.duplicates}")
+              f"not-offered={res.excluded_status} bad-id={res.rejected_ids} duplicate={res.duplicates} "
+              f"shared-point-coordinates-withheld={res.shared_point_withheld}")
         if res.outcome == "INCOMPLETE":
             return "INCOMPLETE", res.records, res.error_category, res.error_detail, None
         return res.outcome, res.records, None, None, ("no_offered_status" if res.outcome == "EMPTY" else None)
+    if src.kind == "paged_table":
+        # New-sources sprint (2026-10-26): a server-side paged HTML table (Genesee County Land Bank, MI).
+        from harvesters.otc.adapters import paged_table as PT  # noqa: PLC0415
+        if fixture:
+            pages = json.loads(Path(fixture).read_text(encoding="utf-8"))   # [page 1 html, page 2 html, ...]
+            it = iter(pages)
+
+            def pt(url, data):
+                return next(it)
+        else:
+            pt = post_text
+        if pt is None:
+            return "FAILED", [], "UNKNOWN", "no POST transport", None
+        res = PT.fetch_all(cfg, pt, retrieved_at=retrieved_at, sleep=(lambda s: None) if fixture else None)
+        print(f"{cfg.source_id}: pages={res.pages} listings={res.total} read={res.rows_read} kept={len(res.records)} "
+              f"not-offered={res.excluded_status} bad-id={res.rejected_ids} unanswered-parts={res.unanswered_parts}")
+        if res.outcome == "FAILED":
+            return "FAILED", [], res.error_category, res.error_detail, None
+        return res.outcome, res.records, None, None, ("empty_list" if res.outcome == "EMPTY" else None)
+    if src.kind == "tax_sale_info":
+        # New-sources sprint (2026-10-26): Tax-Sale.info catalogs (Michigan).
+        from harvesters.otc.adapters import tax_sale_info as TSI  # noqa: PLC0415
+        if fixture:
+            pages = json.loads(Path(fixture).read_text(encoding="utf-8"))   # {url: text}
+
+            def ft(url):
+                return pages[url]
+        else:
+            ft = fetch_text
+        res = TSI.fetch_county(cfg, ft, retrieved_at=retrieved_at)
+        if res.outcome == "FAILED":
+            return "FAILED", [], res.error_category, res.error_detail, None
+        if res.catalogs:
+            print(f"{cfg.source_id} [{cfg.county}]: catalogs={res.catalogs} read={res.rows_read} kept={len(res.records)} "
+                  f"no-parcel={res.rejected}")
+        return res.outcome, res.records, None, None, ("no_catalog_listed" if res.outcome == "EMPTY" else None)
     if src.kind == "sc_flc_pdf":
         from harvesters.otc.adapters import sc_flc  # noqa: PLC0415
         try:
@@ -215,6 +352,8 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
             # Lists past redemption exist but no row carried an identifier: a format change, never "empty".
             return "FAILED", [], "PARSE_FORMAT_CHANGE", f"no identifier row in {len(current)} list(s)", None
         return ("COMPLETE", recs, None, None, None) if recs else ("EMPTY", [], None, None, "no_list_past_redemption")
+    if src.kind == "latest_dated_document":
+        return run_latest_dated_document(src, fetch_text, fetch_bytes, retrieved_at=retrieved_at, fixture=fixture)
     if src.kind in ("csv", "pdf_table"):
         # AVAILABLE expansion (2026-10-04): a published CSV file (St. Louis LRA)
         # or a text PDF's tables (Fayette PA repository list).
@@ -239,6 +378,7 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
         if adapter.rejected_ids or adapter.excluded_status:
             print(f"{cfg.source_id}: {adapter.rejected_ids} non-identifier row(s), "
                   f"{adapter.excluded_status} row(s) whose own status is not an offer - skipped")
+        link_property_pages(cfg, recs, fetch_text, offline=bool(fixture))
         if recs:
             return "COMPLETE", recs, None, None, None
         if adapter.excluded_status and not adapter.rejected_ids:
@@ -253,9 +393,16 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
         return "FAILED", [], "TRANSPORT_CONNECTION", f"{type(exc).__name__}" + (f" HTTP {status}" if status else ""), None
     adapter = TabularListAdapter(cfg)
     recs = adapter.parse_html_table(html, retrieved_at=retrieved_at)
+    link_property_pages(cfg, recs, fetch_text, offline=bool(fixture))
     if adapter.rejected_ids or adapter.excluded_status:
         print(f"{cfg.source_id}: {adapter.rejected_ids} non-identifier row(s), "
               f"{adapter.excluded_status} row(s) whose own status is not an offer - skipped")
+    if recs and adapter.identity_only_rows:
+        # Audit B10 (2026-10-29): rows published with every data cell blank
+        # (the county mid-update) are not a complete read - nothing closes,
+        # and the sync keeps those rows' stored list values.
+        return ("INCOMPLETE", recs, "PARSE_FORMAT_CHANGE",
+                f"{adapter.identity_only_rows} row(s) published with only their identifier", None)
     if recs:
         return "COMPLETE", recs, None, None, None
     if adapter.empty_statement:
@@ -281,7 +428,7 @@ def main(argv=None) -> int:
     out = Path(a.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     retrieved_at = datetime.now(timezone.utc).replace(microsecond=0)
-    fetch_json = fetch_text = fetch_bytes = None
+    fetch_json = fetch_text = fetch_bytes = post_text = None
     if not fixtures:
         import requests  # noqa: PLC0415 - only after the gate passed
         session = requests.Session()
@@ -301,6 +448,12 @@ def main(argv=None) -> int:
             r = session.get(url, timeout=60, headers=PAGE_HEADERS)
             r.raise_for_status()
             return r.content
+
+        def post_text(url, data):
+            # A form POST in the same session (cookies kept): server-side paged tables.
+            r = session.post(url, data=data, timeout=60, headers=PAGE_HEADERS)
+            r.raise_for_status()
+            return r.text
     sources, gated = runnable_sources(st, reg)
     if fixtures:
         # Offline (tests): every configured source with a fixture is parsed;
@@ -315,13 +468,23 @@ def main(argv=None) -> int:
         cfg = src.config
         try:
             status, recs, cat, detail, empty = run_source(src, fetch_json, fetch_text, retrieved_at=retrieved_at,
-                                                         fixture=fixtures.get(cfg.source_id), fetch_bytes=fetch_bytes)
+                                                         fixture=fixtures.get(cfg.source_id), fetch_bytes=fetch_bytes,
+                                                         post_text=post_text)
         except Exception as exc:  # noqa: BLE001 - one source never stops the others
             status, recs, cat, detail, empty = "FAILED", [], "UNKNOWN", type(exc).__name__, None
         # A record that fails validation is dropped (never written) and its
         # county read is INCOMPLETE - nothing is closed on an untrusted read.
         valid = [r for r in recs if not r.validate()]
         invalid = len(recs) - len(valid)
+        # Audit B39 (2026-10-29): Morgan CO's deed-auction page read 105 rows of
+        # which only 7 were distinct (each listing repeated), and the status file
+        # recorded 105 - the registry's last row count overstated the source 15x.
+        # A source's repeats of its own identity are one listing: counted and
+        # reported here, never in the row count.
+        valid, repeats = dedupe(valid)
+        if repeats:
+            print(f"::warning title=harvest_{st.lower()}::{cfg.source_id} [{cfg.county}]: {repeats} repeat listing(s) of "
+                  f"an identifier already read from the same source (count only; row count is the distinct listings)")
         if invalid and status == "COMPLETE":
             status = "INCOMPLETE"
         per_county[cfg.county].append((cfg, status, len(valid), cat, detail, empty, src.url))

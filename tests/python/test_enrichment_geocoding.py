@@ -95,7 +95,8 @@ def test_plan_classes():
     assert G.plan_row(unrec, allow_upgrade=True)[0] == "UPGRADE"
     assert G.plan_row(row(parcel=""))[0] == "NO_IDENTIFIER"
     assert G.plan_row(row(state="WY", county="Albany"))[0] == "NO_SOURCE"
-    assert G.plan_row(row(state="MO", county="St. Louis City"))[0] == "SOURCE_NOT_APPROVED"
+    # St. Louis's Assessor parcel layer was verified and cleared on 2026-10-25.
+    assert G.plan_row(row(state="MO", county="St. Louis City"))[0] == "MISSING"
     assert G.plan_row(row(state="TX", county="Jim Wells", case_no="12345"))[0] == "SOURCE_NOT_APPROVED"
 
 
@@ -276,6 +277,22 @@ def test_apply_writes_and_isolates_a_failed_write():
     rep = GA.run(rows_fixture(), mode="apply", allow_upgrade=False, limit=None, ctx=PR.Context(), fl_lookup_fn=fn, write=write)
     assert rep["write_errors"] == 1 and rep["written"] == 1 and written[0][0] == "auc"
     assert set(written[0][1]) == {"latitude", "longitude", "field_provenance"}
+
+
+def test_apply_writes_each_answer_before_the_next_lookup():
+    # A run stopped mid-way (job timeout) keeps every coordinate already found.
+    written = []
+
+    def fn(src, r):
+        if r["id"] == "auc":
+            raise KeyboardInterrupt("job stopped")
+        return G.Lookup("MATCHED", 30.2, -85.6, "X", "PARCEL_ID")
+    try:
+        GA.run(rows_fixture(), mode="apply", allow_upgrade=False, limit=None, ctx=PR.Context(), fl_lookup_fn=fn,
+               write=lambda rid, fields: written.append(rid))
+    except KeyboardInterrupt:
+        pass
+    assert written == ["avail"]
 
 
 def test_upgrade_is_counted_separately_and_only_on_request():

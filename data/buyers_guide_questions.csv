@@ -1,0 +1,43 @@
+ledger,id,order,group,level,question,where_to_look,legacy_topic
+AUCTIONS,how_it_works,10,The sale,beginner,How does a tax sale work here?,The state's tax code (property tax sale chapter) and the county office that runs the sale.,sale_overview
+AUCTIONS,schedule,20,The sale,beginner,When are sales held?,The county office's tax sale page or published sale notice.,sale_schedule
+AUCTIONS,where_when,30,The sale,beginner,Where do I bid - online or in person?,The county office's tax sale page or its sale platform's rules page.,bidding_platform
+AUCTIONS,register,40,Before the sale,beginner,How do I register to bid?,The sale platform's registration / FAQ page or the county office.,registration
+AUCTIONS,deposit,50,Before the sale,beginner,Is a deposit required and how much?,The sale platform's rules page or the county office.,deposit
+AUCTIONS,opening_bid,60,Before the sale,intermediate,What makes up the opening or minimum bid?,The state's tax code (opening / minimum bid section).,opening_bid
+AUCTIONS,pay_after_win,70,After you win,beginner,When and how must the winning bidder pay?,The sale platform's rules page or the county office.,payment_deadline
+AUCTIONS,extra_costs,80,After you win,intermediate,What costs are added on top of the winning bid?,The county office's fee schedule or sale rules.,costs_added
+AUCTIONS,what_you_get,90,After you win,intermediate,What kind of deed or title does the buyer receive?,The state's tax code (deed section).,deed_type
+AUCTIONS,redemption_after_sale,100,Risks,intermediate,Can the former owner redeem after the sale?,The state's tax code (redemption section).,redemption_after_sale
+AUCTIONS,liens_survive,110,Risks,advanced,Which liens or interests survive the sale?,The state's tax code (effect of the deed / surviving interests).,surviving_liens
+AUCTIONS,title,120,Risks,advanced,Is the title insurable or does it need a quiet-title action?,The county office's buyer notice or the state's tax code; a title company or attorney for a specific property.,
+AUCTIONS,occupied,130,Risks,advanced,What if the property is occupied?,The county office's buyer notice or FAQ.,
+AUCTIONS,unsold,140,After the sale,intermediate,What happens to property that does not sell?,The state's tax code (unsold property section).,unsold_property
+AUCTIONS,surplus,150,After the sale,advanced,What happens to money paid above what was owed (surplus)?,The state's tax code (surplus / excess proceeds section) or the county office.,
+AUCTIONS,office,5,Contacts,beginner,Which office handles it and how do I contact them?,The county's official website.,county_office
+AUCTIONS,due_diligence,200,Risks,beginner,What does the law or the county tell buyers to check before buying?,The county office's buyer notice or disclaimer.,due_diligence
+AVAILABLE,what_is_list,10,The list,beginner,What is this list and why is the property available?,The state's tax code or the program's own page.,available_overview
+AVAILABLE,how_to_buy,20,How to buy,beginner,How do I buy a property from this list?,The office or program that publishes the list.,how_to_buy
+AVAILABLE,price,30,How to buy,beginner,How is the price set?,The program's pricing policy or the state's tax code.,price_basis
+AVAILABLE,extra_costs,40,How to buy,intermediate,What costs are added to the price?,The program's fee schedule or the office that publishes the list.,costs_added
+AVAILABLE,application,50,How to buy,beginner,What forms or documents are required?,The program's application page.,documents_required
+AVAILABLE,pay,60,How to buy,beginner,How and when do I pay?,The office or program that publishes the list.,payment
+AVAILABLE,what_you_get,70,After you buy,intermediate,What kind of deed or title does the buyer receive?,The state's tax code or the program's terms.,deed_type
+AVAILABLE,timeline,80,The list,intermediate,How long does a property stay available?,The state's tax code or the program's terms.,time_limit
+AVAILABLE,liens_survive,90,Risks,advanced,Which liens or interests stay with the property?,The program's terms or the state's tax code.,
+AVAILABLE,title,100,Risks,advanced,Is the title insurable or does it need a quiet-title action?,The program's terms; a title company or attorney for a specific property.,
+AVAILABLE,inspect,110,Risks,beginner,Can I inspect the property before buying?,The program's terms or FAQ.,
+AVAILABLE,refunds,120,Risks,intermediate,Are sales final or can a purchase be refunded?,The program's terms or FAQ.,
+AVAILABLE,office,5,Contacts,beginner,Which office handles it and how do I contact them?,The county's or program's official website.,county_office
+AVAILABLE,due_diligence,200,Risks,beginner,What does the law or the program tell buyers to check before buying?,The program's buyer notice or disclaimer.,due_diligence
+LIENS_CERTIFICATES,what_is_it,10,The certificate,beginner,What is a tax lien or certificate here?,The state's tax code (tax certificate / lien section).,lien_overview
+LIENS_CERTIFICATES,how_to_buy,20,How to buy,beginner,How do I buy one (auction / over the counter / assignment)?,The county tax collector's / treasurer's certificate sale page.,lien_bidding
+LIENS_CERTIFICATES,interest_return,30,Returns,intermediate,What interest or penalty does the holder earn?,The state's tax code (interest section).,interest_rate
+LIENS_CERTIFICATES,redemption_period,40,Returns,intermediate,How long does the owner have to redeem?,The state's tax code (redemption section).,redemption_period
+LIENS_CERTIFICATES,if_not_redeemed,50,After you buy,intermediate,How does a holder get the property if it is not redeemed?,The state's tax code (tax deed application section).,getting_the_deed
+LIENS_CERTIFICATES,expiry,60,Risks,intermediate,When does a certificate or lien expire?,The state's tax code.,certificate_expiry
+LIENS_CERTIFICATES,costs,70,How to buy,intermediate,What fees does a buyer pay?,The county tax collector's / treasurer's fee schedule.,
+LIENS_CERTIFICATES,risks,80,Risks,advanced,What risks does the law or the county point out (worthless parcels / bankruptcy / expiry)?,The county office's buyer notice or the state's tax code.,
+LIENS_CERTIFICATES,assignment,90,How to buy,advanced,Can certificates be bought from the county or another holder (assignment)?,The county tax collector's / treasurer's page.,
+LIENS_CERTIFICATES,office,5,Contacts,beginner,Which office handles it and how do I contact them?,The county's official website.,county_office
+LIENS_CERTIFICATES,due_diligence,200,Risks,beginner,What does the law or the county tell buyers to check before buying?,The county office's buyer notice or disclaimer.,due_diligence
