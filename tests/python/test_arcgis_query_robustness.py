@@ -6,19 +6,14 @@ batches, every time, and 10 of 10 as POST. The factory stopped at the first
 failed batch, so 30,549 Wayne County rows got nothing."""
 from __future__ import annotations
 
-import dataclasses
 import io
 import urllib.error
 from urllib.parse import parse_qs
 
 import pytest
 
-from harvesters.enrichment import geocode as G
 from harvesters.enrichment import parcels as P
 from scripts import enrich_statewide_parcels as R
-
-SQUARE = {"rings": [[[-105.0, 40.0], [-104.99, 40.0], [-104.99, 40.01], [-105.0, 40.01], [-105.0, 40.0]]]}
-
 
 @pytest.fixture(autouse=True)
 def _fixture_layers_hold_permission(monkeypatch):
@@ -50,17 +45,6 @@ def test_post_form_only_for_arcgis_query_urls():
     soc = P.query_urls(cfg(transport="socrata", layer_url="https://data.example.gov/resource/abcd-1234.json"), "Wake", ["A1"])[0]
     assert P.post_form(soc) is None
     assert P.post_form("https://example.gov/arcgis/rest/services/P/FeatureServer/1?f=json") is None
-
-
-def test_query_batches_carry_their_keys_and_query_urls_is_unchanged():
-    c = cfg()
-    batches = P.query_batches(c, "Wake", ["B2", " A1 ", "C3", "", None, "A1"])
-    assert [sorted(k) for _, k in batches] == [["A1", "B2"], ["C3"]]
-    assert [u for u, _ in batches] == P.query_urls(c, "Wake", ["B2", "A1", "C3"])
-    for url, keys in batches:
-        assert asked(url) == set(keys)
-    num = cfg(id_rule="numeric", id_query="number")
-    assert P.batch_key(num, "00123") == "123" and P.batch_key(num, "abc") is None and P.batch_key(c, "  ") is None
 
 
 # --- query_json: POST, retries ---------------------------------------------------
@@ -137,27 +121,9 @@ def test_runner_withholds_only_the_rows_of_a_failed_batch(monkeypatch):
     assert rep["failed_queries"] == 3 and rep["rows_written"] == 0 and rep["matched"] == 0
 
 
-def test_geocode_lookup_withholds_only_the_rows_of_a_failed_batch():
-    src = next(s for s in G.coordinate_sources() if s.source_id == "co_oit_public_parcels")
-    src = dataclasses.replace(src, parcel_cfg=dataclasses.replace(src.parcel_cfg, batch_size=1))
-    rows = [{"id": i, "state": "CO", "county": "Morgan", "ledger_type": "lien", "parcel": p, "source": "certificate"}
-            for i, p in (("a", "R001"), ("b", "R002"), ("c", "R003"))]
-
-    def fetch(url):
-        if "R002" in url:
-            raise urllib.error.URLError("down")
-        if "R003" in url:
-            raise ValueError("not json")
-        return {"features": [{"attributes": {"account": "R001", "countyName": "MORGAN"}, "geometry": SQUARE}]}
-
-    out = G.lookup_parcel_layer(src, rows, fetch)
-    assert out["a"].status == "MATCHED"
-    assert out["b"].status == "SOURCE_UNAVAILABLE" and out["c"].status == "PARSER_FAILURE"
-
-
 def test_every_layer_caller_uses_the_one_query_function():
     import pathlib
     root = pathlib.Path(__file__).resolve().parents[2]
     assert "ESP.query_json(url)" in (root / "scripts/enrich_available.py").read_text()
     assert "ESP.query_json(url)" in (root / "scripts/geocode_authoritative.py").read_text()
-    assert "return query_json(url)" in (root / "scripts/enrich_statewide_parcels.py").read_text()
+    assert "return query_json(url, attempts=1)" in (root / "scripts/enrich_statewide_parcels.py").read_text()

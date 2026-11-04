@@ -190,7 +190,9 @@ class CompletenessStatus(str, Enum):
 
 
 RUNNABLE_GOVERNANCE = frozenset({GovernanceStatus.APPROVED.value, GovernanceStatus.APPROVED_GRANDFATHERED.value})
-BLOCKED_SOURCE_IDS = frozenset({"tx_pbfcm", "tx_mvba", "tx_govease", "tx_ctsa"})
+# tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner's decision of 2026-10-26
+# ("Do not block vendors ..."; terms risk accepted, legal review pending). tx_ctsa stays blocked (paywall).
+BLOCKED_SOURCE_IDS = frozenset({"tx_ctsa"})
 
 
 @dataclass(frozen=True)

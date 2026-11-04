@@ -181,11 +181,15 @@ def rlist_ids(body: str) -> list[str]:
 
 
 def ajax_url(host: str, area: str, page: int, *, reset: bool = True) -> str:
-    """page 0 with reset=True is the first page. The site's own pager asks for
-    the NEXT page with PageDir=1 and doR=0 (doR=1 re-reads the first page -
-    measured: a second doR=1 call returned the same ten items)."""
+    """page 0 with reset=True is the first page. The site's own pager
+    (auction.js changePage -> loadArea(area, 1, 0, 0)) asks for the NEXT page
+    with PageDir=1, doR=0 AND bypassPage=0. Measured 2026-10-26 (paging
+    check run 40380815661): with bypassPage=1 - what this module and the
+    deed harvester used to send - the server ignores PageDir and returns the
+    first page again, whatever doR is; with bypassPage=0 it walks page 2, 3,
+    ... and repeats the last page once past the end."""
     return (f"https://{host}/index.cfm?zaction=AUCTION&Zmethod=UPDATE&FNC=LOAD&AREA={area}"
-            f"&PageDir={page}&doR={1 if reset else 0}&bypassPage=1&test=1")
+            f"&PageDir={page}&doR={1 if reset else 0}&bypassPage={1 if reset else 0}&test=1")
 
 
 def fetch_area(session: Any, host: str, sale_date: str, *, area: str = AREA_CLOSED,

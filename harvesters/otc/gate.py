@@ -4,7 +4,8 @@ discipline as harvesters/governance/gate.py and promotion.py, applied to
 the county source registry:
 
   1. Blocked vendors are refused by name, whatever the row says
-     (tx_pbfcm, tx_mvba, tx_govease, tx_ctsa - registry.py BLOCKED).
+     (tx_ctsa - registry.py BLOCKED; tx_pbfcm, tx_mvba and tx_govease were
+     lifted by the owner on 2026-10-26).
   2. The vendor/platform registry (registry.py) must not say BLOCKED,
      LEGAL_REVIEW_REQUIRED, DISABLED or TERMS_CHANGED for the row's
      source_id when it has one there.

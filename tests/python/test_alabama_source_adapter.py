@@ -425,7 +425,8 @@ def test_g01_registry_row_mirrors_the_adapter_and_every_gate_still_refuses_it():
     d = evaluate_source(al)
     assert not d.allowed and d.layer == "state_activation"
     assert csr.validate_registry(rows) == []
-    assert csr.production_rows(rows, "AL") == [] and len([r for r in rows if r.state in ("FL", "TX") and not (r.ledger_set and "AVAILABLE" not in r.ledger_set)]) == 109
+    # 150 since the owner-unblocked TX vendors (2026-10-26) replaced the 14 blocked-vendor-only rows.
+    assert csr.production_rows(rows, "AL") == [] and len([r for r in rows if r.state in ("FL", "TX") and not (r.ledger_set and "AVAILABLE" not in r.ledger_set)]) == 150
     # The generator and the committed CSV agree (the AL row included).
     import importlib.util
     spec = importlib.util.spec_from_file_location("bcsr", REPO / "scripts/build_county_source_registry.py")

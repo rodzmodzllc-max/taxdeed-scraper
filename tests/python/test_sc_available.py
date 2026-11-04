@@ -287,7 +287,8 @@ def test_ledger_isolation():
     assert EX.SC_YORK.record_source == "auction"
     from harvesters.sources import available_coverage as AC
     assert all("AVAILABLE" in r.ledger_set for r in AC.production_available_sources("SC"))
-    assert AC.production_available_sources("SC") == []    # no SC AVAILABLE source is in production
+    # SC's AVAILABLE sources in production are the two FLC lists, published by the owner on 2026-10-26.
+    assert {r.source_id for r in AC.production_available_sources("SC")} == {"sc_horry_forfeited_land", "sc_georgetown_forfeited_land"}
 
 
 def test_sc_flc_names_only_the_two_county_hosts():
@@ -296,19 +297,23 @@ def test_sc_flc_names_only_the_two_county_hosts():
     assert hosts == {"www.gtcountysc.gov", "www.spartanburgcounty.org", "www.spartanburgcounty.gov"}
 
 
-def test_publication_reviews_keep_both_sources_review_required_and_agree_with_the_catalog():
+def test_publication_reviews_record_the_owner_decision_and_agree_with_the_catalog():
     import csv
     from harvesters.sources import available_coverage as AC
     from harvesters.sources import inventory as INV
     rv = AC.reviews()
     assert set(rv) == {"sc_georgetown_forfeited_land", "sc_spartanburg_forfeited_land"}
+    # Georgetown: the owner's 2026-10-26 decision (never a licence finding - the flags
+    # stay as read); Spartanburg (not AVAILABLE inventory, no adapter) is unchanged.
+    assert rv["sc_georgetown_forfeited_land"]["classification"] == "APPROVED"
+    assert "Owner approved customer publication 2026-10-26" in rv["sc_georgetown_forfeited_land"]["reason"]
+    assert rv["sc_spartanburg_forfeited_land"]["classification"] == "REVIEW_REQUIRED"
     for r in rv.values():
-        assert r["classification"] == "REVIEW_REQUIRED"            # never silently promoted
         assert r["commercial_use_permitted"] == "not_stated" and r["evidence_run"] == "37033274319"
         assert r["terms_urls"] and r["reviewed_at"].endswith("Z")
     with open(INV.CATALOG_PATH, newline="", encoding="utf-8") as fh:
         cat = {r["source_id"]: r for r in csv.DictReader(fh)}
-    assert all(cat[s]["governance"] == "REVIEW_REQUIRED" for s in rv)
+    assert all(cat[s]["governance"] == rv[s]["classification"] for s in rv)
     assert AC.problems() == []
     ev = AC.evidence()
     assert ev["sc_georgetown_forfeited_land"]["availability"] == "CURRENT_INVENTORY"
@@ -321,7 +326,8 @@ def test_a_review_cannot_promote_a_source_the_catalog_does_not_and_approved_need
     import csv
     from harvesters.sources import available_coverage as AC
     rows = list(csv.DictReader(open(AC.REVIEWS_PATH, newline="", encoding="utf-8")))
-    rows[0]["classification"] = "APPROVED"
+    j = next(i for i, r in enumerate(rows) if r["source_id"] == "sc_spartanburg_forfeited_land")
+    rows[j]["classification"] = "APPROVED"            # no grant, no owner decision, no display record
     f = tmp_path / "r.csv"
     with f.open("w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0]))
@@ -333,20 +339,19 @@ def test_a_review_cannot_promote_a_source_the_catalog_does_not_and_approved_need
     assert any("APPROVED needs a published reuse grant" in p for p in probs)
 
 
-def test_customer_visible_nothing_from_sc_flc():
+def test_sc_flc_customer_visibility_follows_the_owner_decision():
     from harvesters.sources import available_coverage as AC
     sc = {c["state"]: c for c in AC.coverage()}["SC"]
-    assert sc["production_sources"] == 0 and sc["status"] == "REVIEW_REQUIRED"
-    geo = next(x for x in sc["candidates"] if x["county"] == "Georgetown")
-    assert geo["publication_review"] == "REVIEW_REQUIRED" and geo["availability"] == "CURRENT_INVENTORY"
-    # Spartanburg has no registry row; Georgetown's (AVAILABLE sprint) is UNREVIEWED: collected
-    # and held by the harvest, never written to properties, never publishable.
+    assert sc["production_sources"] == 2 and sc["status"] == "SOURCE_TRACKED"
+    assert not any(x["county"] == "Georgetown" for x in sc["candidates"])     # graduated: a production source
+    # Spartanburg has no registry row; Georgetown's (AVAILABLE sprint) is APPROVED by the
+    # owner's 2026-10-26 decision (legal review pending): collected, written and publishable.
     import source_publication as SP
     from harvesters.governance.county_source_registry import load_registry
     reg = {r.source_id: r for r in load_registry()}
     assert "sc_spartanburg_forfeited_land" not in reg
     geo_row = reg["sc_georgetown_forfeited_land"]
-    assert geo_row.publication_status == "UNREVIEWED" and not SP.publishable(geo_row) and geo_row.ledger_set == {"AVAILABLE"}
+    assert geo_row.publication_status == "APPROVED" and SP.publishable(geo_row) and geo_row.ledger_set == {"AVAILABLE"}
 
 
 def test_malformed_identifier_outside_the_land_section_is_counted_not_fatal():

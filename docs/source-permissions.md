@@ -187,6 +187,35 @@ Every operation production performed on 2026-10-12 is allowed, on the basis it a
 - WI SCO V12, Jim Wells CAD, St. Louis parcels.
 - FDOR redistribution and the FDOR NAL bulk files.
 
+## Office replies (2026-11-04)
+
+Replies from county offices are listed in `data/office_replies.csv`, each with the question it actually
+answered (`ROUTING_ONLY`, `TECHNICAL_ONLY` or `COMMERCIAL_USE`) and what it said about commercial use
+(`PERMITTED`, `PROHIBITED_WITHOUT_WRITTEN_AUTHORIZATION` or `NOT_ANSWERED`). Two rules follow from them, and
+`office_replies.problems()` enforces both (`tests/python/test_office_replies.py`):
+
+- **A link, or permission to link, is not permission to reuse.** Neither is a routing answer or a statement
+  of what is technically acceptable. A reply that did not permit commercial use can never back a documented
+  fetch, parse, store, display, enrich or redistribute record.
+- **A written prohibition is recorded as one.** When an office prohibits collection or commercial
+  incorporation without prior written authorization, those operations are `RESTRICTED` on
+  `PROHIBITION_FOUND`. Its rows are withheld from every customer view, the tester preview included:
+  `publication.row_publication()` gives them `BLOCKED`, and `commercial_scope` marks the source `BLOCKED`.
+  Stored rows are never deleted, and admins still see them.
+
+The two replies on file:
+
+| Office | Source | Answered | Recorded |
+|---|---|---|---|
+| Orange County Comptroller | `fl_laft_orange` | Commercial use: prohibited without prior written authorization. Links and individual record viewing permitted. | `link` APPROVED (written permission). `fetch` / `parse` / `store` / `display` RESTRICTED. Removed from the daily job and from the Lands Available sync guard, so it can never block the other counties. |
+| Palm Beach County Clerk | `fl_laft_pioneer` (Palm Beach only) | Technical only. Direct links to Official Records, limited factual display and retention of published outcomes are technically acceptable. Court-case deep links are restricted, and the site is intended for human interaction. Commercial use was not answered. | `FL:Palm Beach` `link` LINK_ONLY on `TECHNICAL_SIGNAL_ONLY`. Every other operation keeps its existing interim record. Court-case deep links are refused as customer links (`restricted_link_patterns`, checked by `laft_purchase_paths.untrusted_reason`). |
+
+Neither reply covers the RealAuction auction sites (`fl_realauction`) or LienHub (`fl_lienhub_certificates`)
+for the same counties. Those are separate sources with their own terms. The original e-mails are not in this
+repository, and their received dates were not supplied, so neither is recorded. Add a new reply as a row in
+`data/office_replies.csv`, a record in `harvesters/governance/authorization.py` and the matching permission
+rows. Then run `tests/python/test_office_replies.py`.
+
 ## FDOR and Santa Rosa
 
 `harvesters/enrichment/geocode.py` used to mark both sources `publication_status="APPROVED"` with no licence cited. Both now read `APPROVED_GRANDFATHERED`, which is still usable, so production is unchanged. `usable()` now also requires the recorded interim permission.

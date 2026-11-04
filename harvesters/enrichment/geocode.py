@@ -24,6 +24,7 @@ Standard library only; network I/O is injected by scripts/geocode_authoritative.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from harvesters.enrichment import parcels as P
@@ -108,7 +109,10 @@ SANTA_ROSA_SOURCE = CoordinateSource(
 def _parcel_layer_sources() -> list[CoordinateSource]:
     out = []
     for cfg in all_sources():
-        if not cfg.centroid:
+        # A county_file source (one zipped shapefile per county) cannot be
+        # queried per identifier: its centroids come from the enrichment run
+        # itself (scripts/enrich_statewide_parcels.py), never from here.
+        if not cfg.centroid or cfg.transport == "county_file":
             continue
         out.append(CoordinateSource(
             source_id=cfg.source_id, state=cfg.state, method="PARCEL_GIS", geometry="PARCEL_CENTROID",
@@ -150,9 +154,45 @@ def in_state(lat: float, lng: float, state: str) -> bool:
     return b[0] <= lat <= b[1] and b[2] <= lng <= b[3]
 
 
+# --- identifiers that name no land parcel --------------------------------------
+# A few county account numbers say, in their own published form, that they are
+# not a land parcel. Such an account has no parcel polygon in any layer, so no
+# exact identifier match - and no coordinate - can exist; looking it up only
+# spends a request per row per run and reads as an unknown format. Listed per
+# (state, county), only for a shape the county itself uses for the non-parcel
+# interest, verified live (2026-10-28, read-only, values never logged):
+#
+#   FL Walton  "SS-TR-RR-MINR<d>-ddd-dddd": the county's mineral-rights
+#              accounts (the "MINR" block replaces the subdivision block).
+#              The statewide roll holds no PARCEL_ID with that block: prefix
+#              queries for sampled section / township / range blocks, written
+#              as listed and with the range as the roll's digits ("A9" = 19,
+#              "B0" = 20), returned no MINR id, while the same digit blocks
+#              hold ordinary parcels; Walton's land-parcel certificates (same
+#              dashes, a numeric subdivision block) match FDOR alnum-only.
+#
+# Deliberately NOT listed (no rule, no skip): accounts whose shape is shared
+# with real parcels - Santa Rosa "...M" (74 such certificate rows DID match
+# PAR_NUM with the M removed), Volusia 12-digit numbers and Alachua
+# "ddddd ddd ddd" numbers - stay ordinary lookups that report NO_MATCH.
+NON_PARCEL_IDENTIFIERS = {
+    ("FL", "Walton"): (re.compile(r"^\d{2}-\d{1,2}[NS]-[0-9A-Z]{2}-MINR\d-\d{3}-\d{4}$", re.I),
+                       "mineral-rights account (MINR block), not a land parcel"),
+}
+
+
+def non_parcel_reason(state: str, county: str, identifier) -> str | None:
+    """Why `identifier` names no land parcel in (state, county), or None."""
+    rule = NON_PARCEL_IDENTIFIERS.get((str(state or ""), str(county or "")))
+    if rule is None or identifier is None:
+        return None
+    pattern, reason = rule
+    return reason if pattern.match(str(identifier).strip()) else None
+
+
 # --- planning ---------------------------------------------------------------
 PLAN_CLASSES = ("MISSING", "UPGRADE", "UPGRADE_NOT_REQUESTED", "ALREADY_AUTHORITATIVE",
-                "NO_IDENTIFIER", "NO_SOURCE", "SOURCE_NOT_APPROVED", "SOURCE_UNVERIFIED")
+                "NO_IDENTIFIER", "NOT_A_PARCEL", "NO_SOURCE", "SOURCE_NOT_APPROVED", "SOURCE_UNVERIFIED")
 LOOKUP_CLASSES = ("MISSING", "UPGRADE")
 
 
@@ -168,7 +208,10 @@ def plan_row(row: dict, *, allow_upgrade: bool = False) -> tuple[str, Coordinate
     """(plan class, the source to query or None). Never touches the network."""
     state, county = str(row.get("state") or ""), str(row.get("county") or "")
     existing = C.coordinate_provenance(row)["method"]
-    candidates = sources_for(state, county)
+    # A layer scoped to some sources' rows (row_source_ids - the sources whose
+    # identifier column IS that layer's identifier) never looks up another
+    # source's row: the column would hold a different kind of identifier.
+    candidates = [s for s in sources_for(state, county) if s.parcel_cfg is None or s.parcel_cfg.takes_row(row)]
     if not candidates:
         return ("ALREADY_AUTHORITATIVE" if existing in C.AUTHORITATIVE else "NO_SOURCE"), None
     reasons = []
@@ -179,15 +222,19 @@ def plan_row(row: dict, *, allow_upgrade: bool = False) -> tuple[str, Coordinate
             continue
         if existing != "NONE" and not C.should_replace(existing, src.method):
             return "ALREADY_AUTHORITATIVE", src
-        if _identifier(row, src) is None:
+        ident = _identifier(row, src)
+        if ident is None:
             reasons.append("NO_IDENTIFIER")
+            continue
+        if non_parcel_reason(state, county, ident):
+            reasons.append("NOT_A_PARCEL")
             continue
         if existing == "NONE":
             return "MISSING", src
         return ("UPGRADE" if allow_upgrade else "UPGRADE_NOT_REQUESTED"), src
     if existing in C.AUTHORITATIVE:
         return "ALREADY_AUTHORITATIVE", None
-    for why in ("NO_IDENTIFIER", "SOURCE_UNVERIFIED", "SOURCE_NOT_APPROVED"):
+    for why in ("NOT_A_PARCEL", "NO_IDENTIFIER", "SOURCE_UNVERIFIED", "SOURCE_NOT_APPROVED"):
         if why in reasons:
             return why, None
     return "NO_SOURCE", None
@@ -205,6 +252,11 @@ class Lookup:
     matched_identifier: str = ""
     matched_field: str = ""
     reason: str = ""
+    # The FDOR layer's own PARCEL_ID of the one matched feature (Florida tax
+    # roll only). Recorded as `matched_parcel_id` so the DOR parcel-boundary
+    # join (harvesters/boundary/fl_dor.nal_parcel_id) can use a record that
+    # was located by its account / alternate key.
+    parcel_id: str = ""
 
 
 def classify_point(lat, lng, state: str, *, matched_identifier: str = "", matched_field: str = "") -> Lookup:
@@ -235,40 +287,38 @@ def from_feature_count(features: list, state: str, *, point_of, matched_identifi
 
 
 def lookup_parcel_layer(src: CoordinateSource, rows: list[dict], fetch_json) -> dict[str, Lookup]:
-    """Batch lookup against one ArcGIS parcel layer (row id -> Lookup).
-    A failed / error query marks the rows of that batch SOURCE_UNAVAILABLE."""
+    """Batch lookup against one ArcGIS or Socrata parcel layer (row id -> Lookup).
+    A failed / error query marks every row of the county SOURCE_UNAVAILABLE."""
     cfg = src.parcel_cfg
     out: dict[str, Lookup] = {}
     by_county: dict[str, list[dict]] = {}
     for r in rows:
         by_county.setdefault(str(r.get("county") or ""), []).append(r)
     for county, crow in sorted(by_county.items()):
-        features, failed_keys, parse_keys = [], set(), set()
-        for url, keys in P.query_batches(cfg, county, [r.get(cfg.row_id_column) for r in crow]):
+        features, failed, parse_fail = [], False, False
+        for url in P.query_urls(cfg, county, [r.get(cfg.row_id_column) for r in crow]):
             try:
                 data = fetch_json(url)
             except ValueError:
-                parse_keys |= keys
-                continue
+                parse_fail = True
+                break
             except Exception:  # noqa: BLE001 - transport / HTTP failure
-                failed_keys |= keys
+                failed = True
+                break
+            if cfg.transport == "socrata":
+                # A SODA resource answers with a list of records (or an error object).
+                if not isinstance(data, list):
+                    failed = True
+                    break
+                features += P.socrata_features(cfg, data)
                 continue
             if not isinstance(data, dict) or "error" in data or not isinstance(data.get("features"), list):
-                failed_keys |= keys
-                continue
+                failed = True
+                break
             features += data["features"]
-        # A failed batch withholds only its own rows; the rest are matched.
-        keep = []
-        for r in crow:
-            k = P.batch_key(cfg, r.get(cfg.row_id_column))
-            if k in parse_keys:
-                out[r["id"]] = Lookup("PARSER_FAILURE", reason="the layer query failed")
-            elif k in failed_keys:
-                out[r["id"]] = Lookup("SOURCE_UNAVAILABLE", reason="the layer query failed")
-            else:
-                keep.append(r)
-        crow = keep
-        if not crow:
+        if failed or parse_fail:
+            status = "PARSER_FAILURE" if parse_fail else "SOURCE_UNAVAILABLE"
+            out.update({r["id"]: Lookup(status, reason="the layer query failed") for r in crow})
             continue
         idx = P.index_features(cfg, features)
         for m in P.match_rows(cfg, crow, idx):
@@ -296,6 +346,7 @@ def provenance_entry(src: CoordinateSource, lk: Lookup, recorded_at: str) -> dic
         "method": src.method, "geometry": src.geometry,
         "match": "parcel_id", "matched_identifier": lk.matched_identifier,
         "matched_field": lk.matched_field or None,
+        "matched_parcel_id": (lk.parcel_id or None) if src.lookup_kind == "fdor" else None,
         "source_id": src.source_id, "agency": src.agency, "dataset": src.dataset,
         "layer_url": src.layer_url, "landing_url": src.landing_url,
         "derived": "centroid of the one parcel polygon whose identifier equals this record's",

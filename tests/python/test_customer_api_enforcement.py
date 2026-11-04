@@ -137,9 +137,10 @@ def test_C_legal_review_required_denies_exposure():
 # ---------------------------------------------------------------------------
 
 def test_D_blocked_denies_exposure():
-    row = dict(_REAL_TX_ROW, harvester_source="tx_pbfcm")
-    assert project_row_for_customer_output(row, "tx_pbfcm") is None
-    assert project_row_for_api_export(row, "tx_pbfcm") is None
+    # tx_ctsa is the one vendor still BLOCKED (tx_pbfcm was unblocked by the owner on 2026-10-26).
+    row = dict(_REAL_TX_ROW, harvester_source="tx_ctsa")
+    assert project_row_for_customer_output(row, "tx_ctsa") is None
+    assert project_row_for_api_export(row, "tx_ctsa") is None
 
 
 # ---------------------------------------------------------------------------

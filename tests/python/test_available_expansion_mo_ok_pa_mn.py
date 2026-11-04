@@ -31,13 +31,13 @@ AT = datetime(2026, 10, 4, 12, tzinfo=timezone.utc)
 FX = ROOT / "tests/python/fixtures/available_five"
 FIXTURE = {"MO": ("mo_stl_lra_inventory", "mo_stl_lra_inventory.csv"),
            "OK": ("ok_oklahoma_county_owned", "ok_oklahoma_county_owned.html"),
-           "PA": ("pa_fayette_repository", "pa_fayette_repository.pdf"),
+           "PA": ("pa_fayette_repository", "pa_fayette_Repository-Update-10-7-2025.pdf"),
            "MN": ("mn_ramsey_tax_forfeit", "mn_ramsey_tax_forfeit.json")}
 NEW = set(FIXTURE)
 
 
 def _src(st):
-    (src,) = EX.SOURCES[st]
+    (src,) = [s for s in EX.SOURCES[st] if s.config.source_id == FIXTURE[st][0]]
     return src
 
 
@@ -69,23 +69,24 @@ def test_states_are_activated_county_level_available_states():
         assert cfg.production_inventory_types == frozenset({"", "POST_SALE"}) and cfg.lifecycle_inventory_type is None
         ev = states.EXPANSION_EVIDENCE[st]
         assert list(ev) == list(states.ACTIVATION_REQUIREMENTS)
-        assert "UNREVIEWED" in ev["governance_approved"] and "never customer-published" in ev["governance_approved"]
+        assert "owner publication decision 2026-10-26" in ev["governance_approved"] and "legal review pending" in ev["governance_approved"]
     assert not states.is_supported("MS")          # evaluated and deferred: no deterministic public source
 
 
-def test_every_source_is_available_ledger_unreviewed_and_collected_not_published():
+def test_every_source_is_available_ledger_collected_and_owner_published():
     assert EX.AVAILABLE_FIVE_SOURCE_IDS == {sid for sid, _ in FIXTURE.values()}
     for st in NEW:
         cfg = _src(st).config
         assert cfg.record_source == "laft" and cfg.inventory_type is InventoryType.POST_SALE and cfg.columns_verified
         assert SOURCE_LEDGERS[cfg.source_id] == {Ledger.AVAILABLE}
-        assert EX.PUBLICATION[cfg.source_id] == ("UNREVIEWED", EX.HELD_AVAILABLE)
+        # Owner decision 2026-10-26: published to customers, legal review pending.
+        assert EX.PUBLICATION[cfg.source_id] == ("APPROVED", EX.OWNER_APPROVED_2026_10_26)
         row = _reg(st)[cfg.source_id]
-        assert row.is_production and row.publication_status == "UNREVIEWED" and row.ledgers == "AVAILABLE"
-        assert SP.collectable(row, "laft") and not SP.publishable(row)        # admin collection, no customer release
+        assert row.is_production and row.publication_status == "APPROVED" and row.ledgers == "AVAILABLE"
+        assert SP.collectable(row, "laft") and SP.publishable(row)
         assert HE.gate(st, reg=_reg(st)) == []
         run, gated = HE.runnable_sources(st, _reg(st))
-        assert [s.config.source_id for s in run] == [cfg.source_id] and gated == []
+        assert [s.config.source_id for s in run if s.config.source_id not in EX.NEW_SOURCE_IDS] == [cfg.source_id] and gated == []
 
 
 def test_a_blocked_review_makes_zero_requests():
@@ -94,7 +95,7 @@ def test_a_blocked_review_makes_zero_requests():
         reg = dict(_reg(st))
         reg[sid] = dataclasses.replace(reg[sid], publication_status="BLOCKED")
         run, gated = HE.runnable_sources(st, reg)
-        assert run == [] and gated == [(sid, "BLOCKED")]
+        assert [s for s in run if s.config.source_id not in EX.NEW_SOURCE_IDS] == [] and gated == [(sid, "BLOCKED")]
 
 
 def test_registry_rows_carry_the_source_urls_and_formats():
@@ -103,7 +104,10 @@ def test_registry_rows_carry_the_source_urls_and_formats():
     assert reg["MO"].publishing_unit_name == "St. Louis City"
     assert reg["OK"].machine_format == "HTML_TABLE" and reg["OK"].purchase_url.endswith("BidForm.pdf")
     assert reg["OK"].purchase_url_kind == "bid_form"
-    assert reg["PA"].machine_format == "PDF" and reg["PA"].access_method == "HTTP_GET_PDF"
+    # 2026-10-26: the Repository Sale page is read and its newest dated file followed (XLSX since 2026).
+    assert reg["PA"].machine_format == "XLSX" and reg["PA"].access_method == "HTTP_GET_HTML"
+    assert reg["PA"].canonical_url == "https://www.fayettecountypa.org/930/Repository-Sale"
+    assert reg["PA"].document_url.endswith("/DocumentCenter/View/16576/Repository-Update-10-7-2026")
     assert reg["MN"].machine_format == "JSON" and reg["MN"].purchase_url == ""
     for st in ("MO", "PA", "MN"):
         assert reg[st].purchase_url == ""          # none verified: never invented
@@ -119,10 +123,14 @@ def test_mo_reads_only_the_sources_own_available_status(tmp_path, capsys):
     assert r["parcel"] == r["case_no"] and r["state"] == "MO" and r["source"] == "laft"
     assert r["inventory_status_raw"] == "Available" and r["land_use"] == "Lot" and r["address"] == "100 TEST ST"
     assert r["purchase_amount"] is None and r["purchase_amount_kind"] == "NOT_PUBLISHED"
-    assert r["purchase_url"] is None and r["purchase_path_type"] is None   # no path invented
+    # 2026-10-26: the LRA's verified offer process (evidence table), source scope. A fixture run
+    # reads no For-Sale file, so no per-property page is linked (never guessed offline).
+    assert (r["purchase_path_type"], r["purchase_path_scope"]) == ("application_download", "source")
+    assert r["purchase_url"] == "https://www.lrastl.org/s/LRA-Offer-Submission-Form-5224.pdf"
     out = capsys.readouterr().out
     assert "1 non-identifier row(s), 2 row(s) whose own status is not an offer" in out
-    assert "1 duplicate identifier(s) dropped" in out
+    # Audit B39: a source's own repeat of an identifier is counted per source (not in the row count).
+    assert "1 repeat listing(s) of an identifier already read from the same source" in out
     assert "10000100010" not in out and "TEST ST" not in out                 # shapes / counts only
 
 
@@ -170,7 +178,7 @@ def test_ok_page_without_the_table_fails(tmp_path):
 # ==================== PA: Fayette repository PDF ====================
 
 def test_pa_pdf_rows_are_read_and_owner_is_never(tmp_path, capsys):
-    raw = pdf_table_rows((FX / "pa_fayette_repository.pdf").read_bytes())
+    raw = pdf_table_rows((FX / "pa_fayette_Repository-Update-10-7-2025.pdf").read_bytes())
     assert raw[0][2] == "OWNER" and any("SYNTHETIC OWNER" in c for r in raw for c in r)   # the fixture does carry owners
     rows, units = _run("PA", tmp_path)
     assert units == {"Fayette": "COMPLETE"}
@@ -180,14 +188,17 @@ def test_pa_pdf_rows_are_read_and_owner_is_never(tmp_path, capsys):
     r = rows[0]
     assert r["purchase_amount"] == 1250.0 and r["purchase_amount_kind"] == "OPENING_BID"
     assert r["list_as_of"] == "2025-10-07"                                          # the document's own date, never today
-    assert r["legal_desc"] == "LOT 1 TEST PLAN" and r["purchase_url"] is None
+    assert r["legal_desc"] == "LOT 1 TEST PLAN"
+    # 2026-10-26: the Tax Claim Bureau's Repository Sale Sealed Bid Form (evidence table), source scope.
+    assert (r["purchase_path_type"], r["purchase_path_scope"]) == ("application_download", "source")
+    assert r["purchase_url"] == "https://www.fayettecountypa.org/DocumentCenter/View/5599/Repository-Bid-Form"
     out = capsys.readouterr().out
     assert "SYNTHETIC" not in out and "01-02-0003" not in out
 
 
 def test_pa_bid_received_rows_are_pending_not_available():
     adapter = TabularListAdapter(EX.PA_FAYETTE_REPOSITORY)
-    recs = adapter.parse_rows(pdf_table_rows((FX / "pa_fayette_repository.pdf").read_bytes()), retrieved_at=AT,
+    recs = adapter.parse_rows(pdf_table_rows((FX / "pa_fayette_Repository-Update-10-7-2025.pdf").read_bytes()), retrieved_at=AT,
                               document_name="Repository-Update-10-7-2025")
     assert "01-02-0004-01" not in {r.case_no for r in recs} and adapter.excluded_status == 1
     assert adapter.rejected_ids == 0                     # a repeated page header is skipped, not counted as a bad id
@@ -203,7 +214,7 @@ def test_pa_non_pdf_is_a_format_change(tmp_path):
 def test_pa_transport_failure_is_failed_never_zero():
     def boom(url):
         raise ConnectionError("synthetic")
-    status, recs, cat, _, _ = HE.run_source(_src("PA"), None, None, retrieved_at=AT, fetch_bytes=boom)
+    status, recs, cat, _, _ = HE.run_source(_src("PA"), None, boom, retrieved_at=AT, fetch_bytes=boom)
     assert status == "FAILED" and recs == [] and cat == "TRANSPORT_CONNECTION"
 
 
@@ -217,7 +228,10 @@ def test_mn_queries_only_available_for_purchase_with_point_coordinates(tmp_path)
     r = rows[0]
     assert r["case_no"] == r["parcel"] == "012345678901" and r["inventory_status_raw"] == "Available for purchase"
     assert (r["latitude"], r["longitude"]) == (44.95, -93.10)
-    assert r["purchase_amount"] == 12500.0 and r["purchase_amount_kind"] == "OPENING_BID" and r["purchase_url"] is None
+    assert r["purchase_amount"] == 12500.0 and r["purchase_amount_kind"] == "OPENING_BID"
+    # 2026-10-26: the county's Over-the-Counter Property List process (evidence table), source scope.
+    assert (r["purchase_path_type"], r["purchase_path_scope"]) == ("county_instructions", "source")
+    assert r["purchase_url"].endswith("/over-counter-property-list")
 
 
 def test_mn_a_feature_outside_the_filter_fails_the_read(tmp_path):
@@ -239,11 +253,11 @@ def test_mn_empty_layer_is_the_sources_own_empty(tmp_path):
 # ==================== shared: lifecycle, sync, isolation ====================
 
 @pytest.mark.parametrize("st", sorted(NEW))
-def test_rows_sync_labelled_unreviewed_and_close_only_after_a_trusted_read(st, tmp_path):
+def test_rows_sync_labelled_approved_and_close_only_after_a_trusted_read(st, tmp_path):
     rows, units = _run(st, tmp_path)
     sent, counts = SY.plan(st, rows, _reg(st), units)
-    assert counts["upsert"] == len(rows) and counts["written_review_pending"] == len(rows)
-    assert {r["publication_status"] for r in sent} == {"UNREVIEWED"} and {r["ledger_type"] for r in sent} == {"buy"}
+    assert counts["upsert"] == len(rows) and counts["written_review_pending"] == 0
+    assert {r["publication_status"] for r in sent} == {"APPROVED"} and {r["ledger_type"] for r in sent} == {"buy"}
     assert all(r.get("owner_name") is None for r in sent)
     county = next(iter(units))
     sid = FIXTURE[st][0]
@@ -277,7 +291,7 @@ def test_one_failing_source_does_not_stop_another_state(tmp_path, monkeypatch):
 
 
 def test_existing_states_sources_are_unchanged():
-    assert [s.config.source_id for s in EX.SOURCES["MI"]] == [
+    assert [s.config.source_id for s in EX.SOURCES["MI"] if s.config.source_id not in EX.NEW_SOURCE_IDS] == [
         "mi_eaton_treasurer_sale", "mi_lenawee_tax_sale", "mi_detroit_landbank_lots", "mi_detroit_landbank_programs",
         "mi_oceana_landbank"]                                                     # no Michigan inventory added
     assert EX.AVAILABLE_FIVE_SOURCE_IDS.isdisjoint(EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.SIX_STATE_SOURCE_IDS)

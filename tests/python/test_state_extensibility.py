@@ -206,9 +206,9 @@ def test_r01_committed_registry_is_unchanged_county_level_and_still_valid():
     # 227 (2026-10-01, five-state sprint) = 222 + Douglas CO (2, CC BY-SA 4.0) and the three
     # implemented-but-UNREVIEWED county sources (Morgan CO deed auctions, Dane WI, Oconee SC).
     # 232 = 227 + the AVAILABLE sprint's five held MI / SC AVAILABLE sources (expansion.py).
-    assert len(rows) == 237 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA", "AZ", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"}
+    assert len(rows) == 287 + 93 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA", "AZ", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"}  # + PBFCM / MVBA / GovEase and the county sources (2026-10-26) + 93 new-sources sprint rows (Wright MN scheduled 2026-10-27)
     available = [r for r in rows if r.state in ("FL", "TX") and "AVAILABLE" in r.ledger_set or r.state in ("FL", "TX") and not r.ledger_set]
-    assert len(available) == 112 - 3
+    assert len(available) == 112 - 3 - 14 + 55
     assert all(r.publishing_unit == "COUNTY" for r in rows if r.state in ("FL", "TX"))
     with open(csr.REGISTRY_PATH, newline="", encoding="utf-8") as fh:
         assert csv.DictReader(fh).fieldnames == csr.EXTENDED_COLUMNS
@@ -386,6 +386,10 @@ def _server(store):
             qs = parse_qs(urlparse(self.path).query)
             if "limit" in qs and "county" not in qs:
                 return self._send(200, b"[]")   # 017 and 019 present
+            if qs.get("id", [""])[0].startswith("in."):
+                # fetch_state_rows phase 2: the wide columns by primary key.
+                ids = unquote(qs["id"][0])[len("in.("):-1].replace('"', "").split(",")
+                return self._send(200, json.dumps([r for r in store.rows if str(r.get("id")) in ids]).encode())
             assert qs.get("state") == [f"eq.{store.state}"] and qs.get("source") == ["eq.laft"], self.path
             counties = unquote(qs["county"][0])[len("in.("):-1].replace('"', "").split(",")
             self._send(200, json.dumps([r for r in store.rows if r["county"] in counties]).encode())
@@ -474,7 +478,7 @@ def test_l04_end_to_end_for_an_activated_third_state_applies_the_same_gates(tmp_
     scoped = [p for p, b in store.patches if "state=eq." in p]
     assert scoped and all("state=eq.ZZ" in p and "source=eq.laft" in p for p in scoped)
     # Observed: COMPLETE + INCOMPLETE rows only; A1 reactivated.
-    assert [(p, b) for p, b in store.patches if b == {"status": "active"}][0][0].count("Alpha") == 1
+    assert [(p, b) for p, b in store.patches if b == {"status": "active", "delisted_at": None}][0][0].count("Alpha") == 1
     prov = [(p, b) for p, b in store.patches if "last_seen_at" in b]
     assert {p.split("county=eq.")[1].split("&")[0] for p, _ in prov} == {"Alpha", "Gamma"}
     for _, b in prov:

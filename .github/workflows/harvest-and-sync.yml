@@ -133,9 +133,17 @@ name: Harvest FL tax deed data and sync to Supabase
 
 on:
   schedule:
-    - cron: '0 10 * * *'  # ~6:00 AM ET (10:00 UTC) - deeds + okaloosa
-    - cron: '0 22 * * *'  # ~6:00 PM ET (22:00 UTC) - deeds + okaloosa
-    - cron: '0 12 * * *'  # ~8:00 AM ET (12:00 UTC) - certificates + laft
+    # 2026-10-26: off the top of the hour - GitHub drops or delays scheduled
+    # runs set on :00 when it is busy (the 12:00 run never started that day),
+    # and the AVAILABLE / lien / other-state read now runs twice a day so one
+    # skipped run never leaves a whole day unread.
+    # 2026-10-26 (production overload): the second reads moved out of the US
+    # daytime window, when customers use the app - large writes run overnight
+    # or early morning ET only. The early-morning runs stay where they are.
+    - cron: '13 10 * * *'  # ~6:13 AM ET - deeds + okaloosa
+    - cron: '13 4 * * *'   # ~12:13 AM ET - deeds + okaloosa (second daily read; was 6:13 PM ET)
+    - cron: '37 11 * * *'  # ~7:37 AM ET - certificates + laft + expansion + texas + backup
+    - cron: '37 3 * * *'   # ~11:37 PM ET - certificates + laft + expansion (second daily read; was 1:37 PM ET)
   workflow_dispatch:  # manual trigger from the Actions tab, runs all jobs
     inputs:
       force_harvest:
@@ -159,12 +167,28 @@ on:
         required: false
         type: choice
         default: all
-        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available, geocode, publication]
+        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available, geocode, publication, registry]
       enrich_states:
         description: >-
           (job=enrich only) Comma-separated postal codes for the enrichment
           backfill (FEMA flood, NAIP aerial imagery, statewide parcel layers).
           Blank = every production state.
+        required: false
+        default: ''
+      enrich_kinds:
+        description: >-
+          (job=enrich only) Comma-separated subset of flood, imagery, parcels
+          to run; blank = all three (the historical behaviour). "parcels"
+          alone fills property fields from the cleared parcel / assessor
+          layers without touching flood or imagery.
+        required: false
+        default: ''
+      enrich_limit:
+        description: >-
+          (job=enrich, parcels only) At most N rows per parcel layer this run,
+          resuming after the previous run's last row (a checkpoint in the job
+          cache), so a large backlog fills in bounded overnight batches.
+          Blank = every row that misses a column the layer publishes.
         required: false
         default: ''
       evidence_counties:
@@ -220,7 +244,7 @@ on:
         required: false
         type: choice
         default: plan
-        options: [plan, dry-run, apply]
+        options: [plan, dry-run, apply, address]
       geocode_states:
         description: (job=geocode only) Comma-separated postal codes; blank = every state with a coordinate source.
         required: false
@@ -229,6 +253,16 @@ on:
         description: (job=geocode, dry-run / apply) look up at most N candidates, highest priority first; blank = all.
         required: false
         default: ''
+      registry_mode:
+        description: >-
+          (job=registry only) "plan" prints what scripts/sync_registry_to_supabase.py
+          would insert / patch in public.county_source_registry from
+          data/county_source_registry.csv (counts only); "apply" writes it. Never
+          deletes a row, never touches freshness or publication columns.
+        required: false
+        type: choice
+        default: plan
+        options: [plan, apply]
       geocode_allow_upgrade:
         description: >-
           (job=geocode only) "yes" also replaces stored coordinates whose origin
@@ -244,7 +278,10 @@ on:
         default: ''
       evidence_scope:
         description: >-
-          (job=evidence only) "pioneer_statements" = where Pioneer
+          (job=evidence only) "buyers_guide" = read the official page every
+          researched Buyer's Guide answer cites and check its quote is there
+          (scripts/capture_buyers_guide.py; one line per answer, no page text;
+          evidence_counties = optional comma-separated state codes). "pioneer_statements" = where Pioneer
           TaxSmartWeb clerks publish the per-case Lands Available purchase
           statement, structure and label shapes only. "available" = the AVAILABLE purchase-process
           capture (default). "auction_results" = skip it and read only the
@@ -256,6 +293,9 @@ on:
           sprint's candidate inventory pages and statewide parcel services
           (EXPANSION_TARGETS), value-free. "field_fill" = per-field fill
           rates of every configured ArcGIS layer (scripts/probe_field_fill.py).
+          "tx_vendors" = run the PBFCM / MVBA / GovEase harvesters from the
+          runner and print per-county read status and field fill counts only
+          (scripts/capture_tx_vendors.py; no value, nothing written).
           "acquisition_candidates" = the official process pages listed in
           data/acquisition_candidate_pages.csv, plus one hop of tax-deed /
           struck-off links on them, value-free. "available_discovery" =
@@ -276,24 +316,77 @@ on:
           County Land Bank site (and any ArcGIS layer behind its map: metadata
           and a count only), the Clerk & Master tax-sale page and sale-book
           PDFs, and the City of Memphis real-estate page, STRUCTURE only
-          (scripts/capture_tn_shelby.py).
+          (scripts/capture_tn_shelby.py). "realauction_paging" = how a
+          RealAuction sale-day page reaches its second Waiting page (the
+          deed harvester's own permission, value-free: counts, page text,
+          masked pager code; scripts/realauction_paging_check.py).
+          "tx_realauction" = Texas RealAuction sale days, per area (waiting /
+          running / closed): item counts and which field labels the
+          harvester reads, value-free (scripts/tx_realauction_check.py).
+          "new_sources_validate" = the
+          new-sources sprint (owner decision 2026-10-26): run the expansion
+          harvest (scripts/harvest_expansion.py) for MI MO PA SC CO MN with NO
+          database credential - every configured source of those states is
+          read through the real adapters and only counts / statuses /
+          identifier SHAPES are printed; nothing is synced.
         required: false
         type: choice
         default: available
-        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby]
+        options: [available, buyers_guide, buyers_guide_leads, realauction_labels, fl_certificate_sources, taxsys_check, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, realauction_paging, tx_realauction, tx_vendors, county_sources, county_certificates, new_sources_validate, tx_parcels]
 
 concurrency:
-  group: harvest-and-sync
+  # Evidence captures (job=evidence) are read-only and never write to the
+  # database, so each gets its own group: they can no longer queue behind,
+  # or knock out, a pending harvest in the single harvest slot.
+  group: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'evidence') && format('evidence-{0}', github.run_id) || 'harvest-and-sync' }}
   cancel-in-progress: false
 
 jobs:
+  # Audit B25 (2026-10-29): GitHub starts scheduled runs 5-6.4 h late, so the
+  # schedule watchdog's catch-up dispatch ran first and the late schedule then
+  # repeated the same jobs (deeds 4x, laft / certificates / expansion 3x on
+  # 2026-10-28). On a scheduled run this job lists the jobs of the run's slot
+  # that another run already finished successfully since the slot
+  # (scripts/schedule_watchdog.py --guard); each scheduled job below skips
+  # itself when named. Dispatches never run it, and any error names nothing
+  # (every job runs, as before).
+  schedule_guard:
+    name: Skip jobs a catch-up run already completed
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      covered: ${{ steps.guard.outputs.covered }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/schedule_watchdog.py
+          sparse-checkout-cone-mode: false
+      - name: List jobs already completed for this slot
+        id: guard
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SCHEDULE_CRON: ${{ github.event.schedule }}
+        run: python3 scripts/schedule_watchdog.py --guard "$SCHEDULE_CRON"
+
   deeds:
     name: Harvest deed auctions + sync
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # 2026-10-26: 60 -> 80, and every enrichment step below now carries its
+    # own timeout-minutes. Run 381's job hit the 60-minute limit inside the
+    # FEMA step (36 minutes of mostly-timing-out lookups), and GitHub
+    # cancelled the whole run. Harvest + sync + Phase B take ~15 minutes;
+    # the enrichment step timeouts add up to 55 at most.
+    timeout-minutes: 80
     # Skip this job on the certificates-only schedule (12:00 UTC), but always
     # run it on the other two schedules and on manual dispatch.
-    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'deeds' || github.event.inputs.job == '')) || github.event.schedule == '0 10 * * *' || github.event.schedule == '0 22 * * *'
+    needs: schedule_guard
+    if: ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'deeds' || github.event.inputs.job == '')) || github.event.schedule == '13 10 * * *' || github.event.schedule == '13 4 * * *') && !contains(needs.schedule_guard.outputs.covered, 'deeds') }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -375,8 +468,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/stamp_seen.py --state FL --source auction --harvest out/harvest_all.json --case-key case --provenance
-
+        run: python3 scripts/stamp_seen.py --state FL --source auction --harvest out/harvest_all.json --case-key case --provenance --delisted
 
       - name: Source id - fill a blank source_id the row itself proves (auction)
         # scripts/backfill_source_ids.py: the PowerShell sync never sends
@@ -387,6 +479,23 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/backfill_source_ids.py --source auction
+
+      - name: Off-list close-out - future-dated rows absent from a COMPLETE county (ON; vars.AUCTION_OFFLIST_CLOSE == '0' stops it)
+        # scripts/auction_offlist_closeout.py, after the stamp: a future-dated
+        # active row absent from this run's harvest of a COMPLETE county, on a
+        # sale day the harvest read in full (fewer than 10 rows - RealAuction's
+        # page size; the pager cannot reach page two), whose own last_seen_at
+        # is missing or 36 h+ older than the county's newest read, is set to
+        # status 'closed' (no result); so is a past-dated active row of a county
+        # no deeds harvester reads. ON by default (owner, 2026-10-26); setting
+        # the repository variable AUCTION_OFFLIST_CLOSE to '0' makes it plan-only.
+        if: steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          AUCTION_OFFLIST_CLOSE: ${{ vars.AUCTION_OFFLIST_CLOSE }}
+        run: python3 scripts/auction_offlist_closeout.py --status out/harvest_all_status.json --harvest out/harvest_all.json --apply
 
       - name: Publication state - customer-publication gate (FL)
         # scripts/publication_state_writer.py (migration 031): one auditable
@@ -422,11 +531,13 @@ jobs:
         run: ./scripts/sanity_check_deeds.ps1
 
       - name: Set up Python
+        if: ${{ !cancelled() }}
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
       - name: Install Python dependencies (geocoding)
+        if: ${{ !cancelled() }}
         run: pip install requests pillow
 
       # Phase B (auction-event history): record what this run's harvest saw
@@ -435,8 +546,12 @@ jobs:
       # ids - it never writes the property snapshot. continue-on-error so a
       # writer problem can never fail the property pipeline this job exists
       # for; the step's own log line is the record of what it did.
+      # `!cancelled()`: a failed sanity check (it fails the job on purpose)
+      # must not also skip the event history and the outcome steps below -
+      # deeds run 40245969395 lost both that way.
       - name: Record auction events (Phase B)
         id: phase_b_events_fl
+        if: ${{ !cancelled() && steps.sync.outcome == 'success' }}
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -459,19 +574,35 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       # Verified auction outcomes (scripts/auction_outcomes.py): for sale days
-      # in the last 21 days, reads the SAME RealAuction host's "Auctions
-      # Closed or Canceled" listing and the page's own status refresh through
-      # the harvester's anonymous session, matches items to events by exact
-      # case number, and records a result only for a reviewed wording in
+      # in the last 21 days - and upcoming sale days holding an item this
+      # run's Waiting harvest no longer read (redeemed / cancelled before the
+      # sale) - reads the SAME RealAuction host's "Auctions Closed or
+      # Canceled" listing and the page's own status refresh through the
+      # harvester's anonymous session, matches items to events by exact case
+      # number, and records a result only for a reviewed wording in
       # data/auction_outcome_wordings.csv. Never infers from absence; a
       # failed read writes nothing. Allowed to error, so it can never fail
       # the property pipeline.
       - name: Verified auction outcomes (source-published results only)
+        if: ${{ !cancelled() }}
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/auction_outcomes.py
+        run: python3 scripts/auction_outcomes.py --harvest out/harvest_all.json
+
+      # scripts/auction_outcome_status.py: a verified result on the event of
+      # the row's CURRENT sale day moves the property out of active - 'sold'
+      # for "Auction Sold", 'closed' for any other mapped wording (redeemed,
+      # cancelled ...). Never a row this run's Waiting harvest still read,
+      # never a re-listed row's earlier sale; status only. Never fails the job.
+      - name: Outcome status - verified results move the property out of active
+        if: ${{ !cancelled() && steps.sync.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/auction_outcome_status.py --harvest out/harvest_all.json --apply
 
       - name: Inventory status - normalized lifecycle state (migration 021)
         # Inventory status (migration 021): each row's normalized lifecycle state and
@@ -505,6 +636,7 @@ jobs:
         # skip FDOR / FEMA / NAIP after it. Not on a cancelled run.
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 10
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -520,10 +652,20 @@ jobs:
         # skip FDOR / FEMA / NAIP after it. Not on a cancelled run.
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 15
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/enrich_property_details.py
+          # Refill tax-roll values a sync erased before sync_value_guard.py
+          # (2026-10-26: 146 FL auction rows' FDOR `assessed`).
+          ENRICH_REFILL_ERASED: "1"
+          # Stop cleanly at 13 minutes (the step timeout is 15) and abandon a
+          # county after 3 consecutive request errors, so one unresponsive
+          # county no longer uses the whole budget (audit B15/B28).
+          ENRICH_TIME_BUDGET_SECONDS: '780'
+          ENRICH_COUNTY_ERROR_STREAK: '3'
+        # -u: unbuffered, so a step that is stopped still shows its progress.
+        run: python3 -u scripts/enrich_property_details.py
 
       # Flood is the first Risk & Legal panel field with a real source. It
       # needs only lat/lon, which the geocoding step above has already
@@ -537,9 +679,13 @@ jobs:
         # skip FDOR / FEMA / NAIP after it. Not on a cancelled run.
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 15
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # Stop the FEMA lookups cleanly at 12 minutes (the step's own
+          # timeout is 15), printing the summary and the failure causes.
+          FLOOD_TIME_BUDGET_SECONDS: '720'
         run: python3 scripts/enrich_flood_zone.py
 
       # NAIP aerial imagery: USDA/USGS, public domain, no API key, no
@@ -554,10 +700,14 @@ jobs:
         # this job already completed, nor skip the steps after it.
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 12
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/enrich_property_photos_naip.py
+          # Stop cleanly at 10 minutes (step timeout 12) - before, the step was
+          # killed on every run and printed nothing (audit B28).
+          NAIP_TIME_BUDGET_SECONDS: '600'
+        run: python3 -u scripts/enrich_property_photos_naip.py
 
       - name: Backfill property photos (Street View Static API)
         # No-ops cleanly (exit 0) until a GOOGLE_MAPS_API_KEY secret exists -
@@ -585,7 +735,8 @@ jobs:
     # is still hard-bounded (three attempts of a 25s request timeout plus
     # 20s+45s backoff), so this isn't masking a true infinite hang.
     timeout-minutes: 60
-    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'certificates' || github.event.inputs.job == '')) || github.event.schedule == '0 12 * * *'
+    needs: schedule_guard
+    if: ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'certificates' || github.event.inputs.job == '')) || (github.event.schedule == '37 11 * * *' || github.event.schedule == '37 3 * * *')) && !contains(needs.schedule_guard.outputs.covered, 'certificates') }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -661,7 +812,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/stamp_seen.py --state FL --source certificate --harvest out/harvest_certificates.json --case-key case_no --status out/harvest_certificates_status.json --provenance
+        run: python3 scripts/stamp_seen.py --state FL --source certificate --harvest out/harvest_certificates.json --case-key case_no --status out/harvest_certificates_status.json --provenance --delisted
 
 
       - name: Source id - fill a blank source_id the row itself proves (certificate)
@@ -673,6 +824,31 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/backfill_source_ids.py --source certificate
+
+      - name: Sarasota Tax Collector county-held certificates - harvest (the county's own list, not LienHub)
+        # 2026-10-26 (owner decision): LienHub refuses the runners; Sarasota's Tax
+        # Collector publishes the same county-held list as a PDF on its own site.
+        # Independent of the LienHub steps above: runs whatever they did, and a
+        # failure here never fails the job.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        # Its own virtualenv: this job has no setup-python step, and the runner's
+        # system Python refuses a bare pip install (PEP 668).
+        run: |
+          python3 -m venv /tmp/sarasota-venv
+          /tmp/sarasota-venv/bin/pip install -q requests pdfplumber
+          /tmp/sarasota-venv/bin/python scripts/harvest_sarasota_certificates.py
+
+      - name: Sarasota Tax Collector county-held certificates - sync, stamp and close-out
+        # scripts/sync_sarasota_certificates.py: one row per certificate under its
+        # own source_id; last_seen_at stamped in the upsert; close-out only after a
+        # COMPLETE read and only for this source's rows.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/sync_sarasota_certificates.py
 
       - name: Publication state - customer-publication gate (FL)
         # scripts/publication_state_writer.py (migration 031): one auditable
@@ -704,7 +880,8 @@ jobs:
     name: Harvest Lands Available PDFs + sync
     runs-on: ubuntu-latest
     timeout-minutes: 75
-    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'laft' || github.event.inputs.job == '')) || github.event.schedule == '0 12 * * *'
+    needs: schedule_guard
+    if: ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'laft' || github.event.inputs.job == '')) || (github.event.schedule == '37 11 * * *' || github.event.schedule == '37 3 * * *')) && !contains(needs.schedule_guard.outputs.covered, 'laft') }}
     env:
       # Read by scripts/harvest_cache.py's load_cache() - "true" makes every
       # LAFT sub-harvester in this job (PDFs, HTML-table, RealTDM's
@@ -800,14 +977,12 @@ jobs:
         if: always()
         run: python3 scripts/harvest_laft_pioneer.py
 
-      - name: Harvest Lands Available for Taxes Orange County (TDSM)
-        # Same independence rationale again - a fifth, unrelated platform
-        # (Orange County's own Comptroller-run search tool, not a shared
-        # vendor CSV like the others since no second county has turned up
-        # on it). Public guest disclaimer access only, no credentials -
-        # see harvest_laft_orange.py's module docstring.
-        if: always()
-        run: python3 scripts/harvest_laft_orange.py
+      # Orange County (TDSM) is no longer read (2026-11-04). The Orange County
+      # Comptroller's written reply prohibits automated collection and
+      # commercial incorporation without prior written authorization
+      # (data/office_replies.csv). scripts/harvest_laft_orange.py stays in the
+      # repository and its fetch permission is RESTRICTED; restore this step
+      # only together with a written authorization.
 
       - name: Harvest Lands Available for Taxes St. Lucie County (AcclaimWeb)
         # Same independence rationale again - a sixth, unrelated platform
@@ -848,6 +1023,15 @@ jobs:
         # docstring.
         if: always()
         run: python3 scripts/harvest_laft_leon.py
+
+      - name: Harvest Lands Available for Taxes clerk portals (Charlotte, ...)
+        # 2026-10-26 (owner decision: every source): clerk tax-deed PORTALS
+        # none of the harvesters above handle, CSV-driven
+        # (data/laft_portal_sources.csv). Charlotte's Tax Deed Services
+        # Lands Available grid is read through the same JSON request the
+        # page's own script makes. See harvest_laft_portals.py's docstring.
+        if: always()
+        run: python3 scripts/harvest_laft_portals.py
 
       - name: Prepare artifact (public evidence + encrypted raw)
         # Artifacts of a public repository are public. This writes
@@ -1021,6 +1205,12 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        # No --no-fresh-guard (2026-10-26): the lifecycle compares each row's
+        # payload with what is stored and writes only a new / changed row or a
+        # last_seen_at due a re-stamp, so a row the sync above just stamped
+        # still gets its lifecycle provenance, and an unchanged list read
+        # again writes nothing (the sync and the lifecycle no longer rewrite
+        # each other's otc_provenance every run).
         run: python3 scripts/laft_lifecycle.py --state LA --status out/harvest_louisiana_status.json --harvest out/harvest_louisiana.json --report out/public/laft-lifecycle-la.json
       # Louisiana's 10,334 adjudicated rows had no inventory_status at all
       # (2026-10-11): the writer only ran for FL and the expansion matrix, and
@@ -1065,7 +1255,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
-          python3 scripts/apply_acquisition_paths.py --state TX --source-id tx_lgbs --report out/public/acquisition-apply-tx.json
+          python3 scripts/apply_acquisition_paths.py --state TX --ledgers laft,auction --report out/public/acquisition-apply-tx.json
           python3 scripts/publication_gate.py --state TX --report out/public/publication-gate-tx.json
           python3 scripts/publication_state_writer.py --state TX || true
 
@@ -1085,6 +1275,20 @@ jobs:
           python3 scripts/detect_property_changes.py --state LA --source laft || true
           python3 scripts/detect_property_changes.py --state TX --source laft || true
 
+      - name: Daily verification - every active FL Lands Available row seen in the last 36 h
+        # scripts/stale_rows_report.py --daily-laft: per county, active rows
+        # NOT seen on the county's list in the last 36 h and why (today's
+        # status file: SOURCE_UNAVAILABLE / READ_INCOMPLETE / NOT_READ_TODAY /
+        # READ_BUT_NOT_ON_LIST). Counts and county names only. Fails loudly
+        # (::error:: per county) so the run log states the answer; read-only,
+        # closes nothing; continue-on-error so it never blocks the job.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/stale_rows_report.py --daily-laft --state FL --status out/harvest_laft_status.json --json out/public/fl-available-daily.json
+
   expansion:
     # Six-state expansion (2026-09-30; docs/six-state-expansion.md). The
     # owner-approved county sources of MI, WY, SC, CO and WI
@@ -1102,7 +1306,8 @@ jobs:
     # rows - the sync (500 / request), the inventory-status writer (40 / request)
     # and change detection all page through them. Schedule unchanged.
     timeout-minutes: 45
-    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'expansion' || github.event.inputs.job == '')) || github.event.schedule == '0 12 * * *'
+    needs: schedule_guard
+    if: ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'expansion' || github.event.inputs.job == '')) || (github.event.schedule == '37 11 * * *' || github.event.schedule == '37 3 * * *')) && !contains(needs.schedule_guard.outputs.covered, 'expansion') }}
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -1154,7 +1359,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/enrich_statewide_parcels.py --state ${{ matrix.state }}
+        # Every cleared layer of the state (2026-10-27), at most 500 rows per
+        # layer a run, resuming after the last run's row (checkpoint in the
+        # cached out/.harvest_cache); only changed rows are written.
+        run: python3 scripts/enrich_statewide_parcels.py --state ${{ matrix.state }} --all-layers --limit 500
 
       - name: Inventory status + observation history
         # upcoming / active / unknown from the list and its published sale
@@ -1194,6 +1402,26 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/detect_property_changes.py --state ${{ matrix.state }}
 
+      - name: FEMA flood hazard - nightly slice for this state
+        # 2026-10-27: the flood backlog (MI ~28,000, MO ~10,700, SC ~2,300,
+        # CO ~760 active rows with coordinates and no check) fills a bounded
+        # slice per read instead of one long manual run that FEMA's NFHL
+        # answers with dropped connections. ENRICH_STATE keeps the leg on its
+        # own state; the script spreads the slice across counties and backs
+        # off after a failure. Stops cleanly at the budget (15 min) inside
+        # the step timeout; a leg with no backlog finishes in seconds.
+        if: always() && steps.sync.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 18
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ENRICH_STATE: ${{ matrix.state }}
+          FLOOD_BATCH_LIMIT: '1500'
+          FLOOD_PER_COUNTY_LIMIT: '400'
+          FLOOD_TIME_BUDGET_SECONDS: '900'
+        run: python3 scripts/enrich_flood_zone.py
+
       - name: Evidence-only artifact summary
         # Public repository -> public artifacts: counts, hashes and field names
         # only; raw files only OpenPGP-encrypted (scripts/artifact_evidence.py).
@@ -1217,7 +1445,7 @@ jobs:
           retention-days: 14
 
   texas:
-    name: Harvest Texas tax sales (LGBS) + sync - manual only, not yet on cron
+    name: Harvest Texas tax sales (LGBS) + sync - daily
     runs-on: ubuntu-latest
     timeout-minutes: 60
     # MANUAL-ONLY for now, per the flip sequence this comment previously laid
@@ -1246,8 +1474,14 @@ jobs:
     # fallback needed here the way the three FL sync scripts have one.
     # Runs only on a dispatch that asks for it ("all" or "texas") - a
     # single-ledger dispatch (e.g. job=laft) never touches the LGBS feed.
-    if: github.event_name == 'workflow_dispatch'
-      && (github.event.inputs.job == 'all' || github.event.inputs.job == 'texas' || github.event.inputs.job == '')
+    # DAILY since 2026-10-26 (owner approval: "Approve texas daily run"),
+    # once a day in the 07:37 ET run alongside laft / expansion - the same
+    # run, so the one-pending concurrency slot can never drop it. The LGBS
+    # and Texas RealAuction permission records were updated the same day
+    # (data/source_permissions.csv); they stay interim, expiring 2027-04-12.
+    # Manual dispatch still works (job=all or job=texas).
+    needs: schedule_guard
+    if: ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'texas' || github.event.inputs.job == '')) || github.event.schedule == '37 11 * * *') && !contains(needs.schedule_guard.outputs.covered, 'texas') }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -1258,10 +1492,24 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install requests
+        # pdfplumber: the PBFCM / MVBA sale and resale lists and the county-published Texas lists are PDFs;
+        # beautifulsoup4: the Harris / Hood county list pages (2026-10-26).
+        run: pip install requests beautifulsoup4 pdfplumber
 
       - name: Harvest Texas tax sales (LGBS / PBFCM / GovEase)
         run: python3 harvesters/texas_harvester.py
+
+      - name: Harvest Texas county-published lists
+        # 2026-10-26 (owner decisions: every source, then "post their shit";
+        # legal review pending): county tax-office / appraisal-district sale
+        # and struck-off lists (Harris, Jefferson, Bexar, Montgomery, Orange,
+        # Trinity, Randall, Hood) - scripts/harvest_tx_county_sales.py. Writes
+        # out/harvest_tx_county_{auctions,available}.json, their status files
+        # and the matching properties-row files the county sync below reads.
+        id: harvest_county
+        if: always()
+        continue-on-error: true
+        run: python3 scripts/harvest_tx_county_sales.py
 
       - name: Prepare artifact (public evidence + encrypted raw)
         # Artifacts of a public repository are public. This writes
@@ -1273,7 +1521,7 @@ jobs:
         if: always()
         env:
           ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
-        run: python3 scripts/artifact_evidence.py --job texas --status out/harvest_texas_status.json "out/harvest_texas.*"
+        run: python3 scripts/artifact_evidence.py --job texas --status out/harvest_texas_status.json --status out/harvest_tx_county_auctions_status.json --status out/harvest_tx_county_available_status.json "out/harvest_texas.*" "out/harvest_tx_county_*.json"
 
       - name: Upload artifact (evidence + encrypted raw)
         if: always()
@@ -1305,7 +1553,99 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/source_health.py --source tx_sales --label "Texas tax sales (LGBS + county sheriff-sale sites) - manual runs" --state TX --mode manual --status out/harvest_texas_status.json --rows out/harvest_texas.json --outcome ${{ steps.sync.outcome }}
+        run: python3 scripts/source_health.py --source tx_sales --label "Texas tax sales (LGBS + county sheriff-sale sites)" --state TX --mode scheduled --cadence-hours 24 --status out/harvest_texas_status.json --rows out/harvest_texas.json --outcome ${{ steps.sync.outcome }}
+
+      - name: Restore unit freshness record
+        # Keeps each Texas unit's failure streak across runs (same rolling
+        # cache pattern as the expansion job); a miss starts the streak over.
+        if: always()
+        continue-on-error: true
+        uses: actions/cache@v4
+        with:
+          path: out/.harvest_cache
+          key: unit-freshness-texas-${{ github.run_id }}
+          restore-keys: |
+            unit-freshness-texas-
+
+      - name: Per-unit freshness (Texas)
+        # scripts/unit_freshness.py: last attempt / last complete read /
+        # failure streak / last error category per (source, county) unit of
+        # out/harvest_texas_status.json "counties", written to the registry
+        # rows that exist (2026-10-29: before this, no Texas unit ever had a
+        # read recorded, so the admin "Needs attention" panel could not tell
+        # a working Texas source from a dead one). Monitoring only.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/unit_freshness.py --status out/harvest_texas_status.json --state TX --status out/harvest_tx_county_auctions_status.json --status out/harvest_tx_county_available_status.json --persist out/.harvest_cache/unit_freshness_tx.json --report out/public/unit-freshness-tx.json || true
+
+      - name: Sync Texas county-published lists
+        # scripts/sync_state_inventory.py, once per ledger (its own rows and
+        # status file): upserts only rows of a PRODUCTION_VERIFIED, APPROVED
+        # registry source whose (source, county) read was COMPLETE or
+        # INCOMPLETE, with the store permission, through the ledger contract
+        # (harvesters/ledgers/records.py), stamped publication_status /
+        # last_seen_at / field_provenance. --keep-other-sources: an account an
+        # LGBS / RealAuction row already holds is not taken over. Nothing is
+        # closed here (scripts/texas_closeout.py below, per source). Never
+        # touches the LGBS / RealAuction rows; never fails the job.
+        id: sync_county
+        if: always() && steps.harvest_county.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 scripts/sync_state_inventory.py --state TX --keep-other-sources --rows out/tx_county_auctions_properties_rows.json --status out/harvest_tx_county_auctions_status.json
+          python3 scripts/sync_state_inventory.py --state TX --keep-other-sources --rows out/tx_county_available_properties_rows.json --status out/harvest_tx_county_available_status.json
+
+      - name: Stamp last_seen_at on the Texas rows read this run
+        # The Texas sync never set last_seen_at, so every Texas row read as
+        # never-read and the inventory-status step marked it "unknown"
+        # (2026-10-26). A row is stamped only when its (county, account) is
+        # in this run's harvest file under its own ledger; nothing is
+        # un-stamped or closed. Runs before the inventory-status step.
+        if: steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 scripts/stamp_seen.py --state TX --source laft --harvest out/harvest_texas.json --case-key account_number --row-source
+          python3 scripts/stamp_seen.py --state TX --source auction --harvest out/harvest_texas.json --case-key account_number --row-source
+
+      - name: Close Texas rows the source no longer lists (and reopen re-listed ones)
+        # scripts/texas_closeout.py (2026-10-26). Closes ('closed' +
+        # delisted_at, never 'sold') only stored active tx_lgbs /
+        # tx_realauction rows whose (source, county) read this run was
+        # COMPLETE or EMPTY in out/harvest_texas_status.json and which that
+        # read no longer lists, of a ledger the source feeds; an INCOMPLETE /
+        # FAILED / unread county closes nothing. Rows the harvest lists again
+        # are reopened. Runs before the inventory-status step so it sees the
+        # new statuses. Never fails the job.
+        if: steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/texas_closeout.py
+
+      - name: Close Texas county-list rows the county no longer lists
+        # The same script and rule for the eight county-published lists: a
+        # source's stored active row is closed ('closed' + delisted_at, never
+        # 'sold') only when that source's own read this run was COMPLETE or
+        # EMPTY and no longer lists the account; an INCOMPLETE / FAILED
+        # (e.g. Jefferson's bot challenge) / unread source closes nothing, and
+        # a source losing more than half its rows in one read is refused.
+        # Runs only after the county sync succeeded. Never fails the job.
+        if: always() && steps.sync_county.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/texas_closeout.py --harvest out/harvest_tx_county_auctions.json --harvest out/harvest_tx_county_available.json --status out/harvest_tx_county_auctions_status.json --status out/harvest_tx_county_available_status.json
 
       # Phase B (auction-event history): same writer as the deeds job, fed by
       # out/harvest_texas.json. Texas has no per-county completeness file, so
@@ -1335,6 +1675,21 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/inventory_status_writer.py --state TX
+      - name: FEMA flood hazard - daily Texas slice
+        # 2026-10-27: Texas's flood backlog (~2,000-3,300 active rows with
+        # coordinates and no check) fills a bounded slice per daily read.
+        # Stops cleanly at the 10-minute budget inside the step timeout.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 12
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ENRICH_STATE: TX
+          FLOOD_BATCH_LIMIT: '1500'
+          FLOOD_PER_COUNTY_LIMIT: '400'
+          FLOOD_TIME_BUDGET_SECONDS: '600'
+        run: python3 scripts/enrich_flood_zone.py
       - name: Report Phase B event recording failure
         if: ${{ !cancelled() && steps.phase_b_events_tx.outcome == 'failure' }}
         run: |
@@ -1355,7 +1710,8 @@ jobs:
     # the whole point is to capture what is in the database, so it must still
     # produce a backup on a day when a harvester is broken - that is exactly
     # the day a backup matters most.
-    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'backup' || github.event.inputs.job == '')) || github.event.schedule == '0 12 * * *'
+    needs: schedule_guard
+    if: ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'backup' || github.event.inputs.job == '')) || github.event.schedule == '37 11 * * *') && !contains(needs.schedule_guard.outputs.covered, 'backup') }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -1432,7 +1788,8 @@ jobs:
     # writes to the database and nothing here is a purchase path.
     name: Capture purchase / application evidence (manual only)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # 45 (was 25) since 2026-10-26: new_sources_validate reads six states' full inventories.
+    timeout-minutes: 45
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'evidence'
     steps:
       - name: Checkout repository
@@ -1452,6 +1809,76 @@ jobs:
           RA_DATES: ${{ github.event.inputs.evidence_realauction_dates }}
           SCOPE: ${{ github.event.inputs.evidence_scope }}
         run: |
+          if [ "$SCOPE" = "buyers_guide" ]; then
+            # 2026-10-29 (owner request): confirm each Buyer's Guide quote on the
+            # official page it cites. Prints BGCAP lines only (answer key, quote
+            # hash, result, HTTP status) - recorded with
+            # scripts/record_buyers_guide_captures.py. No database credential.
+            sargs=""
+            IFS=',' read -ra ss <<< "$COUNTIES"
+            for s in "${ss[@]}"; do s="$(echo "$s" | xargs)"; [ -n "$s" ] && sargs="$sargs --state $s"; done
+            python3 scripts/capture_buyers_guide.py $sargs
+            exit 0
+          fi
+          if [ "$SCOPE" = "buyers_guide_leads" ]; then
+            # The official pages the research network could not read: print
+            # their own sentences about each open question (BGTEXT lines, at
+            # most 8 per answer), so the answer can be written from them and
+            # confirmed by the next buyers_guide capture.
+            sargs=""
+            IFS=',' read -ra ss <<< "$COUNTIES"
+            for s in "${ss[@]}"; do s="$(echo "$s" | xargs)"; [ -n "$s" ] && sargs="$sargs --state $s"; done
+            python3 scripts/capture_buyers_guide.py --leads $sargs
+            exit 0
+          fi
+          if [ "$SCOPE" = "tx_parcels" ]; then
+            # 2026-10-27: reachability of the Texas parcel enrichment sources from a
+            # runner (TxGIO StratMap county shapefiles, the HCAD layer). Record
+            # counts and attribute names only; no database credential, no write.
+            pip install -q pyshp >/dev/null
+            cargs=""
+            IFS=',' read -ra cs <<< "$COUNTIES"
+            for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
+            eval python3 scripts/probe_tx_parcels.py $cargs
+            exit 0
+          fi
+          if [ "$SCOPE" = "tx_vendors" ]; then
+            # 2026-10-26 (owner decision): the Texas vendors PBFCM / MVBA / GovEase,
+            # read by the real harvesters under the discovery guard. Status and
+            # counts only; nothing is written to any database.
+            python3 scripts/capture_tx_vendors.py
+            exit 0
+          fi
+          if [ "$SCOPE" = "realauction_labels" ]; then
+            # 2026-10-26: the FL deed harvester's OWN read (fetch / parse of
+            # fl_realauction's sale calendar, the permission it already holds)
+            # for the named counties (default Orange, Lee), printing only the
+            # label vocabulary of the items (digits masked) and per-county
+            # certificate-number counts. No database credential exists in this
+            # job and nothing is synced; out/harvest_all.json is never uploaded.
+            HARVEST_COUNTIES="${COUNTIES:-Orange,Lee}" HARVEST_LABEL_REPORT=1 pwsh -NoProfile -File scripts/harvest_all_counties.ps1 | grep -v '^Saved:'
+            rm -f out/harvest_all.json out/harvest_all.csv
+            exit 0
+          fi
+          if [ "$SCOPE" = "taxsys_check" ]; then
+            # 2026-10-26 (owner decision): ONE value-free read of the TaxSys
+            # county-held report page for the two counties that point there.
+            # A 403 / any refusal is final - never retried, never worked around.
+            python3 scripts/harvest_taxsys_certificates.py --check || true
+            exit 0
+          fi
+          if [ "$SCOPE" = "fl_certificate_sources" ]; then
+            # 2026-10-26: Florida county-held certificate lists published on a
+            # county's OWN site while LienHub refuses the runners (never worked
+            # around). Each reader checks its own interim fetch/parse/store
+            # records first and prints counts only. No database credential
+            # exists in this job and nothing is synced; the row files are
+            # deleted before the artifact step.
+            python3 scripts/harvest_sarasota_certificates.py || true
+            cat out/harvest_sarasota_certificates_status.json 2>/dev/null | python3 -c "import json,sys; [print('STATUS', e.get('county'), e.get('status'), e.get('rowCount'), e.get('error_category','')) for e in json.load(sys.stdin)]" || true
+            rm -f out/harvest_certificates_sarasota.json
+            exit 0
+          fi
           if [ "$SCOPE" = "pioneer_statements" ]; then
             # 2026-10-05: where Pioneer TaxSmartWeb clerks publish the per-case
             # Lands Available purchase statement ("Total Due from Purchaser").
@@ -1533,6 +1960,45 @@ jobs:
             eval python3 scripts/capture_purchase_evidence.py --candidates --candidates-file data/available_discovery_pages.csv --follow --discovery $cargs
             exit 0
           fi
+          if [ "$SCOPE" = "county_certificates" ]; then
+            # 2026-10-26: one value-free read of each FL Tax Collector's own
+            # county-held certificate publication outside LienHub
+            # (data/county_source_candidates.csv; discovery-guarded; Hernando's
+            # anonymous FTP file checked against its discover record first).
+            # LienHub / TaxSys refusals are final and not requested here.
+            pip install -q beautifulsoup4 >/dev/null
+            python3 scripts/capture_county_sources.py --certificates || true
+            exit 0
+          fi
+          if [ "$SCOPE" = "county_sources" ]; then
+            # FL / TX county-source sprint (2026-10-26). Read-only; no
+            # database credential exists in this job. (1) the value-free
+            # probe of the sources the sandbox could not read
+            # (scripts/capture_county_sources.py, discovery-guarded);
+            # (2) the new / extended readers run for real, printing only
+            # per-county status lines and counts: the clerk-portal LAFT
+            # harvester, the realTDM harvester (Lake added), the static
+            # HTML harvester (DeSoto, Wakulla added) and the Texas county
+            # lists. Their raw outputs stay on the runner (never uploaded).
+            pip install -q beautifulsoup4 pdfplumber >/dev/null
+            python3 scripts/capture_county_sources.py || true
+            export LAFT_STATUS_PATH=out/validate_laft_status.json
+            echo "=== harvest_laft_portals.py"; python3 scripts/harvest_laft_portals.py 2>&1 | grep -E "^\[|platform total|ERROR|status \(|Harvested" || true
+            echo "=== harvest_laft_realtdm.py"; python3 scripts/harvest_laft_realtdm.py 2>&1 | grep -E "^\[|cases|ERROR|status \(|Harvested|properties|listed" || true
+            echo "=== harvest_laft_html.py"; python3 scripts/harvest_laft_html.py 2>&1 | grep -E "^\[|rows|ERROR|status \(|Harvested|listed|INCOMPLETE" || true
+            echo "=== harvest_tx_county_sales.py"; python3 scripts/harvest_tx_county_sales.py --out-dir out/validate_tx 2>&1 | grep -E "^[A-Z][a-z]+ \(|rows;|ERROR|status \(|^ROWS|Harvested" || true
+            python3 - <<'PY'
+          import json, collections
+          st = json.load(open("out/validate_laft_status.json"))
+          c = collections.Counter((e["harvester"], e["status"]) for e in st)
+          for (h, s), n in sorted(c.items()):
+              print("LAFT_STATUS", h, s, n)
+          for e in st:
+              if e["county"] in ("Charlotte", "Lake", "DeSoto", "Wakulla"):
+                  print("NEW_COUNTY", e["county"], e["harvester"], e["status"], e.get("row_count"), e.get("error_category"))
+          PY
+            exit 0
+          fi
           if [ "$SCOPE" = "tn_shelby" ]; then
             # Tennessee onboarding (2026-10-08): Shelby County Land Bank,
             # Clerk & Master tax-sale page + sale books, City of Memphis real
@@ -1559,6 +2025,34 @@ jobs:
             # whitelisted headers, licence text); no row, name, address or
             # identifier. No database credential exists in this job.
             python3 scripts/capture_available_sources.py
+            exit 0
+          fi
+          if [ "$SCOPE" = "new_sources_validate" ]; then
+            # New-sources sprint (2026-10-26): read-only real harvest of every source of
+            # these states (no database credential in this job; nothing synced).
+            for st in MI MO PA SC CO MN; do python3 scripts/harvest_expansion.py --state "$st" || true; done
+            exit 0
+          fi
+          if [ "$SCOPE" = "realauction_paging" ]; then
+            # FL deed harvester paging (2026-10-26): the sale-day page's own
+            # pager code and, per paging sequence, item / new / repeated
+            # counts. The harvester's own fl_realauction sale_calendar
+            # fetch+parse permission; value-free; nothing is written.
+            cargs=""
+            IFS=',' read -ra cs <<< "$COUNTIES"
+            for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
+            eval python3 scripts/realauction_paging_check.py $cargs
+            exit 0
+          fi
+          if [ "$SCOPE" = "tx_realauction" ]; then
+            # Texas RealAuction "sale date found but 0 properties parsed"
+            # (2026-10-26): per sale day and area, item counts and which
+            # labels the harvester's parser reads. tx_realauction fetch+parse
+            # permission; value-free; nothing is written.
+            cargs=""
+            IFS=',' read -ra cs <<< "$COUNTIES"
+            for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
+            eval python3 scripts/tx_realauction_check.py $cargs
             exit 0
           fi
           if [ "$SCOPE" = "available_validate" ]; then
@@ -1658,10 +2152,22 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install requests pillow
+        # pyshp (2026-10-27): the TxGIO StratMap county files are shapefiles.
+        run: pip install requests pillow pyshp
+
+      - name: Restore the parcel-layer batch checkpoint
+        # scripts/enrich_statewide_parcels.py --limit resumes each layer after
+        # the row its previous run stopped at (out/.harvest_cache).
+        if: matrix.kind == 'parcels' && (github.event.inputs.enrich_kinds == '' || contains(github.event.inputs.enrich_kinds, 'parcels'))
+        uses: actions/cache@v4
+        with:
+          path: out/.harvest_cache
+          key: parcel-enrichment-checkpoint-${{ github.run_id }}
+          restore-keys: |
+            parcel-enrichment-checkpoint-
 
       - name: FEMA flood hazard backfill
-        if: matrix.kind == 'flood'
+        if: matrix.kind == 'flood' && (github.event.inputs.enrich_kinds == '' || contains(github.event.inputs.enrich_kinds, 'flood'))
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -1672,7 +2178,7 @@ jobs:
         run: python3 scripts/enrich_flood_zone.py
 
       - name: NAIP aerial imagery backfill
-        if: matrix.kind == 'imagery'
+        if: matrix.kind == 'imagery' && (github.event.inputs.enrich_kinds == '' || contains(github.event.inputs.enrich_kinds, 'imagery'))
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -1683,15 +2189,22 @@ jobs:
         run: python3 scripts/enrich_property_photos_naip.py
 
       - name: Statewide parcel layers (deterministic identifier match)
-        if: matrix.kind == 'parcels'
+        if: matrix.kind == 'parcels' && (github.event.inputs.enrich_kinds == '' || contains(github.event.inputs.enrich_kinds, 'parcels'))
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           ENRICH_STATES: ${{ github.event.inputs.enrich_states }}
+          ENRICH_LIMIT: ${{ github.event.inputs.enrich_limit }}
+        # Every cleared layer of the state - county-scoped assessor layers first,
+        # then the statewide one - over every ACTIVE row of every ledger
+        # (2026-10-27): only blank / placeholder columns are filled, a stronger
+        # provenanced value is never replaced, an unchanged patch is never sent.
         run: |
           STATES="${ENRICH_STATES:-$(python3 -c 'import sys; sys.path.insert(0, "."); from harvesters.governance import states; print(",".join(sorted(states.PRODUCTION_STATES)))')}"
+          LIMIT_ARG=""
+          if [ -n "$ENRICH_LIMIT" ]; then LIMIT_ARG="--limit $ENRICH_LIMIT"; fi
           for st in $(echo "$STATES" | tr ',' ' '); do
-            python3 scripts/enrich_statewide_parcels.py --state "$st" || echo "::warning::$st parcel enrichment failed"
+            python3 scripts/enrich_statewide_parcels.py --state "$st" --all-layers $LIMIT_ARG || echo "::warning::$st parcel enrichment failed"
           done
 
       - name: Prepare artifact (public evidence only)
@@ -1754,6 +2267,37 @@ jobs:
           path: |
             out/public/
             out/private/
+
+  registry:
+    # Registry rows on their own - MANUAL ONLY (job=registry, audit B14 / F4
+    # 2026-10-29): the production county_source_registry table was seeded by
+    # hand and never received a row after 2026-09-30 (121 vs 380), so
+    # unit_freshness had nothing to stamp for most sources. registry_mode=plan
+    # (default) prints the insert / patch counts; apply writes them.
+    name: County source registry -> Supabase (manual only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'registry'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Plan or apply the registry sync
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          if [ "${{ github.event.inputs.registry_mode }}" = "apply" ]; then
+            python3 scripts/sync_registry_to_supabase.py --apply
+          else
+            python3 scripts/sync_registry_to_supabase.py
+          fi
+        # registry_mode == 'apply' is the only path that writes (--apply).
 
   outcomes:
     # Verified auction outcomes on their own - MANUAL ONLY (job=outcomes),
@@ -1881,7 +2425,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install requests pillow pdfplumber beautifulsoup4
+        run: pip install requests pillow pdfplumber beautifulsoup4 pyshp   # pyshp: TxGIO StratMap county files (2026-10-27)
 
       - name: OCR for scanned documents (discover only)
         if: github.event.inputs.available_mode == 'discover'
@@ -1941,7 +2485,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           python3 scripts/apply_acquisition_paths.py --state LA --source-id la_ebr_adjudicated --report out/public/acquisition-apply-la.json
-          python3 scripts/apply_acquisition_paths.py --state TX --source-id tx_lgbs --report out/public/acquisition-apply-tx.json
+          python3 scripts/apply_acquisition_paths.py --state TX --ledgers laft,auction --report out/public/acquisition-apply-tx.json
 
       - name: Apply - Texas AVAILABLE rows observed on the LGBS feed (stamp + provenance; no close, no new field)
         # scripts/lgbs_available_refresh.py: reads ONLY the LGBS feed through the
@@ -2038,6 +2582,7 @@ jobs:
         run: python3 scripts/enrichment_audit.py
 
       - name: Authoritative geocoding
+        if: github.event.inputs.geocode_mode != 'address'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -2052,6 +2597,27 @@ jobs:
           if [ -n "$GEOCODE_LIMIT" ]; then ARGS="$ARGS --limit $GEOCODE_LIMIT"; fi
           if [ "$GEOCODE_UPGRADE" = "yes" ]; then ARGS="$ARGS --allow-upgrade"; fi
           python3 scripts/geocode_authoritative.py $ARGS
+
+      # geocode_mode=address (2026-10-27): the US Census address geocoder over
+      # the rows that publish a street address and have no coordinates - the
+      # same script the deeds job runs at 250 rows a day, here in four passes
+      # of its hard maximum (1,000), resuming from one checkpoint, so a
+      # backlog of a few thousand clears in one manual run.
+      - name: Census address geocoding (backlog)
+        if: github.event.inputs.geocode_mode == 'address'
+        timeout-minutes: 100
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GEOCODE_BATCH_LIMIT: '1000'
+          GEOCODE_PER_UNIT_LIMIT: '1000'
+          GEOCODE_CHECKPOINT: out/geocode_address_checkpoint.json
+        run: |
+          mkdir -p out
+          for pass in 1 2 3 4; do
+            echo "== pass $pass"
+            python3 scripts/geocode_properties.py || echo "::warning::pass $pass failed"
+          done
 
       - name: Prepare artifact (public evidence only)
         if: always()
