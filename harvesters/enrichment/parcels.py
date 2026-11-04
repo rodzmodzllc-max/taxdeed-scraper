@@ -42,7 +42,7 @@ from typing import Any, Callable, Iterable
 from urllib.parse import urlencode
 
 __all__ = ["ID_RULES", "ParcelSourceConfig", "MatchResult", "Coverage", "normalize_id", "enrichment_allowed",
-           "query_urls", "socrata_features", "index_features", "match_rows", "plan_update", "polygon_centroid", "polygon_area_sqft",
+           "query_urls", "post_form", "socrata_features", "index_features", "match_rows", "plan_update", "polygon_centroid", "polygon_area_sqft",
            "LAYER_URL_RE", "DERIVED_AREA_NOTE"]
 
 LAYER_URL_RE = re.compile(r"^https://[^?#\s]+/(FeatureServer|MapServer)/\d+$")
@@ -406,6 +406,18 @@ def query_urls(cfg: ParcelSourceConfig, county: str, raw_ids: Iterable[str]) -> 
                   "outSR": "4326", "f": "json"}
         urls.append(cfg.layer_url + "/query?" + urlencode(params))
     return urls
+
+
+def post_form(url: str) -> tuple[str, bytes] | None:
+    """An ArcGIS REST /query URL as (endpoint, form body) for a POST, or None
+    for any other URL (a Socrata resource, a metadata read). ArcGIS accepts
+    every query parameter as a form POST; some hosts' filters reject certain
+    long GET query strings outright (Detroit's parcel layer answered HTTP 404
+    to 2 of 10 GET batches, every time, and 10 of 10 as POST on 2026-10-25)."""
+    base, sep, query = url.partition("?")
+    if not sep or not base.endswith("/query") or "$where" in query:
+        return None
+    return base, query.encode("ascii")
 
 
 def socrata_features(cfg: ParcelSourceConfig, records) -> list[dict]:

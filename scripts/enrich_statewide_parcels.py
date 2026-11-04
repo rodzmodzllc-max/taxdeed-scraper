@@ -30,6 +30,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections import defaultdict
@@ -68,9 +69,29 @@ def fetch_rows(base: str, key: str, state: str, id_column: str | None = None) ->
     return RP.read_all(base, "properties", hdr, params)
 
 
-def patch(base: str, key: str, row_id: str, fields: dict) -> None:
+PATCH_ATTEMPTS = 4
+PATCH_TRANSIENT = frozenset({500, 502, 503, 504, 520, 521, 522, 523, 524})
+
+
+def patch(base: str, key: str, row_id: str, fields: dict, *, http=None, sleep=time.sleep) -> None:
+    """One row's fill. A PATCH by id with the same body is idempotent, so a
+    transient failure (a statement timeout under load, a gateway error) is
+    retried with a growing pause; a 4xx is final. One transient 500 in a
+    30,549-row Detroit write must not end the whole step."""
+    http = http or http_json
     hdr = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json", "Prefer": "return=minimal"}
-    http_json(f"{base}/rest/v1/properties?id=eq.{row_id}", headers=hdr, method="PATCH", body=json.dumps(fields).encode())
+    body = json.dumps(fields).encode()
+    for n in range(PATCH_ATTEMPTS):
+        try:
+            http(f"{base}/rest/v1/properties?id=eq.{row_id}", headers=hdr, method="PATCH", body=body)
+            return
+        except urllib.error.HTTPError as e:
+            if e.code not in PATCH_TRANSIENT or n + 1 == PATCH_ATTEMPTS:
+                raise
+        except (urllib.error.URLError, TimeoutError, ConnectionError):
+            if n + 1 == PATCH_ATTEMPTS:
+                raise
+        sleep(2.0 * (2 ** n))
 
 
 def blank_for(row: dict, column: str) -> bool:
@@ -96,6 +117,31 @@ def _query_failure(exc) -> str:
     if isinstance(exc, ValueError):
         return "bad_json"
     return type(exc).__name__
+
+
+def query_json(url: str, *, attempts: int = 3, pause: float = 2.0, http=None, sleep=time.sleep):
+    """One layer query: an ArcGIS /query URL is sent as a form POST
+    (P.post_form), anything else as a GET. A transport error, a 5xx or a 429
+    is retried up to `attempts` times with a growing pause; any other HTTP
+    error is final. Raises the last error - the caller withholds that batch."""
+    http = http or http_json
+    form = P.post_form(url)
+    last: Exception | None = None
+    for n in range(max(1, attempts)):
+        try:
+            if form:
+                return http(form[0], method="POST", body=form[1],
+                            headers={"Content-Type": "application/x-www-form-urlencoded"})
+            return http(url)
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code < 500 and e.code != 429:
+                raise
+        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as e:
+            last = e
+        if n + 1 < attempts:
+            sleep(pause * (n + 1))
+    raise last  # type: ignore[misc]
 
 
 def _fetch_with_retry(fetch_json, url, retries: int, sleep, kinds: dict):
@@ -390,7 +436,8 @@ def _main_all_layers(a) -> int:
 
     def fetch_json(url):
         time.sleep(0.3)
-        return http_json(url)
+        # One attempt here: the runner's _fetch_with_retry retries the batch.
+        return query_json(url, attempts=1)
 
     for st in [s.strip().upper() for s in a.state.split(",") if s.strip()]:
         if not states.is_activated(st):
@@ -474,7 +521,8 @@ def main(argv=None) -> int:
 
     def fetch_json(url):
         time.sleep(0.3)
-        return http_json(url)
+        # One attempt here: the runner's _fetch_with_retry retries the batch.
+        return query_json(url, attempts=1)
 
     for cfg in cleared:
         rows = [r for r in all_rows if cfg.covers(r.get("county") or "") and r.get(cfg.row_id_column) not in (None, "")]

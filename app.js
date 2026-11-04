@@ -6041,6 +6041,17 @@ function cardStamp(p) {
     if (s === "certificate_assigned") return { key: "assigned", cls: "stamp-closed", label: "Assigned", title: "Assigned, per the source's own status" };
     if (s === "certificate_expired") return { key: "expired", cls: "stamp-closed", label: "Expired", title: "Expired, per the source's own status" };
     if (isGone(p)) return { key: "gone", cls: "stamp-closed", label: "No longer listed", title: "Left the county-held list - redeemed, assigned or expired is not published" };
+    // Read health of this record's county source (2026-11-04): an active
+    // certificate from a list that could not be read, or has not been read
+    // completely in 7 days, never looks current. The record is kept and
+    // nothing was closed - only its currency is in doubt. try/catch: card()
+    // can run during module start-up, before UNIT_FRESHNESS exists (TDZ).
+    let u = null;
+    try { u = unitForRow(p); } catch (e) { u = null; }
+    const h = u ? sourceHealthState(u).state : null;
+    const last = u && u.last_success_at ? `last complete read ${dateOnly(u.last_success_at)}` : "no complete read recorded";
+    if (h === "SOURCE_UNAVAILABLE") return { key: "source-unavailable", cls: "stamp-closed", label: "Source unavailable", title: `The county-held list could not be read at the last attempt (${last}). This certificate is kept as last listed and nothing was closed - check the source before acting.` };
+    if (h === "STALE") return { key: "source-stale", cls: "stamp-muted", label: "Not recently read", title: `No complete read of the county-held list in the last 7 days (${last}) - check the source before acting.` };
   }
   return null;
 }
