@@ -7738,6 +7738,25 @@ await big.press('#globalSearchInput', 'Enter');
 }
 
 
+// ---- Unpriced rows never match a bid bound (2026-10-13) --------------------
+// A listing with no published price is unknown, not $0. Before this fix a
+// null bid read as 0 and passed every maximum. Fixture: p15 (Citrus) has no
+// published price; p3 (Bay County) shows an opening bid of $2,000.
+{
+  const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+  pg.on('pageerror', e => errors.push('bidbound pageerror: ' + e.message));
+  await pg.goto(BASE_URL + '#/list', { waitUntil: 'networkidle' });
+  await pg.waitForTimeout(500);
+  const count = (pid) => pg.locator(`#main .prop-card[data-pid="${pid}"]`).count();
+  results.bidBoundUnpricedBaseline = await count('p15');
+  await pg.click('#filtersToggle'); await pg.waitForTimeout(300);
+  await pg.click('#bidMaxInput'); await pg.keyboard.press('Control+A'); await pg.keyboard.type('5000', { delay: 20 });
+  await pg.keyboard.press('Enter'); await pg.waitForTimeout(500);
+  results.bidBoundUnpricedWithMax = await count('p15');
+  results.bidBoundPricedWithMax = await count('p3');
+  await pg.close();
+}
+
 await browser.close();
 
 // ============================================================
@@ -7749,6 +7768,9 @@ await browser.close();
 
 
 const EXPECTED = {
+  bidBoundUnpricedBaseline: 1,
+  bidBoundUnpricedWithMax: 0,
+  bidBoundPricedWithMax: 1,
   // One fact, one place + the sticky "Now showing" county bar (2026-10-27).
   countyNowBar_classic_phone: {"visible": true, "inScope": true, "eyebrow": "Counties in this list ▾", "name": "Jump to a county", "heads": ["Bay", "Citrus"], "headsNoDigits": true, "noSidewaysPills": true, "stepTargets": true, "noRepeatViewCount": true, "noOverflow": true, "next": {"county": "Citrus", "headUnderBar": true, "barStuck": true}, "list": [["Bay", "1"], ["Citrus", "1"]], "picked": {"county": "Bay", "listHidden": true}},  // 2026-10-27: docked county bar / location panel
   countyNowBar_classic_desktop: {"visible": true, "inScope": true, "eyebrow": "Counties in this list ▾", "name": "Jump to a county", "heads": ["Bay", "Citrus"], "headsNoDigits": true, "noSidewaysPills": true, "stepTargets": true, "noRepeatViewCount": true, "noOverflow": true, "next": {"county": "Citrus", "headUnderBar": true, "barStuck": true}, "list": [["Bay", "1"], ["Citrus", "1"]], "picked": {"county": "Bay", "listHidden": true}},  // 2026-10-27: docked county bar / location panel
@@ -7935,7 +7957,7 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v161"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v162"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
