@@ -1,0 +1,1158 @@
+#!/usr/bin/env python3
+"""LAFT / OTC inventory lifecycle for one state: last_seen_at, gated
+close-out, reactivation, and (once migration 017 is applied) row-level
+source provenance and honest purchase-amount semantics.
+
+THE STATE IS A PARAMETER (`--state`, default FL - the only state whose
+harvesters write this ledger today). It must be registered in
+harvesters/governance/states.py; an unregistered code stops the run before
+any query (fail closed). Every query and patch is scoped to that state and
+source='laft', and the inventory type stamped on observed rows comes from
+the state's StateConfig (`lifecycle_inventory_type`), never from a literal
+in this file. Nothing about the gates below is per-state.
+
+Runs in the `laft` job right after scripts/sync-laft-to-supabase.ps1's
+upsert. The upsert already made every harvested row exist and `active`
+(see that script's `status = "active"` line); this script does the part
+an upsert cannot: say which rows were NOT seen, and only when that absence
+means something.
+
+DECISION RULES (scripts/laft_status.py is the vocabulary):
+
+  1. A county's status for this run comes from out/harvest_laft_status.json,
+     downgraded to STALE when older than --max-age-hours and to NOT_RUN when
+     the county source registry expects a harvester that left no entry.
+  2. OBSERVED rows (a harvested row whose county is COMPLETE or INCOMPLETE -
+     i.e. a harvester really read it this run) get last_seen_at = now and,
+     if they had been closed, status = 'active' again (migration 006's
+     trigger clears gone_since when status leaves the gone set). A FAILED /
+     STALE / NOT_RUN county has no observations by construction.
+  3. CLOSE-OUT: only for a county whose status is COMPLETE or EMPTY (an
+     authoritative whole-list observation). Every open row of that county
+     that is not in this run's observed keys leaves the county's published
+     list -> status = 'closed' (+ delisted_at). INCOMPLETE, FAILED, STALE,
+     NOT_RUN and a missing or unreadable status file close NOTHING -
+     fail closed, exactly like sync-harvest-to-supabase.ps1's deeds gate.
+  4. Nothing here infers sold / redeemed / escheated. 'closed' means "no
+     longer on the county's Lands Available list", and that is all.
+
+MIGRATION 017 AWARENESS: the lifecycle columns (last_seen_at, delisted_at,
+inventory_type, source_authority, source_id, list_url, document_url,
+purchase_amount, purchase_amount_kind, source document hash/ETag/
+Last-Modified, otc_provenance) do not exist until
+scripts/migrations/017_otc_inventory_provenance_lifecycle.sql is applied
+by hand. This script probes for them once and, when absent, limits itself
+to status reactivation and close-out (both on columns that exist today),
+saying so in the log. It never applies a migration.
+
+SOURCE FIELDS (2026-09-29, enrichment phase): after the provenance step,
+scripts/laft_source_fields.py carries the list-published columns the sync
+drops (legal_desc, owner_name, assessed, certificate_no, homestead, and -
+once migration 019 exists - escheatment_date / available_date) onto the
+same OBSERVED rows, fill-blank only, with field_provenance. That step
+needs none of the 017 columns and runs whether or not 017 is applied.
+
+Standard library only (like scripts/source_health.py). Every Supabase call
+sends an explicit non-browser User-Agent - see the sync script's comment
+on sb_secret keys.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(1, str(Path(__file__).resolve().parent.parent))  # harvesters.* (repo root)
+from laft_status import (DB_AMOUNT_KINDS, CLOSEOUT_ELIGIBLE, load_status,  # noqa: E402
+                         plausible_identifier, statuses_by_county)
+import laft_source_fields as SF  # noqa: E402
+import rest_pages as RP  # noqa: E402
+import write_diff as WD  # noqa: E402
+import purchase_path_engine as PE  # noqa: E402
+from harvesters.governance import states  # noqa: E402
+from harvesters.governance.county_source_registry import DB_SUPPORTED_INVENTORY_TYPES, PurchaseUrlKind  # noqa: E402
+from harvesters.ledgers import Ledger, ledgers_for_source_id  # noqa: E402
+from harvesters.ledgers import health as LH  # noqa: E402
+
+HERE = Path(__file__).resolve().parent
+REPO = HERE.parent
+DEFAULT_STATUS = REPO / "out/harvest_laft_status.json"
+DEFAULT_REGISTRY = REPO / "data/county_source_registry.csv"
+DEFAULT_HARVEST_FILES = [REPO / "out" / n for n in (
+    "harvest_laft.json", "harvest_laft_html.json", "harvest_laft_realtdm.json", "harvest_laft_pioneer.json",
+    "harvest_laft_orange.json", "harvest_laft_stlucie.json", "harvest_laft_osceola.json",
+    "harvest_laft_hillsborough.json", "harvest_laft_leon.json", "harvest_laft_portals.json",
+)]
+
+USER_AGENT = "taxdeed-scraper/1.0 (+https://github.com/rodzmodzllc-max/taxdeed-scraper; GitHub Actions)"
+# The only state whose harvesters feed this script today. Not a module-wide
+# assumption any more: every function that touches the database takes the
+# state explicitly (see main()).
+DEFAULT_STATE = "FL"
+SOURCE = "laft"
+# Statuses that mean "gone" (app.js GONE_STATUSES + migration 006's trigger list).
+GONE_STATUSES = frozenset({"closed", "dropped", "sold", "notfound"})
+OBSERVED_STATUSES = frozenset({"COMPLETE", "INCOMPLETE"})
+BATCH = 40
+# Columns that only exist once migration 017 is applied.
+MIGRATION_017_COLUMNS = ("last_seen_at", "delisted_at", "inventory_type", "source_authority", "source_id",
+                         "list_url", "document_url", "purchase_amount", "purchase_amount_kind",
+                         "source_document_sha256", "source_etag", "source_last_modified", "otc_provenance",
+                         "list_as_of", "source_published_at")
+# Columns that only exist once migration 023 is applied (purchase-path evidence).
+MIGRATION_023_COLUMNS = ("purchase_path_type", "purchase_path_scope", "purchase_path_evidence", "purchase_path_observed_on")
+
+
+class PathContext:
+    """What the purchase-path engine needs per run: the state's registry
+    rows by (source_id, county), the evidence table, and whether migration
+    023's columns exist (the four columns are written only then; the mode
+    the engine derives is carried into otc_provenance either way)."""
+
+    def __init__(self, registry_path: Path, state: str, *, have_023: bool, evidence_path: Path | None = None,
+                 harvest_date: str | None = None) -> None:
+        import csv
+        self.state, self.have_023 = state, have_023
+        self.harvest_date = harvest_date or datetime.now(timezone.utc).date().isoformat()
+        self.registry: dict[tuple[str, str], dict] = {}
+        if Path(registry_path).is_file():
+            with open(registry_path, newline="", encoding="utf-8") as fh:
+                for r in csv.DictReader(fh):
+                    if r.get("state") == state:
+                        self.registry[(r.get("source_id") or "", r.get("county") or "")] = r
+        self.evidence = PE.load_evidence(evidence_path or PE.EVIDENCE_PATH)
+
+    def resolve(self, row: dict, *, source_id: str | None, county: str | None, list_url, document_url):
+        reg = self.registry.get((source_id or "", county or ""))
+        return PE.resolve(row, state=self.state, source_id=source_id or "", county=county or "", registry_row=reg,
+                          evidence=self.evidence, list_url=list_url, document_url=document_url, harvest_date=self.harvest_date)
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+# ---------------------------------------------------------------------------
+# Pure decision layer (tested directly, no network)
+# ---------------------------------------------------------------------------
+
+def identity_key(row: dict) -> tuple[str, str] | None:
+    """Exactly sync-laft-to-supabase.ps1's identity: county + (case_no or
+    parcel). A row with neither was never upserted and is not an observation."""
+    county = str(row.get("county") or "").strip()
+    case_no = str(row.get("case_no") or "").strip() or str(row.get("parcel") or "").strip()
+    if not county or not case_no:
+        return None
+    return county, case_no
+
+
+def load_harvest_rows(paths: list[Path]) -> list[dict]:
+    rows: list[dict] = []
+    for p in paths:
+        if not p.is_file():
+            continue
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except ValueError:
+            print(f"::warning title=laft_lifecycle::{p.name} is not valid JSON - its rows are not treated as observations")
+            continue
+        if isinstance(data, list):
+            rows.extend(r for r in data if isinstance(r, dict))
+    return rows
+
+
+def observed_by_county(rows: list[dict]) -> dict[str, dict[str, dict]]:
+    """{county: {case_no: row}} - last row wins per key, like the sync's dedupe."""
+    out: dict[str, dict[str, dict]] = {}
+    for r in rows:
+        key = identity_key(r)
+        if not key:
+            continue
+        out.setdefault(key[0], {})[key[1]] = r
+    return out
+
+
+# Purchase-path kinds (migration 017 / county_source_registry.PurchaseUrlKind).
+# PROPERTY kinds are links a buyer uses for THIS parcel; INSTRUCTION kinds
+# are the county's process page. Both are stored in purchase_url +
+# purchase_url_kind; the kind is what keeps them apart downstream (the app
+# never presents an instructions page as a property link).
+PURCHASE_URL_KINDS = frozenset(k.value for k in PurchaseUrlKind)
+PROPERTY_PURCHASE_KINDS = frozenset({"online_purchase", "offer_form", "bid_form"})
+
+
+def load_registry_purchase_paths(registry_path: Path, state: str = DEFAULT_STATE) -> dict[tuple[str, str], tuple[str, str]]:
+    """(source_id, county) -> (purchase_url, purchase_url_kind) for the
+    state's PRODUCTION_VERIFIED registry rows that carry one. A source-
+    level path (an application / instructions page verified for that
+    county's source) - never a per-property link, which only a harvester
+    row can supply. Blank in the committed registry today: this returns {}
+    until a county's path is verified and added there."""
+    import csv
+    if not registry_path.is_file():
+        return {}
+    out: dict[tuple[str, str], tuple[str, str]] = {}
+    with open(registry_path, newline="", encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            if r.get("state") != state or r.get("verification_status") != "PRODUCTION_VERIFIED":
+                continue
+            url, kind = (r.get("purchase_url") or "").strip(), (r.get("purchase_url_kind") or "").strip()
+            if url and kind:
+                out[(r.get("source_id") or "", r.get("county") or "")] = (url, kind)
+    return out
+
+
+def load_registry_purchase_modes(registry_path: Path, state: str = DEFAULT_STATE) -> dict[tuple[str, str], tuple[str, str]]:
+    """(source_id, county) -> (purchase_path_mode, purchase_path_evidence)
+    for the state's production registry rows that state a NON-URL mode
+    (in_person_only / phone_mail / none). Carried into otc_provenance so
+    the customer sees "in-person process published by the source" rather
+    than a bare "no link"; never a URL, never a guess (unknown = absent)."""
+    import csv
+    if not registry_path.is_file():
+        return {}
+    out: dict[tuple[str, str], tuple[str, str]] = {}
+    with open(registry_path, newline="", encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            if r.get("state") != state or r.get("verification_status") != "PRODUCTION_VERIFIED":
+                continue
+            mode, evidence = (r.get("purchase_path_mode") or "").strip(), (r.get("purchase_path_evidence") or "").strip()
+            if mode in ("in_person_only", "phone_mail", "none") and evidence:
+                out[(r.get("source_id") or "", r.get("county") or "")] = (mode, evidence)
+    return out
+
+
+def purchase_path_of(row: dict, *, list_url: str | None, document_url: str | None, source_id: str | None,
+                     county: str | None, registry_paths: dict | None) -> tuple[str | None, str | None, str]:
+    """(purchase_url, purchase_url_kind, basis) for one observed row.
+
+    1. The harvester row's own purchase_url + purchase_url_kind - a link the
+       SOURCE published for this exact property (kind in PurchaseUrlKind).
+    2. Else the registry's source-level path for (source_id, county).
+    3. Else (None, None) - nothing is derived from a list page, a document
+       URL or a county homepage; the row keeps whatever it already holds.
+    A URL is accepted only if it is https and differs from the list and
+    document URLs (a list page is never a purchase URL - 017's rule)."""
+    def ok(url, kind):
+        return (isinstance(url, str) and url.startswith("https://") and kind in PURCHASE_URL_KINDS
+                and url != list_url and url != document_url)
+    url, kind = row.get("purchase_url"), row.get("purchase_url_kind")
+    if ok(url, kind):
+        level = "property-level" if kind in PROPERTY_PURCHASE_KINDS else "source-level"
+        return url, kind, f"{level} {kind} link published by the source for this property"
+    if registry_paths and source_id is not None and county is not None:
+        found = registry_paths.get((source_id, county))
+        if found and ok(*found):
+            url, kind = found
+            level = "property-level" if kind in PROPERTY_PURCHASE_KINDS else "source-level"
+            return url, kind, f"{level} {kind} page for this county's source (data/county_source_registry.csv)"
+    return None, None, "no purchase path published by the source or verified in the registry - none invented"
+
+
+def load_expected_units(registry_path: Path, state: str = DEFAULT_STATE) -> list[tuple[str, str]]:
+    """(source_id, county) pairs the registry expects one of `state`'s
+    harvesters to cover this run. Read with csv directly - scripts/ is not
+    a package. Another state's rows never enter this state's run."""
+    import csv
+    if not registry_path.is_file():
+        return []
+    # Only the AVAILABLE ledger's units (data/county_source_registry.csv
+    # `ledgers`): this lifecycle reads harvest_laft_status.json, and an
+    # AUCTIONS or LIENS_CERTIFICATES unit for the same county name must never
+    # appear here as NOT_RUN and block the county. A registry without the
+    # column (an older fixture) is taken whole.
+    with open(registry_path, newline="", encoding="utf-8") as fh:
+        return sorted({(r["source_id"], r["county"]) for r in csv.DictReader(fh)
+                       if r.get("state") == state and r.get("verification_status") == "PRODUCTION_VERIFIED"
+                       and (not (r.get("ledgers") or "").strip() or "AVAILABLE" in (r.get("ledgers") or "").split("|"))})
+
+
+def county_gates(status_entries: list[dict], expected: list[tuple[str, str]], *, now: float | None = None,
+                 max_age_hours: float = 36.0, state: str | None = None) -> dict[str, dict]:
+    """{county: {"status", "observed_ok", "closeout_ok", "entry"}}. With
+    `state`, an entry that names another state is dropped: county NAMES
+    repeat across states (Alabama and Florida both have an Escambia, a
+    Jackson, a Franklin ...), so another state's status entry must never
+    gate this state's rows. Every harvester's recorder writes its state
+    (CountyStatus.state, FL by default); an entry with no state at all is
+    kept, as before."""
+    if state is not None:
+        status_entries = [e for e in status_entries if not e.get("state") or str(e["state"]) == state]
+    # The ledger health reader first (harvesters/ledgers/health.py): an EMPTY
+    # without a valid empty signal, or a COMPLETE / EMPTY from a read that
+    # failed at transport or parse, is INCOMPLETE - observed, never closeable.
+    status_entries = [health_checked(e) for e in status_entries]
+    by_county = statuses_by_county(status_entries, expected=expected, now=now, max_age_hours=max_age_hours)
+    units = source_units(status_entries, now=now, max_age_hours=max_age_hours)
+    expected_by_county: dict[str, set[str]] = {}
+    for sid, county in expected or []:
+        expected_by_county.setdefault(county, set()).add(sid)
+    gates: dict[str, dict] = {}
+    for county, info in by_county.items():
+        status = info["status"]
+        county_units = {sid: st for (sid, c), st in units.items() if c == county}
+        gates[county] = {
+            "status": status,
+            "observed_ok": status in OBSERVED_STATUSES,
+            "closeout_ok": status in CLOSEOUT_ELIGIBLE,
+            "harvester": info.get("harvester"),
+            "entry": info.get("entry"),
+            # Per-source reads of this county, and the registry's sources for
+            # it that left no entry at all: one source's read never closes a
+            # sibling source's rows (plan_lifecycle).
+            "units": county_units,
+            "missing_sources": sorted(expected_by_county.get(county, set()) - set(county_units)),
+        }
+    return gates
+
+
+def health_checked(entry: dict) -> dict:
+    """The entry as the ledger health reader allows it to be acted on: a
+    recorded COMPLETE / EMPTY the reader does not accept becomes INCOMPLETE
+    (with `health_downgrade` naming why); every other entry is unchanged."""
+    recorded = str(entry.get("status") or "").upper()
+    if recorded not in CLOSEOUT_ELIGIBLE:
+        return entry
+    read = LH.reader_status(entry)
+    if read == recorded:
+        return entry
+    return {**entry, "status": "INCOMPLETE", "health_downgrade": f"{recorded}->{read}"}
+
+
+def entry_source(entry: dict) -> str:
+    return str(entry.get("source_id") or entry.get("harvester") or "")
+
+
+def source_units(entries: list[dict], *, now: float | None = None, max_age_hours: float = 36.0) -> dict[tuple[str, str], str]:
+    """{(source_id, county): weakest effective status} - each LAFT source's
+    own read of each county (laft_status.effective_status, so staleness
+    applies). An entry naming a source that does not feed the AVAILABLE
+    ledger is never a unit here."""
+    from laft_status import effective_status  # noqa: PLC0415
+    order = ("SOURCE_UNAVAILABLE", "FAILED", "NOT_RUN", "STALE", "INCOMPLETE", "EMPTY", "COMPLETE")
+    out: dict[tuple[str, str], str] = {}
+    for e in entries:
+        sid, county = entry_source(e), str(e.get("county") or "")
+        if not sid or not county:
+            continue
+        fed = ledgers_for_source_id(sid)
+        if fed and Ledger.AVAILABLE not in fed:
+            continue
+        eff = effective_status(e, now=now, max_age_hours=max_age_hours)
+        cur = out.get((sid, county))
+        if cur is None or order.index(eff) < order.index(cur):
+            out[(sid, county)] = eff
+    return out
+
+
+def row_closeable(row: dict, gate: dict) -> bool:
+    """May this stored row be closed by this run's read of its county?
+    The county gate must allow close-out (its weakest read COMPLETE / EMPTY),
+    and then:
+      * a row naming its source (source_id) closes only on THAT source's own
+        COMPLETE / EMPTY read - a sibling source's read never closes it, and a
+        source that does not feed the AVAILABLE ledger never closes anything;
+      * a row naming no source closes only when the county was read by exactly
+        one source and the registry expects no other (otherwise the row cannot
+        be attributed to the read that missed it)."""
+    if not gate.get("closeout_ok"):
+        return False
+    units = gate.get("units") or {}
+    sid = str(row.get("source_id") or "")
+    if sid:
+        fed = ledgers_for_source_id(sid)
+        if fed and Ledger.AVAILABLE not in fed:
+            return False
+        return LH.closeable(Ledger.AVAILABLE, units.get(sid))
+    if gate.get("missing_sources"):
+        return False
+    return len(units) <= 1
+
+
+NOT_PERMITTED = "NOT_PERMITTED"
+
+
+def apply_store_permission(gates: dict[str, dict], state: str, *, authorize=None) -> dict[str, str]:
+    """Withdraw every county whose source has no recorded `store` permission
+    (data/source_permissions.csv): nothing is observed, reactivated, closed
+    or carried from its list. Fails closed - no source, a denial or a
+    governance error all withdraw the county. Returns {county: reason code}
+    for the withdrawn ones."""
+    if authorize is None:
+        import laft_status  # noqa: PLC0415 - the LAFT harvesters' own permission helper
+
+        def authorize(source_id, county):
+            return laft_status.permission(source_id, "store", state=state, county=county)
+    withdrawn: dict[str, str] = {}
+    for county, gate in gates.items():
+        entry = gate.get("entry") or {}
+        source_id = entry.get("source_id") or gate.get("harvester")
+        if not source_id:
+            reason = "NO_SOURCE"
+        else:
+            try:
+                d = authorize(source_id, county)
+                reason = "" if d.allowed else (d.reason_code or "DENIED")
+            except Exception as exc:  # noqa: BLE001 - no governance means no permission
+                reason = f"GOVERNANCE_UNAVAILABLE:{type(exc).__name__}"
+        if reason:
+            gate.update(status=NOT_PERMITTED, observed_ok=False, closeout_ok=False, permission=reason)
+            withdrawn[county] = reason
+    return withdrawn
+
+
+@dataclass
+class Plan:
+    observe: list[tuple[str, str]] = field(default_factory=list)        # (county, case_no) seen this run
+    reactivate: list[tuple[str, str]] = field(default_factory=list)     # subset of observe whose DB status is gone
+    close: list[dict] = field(default_factory=list)                     # DB rows {id, county, case_no}
+    skipped_counties: dict[str, str] = field(default_factory=dict)      # county -> why nothing may be closed
+    ignored_rows: int = 0                                               # harvested rows from non-observed counties
+    kept_unattributed: int = 0                                          # absent rows another source's read cannot close
+
+
+def plan_lifecycle(gates: dict[str, dict], observed: dict[str, dict[str, dict]], db_rows: list[dict]) -> Plan:
+    """The whole decision, as data. `db_rows` are the state's LAFT rows
+    with at least id/county/case_no/status."""
+    plan = Plan()
+    db_by_key = {(str(r.get("county")), str(r.get("case_no"))): r for r in db_rows}
+    for county, keys in observed.items():
+        gate = gates.get(county)
+        if not gate or not gate["observed_ok"]:
+            # A harvester wrote rows for a county it did not report as
+            # COMPLETE/INCOMPLETE (or the status file is missing). Not an
+            # observation this script will vouch for.
+            plan.ignored_rows += len(keys)
+            continue
+        for case_no in keys:
+            plan.observe.append((county, case_no))
+            existing = db_by_key.get((county, case_no))
+            if existing is not None and str(existing.get("status") or "").lower() in GONE_STATUSES:
+                plan.reactivate.append((county, case_no))
+    observed_keys = set(plan.observe)
+    for county, gate in gates.items():
+        if not gate["closeout_ok"]:
+            plan.skipped_counties[county] = gate["status"]
+            continue
+        for r in db_rows:
+            if str(r.get("county")) != county:
+                continue
+            if str(r.get("status") or "active").lower() in GONE_STATUSES:
+                continue
+            if (county, str(r.get("case_no"))) in observed_keys:
+                continue
+            if not row_closeable(r, gate):
+                # Its own source's read did not confirm the whole list (see
+                # row_closeable): left exactly as it is.
+                plan.kept_unattributed += 1
+                continue
+            plan.close.append({"id": r.get("id"), "county": county, "case_no": str(r.get("case_no"))})
+    plan.observe.sort()
+    plan.reactivate.sort()
+    plan.close.sort(key=lambda r: (r["county"], r["case_no"]))
+    return plan
+
+
+_NUM_RE = re.compile(r"^\d+(\.\d+)?$")
+
+
+def amount_of(row: dict, *, storable_kinds=DB_AMOUNT_KINDS) -> tuple[float | None, str]:
+    """(purchase_amount, purchase_amount_kind) from a harvested row. Same
+    numeric cleanup as the sync's ToNum, but a missing/unparseable amount is
+    NULL + NOT_PUBLISHED - never 0. A harvester that says WHY there is no
+    figure (bid_kind QUOTED_ON_APPLICATION - the Alabama adapter) keeps that
+    kind only once the database can store it (migration 020); until then
+    it is NOT_PUBLISHED, the storable truth. No FL harvester emits it."""
+    raw = row.get("bid")
+    if raw is None or str(raw).strip() == "":
+        kind = str(row.get("bid_kind") or "")
+        if kind == "QUOTED_ON_APPLICATION" and kind in storable_kinds:
+            return None, kind
+        return None, "NOT_PUBLISHED"
+    cleaned = re.sub(r"[^0-9.]", "", str(raw))
+    if not _NUM_RE.match(cleaned):
+        return None, "NOT_PUBLISHED"
+    value = float(cleaned)
+    kind = str(row.get("bid_kind") or "PUBLISHED_AMOUNT_KIND_UNSPECIFIED")
+    # Only a storable kind, and never an amount-less kind (NOT_PUBLISHED /
+    # QUOTED_ON_APPLICATION - both carry no figure, per the database's own
+    # semantics check) next to a real figure.
+    if kind not in DB_AMOUNT_KINDS or kind in ("NOT_PUBLISHED", "QUOTED_ON_APPLICATION"):
+        kind = "PUBLISHED_AMOUNT_KIND_UNSPECIFIED"
+    return value, kind
+
+
+def lifecycle_inventory(state: str) -> tuple[str | None, str | None]:
+    """(inventory_type, basis) the lifecycle stamps on `state`'s observed
+    rows, from the state's registration. (None, None) = this state's
+    lifecycle asserts no inventory type (the column is left alone)."""
+    cfg = states.get_state(state)
+    if cfg is None:
+        raise ValueError(f"state {state!r} is not registered (harvesters/governance/states.py)")
+    if not states.is_activated(state):
+        # Registered is not activated: a state whose sources have not been
+        # verified and authorised (Alabama today) never reaches the database,
+        # not even as a filter.
+        raise ValueError(f"state {state!r} is registered but not activated for production - blockers: "
+                         f"{', '.join(states.activation_blockers(state))}")
+    if cfg.lifecycle_inventory_type is not None and cfg.lifecycle_inventory_type not in DB_SUPPORTED_INVENTORY_TYPES:
+        # public.properties' check constraint (migration 017) would reject
+        # the PATCH; refuse up front instead of failing per batch.
+        raise ValueError(f"{state}: lifecycle inventory type {cfg.lifecycle_inventory_type!r} is not storable until a migration widens the constraint")
+    return cfg.lifecycle_inventory_type, cfg.lifecycle_inventory_basis
+
+
+def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str = DEFAULT_STATE,
+                       registry_paths: dict | None = None, registry_modes: dict | None = None,
+                       path_ctx: "PathContext | None" = None) -> dict:
+    """The migration-017 columns for one observed row. Every value comes
+    from the harvester's own status entry or the row it read; nothing is
+    derived from the county name or guessed. The inventory type is the
+    state's registered lifecycle type (FL: the statutory fixed-price list).
+    purchase_url / purchase_url_kind are set only when purchase_path_of()
+    finds one; otherwise the keys are absent so an existing value is never
+    overwritten with NULL."""
+    entry = gate.get("entry") or {}
+    inventory_type, inventory_basis = lifecycle_inventory(state)
+    amount, kind = amount_of(row)
+    list_url = entry.get("source_url") or row.get("url_auction") or None
+    document_url = entry.get("document_url") or None
+    if document_url == list_url:
+        document_url = document_url  # a PDF list is both the list and the document
+    list_as_of = entry.get("list_as_of") or None
+    published_at = published_at_from_last_modified(entry.get("document_last_modified"))
+    source_id = entry.get("source_id") or gate.get("harvester")
+    purchase_url, purchase_kind, purchase_basis = purchase_path_of(
+        row, list_url=list_url, document_url=document_url, source_id=source_id, county=row.get("county"),
+        registry_paths=registry_paths)
+    # The source-level purchase-path MODE (scripts/laft_purchase_paths.PURCHASE_PATH_MODES):
+    # derived from the URL kind when there is a URL; a registry-stated
+    # non-URL mode (in-person / phone-mail / none, with the source's own
+    # wording) when there is not; "unknown" otherwise - never inferred.
+    if purchase_url is not None:
+        purchase_mode = {"online_purchase": "online_property", "offer_form": "online_property", "bid_form": "online_property",
+                         "purchase_instructions": "online_instructions", "application_form": "application"}.get(purchase_kind, "online_instructions")
+    else:
+        stated = (registry_modes or {}).get((source_id or "", row.get("county") or ""))
+        if stated:
+            purchase_mode, evidence = stated
+            purchase_basis = (f"{purchase_mode.replace('_', ' ')} process published by the source: {evidence} "
+                              f"(data/county_source_registry.csv); no online path")
+        else:
+            purchase_mode = "unknown"
+    # The purchase-path engine (scripts/purchase_path_engine.py, migration
+    # 023): the row's own verified link, the evidence table or the registry
+    # row establishes a typed path with its evidence and observed date; a
+    # refusal is a reason, never a path; nothing verified = the columns stay
+    # NULL and the wording above stands.
+    path_columns: dict = {}
+    path_provenance: dict = {}
+    if path_ctx is not None:
+        path, refusals = path_ctx.resolve(row, source_id=source_id, county=row.get("county"), list_url=list_url, document_url=document_url)
+        if path is not None:
+            purchase_mode = path.mode if path.mode != "unknown" else purchase_mode
+            purchase_basis = f"{path.path_type} ({path.scope}-scope): {path.evidence}"
+            cols = path.columns()
+            if "purchase_url" in cols:
+                purchase_url, purchase_kind = cols["purchase_url"], cols["purchase_url_kind"]
+            if path_ctx.have_023:
+                path_columns = cols
+            path_provenance = path.provenance()
+        elif refusals:
+            purchase_basis = purchase_basis + "; refused: " + "; ".join(refusals)
+    payload = {
+        "last_seen_at": retrieved_at,
+        # Currentness, from the source's own statements only: list_as_of is the
+        # date the harvester read off the document/filename; source_published_at
+        # is the server's Last-Modified for the document. Retrieval time is
+        # never written into either (migration 017's rule).
+        "list_as_of": list_as_of,
+        "source_published_at": published_at,
+        "inventory_type": inventory_type,
+        "source_authority": entry.get("source_class"),
+        "source_id": entry.get("source_id") or gate.get("harvester"),
+        "list_url": list_url,
+        "document_url": document_url,
+        "purchase_amount": amount,
+        "purchase_amount_kind": kind,
+        "source_document_sha256": entry.get("document_sha256"),
+        "source_etag": entry.get("document_etag"),
+        "source_last_modified": entry.get("document_last_modified"),
+        "otc_provenance": {
+            "harvester": gate.get("harvester"),
+            "source_id": entry.get("source_id") or gate.get("harvester"),
+            "retrieved_at": entry.get("checked_at") or retrieved_at,
+            "list_url": list_url,
+            "document_url": document_url,
+            "inventory_type": inventory_basis,
+            "purchase_amount": ("not published by the source" if amount is None else f"source column/field: {kind}"),
+            "list_as_of": ("stated by the list document/filename" if list_as_of
+                           else "not stated in this run's read; a date stored from an earlier read or the sync is kept"),
+            "source_published_at": ("HTTP Last-Modified of the source document" if published_at else "no Last-Modified from the source"),
+            "purchase_url": purchase_basis,
+            "purchase_path_mode": purchase_mode,
+            "status_terminology": "active = on the county list this run; closed = absent from a COMPLETE/EMPTY harvest",
+            # Acquisition sprint (2026-09-30): the deterministic property-to-
+            # source link. The harvester read THIS row off THIS list / document
+            # this run, keyed exactly as the sync upserts it (county + case_no,
+            # or parcel when the list carries no case number) - never an owner
+            # name or address match.
+            "source_match": source_match_of(row, list_url=list_url, document_url=document_url, read_at=retrieved_at),
+        },
+    }
+    for key in ("list_as_of", "source_published_at"):
+        # A source statement this run did not carry is not a statement that
+        # there is none: an absent value never writes NULL over a stored one
+        # (the Louisiana sync stores list_as_of from the dataset's own
+        # rowsUpdatedAt; the lifecycle's status entry has no such field).
+        if payload[key] is None:
+            del payload[key]
+    if purchase_url is not None:
+        payload["purchase_url"] = purchase_url
+        payload["purchase_url_kind"] = purchase_kind
+    payload.update(path_columns)
+    payload["otc_provenance"].update(path_provenance)
+    if inventory_type is None:
+        # This state's lifecycle does not classify inventory: leave the
+        # column untouched rather than writing NULL over a harvester's value.
+        del payload["inventory_type"]
+        del payload["otc_provenance"]["inventory_type"]
+    return payload
+
+
+# otc_provenance keys provenance_payload() itself writes (outside the
+# purchase-path group below). A state sync that also writes otc_provenance
+# (scripts/sync_state_inventory.py - Louisiana) leaves these keys to the
+# lifecycle once the lifecycle has stamped a row (its "harvester" key is
+# there), so the two writers converge on one stable dict instead of each
+# rewriting the other's values every run (2026-10-26).
+LIFECYCLE_OTC_KEYS = ("harvester", "source_id", "retrieved_at", "list_url", "document_url", "inventory_type",
+                      "purchase_amount", "list_as_of", "source_published_at", "purchase_url", "purchase_path_mode",
+                      "status_terminology", "source_match")
+# PurchasePath.provenance()'s keys: verified acquisition evidence, which
+# moves as ONE unit (same group as sync_state_inventory.ACQUISITION_KEYS).
+PATH_PROVENANCE_KEYS = ("acquisition", "purchase_evidence_url", "purchase_evidence_type", "purchase_evidence_title",
+                        "purchase_instructions", "purchase_path_observed_on")
+# Every column provenance_payload() can write - read with the state's rows so
+# each observed row's payload is compared with what is stored.
+PAYLOAD_COLUMNS = ("last_seen_at", "list_as_of", "source_published_at", "inventory_type", "source_authority", "source_id",
+                   "list_url", "document_url", "purchase_amount", "purchase_amount_kind", "source_document_sha256",
+                   "source_etag", "source_last_modified", "otc_provenance", "purchase_url", "purchase_url_kind")
+
+
+def merge_otc(stored, payload_otc: dict) -> dict:
+    """The otc_provenance to write for an observed row: the STORED dict with
+    this read's keys laid over it (never a wholesale replacement - keys
+    another writer owns, e.g. the Louisiana adapter's column notes, are kept).
+    The verified purchase-path group moves as a unit: this read's group when
+    it resolved a path, else the stored group untouched (verified evidence is
+    never erased by a read that did not establish it). Pure."""
+    base = dict(stored) if isinstance(stored, dict) else {}
+    new = dict(payload_otc or {})
+    if any(k in new for k in PATH_PROVENANCE_KEYS):
+        for k in PATH_PROVENANCE_KEYS:
+            base.pop(k, None)
+    base.update(new)
+    return base
+
+
+def source_match_of(row: dict, *, list_url, document_url, read_at: str) -> dict | None:
+    """otc_provenance.source_match: which published identifier ties the row
+    to the list it was read from. None when the row carries neither a case
+    number nor a parcel (it was never an observation - see identity_key)."""
+    case_no = str(row.get("case_no") or "").strip()
+    parcel = str(row.get("parcel") or "").strip()
+    if case_no:
+        match = {"identifier": "case_no", "value": case_no}
+        if parcel:
+            match["parcel"] = parcel
+    elif parcel:
+        match = {"identifier": "parcel", "value": parcel}
+    else:
+        return None
+    cert = str(row.get("certificate_no") or "").strip()
+    if cert:
+        match["certificate_no"] = cert
+    match["source"] = document_url or list_url
+    match["basis"] = "row read from the source list / document by the harvester; identity as the sync upserts it"
+    match["read_at"] = read_at
+    return match
+
+
+CARRY_017_COLUMNS = ("parcel", "certificate_no", "last_seen_at", "otc_provenance", "source_id", "list_url", "document_url")
+CARRY_COLUMNS = CARRY_017_COLUMNS + ("purchase_path_type", "purchase_path_scope", "purchase_path_evidence", "purchase_path_observed_on")
+
+
+def carry_identifiers_valid(row: dict) -> bool:
+    """Conservative identity check for a row no lifecycle read ever stamped,
+    before county-level evidence is carried onto it.
+
+    True only when the row carries at least one identifier (parcel or
+    case_no) and EVERY identifier it carries:
+      - passes the harvesters' own plausibility rule
+        (laft_status.plausible_identifier: no line break, contains a digit,
+        at most 40 characters for a parcel / 60 for a case number), and
+      - contains at least two digits.
+
+    A row that fails is a parse artifact (e.g. Pasco's case "2. The" with a
+    465-character run-together parcel), not a property; it is left exactly as
+    stored - never closed, never edited - and simply receives nothing."""
+    present = [(row.get(k), kind) for k, kind in (("parcel", "parcel"), ("case_no", "case_no"))
+               if row.get(k) is not None and str(row.get(k)).strip()]
+    if not present:
+        return False
+    for value, kind in present:
+        if not plausible_identifier(value, kind=kind):
+            return False
+        if len(re.findall(r"\d", str(value))) < 2:
+            return False
+    return True
+
+
+def carry_plan(db_rows: list[dict], observed_keys: set, path_ctx: "PathContext | None", *, have_023: bool) -> list[tuple[int, dict]]:
+    """Acquisition sprint 2 (2026-09-30): keep verified customer evidence on
+    rows this run did NOT read (their county was INCOMPLETE, SOURCE_UNAVAILABLE,
+    FAILED, STALE or not run). A temporary read failure never erases
+    anything; this pass only ADDS what is already established:
+
+    - the deterministic property-to-source match, from the identity the sync
+      upserted the row under (case_no, else parcel) and the list / document it
+      was last read from, dated by that last read (last_seen_at) - never a
+      name, address or proximity match; a row never read has none;
+    - the acquisition path the verified evidence table establishes for the
+      row's source + county (its own observed date), exactly as an observed
+      row would get it.
+
+    Nothing is patched when nothing changes; no key is removed; last_seen_at
+    is never touched (the row was not read). Returns [(id, payload)]."""
+    out: list[tuple[int, dict]] = []
+    for r in db_rows:
+        if str(r.get("status") or "active").lower() in GONE_STATUSES:
+            continue
+        if (str(r.get("county")), str(r.get("case_no"))) in observed_keys or not r.get("id"):
+            continue
+        prov = r.get("otc_provenance") if isinstance(r.get("otc_provenance"), dict) else {}
+        # A row the sync stored but no lifecycle read ever stamped (empty
+        # otc_provenance - e.g. Pasco / Hendry when their PDF read was never
+        # COMPLETE) still names its source in the row's own source_id column.
+        # The verified evidence is county + source level, so such a row
+        # receives its county's verified process too; it never receives a
+        # source_match (it was never read). A row with neither is skipped.
+        source_id = prov.get("source_id") or r.get("source_id")
+        if not prov and not source_id:
+            continue                                    # nothing names the row's source: nothing to attach
+        if not prov and not carry_identifiers_valid(r):
+            continue                                    # malformed identity (e.g. run-together PDF text): nothing attached
+        new_prov = dict(prov)
+        list_url = prov.get("list_url") or r.get("list_url")
+        document_url = prov.get("document_url") or r.get("document_url")
+        if not prov.get("source_match") and r.get("last_seen_at") and (list_url or document_url):
+            match = source_match_of(r, list_url=list_url, document_url=document_url, read_at=str(r["last_seen_at"]))
+            if match:
+                match["basis"] = ("row last read from the source list / document by the harvester (read_at); identity as the "
+                                  "sync upserted it; carried because the county was not read this run")
+                new_prov["source_match"] = match
+        cols: dict = {}
+        if path_ctx is not None:
+            path, _refusals = path_ctx.resolve(r, source_id=source_id, county=r.get("county"),
+                                               list_url=list_url, document_url=document_url)
+            if path is not None:
+                new_prov.update(path.provenance())
+                if have_023:
+                    cols = {k: v for k, v in path.columns().items() if r.get(k) != v}
+        payload = dict(cols)
+        if new_prov != prov:
+            payload["otc_provenance"] = new_prov
+        if payload:
+            out.append((r["id"], payload))
+    return out
+
+
+def published_at_from_last_modified(value) -> str | None:
+    """RFC 1123 Last-Modified -> ISO 8601 UTC, or None. Deterministic; a
+    value that does not parse is dropped, never approximated."""
+    if not value or not str(value).strip():
+        return None
+    try:
+        dt = parsedate_to_datetime(str(value).strip())
+    except (TypeError, ValueError, IndexError):
+        return None
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def group_provenance(rows: list[tuple[str, dict]], gate: dict, retrieved_at: str, *, state: str = DEFAULT_STATE,
+                     registry_paths: dict | None = None, registry_modes: dict | None = None,
+                     path_ctx: "PathContext | None" = None) -> list[tuple[dict, list[str]]]:
+    """[(payload, [case_no...])] - identical payloads share one PATCH."""
+    groups: dict[str, tuple[dict, list[str]]] = {}
+    for case_no, row in rows:
+        payload = provenance_payload(row, gate, retrieved_at, state=state, registry_paths=registry_paths, registry_modes=registry_modes,
+                                     path_ctx=path_ctx)
+        key = json.dumps(payload, sort_keys=True, default=str)
+        groups.setdefault(key, (payload, []))[1].append(case_no)
+    return list(groups.values())
+
+
+# ---------------------------------------------------------------------------
+# Supabase I/O (stdlib)
+# ---------------------------------------------------------------------------
+
+API_PAGE = 1000          # PostgREST max-rows on this project
+WIDE_BATCH = 100         # rows per by-id read of the wide columns (fetch_state_rows)
+
+
+class Api:
+    def __init__(self, url: str, key: str, *, dry_run: bool = False) -> None:
+        self.base = url.rstrip("/") + "/rest/v1/properties"
+        self.key = key
+        self.dry_run = dry_run
+        self.requests_made = 0
+
+    def _headers(self, extra: dict | None = None) -> dict:
+        h = {"apikey": self.key, "Authorization": f"Bearer {self.key}", "User-Agent": USER_AGENT,
+             "Content-Type": "application/json"}
+        h.update(extra or {})
+        return h
+
+    def get(self, query: str) -> list[dict]:
+        # Bounded retry on a transient 5xx / timeout (rest_pages): a GET is
+        # idempotent, and one loaded-database 500 used to stop the lifecycle.
+        rows = RP.get_json(f"{self.base}?{query}", self._headers(), timeout=60)
+        self.requests_made += 1
+        return rows
+
+    def get_all(self, query: str, *, page: int = API_PAGE) -> list[dict]:
+        """Every row matching `query`, read in `page`-sized keyset pages.
+
+        PostgREST caps every response at its max-rows (1,000 on this
+        project), whatever `limit` asks for - a single 10,000-row limit
+        silently returned the first 1,000 rows (East Baton Rouge's 10,334
+        Louisiana rows were cut to 1,000). Pages walk the primary key
+        (`id=gt.<last>&order=id.asc`), so no row is read twice or skipped
+        and a deep page costs what the first one does - an offset page made
+        Postgres sort the whole state first and crossed the statement
+        timeout under load (2026-10-09). A short page ends the read.
+        """
+        params = urllib.parse.parse_qsl(query, keep_blank_values=True)
+        sel = [i for i, (k, _) in enumerate(params) if k == "select"]
+        for i in sel:
+            cols = [c.strip() for c in params[i][1].split(",")]
+            if "id" not in cols:
+                params[i] = ("select", params[i][1] + ",id")
+        base_q = urllib.parse.urlencode(params, safe="(),.*:\"", quote_via=urllib.parse.quote)
+        rows: list[dict] = []
+        after = None
+        while True:
+            chunk = self.get(f"{base_q}&order=id.asc&limit={page}" + (f"&id=gt.{after}" if after is not None else ""))
+            rows.extend(chunk)
+            if len(chunk) < page:
+                return rows
+            after = chunk[-1]["id"]
+
+    def patch(self, query: str, body: dict) -> None:
+        if self.dry_run:
+            return
+        req = urllib.request.Request(f"{self.base}?{query}", data=json.dumps(body, default=str).encode(),
+                                     method="PATCH", headers=self._headers({"Prefer": "return=minimal"}))
+        with urllib.request.urlopen(req, timeout=60):
+            self.requests_made += 1
+
+    def has_columns(self, columns) -> bool:
+        """Probe a set of columns. PostgREST answers HTTP 400 / 42703 for
+        an unknown column."""
+        try:
+            self.get(f"select={','.join(columns)}&limit=0")
+            return True
+        except urllib.error.HTTPError as exc:
+            text = exc.read().decode(errors="replace")[:300]
+            if exc.code == 400 or "42703" in text or "does not exist" in text:
+                return False
+            raise
+
+    def has_migration_017(self) -> bool:
+        """Probe the lifecycle columns."""
+        return self.has_columns(MIGRATION_017_COLUMNS)
+
+    def has_migration_019(self) -> bool:
+        """Probe the list-date columns (escheatment_date, available_date)."""
+        return self.has_columns(tuple(SF.OPTIONAL_COLUMNS))
+
+    def has_migration_023(self) -> bool:
+        """Probe the purchase-path evidence columns."""
+        return self.has_columns(MIGRATION_023_COLUMNS)
+
+
+def q(value: str) -> str:
+    return urllib.parse.quote(str(value), safe="")
+
+
+def in_list(values: list[str]) -> str:
+    return "(" + ",".join('"' + str(v).replace('"', '\\"') + '"' for v in values) + ")"
+
+
+def fetch_state_rows(api: Api, state: str, counties: list[str], extra_columns=()) -> list[dict]:
+    """The state's laft rows for these counties: identity + status for the
+    lifecycle plan, plus the source-field columns (and field_provenance) the
+    fill-blank step needs to know what is already there."""
+    select = list(dict.fromkeys(["id", "county", "case_no", "status", "field_provenance", *SF.BASE_COLUMNS, *extra_columns]))
+    # Two phases (2026-10-29, audit B13). A keyset page over the county filter
+    # ORDER BY id has to sort every matching row; with the wide columns
+    # (otc_provenance, field_provenance ...) in the select, Postgres detoasts
+    # all of them first - 2.3 s per page on Louisiana's 11,163 rows when the
+    # database is quiet, and past the 8 s statement timeout (HTTP 500) on every
+    # loaded laft run since 2026-10-26. The narrow identity read costs ~30 ms a
+    # page; the wide columns are then read by primary key in small batches.
+    ids: list = []
+    for i in range(0, len(counties), 25):
+        chunk = counties[i:i + 25]
+        ids.extend(r["id"] for r in api.get_all(f"state=eq.{state}&source=eq.{SOURCE}&county=in.{q(in_list(chunk))}"
+                                                f"&select=id"))
+    rows: list[dict] = []
+    for i in range(0, len(ids), WIDE_BATCH):
+        batch = ids[i:i + WIDE_BATCH]
+        rows.extend(api.get(f"id=in.{q(in_list(batch))}&select={','.join(select)}&order=id.asc"))
+    return rows
+
+
+def run_source_fields(observed: dict[str, dict[str, dict]], gates: dict[str, dict], db_rows: list[dict], api: Api,
+                      *, have_019: bool, retrieved_at: str) -> tuple[SF.Counters, list[str]]:
+    """The fill-blank carry of list-published fields (scripts/laft_source_fields.py)
+    onto the observed rows. Independent of migration 017; the 019 date
+    columns are included only when the database has them."""
+    columns = list(SF.BASE_COLUMNS) + (list(SF.OPTIONAL_COLUMNS) if have_019 else [])
+    updates, counters = SF.plan_source_fields(observed, db_rows, columns)
+    SF.execute_source_fields(api, updates, gates, retrieved_at, counters)
+    return counters, columns
+
+
+def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, dict]], api: Api,
+            *, state: str, have_017: bool, retrieved_at: str, registry_paths: dict | None = None,
+            registry_modes: dict | None = None, path_ctx: "PathContext | None" = None, db_rows: list[dict] | None = None,
+            fresh_guard: bool = True) -> dict:
+    counts = {"observed": len(plan.observe), "reactivated": 0, "closed": 0, "provenance_patches": 0}
+    # 1. Reactivation (status column exists today).
+    by_county: dict[str, list[str]] = {}
+    for county, case_no in plan.reactivate:
+        by_county.setdefault(county, []).append(case_no)
+    for county, keys in by_county.items():
+        for i in range(0, len(keys), BATCH):
+            # A re-listed row is not delisted: it sheds the delisted_at its
+            # earlier close-out wrote (2026-10-26), once the column exists.
+            api.patch(f"state=eq.{state}&source=eq.{SOURCE}&county=eq.{q(county)}&case_no=in.{q(in_list(keys[i:i + BATCH]))}",
+                      {"status": "active", "delisted_at": None} if have_017 else {"status": "active"})
+            counts["reactivated"] += len(keys[i:i + BATCH])
+    # 2. last_seen_at + provenance (migration 017 only). Write only what is due
+    # (2026-10-26, scripts/write_diff.py) - every PATCH bumps updated_at and
+    # leaves a dead tuple. With the stored rows in hand (main() always passes
+    # db_rows) each row is compared with what is stored (below); reactivation
+    # (1) and close-out (4) are not gated by this. Without them (a caller that
+    # passes no db_rows) the older guard applies: a row whose stored
+    # last_seen_at is newer than FRESH_HOURS is not patched (`fresh_guard`).
+    if have_017 and db_rows is not None:
+        # 2026-10-26: per row, against what is stored (scripts/write_diff.py):
+        # the payload's otc_provenance is MERGED onto the stored dict, and the
+        # row is patched only when a value changed (read-time stamps aside) or
+        # its last_seen_at is due a re-stamp. A row a state sync stamped
+        # moments ago is still written when its lifecycle provenance is new or
+        # changed (so Louisiana needs no --no-fresh-guard any more), and a
+        # second read of an unchanged list writes nothing.
+        for k in ("provenance_new", "provenance_changed", "provenance_restamp", "provenance_unchanged_skipped"):
+            counts[k] = 0
+        by_key = {(str(r.get("county")), str(r.get("case_no"))): r for r in db_rows}
+        now_dt = datetime.now(timezone.utc)
+        restamp_ids: list = []
+        for county, case_no in plan.observe:
+            row = observed[county][case_no]
+            payload = provenance_payload(row, gates[county], retrieved_at, state=state, registry_paths=registry_paths,
+                                         registry_modes=registry_modes, path_ctx=path_ctx)
+            stored = by_key.get((county, case_no))
+            if stored is not None:
+                payload["otc_provenance"] = merge_otc(stored.get("otc_provenance"), payload["otc_provenance"])
+            why = WD.needs_write(payload, stored, now_dt)
+            if why is None:
+                counts["provenance_unchanged_skipped"] += 1
+                continue
+            counts[f"provenance_{why}"] += 1
+            if why == "restamp" and stored.get("id"):
+                # Only last_seen_at is due: batched by id with a pause
+                # between batches (write_diff.run_restamps, 2026-10-27).
+                restamp_ids.append(stored["id"])
+                continue
+            # Scoped to this state's laft row by its identity, as before.
+            api.patch(f"state=eq.{state}&source=eq.{SOURCE}&county=eq.{q(county)}&case_no=in.{q(in_list([case_no]))}", payload)
+            counts["provenance_patches"] += 1
+        if restamp_ids:
+            sent, failed = WD.run_restamps(
+                restamp_ids, retrieved_at,
+                lambda query, body: api.patch(f"state=eq.{state}&source=eq.{SOURCE}&{query}", body),
+                pause=0 if getattr(api, "dry_run", False) else WD.RESTAMP_PAUSE_SECONDS)
+            counts["provenance_patches"] += sent
+            counts["provenance_restamp_failed_batches"] = failed
+    elif have_017:
+        fresh_filter = f"&or=(last_seen_at.is.null,last_seen_at.lt.{q(WD.stale_before())})" if fresh_guard else ""
+        obs_by_county: dict[str, list[tuple[str, dict]]] = {}
+        for county, case_no in plan.observe:
+            obs_by_county.setdefault(county, []).append((case_no, observed[county][case_no]))
+        for county, rows in obs_by_county.items():
+            for payload, keys in group_provenance(rows, gates[county], retrieved_at, state=state, registry_paths=registry_paths,
+                                                  registry_modes=registry_modes, path_ctx=path_ctx):
+                for i in range(0, len(keys), BATCH):
+                    api.patch(f"state=eq.{state}&source=eq.{SOURCE}&county=eq.{q(county)}&case_no=in.{q(in_list(keys[i:i + BATCH]))}"
+                              + fresh_filter, payload)
+                    counts["provenance_patches"] += 1
+    # 3. Carry verified evidence onto rows this run did not read (never erases).
+    counts["carried"] = 0
+    if have_017 and db_rows is not None:
+        for row_id, payload in carry_plan(db_rows, set(plan.observe), path_ctx, have_023=bool(path_ctx and path_ctx.have_023)):
+            api.patch(f"id=eq.{row_id}", payload)
+            counts["carried"] += 1
+    # 4. Close-out.
+    ids = [r["id"] for r in plan.close if r.get("id")]
+    body = {"status": "closed"}
+    if have_017:
+        body["delisted_at"] = retrieved_at
+    for i in range(0, len(ids), BATCH):
+        api.patch(f"id=in.({','.join(str(x) for x in ids[i:i + BATCH])})", body)
+        counts["closed"] += len(ids[i:i + BATCH])
+    return counts
+
+
+def summarize(plan: Plan, gates: dict[str, dict], counts: dict | None, have_017: bool | None, *, state: str = DEFAULT_STATE) -> str:
+    by_status: dict[str, list[str]] = {}
+    for county, g in sorted(gates.items()):
+        by_status.setdefault(g["status"], []).append(county)
+    lines = [f"LAFT lifecycle ({state}):"]
+    for status in ("COMPLETE", "EMPTY", "INCOMPLETE", "FAILED", "SOURCE_UNAVAILABLE", "STALE", "NOT_RUN"):
+        if status in by_status:
+            lines.append(f"  {status}: {len(by_status[status])} - {', '.join(by_status[status])}")
+    lines.append(f"  observed rows: {len(plan.observe)} (reactivated {len(plan.reactivate)}); "
+                 f"close-out candidates: {len(plan.close)} across {len({r['county'] for r in plan.close})} county(ies); "
+                 f"rows ignored (county not COMPLETE/INCOMPLETE): {plan.ignored_rows}; "
+                 f"absent rows kept (their own source's read did not confirm the list): {plan.kept_unattributed}")
+    if plan.skipped_counties:
+        lines.append("  close-out skipped (fail closed): " + ", ".join(f"{c} [{s}]" for c, s in sorted(plan.skipped_counties.items())))
+    lines.append("  migration 017 columns: " + ("present" if have_017 else "absent - last_seen_at/provenance not written" if have_017 is False else "not probed"))
+    if counts:
+        lines.append(f"  applied: reactivated {counts['reactivated']}, provenance patches {counts['provenance_patches']}, closed {counts['closed']}, "
+                     f"evidence carried onto unread rows {counts.get('carried', 0)}")
+    return "\n".join(lines)
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--state", default=DEFAULT_STATE,
+                    help="two-letter state whose laft rows this run may touch; must be registered in harvesters/governance/states.py")
+    ap.add_argument("--status", default=str(DEFAULT_STATUS))
+    ap.add_argument("--registry", default=str(DEFAULT_REGISTRY))
+    ap.add_argument("--path-evidence", default=str(PE.EVIDENCE_PATH), help="data/purchase_path_evidence.csv (source-scope purchase paths a human verified)")
+    ap.add_argument("--harvest", nargs="*", default=[str(p) for p in DEFAULT_HARVEST_FILES])
+    ap.add_argument("--max-age-hours", type=float, default=36.0)
+    ap.add_argument("--dry-run", action="store_true", help="plan and report; write nothing")
+    ap.add_argument("--report", default="out/public/laft-lifecycle.json", help="counts-only report (no row values)")
+    ap.add_argument("--no-fresh-guard", dest="fresh_guard", action="store_false",
+                    help="obsolete (2026-10-26): provenance writes are now decided per row against the stored "
+                         "values (changed, or last_seen_at older than "
+                         f"{WD.FRESH_HOURS} h); accepted and ignored")
+    args = ap.parse_args(argv)
+
+    state = args.state
+    problems = states.state_problems(state)
+    if problems:
+        # Fail closed before any query: an unregistered state never reaches
+        # the database, not even as a filter.
+        print(f"::error title=laft_lifecycle::{'; '.join(problems)} - nothing observed, written or closed")
+        return 2
+    try:
+        lifecycle_inventory(state)
+    except ValueError as exc:
+        print(f"::error title=laft_lifecycle::{exc} - nothing observed, written or closed")
+        return 2
+
+    status_path = Path(args.status)
+    entries = load_status(status_path)
+    if not status_path.is_file():
+        print(f"::warning title=laft_lifecycle::{status_path} not found - nothing is observed or closed this run (fail closed)")
+    elif not entries:
+        print(f"::warning title=laft_lifecycle::{status_path} unreadable or empty - nothing is observed or closed this run (fail closed)")
+    expected = load_expected_units(Path(args.registry), state)
+    registry_paths = load_registry_purchase_paths(Path(args.registry), state)
+    registry_modes = load_registry_purchase_modes(Path(args.registry), state)
+    gates = county_gates(entries, expected, max_age_hours=args.max_age_hours, state=state) if entries else {}
+    for county, reason in sorted(apply_store_permission(gates, state).items()):
+        print(f"::warning title=laft_lifecycle::{county}: store not permitted [{reason}] - nothing observed, written or closed there")
+    # A harvest row that names another state is not this run's (the FL
+    # harvesters write no state key and are kept; the Alabama harvester
+    # writes "AL" and is kept only by an AL run).
+    observed = observed_by_county([r for r in load_harvest_rows([Path(p) for p in args.harvest])
+                                   if not r.get("state") or str(r["state"]) == state])
+
+    url = os.environ.get("SUPABASE_URL", "")
+    key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+    if not url or not key:
+        print("::warning title=laft_lifecycle::SUPABASE_URL / SUPABASE_SERVICE_KEY not set - planning only")
+        plan = plan_lifecycle(gates, observed, [])
+        print(summarize(plan, gates, None, None, state=state))
+        return 0
+
+    api = Api(url, key, dry_run=args.dry_run)
+    counties = sorted(gates)
+    have_017 = api.has_migration_017()
+    have_019 = api.has_migration_019()
+    have_023 = have_017 and api.has_migration_023()
+    path_ctx = PathContext(Path(args.registry), state, have_023=have_023, evidence_path=Path(args.path_evidence))
+    extra = (tuple(SF.OPTIONAL_COLUMNS) if have_019 else ()) + (CARRY_COLUMNS if have_023 else CARRY_017_COLUMNS if have_017 else ())
+    if have_017:
+        # Every column a provenance payload can write, so each observed row is
+        # compared with its stored values (execute(): write only what changed).
+        extra = tuple(dict.fromkeys(extra + PAYLOAD_COLUMNS))
+    # Every county on record, not only this run's: a county missing from the
+    # status file entirely (NOT_RUN) still keeps and receives its evidence.
+    counties_all = sorted(set(counties) | {str(r.get("county")) for r in api.get_all(f"state=eq.{state}&source=eq.{SOURCE}&status=eq.active&select=county")})
+    db_rows = fetch_state_rows(api, state, counties_all, extra) if counties_all else []
+    plan = plan_lifecycle(gates, observed, db_rows)
+    if not have_017:
+        print("::notice title=laft_lifecycle::migration 017 not applied - reactivation and close-out only; last_seen_at and provenance columns are not written")
+    if not have_019:
+        print("::notice title=laft_lifecycle::migration 019 not applied - escheatment_date / available_date are not written")
+    if have_017 and not have_023:
+        print("::notice title=laft_lifecycle::migration 023 not applied - purchase_path_type / _scope / _evidence / _observed_on are not written")
+    retrieved_at = now_iso()
+    counts = execute(plan, gates, observed, api, state=state, have_017=have_017, retrieved_at=retrieved_at,
+                     registry_paths=registry_paths, registry_modes=registry_modes, path_ctx=path_ctx, db_rows=db_rows,
+                     fresh_guard=args.fresh_guard)
+    # Observed rows only: the same COMPLETE/INCOMPLETE gate as last_seen_at.
+    observed_gated = {c: rows for c, rows in observed.items() if gates.get(c, {}).get("status") in OBSERVED_STATUSES}
+    sf_counts, sf_columns = run_source_fields(observed_gated, gates, db_rows, api, have_019=have_019, retrieved_at=retrieved_at)
+    text = summarize(plan, gates, counts, have_017, state=state) + "\n" + SF.summarize(sf_counts, sf_columns)
+    print(text + ("\n  (dry run - nothing written)" if args.dry_run else ""))
+    report = {"state": state, "observed": counts["observed"], "reactivated": counts["reactivated"], "closed": counts["closed"],
+              "provenance_patches": counts["provenance_patches"], "carried": counts.get("carried", 0), "migration_017": have_017, "migration_019": have_019,
+              "migration_023": have_023,
+              "dry_run": args.dry_run, "source_fields": sf_counts.to_json(),
+              "counties": {c: g["status"] for c, g in gates.items()}, "note": "counts and county names only; never a row value"}
+    rp = Path(args.report)
+    rp.parent.mkdir(parents=True, exist_ok=True)
+    rp.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a", encoding="utf-8") as fh:
+            fh.write("```\n" + text + "\n```\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -42,21 +42,52 @@ starvation lesson the geocoding backfill learned the hard way.
 from __future__ import annotations
 
 import os
-import random
 import sys
 import time
 from collections import Counter
 
 import requests
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import enrichment_units as EU  # noqa: E402 - (state, county) units
+
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 
-BATCH_LIMIT = int(os.environ.get("FLOOD_BATCH_LIMIT", "500"))
-PER_COUNTY_LIMIT = int(os.environ.get("FLOOD_PER_COUNTY_LIMIT", "40"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import enrichment_queue as EQ  # noqa: E402
+
+# FEMA's NFHL MapServer publishes no request quota; requests stay sequential
+# with REQUEST_DELAY_SECONDS between them. The manual `enrich` job raises the
+# budget (9,000) - hence the hard ceiling of 10,000, never unbounded.
+FLOOD_MAX_BATCH = 10000
+try:
+    BATCH_LIMIT = EQ.env_limit("FLOOD_BATCH_LIMIT", 500, FLOOD_MAX_BATCH)
+    PER_COUNTY_LIMIT = EQ.env_limit("FLOOD_PER_COUNTY_LIMIT", 40, FLOOD_MAX_BATCH)
+except ValueError as _exc:
+    print(f"FLOOD CONFIG ERROR - {_exc}. Nothing read or written.", file=sys.stderr)
+    sys.exit(2)
 COUNTY_MISS_STREAK = int(os.environ.get("FLOOD_COUNTY_MISS_STREAK", "10"))
 REQUEST_DELAY_SECONDS = float(os.environ.get("FLOOD_REQUEST_DELAY_SECONDS", "0.25"))
 REQUEST_TIMEOUT = int(os.environ.get("FLOOD_REQUEST_TIMEOUT", "20"))
+# Wall-clock budget for the FEMA lookups of one run (2026-10-26). Run 381's
+# deeds job spent 36 minutes in this step - 308 of 445 lookups failed, most
+# of them waiting out REQUEST_TIMEOUT - and the job hit its 60-minute limit,
+# so GitHub cancelled the whole run (NAIP and every later step lost, the run
+# marked cancelled). The step now stops cleanly at the budget, prints its
+# summary, and leaves the rest unstamped for the next run. 0 = no budget (the
+# manual enrich / available jobs, which have their own step timeouts); the
+# deeds job sets it.
+TIME_BUDGET_SECONDS = float(os.environ.get("FLOOD_TIME_BUDGET_SECONDS", "0"))
+# Polite backoff (2026-10-27). FEMA's NFHL drops connections when one client
+# fires hundreds of requests in a row (run 405: Wayne MI 210 connection
+# failures, Saginaw 70). After a failed lookup the next request waits
+# BACKOFF_BASE * 2^(streak-1) seconds, capped at BACKOFF_MAX - the streak is
+# the run's consecutive failures across every county (one server answers all
+# of them) and resets on the first success. Never longer than the time budget
+# left.
+BACKOFF_BASE_SECONDS = float(os.environ.get("FLOOD_BACKOFF_BASE_SECONDS", "2"))
+BACKOFF_MAX_SECONDS = float(os.environ.get("FLOOD_BACKOFF_MAX_SECONDS", "30"))
 
 NFHL_ENDPOINT = (
     "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query"
@@ -172,6 +203,26 @@ def bfe_value(raw):
     return value
 
 
+# Why the most recent lookup failed - "timeout", "connection", "http_<code>",
+# "bad_json" or "arcgis_error_<code>" - so the run log can say what is failing
+# instead of only how many (run 381: "failed 308", cause unknowable).
+LAST_FAILURE = None
+
+
+def failure_kind(exc) -> str:
+    """One short, value-free category for a failed FEMA request."""
+    if isinstance(exc, requests.Timeout):
+        return "timeout"
+    if isinstance(exc, requests.ConnectionError):
+        return "connection"
+    if isinstance(exc, requests.HTTPError):
+        code = getattr(getattr(exc, "response", None), "status_code", None)
+        return f"http_{code}" if code else "http"
+    if isinstance(exc, ValueError):
+        return "bad_json"
+    return type(exc).__name__
+
+
 def lookup_flood_zone(latitude, longitude):
     """Return (attrs_or_None, ok).
 
@@ -188,17 +239,23 @@ def lookup_flood_zone(latitude, longitude):
         "returnGeometry": "false",
         "f": "json",
     }
+    global LAST_FAILURE
+    LAST_FAILURE = None
     try:
         resp = requests.get(NFHL_ENDPOINT, params=params, timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
-    except (requests.RequestException, ValueError):
+    except (requests.RequestException, ValueError) as exc:
+        LAST_FAILURE = failure_kind(exc)
         return None, False
 
     # ArcGIS reports failures in a 200 body. An error envelope is a failed
     # request, not an unmapped point - treating it as "unmapped" would stamp
     # a finding onto a row we learned nothing about.
     if isinstance(data, dict) and data.get("error"):
+        err = data.get("error")
+        code = err.get("code") if isinstance(err, dict) else None
+        LAST_FAILURE = f"arcgis_error_{code}" if code else "arcgis_error"
         return None, False
 
     features = data.get("features") or []
@@ -260,43 +317,49 @@ def fetch_counties_needing_flood():
     anti-starvation shape the FDOR enricher and the geocoder both use.
     """
     params = {
-        "select": "county",
+        "select": "state,county",
         "flood_checked_at": "is.null",
         "latitude": "not.is.null",
         "longitude": "not.is.null",
         "limit": "10000",
     }
-    resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30
-    )
-    resp.raise_for_status()
-    outstanding = Counter(r["county"] for r in resp.json() if r.get("county"))
-    counties = sorted(outstanding)
-    random.shuffle(counties)
-    return [(c, outstanding[c]) for c in counties]
+    params.update(EU.state_param(EU.state_filter()))
+    return EU.outstanding_units(EU.get_paged(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, 100000))
 
 
-def fetch_county_batch(county, limit, outstanding=None):
+def plan_slices(counties, batch_limit=None, per_county=None):
+    """[(unit, limit, outstanding)] for one run (scripts/enrichment_queue.py).
+
+    Pass 1 is the anti-starvation slice: every unit, in the given order,
+    gets up to `per_county` rows before any unit gets more. Pass 2 hands the
+    budget pass 1 left unused to the units that still have a backlog - so a
+    state with ONE county (Tennessee: Shelby, 2,037 rows with coordinates and
+    no flood check on 2026-10-10) is no longer held to 40 rows a run while
+    the rest of a 500-row budget goes unspent."""
+    return EQ.plan_slices(counties, BATCH_LIMIT if batch_limit is None else batch_limit,
+                          PER_COUNTY_LIMIT if per_county is None else per_county)
+
+
+def fetch_county_batch(unit, limit, outstanding=None):
     """A random window into the county's backlog, for the reason Phase 51
     established: without `order` PostgREST returns the same rows every run,
     and because a miss is never stamped, the same rows would lead the slice
     forever and the county would never advance past them."""
-    offset = 0
-    if outstanding and outstanding > limit:
-        offset = random.randrange(0, outstanding - limit + 1)
     params = {
         "select": "id,county,state,latitude,longitude",
-        "county": f"eq.{county}",
         "flood_checked_at": "is.null",
         "latitude": "not.is.null",
         "longitude": "not.is.null",
-        "order": "id.asc",
-        "offset": str(offset),
-        "limit": str(limit),
     }
-    resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30
-    )
+    params.update(EU.unit_params(unit))
+    # Keyset from a random id, wrapping - never a deep offset (2026-10-26).
+    if outstanding and outstanding > limit:
+        return EU.get_window(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, limit)
+    return EU.get_paged(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, limit)
+
+
+def _get_json(url, params):
+    resp = requests.get(url, headers=HEADERS, params=params, timeout=60)
     resp.raise_for_status()
     return resp.json()
 
@@ -313,6 +376,11 @@ def patch_property(property_id, fields):
 
 
 def main():
+    # Source permission (2026-10-12): recorded fetch/enrich permission for
+    # fema_nfhl (data/source_permissions.csv), checked before any request.
+    import permission_gate as _PG  # noqa: PLC0415
+    if not _PG.allowed("fema_nfhl", ('fetch', 'enrich'), state="US", label="enrich_flood_zone"):
+        sys.exit(_PG.DENIED_EXIT)
     if not schema_is_ready():
         print(
             "flood_zone / flood_checked_at are not in this database yet - apply "
@@ -332,57 +400,121 @@ def main():
     unmapped = 0
     failed = 0
     zones = Counter()
+    failure_kinds = Counter()
+    started = time.monotonic()
 
-    for county, outstanding in counties:
-        if attempted >= BATCH_LIMIT:
+    # Fetch every unit's slice first (ids + coordinates only), then interleave
+    # them: consecutive requests move between counties instead of firing one
+    # county's whole slice back to back (2026-10-27).
+    slices = []
+    planned = 0
+    for unit, limit, outstanding in plan_slices(counties):
+        if planned >= BATCH_LIMIT:
             break
-        rows = fetch_county_batch(
-            county, min(PER_COUNTY_LIMIT, BATCH_LIMIT - attempted), outstanding
-        )
-        if not rows:
+        rows = fetch_county_batch(unit, min(limit, BATCH_LIMIT - planned), outstanding)
+        if rows:
+            slices.append((unit, rows))
+            planned += len(rows)
+
+    miss_streak = Counter()       # per unit: consecutive failures
+    unit_kinds = {}               # per unit: failure causes
+    skipped_units = set()
+    run_streak = 0                # whole run: consecutive failures (backoff)
+    for unit, row in interleave(slices):
+        if unit in skipped_units:
+            continue
+        county = EU.label(unit)
+        elapsed = time.monotonic() - started
+        if TIME_BUDGET_SECONDS > 0 and elapsed >= TIME_BUDGET_SECONDS:
+            print(
+                f"  time budget of {TIME_BUDGET_SECONDS:.0f}s spent - stopping; "
+                "the remaining rows stay unstamped for the next run."
+            )
+            break
+        if miss_streak[unit] >= COUNTY_MISS_STREAK:
+            print(
+                f"  [{county}] {miss_streak[unit]} consecutive request failures "
+                f"({_kinds_text(unit_kinds.get(unit, Counter()))}) - skipping the rest of this "
+                "county's slice this run."
+            )
+            skipped_units.add(unit)
+            continue
+        if run_streak:
+            wait = backoff_seconds(run_streak)
+            if TIME_BUDGET_SECONDS > 0:
+                wait = min(wait, max(0.0, TIME_BUDGET_SECONDS - elapsed))
+            if wait > 0:
+                time.sleep(wait)
+        attempted += 1
+        attrs, ok = lookup_flood_zone(row["latitude"], row["longitude"])
+        time.sleep(REQUEST_DELAY_SECONDS)
+
+        if not ok:
+            # Nothing written, nothing stamped: retried next run.
+            failed += 1
+            miss_streak[unit] += 1
+            run_streak += 1
+            kind = LAST_FAILURE or "unknown"
+            unit_kinds.setdefault(unit, Counter())[kind] += 1
+            failure_kinds[kind] += 1
             continue
 
-        miss_streak = 0
-        for row in rows:
-            if miss_streak >= COUNTY_MISS_STREAK:
-                print(
-                    f"  [{county}] {miss_streak} consecutive request failures - "
-                    "skipping the rest of this county's slice this run."
-                )
-                break
-            attempted += 1
-            attrs, ok = lookup_flood_zone(row["latitude"], row["longitude"])
-            time.sleep(REQUEST_DELAY_SECONDS)
+        miss_streak[unit] = 0
+        run_streak = 0
+        checked_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        fields = build_update_fields(attrs, checked_at=checked_at)
+        try:
+            patch_property(row["id"], fields)
+        except requests.RequestException as exc:
+            print(f"  [{county}] write failed ({type(exc).__name__})", file=sys.stderr)
+            failed += 1
+            continue
 
-            if not ok:
-                # Nothing written, nothing stamped: retried next run.
-                failed += 1
-                miss_streak += 1
-                continue
-
-            miss_streak = 0
-            checked_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            fields = build_update_fields(attrs, checked_at=checked_at)
-            try:
-                patch_property(row["id"], fields)
-            except requests.RequestException as exc:
-                print(f"  [{county}] write failed for {row['id']}: {exc}", file=sys.stderr)
-                failed += 1
-                continue
-
-            if fields.get("flood_zone") == UNMAPPED:
-                unmapped += 1
-            else:
-                mapped += 1
-                zones[fields["flood_zone"]] += 1
-
+        if fields.get("flood_zone") == UNMAPPED:
+            unmapped += 1
+        else:
+            mapped += 1
+            zones[fields["flood_zone"]] += 1
     print(
         f"\nAttempted {attempted}. Mapped {mapped}, unmapped {unmapped}, "
         f"failed {failed} (left unstamped for retry)."
     )
     if zones:
         print("Zones written: " + ", ".join(f"{z}={n}" for z, n in zones.most_common()))
+    if failure_kinds:
+        print("Failed lookups by cause: " + _kinds_text(failure_kinds))
     return 0
+
+
+def backoff_seconds(streak: int, base: float | None = None, cap: float | None = None) -> float:
+    """Wait before the next request after `streak` consecutive failures:
+    base * 2^(streak-1), capped. 0 when nothing has failed."""
+    base = BACKOFF_BASE_SECONDS if base is None else base
+    cap = BACKOFF_MAX_SECONDS if cap is None else cap
+    if streak <= 0 or base <= 0:
+        return 0.0
+    return float(min(cap, base * (2 ** min(streak - 1, 30))))
+
+
+def interleave(slices):
+    """[(unit, row)] taking one row from each unit's slice in turn, so a
+    county's slice is spread over the run instead of fired back to back.
+    Every row of every slice appears exactly once; a unit's own rows keep
+    their order."""
+    iters = [(unit, iter(rows)) for unit, rows in slices]
+    while iters:
+        alive = []
+        for unit, it in iters:
+            row = next(it, None)
+            if row is None:
+                continue
+            alive.append((unit, it))
+            yield unit, row
+        iters = alive
+
+
+def _kinds_text(kinds) -> str:
+    return ", ".join(f"{k}={n}" for k, n in kinds.most_common()) or "no cause recorded"
 
 
 if __name__ == "__main__":

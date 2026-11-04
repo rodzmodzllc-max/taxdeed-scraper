@@ -19,6 +19,84 @@ window.TDW_CONFIG = {
   supabaseUrl: "https://cqnnnvpbocafuvpzfbzu.supabase.co",
   supabasePublishableKey: "sb_publishable_rk5440vza8jwE04v0Rn08w_vltFMEyQ",
 
+  // Support destination for "Contact support" / "Report a data problem" /
+  // "Report a source problem" / account or billing / deletion requests
+  // (SaaS hardening, 2026-09-29). It becomes a public mailto: link, so it is
+  // a shared address, not a personal one. Set 2026-11-02 (launch) to the
+  // mailbox the approval and sign-up alert e-mails already use
+  // (supabase/functions/_shared/approval_notify_core.js). See
+  // docs/production-configuration.md section 4.
+  supportEmail: "info@taxacq.com",
+
+  // Sign in with Google / Apple / Microsoft (2026-10-10). Empty on purpose:
+  // a "Continue with ..." button appears only for a provider listed here, and
+  // a provider must first be enabled in Supabase -> Authentication ->
+  // Sign In / Providers (its client id and secret live there, never here),
+  // or the button leads to a raw error page. Supabase's ids: "google",
+  // "apple", "azure" (Microsoft). Example once all three are enabled:
+  //   oauthProviders: ["google", "apple", "azure"],
+  // New accounts still wait for approval. See docs/social-sign-in.md.
+  oauthProviders: [],
+
+  // Tester preview (2026-10-05, owner's decision): every approved account,
+  // not only admins, also sees rows from sources still awaiting publication
+  // review (Detroit, St. Louis, Oklahoma County, Fayette PA, Ramsey MN,
+  // Horry / Georgetown SC), each labelled "Source review". BLOCKED sources
+  // are never shown and the Detroit customer subset still applies. Set this
+  // back to "enforced" (or delete the line) before selling to customers, so
+  // customers see approved sources only.
+  publicationMode: "preview",
+
+  // Acquisition-path gate (2026-10-10, docs/acquisition-gate.md). "off": the
+  // source publication decision alone decides what a customer sees (today's
+  // behaviour). "enforce": a non-admin sees an Available record only when
+  // its acquisition route is VERIFIED - the source is customer-published,
+  // the record was read in the last 14 days, its list is not a dated one,
+  // and the county's acquisition process was verified from the source's
+  // own page or document within 180 days and names a way to act.
+  // Administrators always see every record, labelled. Staged OFF: the
+  // read-only dry run (docs/review/acquisition-gate-dryrun-2026-10-10.md)
+  // shows what enforcing would withhold; switching it on is the owner's
+  // decision. Nothing else changes: no row is deleted or closed.
+  // 2026-10-25: kept "off" by the owner during testing - testers see every
+  // record; hiding by acquisition path and by tier comes once everything is
+  // verified and customers are onboarded.
+  availableGate: "off",
+
+  // The look a visitor lands in when they have not picked one in the Look
+  // menu (2026-11-04, owner: "Merge by default"). A choice made in the menu
+  // or a ?look= link still wins. "classic" or "merged".
+  defaultLook: "merged",
+
+  // Paid beta (2026-10-05). Switched OFF until the owner completes the
+  // production steps in docs/commercial-layer.md (Stripe account, monthly
+  // price, webhook, Edge Function secrets, migration 027). While off, nobody
+  // is offered a checkout and sign-up keeps the existing approval flow.
+  // Paying customers never get the tester preview above: they always see the
+  // paid-beta sources only (commercial-scope.json + migration 027's policy).
+  // No secret belongs here - Stripe keys live only in the Edge Function
+  // secrets. planName / priceDisplay are display text that must match the
+  // Stripe price; leave them blank until that price exists.
+  billing: {
+    enabled: false,
+    planName: "",
+    priceDisplay: "",
+    checkoutFunction: "billing-checkout",
+    portalFunction: "billing-portal"
+  },
+
+  // Business details shown on the legal pages (terms.html, privacy.html,
+  // acceptable-use.html, source-disclaimer.html). Blank on purpose: each page
+  // shows "not configured" until these are filled in, so an incomplete
+  // document never reads as complete. contactEmail falls back to
+  // supportEmail.
+  legal: {
+    operatorName: "",
+    governingLaw: "",
+    effectiveDate: "",
+    contactEmail: ""
+  },
+
   // Optional, independent of each other. Power the Map page's Google and
   // MapTiler satellite toggle buttons (satellite-map.js) - each a real
   // satellite/terrain basemap, as an alternative to the app's own

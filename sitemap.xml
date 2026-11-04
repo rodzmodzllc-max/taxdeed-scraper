@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- TAXACQ sitemap (root-only like robots.txt, not mirrored from public/; launch 2026-11-02).
+     One entry per state page plus the legal pages. A property is never a URL of its own
+     (the app routes properties inside a signed-in session), so nothing here changes with
+     the data. Rebuild this list when a state page is added (scripts/build_state_page.py). -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://taxacq.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://taxacq.com/index.html</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://taxacq.com/tx.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://taxacq.com/la.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://taxacq.com/mi.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://taxacq.com/wy.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://taxacq.com/sc.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://taxacq.com/co.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://taxacq.com/wi.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://taxacq.com/mo.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://taxacq.com/ok.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://taxacq.com/pa.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://taxacq.com/mn.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://taxacq.com/tn.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://taxacq.com/terms.html</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://taxacq.com/privacy.html</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://taxacq.com/acceptable-use.html</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://taxacq.com/source-disclaimer.html</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
+</urlset>

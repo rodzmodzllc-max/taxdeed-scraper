@@ -1,4 +1,23 @@
 $ErrorActionPreference = "Continue"
+
+# --- Source permission gate (2026-10-12) ---------------------------------------
+# Runs before any request or write. Fail closed: no Python, no governance
+# package, or a missing / expired / denied record in data/source_permissions.csv
+# stops this script with exit 3. scripts/source_permission_check.py is the CLI of
+# harvesters/governance/permissions.py (the one permission decision).
+$permPython = Get-Command python3 -ErrorAction SilentlyContinue
+if (-not $permPython) { $permPython = Get-Command python -ErrorAction SilentlyContinue }
+if (-not $permPython) {
+    Write-Host "::error title=source_permission::Python not found - permission cannot be checked; stopping before any request"
+    exit 3
+}
+& $permPython.Source (Join-Path $PSScriptRoot "source_permission_check.py") --source fl_realauction --operation fetch --operation parse --state FL --dataset sale_calendar
+if (0 -ne $LASTEXITCODE) {
+    Write-Host "::error title=source_permission::fl_realauction sale-calendar harvest not permitted (see the decision above) - stopping before any request or write"
+    exit 3
+}
+# --- end source permission gate ------------------------------------------------
+
 $ProgressPreference = "SilentlyContinue"
 
 # Harvest every scheduled tax deed auction property across all Realauction
@@ -21,18 +40,25 @@ $here = $PSScriptRoot
 $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 $csv = Join-Path $here "../data/realauction_counties.csv"
 $outDir = Join-Path $here "../out"
+# Test hooks (tests/python/test_fl_auction_paging.py runs this script against
+# a local fake RealAuction server): an alternate county list and output
+# folder. A loopback Host (127.0.0.1 / localhost) is read over plain http;
+# every other host is https, as always.
+if ($env:RA_COUNTIES_CSV) { $csv = $env:RA_COUNTIES_CSV }
+if ($env:RA_OUT_DIR) { $outDir = $env:RA_OUT_DIR }
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 $outJson = Join-Path $outDir "harvest_all.json"
 $outCsv = Join-Path $outDir "harvest_all.csv"
 # Phase 30B: per-county completeness record, same shape and purpose as
 # harvest_lienhub_certificates.ps1's harvest_certificates_status.json -
 # consumed by sync-harvest-to-supabase.ps1's stale-row closeout to decide
-# which counties are safe to reconcile against. RealAuction's AJAX feed has
-# no server-reported total to positively confirm pagination reached (unlike
-# LienHub's recordsTotal), so COMPLETE here means "every transport-level
-# request this county's harvest made actually succeeded" - never merely
-# "the parsing loop didn't throw". See
-# claude/phase-30b-deed-completeness-and-closed-gone-since.md.
+# which counties are safe to reconcile against. COMPLETE here means "every
+# transport-level request this county's harvest made actually succeeded" AND
+# (since 2026-10-26) "every page the sale-day page itself publishes ('page 1
+# of N', from its status refresh) was read" - never merely "the parsing loop
+# didn't throw". Each entry carries saleDays: per sale day the items read,
+# pages read, the published page count and whether the day was read in full.
+# See claude/phase-30b-deed-completeness-and-closed-gone-since.md.
 $outStatus = Join-Path $outDir "harvest_all_status.json"
 $tmpDir = [System.IO.Path]::GetTempPath()
 
@@ -50,6 +76,59 @@ function Get-Href($block, $label) {
     if ($m.Success) { return ($m.Groups[1].Value -replace '&amp;','&') }
     return $null
 }
+# The tax certificate that opened the deed application. Most RealAuction
+# county skins label it "Certificate #"; a county skin may word the label
+# differently. (2026-10-26, Orange: 0 of 69 active rows carried a certificate
+# number. The value-free label capture - fl-field-evidence run 40383361568 -
+# showed Orange DOES use "Certificate #", on all 92 items read, but publishes
+# the cell EMPTY; so Orange has no certificate number to read on this feed,
+# and none is invented. Hillsborough and Lee use the same label, filled.)
+# Labels are tried in order and
+# the first one PRESENT with a value wins; "Certificate #" stays first, so a
+# county that already read correctly reads exactly as before. The label must
+# be the WHOLE label cell (anchored on the CAD_LBL cell's '>' and its ':'), so
+# a shorter label never matches inside a longer one and a value is never read
+# from another cell. Pinned by tests/python/test_fl_field_fixes.py, which runs
+# this function under pwsh.
+$CertLabels = @('Certificate #', 'Certificate Number', 'Certificate No.', 'Certificate No', 'Certificate',
+                'Cert #', 'Cert. #', 'Cert Number', 'Cert No.', 'Cert No', 'Cert',
+                'Tax Certificate #', 'Tax Certificate Number', 'Tax Certificate No.', 'Tax Certificate No', 'Tax Certificate',
+                'Tax Cert #', 'Tax Cert', 'TC #', 'TC Number')
+function Get-CertificateNumber($block) {
+    foreach ($label in $CertLabels) {
+        $pat = 'CAD_LBL\\"[^>]*>\s*' + [regex]::Escape($label) + '\s*:(?:@F|<)[\s\S]{0,200}?CAD_DTA\\">\s*([^@<]*(?:<a[^>]*>([^<]*)</a>)?[^@<]*)'
+        $m = [regex]::Match($block, $pat, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        if (-not $m.Success) { continue }
+        $v = if ($m.Groups[2].Success -and $m.Groups[2].Value) { $m.Groups[2].Value } else { $m.Groups[1].Value }
+        $v = (($v -replace '<[^>]+>','') -replace '\\"','"' -replace '\s+',' ').Trim()
+        if ($v) { return $v }
+    }
+    return $null
+}
+# Value-free label vocabulary of the items read (HARVEST_LABEL_REPORT=1, set
+# only by the manual evidence job's realauction_labels scope): each CAD_LBL
+# label text with every digit masked, counted per county. Never a cell value.
+function Get-LabelTexts($block) {
+    [regex]::Matches($block, 'CAD_LBL\\"[^>]*>\s*([^@<]{1,60})') | ForEach-Object {
+        ((($_.Groups[1].Value -replace '\d','#') -replace '\s+',' ').Trim().TrimEnd(':')).Trim()
+    } | Where-Object { $_ }
+}
+# The markup around one item's certificate cell with every digit masked and
+# every text node's letters masked (tag and class names kept): the SHAPE of
+# the cell, so a county whose label reads correctly but whose value does not
+# can be diagnosed without printing a value.
+function Get-CertSkeleton($block) {
+    $i = $block.IndexOf('Certificate')
+    if ($i -lt 0) { return $null }
+    $frag = $block.Substring([Math]::Max(0, $i - 40), [Math]::Min(320, $block.Length - [Math]::Max(0, $i - 40)))
+    $frag = $frag -replace '(href|src|onclick|id|value)=\\"[^\\]*', '$1=\"...'
+    $frag = [regex]::Replace($frag, '>([^<@]+)', { param($m) '>' + ($m.Groups[1].Value -creplace '[A-Za-z]', 'a') })
+    return ($frag -replace '\d', '#')
+}
+$LabelReport = ($env:HARVEST_LABEL_REPORT -eq "1")
+$LabelCounts = @{}
+$LabelSkeletons = @{}
+
 function ToNum($s) {
     if (-not $s) { return $null }
     $c = ($s -replace '[^0-9.]','')
@@ -58,6 +137,13 @@ function ToNum($s) {
 }
 
 $counties = Import-Csv $csv
+# HARVEST_COUNTIES (comma-separated) limits the read to those counties. Set
+# only by the manual evidence job's value-free label capture, which runs with
+# no database credential and syncs nothing; the scheduled harvest never sets it.
+if (-not [string]::IsNullOrWhiteSpace($env:HARVEST_COUNTIES)) {
+    $only = @($env:HARVEST_COUNTIES -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $counties = @($counties | Where-Object { $only -contains $_.County })
+}
 # A List + HashSet rather than a plain @() array, for two separate reasons -
 # both of which were real, measured costs, not micro-optimisation:
 #
@@ -83,6 +169,8 @@ $ci = 0
 :countyLoop foreach ($c in $counties) {
     $ci++
     $hostName = $c.Host
+    $baseUrl = if ($hostName -match '^(127\.0\.0\.1|localhost)(:\d+)?$') { "http://$hostName" } else { "https://$hostName" }
+    $saleDays = [System.Collections.Generic.List[object]]::new()
     Write-Host ("[{0}/{1}] {2}" -f $ci, $counties.Count, $c.County) -ForegroundColor Cyan
 
     $jar = Join-Path $tmpDir ("ra_" + $c.County + ".txt")
@@ -114,7 +202,7 @@ $ci = 0
     for ($mOffset = 0; $mOffset -lt 3; $mOffset++) {
         $monthStart = (Get-Date).AddMonths($mOffset)
         $tsLiteral = "{{ts '{0:yyyy-MM}-01 00:00:00'}}" -f $monthStart
-        $calUrl = "https://$hostName/index.cfm?zaction=user&zmethod=calendar&selCalDate=" + [uri]::EscapeDataString($tsLiteral)
+        $calUrl = "$baseUrl/index.cfm?zaction=user&zmethod=calendar&selCalDate=" + [uri]::EscapeDataString($tsLiteral)
         # --fail: makes curl report a non-2xx response as a real failure
         # (exit 22) instead of silently returning the error page's body as
         # if it were calendar HTML - purely an observational change (no
@@ -162,35 +250,109 @@ $ci = 0
 
     :dateLoop foreach ($date in $dates) {
         & curl -s --fail -b $jar -c $jar -A $ua --max-time 20 `
-            -H "Referer: https://$hostName/index.cfm?zaction=USER&zmethod=CALENDAR" `
-            "https://$hostName/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date" -o /dev/null 2>$null
+            -H "Referer: $baseUrl/index.cfm?zaction=USER&zmethod=CALENDAR" `
+            "$baseUrl/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date" -o /dev/null 2>$null
         if ($LASTEXITCODE -ne 0) {
             $countyOk = $false
             $countyFailReason = "preview/referer warm-up fetch failed for $date (curl exit $LASTEXITCODE)"
             break dateLoop
         }
 
+        # Paging (fixed 2026-10-26). The Waiting list is served ten items per
+        # page and the server keeps the current page in the session. The
+        # first page is PageDir=0&doR=1&bypassPage=1 (what the page itself
+        # sends on load); every NEXT page is PageDir=1&doR=0&bypassPage=0
+        # (auction.js changePage -> loadArea(area, 1, 0, 0)). The harvester
+        # used to send PageDir=N&doR=1&bypassPage=1 for every page, which the
+        # server answers with page one again - so only the first ten items of
+        # each sale day were ever read (deeds run 40200487211: 62 sale days at
+        # "10 of 20 seen"). Measured: paging check run 40380815661.
+        #
+        # The page publishes its own page count ("page 1 of 5") in the status
+        # refresh it calls with the ids of the items on screen
+        # (FNC=UPDATE&ref=<rlist>, fields PW / WM). A sale day is read in full
+        # only when every published page was read, each brought only items
+        # not seen on an earlier page, and the item count reaches the
+        # published page count's minimum. Anything else marks the county
+        # INCOMPLETE (never silently partial) and is recorded per sale day in
+        # the status file (saleDays), which the off-list close-out reads.
+        $pageSize = 10
+        $maxPages = 60
         $kept = 0; $seen = 0
-        for ($page = 0; $page -lt 12; $page++) {
+        $dayItemIds = [System.Collections.Generic.HashSet[string]]::new()
+        $publishedPages = $null
+        $pagesRead = 0
+        $dayShort = $null
+        for ($page = 0; $page -lt $maxPages; $page++) {
+            $pageQuery = if ($page -eq 0) { "PageDir=0&doR=1&bypassPage=1" } else { "PageDir=1&doR=0&bypassPage=0" }
             $json = & curl -s --fail -b $jar -c $jar -A $ua --max-time 25 `
                 -H "Accept: application/json, text/javascript, */*; q=0.01" `
                 -H "X-Requested-With: XMLHttpRequest" `
-                -H "Referer: https://$hostName/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date" `
-                "https://$hostName/index.cfm?zaction=AUCTION&Zmethod=UPDATE&FNC=LOAD&AREA=W&PageDir=$page&doR=1&bypassPage=1&test=1" 2>$null
+                -H "Referer: $baseUrl/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date" `
+                "$baseUrl/index.cfm?zaction=AUCTION&Zmethod=UPDATE&FNC=LOAD&AREA=W&$pageQuery&test=1" 2>$null
             if ($LASTEXITCODE -ne 0) {
                 $countyOk = $false
                 $countyFailReason = "paginated fetch failed for $date page $page (curl exit $LASTEXITCODE)"
                 break dateLoop
             }
             $txt = $json -join ""
-            if (-not $txt -or $txt -notmatch 'AITEM_') { break }
+            if (-not $txt -or $txt -notmatch 'AITEM_') {
+                if ($page -eq 0) { $publishedPages = 0 }
+                break
+            }
 
             $blocks = [regex]::Split($txt, 'AITEM_') | Select-Object -Skip 1
-            if ($blocks.Count -eq 0) { break }
-            $newOnPage = 0
+            if ($blocks.Count -eq 0) {
+                if ($page -eq 0) { $publishedPages = 0 }
+                break
+            }
+            # Item identity for paging only: the block's own AITEM_<id>.
+            $newItems = 0
+            foreach ($b in $blocks) {
+                $idM = [regex]::Match($b, '^(\d+)')
+                $itemKey = if ($idM.Success) { $idM.Groups[1].Value } else { "block:" + $b.GetHashCode() }
+                if ($dayItemIds.Add($itemKey)) { $newItems++ }
+            }
+            if ($newItems -eq 0) {
+                # The server handed back a page already read: the pager did
+                # not move. Past the last published page this is expected
+                # (it repeats the last page); before it, the day is short.
+                break
+            }
+            $pagesRead++
+
+            if ($page -eq 0) {
+                # The page's own status refresh, for the ids it lists.
+                $refM = [regex]::Match($txt, '"rlist"\s*:\s*"([0-9,]*)"')
+                $ref = if ($refM.Success) { $refM.Groups[1].Value.Trim(',') } else { "" }
+                if ($ref) {
+                    $upd = & curl -s --fail -b $jar -c $jar -A $ua --max-time 25 `
+                        -H "Accept: application/json, text/javascript, */*; q=0.01" `
+                        -H "X-Requested-With: XMLHttpRequest" `
+                        -H "Referer: $baseUrl/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date" `
+                        "$baseUrl/index.cfm?zaction=AUCTION&ZMETHOD=UPDATE&FNC=UPDATE&ref=$ref" 2>$null
+                    if ($LASTEXITCODE -ne 0) {
+                        $countyOk = $false
+                        $countyFailReason = "page-count refresh failed for $date (curl exit $LASTEXITCODE)"
+                        break dateLoop
+                    }
+                    $updTxt = $upd -join ""
+                    $pwM = [regex]::Match($updTxt, '"PW"\s*:\s*"\s*page\s+(\d+)\s+of\s+(\d+)\s*"', 'IgnoreCase')
+                    if ($pwM.Success) { $publishedPages = [int]$pwM.Groups[2].Value }
+                }
+            }
 
             foreach ($b in $blocks) {
                 $seen++
+                if ($LabelReport) {
+                    if (-not $LabelCounts.ContainsKey($c.County)) { $LabelCounts[$c.County] = @{} }
+                    foreach ($lt in @(Get-LabelTexts $b)) { $LabelCounts[$c.County][$lt] = 1 + [int]$LabelCounts[$c.County][$lt] }
+                    $LabelCounts[$c.County]['(items)'] = 1 + [int]$LabelCounts[$c.County]['(items)']
+                    if (-not (Get-CertificateNumber $b)) {
+                        if (-not $LabelSkeletons.ContainsKey($c.County)) { $LabelSkeletons[$c.County] = @() }
+                        if ($LabelSkeletons[$c.County].Count -lt 2) { $LabelSkeletons[$c.County] += (Get-CertSkeleton $b) }
+                    }
+                }
                 $case = Get-Field $b 'Case #'
                 if (-not $case) { continue }
                 $case = ($case -replace '<[^>]+>','').Trim()
@@ -199,7 +361,6 @@ $ci = 0
                 # so this is both the membership test and the insert in one
                 # O(1) call - same first-wins semantics as the old scan.
                 if (-not $seenKeys.Add($key)) { continue }
-                $newOnPage++
 
                 $bid = ToNum (Get-Field $b 'Opening Bid')
 
@@ -224,7 +385,7 @@ $ci = 0
                     host        = $hostName
                     sale_date   = $date
                     case        = $case
-                    cert        = (Get-Field $b 'Certificate #')
+                    cert        = (Get-CertificateNumber $b)
                     bid         = $bid
                     assessed    = ToNum (Get-Field $b 'Assessed Value')
                     parcel      = ((Get-Field $b 'Parcel ID') -replace '<[^>]+>','').Trim()
@@ -234,9 +395,38 @@ $ci = 0
                 })
                 $kept++
             }
-            if ($newOnPage -eq 0) { break }
+            if ($null -ne $publishedPages -and $pagesRead -ge $publishedPages) { break }
         }
-        if ($kept -gt 0) { Write-Host ("  {0} {1} properties (of {2} seen)" -f $date, $kept, $seen) -ForegroundColor Green }
+
+        # Per-sale-day verdict. Read in full = the published page count is
+        # known, every published page was read, and the items read reach that
+        # page count's minimum ((pages - 1) * 10 + 1). A day with no items
+        # (publishedPages 0) is read in full. Never silently partial.
+        $itemsRead = $dayItemIds.Count
+        if ($null -eq $publishedPages) {
+            $dayShort = "page count not published"
+        } elseif ($pagesRead -lt $publishedPages) {
+            $dayShort = "read $pagesRead of $publishedPages pages"
+        } elseif ($publishedPages -gt 0 -and $itemsRead -lt (($publishedPages - 1) * $pageSize + 1)) {
+            $dayShort = "read $itemsRead items, fewer than $publishedPages pages hold"
+        }
+        $saleDays.Add([pscustomobject]@{
+            sale_date       = $date
+            read            = $itemsRead
+            pages_read      = $pagesRead
+            published_pages = $publishedPages
+            complete        = ($null -eq $dayShort)
+        })
+        if ($null -ne $dayShort) {
+            # Keep reading the county's other sale days (their rows are still
+            # synced), but the county is not a complete read.
+            $countyOk = $false
+            if (-not $countyFailReason) { $countyFailReason = "sale day $date read short: $dayShort" }
+            Write-Host ("  {0} READ SHORT: {1}" -f $date, $dayShort) -ForegroundColor Red
+        }
+        if ($kept -gt 0 -or $itemsRead -gt 0) {
+            Write-Host ("  {0} {1} properties ({2} items on {3} of {4} page(s))" -f $date, $kept, $itemsRead, $pagesRead, $publishedPages) -ForegroundColor Green
+        }
     }
 
     if ($countyOk) {
@@ -244,7 +434,8 @@ $ci = 0
             county   = $c.County
             status   = "COMPLETE"
             rowCount = ($all.Count - $countyRowsBefore)
-            reason   = "calendar + pagination retrieval succeeded for every auction date found, no transport-level failure"
+            reason   = "calendar + pagination retrieval succeeded for every auction date found, every published page of every sale day read, no transport-level failure"
+            saleDays = @($saleDays)
         }
     } else {
         Write-Host ("  INCOMPLETE: {0}" -f $countyFailReason) -ForegroundColor Red
@@ -253,6 +444,7 @@ $ci = 0
             status   = "INCOMPLETE"
             rowCount = ($all.Count - $countyRowsBefore)
             reason   = $countyFailReason
+            saleDays = @($saleDays)
         }
     }
 }
@@ -262,7 +454,7 @@ $ci = 0
 # any, are safe to reconcile against; its own absence must mean "reconcile
 # nothing", never "assume everything succeeded" (same discipline as
 # harvest_lienhub_certificates.ps1's harvest_certificates_status.json).
-$countyStatus | ConvertTo-Json -Depth 3 | Set-Content $outStatus -Encoding utf8
+$countyStatus | ConvertTo-Json -Depth 5 | Set-Content $outStatus -Encoding utf8
 $completeCount = @($countyStatus | Where-Object { $_.status -eq "COMPLETE" }).Count
 $incompleteCount = @($countyStatus | Where-Object { $_.status -eq "INCOMPLETE" }).Count
 Write-Host ("Completeness: {0} COMPLETE, {1} INCOMPLETE (of {2} counties attempted)" -f $completeCount, $incompleteCount, $countyStatus.Count)
@@ -282,5 +474,20 @@ Write-Host ("With bid amount: {0}" -f ($all | Where-Object { $_.bid }).Count)
 Write-Host ("With assessed value from the feed: {0}" -f ($all | Where-Object { $_.assessed }).Count)
 Write-Host ("With parcel ID: {0}" -f ($all | Where-Object { $_.parcel }).Count)
 Write-Host ("With appraiser deep-link: {0}" -f ($all | Where-Object { $_.appraiser }).Count)
+Write-Host ("With certificate number: {0}" -f ($all | Where-Object { $_.cert }).Count)
+foreach ($cn in @($all.county | Select-Object -Unique)) {
+    $cRows = @($all | Where-Object { $_.county -eq $cn })
+    $cCert = @($cRows | Where-Object { $_.cert }).Count
+    if ($cCert -lt $cRows.Count) { Write-Host ("  {0}: certificate number on {1} of {2} rows" -f $cn, $cCert, $cRows.Count) }
+}
+if ($LabelReport) {
+    Write-Host "Label vocabulary per county (digits masked, never a value):"
+    foreach ($cn in @($LabelCounts.Keys | Sort-Object)) {
+        foreach ($lt in @($LabelCounts[$cn].Keys | Sort-Object)) { Write-Host ("  LABEL {0} | {1} | {2}" -f $cn, $lt, $LabelCounts[$cn][$lt]) }
+    }
+    foreach ($cn in @($LabelSkeletons.Keys | Sort-Object)) {
+        foreach ($sk in $LabelSkeletons[$cn]) { Write-Host ("  CERT-CELL-SHAPE {0} | {1}" -f $cn, $sk) }
+    }
+}
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host "Saved: $outJson"

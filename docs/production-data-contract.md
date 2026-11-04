@@ -49,11 +49,11 @@ No RAW stage is ever persisted (confirmed again this phase - no harvester writes
 
 `properties` models **one sale-event listing**, not a property with a sale history. There is exactly one row per `(state, source, county, case_no)` and every re-sync **upserts into that same row** (`ON CONFLICT ... DO UPDATE`, in every sync script). Confirmed behaviors:
 
-- **Same property, later re-offered at the same source with the same identity key** -> the existing row is updated in place (`bid`/`sale_date` refreshed; hand-researched fields like `owner_name`/`lien_level`/`notes` deliberately left untouched by the safe-merge design documented in every sync script's own header comment). The prior sale's outcome is not retained anywhere once overwritten, except FL auction's own `status`/`gone_since`/`outcome`/`sold_price` fields (Section 10) for the *most recent* close-out event only - there is no history table.
+- **Same property, later re-offered at the same source with the same identity key** -> the existing row is updated in place (`bid`/`sale_date` refreshed, and since 2026-09-28 `status` is refreshed to `active` as well, because the row is on a scheduled feed again - which also clears `gone_since` through migration 006's trigger; hand-researched fields like `owner_name`/`lien_level`/`notes` deliberately left untouched by the safe-merge design documented in every sync script's own header comment). The prior sale's outcome is not retained anywhere once overwritten, except FL auction's own `status`/`gone_since`/`outcome`/`sold_price` fields (Section 10) for the *most recent* close-out event only - there is no history table.
 - **Same account/parcel appearing at two different sources** (e.g. hypothetically both `tx_lgbs` and a future `tx_pbfcm`) -> two independent rows, since `source`/`harvester_source` are not part of the identity key comparison that matters here in the way `case_no` is; `(state, source, county, case_no)` treats them as different rows by construction whenever `source` differs, and there is no reconciliation step that would recognize they describe the same parcel.
 - **Same account, different county-vendor case_no shape** - not observed in production data as of this phase; not testable without live data, so not asserted either way.
 
-This is a genuine, real architectural limitation worth naming plainly (see Section 24), not resolved by this phase: **the data model conflates "the property" and "the listing" into one row.** A future sale-event/property split (a real design change) is documented as a future option, not built.
+This is a genuine, real architectural limitation worth naming plainly (see Section 24), not resolved by this phase: **the data model conflates "the property" and "the listing" into one row.** A future sale-event/property split (a real design change) is documented as a future option, not built. (Update 2026-09-25: the schema half of that split now exists as migration 014, Section 26 - two empty tables with no writers yet. `properties` itself is unchanged.)
 
 ## 5. Field inventory (customer-visible surface)
 
@@ -68,7 +68,7 @@ The authoritative customer-visible field inventory is **the CSV export column li
 | `parcel` | Parcel | text | harvesters (FL: county parcel #; TX: `cause_number`, secondary id, see Section 3) | Yes | Yes | PUBLIC |
 | `case_no` | Case/Account # | text | harvesters, identity-bearing (Section 3) | Yes | Yes | PUBLIC |
 | `owner_name` | Owner | text | FL enrichment (fill-blank only); some FL certificate/LAFT harvesters | Yes | Yes | PERSONAL (owner-of-record name; see Section 14 note) |
-| `status` | Status | text | sync scripts (`active` default); FL auction sync's close-out patch (`closed`) | Yes | Yes | DERIVED (pipeline-computed close-out state, not source-provided) |
+| `status` | Status | text | FL auction sync's upsert (`active`, every harvested row) and its close-out patch (`closed`); other sync scripts rely on the `active` column default | Yes | Yes | DERIVED (pipeline-computed close-out state, not source-provided) |
 | `prop_type` | Property Type | text | FL enrichment (fill-blank) | Yes | Yes | PUBLIC |
 | `dor_use_code` | DOR Use Code | text | FL enrichment (`schema-v9-dor-use-code.sql`) | Yes | Yes | PUBLIC |
 | `tx_category` | TX Category (SPTB) | text | not currently populated - `enrich_property_details_tx.py` is a non-working stub (Section 24); column exists (migration 002) but no writer runs in production today | Yes (always blank today) | Yes | PUBLIC |
@@ -147,13 +147,14 @@ Other value fields, confirmed distinct and NOT collapsed:
 - **Event date** (`sale_date`, `issued_date`, `expiration_date`) - when something happens/happened in the real world (an auction, a certificate's issuance/expiration), as published by the source. Normalized to ISO `YYYY-MM-DD` (Section 8); no time-of-day is captured for any current field.
 - **Retrieval/processing timestamp** - Phase 12's `retrieved_at`, generated fresh by each of `harvesters/texas_harvester.py`'s `main()` and `scripts/sync-texas-to-supabase.py`'s own run, in each case labeled honestly as "when this process ran," never claimed to be "when the vendor's data changed." **Not stored in Supabase** - pipeline-side/audit-log only (unchanged from Phase 12; Step 11 forbids storing new timestamps this phase too).
 - **`updated_at`** - referenced throughout `app.js` (`STALE_DATA_HOURS`, the "Data updated" freshness banner) as a per-row timestamp Postgres appears to maintain automatically on every upsert. No migration file in this repository's tracked history defines this column or the trigger that would maintain it (see Section 24's honest note on undocumented-in-repo schema) - its exact update semantics (does every column-touching upsert bump it, even a no-op safe-merge upsert that changes nothing?) could not be confirmed from code in this repository and are recorded here as **genuinely unknown**, not assumed.
-- **`gone_since`** - referenced by `app.js` (`goneExpired()`) as the timestamp a property left the `active` status; same as `updated_at`, referenced by frontend code with no accompanying migration file in this repo to confirm exactly which write path sets it or how.
+- **`gone_since`** - referenced by `app.js` (`goneExpired()`) as the timestamp a property left the `active` status; same as `updated_at`, referenced by frontend code with no accompanying migration file in this repo to confirm exactly which write path sets it or how. (Update: `scripts/migrations/006_add_closed_to_gone_since_status_list.sql` defines the trigger pair that stamps it on entry to `dropped`/`sold`/`notfound`/`closed` and clears it on the way back to any other status; it is never written by application code.)
+- **Close-out day (FL auction)** - `sync-harvest-to-supabase.ps1` closes out an `active` row only once its Florida sale day has ended: `sale_date` strictly before the calendar date at UTC-6, the earliest local date anywhere in Florida at that instant (Eastern and Central, both DST states) - the same convention as `auction_events_writer.py`'s `SALE_DAY_UTC_OFFSET` (Section 27). Until 2026-09-28 the comparison was `<=` against the runner's UTC date, which from 8 pm ET treated a same-day sale as already passed (harvest run #181, 00:16 UTC 2026-09-28, closed out 11 sales dated 2026-09-28 during the Florida evening of 09-27). A close-out still says only that the listing left a COMPLETE county's Waiting feed; it never infers that the sale was held.
 
 This phase adds no new persisted timestamp field (Step 11).
 
 ## 12. Status contract
 
-`status` is a free-text column with **exactly three values confirmed to be actually emitted by any current writer**: `active` (the implicit Postgres column default every sync script relies on, per every sync script's own "brand-new properties get the table default" comment), and `closed` (written only by `sync-harvest-to-supabase.ps1`'s own close-out step, for FL `auction` rows whose sale date has passed and which no longer appear in the day's harvest). No harvester or sync script anywhere in this codebase currently writes `status='dropped'`, `'sold'`, or `'notfound'`, even though `app.js`'s own `GONE_STATUSES = ["dropped", "sold", "notfound", "closed"]` constant defensively includes all four - `app.js`'s own comment on this (`outcomeText()`, line ~84) states plainly: "The harvesters do not capture it yet: `status` only ever holds active/closed/dropped[sic - dropped is also not currently emitted per the writer audit above], and there is no column for the winning bid." **This phase does not resolve that gap** - it documents the frontend's forward-looking, currently-inert defensive handling exactly as it exists, and flags it as an open item (Section 24), not a bug this phase fixes.
+`status` is a free-text column with **exactly two values confirmed to be actually emitted by any current writer**: `active` (the Postgres column default every sync script relies on for new rows, and - since 2026-09-28 - written explicitly by `sync-harvest-to-supabase.ps1`'s upsert for every harvested FL `auction` row, each of which was read off a scheduled feed that run; before that the upsert omitted `status`, so a row closed out in one run and re-listed by the county under a new date stayed falsely `closed` - 15 such rows with future sale dates in harvest run #181), and `closed` (written only by that same script's close-out step, for FL `auction` rows whose Florida sale day has ended - Section 11 - and which no longer appear in a COMPLETE county's harvest). No harvester or sync script anywhere in this codebase currently writes `status='dropped'`, `'sold'`, or `'notfound'`, even though `app.js`'s own `GONE_STATUSES = ["dropped", "sold", "notfound", "closed"]` constant defensively includes all four - `app.js`'s own comment on this (`outcomeText()`, line ~84) states plainly: "The harvesters do not capture it yet: `status` only ever holds active/closed/dropped[sic - dropped is also not currently emitted per the writer audit above], and there is no column for the winning bid." **This phase does not resolve that gap** - it documents the frontend's forward-looking, currently-inert defensive handling exactly as it exists, and flags it as an open item (Section 24), not a bug this phase fixes.
 
 `outcome`/`sold_price` (feeding `outcomeText()`) are likewise referenced defensively by the frontend but are not written by any current harvester or sync script found in this repository - real, but currently always-null, columns.
 
@@ -337,6 +338,241 @@ Documented as options, per Step 23 - none built this phase:
 - **Splitting `assessed` into two columns** (limitation #2), or renaming/re-labeling the Texas "County Assessed Value" display once its exact source-field semantics (especially LGBS's raw `"value"`) are independently confirmed against vendor documentation, if any is ever found.
 - **A Texas coordinate sanity bound**, mirroring the existing Florida one, the next time `geocode_properties.py` or LGBS's coordinate handling is touched.
 - **Populating `tx_category`/the redemption fields** - would require either fixing `enrich_property_details_tx.py` or building its replacement; explicitly not attempted this phase (would be new implementation, not contract documentation).
+
+## 26. Auction-event history contract (migration 014, Phase A - schema only)
+
+Added 2026-09-25 after the read-only auction-event history audit. Migration
+`scripts/migrations/014_auction_event_history.sql` creates two tables and
+nothing else. This section states the contract those tables establish; it
+does not change anything above.
+
+1. **`properties` remains the current-state representation.** One row per
+   `(state, source, county, case_no)`, upserted in place by every sync
+   script, exactly as Sections 3, 4 and 12 describe. Migration 014 does not
+   alter `properties`, any of its columns, constraints, triggers, indexes or
+   policies, and does not alter `get_properties()`.
+2. **`auction_events` represents individual scheduled auction events.** One
+   row per scheduled sale of one property, referencing `properties(id)` with
+   `ON DELETE RESTRICT`. Its `state`/`source`/`harvester_source`/`county`/
+   `case_no`/`ledger_type` are copied from the property at event creation and
+   are immutable on the event, so history survives a later change to the
+   property row. `opening_bid` is a snapshot at first observation, not a
+   mirror of `properties.bid`. `event_url`/`event_url_kind` are the event's
+   own link and kind (same four-value vocabulary as `url_auction_kind`,
+   migration 013), separate from the property's current link.
+3. **`auction_event_observations` preserves source observations over time.**
+   Append-only by application design: one row per `(event_id, observed_at)`
+   recording the feed read, the source's own status string verbatim
+   (`raw_status`), the normalization applied at that moment, the figures
+   shown, and the URL it was read from. Application code inserts only; no
+   trigger rewrites it; rows are never updated. Its FK to `auction_events` is
+   also `ON DELETE RESTRICT`.
+4. **`(property_id, scheduled_sale_date)` is the current event identity**,
+   enforced by a UNIQUE constraint. A property re-offered under a new date is
+   a new event; the earlier event is marked lifecycle `superseded`, never
+   overwritten or deleted. URL, county spelling, case-number formatting and
+   parcel are deliberately not identity. No cross-source property matching is
+   attempted: the same parcel under two sources is two properties and two
+   event streams.
+5. **Vocabularies.** `lifecycle` is one of `scheduled`, `completed`,
+   `cancelled`, `withdrawn`, `stayed`, `pending_result`, `superseded`,
+   `unknown`. `outcome` is one of `sold`, `redeemed`, `struck_off`,
+   `future_sale`, `no_sale`, `unknown`, default `unknown`. `properties.status`
+   words (`active`, `closed`, `notfound`, `dropped`) are not in either list.
+   **A listing that left its feed is not equivalent to "sold"**: it is
+   lifecycle `completed` (or `pending_result`) with outcome `unknown` until a
+   source states the result. **`unknown` outcomes remain `unknown`**; nothing
+   in this schema, and nothing planned, infers an outcome from absence.
+6. **Access.** RLS is enabled on both tables with exactly one PERMISSIVE
+   SELECT policy each, to `authenticated`, gated on `public.is_approved()`.
+   No INSERT/UPDATE/DELETE policy exists; `anon` holds no privilege on
+   either table or on the observation table's identity sequence;
+   `authenticated` holds SELECT only on the tables and nothing on the
+   sequence; `service_role` (which bypasses RLS) holds the writer
+   privileges - SELECT/INSERT/UPDATE/DELETE on both tables and USAGE/SELECT
+   on `auction_event_observations_id_seq` - and, through the project's
+   default privileges, the same remaining privileges it already holds on
+   every production table. It is the only writer any later phase may use,
+   the same posture every sync script already has on `properties`. The
+   migration revokes the project's default table and sequence privileges
+   from `public`, `anon` and `authenticated` explicitly.
+7. **Bidder participation is not represented by this schema.** There is no
+   bids table, no bidder table, no bidder or purchaser name, and
+   `winning_bidder_ref` must stay NULL until a data-handling review (LAFT
+   purchaser names, RealAuction winner identifiers, the LGBS redistribution
+   scope question in `docs/lgbs-rights-audit.md`) has cleared what, if
+   anything, may be stored there. Bidder-level metrics of any kind remain
+   unavailable from this project's data.
+8. **No customer-facing outcome analytics are enabled by this phase.** Both
+   tables are created empty, no harvester or sync script writes to them, no
+   RPC reads them, and the frontend does not reference them. Rates that
+   depend on outcome coverage are not computable from this phase and no
+   figure derived from these tables may be shown to a user until a later,
+   separately authorized phase provides both writers and the coverage
+   denominators those figures need.
+
+Tests: `tests/python/test_migration_014_auction_event_history.py`. Its static
+layer reads the migration file and always runs in CI. Its live layer applies
+the migration verbatim to a throwaway scratch database on a local PostgreSQL
+(fixture: `tests/python/fixtures/migration_014_scratch_fixture.sql`) and is
+skipped where no local database is reachable, including in
+`python-governance-test.yml`; it never contacts the Supabase project.
+
+Production status: migration 014 was applied to production on 2026-09-25
+(version 20260925163457) after PR #32 was audited and merged; both tables
+were verified empty immediately afterward.
+
+## 27. Auction-event writers and current-state seed (Phase B)
+
+Added 2026-09-25. Phase B is the first code that writes the Section 26
+tables. It is additive: `properties` is never written by it, and every
+existing harvester and sync script is byte-for-byte unchanged - except two
+property-side fixes to `sync-harvest-to-supabase.ps1` shipped in the same
+pull request after the real-harvest dry-run of 2026-09-28 (the Florida
+close-out day, Section 11, and `status` refreshed to `active` on
+re-listing, Section 12). Neither touches Phase B: the writer reads
+`properties` only to resolve `property_id` (never `status`), and no rule in
+items 2-6 below changes. The same dry-run also found that the workflow's
+`out/harvest_all.*` artifact glob never captured `harvest_all_status.json`
+(fixed: listed explicitly, likewise for the certificate and Texas status
+files); inside the job the writer always read the file from the runner.
+
+1. **Writer.** `scripts/auction_events_writer.py` runs as a workflow step
+   AFTER the existing property sync in the `deeds` job (`--source fl`,
+   fed by `out/harvest_all.json` + `out/harvest_all_status.json`) and in the
+   `texas` job (`--source tx`, fed by `out/harvest_texas.json`). It reads
+   `properties` only to resolve `property_id` for each harvested
+   `(state, source, county, case_no)`; a harvested row with no property row
+   (not yet synced, or dropped by the governance gate) gets no event. It
+   writes with the service role, like every sync script. The step is
+   `continue-on-error`, so a writer failure can never fail the property
+   pipeline - but it is never silent: the writer appends its result (OK or
+   FAILED) to the job summary, and a following step raises a
+   `::warning title=Phase B event recording failed` annotation plus a job
+   summary section stating that the property harvest and sync succeeded and
+   only the event recording failed. The Texas job's trigger is unchanged
+   (`workflow_dispatch` only).
+2. **Sightings.** One per harvested auction row with a sale date: FL
+   RealAuction (feed `waiting`, raw_status "Auctions Waiting"), Okaloosa
+   Bid4Assets (feed `list`), TX RealAuction (feed `waiting`), TX LGBS rows
+   whose raw status is "Scheduled for Auction" or "Scheduled for Online
+   Auction" (feed `api`, raw_status verbatim). Any other LGBS status is
+   skipped, never labelled scheduled. LAFT/certificate rows and TX struck-off
+   or future-sale rows have no sale date and produce no event.
+3. **Event identity and idempotency.** `(property_id, scheduled_sale_date)`.
+   Seen again: the existing event gets `lifecycle = 'scheduled'`,
+   `last_seen_at`, the current link, and `opening_bid` only if it was null;
+   one new observation is appended. **Re-sighting** is explicit
+   (`RESIGHT_LIFECYCLE`): an event previously derived `completed`,
+   `superseded` or `unknown` whose own (property, date) is listed on a
+   scheduled feed again goes back to `scheduled`; the derived observation
+   stays in its history. A new date for the same property is a
+   new event; the earlier event is never overwritten or deleted. One
+   `observed_at` per run, so duplicates within a harvest collapse to one
+   observation per event per run.
+4. **Lifecycle is explicit.** Every event row and observation carries a
+   lifecycle from the Section 26 vocabulary; the database default is not
+   relied on. Absence-based transitions need evidence and a completeness
+   gate: an earlier `scheduled` event becomes `superseded` only when its date
+   has not passed, its county's harvest this run was COMPLETE, and the
+   property is listed under a different date this run. A `scheduled` event
+   whose date has passed and which is absent from a COMPLETE county harvest
+   becomes `completed` ONLY if its `last_seen_at` is on or after its
+   scheduled sale date (it stayed listed through the sale day - Section 26's
+   definition); if it was last seen BEFORE the sale date it becomes
+   `unknown` instead, because it left the feed before the sale could happen
+   and withdrawn / postponed / redeemed / corrected cannot be told apart.
+   The sale-day comparison uses the date at UTC-6, the earliest local date
+   anywhere in Florida. Its outcome stays `unknown` in every case. Absence
+   from one harvest alone changes nothing. Derived transitions are recorded
+   as observations with `feed = 'derived'` and `raw_status` NULL - an
+   inference, never a sighting of a feed; `evidence_url` is the replacing
+   listing's URL for a supersession and NULL otherwise. Texas has no per-county
+   completeness file, so no absence-based transition is applied to Texas
+   events in this phase.
+5. **Write order.** PostgREST offers no multi-table transaction without a
+   schema/RPC change, so the guarantee is ordering plus compensation, not
+   atomicity. For an existing event the observation is stored first and the
+   event is patched after it, so an event's lifecycle / `last_seen_at` never
+   advance without their observation; a failed patch only leaves the event
+   lagging its evidence until the next run. A new event must exist before
+   its observation (foreign key): each batch is inserted, its observations
+   written immediately (idempotent on `(event_id, observed_at)`), and if
+   that fails the batch's just-inserted events are deleted again, filtered
+   on this run's `first_seen_at`, before the error is raised. Only if that
+   compensating delete also fails can an event exist without an
+   observation, and the error says so.
+6. **Outcomes are not captured.** Every event Phase B creates or touches has
+   `outcome = 'unknown'`; `outcome_raw`, `outcome_observed_at`,
+   `outcome_effective_date`, `winning_bid`, `bid_count` and
+   `winning_bidder_ref` are never written (refused in code, asserted in
+   tests). `winning_bidder_ref` stays NULL.
+7. **Seed (conservative).** `scripts/seed_auction_events.py` seeds only
+   rows with present-tense source evidence, always as `scheduled`: FL rows
+   listed in the supplied harvest file (`out/harvest_all.json`) under the
+   same date, in a county COMPLETE in `out/harvest_all_status.json`; TX LGBS
+   rows whose own `tx_sale_status` is one of the two scheduled LGBS
+   statuses; TX RealAuction rows listed in the supplied
+   `out/harvest_texas.json`; each only when `status = 'active'` and the date
+   is today or later. It never seeds `completed` or `pending_result`: a
+   property's `closed` status is not evidence the listing was present through
+   its sale date, and an `active` row absent from the latest harvest is not
+   evidence it is scheduled. Every skipped row is counted by reason
+   (`closed_status_not_completion_evidence`, `contradictory_closed_future`,
+   `status_not_active`, `date_passed_presence_not_established`,
+   `no_harvest_evidence_supplied`, `county_harvest_not_complete`,
+   `absent_from_current_harvest`, `lgbs_status_not_scheduled`,
+   `unsupported_source`). Each seeded event gets one observation with
+   `feed = 'seed'` and the evidence's own status text as `raw_status`.
+   `first_seen_at`/`last_seen_at` are the seed time. It is dry-run by
+   default (`--apply` to write), wired into no workflow, idempotent, and
+   uses the writer's write order and compensation. Because the live
+   writer's first run records the same harvest-evidenced rows, the seed is
+   optional and not a precondition for activation.
+8. **Boundaries.** No frontend surface reads these tables, `get_properties`
+   is unchanged, no analytics RPC exists, and no LGBS resolved statuses,
+   LAFT sold rows or RealAuction closed sections are harvested.
+
+Tests: `tests/python/test_phase_b_auction_event_writers.py` (writer and seed
+against an in-memory Store with the migration's uniqueness rules; artifact
+shape parsing; workflow wiring; pipeline files untouched; no bidder/outcome
+field writable). Production status at the time of writing: Phase B is
+implemented in a pull request that is not merged; the writer has not run
+against production and the seed has not been applied.
+
+## 28. Customer boundary, artifacts, account lifecycle and source health (SaaS hardening, 2026-09-29)
+
+Proposed in the hardening PR; migrations 015/016 are not applied until the
+owner runs them (docs/production-configuration.md section 1).
+
+- **Writes to shared property intelligence come only from `service_role`.**
+  After migration 015 an approved customer holds SELECT (column-level, from
+  005a) on `properties` and SELECT on `county_calendar`, and nothing else on
+  either. `notes`, `favorites`, `hidden`, `bid_list`, `profiles` keep
+  INSERT/UPDATE/DELETE/SELECT for `authenticated`, row-scoped by the
+  unchanged policies; `anon` holds nothing on any of them.
+- **Shared vs customer-owned data.** Shared: `properties`, `county_calendar`,
+  `auction_events`, `auction_event_observations`, `source_health`. Customer-
+  owned: `favorites`, `hidden`, `bid_list` (private to the row's user),
+  `notes` (owned by the author, READABLE BY EVERY APPROVED MEMBER by design
+  - labelled as shared, never as private, in the editor, in Terms and in
+  this contract), `profiles` (own row + admin). Account metadata (name,
+  company, address, phone) lives in `auth.users.raw_user_meta_data`.
+- **Deletion.** `delete_my_account()` removes the caller's rows in the five
+  customer tables and the `auth.users` row (cascading to `auth.identities`,
+  `auth.sessions`, ...). It never touches a shared table. Backups taken
+  before a deletion hold the user's notes until the artifact expires.
+- **Public artifacts carry no row values.** See production-configuration.md
+  section 5 for exactly what stays public.
+- **Source health** (`source_health`, one row per dataset) is written after
+  every sync step and classified at read time (HEALTHY / INCOMPLETE / FAILED
+  / STALE / NOT_RUN). INCOMPLETE is never presented as empty or healthy, a
+  green workflow run is not presented as dataset health, and a manual
+  (Texas) source is presented as manual with its last run date.
+- **Event history in the UI.** The property page lists observed scheduled
+  sale events and observations. Outcome is always rendered "Not tracked";
+  lifecycle `completed` is rendered "Sale date passed - outcome not tracked"
+  and is never rendered as sold.
 
 ## Testing strategy
 

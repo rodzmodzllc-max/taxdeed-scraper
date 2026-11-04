@@ -9,8 +9,9 @@ Section 9/10 of Phase 39's brief required inspecting rather than assuming. All t
 | Function | Claimed state | Verified state, 2026-09-16 |
 |---|---|---|
 | `harvest_lgbs()` | real implementation | **Confirmed real.** Live API re-verified: envelope unchanged, all 29 fields present, `count` = 6,309 rows for `area=TX`. Not modified. |
-| `harvest_pbfcm()` | stub | **Confirmed stub** (raises `NotImplementedError`). Source is `BLOCKED` on an affirmative terms prohibition, independent of the stub. Not modified. |
-| `harvest_govease()` | stub | **Confirmed stub** (raises `NotImplementedError`, line 973). Not modified — Section 23's "do not implement a speculative scraper simply to eliminate the stub." |
+| `harvest_pbfcm()` | stub | **Implemented 2026-10-26** on the owner's decision (terms risk accepted, legal review pending) - see `docs/texas-vendor-sources.md`. |
+| `harvest_govease()` | stub | **Implemented 2026-10-26** on the owner's decision - see `docs/texas-vendor-sources.md`. |
+| `harvest_mvba()` | (none) | **Added 2026-10-26** on the owner's decision - see `docs/texas-vendor-sources.md`. |
 | `scripts/enrich_property_details_tx.py` | real Harris/Tarrant CAD fetchers | **Confirmed real, and both layers verified live** (see §2). Not modified. |
 
 `SOURCES` in `texas_harvester.py` still maps the same four vendors, and the ingestion gate still runs before every `harvest_*()` call. Nothing about the Texas pipeline's behavior changed this phase.
@@ -64,10 +65,10 @@ The roster lives in its own artifact and does **not** rewrite `data/tx_county_co
 
 | Source | Status | Why |
 |---|---|---|
-| `tx_pbfcm` | `BLOCKED` | Affirmative terms prohibition on reproduction/redistribution |
-| `tx_mvba` | `BLOCKED` | Affirmative terms prohibition |
+| `tx_pbfcm` | `APPROVED` (owner decision 2026-10-26) | Affirmative terms prohibition on reproduction/redistribution on record; owner accepted the risk, legal review pending |
+| `tx_mvba` | `APPROVED` (owner decision 2026-10-26) | Affirmative terms prohibition on record; owner accepted the risk, legal review pending |
 | `tx_ctsa` | `BLOCKED` | Paywall + anti-competitive-use clause |
-| `tx_govease` | `BLOCKED` | Blanket `Disallow: /`, no locatable terms |
+| `tx_govease` | `APPROVED` (owner decision 2026-10-26) | Blanket `Disallow: /`, no locatable terms; owner accepted the risk, legal review pending |
 | `tx_hctax` | `LEGAL_REVIEW_REQUIRED` | No prohibition found, no permission found |
 
 The acquisition policy gate refuses the four `BLOCKED` sources for **both** purposes, including `INTERNAL_TECHNICAL_TESTING`. Section 17's testing allowance covers unresolved *commercial* questions, never a found prohibition — a test asserts this for every `BLOCKED`/`DISABLED`/`TERMS_CHANGED` source in the registry.

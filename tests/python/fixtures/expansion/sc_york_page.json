@@ -1,0 +1,19 @@
+{
+ "objectIdFieldName": "OBJECTID",
+ "features": [
+  {
+   "attributes": {"OBJECTID": 1, "TAXMAPID": "1234567890", "Owner1": "SYNTHETIC OWNER B", "PropertyAddress": "10 SYNTHETIC LN",
+                  "LegalDescription": "SYNTHETIC LOT 12 BLK C", "LandUseDesc": "RESIDENTIAL", "deededacres": 0.41,
+                  "AprTotVal": 152000, "AprLandVal": 30000, "AprBldgVal": 122000, "TaxTotVal": 152000, "AsdTotVal": 6080,
+                  "TAX_YEAR": "2025", "OWNNAME": null, "Latitude": null, "Longitude": null, "SOLD": "N"},
+   "geometry": {"rings": [[[-81.25, 34.98], [-81.24, 34.98], [-81.24, 34.99], [-81.25, 34.99], [-81.25, 34.98]]]}
+  },
+  {
+   "attributes": {"OBJECTID": 2, "TAXMAPID": "1234567891", "Owner1": "SYNTHETIC OWNER C", "PropertyAddress": null,
+                  "LegalDescription": "SYNTHETIC TRACT", "LandUseDesc": "VACANT", "deededacres": 5.0,
+                  "AprTotVal": 40000, "AprLandVal": 40000, "AprBldgVal": 0, "TaxTotVal": 40000, "AsdTotVal": 2400,
+                  "TAX_YEAR": "2025", "SOLD": "Y"}
+  }
+ ],
+ "exceededTransferLimit": false
+}

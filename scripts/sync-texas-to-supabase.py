@@ -14,6 +14,24 @@ redemption_period_months, redemption_expiration_date,
 max_statutory_return_usd - those are enrichment-time or hand-research
 fields, not harvest-time fields (see texas_harvester.py's module docstring).
 
+UPDATED 2026-09-25 (Phase 72 - auction-link provenance): three harvest-time
+fields are now sent, each ONLY when the harvester actually carries it, never
+as an explicit null:
+  url_auction + url_auction_kind  from TexasSaleRow.auction_url /
+      .auction_url_kind - today only harvest_realauction() sets them (the
+      county sale-date PREVIEW page it fetched, kind 'sale') and, since
+      2026-10-25, harvest_lgbs() from the record's own `property_loc`
+      (kind 'county'). A row without one omits the keys, so the DB column
+      stays null and the UI says "Auction link not published". A URL is
+      never composed here from a county name or a provider homepage.
+  document_url  from TexasSaleRow.sale_list_url (2026-10-25) - the county
+      sale-list document LGBS publishes for the record, verbatim, https only.
+  tx_sale_status  from TexasSaleRow.sale_status - LGBS's raw status,
+      verbatim.
+Because PostgREST rejects a batch whose objects do not all share one key
+set (PGRST102 - see the coordinates note below), rows are batched by their
+exact key set, not just by whether they carry coordinates.
+
 Conflict target is `on_conflict=state,source,county,case_no` from day one -
 NOT the older FL-only `on_conflict=source,county,case_no` target the three
 FL sync scripts still fall back to. No fallback needed here: unlike the FL
@@ -153,7 +171,22 @@ JSON_PATH = HERE / "../out/harvest_texas.json"
 sys.path.insert(0, str(HERE / ".."))
 from harvesters.governance.authorization import authorized_for_customer_output  # noqa: E402  (Phase 34B)
 from harvesters.governance.gate import check_ingestion_gate  # noqa: E402
+from harvesters.governance import permissions as PERM  # noqa: E402
+from harvesters.ledgers import records as LEDGER_RECORDS  # noqa: E402
+from harvesters.enrichment import geocode as _GEO  # noqa: E402  (STATE_BOUNDS / in_state)
+
+_STORE_CACHE: dict = {}
+
+
+def _store_permitted(source_id) -> bool:
+    """The recorded `store` permission for a Texas source (fail closed)."""
+    if source_id not in _STORE_CACHE:
+        _STORE_CACHE[source_id] = PERM.authorize(source_id, "store", state="TX").allowed
+    return _STORE_CACHE[source_id]
 from harvesters.texas_harvester import build_row_provenance  # noqa: E402  (Phase 12)
+
+sys.path.insert(0, str(HERE))
+import write_diff_filter as WRITE_DIFF_FILTER  # noqa: E402  (write only what changed, 2026-10-26)
 
 BATCH_SIZE = 40  # matches the FL sync scripts' batch size
 
@@ -234,7 +267,13 @@ def main() -> None:
     # time LienHub published a duplicate row (see that script's own
     # comment) - not just the duplicated rows. Keep the last-seen row per
     # key, same as that fix.
-    deduped: dict[tuple[str, str], dict] = {}
+    # The key carries the row's LEDGER (properties.source): the conflict
+    # target is (state, source, county, case_no), so an LGBS account that the
+    # vendor lists as an auction AND as struck-off inventory is two records in
+    # two ledgers - de-duplicating on (county, case_no) alone silently kept
+    # whichever came last and dropped the other ledger's record (2026-10-13).
+    deduped: dict[tuple[str, str, str], dict] = {}
+    skipped_ledger_contract = 0
     skipped = 0
     skipped_gate = 0
     skipped_customer_restriction = 0
@@ -253,13 +292,21 @@ def main() -> None:
         # here even if it somehow made it into harvest_texas.json.
         harvester_source = p.get("harvester_source")
         gate_decision = check_ingestion_gate(harvester_source)
-        if not gate_decision.allowed:
+        if gate_decision.allowed and not _store_permitted(harvester_source):
+            gate_decision = None
+        if gate_decision is None or not gate_decision.allowed:
             skipped_gate += 1
             gate_rejections[harvester_source or "(missing)"] = gate_rejections.get(harvester_source or "(missing)", 0) + 1
             continue
 
         address = (p.get("address") or "").strip() or f"Account {case_no}"
+        # A minimum bid of 0 (or less) is the vendor's "not posted" value, not
+        # a published $0 bid: it is stored as NULL, exactly as a blank cell
+        # (data-quality audit 2026-10-26: 22 active LGBS rows carried
+        # min_bid = 0, which the "TX Min Bid" export printed as a real bid).
         min_bid = _num(p.get("min_bid"))
+        if min_bid is not None and min_bid <= 0:
+            min_bid = None
         bid = min_bid if min_bid is not None else 0
 
         row = {
@@ -277,6 +324,14 @@ def main() -> None:
         }
         if SEND_HARVESTER_SOURCE:
             row["harvester_source"] = p.get("harvester_source") or None
+        # The row's source id (migration 022) is the harvester's own source
+        # id, never anything else. Without it the steps keyed on
+        # `source_id=eq.tx_lgbs` (scripts/apply_acquisition_paths.py: the
+        # registry listing link and the verified county acquisition record)
+        # never reached the row: on 2026-10-26, 3,263 of 3,637 active LGBS
+        # Available rows carried no source link at all, and 512 auction rows
+        # no source id.
+        row["source_id"] = harvester_source
         # latitude/longitude get the safe-merge treatment PER ROW, not just
         # script-wide: scripts/geocode_properties.py only ever fills these
         # in when they are still NULL, so sending an explicit null here for
@@ -285,9 +340,42 @@ def main() -> None:
         # keys entirely when we don't have real coordinates, rather than
         # sending null.
         lat, lon = _num(p.get("latitude")), _num(p.get("longitude"))
+        # A vendor point outside Texas is not this property's location
+        # (2026-10-26: one active LGBS row sat in Louisiana): it is not sent,
+        # exactly like a row with no point, and the geocoder may fill it.
+        if lat is not None and lon is not None and not _GEO.in_state(lat, lon, "TX"):
+            lat = lon = None
         if lat is not None and lon is not None:
             row["latitude"] = lat
             row["longitude"] = lon
+
+        # Phase 72: the auction link the harvester itself fetched, with what
+        # it opens (migration 013's url_auction_kind vocabulary). Both keys
+        # or neither - a URL without a kind is not sent, and a row without a
+        # URL sends nothing, so an LGBS row can never receive a link here.
+        auction_url = (p.get("auction_url") or "").strip()
+        auction_url_kind = (p.get("auction_url_kind") or "").strip()
+        if auction_url and auction_url_kind in ("property", "sale", "county", "info"):
+            row["url_auction"] = auction_url
+            row["url_auction_kind"] = auction_url_kind
+        # The county sale-list document the source published for this record
+        # (LGBS county_sale_list, 2026-10-25), verbatim, https only - sent only
+        # when present, so a row without one never nulls a stored value.
+        sale_list_url = (p.get("sale_list_url") or "").strip()
+        if sale_list_url.startswith("https://") and not any(c.isspace() for c in sale_list_url):
+            row["document_url"] = sale_list_url
+        elif harvester_source == "tx_lgbs":
+            # LGBS is the only writer of an LGBS row's document_url, and the
+            # harvester now keeps a sale list only when LGBS publishes it
+            # (sale_published 'Y', '.pdf' as LGBS's own page links it). A
+            # record without one clears the link stored before 2026-10-29 -
+            # the bare county_sale_list value, which answers HTTP 404 (audit
+            # 2026-10-28 B24 / F69: 428 active rows).
+            row["document_url"] = None
+        # The vendor's own raw sale status, verbatim, when it published one.
+        sale_status = (p.get("sale_status") or "").strip()
+        if sale_status:
+            row["tx_sale_status"] = sale_status
 
         # Phase 11 (extended Phase 34B): project the row through the same
         # governance layer's customer-output check (whole-row block on a
@@ -304,6 +392,14 @@ def main() -> None:
         # APPROVED, zero restrictions, zero authorization records) this is
         # a verified no-op - `row` is returned unchanged - see both the
         # Phase 11 regression tests and the new Phase 34B ones.
+        # The ledger contract (harvesters/ledgers/records.py): a row whose
+        # source, ledger_type, source id or the vendor's own sale status put
+        # it in another ledger is never written (an LGBS row the vendor calls
+        # "Struck off to Jurisdiction" is never an auction, and vice versa).
+        if LEDGER_RECORDS.problems(row):
+            skipped_ledger_contract += 1
+            continue
+
         projected_row = authorized_for_customer_output(row, harvester_source, county=county)
         if projected_row is None:
             skipped_customer_restriction += 1
@@ -326,9 +422,20 @@ def main() -> None:
         )
         provenance_by_source[harvester_source] = provenance_by_source.get(harvester_source, 0) + 1
 
-        deduped[(county, case_no)] = projected_row
+        earlier = deduped.get((source, county, case_no))
+        if earlier is not None and "document_url" not in projected_row and "document_url" in earlier:
+            # Two vendors list the same account in the same ledger: one stored
+            # row (the conflict key has no source id). The later read wins, but
+            # a sale-list link (or its clearing) the earlier LGBS read decided
+            # is kept - RealAuction and GovEase publish no sale list, so without
+            # this the shared row kept a stale link forever (audit B24).
+            projected_row = {**projected_row, "document_url": earlier["document_url"]}
+        deduped[(source, county, case_no)] = projected_row
 
-    dupe_count = len(harvest) - skipped - skipped_gate - skipped_customer_restriction - len(deduped)
+    dupe_count = len(harvest) - skipped - skipped_gate - skipped_customer_restriction - skipped_ledger_contract - len(deduped)
+    if skipped_ledger_contract > 0:
+        print(f"Ledger contract refused {skipped_ledger_contract} row(s) classified into the wrong ledger "
+              "(harvesters/ledgers/records.py) - nothing was written for them.", file=sys.stderr)
     if dupe_count > 0:
         print(
             f"De-duplicated {dupe_count} row(s) sharing a (county, case_no) key with another row in this harvest.",
@@ -363,6 +470,19 @@ def main() -> None:
         return
     print(f"Prepared {len(rows)} properties ({skipped} skipped for missing case_no/county/source).", file=sys.stderr)
 
+    # Write only what changed (2026-10-26, scripts/write_diff.py): a row whose
+    # stored copy already holds the same values is not upserted again (every
+    # rewrite bumps updated_at and leaves a dead tuple). Fails open: when the
+    # stored rows cannot be read, every row is written as before. Close-out
+    # (scripts/texas_closeout.py) reads the harvest status, never this payload.
+    harvested_rows = rows
+    rows, _diff_counts = WRITE_DIFF_FILTER.filter_rows(rows, state="TX", base=supabase_url, key=service_key,
+                                                      label="texas")
+    if not rows:
+        print(f"Nothing changed: all {len(harvested_rows)} harvested properties already stored as read.",
+              file=sys.stderr)
+        return
+
     endpoint = f"{supabase_url}/rest/v1/properties?on_conflict=state,source,county,case_no"
     headers = {
         "apikey": service_key,
@@ -386,11 +506,17 @@ def main() -> None:
     # missing-coordinate group instead (that would defeat the safe-merge
     # comment above by erasing coordinates geocode_properties.py already
     # backfilled).
-    with_geo = [r for r in rows if "latitude" in r]
-    without_geo = [r for r in rows if "latitude" not in r]
+    # Phase 72: the same PGRST102 rule now has more than two shapes to
+    # respect (coordinates present or not, auction link present or not,
+    # tx_sale_status present or not), so group by the exact key set instead
+    # of by one field. Each group is internally homogeneous by construction.
+    groups: dict[tuple[str, ...], list[dict]] = {}
+    for r in rows:
+        groups.setdefault(tuple(sorted(r.keys())), []).append(r)
 
     sent = 0
-    for label, group in (("with coordinates", with_geo), ("without coordinates", without_geo)):
+    for keys, group in groups.items():
+        label = "+".join(k for k in ("latitude", "url_auction", "document_url", "tx_sale_status") if k in keys) or "base columns only"
         if not group:
             continue
         for i in range(0, len(group), BATCH_SIZE):
@@ -420,8 +546,9 @@ def main() -> None:
             sent += len(batch)
             print(f"  synced {sent} / {len(rows)} ({label})", file=sys.stderr)
 
-    counties = len({r["county"] for r in rows})
-    print(f"Done. {sent} Texas properties upserted to Supabase (existing hand research untouched).", file=sys.stderr)
+    counties = len({r["county"] for r in harvested_rows})
+    print(f"Done. {sent} of {len(harvested_rows)} Texas properties upserted to Supabase "
+          f"({len(harvested_rows) - sent} unchanged, not rewritten; existing hand research untouched).", file=sys.stderr)
     print(f"Counties covered: {counties}", file=sys.stderr)
     print(
         f"Provenance (Phase 12, audit-only, not persisted): {provenance_by_source} "

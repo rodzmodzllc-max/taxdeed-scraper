@@ -328,18 +328,9 @@ def test_florida_pipeline_still_has_zero_governance_wiring():
     restriction this gap is currently failing to enforce; it's a named
     structural limitation, not an active leak.
     """
-    import subprocess
-    from pathlib import Path
-
-    result = subprocess.run(
-        ["grep", "-rl", "governance", "--include=*.ps1", "."],
-        cwd=str(Path(__file__).resolve().parents[2]),
-        capture_output=True,
-        text=True,
-    )
-    assert result.stdout.strip() == "", (
-        "A PowerShell script now references harvesters/governance - if Florida's "
-        "pipeline has been wired into governance, update this test (and Phase 22B's "
-        "report) to reflect that the gap has been closed rather than leaving this "
-        "assertion stale."
-    )
+    # 2026-10-12: the gap this assertion documented is closed - the Florida
+    # PowerShell pipeline now consults governance through the source-permission
+    # guard. Pinned instead: governance appears ONLY inside that guard, which
+    # runs first (tests/python/ps1_permission_guard.py).
+    from ps1_permission_guard import assert_ps1_governance_only_through_guard
+    assert_ps1_governance_only_through_guard()

@@ -1,0 +1,54 @@
+name: Probe AVAILABLE five-state sources (READ-ONLY evidence)
+
+# Evidence-only, for the diversified AVAILABLE sprint (2026-10-04): MS, PA,
+# MO, MN, OK. Runs scripts/capture_state_sources.py --available-five, which
+# reads each candidate source once and prints STRUCTURE only - page titles,
+# headings, process / terms sentences (digits masked), table headers and row
+# counts, CSV / Socrata / ArcGIS metadata and identifier SHAPES (digits -> 9,
+# letters -> A). Never a row value, never an owner name.
+#
+# Nothing is written: no database, no secret, no commit. The sandbox that
+# authors this repository cannot reach these hosts; a runner is the only
+# place to read them (same pattern as probe-fdor-starvation.yml).
+#
+# Trigger: manual dispatch only (it ran on pushes to the evidence branch
+# `evidence/available-five` while the sources were being read - runs
+# 37203515518 / 37203652975 / 37203694092 / 37203843581 / 37204541253).
+# The last step runs scripts/harvest_expansion.py for MO / OK / PA / MN with
+# no database credential: a live parser validation whose log carries counts
+# and identifier shapes only.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Read the five states' AVAILABLE sources (value-free)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests beautifulsoup4 pdfplumber openpyxl
+
+      - name: Capture (value-free)
+        run: python3 scripts/capture_state_sources.py --available-five-3 --skip-registry --out out/public/available-five-capture.json
+
+      - name: Live parser validation - harvest only, no database (counts and identifier shapes only)
+        if: always()
+        run: |
+          for st in MO OK PA MN; do python3 scripts/harvest_expansion.py --state "$st" --out-dir out/validate || true; done
+
+      - name: Print the digest
+        if: always()
+        run: python3 scripts/capture_state_sources.py --digest out/public/available-five-capture.json

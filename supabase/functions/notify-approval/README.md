@@ -1,62 +1,66 @@
-# Approval-confirmation email
+# Account e-mails (`notify-approval`)
 
-Emails the user the moment you approve their account, so they don't have to remember to check back and try signing in again. Companion to `notify-signup` (which emails *you* when someone new signs up) — this one closes the loop back to *them* once you approve that sign-up.
+One outbox (migration 030, `public.account_notifications`), one processor, two kinds:
 
-- `schema-v6-approvals.sql` (repo root) — already adds `profiles.approved`; this function just reacts to that flag flipping to `true`, it doesn't change the gate itself.
-- `supabase/functions/notify-approval/index.ts` — the Edge Function that emails the user once their `profiles` row is approved.
+| Kind | Queued by | Sent to | Subject |
+|---|---|---|---|
+| `account_approved` | trigger on `profiles.approved` false → true | the approved person (`profiles.email`) | "Your TAXACQ account has been approved" |
+| `admin_new_signup` | trigger on `profiles` INSERT (a committed `auth.users` row) | `info@taxacq.com` only, a constant in `_shared/approval_notify_core.js` (`SIGNUP_ALERT`) | "New TAXACQ account created" |
 
-The email piece below is optional. Approving someone from the in-app "Pending sign-ups" panel or the Supabase table editor works fine without it — they just won't get a heads-up and will need to try signing in again on their own to discover they're in.
+Password-reset e-mails are not part of this: Supabase Auth sends them.
 
-I can't deploy the Edge Function myself — deploys need your Supabase CLI login, and email sending needs an API key only you should hold. Everything below is copy/paste.
+The operator alert lists the sign-up time (UTC), the account e-mail, the email-confirmation status and the approval status, all read from `auth.users` / `profiles` when the alert is sent. It links to `https://taxacq.com/admin.html#pending`, the admin page's "Pending sign-ups" section.
+- A failed sign-up creates no account, so nothing is queued.
+- `unique (user_id, kind)` means one alert per account, ever.
+- A failure to queue is caught (a WARNING), so it never blocks account creation.
+- `self-signup` sends due rows right after it creates an account, using `EdgeRuntime.waitUntil` so the response is not delayed. Retries happen on any later sweep.
 
-## 1. Confirm schema-v6-approvals.sql has already been run
+## Account-approval e-mail
 
-If you already set up `notify-signup`, this is done. If not: Supabase Dashboard → SQL Editor → New query → paste in `schema-v6-approvals.sql` from the repo root → Run.
+Sends **"Your TAXACQ account has been approved"** once, to the approved person's own address, after an administrator approves them.
 
-## 2. Reuse (or get) an email-sending API key
+**Status (2026-10-09): written and tested, NOT live.** Migration 030 is not applied and this function is not deployed. Until both happen, approving works exactly as before and no e-mail is sent.
 
-Same as `notify-signup` and `send-digest`: this function is written for Resend. If you already set `RESEND_API_KEY` and `NOTIFY_FROM_EMAIL` for either of those, reuse them here — no new key needed.
+## How approval works (traced)
 
-## 3. Deploy the function
+1. Sign-up (`self-signup` function, or `auth.signUp`) creates `auth.users`; `handle_new_user()` inserts `public.profiles` with `approved = false`.
+2. The app gates entry on `profiles.approved` (`checkApprovalAndEnter()` in `app.js`; `is_approved()` in RLS).
+3. An administrator clicks **Approve**, either in the app's pending list (`app.js`) or on `/admin` (`admin.js`).
+   - The click runs `UPDATE profiles SET approved = true, approved_at = now()` with the admin's own session.
+   - RLS allows it only through `"profiles: admin full access"` (`is_admin()`).
+   - Users can only read their own row, so nobody can approve themselves.
 
-From a machine with the Supabase CLI installed and logged in (`supabase login`), from the repo root:
+## How the e-mail is sent
 
-```
-supabase link --project-ref <your-project-ref>   # once, if not already linked
-supabase functions deploy notify-approval
-```
+| Step | Where | Guarantee |
+|---|---|---|
+| Queue | Migration 030 trigger on `profiles`, `approved` false → true, same transaction | No approval, no row. One row per account for ever (`unique (user_id, kind)`): re-approving, editing, or two admins clicking at once never queues a second one. Accounts approved before 030 get nothing. |
+| Trigger | `app.js` / `admin.js` call this function after a successful approve (fire-and-forget); `/admin` also calls it on load as a retry sweep | Never blocks or undoes the approval. The request has no body and names no recipient. |
+| Authorize | This function | Admin JWT (checked against `profiles.is_admin`), or the service-role key. Anything else is refused with 401/403. |
+| Claim | `claim_account_notifications()` (service role only) | `FOR UPDATE SKIP LOCKED` and a 5-minute lease mean concurrent senders never take the same row. The address comes from `profiles`, never from the caller. |
+| Send | Resend, `Idempotency-Key: account_approved/<row id>` | A retry after a lost response is the same delivery. |
+| Record | `finish_account_notification()` | Outcome is `sent` (provider message id) or `failed` (short code such as `HTTP_503` or `NETWORK`, back-off 5 min → 12 h, at most 8 attempts) or `skipped` (approval revoked, no valid address). A stale attempt cannot overwrite a newer one. |
+| Monitor / retry | `/admin` pending card | Shows how many approval e-mails are waiting or failed (counts only). `requeue_account_notification(id)` is admin-only and resets a failed row; a sent row is never re-queued. |
 
-## 4. Set the function's secrets
+The content is in `_shared/approval_notify_core.js` (`renderApprovalEmail`), as HTML plus plain text:
+- **From:** `TAXACQ <info@taxacq.com>`; **reply-to:** `info@taxacq.com`.
+- **Button:** "Access TAXACQ", linking to `https://taxacq.com`.
+- **Footer:** the mailing address.
 
-```
-supabase secrets set RESEND_API_KEY=re_your_key_here          # skip if already set for notify-signup
-supabase secrets set NOTIFY_FROM_EMAIL="Tax Deed Watchlist <onboarding@resend.dev>"   # skip if already set
-supabase secrets set NOTIFY_WEBHOOK_SECRET=$(openssl rand -hex 20)   # optional; reuse notify-signup's value if you set one there
-supabase secrets set APP_URL=https://your-app-url.example.com   # optional - adds a sign-in link to the email
-```
+The e-mail says the account is approved. It makes no claim about a subscription or paid access.
 
-`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically for every Edge Function — you don't set those yourself. Secrets are shared across all functions in a project, so if you already set `RESEND_API_KEY` / `NOTIFY_FROM_EMAIL` / `NOTIFY_WEBHOOK_SECRET` for `notify-signup`, this function picks up the same values automatically — you don't need to set them twice.
+Logs carry counts and codes only: never an address, a body or a key.
 
-## 5. Wire it to fire on every approval
+## To activate (owner)
 
-Dashboard → Database → Webhooks → Create a new webhook:
+1. Apply `scripts/migrations/030_account_approval_notifications.sql`.
+2. `supabase functions deploy notify-approval`. Keep JWT verification on, which is the default.
+3. Secret `RESEND_API_KEY`: the existing key, with `taxacq.com` verified in Resend. Nothing else is needed; the sender and reply-to are fixed in code.
+4. Redeploy `self-signup` (it now sends the new-sign-up alert and enforces the shared password rule).
+5. Optional: point a scheduled job at this function with the service-role key, so retries happen even when no admin opens `/admin`.
 
-- Table: `public.profiles`
-- Events: **Update**
-- Type: HTTP Request
-- Method: POST
-- URL: `https://<your-project-ref>.functions.supabase.co/notify-approval`
-- HTTP Headers: add `X-Notify-Secret: <same value as NOTIFY_WEBHOOK_SECRET above>` (skip this header, and the secret in step 4, if you'd rather keep this simpler and rely on the URL being unguessable)
+Test delivery only to a designated test account: approve it from `/admin`, then read `account_notifications` (as an admin) for its status.
 
-This is a database-level webhook (Dashboard → Database → Webhooks), not an Edge Function cron trigger — it fires on the UPDATE itself instead of on a schedule. The function only sends an email when `approved` actually flips from `false` to `true` (so later edits, like toggling `is_admin`, won't re-trigger it).
-
-## 6. Try it once by hand before trusting it
-
-```
-curl -X POST https://<your-project-ref>.functions.supabase.co/notify-approval \
-  -H "X-Notify-Secret: <your NOTIFY_WEBHOOK_SECRET, if you set one>" \
-  -H "Content-Type: application/json" \
-  -d '{"type":"UPDATE","table":"profiles","record":{"id":"00000000-0000-0000-0000-000000000000","email":"test@example.com","approved":true,"approved_at":"2026-01-01T00:00:00Z"},"old_record":{"id":"00000000-0000-0000-0000-000000000000","email":"test@example.com","approved":false}}'
-```
-
-Returns `{"skipped":true,...}` for that fake ID since it won't match a real row — that's expected, it just confirms the function is reachable and secret-checked correctly. Check `supabase functions logs notify-approval` if it doesn't behave as expected. To see a real email, approve a real pending sign-up from the admin panel and watch that person's inbox.
+Tests:
+- `tests/billing/approval_notify.test.mjs`: content, authorization, idempotency, retries, mocked Resend, and the operator alert (fixed recipient, one per account, escaping, retry).
+- `tests/python/test_migration_030_approval_notifications.py`: trigger, RLS and claim/finish, run against PostgreSQL.

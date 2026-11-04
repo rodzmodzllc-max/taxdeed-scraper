@@ -130,10 +130,10 @@ def test_preexisting_registry_statuses_untouched_by_phase36():
         "tx_lgbs": SourceStatus.APPROVED,
         "tx_realauction": SourceStatus.APPROVED,
         "tx_hctax": SourceStatus.LEGAL_REVIEW_REQUIRED,
-        "tx_pbfcm": SourceStatus.BLOCKED,
-        "tx_mvba": SourceStatus.BLOCKED,
+        "tx_pbfcm": SourceStatus.APPROVED,  # tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner on 2026-10-26; tx_ctsa stays BLOCKED
+        "tx_mvba": SourceStatus.APPROVED,
         "tx_ctsa": SourceStatus.BLOCKED,
-        "tx_govease": SourceStatus.BLOCKED,
+        "tx_govease": SourceStatus.APPROVED,
         "fl_realauction": SourceStatus.APPROVED,
         "fl_laft_pdfs": SourceStatus.APPROVED,
         "fl_lienhub_certificates": SourceStatus.APPROVED,

@@ -1,0 +1,44 @@
+[
+    {
+        "outcome": "unknown",
+        "lifecycle": "scheduled",
+        "n": 1044,
+        "wb": 0
+    },
+    {
+        "outcome": "unknown",
+        "lifecycle": "unknown",
+        "n": 198,
+        "wb": 0
+    },
+    {
+        "outcome": "sold",
+        "lifecycle": "completed",
+        "n": 172,
+        "wb": 172
+    },
+    {
+        "outcome": "redeemed",
+        "lifecycle": "cancelled",
+        "n": 102,
+        "wb": 0
+    },
+    {
+        "outcome": "unknown",
+        "lifecycle": "completed",
+        "n": 47,
+        "wb": 0
+    },
+    {
+        "outcome": "unknown",
+        "lifecycle": "cancelled",
+        "n": 11,
+        "wb": 0
+    },
+    {
+        "outcome": "unknown",
+        "lifecycle": "superseded",
+        "n": 1,
+        "wb": 0
+    }
+]

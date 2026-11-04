@@ -1,0 +1,102 @@
+{
+ "cases": [
+  {
+   "name": "pdf_stored_as_online_purchase",
+   "url": "https://county.gov/forms/purchase.pdf",
+   "role": "purchase_url",
+   "kind": "online_purchase",
+   "expected": "FORM"
+  },
+  {
+   "name": "online_purchase_page",
+   "url": "https://county.gov/buy/12345",
+   "role": "purchase_url",
+   "kind": "online_purchase",
+   "expected": "PURCHASE_LINK"
+  },
+  {
+   "name": "bid_form_pdf",
+   "url": "https://county.gov/bid.pdf",
+   "role": "purchase_url",
+   "kind": "bid_form",
+   "expected": "FORM"
+  },
+  {
+   "name": "instructions_page",
+   "url": "https://clerk.gov/lands-available",
+   "role": "purchase_url",
+   "kind": "purchase_instructions",
+   "expected": "INSTRUCTIONS"
+  },
+  {
+   "name": "instructions_pdf",
+   "url": "https://clerk.gov/how.pdf",
+   "role": "purchase_url",
+   "kind": "purchase_instructions",
+   "expected": "INSTRUCTIONS"
+  },
+  {
+   "name": "application_url",
+   "url": "https://county.gov/DocumentCenter/View/2103/Bid-Form",
+   "role": "application_url",
+   "expected": "FORM"
+  },
+  {
+   "name": "list_page",
+   "url": "https://clerk.gov/list",
+   "role": "list_url",
+   "expected": "SOURCE_PAGE"
+  },
+  {
+   "name": "list_pdf",
+   "url": "https://clerk.gov/list.pdf",
+   "role": "list_url",
+   "expected": "DOCUMENT"
+  },
+  {
+   "name": "document",
+   "url": "https://clerk.gov/statement.pdf",
+   "role": "document_url",
+   "expected": "DOCUMENT"
+  },
+  {
+   "name": "evidence_page",
+   "url": "https://clerk.gov/process",
+   "role": "evidence_url",
+   "expected": "INSTRUCTIONS"
+  },
+  {
+   "name": "path_application_download",
+   "url": "https://county.gov/form",
+   "role": "path_url",
+   "kind": "application_download",
+   "expected": "FORM"
+  },
+  {
+   "name": "path_direct_page",
+   "url": "https://county.gov/parcel/1",
+   "role": "path_url",
+   "kind": "direct_property_url",
+   "expected": "PURCHASE_LINK"
+  },
+  {
+   "name": "path_direct_but_pdf",
+   "url": "https://county.gov/parcel/1.pdf",
+   "role": "path_url",
+   "kind": "direct_property_url",
+   "expected": "FORM"
+  },
+  {
+   "name": "http_never_shown",
+   "url": "http://county.gov/list",
+   "role": "list_url",
+   "expected": null
+  },
+  {
+   "name": "not_a_url",
+   "url": "Call the clerk",
+   "role": "evidence_url",
+   "expected": null
+  }
+ ]
+}

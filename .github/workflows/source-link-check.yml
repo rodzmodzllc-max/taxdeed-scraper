@@ -1,0 +1,60 @@
+name: Source link check (daily)
+
+# Checks every source link a customer can click - property url_auction /
+# list_url / document_url / purchase_url and the otc_provenance links, the
+# registry's source pages, the acquisition evidence pages - once per distinct
+# URL, and records the result in public.source_link_checks (migration 036).
+# The app renders a link as "Link broken at source" only after it was BROKEN
+# on two separate daily checks; BLOCKED (403 / challenge) is never broken.
+#
+# Its own schedule and concurrency group, off the harvest slots (12:00 UTC is
+# the certificates / laft / expansion slot). Read-only against county sites:
+# HEAD first, GET of the first 64 KB only when needed, one request at a time
+# per host. Without migration 036 the run checks and prints counts only.
+# Logs carry counts per status and per host only, never a URL.
+
+on:
+  schedule:
+    - cron: '50 11 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Check and print counts only (write nothing)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: source-link-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check source links
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check every distinct source URL
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          mkdir -p out/public
+          args=(--json-out out/public/source-link-checks.json)
+          if [ "${DRY_RUN:-false}" = "true" ]; then args+=(--dry-run); fi
+          python3 scripts/check_source_links.py "${args[@]}"
+          # The counts-only summary is printed to this log; no artifact upload.
+          cat out/public/source-link-checks.json
