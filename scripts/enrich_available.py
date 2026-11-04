@@ -371,20 +371,20 @@ def _read_page(esp, url: str, hdr: dict, attempts: int = 4, pause: float = 5.0) 
 
 
 def fetch_rows(base: str, key: str, states: list[str]) -> list[dict]:
-    import urllib.parse  # noqa: PLC0415
+    """Every active AVAILABLE row of the states, by keyset pages
+    (rest_pages.read_all: `id=gt.<last>` walks the primary key, so a deep
+    page costs what the first one does). Offset pages sorted the state's
+    whole set per page and crossed the statement timeout under load
+    (HTTP 500, run 40206132797, 2026-10-25)."""
     import enrich_statewide_parcels as ESP  # noqa: PLC0415
+    import rest_pages as RP  # noqa: PLC0415
     hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
+    url = f"{base.rstrip('/')}/rest/v1/properties"
     rows = []
     for st in states:
-        offset = 0
-        while True:
-            q = urllib.parse.urlencode({"select": SELECT, "state": f"eq.{st}", "source": "eq.laft", "status": "eq.active",
-                                        "order": "id.asc", "limit": PAGE, "offset": offset})
-            page = _read_page(ESP, f"{base}/rest/v1/properties?{q}", hdr)
-            rows += page
-            if len(page) < PAGE:
-                break
-            offset += len(page)
+        rows += RP.read_all(base, "properties", hdr,
+                            {"select": SELECT, "state": f"eq.{st}", "source": "eq.laft", "status": "eq.active"},
+                            page=PAGE, fetch=lambda qs: _read_page(ESP, f"{url}?{qs}", hdr))
     return rows
 
 
