@@ -73,9 +73,12 @@ def _gates(*pairs):
 def test_lifecycle_parity_every_fl_laft_source_and_la_may_store():
     import laft_lifecycle as LL
     fl = _gates(*[(f"C{i}", s) for i, s in enumerate(sorted({
-        "fl_laft_hillsborough", "fl_laft_html", "fl_laft_leon", "fl_laft_orange", "fl_laft_osceola",
+        "fl_laft_hillsborough", "fl_laft_html", "fl_laft_leon", "fl_laft_osceola",
         "fl_laft_pdfs", "fl_laft_pioneer", "fl_laft_realtdm", "fl_laft_stlucie"}))])
     assert LL.apply_store_permission(fl, "FL") == {}
+    # Orange: the Comptroller prohibits automated collection without written authorization
+    # (data/office_replies.csv), so its county is withdrawn - nothing observed or closed.
+    assert LL.apply_store_permission(_gates(("Orange", "fl_laft_orange")), "FL") == {"Orange": "RESTRICTED"}
     la = _gates(("East Baton Rouge", "la_ebr_adjudicated"))
     assert LL.apply_store_permission(la, "LA") == {}
 

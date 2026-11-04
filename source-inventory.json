@@ -3318,12 +3318,12 @@
    "access_note": "production harvester harvest_laft_orange.py; last completeness COMPLETE",
    "county": "Orange",
    "evidence": "scripts/harvest_laft_orange.py",
-   "governance": "APPROVED",
-   "governance_reason": "",
-   "last_checked": "2026-09-29",
-   "legacy_status": "APPROVED_GRANDFATHERED",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "reviewed and restricted (see the registry restrictions column)",
+   "last_checked": "2026-11-04",
+   "legacy_status": "RESTRICTED",
    "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
-   "next_action": "",
+   "next_action": "Publication / rights review (registry restrictions: Orange County Comptroller written reply (relayed by the owner 2026-11-04): links and individual record viewing permitted; automated collection and commercial incorporation prohibited without prior written authorization. Not read and not shown to customers until such an authorization is on file.)",
    "origin": "registry",
    "publisher": "Orange County Comptroller",
    "roles": [
@@ -12490,9 +12490,9 @@
    "sources": 11
   },
   "FL": {
-   "APPROVED": 181,
+   "APPROVED": 180,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 13,
+   "REVIEW_REQUIRED": 14,
    "by_type": {
     "AUCTION_VENDOR": 79,
     "COURT_PUBLIC_RECORD": 1,

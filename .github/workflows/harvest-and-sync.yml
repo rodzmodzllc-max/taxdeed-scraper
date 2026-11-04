@@ -977,14 +977,12 @@ jobs:
         if: always()
         run: python3 scripts/harvest_laft_pioneer.py
 
-      - name: Harvest Lands Available for Taxes Orange County (TDSM)
-        # Same independence rationale again - a fifth, unrelated platform
-        # (Orange County's own Comptroller-run search tool, not a shared
-        # vendor CSV like the others since no second county has turned up
-        # on it). Public guest disclaimer access only, no credentials -
-        # see harvest_laft_orange.py's module docstring.
-        if: always()
-        run: python3 scripts/harvest_laft_orange.py
+      # Orange County (TDSM) is no longer read (2026-11-04). The Orange County
+      # Comptroller's written reply prohibits automated collection and
+      # commercial incorporation without prior written authorization
+      # (data/office_replies.csv). scripts/harvest_laft_orange.py stays in the
+      # repository and its fetch permission is RESTRICTED; restore this step
+      # only together with a written authorization.
 
       - name: Harvest Lands Available for Taxes St. Lucie County (AcclaimWeb)
         # Same independence rationale again - a sixth, unrelated platform

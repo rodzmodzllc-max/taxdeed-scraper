@@ -80,6 +80,8 @@ def test_g01_committed_registry_publishes_only_the_grandfathered_production_sour
         elif r.is_production and r.restrictions.startswith("Owner approved customer publication 2026-10-26"):
             # 2026-10-26 new sources (Charlotte portal, TX county lists): published by the owner's decision.
             assert eff == "APPROVED", (r.county, r.source_id)
+        elif r.is_production and r.restrictions.startswith("Orange County Comptroller written reply"):
+            assert eff == "RESTRICTED", (r.county, r.source_id)   # 2026-11-04: data/office_replies.csv
         elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.county, r.source_id)     # already served today; carried forward
         elif r.source_id in BLOCKED_SOURCE_IDS:
@@ -180,7 +182,9 @@ def test_g05_gate_script_reports_without_credentials_and_measures_a_rows_file(tm
     assert rep["mode"].startswith("registry-only") and "measurement" not in rep
     # Owner-approved 2026-10-26 (not grandfathered): Sarasota's county-held certificates and the Charlotte portal.
     owner = {"fl_sarasota_tc_certificates", "fl_laft_portals"}
-    assert all(v["publication"] == "APPROVED_GRANDFATHERED" for k, v in rep["sources"].items() if k not in owner)
+    assert all(v["publication"] == "APPROVED_GRANDFATHERED" for k, v in rep["sources"].items()
+               if k not in owner and k != "fl_laft_orange")
+    assert rep["sources"]["fl_laft_orange"]["publication"] == "RESTRICTED"   # 2026-11-04: data/office_replies.csv
     assert all(rep["sources"][k]["publication"] == "APPROVED" for k in owner if k in rep["sources"])
     rows_file = tmp_path / "rows.json"
     rows_file.write_text(json.dumps([{"id": "a", "state": "FL", "source": "laft", "county": "Bay", "source_id": "fl_laft_pioneer"},
@@ -404,7 +408,8 @@ def test_x01_fl_tx_al_ar_la_az_regressions():
     old = [r for r in fl if r.county not in FL_ADDED_2026_10_26]
     assert len(fl) == 56 and len(old) == 52 and not any(r.purchase_url for r in fl)
     for r in fl:
-        assert pub.effective_publication(r) == ("APPROVED" if r.source_id == "fl_laft_portals" else "APPROVED_GRANDFATHERED"), r.county
+        assert pub.effective_publication(r) == ("APPROVED" if r.source_id == "fl_laft_portals" else
+                                                "RESTRICTED" if r.source_id == "fl_laft_orange" else "APPROVED_GRANDFATHERED"), r.county
     # TX: LGBS not retried; RealAuction auctions; the eight county-published lists (2026-10-26, owner decision);
     # blocked vendors blocked.
     tx_prod = [r for r in ROWS if r.state == "TX" and r.is_production]
