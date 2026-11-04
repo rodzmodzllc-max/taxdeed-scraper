@@ -40,8 +40,12 @@ RULES
     harvester held off): it is recorded as skipped and changes nothing.
   * STALE / NOT_RUN are reader-side statuses and never appear in a
     harvester's file; they are ignored if they do.
-  * The registry row is matched on (state, source_id, county) exactly; a
-    unit with no registry row is kept in the file only.
+  * The registry row is matched on (state, source_id, county) exactly. A
+    unit the CSV registry (data/county_source_registry.csv) knows but the
+    production TABLE lacks is INSERTED from its CSV row (audit B6,
+    2026-10-29: MO / PA / MN / OK / TN and most MI sources were never in the
+    table, so every PATCH matched zero rows and their reads were never
+    recorded). A unit the CSV does not know is kept in the file only.
 
 BACK-OFF (`backoff_decision`): after MIN_FAILURES consecutive FAILED
 attempts whose category is a block signature (HTTP 403, proxy failure,
@@ -198,6 +202,10 @@ def read_status(path: Path) -> list:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return []
+    # The Texas harvester's status file is {"retrieved_at", "sources",
+    # "counties": [...]} - its per-(source, county) entries are the units.
+    if isinstance(data, dict) and isinstance(data.get("counties"), list):
+        return [e for e in data["counties"] if isinstance(e, dict)]
     return data if isinstance(data, list) else []
 
 
@@ -214,8 +222,41 @@ def registry_units(path: Path | str = REGISTRY_PATH) -> dict[str, dict]:
     return out
 
 
-def registry_patches(record: dict, units: dict[str, dict]) -> list[tuple[dict, dict]]:
-    """[(match, body)] for every unit the registry knows."""
+# Columns of public.county_source_registry that a CSV row carries (the CSV's
+# purchase_path_mode / purchase_path_evidence are not table columns).
+REGISTRY_TABLE_COLUMNS = (
+    "state", "county", "source_id", "harvester", "inventory_type", "source_authority", "canonical_url", "document_url",
+    "purchase_url", "purchase_url_kind", "access_method", "machine_format", "verification_status", "governance_status",
+    "last_checked", "completeness_status", "evidence_ref", "notes", "publishing_unit", "publishing_unit_name",
+    "amount_kind", "update_frequency", "source_terminology", "ledgers", "publication_status", "restrictions",
+)
+# NOT NULL columns with a table default: a blank CSV cell is left out so the
+# default applies instead of a NULL that the constraint refuses.
+_DEFAULTED = frozenset({"completeness_status", "publication_status", "publishing_unit"})
+
+
+def registry_insert_row(csv_row: dict, body: dict) -> dict:
+    """The INSERT for a unit the table lacks: its CSV registry row (blank ->
+    NULL, defaulted columns omitted when blank) plus this run's freshness
+    body. Never invents a governance or publication value."""
+    row: dict = {}
+    for c in REGISTRY_TABLE_COLUMNS:
+        v = str(csv_row.get(c) or "").strip()
+        if not v:
+            if c in _DEFAULTED:
+                continue
+            v = None
+        row[c] = v
+    row.update(body)
+    return row
+
+
+def registry_patches(record: dict, units: dict[str, dict], *, error_category: bool = False) -> list[tuple[dict, dict]]:
+    """[(match, body)] for every unit the registry knows. `error_category`:
+    the registry has migration 022's last_error_category column (main()
+    probes it), so each patch carries the last attempt's category - NULL
+    after a success - which is what the admin "Needs attention" panel
+    translates into plain words."""
     out = []
     for key, u in record.items():
         if key not in units:
@@ -228,7 +269,7 @@ def registry_patches(record: dict, units: dict[str, dict]) -> list[tuple[dict, d
         # Migration 022 adds last_error_category to the registry; PostgREST
         # ignores nothing - an unknown column fails the PATCH - so it is sent
         # only when the caller says the column exists (see main()).
-        if u.get("_registry_has_error_category"):
+        if error_category:
             body["last_error_category"] = u.get("last_error_category") or None
         out.append(({"state": u["state"], "source_id": u["source_id"], "county": u["county"]}, body))
     return out
@@ -257,14 +298,63 @@ class RegistryApi:
                 return False
             raise
 
-    def patch(self, match: dict, body: dict) -> None:
+    def has_error_category(self) -> bool:
+        """Migration 022's last_error_category column. Before 2026-10-29 the
+        PATCH never sent it (the flag it waited for was never set), so every
+        failed unit in production read "reason not recorded"."""
+        req = urllib.request.Request(f"{self.base}?select=last_error_category&limit=0", headers=self._headers())
+        try:
+            with urllib.request.urlopen(req, timeout=60):
+                self.requests_made += 1
+                return True
+        except urllib.error.HTTPError as exc:
+            if exc.code == 400:
+                return False
+            raise
+
+    def patch(self, match: dict, body: dict) -> int | None:
+        """PATCH the matched row(s); returns how many rows matched (None in a
+        dry run). PostgREST answers 2xx for a PATCH that matched nothing, so
+        the row ids are asked back to tell 'updated' from 'no such row'."""
+        if self.dry_run:
+            return None
+        q = "&".join(f"{k}=eq.{urllib.parse.quote(str(v), safe='')}" for k, v in match.items())
+        req = urllib.request.Request(f"{self.base}?{q}&select=id", data=json.dumps(body, default=str).encode(), method="PATCH",
+                                     headers=self._headers({"Prefer": "return=representation"}))
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            self.requests_made += 1
+            raw = resp.read()
+        try:
+            data = json.loads(raw or b"[]")
+        except ValueError:
+            return None
+        return len(data) if isinstance(data, list) else None
+
+    def insert(self, row: dict) -> None:
         if self.dry_run:
             return
-        q = "&".join(f"{k}=eq.{urllib.parse.quote(str(v), safe='')}" for k, v in match.items())
-        req = urllib.request.Request(f"{self.base}?{q}", data=json.dumps(body, default=str).encode(), method="PATCH",
+        req = urllib.request.Request(self.base, data=json.dumps(row, default=str).encode(), method="POST",
                                      headers=self._headers({"Prefer": "return=minimal"}))
         with urllib.request.urlopen(req, timeout=60):
             self.requests_made += 1
+
+
+def apply_registry(api, record: dict, units: dict[str, dict], *, error_category: bool = False) -> dict:
+    """PATCH every known unit; INSERT the CSV row of a unit the table lacks.
+    One failed insert is counted and never stops the rest."""
+    out = {"patched": 0, "inserted": 0, "insert_failed": 0}
+    for match, body in registry_patches(record, units, error_category=error_category):
+        n = api.patch(match, body)
+        if n == 0:
+            csv_row = units.get(unit_key(match["state"], match["source_id"], match["county"])) or {}
+            try:
+                api.insert(registry_insert_row(csv_row, body))
+                out["inserted"] += 1
+            except (urllib.error.URLError, OSError):
+                out["insert_failed"] += 1
+        else:
+            out["patched"] += 1
+    return out
 
 
 STALE_HOURS = 36.0   # a unit whose last complete read is older than this is stale (laft_status's own max_age)
@@ -438,10 +528,9 @@ def main(argv=None) -> int:
         if not api.has_columns():
             print("  migration 021 not applied - county_source_registry freshness columns absent; registry not updated")
             return 0
-        patches = registry_patches(record, registry_units(args.registry))
-        for match, body in patches:
-            api.patch(match, body)
-        print(f"  registry: {len(patches)} unit row(s) patched{' (dry run)' if args.dry_run else ''}")
+        res = apply_registry(api, record, registry_units(args.registry), error_category=api.has_error_category())
+        print(f"  registry: {res['patched']} unit row(s) patched, {res['inserted']} missing row(s) inserted from the CSV registry, "
+              f"{res['insert_failed']} insert(s) failed{' (dry run)' if args.dry_run else ''}")
     except (urllib.error.URLError, OSError) as exc:
         print(f"::warning title=unit_freshness::registry update failed: {type(exc).__name__} - file outputs are complete")
     return 0

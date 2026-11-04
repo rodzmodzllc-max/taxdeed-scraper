@@ -36,7 +36,9 @@ APPROVED row on internal-acceptance evidence, so an internal decision cannot
 be upgraded to documented permission by editing a status word.
 
 Hard blocks: the vendors in county_source_registry.BLOCKED_SOURCE_IDS
-(tx_pbfcm, tx_mvba, tx_govease, tx_ctsa) are denied in code whatever the
+(tx_ctsa since 2026-10-26; tx_pbfcm, tx_mvba and tx_govease were lifted by
+the owner's decision of that date, which accepts the terms risk pending
+legal review) are denied in code whatever the
 file says, and a file that records anything but BLOCKED for one of them is
 INVALID (so every operation is denied until the file is corrected). Lifting
 one of these blocks therefore needs a reviewed code change, a record change
@@ -121,8 +123,10 @@ COLUMNS = (
 try:
     from .county_source_registry import BLOCKED_SOURCE_IDS as _BLOCKED
 except Exception:  # noqa: BLE001 - a broken import must not open the gate
-    _BLOCKED = frozenset({"tx_pbfcm", "tx_mvba", "tx_govease", "tx_ctsa"})
-HARD_BLOCKED_SOURCE_IDS = frozenset(_BLOCKED) | {"tx_pbfcm", "tx_mvba", "tx_govease", "tx_ctsa"}
+    _BLOCKED = frozenset({"tx_ctsa"})
+# tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner's decision of 2026-10-26
+# ("Do not block vendors ..."; terms risk accepted, legal review pending). tx_ctsa stays blocked (paywall).
+HARD_BLOCKED_SOURCE_IDS = frozenset(_BLOCKED) | {"tx_ctsa"}
 
 
 class PermissionConfigError(ValueError):
@@ -345,6 +349,21 @@ def _cond_attribution_text_recorded(rec: PermissionRecord) -> bool:
     return bool(rec.attribution.strip())
 
 
+def _approval(rec: PermissionRecord):
+    from . import source_approvals  # noqa: PLC0415 - read lazily; an invalid register yields None
+    return source_approvals.get(rec.source_id)
+
+
+def _cond_technical_readme_reviewed(rec: PermissionRecord) -> bool:
+    a = _approval(rec)
+    return bool(a and a.readme_reviewed)
+
+
+def _cond_attribution_terms_recorded(rec: PermissionRecord) -> bool:
+    a = _approval(rec)
+    return bool(a and a.attribution_complete)
+
+
 CONDITION_CHECKERS: dict[str, Callable[[PermissionRecord], bool]] = {
     # The source is not in the paid tier (data/paid_beta_sources.csv).
     "excluded_from_paid_tier": _cond_excluded_from_paid_tier,
@@ -352,6 +371,12 @@ CONDITION_CHECKERS: dict[str, Callable[[PermissionRecord], bool]] = {
     "dated_list_only": _cond_dated_list_only,
     # The attribution text the licence requires is recorded on the permission.
     "attribution_text_recorded": _cond_attribution_text_recorded,
+    # data/source_approvals.csv records the source's technical Readme as read,
+    # with the document's own caveats (2026-10-20, Florida DOR parcel files).
+    "technical_readme_reviewed": _cond_technical_readme_reviewed,
+    # data/source_approvals.csv records credit, licence link, change notice,
+    # disclaimer and metadata for the source (2026-10-20, UGRC CC BY 4.0).
+    "attribution_terms_recorded": _cond_attribution_terms_recorded,
 }
 
 
@@ -493,6 +518,24 @@ def reset_default() -> None:
 
 def authorize(source_id, operation, *, state, county=None, dataset=None, today=None) -> PermissionDecision:
     return default().authorize(source_id, operation, state=state, county=county, dataset=dataset, today=today)
+
+
+# The dataset a ledger's listing records are recorded under in
+# data/source_permissions.csv. A record naming one of these matches only that
+# ledger's listings; a '*' record matches every ledger. Other datasets (parcel
+# geometry, closed results) are never a listing and are not consulted here.
+LISTING_DATASETS = {"AUCTIONS": "sale_calendar", "AVAILABLE": "lands_available",
+                    "LIENS_CERTIFICATES": "county_held_certificates"}
+
+
+def listing_display(source_id, *, state, county=None, ledger=None, today=None) -> PermissionDecision:
+    """May this source's listing records of `ledger` be shown? The `display`
+    decision for the ledger's listing dataset, so a source whose records are
+    per dataset (every Florida source) is judged by its own record instead of
+    falling through to NO_RECORD. Without a ledger only a '*' record applies.
+    Fails closed like authorize()."""
+    return authorize(source_id, "display", state=state, county=county,
+                     dataset=LISTING_DATASETS.get(ledger or ""), today=today)
 
 
 def require(source_id, operation, *, state, county=None, dataset=None, label: str = "") -> PermissionDecision:

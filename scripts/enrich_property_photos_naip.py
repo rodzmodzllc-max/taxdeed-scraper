@@ -55,7 +55,6 @@ from __future__ import annotations
 
 import json
 import os
-import random
 import sys
 import time
 from collections import Counter
@@ -76,6 +75,10 @@ PER_COUNTY_LIMIT = int(os.environ.get("NAIP_PER_COUNTY_LIMIT", "30"))
 COUNTY_MISS_STREAK = int(os.environ.get("NAIP_COUNTY_MISS_STREAK", "10"))
 REQUEST_DELAY_SECONDS = float(os.environ.get("NAIP_REQUEST_DELAY_SECONDS", "0.35"))
 REQUEST_TIMEOUT = int(os.environ.get("NAIP_REQUEST_TIMEOUT", "30"))
+# 2026-10-29 (audit B28): the deeds job's 12-minute step timeout killed this
+# step on every run with no output at all. A time budget (0 = none) stops it
+# cleanly first, so the summary is printed and the report written.
+TIME_BUDGET_SECONDS = float(os.environ.get("NAIP_TIME_BUDGET_SECONDS", "0") or 0)
 
 NAIP_ENDPOINT = (
     "https://imagery.nationalmap.gov/arcgis/rest/services/"
@@ -331,12 +334,13 @@ def fetch_counties_needing_photos(tier_filter: dict | None = None):
 
 
 def fetch_county_batch(unit, limit, outstanding=None, tier_filter: dict | None = None):
-    offset = 0
-    if outstanding and outstanding > limit:
-        offset = random.randrange(0, outstanding - limit + 1)
-    params = {"select": "id,county,state,latitude,longitude", "order": "id.asc", "offset": str(offset), "limit": str(limit)}
+    # A random window into the backlog (keyset from a random id, wrapping) -
+    # never a deep offset, which timed out on Detroit's 30,549 rows (2026-10-26).
+    params = {"select": "id,county,state,latitude,longitude"}
     params.update(tier_params(tier_filter if tier_filter is not None else IMAGERY_TIERS[0][1]))
     params.update(EU.unit_params(unit))
+    if outstanding and outstanding > limit:
+        return EU.get_window(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, limit)
     return EU.get_paged(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, limit)
 
 
@@ -398,6 +402,8 @@ def main():
     report["uploads_allowed"] = True
     attempted = 0
     stop = False
+    deadline = time.monotonic() + TIME_BUDGET_SECONDS if TIME_BUDGET_SECONDS > 0 else None
+    report["time_budget_reached"] = False
     for name, flt, counties in tiers:
         t = report["tiers"][name]
         if name not in COLLECTED_TIERS:
@@ -413,6 +419,11 @@ def main():
             rows = fetch_county_batch(unit, min(PER_COUNTY_LIMIT, BATCH_LIMIT - attempted), outstanding, flt)
             miss_streak = 0
             for row in rows:
+                if deadline is not None and time.monotonic() >= deadline:
+                    print(f"Time budget of {TIME_BUDGET_SECONDS:.0f} s reached - stopped cleanly; remaining rows stay unchecked.")
+                    report["time_budget_reached"] = True
+                    stop = True
+                    break
                 if miss_streak >= COUNTY_MISS_STREAK:
                     print(f"  [{county}] {miss_streak} consecutive failures - skipping the rest of this county's slice this run.")
                     break

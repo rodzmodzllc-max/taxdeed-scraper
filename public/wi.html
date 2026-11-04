@@ -7,6 +7,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="color-scheme" content="light dark">
 <title>TAXACQ — Tax Acquisition Intelligence</title>
+<!-- Launch (2026-11-02): a description and share preview for a signed-out visitor
+     and for search engines; the canonical URL is this page on the product domain.
+     The generated state pages get their own state name and URL from
+     scripts/build_state_page.py. -->
+<meta name="description" content="TAXACQ — tax sale property research for Wisconsin: auctions, county-held and land bank properties, and liens and certificates where the state offers them. Every record names its source and the county's published acquisition process. No scores, no estimates.">
+<link rel="canonical" href="https://taxacq.com/wi.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TAXACQ">
+<meta property="og:title" content="TAXACQ — Tax Acquisition Intelligence">
+<meta property="og:description" content="TAXACQ — tax sale property research for Wisconsin: auctions, county-held and land bank properties, and liens and certificates where the state offers them. Every record names its source and the county's published acquisition process. No scores, no estimates.">
+<meta property="og:url" content="https://taxacq.com/wi.html">
+<meta property="og:image" content="https://taxacq.com/icons/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="TAXACQ — Tax Acquisition Intelligence">
+<meta name="twitter:description" content="TAXACQ — tax sale property research for Wisconsin: auctions, county-held and land bank properties, and liens and certificates where the state offers them. Every record names its source and the county's published acquisition process. No scores, no estimates.">
+<meta name="twitter:image" content="https://taxacq.com/icons/icon-512.png">
 <link rel="stylesheet" href="styles.css">
 <!-- Loads AFTER styles.css on purpose: explore.css adds the split list+map
 view and applies a handful of plain-specificity overrides to the card and
@@ -16,12 +34,12 @@ filter-bar classes above, which only win if it comes second. -->
 existing markup; no id, class or data attribute changes meaning in it. -->
 <link rel="stylesheet" href="identity.css">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#F3EFE8">
+<meta name="theme-color" content="#F8F8F5">
 <!-- ?v=2 cache-busts the re-logo'd icon files - see sw.js's comment on
      SHELL for why a filename-only swap wasn't enough for returning users. -->
-<link rel="icon" href="icons/icon-192.png?v=2">
+<link rel="icon" href="icons/icon-192.png?v=3">
 <!-- iOS has no manifest support for these; it needs its own tags. -->
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=3">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="TAXACQ">
@@ -46,7 +64,7 @@ existing markup; no id, class or data attribute changes meaning in it. -->
 </aside>
 <div class="auth-card">
 <div class="auth-brand">
-<img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=2" width="72" height="72" alt="" aria-hidden="true">
+<img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=3" width="72" height="72" alt="" aria-hidden="true">
 <h1>TAXACQ</h1>
 </div>
 <p class="auth-tagline">Tax Acquisition Intelligence</p>
@@ -88,7 +106,7 @@ owner approves it, so there'd be nothing to show here anyway. -->
 <div id="pendingGate" hidden>
 <div class="auth-card">
 <div class="auth-brand">
-<img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=2" width="72" height="72" alt="" aria-hidden="true">
+<img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=3" width="72" height="72" alt="" aria-hidden="true">
 <h1>TAXACQ</h1>
 </div>
 <p class="auth-lead">Account created — awaiting approval.</p>
@@ -106,7 +124,7 @@ own page; access is granted only by the verified stripe-webhook. -->
 <div id="planGate" hidden>
 <div class="auth-card">
 <div class="auth-brand">
-<img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=2" width="72" height="72" alt="" aria-hidden="true">
+<img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=3" width="72" height="72" alt="" aria-hidden="true">
 <h1>TAXACQ</h1>
 </div>
 <p class="auth-lead">Choose your plan</p>
@@ -119,7 +137,7 @@ own page; access is granted only by the verified stripe-webhook. -->
 <!-- ============ app ============ -->
 <div id="app" class="app-shell" hidden>
 <nav class="nav-rail" id="navRail" aria-label="Main">
-<div class="nav-rail-brand"><img src="icons/icon-192.png?v=2" width="44" height="44" alt="" aria-hidden="true"><span class="brand-lockup"><span class="brand-title">TAXACQ</span><span class="brand-sub">Tax Acquisition Intelligence</span></span></div>
+<div class="nav-rail-brand"><img src="icons/icon-192.png?v=3" width="44" height="44" alt="" aria-hidden="true"><span class="brand-lockup"><span class="brand-title">TAXACQ</span><span class="brand-sub">Tax Acquisition Intelligence</span></span></div>
 <!-- Shell redesign (2026-10-04). Home, Search (the List page), one entry per
      ledger (data-nav-ledger: opens the List on that ledger; the label is
      ledgerCopy(key).nav, written by app.js so a state's own ledger name is
@@ -134,9 +152,9 @@ own page; access is granted only by the verified stripe-webhook. -->
 <div class="nav-list nav-primary">
 <button class="nav-item" data-page="dashboard" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Home</button>
 <button class="nav-item" data-page="list" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search</button>
-<button class="nav-item nav-ledger" data-nav-ledger="laft" type="button"><span class="nav-dot" aria-hidden="true"></span><span class="nav-ledger-name">Available</span> <b class="nav-count" id="navCountLaft">0</b></button>
-<button class="nav-item nav-ledger" data-nav-ledger="auction" type="button"><span class="nav-dot" aria-hidden="true"></span><span class="nav-ledger-name">Auctions</span> <b class="nav-count" id="navCountAuction">0</b></button>
-<button class="nav-item nav-ledger" data-nav-ledger="certificate" type="button"><span class="nav-dot" aria-hidden="true"></span><span class="nav-ledger-name">Liens &amp; Certificates</span> <b class="nav-count" id="navCountCertificate">0</b></button>
+<button class="nav-item nav-ledger" data-nav-ledger="laft" type="button"><span class="nav-dot" aria-hidden="true"></span><span class="nav-ledger-name">Available</span> <b class="nav-count" id="navCountLaft">…</b></button>
+<button class="nav-item nav-ledger" data-nav-ledger="auction" type="button"><span class="nav-dot" aria-hidden="true"></span><span class="nav-ledger-name">Auctions</span> <b class="nav-count" id="navCountAuction">…</b></button>
+<button class="nav-item nav-ledger" data-nav-ledger="certificate" type="button"><span class="nav-dot" aria-hidden="true"></span><span class="nav-ledger-name">Liens &amp; Certificates</span> <b class="nav-count" id="navCountCertificate">…</b></button>
 <button class="nav-item" data-page="map" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map</button>
 </div>
 <div class="nav-list nav-secondary">
@@ -158,7 +176,7 @@ own page; access is granted only by the verified stripe-webhook. -->
 below - see the note on .masthead for why the taller block isn't the
 one that pins itself. -->
 <div class="topbar">
-<img class="brand-mark" src="icons/icon-192.png?v=2" width="44" height="44" alt="" aria-hidden="true">
+<img class="brand-mark" src="icons/icon-192.png?v=3" width="44" height="44" alt="" aria-hidden="true">
 <span class="brand-name">TAXACQ</span>
 <!-- One account badge instead of three loose buttons. Theme, password and
 sign out were competing for width with the ledger tabs on a phone; they are
@@ -235,8 +253,8 @@ observed properties. Every figure is computed from loaded rows - see
 renderHome() in app.js. The operating view below it is unchanged. -->
 <div class="home-hero" id="homeHero">
 <span class="home-eyebrow eyebrow">Find property</span>
-<h1 class="home-title">Public property you can research, verify and acquire.</h1>
-<p class="home-sub">Every record names its source, when it was last read, and the official way to acquire it.</p>
+<h1 class="home-title">Tax-sale and public-land listings</h1>
+<p class="home-sub">Every record names its source and when it was last read. Acquisition steps appear only where they are verified.</p>
 <form class="home-search" id="homeSearchForm" role="search">
 <span class="home-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
 <input type="search" id="homeSearchInput" placeholder="Address, parcel, case number, county or owner" aria-label="Search properties by address, parcel, case number, county or owner" autocomplete="off">
@@ -543,7 +561,7 @@ chips - each summary shows how many are currently selected. -->
 one button here, and the full text lives in the modal it opens. -->
 <p class="footer-terms"><button class="terms-btn" id="termsBtn" type="button">Terms &amp; disclaimer</button> · <button class="terms-btn" id="helpBtn" type="button">How to read this data</button> · <button class="terms-btn" id="supportBtn" type="button">Contact support</button></p>
 Links open outside sites (a Google Maps search built by this app, Zillow, and the vendor or county sale page where one was harvested). They are not endorsements, and a listing can change there after our last sync.<br><br>
-<b>Wisconsin coverage is Green County's tax deed sale page.</b> Minimum bids and the sale prices of previous sales are shown as the county publishes them; the county states when it has no current sales. No fee or closing-cost rule is tracked. Confirm terms with the County Clerk and a title company or attorney before bidding.
+<b>Wisconsin coverage is Dane County's tax deed auction page and Green County's tax deed sale page.</b> Minimum bids and the sale prices of previous sales are shown as each county publishes them; each county states when it has no current sales. No fee or closing-cost rule is tracked. Confirm terms with the County Clerk and a title company or attorney before bidding.
 </footer>
 </section>
 
@@ -633,9 +651,9 @@ customers counted on customer-published rows only). -->
 <!-- Phone: Home, Search (the List page), Map, Saved (the watchlist) and
      Account (the account menu). Ledgers are chosen inside Search. -->
 <button class="nav-bottom-item" data-page="dashboard" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Home</button>
-<button class="nav-bottom-item on" data-page="list" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search</button>
+<button class="nav-bottom-item on" data-page="list" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Properties</button>
 <button class="nav-bottom-item" data-page="map" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map</button>
-<button class="nav-bottom-item" data-page="watchlist" id="navBottomWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Saved</button>
+<button class="nav-bottom-item" data-page="watchlist" id="navBottomWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Watchlist</button>
 </nav>
 
 <!-- The "My Watchlist" modal used to sit here. The watchlist is a page now

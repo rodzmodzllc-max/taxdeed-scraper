@@ -79,7 +79,11 @@ def test_k05_legal_pages_are_deployed_and_never_invent_business_details():
 
 def test_k06_legal_js_reports_missing_configuration_instead_of_inventing_it():
     src = read(REPO / "public" / "legal.js")
-    assert "[not configured]" in src and "data-legal-missing" in src
+    # Audit F66 / F103: a missing value is never rendered as a placeholder or
+    # setup text; the clause needing it is left out (data-legal-needs) and the
+    # missing keys stay readable for the operator on <html data-legal-missing>.
+    assert "data-legal-missing" in src and "data-legal-needs" in src
+    assert '"[not configured]"' not in src and "This document is not complete" not in src
 
 
 def test_k07_every_app_page_links_the_legal_documents_and_offers_plan_and_billing():

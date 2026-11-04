@@ -1,0 +1,266 @@
+{
+ "note": "harvesters/ledgers/records.py customer_view() = public/app.js ledgerRecordView(); every key in expect must match both",
+ "cases": [
+  {
+   "name": "auction opening bid is not a winning bid",
+   "row": {
+    "source": "auction",
+    "county": "Alachua",
+    "case_no": "A1",
+    "bid": 5400,
+    "sale_date": "2026-11-02"
+   },
+   "expect": {
+    "ledger": "AUCTIONS",
+    "ledger_name": "Auctions",
+    "opening_bid": 5400,
+    "winning_bid": "Not published",
+    "result": "Not published by the source",
+    "sale_date": "2026-11-02",
+    "auction_url": "Not published",
+    "result_date": "Not published"
+   }
+  },
+  {
+   "name": "auction sold with a published amount",
+   "row": {
+    "source": "auction",
+    "county": "Alachua",
+    "case_no": "A2",
+    "bid": 5400,
+    "inventory_status": "sold",
+    "result_amount": 9100,
+    "result_date": "2026-11-02"
+   },
+   "expect": {
+    "ledger": "AUCTIONS",
+    "opening_bid": 5400,
+    "winning_bid": 9100,
+    "result": "sold",
+    "result_date": "2026-11-02"
+   }
+  },
+  {
+   "name": "auction result amount beside a scheduled status is no winning bid",
+   "row": {
+    "source": "auction",
+    "county": "Alachua",
+    "case_no": "A3",
+    "bid": 5400,
+    "inventory_status": "auction_scheduled",
+    "result_amount": 9100
+   },
+   "expect": {
+    "opening_bid": 5400,
+    "winning_bid": "Not published",
+    "result": "Not published by the source"
+   }
+  },
+  {
+   "name": "auction NOT_PUBLISHED kind hides the legacy bid sentinel",
+   "row": {
+    "source": "auction",
+    "county": "Alachua",
+    "case_no": "A4",
+    "bid": 5400,
+    "purchase_amount_kind": "NOT_PUBLISHED"
+   },
+   "expect": {
+    "opening_bid": "Not published"
+   }
+  },
+  {
+   "name": "auction min_bid wins over the legacy bid",
+   "row": {
+    "source": "auction",
+    "county": "Wayne",
+    "case_no": "A5",
+    "bid": 0,
+    "min_bid": 1200,
+    "url_auction": "https://x.example/sale"
+   },
+   "expect": {
+    "opening_bid": 1200,
+    "auction_url": "https://x.example/sale"
+   }
+  },
+  {
+   "name": "available list page is never a purchase link",
+   "row": {
+    "source": "laft",
+    "county": "Marion",
+    "case_no": "L1",
+    "purchase_url": "https://c.example/laft.pdf",
+    "list_url": "https://c.example/laft.pdf",
+    "purchase_amount": 500,
+    "purchase_amount_kind": "OPENING_BID"
+   },
+   "expect": {
+    "ledger": "AVAILABLE",
+    "ledger_name": "Available",
+    "purchase_link": "No online purchase link on file",
+    "amount": 500,
+    "amount_kind": "OPENING_BID",
+    "inventory_list_url": "https://c.example/laft.pdf"
+   }
+  },
+  {
+   "name": "available source document is never a purchase link",
+   "row": {
+    "source": "laft",
+    "county": "Marion",
+    "case_no": "L2",
+    "purchase_url": "https://c.example/doc.pdf",
+    "document_url": "https://c.example/doc.pdf"
+   },
+   "expect": {
+    "purchase_link": "No online purchase link on file",
+    "inventory_list_url": "Not published"
+   }
+  },
+  {
+   "name": "available http link is not shown",
+   "row": {
+    "source": "laft",
+    "county": "Marion",
+    "case_no": "L3",
+    "purchase_url": "http://c.example/buy"
+   },
+   "expect": {
+    "purchase_link": "No online purchase link on file"
+   }
+  },
+  {
+   "name": "available verified https link and instructions",
+   "row": {
+    "source": "laft",
+    "county": "Marion",
+    "case_no": "L4",
+    "purchase_url": "https://c.example/apply/9",
+    "list_url": "https://c.example/list",
+    "otc_provenance": {
+     "purchase_instructions": "Apply at the Clerk's office."
+    }
+   },
+   "expect": {
+    "purchase_link": "https://c.example/apply/9",
+    "application_instructions": "Apply at the Clerk's office.",
+    "availability": "Not published"
+   }
+  },
+  {
+   "name": "available quoted on application carries no figure",
+   "row": {
+    "source": "laft",
+    "county": "East Baton Rouge",
+    "case_no": "L5",
+    "bid": 900,
+    "purchase_amount_kind": "QUOTED_ON_APPLICATION"
+   },
+   "expect": {
+    "amount": "Not published",
+    "amount_kind": "QUOTED_ON_APPLICATION",
+    "purchase_link": "No online purchase link on file",
+    "application_instructions": "Not published"
+   }
+  },
+  {
+   "name": "available legacy bid without a kind",
+   "row": {
+    "source": "laft",
+    "county": "Marion",
+    "case_no": "L6",
+    "bid": 900
+   },
+   "expect": {
+    "amount": 900,
+    "amount_kind": "LEGACY_BID"
+   }
+  },
+  {
+   "name": "available with no figure at all",
+   "row": {
+    "source": "laft",
+    "county": "Marion",
+    "case_no": "L7",
+    "bid": 0
+   },
+   "expect": {
+    "amount": "Not published",
+    "amount_kind": null
+   }
+  },
+  {
+   "name": "an Available row's own status is its availability",
+   "row": {
+    "source": "laft",
+    "county": "Marion",
+    "case_no": "L8",
+    "inventory_status": "available_otc"
+   },
+   "expect": {
+    "ledger": "AVAILABLE",
+    "availability": "available_otc",
+    "status": "available_otc"
+   }
+  },
+  {
+   "name": "certificate face amount and no holder from the owner",
+   "row": {
+    "source": "certificate",
+    "county": "Alachua",
+    "case_no": "2024-7",
+    "certificate_no": "2024-7",
+    "bid": 812.5,
+    "tax_year": 2024,
+    "issued_date": "2025-06-01",
+    "interest_rate": 18,
+    "owner_name": "ASSESSED OWNER"
+   },
+   "expect": {
+    "ledger": "LIENS_CERTIFICATES",
+    "ledger_name": "Liens & Certificates",
+    "certificate_no": "2024-7",
+    "face_amount": 812.5,
+    "tax_year": 2024,
+    "interest_rate": 18,
+    "certificate_sale_date": "2025-06-01",
+    "redemption": "Not published by the source",
+    "holder": "Not published"
+   }
+  },
+  {
+   "name": "certificate redemption is the instrument's result",
+   "row": {
+    "source": "certificate",
+    "county": "Alachua",
+    "case_no": "2024-8",
+    "bid": 100,
+    "inventory_status": "certificate_redeemed"
+   },
+   "expect": {
+    "redemption": "certificate_redeemed",
+    "certificate_no": "2024-8",
+    "tax_year": "Not published",
+    "interest_rate": "Not published",
+    "certificate_sale_date": "Not published"
+   }
+  },
+  {
+   "name": "a property sale status on a certificate is never shown as its result",
+   "row": {
+    "source": "certificate",
+    "county": "Alachua",
+    "case_no": "2024-9",
+    "bid": 0,
+    "inventory_status": "sold",
+    "result_amount": 5000
+   },
+   "expect": {
+    "redemption": "Not published by the source",
+    "face_amount": "Not published",
+    "holder": "Not published"
+   }
+  }
+ ]
+}

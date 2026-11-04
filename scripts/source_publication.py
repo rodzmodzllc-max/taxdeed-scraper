@@ -78,11 +78,28 @@ def publishable(row) -> bool:
     recorded `display` permission for the source (2026-10-12)."""
     if row is None or effective_publication(row) not in PUBLISHABLE_STATUSES:
         return False
-    return permitted(row.source_id, "display", row.state).allowed
+    # The `display` record for each ledger this source feeds (a Florida record
+    # names its ledger's listing dataset); allowed when any of them allows it.
+    from harvesters.governance import permissions as PERM  # noqa: PLC0415
+    ledgers = sorted(getattr(row, "ledger_set", None) or [])
+    return any(PERM.listing_display(row.source_id, state=row.state, ledger=lg).allowed for lg in (ledgers or [None]))
 
 
 # A hard block: never requested, never written, never shown - not even to admins.
 COLLECTION_BLOCKED = frozenset({"BLOCKED"})
+
+
+def owner_collection(row) -> bool:
+    """Owner decision 2026-10-26 ("find every property and every source, and then
+    we'll work on the legal"): the new-sources sprint's sources are collected for
+    EVERY ledger - auctions and liens too, not only AVAILABLE - while their
+    publication stays UNREVIEWED (admins see them labelled; customers do not).
+    The recorded permission (condition 2 of collectable()) is still required."""
+    try:
+        from harvesters.otc.adapters import expansion as EX  # noqa: PLC0415
+    except Exception:  # noqa: BLE001 - fail closed
+        return False
+    return row is not None and row.source_id in EX.NEW_SOURCE_IDS
 
 
 def collectable(row, record_source: str, operation: str = "fetch") -> bool:
@@ -96,7 +113,8 @@ def collectable(row, record_source: str, operation: str = "fetch") -> bool:
          which fails closed when missing, expired or unreadable."""
     if row is None:
         return False
-    if not (publishable(row) or (record_source == "laft" and effective_publication(row) not in COLLECTION_BLOCKED)):
+    if not (publishable(row) or ((record_source == "laft" or owner_collection(row))
+                                 and effective_publication(row) not in COLLECTION_BLOCKED)):
         return False
     return permitted(row.source_id, operation, row.state).allowed
 
@@ -116,7 +134,7 @@ def decision(row, record_source: str = "", operation: str = "fetch") -> str:
     if row is None:
         return "UNREGISTERED"
     pub = effective_publication(row)
-    rule_ok = pub in PUBLISHABLE_STATUSES or (record_source == "laft" and pub not in COLLECTION_BLOCKED)
+    rule_ok = pub in PUBLISHABLE_STATUSES or ((record_source == "laft" or owner_collection(row)) and pub not in COLLECTION_BLOCKED)
     if rule_ok and record_source:
         why = permission_decision(row, operation)
         if why:

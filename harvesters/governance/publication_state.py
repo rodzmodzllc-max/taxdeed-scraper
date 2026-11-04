@@ -26,8 +26,16 @@ when every gate passes, in this order:
                 A county-level portal or published procedure is a valid path
                 - a unique URL per record is not required - but a homepage or
                 a search engine never is.
+                Owner's rule (2026-10-25): when none of the above exists, the
+                official page the property was found on (its purchase_url,
+                url_auction, document_url or list_url, else the registry page
+                of its own county unit) is its path, typed `source_listing`.
+                A property is never withheld for lacking a verified procedure.
   5. freshness  the row was observed recently (AVAILABLE 14 days, AUCTIONS and
-                LIENS 7 days, on last_seen_at else updated_at), an auction's
+                LIENS 7 days, on the row's OWN last_seen_at - NULL is never
+                read and fails; updated_at is not an observation, every
+                enrichment PATCH bumps it; harvesters/ledgers/health.py
+                row_observation), an auction's
                 sale date has not passed, and county-level path evidence is
                 not older than 180 days
 
@@ -69,6 +77,9 @@ from urllib.parse import urlparse
 from . import state_rules as SR
 from . import publication as pub
 from . import county_source_registry as csr
+from ..ledgers import records as ledger_records
+from ..ledgers import health as ledger_health
+from ..ledgers import Ledger
 
 REPO = Path(__file__).resolve().parents[2]
 ACQUISITION_EVIDENCE = REPO / "public" / "acquisition-evidence.json"
@@ -96,7 +107,8 @@ PATH_TYPE_LABELS = {"auction_bidding": "Auction / bidding", "direct_purchase": "
                     "other_verified_process": "Other verified process"}
 SCOPES = ("record", "county", "source")
 # Days a row may go unobserved and still be customer-published, per ledger.
-FRESHNESS_DAYS = {"AUCTIONS": 7, "AVAILABLE": 14, "LIENS_CERTIFICATES": 7}
+# One table, harvesters/ledgers/health.py FRESHNESS_DAYS (the row-observation rule).
+FRESHNESS_DAYS = {k.value: v for k, v in ledger_health.FRESHNESS_DAYS.items()}
 PATH_MAX_AGE_DAYS = 180
 # Every reason a decision can carry, with the remediation an admin needs.
 REASONS = {
@@ -108,6 +120,7 @@ REASONS = {
     "RULES_NOT_OFFERED": "The verified rules say this state does not offer this product.",
     "COUNTY_NOT_COVERED": "The product is county-dependent and this county has no tracked source or verified procedure.",
     "RECORD_INVALID": "The record is missing its state, county, ledger or identifier.",
+    "LEDGER_CONTRACT": "The record carries fields or a status of another ledger.",
     "PATH_MISSING": "No acquisition path is documented for this record or its county.",
     "PATH_UNTRUSTED": "The only link on file is a homepage, a search page or not https - not a route to the process.",
     "PATH_NEEDS_REVIEW": "The county's acquisition process was captured but not verified.",
@@ -127,6 +140,7 @@ REMEDIATION = {
     "RULES_NOT_OFFERED": "None - show the verified rules explanation instead of inventory.",
     "COUNTY_NOT_COVERED": "Add the county's source or verified procedure to the registry / rules.",
     "RECORD_INVALID": "Fix the harvester so the record carries state, county, ledger and identifier.",
+    "LEDGER_CONTRACT": "Fix the harvester or sync that classified the record (harvesters/ledgers/records.py names the problem).",
     "PATH_MISSING": "Capture the county's official acquisition page (job=evidence) and record a verified evidence row.",
     "PATH_UNTRUSTED": "Record the actual process page or published procedure, not the homepage.",
     "PATH_NEEDS_REVIEW": "Read the capture digest and record a verified evidence row.",
@@ -190,14 +204,15 @@ class Context:
     acquisition_status: dict[tuple[str, str, str], dict] = field(default_factory=dict)
     acquisition_records: dict[tuple[str, str, str], dict] = field(default_factory=dict)
     now: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    # (source_id, state, county) -> may this source's records be shown to
-    # customers? The recorded `display` permission (permissions.py), fail closed.
-    display_permitted: Callable[[str, str, str], bool] = field(default_factory=lambda: _display_permitted)
+    # (source_id, state, county, ledger) -> may this source's records of that
+    # ledger be shown to customers? The recorded `display` permission for the
+    # ledger's listing dataset (permissions.listing_display), fail closed.
+    display_permitted: Callable[..., bool] = field(default_factory=lambda: _display_permitted)
 
 
-def _display_permitted(source_id: str, state: str, county: str) -> bool:
+def _display_permitted(source_id: str, state: str, county: str, ledger: str | None = None) -> bool:
     from . import permissions as PERM  # noqa: PLC0415
-    return PERM.authorize(source_id, "display", state=state, county=county or None).allowed
+    return PERM.listing_display(source_id, state=state, county=county or None, ledger=ledger).allowed
 
 
 def build_context(now: datetime | None = None, *, registry=None, ledgers=None, acquisition: dict | None = None,
@@ -266,8 +281,37 @@ def _https_process_url(url) -> str | None:
 
 
 def _observed_at(row: dict) -> datetime | None:
-    return _dt(row.get("last_seen_at")) or _dt(row.get("updated_at"))
+    """The row's own last successful observation (last_seen_at only)."""
+    return _dt(row.get("last_seen_at"))
 
+
+
+# Owner's rule (2026-10-25): "If you found the property and you found the link
+# on how we actually are posting it, we need to at least provide that link."
+# When no verified procedure / record-level path exists, the official page the
+# property was found on IS its acquisition path - labelled as the source
+# listing, never as a purchase page. Order: the record's own purchase link,
+# its sale listing, its source document, its list page, then the registry's
+# canonical page for the row's OWN (state, source, county) unit - never another
+# county's page. Same URL test as every other path: https, not a
+# homepage, not a search engine.
+SOURCE_LISTING_FIELDS = ("purchase_url", "url_auction", "document_url", "list_url")
+
+
+def _source_listing(row: dict, unit: dict, base: dict, observed) -> "PathEvidence | None":
+    for field_name in SOURCE_LISTING_FIELDS:
+        url = str(row.get(field_name) or "").strip()
+        if url and not _https_process_url(url):
+            break
+    else:
+        field_name, url = "canonical_url", str(unit.get("canonical_url") or "").strip()
+        if not url or _https_process_url(url):
+            return None
+    return PathEvidence(**{**base, "destination_url": url, "path_type": "source_listing",
+                           "scope": "record" if field_name in ("purchase_url", "url_auction") else "source",
+                           "verification_status": "VERIFIED", "last_verified": observed.isoformat() if observed else "",
+                           "procedure": "Where the property is published: the source listing it was found on",
+                           "notes": f"source listing ({field_name}); no verified purchase procedure on file"})
 
 def _path_for(row: dict, ledger: str, sid: str, ctx: Context) -> tuple[PathEvidence, str | None]:
     """The structured path evidence for a row and the failing reason, if any."""
@@ -280,10 +324,12 @@ def _path_for(row: dict, ledger: str, sid: str, ctx: Context) -> tuple[PathEvide
     observed = _observed_at(row)
     if ledger == "AUCTIONS":
         url, kind = str(row.get("url_auction") or "").strip(), str(row.get("url_auction_kind") or "")
-        if not url:
-            return PathEvidence(**{**base, "missing_reason": "PATH_MISSING"}), "PATH_MISSING"
-        bad = _https_process_url(url)
-        if bad or kind not in ("sale", "county"):
+        if not url or _https_process_url(url) or kind not in ("sale", "county"):
+            listing = _source_listing(row, ctx.registry_units.get((st, sid, county)) or {}, base, observed)
+            if listing:
+                return listing, None
+            if not url:
+                return PathEvidence(**{**base, "missing_reason": "PATH_MISSING"}), "PATH_MISSING"
             return PathEvidence(**{**base, "destination_url": url, "missing_reason": "PATH_UNTRUSTED",
                                    "notes": f"url_auction_kind {kind or 'unknown'}"}), "PATH_UNTRUSTED"
         return PathEvidence(**{**base, "destination_url": url, "path_type": "auction_bidding", "scope": "record" if kind == "sale" else "county",
@@ -334,6 +380,9 @@ def _path_for(row: dict, ledger: str, sid: str, ctx: Context) -> tuple[PathEvide
                 ev.missing_reason = "PATH_STALE"
                 return ev, "PATH_STALE"
             return ev, None
+    listing = _source_listing(row, ctx.registry_units.get((st, sid, county)) or {}, base, observed)
+    if listing:
+        return listing, None
     reason = "PATH_MISSING"
     if status:
         reason = {"NEEDS_REVIEW": "PATH_NEEDS_REVIEW", "UNAVAILABLE": "PATH_UNAVAILABLE", "NOT_FOUND": "PATH_NOT_FOUND"}.get(status.get("status"), "PATH_MISSING")
@@ -351,7 +400,7 @@ def decide(row: dict, ctx: Context) -> Decision:
     st, county = str(row.get("state") or ""), str(row.get("county") or "")
     # 1. source
     publication = ctx.source_publication.get(sid)
-    if sid and publication in pub.PUBLISHABLE_STATUSES and ctx.display_permitted(sid, st, county):
+    if sid and publication in pub.PUBLISHABLE_STATUSES and ctx.display_permitted(sid, st, county, ledger):
         gates["source"] = "PASS"
     elif sid and publication in pub.PUBLISHABLE_STATUSES:
         # Publication approved but no recorded `display` permission (or it has
@@ -370,11 +419,18 @@ def decide(row: dict, ctx: Context) -> Decision:
         gates["rules"] = "FAIL"
         reasons.append("RULES_NOT_OFFERED" if elig == "NOT_OFFERED" else "COUNTY_NOT_COVERED" if elig == "COUNTY_DEPENDENT" else "RULES_NOT_VERIFIED")
     # 3. validation
-    if st and county and ledger and (row.get("case_no") or row.get("parcel") or row.get("certificate_no")):
-        gates["validation"] = "PASS"
-    else:
+    if not (st and county and ledger and (row.get("case_no") or row.get("parcel") or row.get("certificate_no"))):
         gates["validation"] = "FAIL"
         reasons.append("RECORD_INVALID")
+    elif ledger_records.problems(row):
+        # The three-ledger record contract (harvesters/ledgers/records.py): a
+        # row carrying another ledger's fields or status - a certificate with
+        # a property-sale result, an auction with an Available inventory type
+        # - is never customer inventory, whatever else it passes.
+        gates["validation"] = "FAIL"
+        reasons.append("LEDGER_CONTRACT")
+    else:
+        gates["validation"] = "PASS"
     if "FAIL" in (gates["source"], gates["rules"], gates["validation"]):
         return Decision("ADMIN_ONLY_SOURCE_REVIEW", "DISCOVERED", reasons, gates, None, REMEDIATION[reasons[0]])
     # 4. path
@@ -385,9 +441,7 @@ def decide(row: dict, ctx: Context) -> Decision:
         return Decision("ADMIN_ONLY_NO_PATH", "RULES_VERIFIED", reasons, gates, path, REMEDIATION[path_reason])
     gates["path"] = "PASS"
     # 5. freshness
-    observed = _observed_at(row)
-    window = timedelta(days=FRESHNESS_DAYS[ledger])
-    if observed is None or ctx.now - observed > window:
+    if ledger_health.row_observation(row, ctx.now, Ledger(ledger)) in ledger_health.NOT_CURRENT:
         reasons.append("OBSERVATION_STALE")
     sale = _dt(row.get("sale_date")) if ledger == "AUCTIONS" else None
     if sale and sale.date() < ctx.now.date():

@@ -154,7 +154,18 @@ def _rules(rules: list, st: str, ledger: str) -> dict:
             "county_rules": sorted({r.county for r in mine if r.county})}
 
 
-def classify(*, eligibility: str, sources: list[dict], snap: dict | None, acq: dict, ledger: str) -> tuple[str, list[str]]:
+def _in_snapshot(sources: list[dict], measured_at) -> list[dict]:
+    """The sources that can have rows in a snapshot taken at `measured_at`:
+    a source first checked after it (registry last_checked) was added later
+    and contributes nothing to the snapshot's counts."""
+    day = str(measured_at or "")[:10]
+    if not day:
+        return sources
+    return [s for s in sources if not s.get("last_checked") or s["last_checked"] <= day]
+
+
+def classify(*, eligibility: str, sources: list[dict], snap: dict | None, acq: dict, ledger: str,
+             measured_at=None) -> tuple[str, list[str]]:
     reasons: list[str] = []
     implemented = [s for s in sources if s["implemented"]]
     approved = [s for s in implemented if s["approved_for_customers"]]
@@ -180,7 +191,8 @@ def classify(*, eligibility: str, sources: list[dict], snap: dict | None, acq: d
         return "SOURCE_IMPLEMENTED_NEVER_READ", ["no row and no read recorded in the snapshot"]
     if active and (never + stale) >= active:
         reasons.append(f"{never} of {active} active rows never stamped, {stale} read more than {STALE_HOURS} h before the snapshot")
-        if implemented and all(s["source_id"] in MANUAL_ONLY_SOURCES for s in implemented):
+        seen = _in_snapshot(implemented, measured_at)
+        if seen and all(s["source_id"] in MANUAL_ONLY_SOURCES for s in seen):
             reasons.append("every production source is manual-only (dispatched by hand, never scheduled): the last read is the last manual dispatch")
         return "SOURCE_FAILED_OR_STALE", reasons
     if ledger == "AVAILABLE" and active and acq["units"] and not acq["by_status"].get("VERIFIED"):
@@ -209,7 +221,8 @@ def build(inputs: dict | None = None) -> dict:
             snap = _snapshot(cov, st, source_key)
             fields, counties = _fields(qual, st, source_key)
             acq = _acquisition(acqd, st, {s["source_id"] for s in sources})
-            concept, reasons = classify(eligibility=elig, sources=sources, snap=snap, acq=acq, ledger=ledger)
+            concept, reasons = classify(eligibility=elig, sources=sources, snap=snap, acq=acq, ledger=ledger,
+                                        measured_at=cov.get("measured_at"))
             totals[concept] += 1
             pub_statuses = sorted({s["publication_status"] or "UNREVIEWED" for s in sources if s["implemented"]})
             withheld = None

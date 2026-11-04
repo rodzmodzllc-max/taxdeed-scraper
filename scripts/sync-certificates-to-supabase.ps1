@@ -18,6 +18,108 @@ if (0 -ne $LASTEXITCODE) {
 }
 # --- end source permission gate ------------------------------------------------
 
+# --- Three-ledger contract (2026-10-14) ----------------------------------------
+# The row contract (harvesters/ledgers/records.py) and the status-file reader
+# (harvesters/ledgers/health.py) are applied through scripts/ledger_gate.py, the
+# same rules the Python syncs apply - never a second copy of them here. Both
+# helpers fail closed: a contract that cannot be checked writes nothing, and a
+# status file that cannot be read closes nothing.
+function Get-LedgerPython {
+    $py = Get-Command python3 -ErrorAction SilentlyContinue
+    if (-not $py) { $py = Get-Command python -ErrorAction SilentlyContinue }
+    if (-not $py) { throw "Python not found - the ledger contract cannot be checked; nothing is written." }
+    return $py.Source
+}
+function Select-LedgerRows([string]$Ledger, $Rows) {
+    $all = @($Rows)
+    if ($all.Count -eq 0) { return }
+    $tmp = [System.IO.Path]::GetTempFileName()
+    try {
+        $json = $all | ConvertTo-Json -Depth 6
+        if ($all.Count -eq 1) { $json = "[$json]" }
+        [System.IO.File]::WriteAllText($tmp, $json, [System.Text.UTF8Encoding]::new($false))
+        $out = & (Get-LedgerPython) (Join-Path $PSScriptRoot "ledger_gate.py") rows --ledger $Ledger --in $tmp
+        if (0 -ne $LASTEXITCODE) { throw "ledger_gate.py could not check the $Ledger rows (exit $LASTEXITCODE) - nothing is written." }
+        $verdict = ($out -join "`n") | ConvertFrom-Json
+        $refused = [System.Collections.Generic.HashSet[int]]::new()
+        foreach ($i in @($verdict.refused)) { $refused.Add([int]$i) | Out-Null }
+        if ($refused.Count -gt 0) {
+            Write-Warning "Ledger contract refused $($refused.Count) of $($all.Count) row(s) that do not belong to the $Ledger ledger - nothing is written for them."
+        }
+        for ($i = 0; $i -lt $all.Count; $i++) {
+            if (-not $refused.Contains($i)) { $all[$i] }
+        }
+    } finally {
+        Remove-Item $tmp -ErrorAction SilentlyContinue
+    }
+}
+function Get-LedgerCloseableCounties([string]$Ledger, [string]$StatusPath) {
+    $out = & (Get-LedgerPython) (Join-Path $PSScriptRoot "ledger_gate.py") closeable --ledger $Ledger --status $StatusPath
+    if (0 -ne $LASTEXITCODE) { throw "ledger_gate.py could not read $StatusPath (exit $LASTEXITCODE)" }
+    return @((($out -join "`n") | ConvertFrom-Json))
+}
+# --- end three-ledger contract -------------------------------------------------
+# --- Stored-value guard (2026-10-26) -------------------------------------------
+# PostgREST's bulk upsert needs one key set per batch, so a column the list did
+# not publish is sent as null - and merge-duplicates used to write that null
+# over the stored value (146 FL auction rows lost their FDOR tax-roll
+# `assessed`). scripts/sync_value_guard.py reads the stored rows and puts the
+# stored value back wherever a blank or placeholder would replace it, or where
+# field_provenance names another source of equal or higher rank
+# (scripts/field_provenance.py). Fail closed: if the stored rows cannot be
+# read, nothing is written.
+function Protect-StoredValues([string]$Source, $Rows) {
+    $all = @($Rows)
+    if ($all.Count -eq 0) { return }
+    $in = [System.IO.Path]::GetTempFileName()
+    $out = [System.IO.Path]::GetTempFileName()
+    try {
+        $json = $all | ConvertTo-Json -Depth 6
+        if ($all.Count -eq 1) { $json = "[$json]" }
+        [System.IO.File]::WriteAllText($in, $json, [System.Text.UTF8Encoding]::new($false))
+        & (Get-LedgerPython) (Join-Path $PSScriptRoot "sync_value_guard.py") --source $Source --state FL --in $in --out $out
+        if (0 -ne $LASTEXITCODE) { throw "sync_value_guard.py could not guard the $Source rows (exit $LASTEXITCODE) - nothing is written." }
+        $guarded = @((Get-Content $out -Raw -Encoding utf8) | ConvertFrom-Json)
+        if ($guarded.Count -ne $all.Count) { throw "sync_value_guard.py returned $($guarded.Count) of $($all.Count) rows - nothing is written." }
+        $guarded
+    } finally {
+        Remove-Item $in, $out -ErrorAction SilentlyContinue
+    }
+}
+# --- end stored-value guard ----------------------------------------------------
+# --- Write only what changed (2026-10-26) --------------------------------------
+# Every run used to upsert every harvested row again, changed or not: each
+# UPDATE bumps updated_at (properties_touch) and leaves a dead tuple, and one
+# run rewrote ~15,770 rows in ten minutes on 2026-10-26 (production overload).
+# scripts/write_diff_filter.py applies scripts/write_diff.py's one rule - a row
+# whose stored copy already holds the same values is not sent - never a second
+# copy of it here. Fail OPEN: if the filter cannot run or the stored rows cannot
+# be read, every row is sent, exactly as before. Only the upsert uses the result;
+# close-out decides on what was harvested, never on what was written.
+function Select-ChangedRows([string]$Source, $Rows) {
+    $all = @($Rows)
+    if ($all.Count -eq 0) { return }
+    $in = [System.IO.Path]::GetTempFileName()
+    $out = [System.IO.Path]::GetTempFileName()
+    try {
+        $json = $all | ConvertTo-Json -Depth 6
+        if ($all.Count -eq 1) { $json = "[$json]" }
+        [System.IO.File]::WriteAllText($in, $json, [System.Text.UTF8Encoding]::new($false))
+        & (Get-LedgerPython) (Join-Path $PSScriptRoot "write_diff_filter.py") --state FL --source $Source --in $in --out $out
+        if (0 -ne $LASTEXITCODE) {
+            Write-Warning "write_diff_filter.py exited $LASTEXITCODE - sending all $($all.Count) $Source row(s) (fail open)."
+            return $all
+        }
+        return @((Get-Content $out -Raw -Encoding utf8) | ConvertFrom-Json)
+    } catch {
+        Write-Warning "Unchanged-row filter failed ($($_.Exception.Message)) - sending all $($all.Count) $Source row(s) (fail open)."
+        return $all
+    } finally {
+        Remove-Item $in, $out -ErrorAction SilentlyContinue
+    }
+}
+# --- end write only what changed -----------------------------------------------
+
 
 # Pushes harvest_certificates.json (produced by
 # harvest_lienhub_certificates.ps1) into the same `properties` table as the
@@ -132,7 +234,9 @@ if ([string]::IsNullOrWhiteSpace($p.case_no)) { $skipped++; continue }
 # publishes a property_address, but fall back the same way LAFT does so
 # a missing address never becomes a failed insert.
 $addr = $p.address
-if ([string]::IsNullOrWhiteSpace($addr)) { $addr = "Account $($p.case_no)" }
+# The placeholder names the ACCOUNT (the parcel); case_no is the certificate
+# key '<tax year>-<cert #>' since 2026-10-29 (sync_value_guard recognises both).
+if ([string]::IsNullOrWhiteSpace($addr)) { $addr = if ([string]::IsNullOrWhiteSpace($p.parcel)) { "Account $($p.case_no)" } else { "Account $($p.parcel)" } }
 
 $bidVal = ToNum $p.bid
 if ($null -eq $bidVal) { $bidVal = 0 }
@@ -157,6 +261,12 @@ url_auction = $p.url_auction
 # certificate can be found, not a per-certificate page - so 'county'
 # whenever a URL is present (migration 013).
 url_auction_kind = if ([string]::IsNullOrWhiteSpace($p.url_auction)) { $null } else { "county" }
+# On the county-held list this run => listed (2026-10-26). Without status in
+# the payload a certificate marked notfound by an earlier run and listed again
+# stayed notfound forever - the same defect sync-harvest-to-supabase.ps1 fixed
+# for deeds (run #181). The re-listed row also sheds its delisted_at.
+status = "active"
+delisted_at = $null
 }
 }
 
@@ -181,8 +291,14 @@ if ($dupeCount -gt 0) {
 Write-Output "De-duplicated $dupeCount row(s) sharing a (county, case_no) key with another row in this harvest."
 }
 
+# Every row must belong to the LIENS_CERTIFICATES ledger and pass its record
+# contract (scripts/ledger_gate.py): a certificate row never carries a
+# property-sale result.
+$rows = @(Select-LedgerRows "LIENS_CERTIFICATES" $rows)
 if ($rows.Count -eq 0) { throw "Every harvested row was missing case_no - nothing to sync." }
 Write-Output "Prepared $($rows.Count) certificates ($skipped skipped for missing case_no)."
+# A blank cell or the "Account <case>" / 0 placeholder never erases a stored value.
+$rows = @(Protect-StoredValues "certificate" $rows)
 } else {
 Write-Output "harvest_certificates.json is empty - nothing to upsert this run."
 }
@@ -193,6 +309,9 @@ Write-Output "No harvest_certificates.json - harvester found nothing to upsert t
 # ---- Upsert whatever was harvested (unconditional, always safe - this step
 # only ever adds or refreshes rows, never removes data) ----
 if ($rows.Count -gt 0) {
+# Only new / changed rows are upserted; $rows (everything harvested) still
+# drives the reconciliation below.
+$writeRows = @(Select-ChangedRows "certificate" $rows)
 # Preferred conflict target once 004_widen_unique_constraint_for_state.sql
 # has been run (adds `state` to the unique key so FL/TX same-named counties
 # can't collide on one upserted row - see that migration's header comment).
@@ -204,8 +323,8 @@ $fallbackEndpoint = "$supabaseUrl/rest/v1/properties?on_conflict=source,county,c
 $useFallback = $false
 
 $sent = 0
-for ($i = 0; $i -lt $rows.Count; $i += $batchSize) {
-$batch = $rows[$i..([math]::Min($i + $batchSize - 1, $rows.Count - 1))]
+for ($i = 0; $i -lt $writeRows.Count; $i += $batchSize) {
+$batch = @($writeRows[$i..([math]::Min($i + $batchSize - 1, $writeRows.Count - 1))])
 $json = $batch | ConvertTo-Json -Depth 5
 if ($batch.Count -eq 1) { $json = "[$json]" }
 $body = [System.Text.Encoding]::UTF8.GetBytes($json)
@@ -227,7 +346,7 @@ throw
 }
 }
 $sent += $batch.Count
-Write-Output " synced $sent / $($rows.Count)"
+Write-Output " synced $sent / $($writeRows.Count)"
 } catch {
 Write-Output "SYNC FAILED on batch starting at row $i - most likely schema-v4-certificates.sql hasn't been run against this Supabase project yet."
 Write-Output "Error: $($_.Exception.Message)"
@@ -235,7 +354,7 @@ throw
 }
 }
 
-Write-Output "Done. $sent certificates upserted to Supabase."
+Write-Output "Done. $sent of $($rows.Count) certificates upserted to Supabase ($($rows.Count - $writeRows.Count) unchanged, not rewritten)."
 Write-Output "Counties covered: $((($rows | ForEach-Object { $_.county }) | Select-Object -Unique).Count)"
 } else {
 Write-Output "Nothing to upsert this run."
@@ -249,10 +368,9 @@ Write-Output "Nothing to upsert this run."
 $completeCounties = [System.Collections.Generic.HashSet[string]]::new()
 if (Test-Path $statusPath) {
 try {
-$countyStatusRaw = Get-Content $statusPath -Raw | ConvertFrom-Json
-foreach ($cs in @($countyStatusRaw)) {
-if ($cs.status -eq "COMPLETE") { $completeCounties.Add([string]$cs.county) | Out-Null }
-}
+# The ledger health reader decides which counties may reconcile (see
+# sync-harvest-to-supabase.ps1's identical step).
+foreach ($c in (Get-LedgerCloseableCounties "LIENS_CERTIFICATES" $statusPath)) { $completeCounties.Add([string]$c) | Out-Null }
 Write-Output "Reconciliation-eligible (COMPLETE) counties this run: $($completeCounties.Count)"
 } catch {
 Write-Warning "harvest_certificates_status.json could not be parsed - skipping reconciliation entirely this run (fail closed): $($_.Exception.Message)"
@@ -268,19 +386,33 @@ if ($completeCounties.Count -gt 0) {
 # reconciliation, matching the (state, source, county, case_no) identity
 # the upsert itself already uses as its conflict target.
 $harvestedKeysByCounty = @{}
+# Accounts (parcels) listed this run per COMPLETE county: a stored row keyed on
+# an account that is still listed is a row of the old one-row-per-parcel key
+# (before 2026-10-29), superseded by its certificate-keyed rows - closed, never
+# marked notfound (its certificates are still on the list).
+$harvestedParcelsByCounty = @{}
 foreach ($r in $rows) {
 if (-not $completeCounties.Contains([string]$r.county)) { continue }
 if (-not $harvestedKeysByCounty.ContainsKey($r.county)) {
 $harvestedKeysByCounty[$r.county] = [System.Collections.Generic.HashSet[string]]::new()
 }
 $harvestedKeysByCounty[$r.county].Add([string]$r.case_no) | Out-Null
+if (-not $harvestedParcelsByCounty.ContainsKey($r.county)) {
+$harvestedParcelsByCounty[$r.county] = [System.Collections.Generic.HashSet[string]]::new()
+}
+if (-not [string]::IsNullOrWhiteSpace([string]$r.parcel)) { $harvestedParcelsByCounty[$r.county].Add([string]$r.parcel) | Out-Null }
 }
 
 $encodedCounties = ($completeCounties | ForEach-Object { [uri]::EscapeDataString($_) }) -join ","
-$activeUrl = "$supabaseUrl/rest/v1/properties?state=eq.FL&source=eq.certificate&status=eq.active&county=in.($encodedCounties)&select=id,county,case_no&limit=5000"
+# Only LienHub's own rows (source_id fl_lienhub_certificates, or unset on a row
+# written before migration 017's backfill): a COMPLETE LienHub county read says
+# nothing about a certificate another source lists (2026-10-26: the Sarasota Tax
+# Collector's own county-held list, scripts/sync_sarasota_certificates.py).
+$activeUrl = "$supabaseUrl/rest/v1/properties?state=eq.FL&source=eq.certificate&status=eq.active&county=in.($encodedCounties)&or=(source_id.is.null,source_id.eq.fl_lienhub_certificates)&select=id,county,case_no&limit=5000"
 $activeRows = Invoke-RestMethod -Uri $activeUrl -Method Get -Headers $headers -UserAgent $SupabaseUserAgent
 
 $staleIds = @()
+$supersededIds = @()
 foreach ($ar in $activeRows) {
 # Defense in depth: re-check county membership even though the query
 # above already filters on it, so a future query-shape change can't
@@ -288,7 +420,22 @@ foreach ($ar in $activeRows) {
 if (-not $completeCounties.Contains([string]$ar.county)) { continue }
 $keysForCounty = $harvestedKeysByCounty[$ar.county]
 $stillListed = $keysForCounty -and $keysForCounty.Contains([string]$ar.case_no)
-if (-not $stillListed) { $staleIds += $ar.id }
+if ($stillListed) { continue }
+$parcelsForCounty = $harvestedParcelsByCounty[$ar.county]
+if ($parcelsForCounty -and $parcelsForCounty.Contains([string]$ar.case_no)) { $supersededIds += $ar.id }
+else { $staleIds += $ar.id }
+}
+
+if ($supersededIds.Count -gt 0) {
+Write-Output "Closing $($supersededIds.Count) account-keyed certificate row(s) superseded by this run's per-certificate rows..."
+$supHeaders = $headers.Clone()
+$supHeaders["Prefer"] = "return=minimal"
+$supBody = [System.Text.Encoding]::UTF8.GetBytes('{"status":"closed"}')
+for ($i = 0; $i -lt $supersededIds.Count; $i += $batchSize) {
+$idBatch = $supersededIds[$i..([math]::Min($i + $batchSize - 1, $supersededIds.Count - 1))]
+$patchUrl = "$supabaseUrl/rest/v1/properties?id=in.(" + ($idBatch -join ",") + ")"
+Invoke-RestMethod -Uri $patchUrl -Method Patch -Headers $supHeaders -Body $supBody -UserAgent $SupabaseUserAgent | Out-Null
+}
 }
 
 if ($staleIds.Count -gt 0) {

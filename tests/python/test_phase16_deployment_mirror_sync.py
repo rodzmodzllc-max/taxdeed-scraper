@@ -54,6 +54,19 @@ DEPLOYED_BUNDLE_FILES = (
     "admin.html",   # 2026-09-30 admin area (/admin) and its module
     "admin.js",
     "app.js",
+    # 2026-10-20 parcel boundaries from the approved parcel-geometry sources.
+    "parcel-boundary.js",
+    # 2026-10-25 look switch: the two trial List experiences (app.js loads
+    # them only when picked).
+    "experience-tactile.css",
+    "experience-tactile.js",
+    "experience-terrain.css",
+    "experience-terrain.js",
+    "experience-merged.css",
+    "experience-merged.js",
+    # 2026-10-29 Buyer's Guide page module (loaded by app.js on #/guide).
+    "buyers-guide.js",
+    "buyers-guide.css",
     # 2026-10-03 boot resilience: startup watchdog + supabase-js loader and
     # its same-origin fallback copy.
     "boot.js",
@@ -69,6 +82,7 @@ DEPLOYED_BUNDLE_FILES = (
     "available-coverage.json",
     "available-terms.json",
     "county-intelligence.json",   # 2026-10-05 county intelligence dossier
+    "buyers-guide.json",          # 2026-10-29 Buyer's Guide (scripts/build_buyers_guide.py)
     "state-rules.json",           # 2026-10-10 state rules page (scripts/build_state_rules.py)
     "identity.css",               # 2026-10-05 identity design language (TAXACQ)
     "acquisition-evidence.json",

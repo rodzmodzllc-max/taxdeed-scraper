@@ -212,12 +212,12 @@ def test_tn_failed_incomplete_or_unread_closes_nothing(status):
     assert SY.plan_close("TN", rows, [gone], units, {TN_SID}) == []
 
 
-def test_tn_complete_read_syncs_every_offered_row_unreviewed():
+def test_tn_complete_read_syncs_every_offered_row_with_its_publication_decision():
     res = EPP.fetch_all(EX.TN_SHELBY_LANDBANK, _fetch(_pages()), retrieved_at=AT)
     rows = [r.to_properties_row() for r in res.records]
     sent, counts = SY.plan("TN", rows, _tn_reg(), {(TN_SID, "Shelby"): "COMPLETE"}, observed_at=OBS)
     assert counts["upsert"] == len(res.records) and counts["skipped_unit_not_read"] == 0
-    assert {r["publication_status"] for r in sent} == {"UNREVIEWED"}
+    assert {r["publication_status"] for r in sent} == {"APPROVED"}     # owner decision 2026-10-26
     assert all(r["list_url"] and r["last_seen_at"] == OBS and r["first_seen_at"] == OBS for r in sent)
     assert all(r["field_provenance"]["parcel"]["source"] == "county_list" for r in sent)
 
@@ -297,7 +297,8 @@ def test_texas_vendor_rows_store_the_cause_in_parcel_and_the_frontend_knows_it()
     assert "cause_number: str | None = None  # legal tax-suit cause/case number - maps to DB `parcel`" in th
     assert '"parcel": raw.get("cause_nbr")' in (ROOT / "scripts/lgbs_available_refresh.py").read_text(encoding="utf-8")
     app = (ROOT / "public/app.js").read_text(encoding="utf-8")
-    assert '["tx_lgbs", "tx_realauction"].indexOf(p.harvester_source || p.source_id || "")' in app
+    # 2026-10-27: the list is CAUSE_IN_PARCEL_SOURCES (all five vendors; test_frontend_source_followups pins it).
+    assert 'CAUSE_IN_PARCEL_SOURCES.indexOf(p.harvester_source || p.source_id || "")' in app
     assert "const raw = p && parcelOf(p) ? String(parcelOf(p)) : \"\";" in app        # parcelKey
     assert 'prop.push(row("Tax suit cause #", esc(causeOf(p)), "mono"));' in app
     assert app == (ROOT / "app.js").read_text(encoding="utf-8")                      # root mirror

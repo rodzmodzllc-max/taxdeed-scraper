@@ -65,7 +65,7 @@ def test_c02_evidence_job_is_manual_only_and_never_part_of_all():
     assert "capture_purchase_evidence.py" in runs and "artifact_evidence.py" in runs
     assert "SUPABASE_SERVICE_KEY" not in json.dumps(ev)          # the capture never touches the database
     on = wf.get("on") or wf.get(True)
-    assert on["schedule"] == [{"cron": "0 10 * * *"}, {"cron": "0 22 * * *"}, {"cron": "0 12 * * *"}]
+    assert on["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 4 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 3 * * *"}]
 
 
 # ==================== 2. evidence record -> typed path with provenance ====================
@@ -231,7 +231,7 @@ def test_k01_get_properties_contract_and_ledger_isolation_intact():
     assert "result_amount, result_date, result_party\n  from public.properties" in sql
     assert "023_available_commercial_release.sql" in [p.name for p in (REPO / "scripts/migrations").glob("02*.sql")]
     domains.assert_isolated()
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v127"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v161"') == 1
 
 
 def test_c03_publication_measurement_counts_a_typed_non_url_path_as_a_purchase_path():

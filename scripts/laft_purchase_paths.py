@@ -283,7 +283,22 @@ def untrusted_reason(href: str, *, list_url: str | None = None, document_url: st
         return f"untrusted host {host} (search engine or blocked vendor)"
     if parts.path.lower().startswith(("/search", "/results")) and parts.query and any(k in parts.query.lower() for k in ("q=", "query=", "search=")):
         return "a search-results page"
+    # A link an office restricted in its own reply (data/office_replies.csv;
+    # 2026-11-04: Palm Beach County Clerk court-case deep links).
+    restricted = _office_restricted(href)
+    if restricted:
+        return restricted
     return None
+
+
+def _office_restricted(href: str) -> str | None:
+    try:
+        from harvesters.governance.office_replies import restricted_link_reason  # noqa: PLC0415
+    except ImportError:
+        import sys  # noqa: PLC0415
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from harvesters.governance.office_replies import restricted_link_reason  # noqa: PLC0415
+    return restricted_link_reason(href)
 
 
 def acceptable_purchase_url(href: str, *, list_url: str | None, document_url: str | None) -> bool:

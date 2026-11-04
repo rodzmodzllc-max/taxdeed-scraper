@@ -170,18 +170,28 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "co_morgan_treasurer_deed_auctions"
+        }
+       ]
+      },
+      {
+       "county": "Saguache",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "co_saguache_tax_sale"
         }
        ]
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "Douglas County's advertised tax lien sale list (approved, CC BY-SA 4.0) is read for the dated sale cycle - a sale of liens, not the land; Morgan County's treasurer's deed auctions are collected but unreviewed. No statute has been read.",
+     "eligibility_basis": "Saguache County's published tax lien sale list and Morgan County's Treasurer's deed option auctions are read in production (approved 2026-10-26); Douglas County's advertised tax lien sale list (approved, CC BY-SA 4.0) is read for the dated sale cycle - a sale of liens, not the land. No statute has been read.",
      "eligibility_source_url": "https://www.arcgis.com/home/item.html?id=87f9905d9faf4ae3a7a385c0707717b5",
      "eligibility_verified_on": "2026-10-01",
-     "meaning": "Shown here: the county's dated tax lien sale event (Douglas) - a sale of liens, not the land; Morgan's treasurer's deed auctions are collected but unreviewed.",
-     "note": "Douglas County's advertised tax lien sale list (a sale of liens, not land).",
+     "meaning": "Shown here: Saguache's and (for the dated sale cycle) Douglas's tax lien sale lists - sales of liens, not the land - and Morgan's auctions of an option for a Treasurer's deed.",
+     "note": "Saguache County's tax lien sale list and Douglas County's advertised tax lien sale list (sales of liens, not land), and Morgan County's Treasurer's deed option auctions.",
      "office": "County Treasurer",
      "status": "TRACKED"
     },
@@ -271,13 +281,13 @@
     {
      "county": "Brevard",
      "evidence": "Clerk's Lands Available page and the list document itself say a request for the current minimum bid must be in writing (email, fax or mail) and payment is accepted in the Titusville office only, in certified funds; first come, first served",
-     "evidence_url": "https://www.brevardclerk.us/lands-available",
+     "evidence_url": "https://www.brevardclerk.us/services/clerk-services/property-sales/tax-deeds-auctions/",
      "instructions": "If, after review, you are interested in purchasing a property from the List of Lands Available, please submit a request in writing for the current minimum bid. Requests for bid amounts must be in writing and can be sent via email to taxdeedclerks@brevardclerk.us, fax to 321-637-2011, or by mail to Brevard County Clerk of Court, PO Box 219, Titusville, FL 32781-0219 Attn: Tax Deed Clerks. Please allow up to 30 days for a response. Payments are accepted in our Titusville office only; payment must be in certified funds. Properties on the List of Lands Available are sold on a first come, first serve basis.",
-     "observed_on": "2026-09-30",
+     "observed_on": "2026-10-29",
      "office": "Brevard County Clerk of Court - Tax Deed Clerks (Titusville office)",
      "path_type": "phone_mail",
      "source_id": "fl_laft_pdfs",
-     "source_title": "Lands Available - Tax Deeds / Auctions - Brevard County, Florida - Clerk of the Court",
+     "source_title": "Tax Deeds & Auctions | Brevard County Clerk of Court",
      "steps": "Review the List of Lands Available (the Clerk's PDF list) | Request the current minimum bid in writing: e-mail taxdeedclerks@brevardclerk.us, fax 321-637-2011, or mail to PO Box 219, Titusville, FL 32781-0219, Attn: Tax Deed Clerks | Allow up to 30 days for the bid amount (the amounts shown online are not the current bid) | Pay in certified funds at the Titusville office - payments are accepted there only; first come, first served"
     },
     {
@@ -518,14 +528,14 @@
      "office": "Brevard County Clerk of Court - Tax Deed Clerks (Titusville office)",
      "related_sources": "fl_laft_pdfs",
      "scope": "county",
-     "source_title": "Lands Available - Tax Deeds / Auctions - Brevard County, Florida - Clerk of the Court",
-     "source_url": "https://www.brevardclerk.us/lands-available",
+     "source_title": "Tax Deeds & Auctions | Brevard County Clerk of Court",
+     "source_url": "https://www.brevardclerk.us/services/clerk-services/property-sales/tax-deeds-auctions/",
      "state": "FL",
      "statement": "Clerk's Lands Available page and the list document itself say a request for the current minimum bid must be in writing (email, fax or mail) and payment is accepted in the Titusville office only, in certified funds; first come, first served",
      "status": "VERIFIED",
      "test_ref": "tests/python/test_gap_closure.py",
      "topic": "acquisition_procedure_available",
-     "verified_on": "2026-09-30",
+     "verified_on": "2026-10-29",
      "version": "1"
     },
     {
@@ -1432,6 +1442,16 @@
        ]
       },
       {
+       "county": "Charlotte",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "fl_laft_portals"
+        }
+       ]
+      },
+      {
        "county": "Citrus",
        "procedures": [
         "acquisition_procedure_available"
@@ -1459,6 +1479,16 @@
       },
       {
        "county": "Columbia",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "fl_laft_html"
+        }
+       ]
+      },
+      {
+       "county": "DeSoto",
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -1653,6 +1683,16 @@
        ]
       },
       {
+       "county": "Lake",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_PLATFORM",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "fl_laft_realtdm"
+        }
+       ]
+      },
+      {
        "county": "Lee",
        "sources": [
         {
@@ -1762,7 +1802,7 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "APPROVED_GRANDFATHERED",
+         "publication": "RESTRICTED",
          "source_id": "fl_laft_orange"
         }
        ]
@@ -1926,6 +1966,16 @@
          "authority": "GOVERNMENT_DIRECT",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "fl_laft_pdfs"
+        }
+       ]
+      },
+      {
+       "county": "Wakulla",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "fl_laft_html"
         }
        ]
       },
@@ -2228,6 +2278,11 @@
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "fl_lienhub_certificates"
+        },
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "fl_sarasota_tc_certificates"
         }
        ]
       },
@@ -2493,25 +2548,25 @@
    ],
    "county_rules": [
     {
-     "changed_on": "2026-10-10",
+     "changed_on": "2026-10-26",
      "county": "East Baton Rouge",
      "depends_on": "app.js isDatedList(): an ADJUDICATED_PROPERTY row is never called 'available now'",
-     "evidence": "docs/state-expansion.md (Socrata metadata licenseId=PUBLIC_DOMAIN, rowsUpdatedAt)",
+     "evidence": "harvesters/otc/adapters/louisiana.py EBR_PARCEL_EVIDENCE (Socrata metadata licenseId=PUBLIC_DOMAIN, rowsUpdatedAt 2026-05-06, read live 2026-10-25); owner switch 2026-10-26, docs/la-tx-acquisition-paths.md",
      "implementation_status": "IMPLEMENTED",
      "kind": "SOURCE",
      "ledger": "AVAILABLE",
      "office": "East Baton Rouge Parish",
      "related_sources": "la_ebr_adjudicated",
      "scope": "county",
-     "source_title": "East Baton Rouge open data: Adjudicated Property",
-     "source_url": "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e",
+     "source_title": "East Baton Rouge open data: Adjudicated Parcel",
+     "source_url": "https://data.brla.gov/d/shrr-fsqq",
      "state": "LA",
-     "statement": "East Baton Rouge Parish publishes its adjudicated-property list as open data under a Public Domain licence. The list's own last update is 2024-02-27, so it is shown as a dated list, never as current availability.",
+     "statement": "East Baton Rouge Parish publishes its adjudicated-parcel list as open data under a Public Domain licence. The list's own last update is 2026-05-06, so it is shown as a dated list, never as current availability.",
      "status": "VERIFIED",
      "test_ref": "tests/python/test_state_expansion_la.py",
      "topic": "source_dated_list",
-     "verified_on": "2026-09-30",
-     "version": "1"
+     "verified_on": "2026-10-25",
+     "version": "2"
     },
     {
      "changed_on": "2026-10-11",
@@ -2535,7 +2590,18 @@
      "version": "1"
     }
    ],
-   "history": [],
+   "history": [
+    {
+     "affects": "list_as_of on every LA row; registry row la_ebr_adjudicated; State rules page",
+     "change": "Production source switched by owner decision from a4h4-zi7e 'Adjudicated Property' (rows updated 2024-02-27) to shrr-fsqq 'Adjudicated Parcel' (rows updated 2026-05-06)",
+     "changed_on": "2026-10-26",
+     "county": "East Baton Rouge",
+     "prior_statement": "East Baton Rouge Parish publishes its adjudicated-property list as open data under a Public Domain licence. The list's own last update is 2024-02-27, so it is shown as a dated list, never as current availability.",
+     "prior_status": "VERIFIED",
+     "topic": "source_dated_list",
+     "version": "1"
+    }
+   ],
    "ledgers": {
     "AUCTIONS": {
      "coverage": [],
@@ -2629,15 +2695,15 @@
     },
     {
      "county": "Wayne",
-     "evidence": "The DLBA's 'Amended and Restated Vacant Land Policy' (final October 2023, 26 pages): Side Lots, Neighborhood Lots and Oversize Lots are DLBA-owned vacant residential lots sold by application at policy prices - 'Side Lots are priced at $100 per lot', a Neighborhood Lot '$250 per lot, unless the estimated value of the lot exceeds $2,500', an Oversize Lot '$200 per lot, unless the estimated value of the lot as determined by the DLBA exceeds $2,500' - to a defined buyer: the owner-occupant of a Detroit home adjacent to (Side / Oversize Lot) or within 500 feet of (Neighborhood Lot) the lot, who holds title, is current on Detroit property taxes and is in good standing with the DLBA; a purchase is made by a 'Complete Application ... to purchase property under this Policy'",
-     "evidence_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/DLBA+Policies/POLICIES+-+Vacant+Land+Policy+(FINAL+Oct+2023).pdf",
-     "instructions": "A purchase is made by a 'Complete Application ... to purchase property under this Policy'. The DLBA holds applications for at least ten days after the first one arrives, then chooses by priority. The DLBA 'may choose to remove a property from ... eligibility at any time and for any reason'. A non-adjacent Neighborhood Lot needs an endorsement (block club, Community Partner, Council Member or District Manager); the application is cancelled after 60 days without one.",
-     "observed_on": "2026-10-03",
+     "evidence": "The DLBA's 'Second Amended and Restated Vacant Land Policy' (adopted by the Board of Directors 11/11/2025, 31 pages), linked from the DLBA's own Policies page (buildingdetroit.org/our-policies/): DLBA-owned vacant lots are sold by application at policy prices - 'Side Lots are priced at $100 per lot', 'Neighborhood Lots are priced at $250 per lot provided, however, ...', 'Oversize Lots are priced at $250 per lot' - and a purchase is made by a 'Complete Application' ('a copy of the then in force version of an application to purchase property under this Policy')",
+     "evidence_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/Land-reuse/SECOND-AMENDED-AND-RESTATED-VACANT-LAND-POLICY.pdf",
+     "instructions": "A purchase is made by a 'Complete Application' - 'a copy of the then in force version of an application to purchase property under this Policy with all required information filled-in by the person applying to purchase the property, including in the case of a Neighborhood Lot the endorsement required by Section V(C)(6)'. The DLBA holds applications for at least ten days from the date the first Complete Application is received before a purchaser is selected.",
+     "observed_on": "2026-10-26",
      "office": "Detroit Land Bank Authority",
      "path_type": "county_instructions",
      "source_id": "mi_detroit_landbank_lots",
-     "source_title": "DETROIT LAND BANK AUTHORITY AMENDED AND RESTATED VACANT LAND POLICY (FINAL Oct 2023)",
-     "steps": "Hold title to, and occupy, the Detroit home adjacent to the lot (Side Lot / Oversize Lot) or within 500 feet of it (Neighborhood Lot), be current on Detroit property taxes and in good standing with the DLBA | Submit a Complete Application to purchase the lot under the DLBA Vacant Land Policy (a non-adjacent Neighborhood Lot needs an endorsement) | The DLBA holds applications for at least ten days after the first one arrives, then selects by the policy's priority order"
+     "source_title": "DETROIT LAND BANK AUTHORITY SECOND AMENDED AND RESTATED VACANT LAND POLICY (Adopted by Board of Directors 11/11/2025)",
+     "steps": "Meet the policy's eligibility for the lot type (Side / Oversize Lot: the adjacent owner-occupant; Neighborhood Lot: within the policy's distance, with the endorsement Section V(C)(6) requires) | Submit a Complete Application to purchase the lot under the DLBA Vacant Land Policy | The DLBA holds applications for at least ten days after the first Complete Application is received, then selects a purchaser by the policy's priority order"
     }
    ],
    "county_rules": [
@@ -2684,7 +2750,7 @@
      "version": "1"
     },
     {
-     "changed_on": "2026-10-11",
+     "changed_on": "2026-10-26",
      "county": "Wayne",
      "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
      "evidence": "data/purchase_path_evidence_expansion.csv: MI/mi_detroit_landbank_lots/Wayne (county_instructions; review_state verified)",
@@ -2694,21 +2760,252 @@
      "office": "Detroit Land Bank Authority",
      "related_sources": "mi_detroit_landbank_lots",
      "scope": "county",
-     "source_title": "DETROIT LAND BANK AUTHORITY AMENDED AND RESTATED VACANT LAND POLICY (FINAL Oct 2023)",
-     "source_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/DLBA+Policies/POLICIES+-+Vacant+Land+Policy+(FINAL+Oct+2023).pdf",
+     "source_title": "DETROIT LAND BANK AUTHORITY SECOND AMENDED AND RESTATED VACANT LAND POLICY (Adopted by Board of Directors 11/11/2025)",
+     "source_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/Land-reuse/SECOND-AMENDED-AND-RESTATED-VACANT-LAND-POLICY.pdf",
      "state": "MI",
-     "statement": "The DLBA's 'Amended and Restated Vacant Land Policy' (final October 2023, 26 pages): Side Lots, Neighborhood Lots and Oversize Lots are DLBA-owned vacant residential lots sold by application at policy prices - 'Side Lots are priced at $100 per lot', a Neighborhood Lot '$250 per lot, unless the estimated value of the lot exceeds $2,500', an Oversize Lot '$200 per lot, unless the estimated value of the lot as determined by the DLBA exceeds $2,500' - to a defined buyer: the owner-occupant of a Detroit home adjacent to (Side / Oversize Lot) or within 500 feet of (Neighborhood Lot) the lot, who holds title, is current on Detroit property taxes and is in good standing with the DLBA; a purchase is made by a 'Complete Application ... to purchase property under this Policy'",
+     "statement": "The DLBA's 'Second Amended and Restated Vacant Land Policy' (adopted by the Board of Directors 11/11/2025, 31 pages), linked from the DLBA's own Policies page (buildingdetroit.org/our-policies/): DLBA-owned vacant lots are sold by application at policy prices - 'Side Lots are priced at $100 per lot', 'Neighborhood Lots are priced at $250 per lot provided, however, ...', 'Oversize Lots are priced at $250 per lot' - and a purchase is made by a 'Complete Application' ('a copy of the then in force version of an application to purchase property under this Policy')",
      "status": "VERIFIED",
      "test_ref": "tests/python/test_gap_closure.py",
      "topic": "acquisition_procedure_available",
-     "verified_on": "2026-10-03",
+     "verified_on": "2026-10-26",
+     "version": "2"
+    }
+   ],
+   "history": [
+    {
+     "affects": "data/purchase_path_evidence_expansion.csv MI/mi_detroit_landbank_lots/Wayne; public/acquisition-evidence.json",
+     "change": "Superseded 2026-10-26: the DLBA's Policies page no longer links the October 2023 Amended and Restated Vacant Land Policy; the rule now rests on the Second Amended and Restated Vacant Land Policy (adopted 11/11/2025), whose Oversize Lot price is $250 per lot (was $200)",
+     "changed_on": "2026-10-11",
+     "county": "Wayne",
+     "prior_statement": "The DLBA's 'Amended and Restated Vacant Land Policy' (final October 2023, 26 pages): Side Lots, Neighborhood Lots and Oversize Lots are DLBA-owned vacant residential lots sold by application at policy prices - 'Side Lots are priced at $100 per lot', a Neighborhood Lot '$250 per lot, unless the estimated value of the lot exceeds $2,500', an Oversize Lot '$200 per lot, unless the estimated value of the lot as determined by the DLBA exceeds $2,500' - to a defined buyer: the owner-occupant of a Detroit home adjacent to (Side / Oversize Lot) or within 500 feet of (Neighborhood Lot) the lot, who holds title, is current on Detroit property taxes and is in good standing with the DLBA; a purchase is made by a 'Complete Application ... to purchase property under this Policy'",
+     "prior_status": "VERIFIED",
+     "topic": "acquisition_procedure_available",
      "version": "1"
     }
    ],
-   "history": [],
    "ledgers": {
     "AUCTIONS": {
      "coverage": [
+      {
+       "county": "Alcona",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Alger",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Allegan",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Alpena",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Antrim",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Arenac",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Baraga",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Barry",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Bay",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Benzie",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Berrien",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Branch",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Calhoun",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Cass",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Charlevoix",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Cheboygan",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Chippewa",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Clare",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Clinton",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Crawford",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Delta",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Dickinson",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
       {
        "county": "Eaton",
        "procedures": [
@@ -2719,6 +3016,216 @@
          "authority": "GOVERNMENT_DIRECT",
          "publication": "APPROVED",
          "source_id": "mi_eaton_treasurer_sale"
+        }
+       ]
+      },
+      {
+       "county": "Emmet",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Genesee",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Gladwin",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Gogebic",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Grand Traverse",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Gratiot",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Hillsdale",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Houghton",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Huron",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Ionia",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Iosco",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Iron",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Isabella",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Jackson",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Kalamazoo",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Kalkaska",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Kent",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Keweenaw",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Lake",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Lapeer",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Leelanau",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
         }
        ]
       },
@@ -2734,6 +3241,326 @@
          "source_id": "mi_lenawee_tax_sale"
         }
        ]
+      },
+      {
+       "county": "Livingston",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Luce",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Mackinac",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Manistee",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Marquette",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Mason",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Mecosta",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Menominee",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Missaukee",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Monroe",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Montcalm",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Montmorency",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Muskegon",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Oakland",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Oceana",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Ogemaw",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Ontonagon",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Osceola",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Oscoda",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Otsego",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Ottawa",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Presque Isle",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Roscommon",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Saginaw",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Sanilac",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Schoolcraft",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Shiawassee",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "St. Clair",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "St. Joseph",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Tuscola",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Van Buren",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
+      },
+      {
+       "county": "Wexford",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_auction"
+        }
+       ]
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
@@ -2741,19 +3568,114 @@
      "eligibility_source_url": "https://www.eatoncounty.org/1530/2026-Foreclosure-Sale",
      "eligibility_verified_on": "2026-10-01",
      "meaning": "A county treasurer's sale of tax-foreclosed parcels.",
-     "note": "Eaton and Lenawee county tax / foreclosure sales.",
+     "note": "Eaton and Lenawee county tax / foreclosure sales. Tax-Sale.info county auction catalogs collected since 2026-10-26 (awaiting review).",
      "office": "County Treasurer",
      "status": "TRACKED"
     },
     "AVAILABLE": {
      "coverage": [
       {
+       "county": "Arenac",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_surplus"
+        }
+       ]
+      },
+      {
+       "county": "Bay",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_surplus"
+        }
+       ]
+      },
+      {
+       "county": "Calhoun",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "mi_calhoun_landbank"
+        }
+       ]
+      },
+      {
+       "county": "Jackson",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_surplus"
+        }
+       ]
+      },
+      {
+       "county": "Monroe",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_surplus"
+        }
+       ]
+      },
+      {
+       "county": "Montcalm",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_surplus"
+        }
+       ]
+      },
+      {
        "county": "Oceana",
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "mi_oceana_landbank"
+        },
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_surplus"
+        }
+       ]
+      },
+      {
+       "county": "Otsego",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_surplus"
+        }
+       ]
+      },
+      {
+       "county": "Presque Isle",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED",
+         "source_id": "mi_tax_sale_info_surplus"
+        }
+       ]
+      },
+      {
+       "county": "Saginaw",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "mi_saginaw_landbank"
         }
        ]
       },
@@ -2765,13 +3687,18 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "mi_detroit_landbank_lots"
         },
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "mi_detroit_landbank_programs"
+        },
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "mi_wayne_county_landbank"
         }
        ]
       }
@@ -2781,7 +3708,7 @@
      "eligibility_source_url": "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0",
      "eligibility_verified_on": "2026-10-02",
      "meaning": "Land bank inventory: publicly held parcels offered under the land bank's own programs.",
-     "note": "Detroit Land Bank and Oceana County Land Bank inventories (awaiting customer-publication review).",
+     "note": "Detroit Land Bank and Oceana County Land Bank inventories (awaiting customer-publication review). Wayne, Saginaw, Calhoun and Genesee county land banks and Tax-Sale.info surplus catalogs collected since 2026-10-26 (awaiting review).",
      "office": "Land bank authority (Detroit, Oceana County)",
      "status": "TRACKED"
     },
@@ -2837,7 +3764,20 @@
    ]
   },
   "MN": {
-   "county_procedures": [],
+   "county_procedures": [
+    {
+     "county": "Ramsey",
+     "evidence": "Ramsey County's 'Over-the-Counter Property List': 'Properties listed below are available for immediate purchase through Ramsey County's over-the-counter sale process. These tax-forfeited properties did not sell at the public auction and are now offered on a first-come, first-served basis. Browse the available properties and review the purchase requirements before submitting an inquiry.' The Tax-Forfeited Public Sales page: parcels not sold at a public sale may be 'purchased by eligible purchasers to pay the appraised price plus taxes and fees'",
+     "evidence_url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list",
+     "instructions": "Properties listed below are available for immediate purchase through Ramsey County's over-the-counter sale process. These tax-forfeited properties did not sell at the public auction and are now offered on a first-come, first-served basis. Browse the available properties and review the purchase requirements before submitting an inquiry.",
+     "observed_on": "2026-10-26",
+     "office": "Ramsey County Productive Properties",
+     "path_type": "county_instructions",
+     "source_id": "mn_ramsey_tax_forfeit",
+     "source_title": "Over-the-Counter Property List | Ramsey County, Minnesota",
+     "steps": "Find the parcel on the county's Over-the-Counter Property List | Review the purchase requirements and submit an inquiry to Productive Properties (651-266-2080) | Parcels sell first-come, first-served to eligible purchasers at the appraised price plus taxes and fees"
+    }
+   ],
    "county_rules": [
     {
      "changed_on": "2026-10-10",
@@ -2859,30 +3799,81 @@
      "topic": "tax_forfeit_sale",
      "verified_on": "2026-10-04",
      "version": "1"
+    },
+    {
+     "changed_on": "2026-10-26",
+     "county": "Ramsey",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence_expansion.csv: MN/mn_ramsey_tax_forfeit/Ramsey (county_instructions; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Ramsey County Productive Properties",
+     "related_sources": "mn_ramsey_tax_forfeit",
+     "scope": "county",
+     "source_title": "Over-the-Counter Property List | Ramsey County, Minnesota",
+     "source_url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list",
+     "state": "MN",
+     "statement": "Ramsey County's 'Over-the-Counter Property List': 'Properties listed below are available for immediate purchase through Ramsey County's over-the-counter sale process. These tax-forfeited properties did not sell at the public auction and are now offered on a first-come, first-served basis. Browse the available properties and review the purchase requirements before submitting an inquiry.' The Tax-Forfeited Public Sales page: parcels not sold at a public sale may be 'purchased by eligible purchasers to pay the appraised price plus taxes and fees'",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-10-26",
+     "version": "1"
     }
    ],
    "history": [],
    "ledgers": {
     "AUCTIONS": {
-     "coverage": [],
-     "eligibility": "NOT_VERIFIED",
-     "eligibility_basis": "No Minnesota auction source is tracked and no statute has been read.",
-     "meaning": "A county or city tax sale of the property (not tracked).",
-     "note": "No Minnesota auction source is tracked.",
-     "status": "NOT_TRACKED"
+     "coverage": [
+      {
+       "county": "Wright",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "mn_wright_tax_forfeit"
+        }
+       ]
+      }
+     ],
+     "eligibility": "COUNTY_DEPENDENT",
+     "eligibility_basis": "Wright County's own Tax Forfeited Parcels layer lists parcels with Status 'Open' and an Auction Starting Price (read live 2026-10-26; owner-approved publication, legal review pending). No statute has been read.",
+     "eligibility_source_url": "https://services2.arcgis.com/CiQCvRGImIxsaFnM/arcgis/rest/services/Tax_Forfeited_Parcels/FeatureServer/0",
+     "eligibility_verified_on": "2026-10-26",
+     "meaning": "An online auction of tax-forfeited land the county holds (Wright County).",
+     "note": "Wright County's tax-forfeited parcels offered at the county's online auction (collected since 2026-10-27).",
+     "office": "Wright County (tax-forfeited land)",
+     "status": "TRACKED"
     },
     "AVAILABLE": {
      "coverage": [
       {
+       "county": "Hubbard",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "mn_hubbard_tfl_otc"
+        }
+       ]
+      },
+      {
        "county": "Ramsey",
        "procedures": [
-        "tax_forfeit_sale"
+        "tax_forfeit_sale",
+        "acquisition_procedure_available"
        ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "mn_ramsey_tax_forfeit"
+        },
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "mn_stpaul_hra_properties"
         }
        ]
       }
@@ -2892,7 +3883,7 @@
      "eligibility_source_url": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/MapServer/0",
      "eligibility_verified_on": "2026-10-04",
      "meaning": "Tax-forfeited land the county offers for purchase.",
-     "note": "Ramsey County tax-forfeited land (awaiting review).",
+     "note": "Ramsey County tax-forfeited land (awaiting review). Hubbard County over-the-counter land and Saint Paul HRA land collected since 2026-10-26 (awaiting review).",
      "office": "Ramsey County (tax-forfeited land)",
      "status": "TRACKED"
     },
@@ -2927,7 +3918,20 @@
    ]
   },
   "MO": {
-   "county_procedures": [],
+   "county_procedures": [
+    {
+     "county": "St. Louis City",
+     "evidence": "The LRA's 'Offer to Purchase' page: 'All offers, excluding the Side Lot and Temporary Use Applications, must be submitted using the Offer Submission Form'; 'At this time, all offers must be submitted in-person to:' the LRA office; 'All offers are taken by appointment.' The City's 'Purchase City-Owned Property' page (the target of each property page's 'Purchase Property' button) sends LRA buyers to 'choose a program under which to purchase the property' and 'submit your offer to the LRA' (lrastl.org/offer-to-purchase)",
+     "evidence_url": "https://www.lrastl.org/offer-to-purchase",
+     "instructions": "All offers, excluding the Side Lot and Temporary Use Applications, must be submitted using the Offer Submission Form. At this time, all offers must be submitted in-person to: [the LRA office]. All offers are taken by appointment. If you do not provide a complete offer submission, your application will not be processed.",
+     "observed_on": "2026-10-26",
+     "office": "St. Louis Development Corporation | Land Reutilization Authority (LRA)",
+     "path_type": "application_download",
+     "source_id": "mo_stl_lra_inventory",
+     "source_title": "Offer to Purchase — LRA, Land Reutilization Authority",
+     "steps": "Open the property's page on the City's Available City-Owned Property Search and choose a program under which to purchase it | Complete the LRA Offer Submission Form (and the Offer Submission Checklist) | Submit the offer in person at the LRA office, by appointment | LRA staff review the offer and contact the offeror; the LRA commission decides"
+    }
+   ],
    "county_rules": [
     {
      "changed_on": "2026-10-10",
@@ -2947,6 +3951,27 @@
      "test_ref": "tests/python/test_state_rules.py",
      "topic": "acquisition_process",
      "version": "1"
+    },
+    {
+     "changed_on": "2026-10-26",
+     "county": "St. Louis City",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence_expansion.csv: MO/mo_stl_lra_inventory/St. Louis City (application_download; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "St. Louis Development Corporation | Land Reutilization Authority (LRA)",
+     "related_sources": "mo_stl_lra_inventory",
+     "scope": "county",
+     "source_title": "Offer to Purchase — LRA, Land Reutilization Authority",
+     "source_url": "https://www.lrastl.org/offer-to-purchase",
+     "state": "MO",
+     "statement": "The LRA's 'Offer to Purchase' page: 'All offers, excluding the Side Lot and Temporary Use Applications, must be submitted using the Offer Submission Form'; 'At this time, all offers must be submitted in-person to:' the LRA office; 'All offers are taken by appointment.' The City's 'Purchase City-Owned Property' page (the target of each property page's 'Purchase Property' button) sends LRA buyers to 'choose a program under which to purchase the property' and 'submit your offer to the LRA' (lrastl.org/offer-to-purchase)",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-10-26",
+     "version": "1"
     }
    ],
    "history": [],
@@ -2962,11 +3987,24 @@
     "AVAILABLE": {
      "coverage": [
       {
-       "county": "St. Louis City",
+       "county": "Jackson",
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
+         "source_id": "mo_kc_landbank"
+        }
+       ]
+      },
+      {
+       "county": "St. Louis City",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
          "source_id": "mo_stl_lra_inventory"
         }
        ]
@@ -2977,7 +4015,7 @@
      "eligibility_source_url": "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=30",
      "eligibility_verified_on": "2026-10-04",
      "meaning": "Land Reutilization Authority inventory: parcels held by the City of St. Louis's LRA, offered under its own process (not yet verified).",
-     "note": "St. Louis Land Reutilization Authority inventory (awaiting review).",
+     "note": "St. Louis Land Reutilization Authority inventory (awaiting review). Kansas City Land Bank collected since 2026-10-26 (awaiting review).",
      "office": "Land Reutilization Authority (City of St. Louis)",
      "status": "TRACKED"
     },
@@ -3056,7 +4094,7 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "ok_oklahoma_county_owned"
         }
        ]
@@ -3101,7 +4139,20 @@
    ]
   },
   "PA": {
-   "county_procedures": [],
+   "county_procedures": [
+    {
+     "county": "Fayette",
+     "evidence": "Fayette County Tax Claim Bureau: 'If the property still does not sell, it is put on our Repository List and can be bid on at any time.' 'We keep the sealed bids in a lockbox.' 'We open the envelopes on the first Tuesday of the month at 10:00 a.m.' 'It is the decision of the authorities to accept or reject your bid. (Municipality and School District)' 'We will notify you by mail within 30-45 days of the decision.' The Repository Sale page links the 'Repository Bid Form' and 'Repository Affidavit'",
+     "evidence_url": "https://www.fayettecountypa.org/269/Tax-Claim-Bureau",
+     "instructions": "If the property still does not sell, it is put on our Repository List and can be bid on at any time. We keep the sealed bids in a lockbox. We open the envelopes on the first Tuesday of the month at 10:00 a.m. It is the decision of the authorities to accept or reject your bid. (Municipality and School District) We will notify you by mail within 30-45 days of the decision.",
+     "observed_on": "2026-10-26",
+     "office": "Fayette County Tax Claim Bureau",
+     "path_type": "application_download",
+     "source_id": "pa_fayette_repository",
+     "source_title": "Tax Sale Information | Fayette County, PA",
+     "steps": "Complete one Repository Sale Sealed Bid Form per parcel, with the Affidavit of Bidder(s) | Enclose a money order, certified check, or cashier's check for the bid amount in an envelope marked 'Sealed Repository Bid' | Bids are opened on the first Tuesday of the month at 10:00 a.m.; the municipality and school district accept or reject the bid, and the bureau notifies by mail within 30-45 days"
+    }
+   ],
    "county_rules": [
     {
      "changed_on": "2026-10-10",
@@ -3123,6 +4174,27 @@
      "topic": "repository_sale",
      "verified_on": "2026-10-04",
      "version": "1"
+    },
+    {
+     "changed_on": "2026-10-26",
+     "county": "Fayette",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence_expansion.csv: PA/pa_fayette_repository/Fayette (application_download; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Fayette County Tax Claim Bureau",
+     "related_sources": "pa_fayette_repository",
+     "scope": "county",
+     "source_title": "Tax Sale Information | Fayette County, PA",
+     "source_url": "https://www.fayettecountypa.org/269/Tax-Claim-Bureau",
+     "state": "PA",
+     "statement": "Fayette County Tax Claim Bureau: 'If the property still does not sell, it is put on our Repository List and can be bid on at any time.' 'We keep the sealed bids in a lockbox.' 'We open the envelopes on the first Tuesday of the month at 10:00 a.m.' 'It is the decision of the authorities to accept or reject your bid. (Municipality and School District)' 'We will notify you by mail within 30-45 days of the decision.' The Repository Sale page links the 'Repository Bid Form' and 'Repository Affidavit'",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-10-26",
+     "version": "1"
     }
    ],
    "history": [],
@@ -3138,14 +4210,25 @@
     "AVAILABLE": {
      "coverage": [
       {
+       "county": "Allegheny",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "pa_pittsburgh_city_property"
+        }
+       ]
+      },
+      {
        "county": "Fayette",
        "procedures": [
-        "repository_sale"
+        "repository_sale",
+        "acquisition_procedure_available"
        ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "pa_fayette_repository"
         }
        ]
@@ -3156,7 +4239,7 @@
      "eligibility_source_url": "https://www.fayettecountypa.org/DocumentCenter/View/9761/Repository-Update-10-7-2025",
      "eligibility_verified_on": "2026-10-04",
      "meaning": "Repository property: parcels unsold at the tax sales, offered by the Tax Claim Bureau by bid.",
-     "note": "Fayette County repository list (awaiting review).",
+     "note": "Fayette County repository list (awaiting review). City of Pittsburgh city-owned property collected since 2026-10-26 (awaiting review).",
      "office": "Tax Claim Bureau (Fayette County)",
      "status": "TRACKED"
     },
@@ -3275,11 +4358,21 @@
     "AUCTIONS": {
      "coverage": [
       {
+       "county": "Horry",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "sc_horry_tax_sale"
+        }
+       ]
+      },
+      {
        "county": "Oconee",
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "sc_oconee_tax_sale_list"
         }
        ]
@@ -3299,11 +4392,11 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "York County's published tax sale list (approved) is read in production and its tax sale fact sheet is a verified evidence row. S.C. Code 12-51-90 (redemption) has not been read (lead only).",
+     "eligibility_basis": "York County's published tax sale list (approved) is read in production and its tax sale fact sheet is a verified evidence row; Horry County's delinquent tax sale list and Oconee County's delinquent tax sale list are read in production (approved 2026-10-26). S.C. Code 12-51-90 (redemption) has not been read (lead only).",
      "eligibility_source_url": "https://www.yorkcountysc.gov/DocumentCenter/View/5241/Tax-Sale-Fact-Sheet",
      "eligibility_verified_on": "2026-10-01",
      "meaning": "A county tax sale of the property, subject to the former owner's redemption period.",
-     "note": "York County's tax sale list.",
+     "note": "York, Horry and Oconee counties' published tax sale lists (all approved for customer publication by the owner's 2026-10-26 decision; legal review pending).",
      "office": "County Treasurer / Delinquent Tax Collector",
      "status": "TRACKED"
     },
@@ -3318,7 +4411,7 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "sc_georgetown_forfeited_land"
         }
        ]
@@ -3328,18 +4421,18 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "sc_horry_forfeited_land"
         }
        ]
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "Horry and Georgetown County Forfeited Land Commissions publish their own lists (collected; awaiting customer-publication review); Georgetown's procedures are verified.",
+     "eligibility_basis": "Horry and Georgetown County Forfeited Land Commissions publish their own lists (read in production; approved 2026-10-26); Georgetown's procedures are verified.",
      "eligibility_source_url": "https://www.gtcountysc.gov/415/Forfeited-Land-Commission",
      "eligibility_verified_on": "2026-10-02",
      "meaning": "Forfeited Land Commission property: parcels bid in by the county at the tax sale, offered after the redemption period.",
-     "note": "Horry and Georgetown Forfeited Land Commission lists (awaiting customer-publication review).",
+     "note": "Horry and Georgetown Forfeited Land Commission lists (approved for customer publication by the owner's 2026-10-26 decision; legal review pending).",
      "office": "Forfeited Land Commission (per county)",
      "status": "TRACKED"
     },
@@ -3438,7 +4531,7 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "tn_shelby_landbank"
         }
        ]
@@ -3485,6 +4578,42 @@
   "TX": {
    "county_procedures": [
     {
+     "county": "Bexar",
+     "evidence": "Bexar County 'Tax Foreclosure Struck Off Properties - General Information': properties not sold at the monthly Sheriff's sale are struck off and 'available for Private Sale' by the Public Works Asset Management Division or at the semi-annual Commissioners Court Resale auction, after formal approval by the Commissioners Court",
+     "evidence_url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information",
+     "instructions": "Struck Off properties are available for Private Sale. Struck Off properties deeded to the County will either be sold as a Private Sale by the Asset Management Division of the Public Works Department or during the semi-annual Commissioners Court Resale auction. The purchase file will then be reviewed for preliminary approval and the purchaser will be asked to sign a Purchase Agreement form that will include all associated costs and conveyance information. The file will then be taken to Commissioners Court for formal approval and issuance of a Court Order authorizing the sale. Payment for Property: After formal approval by the Commissioner's Court, the purchaser will first make payment to Bexar County Tax Assessor/Collector's office, for the interim taxes due. The last payment is for the recording fee, of the Quitclaim Deed. The Auctions are conducted by the Bexar County Sheriff's Office. In order to participate in the Resale Auction you must be registered prior to the public auction.",
+     "observed_on": "2026-10-27",
+     "office": "Bexar County Public Works - Asset Management Division",
+     "path_type": "county_instructions",
+     "source_id": "tx_lgbs",
+     "source_title": "Bexar County - Tax Foreclosure Struck Off Properties General Information",
+     "steps": "Contact the Bexar County Public Works Asset Management Division about a struck-off property (private sale), or register for the Commissioners Court Resale auction | Sign the Purchase Agreement form listing all associated costs after preliminary approval | The Commissioners Court formally approves the sale and issues a Court Order | Pay the interim taxes to the Tax Assessor-Collector, then the struck-off amount and any code-compliance liens, then the deed recording fee"
+    },
+    {
+     "county": "Dallas",
+     "evidence": "Dallas County Property Division 'Tax Foreclosure Resales - Frequently Asked Questions - Sealed Bids': properties struck off to Dallas County as Trustee are listed for resale and 'will be advertised for sale via sealed bid solicitation at a future date'; the Commissioners Court approves the sale to the highest bidders",
+     "evidence_url": "https://www.dallascounty.org/Assets/uploads/docs/public-works/TaxFCResaleFAQ_2024_Bids.pdf",
+     "instructions": "Q: THE STRUCK-OFF LIST SHOWS THE PROPERTY STATUS AS 'HOLD FOR SEALED BIDS'. The properties listed on the website will be advertised for sale via sealed bid solicitation at a future date. Once the date has been determined, the website will be updated with an announcement of the pending bid solicitation and a link to instructions for submitting your bid. There is no regularly scheduled time to accept bids. All properties will be sold in compliance with the Dallas County Tax Foreclosure Resale Policy included in the County Code and Section 34.05 of Texas Tax Code. The Commissioners Court is briefed and the highest, qualified bids are recommended for approval. The Court approves the sale to the highest bidders and issues a Court Order. A Property Award Notification email is sent to the successful purchaser with instructions to pay the balance.",
+     "observed_on": "2026-10-27",
+     "office": "Dallas County Public Works - Property Division",
+     "path_type": "county_instructions",
+     "source_id": "tx_lgbs",
+     "source_title": "Dallas County Property Division - Tax Foreclosure Resales FAQ (Sealed Bids)",
+     "steps": "Watch the Dallas County Property Division's struck-off list - a property marked 'Hold for Sealed Bids' cannot be bid on yet | When the county announces a sealed bid solicitation, follow the bid instructions linked from that announcement | The highest, qualified bids are recommended to the Commissioners Court, which approves the sale and issues a Court Order | The successful purchaser receives a Property Award Notification email with instructions to pay the balance"
+    },
+    {
+     "county": "Fort Bend",
+     "evidence": "Fort Bend County Constable Precinct 2 'Property Sales': the terms of these sales are cash at the time the property is struck off to the highest bidder; a valid Tax Certificate is required to receive the deed",
+     "evidence_url": "https://www.fortbendcountytx.gov/government/departments/constables/constable-precinct-2/civil-and-writs-division/property-sales",
+     "instructions": "The terms of these sales are cash at the time the property is struck off to the highest bidder. A deed will then be prepared for filing with the County Clerks office. TERMS: Cash or certified check at sale made payable to Constable. You must pay with a separate money order / cashier's check for each property purchased. To receive your deed from our office we must have a valid Tax Certificate present. An individual may not bid on or purchase property in the name of any other individual. Winning bidders are required to pay in person at the Precinct 2's office by 2pm. Bidders are responsible for all property research.",
+     "observed_on": "2026-10-27",
+     "office": "Fort Bend County Constable Precinct 2",
+     "path_type": "county_instructions",
+     "source_id": "tx_lgbs",
+     "source_title": "Fort Bend County Constable Precinct 2 - Property Sales",
+     "steps": "Bid at the constable's sale - you may not bid in the name of another individual | Pay in person at the Precinct 2 office by 2pm, a separate cashier's check (or certified funds) for each property | Present a valid Tax Certificate from the Fort Bend County Tax Assessor to receive the deed"
+    },
+    {
      "county": "Galveston",
      "evidence": "Galveston County Sheriff's Office 'Sheriff Sales Information & Procedures': tax foreclosure sales and RESALES are conducted by the Sheriff exclusively online through Real Auction - bidder registration, a bid deposit of at least 5%, payment on the sale day, and a Certificate of Eligibility from the County Tax Office before the Sheriff's Deed is recorded",
      "evidence_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
@@ -3495,15 +4624,87 @@
      "source_id": "tx_lgbs",
      "source_title": "Galveston County Sheriff's Office - Sheriff Sales Information & Procedures",
      "steps": "Watch for the property to be offered at a Galveston County Sheriff's tax foreclosure sale or resale - these are held only online through Real Auction | Register as a bidder on the Real Auction website | Deposit at least 5% of the total of your bids with the Sheriff (wire or ACH through Real Auction, at least 10 days before the sale) | If you win, pay the balance by wire through Real Auction, or by money order or cashier's check to the Sheriff's Office by 4:00 PM on the sale day | Obtain a Certificate of Eligibility from the Galveston County Tax Office and furnish it to the Sheriff's Office so the Sheriff's Deed can be recorded"
+    },
+    {
+     "county": "Galveston",
+     "evidence": "Galveston County Sheriff's Office 'Sheriff Sales Information & Procedures': tax foreclosure sales and RESALES are conducted by the Sheriff exclusively online through Real Auction - bidder registration, a bid deposit of at least 5%, payment on the sale day, and a Certificate of Eligibility from the County Tax Office before the Sheriff's Deed is recorded",
+     "evidence_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
+     "instructions": "TAX FORECLOSURE SALES/RESALES Tax foreclosure sales/resales are conducted by the Galveston County Sheriff exclusively through an online platform and website operated by Real Auction. There will be no live auctions of tax foreclosures and/or resales. Bidder Registration - Bidders must register through the Real Auction website. Bid Deposits - After registering through the Real Auction website, bidders must deposit with the Galveston County Sheriff an amount equal to at least five percent (5%) of the total amount of their bids. Winning bid amounts can be delivered by wire transfer through the Real Auction website, or by money order or cashier's check to the Galveston County Sheriff's Office by 4:00 PM on the day of the sale. If you are the winning bidder, you must furnish the Galveston County Sheriff's Office with a Certificate of Eligibility in order for the Sheriff's Deed to be recorded in the county deed records.",
+     "observed_on": "2026-10-01",
+     "office": "Galveston County Sheriff's Office",
+     "path_type": "county_instructions",
+     "source_id": "tx_realauction",
+     "source_title": "Galveston County Sheriff's Office - Sheriff Sales Information & Procedures",
+     "steps": "Watch for the property to be offered at a Galveston County Sheriff's tax foreclosure sale or resale - these are held only online through Real Auction | Register as a bidder on the Real Auction website | Deposit at least 5% of the total of your bids with the Sheriff (wire or ACH through Real Auction, at least 10 days before the sale) | If you win, pay the balance by wire through Real Auction, or by money order or cashier's check to the Sheriff's Office by 4:00 PM on the sale day | Obtain a Certificate of Eligibility from the Galveston County Tax Office and furnish it to the Sheriff's Office so the Sheriff's Deed can be recorded"
+    },
+    {
+     "county": "Harris",
+     "evidence": "Harris County Tax Office 'Harris County Tax Sales': the monthly public auction has three types of sales - Execution Sale, Tax Sales and Tax Resales; registration is required and must be renewed annually; property is sold to the highest bidder and full payment is required immediately after the sale",
+     "evidence_url": "https://www.hctax.net/Property/TaxSales",
+     "instructions": "The Harris County Delinquent Tax Sale is the monthly public auction of real estate for past due property taxes. There are three types of sales: 1) Execution Sale, 2) Tax Sales, and 3) Tax Resales. Registration is required to participate in the Harris County Tax Sale and must be renewed annually. Bidders may pre-register online, by mail or in person at the Tax Sale. Bidders must have valid identification and must not owe any delinquent taxes on any property in Harris County. Property is sold to the highest bidder and full payment for the purchase is required immediately after the sale. Only cash and certified funds are accepted as payment. A receipt for the purchase payment is issued on the day of the sale and the deed is issued within 4-6 weeks.",
+     "observed_on": "2026-10-27",
+     "office": "Harris County Tax Office - Special Tax Services",
+     "path_type": "county_instructions",
+     "source_id": "tx_lgbs",
+     "source_title": "Harris County Tax Office - Harris County Tax Sales",
+     "steps": "Register as a bidder with the Harris County Tax Office (online, by mail or in person at the Tax Sale); registration is renewed annually | You must not owe delinquent taxes on any property in Harris County | Bid at the monthly Tax Sale (first Tuesday) - properties are offered as Executions, Tax Sales and Tax Resales | Pay in full immediately after the sale in cash or certified funds; the deed is issued within 4-6 weeks"
+    },
+    {
+     "county": "Jefferson",
+     "evidence": "Jefferson County Tax Office 'Delinquent Tax Sale - Guidelines and Standards for Eligibility to Participate': a bidder must request a Statement of No Delinquent Taxes Owed; property is sold at public auction for cash to the highest oral bidder; original sales start at the opening bid, resales at a suggested opening bid",
+     "evidence_url": "https://jeffcotax.com/property-tax/delinquent-tax-sale/",
+     "instructions": "(1) A bidder must request a Statement of No Delinquent Taxes Owed from the Jefferson County Tax Office. (2) The property will be sold at public auction and will be sold for cash to the highest bidder, based on oral bids. Purchasers must pay for their property with cash or a cashier's check payable to the Jefferson County Sheriff's Department by 4:00 p.m. The amount of the opening bid is set out next to each tract, and the bidding must start at that figure or higher. The amount of the suggested opening bid is set out next to each tract or will be stated by the auctioneer at the time the property is offered for sale. Bids less than the suggested starting bid may be accepted at the discretion of the tax assessor-collector. (5) Purchasers at this tax foreclosure sale will receive an ordinary type of sheriff's deed, which is without warranty, express or implied.",
+     "observed_on": "2026-10-27",
+     "office": "Jefferson County Tax Office",
+     "path_type": "county_instructions",
+     "source_id": "tx_lgbs",
+     "source_title": "Jefferson County Tax Office - Delinquent Tax Sale",
+     "steps": "Request a Statement of No Delinquent Taxes Owed from the Jefferson County Tax Office before the sale | When buying for a company, bring the Assumed Name Certificate or Franchise Tax Account Status (and a signed authorization letter if you are not an officer) | Bid at the public auction (original Sheriff sale or re-sale) - cash to the highest oral bidder | Pay with cash or a cashier's check payable to the Jefferson County Sheriff's Department by 4:00 p.m. on the sale day; a sheriff's deed without warranty is issued"
+    },
+    {
+     "county": "Orange",
+     "evidence": "Orange County Tax Assessor-Collector 'Submitting a Bid on Trust Property': real estate that did not sell at a tax foreclosure auction ('Trust Property') is 'available for purchase through a written bid process'",
+     "evidence_url": "https://www.co.orange.tx.us/media/TaxAssessorCollector/2025/TRUST_All%20forms%20combined%201.pdf",
+     "instructions": "Trust Property refers to real estate that did not sell at a tax foreclosure auction. These properties are available for purchase through a written bid process. At this time, only minimum bid amounts are being accepted. To submit an open bid: Complete a Bid Submission Form (a separate form is required for each property you wish to bid on); obtain a Written Statement of Delinquent Taxes; submit your completed Bid Submission Form, Written Statement of Delinquent Taxes, and payment in person to the Orange County Tax Office. Payment must be made by cashier's check or money order payable to: Orange County Tax Office. All bids are processed on a first-come, first-served basis. Once a qualifying bid is approved and accepted, the sale is final.",
+     "observed_on": "2026-10-27",
+     "office": "Orange County Tax Assessor-Collector",
+     "path_type": "application_download",
+     "source_id": "tx_lgbs",
+     "source_title": "Orange County Tax Assessor-Collector - Submitting a Bid on Trust Property",
+     "steps": "Complete a Bid Submission Form - a separate form for each property | Request a Written Statement of Delinquent Taxes (notarized request; notary available at the Tax Office) | Submit the Bid Submission Form, the Written Statement and payment in person at the Orange County Tax Office | Only bids at the trust list's minimum bid amount are accepted; bids are processed first-come, first-served and an approved bid is final"
+    },
+    {
+     "county": "Orange",
+     "evidence": "Orange County Tax Assessor-Collector 'Property Tax Sale FAQs': tax sales are held online at orange.texas.sheriffsaleauctions.com on the first Tuesday of the month; a written statement is required only if a property is awarded to you; successful bidders are expected to pay within 24 hours",
+     "evidence_url": "https://www.co.orange.tx.us/departments/taxassessor-collector/property-tax-sale-faqs",
+     "instructions": "Tax sales may only be held on the first Tuesday of each month. Sales are held online @ orange.texas.sheriffsaleauctions.com, and begin at 10:00 am. The tax sale is a public auction and any member of the public is entitled to bid on properties that are offered. A written statement is only required if a property is awarded to you at a tax sale. An officer conducting a tax sale may not execute or deliver a deed to the purchaser unless the purchaser exhibits to the officer an unexpired written statement. Successful bidders are expected to pay for the property within 24 hours. Please refer to the online auction website for acceptable forms of payment.",
+     "observed_on": "2026-10-27",
+     "office": "Orange County Tax Assessor-Collector",
+     "path_type": "county_instructions",
+     "source_id": "tx_realauction",
+     "source_title": "Orange County Tax Assessor-Collector - Property Tax Sale FAQs",
+     "steps": "Register and bid on the county's online sheriff-sale auction site (orange.texas.sheriffsaleauctions.com); sales are the first Tuesday at 10:00 am | If a property is awarded to you, obtain a Written Statement of Delinquent Taxes from the Tax Assessor-Collector | Pay within 24 hours, by the forms of payment the auction website lists"
+    },
+    {
+     "county": "Tarrant",
+     "evidence": "Tarrant County Constable Precinct 3 'Delinquent Tax Sales': bidders must register before 10 a.m.; payments are only accepted as cashier checks and money orders; purchasers have up to one hour after the sale to bring certified funds",
+     "evidence_url": "https://www.tarrantcountytx.gov/en/constables/constable-3/delinquent-tax-sales.html",
+     "instructions": "Bidders MUST register prior to 10 a.m. Bidder's authorization sheets should be obtained prior to, and be shown when, registering for the sale. Payments are only accepted in these forms: cashier checks and money orders. It is strongly recommended that purchasers bring cashiers checks of varied denominations because we will accept exact funds only. Purchasers have up to one hour after the sale to bring in certified funds in the exact amount. An individual may not bid on or purchase the property in the name of any other individual.",
+     "observed_on": "2026-10-27",
+     "office": "Tarrant County Constable Precinct 3",
+     "path_type": "county_instructions",
+     "source_id": "tx_lgbs",
+     "source_title": "Tarrant County Constable Precinct 3 - Delinquent Tax Sales",
+     "steps": "Register for the sale before 10 a.m. on the sale day (bidder registration form; bidder's authorization when buying for a company) | Bid in person - an individual may not bid on or purchase in the name of another individual | Pay with cashier's checks or money orders in the exact amount within one hour after the sale | The Constable's Office issues a 'Constable's Deed to Individual in Delinquent Tax Suits', filed by the taxing entities' attorneys"
     }
    ],
    "county_rules": [
     {
-     "ambiguity": "Whether the terms permit a read for display only has not been reviewed; until a review records permission the source stays restricted.",
-     "changed_on": "2026-10-11",
+     "ambiguity": "The county's terms have not been reviewed for redistribution; the twelve Phase 9.6 rights questions stay open.",
+     "changed_on": "2026-10-26",
      "county": "Harris",
-     "depends_on": "harvesters/otc/gate.py refuses tx_hctax; the AUCTIONS coverage report lists Harris County as SOURCE_RESTRICTED",
-     "evidence": "data/county_source_registry.csv row tx_hctax (verification_status SEARCH_EVIDENCE_ONLY, governance_status LEGAL_REVIEW_REQUIRED, restrictions \"hctax.net terms not cleared for redistribution; gate refuses until resolved\"); harvesters/otc/gate.py",
+     "depends_on": "scripts/sync_state_inventory.py writes tx_hctax rows; scripts/texas_closeout.py closes them after a COMPLETE read",
+     "evidence": "data/county_source_registry.csv row tx_hctax (PRODUCTION_VERIFIED, APPROVED, restrictions 'Owner approved customer publication 2026-10-26; legal review pending'); scripts/harvest_tx_county_sales.py parse_harris(), LIVE READ 2026-10-26: sale date 2026-11-03, 149 For Sale listings; harvesters/governance/registry.py _TX_HCTAX keeps the Phase 9.5 legal record (LEGAL_REVIEW_REQUIRED) for the vendor sync path, which this source does not use",
      "implementation_status": "IMPLEMENTED",
      "kind": "SOURCE",
      "ledger": "AUCTIONS",
@@ -3513,11 +4714,12 @@
      "source_title": "Harris County Tax Office - Tax Sale Listing",
      "source_url": "https://www.hctax.net/Property/listings/taxsalelisting",
      "state": "TX",
-     "statement": "Harris County's own tax sale listing (hctax.net, the Tax Assessor-Collector's site) is the only official per-county tax-sale list located for Harris County, and it cannot be used: the site's terms were not cleared for redistribution (registry tx_hctax, Phase 9.5), so the ingestion gate refuses it and no Harris County auction row comes from it. The county's sales appear only through the vendor calendar (tx_realauction) where that platform lists them.",
-     "status": "SOURCE_RESTRICTED",
-     "test_ref": "tests/python/test_state_coverage.py",
+     "statement": "Harris County's own tax sale listing (hctax.net, the Tax Assessor-Collector's site) is the official per-county list of the next monthly constable sale. It is read daily by scripts/harvest_tx_county_sales.py and published to customers by the owner's 2026-10-26 decision (an internal risk acceptance, not the county's permission; legal review pending): each For Sale listing becomes one Auctions row with its own Minimum Bid; Cancelled listings are not written.",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_county_sources_2026_10_26.py",
      "topic": "tax_sale_list_source",
-     "version": "1"
+     "verified_on": "2026-10-26",
+     "version": "2"
     },
     {
      "changed_on": "2026-10-11",
@@ -3539,6 +4741,195 @@
      "topic": "acquisition_procedure_auctions_available",
      "verified_on": "2026-10-01",
      "version": "1"
+    },
+    {
+     "changed_on": "2026-10-27",
+     "county": "Bexar",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: TX/tx_lgbs/Bexar (county_instructions; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Bexar County Public Works - Asset Management Division",
+     "related_sources": "tx_lgbs",
+     "scope": "county",
+     "source_title": "Bexar County - Tax Foreclosure Struck Off Properties General Information",
+     "source_url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information",
+     "state": "TX",
+     "statement": "Bexar County 'Tax Foreclosure Struck Off Properties - General Information': properties not sold at the monthly Sheriff's sale are struck off and 'available for Private Sale' by the Public Works Asset Management Division or at the semi-annual Commissioners Court Resale auction, after formal approval by the Commissioners Court",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-10-27",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-27",
+     "county": "Dallas",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: TX/tx_lgbs/Dallas (county_instructions; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Dallas County Public Works - Property Division",
+     "related_sources": "tx_lgbs",
+     "scope": "county",
+     "source_title": "Dallas County Property Division - Tax Foreclosure Resales FAQ (Sealed Bids)",
+     "source_url": "https://www.dallascounty.org/Assets/uploads/docs/public-works/TaxFCResaleFAQ_2024_Bids.pdf",
+     "state": "TX",
+     "statement": "Dallas County Property Division 'Tax Foreclosure Resales - Frequently Asked Questions - Sealed Bids': properties struck off to Dallas County as Trustee are listed for resale and 'will be advertised for sale via sealed bid solicitation at a future date'; the Commissioners Court approves the sale to the highest bidders",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-10-27",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-27",
+     "county": "Fort Bend",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: TX/tx_lgbs/Fort Bend (county_instructions; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AUCTIONS",
+     "office": "Fort Bend County Constable Precinct 2",
+     "related_sources": "tx_lgbs",
+     "scope": "county",
+     "source_title": "Fort Bend County Constable Precinct 2 - Property Sales",
+     "source_url": "https://www.fortbendcountytx.gov/government/departments/constables/constable-precinct-2/civil-and-writs-division/property-sales",
+     "state": "TX",
+     "statement": "Fort Bend County Constable Precinct 2 'Property Sales': the terms of these sales are cash at the time the property is struck off to the highest bidder; a valid Tax Certificate is required to receive the deed",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_auctions",
+     "verified_on": "2026-10-27",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-27",
+     "county": "Galveston",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: TX/tx_realauction/Galveston (county_instructions; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AUCTIONS",
+     "office": "Galveston County Sheriff's Office",
+     "related_sources": "tx_realauction",
+     "scope": "county",
+     "source_title": "Galveston County Sheriff's Office - Sheriff Sales Information & Procedures",
+     "source_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
+     "state": "TX",
+     "statement": "Galveston County Sheriff's Office 'Sheriff Sales Information & Procedures': tax foreclosure sales and RESALES are conducted by the Sheriff exclusively online through Real Auction - bidder registration, a bid deposit of at least 5%, payment on the sale day, and a Certificate of Eligibility from the County Tax Office before the Sheriff's Deed is recorded",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_auctions",
+     "verified_on": "2026-10-01",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-27",
+     "county": "Harris",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: TX/tx_lgbs/Harris (county_instructions; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AUCTIONS|AVAILABLE",
+     "office": "Harris County Tax Office - Special Tax Services",
+     "related_sources": "tx_lgbs",
+     "scope": "county",
+     "source_title": "Harris County Tax Office - Harris County Tax Sales",
+     "source_url": "https://www.hctax.net/Property/TaxSales",
+     "state": "TX",
+     "statement": "Harris County Tax Office 'Harris County Tax Sales': the monthly public auction has three types of sales - Execution Sale, Tax Sales and Tax Resales; registration is required and must be renewed annually; property is sold to the highest bidder and full payment is required immediately after the sale",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_auctions_available",
+     "verified_on": "2026-10-27",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-27",
+     "county": "Jefferson",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: TX/tx_lgbs/Jefferson (county_instructions; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AUCTIONS|AVAILABLE",
+     "office": "Jefferson County Tax Office",
+     "related_sources": "tx_lgbs",
+     "scope": "county",
+     "source_title": "Jefferson County Tax Office - Delinquent Tax Sale",
+     "source_url": "https://jeffcotax.com/property-tax/delinquent-tax-sale/",
+     "state": "TX",
+     "statement": "Jefferson County Tax Office 'Delinquent Tax Sale - Guidelines and Standards for Eligibility to Participate': a bidder must request a Statement of No Delinquent Taxes Owed; property is sold at public auction for cash to the highest oral bidder; original sales start at the opening bid, resales at a suggested opening bid",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_auctions_available",
+     "verified_on": "2026-10-27",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-27",
+     "county": "Orange",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: TX/tx_realauction/Orange (county_instructions; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AUCTIONS",
+     "office": "Orange County Tax Assessor-Collector",
+     "related_sources": "tx_realauction",
+     "scope": "county",
+     "source_title": "Orange County Tax Assessor-Collector - Property Tax Sale FAQs",
+     "source_url": "https://www.co.orange.tx.us/departments/taxassessor-collector/property-tax-sale-faqs",
+     "state": "TX",
+     "statement": "Orange County Tax Assessor-Collector 'Property Tax Sale FAQs': tax sales are held online at orange.texas.sheriffsaleauctions.com on the first Tuesday of the month; a written statement is required only if a property is awarded to you; successful bidders are expected to pay within 24 hours",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_auctions",
+     "verified_on": "2026-10-27",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-27",
+     "county": "Orange",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: TX/tx_lgbs/Orange (application_download; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Orange County Tax Assessor-Collector",
+     "related_sources": "tx_lgbs",
+     "scope": "county",
+     "source_title": "Orange County Tax Assessor-Collector - Submitting a Bid on Trust Property",
+     "source_url": "https://www.co.orange.tx.us/media/TaxAssessorCollector/2025/TRUST_All%20forms%20combined%201.pdf",
+     "state": "TX",
+     "statement": "Orange County Tax Assessor-Collector 'Submitting a Bid on Trust Property': real estate that did not sell at a tax foreclosure auction ('Trust Property') is 'available for purchase through a written bid process'",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-10-27",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-27",
+     "county": "Tarrant",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: TX/tx_lgbs/Tarrant (county_instructions; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AUCTIONS",
+     "office": "Tarrant County Constable Precinct 3",
+     "related_sources": "tx_lgbs",
+     "scope": "county",
+     "source_title": "Tarrant County Constable Precinct 3 - Delinquent Tax Sales",
+     "source_url": "https://www.tarrantcountytx.gov/en/constables/constable-3/delinquent-tax-sales.html",
+     "state": "TX",
+     "statement": "Tarrant County Constable Precinct 3 'Delinquent Tax Sales': bidders must register before 10 a.m.; payments are only accepted as cashier checks and money orders; purchasers have up to one hour after the sale to bring certified funds",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_auctions",
+     "verified_on": "2026-10-27",
+     "version": "1"
     }
    ],
    "history": [
@@ -3550,6 +4941,16 @@
      "prior_statement": "Texas tax foreclosure sales and resales of struck-off property are conducted county by county (in Galveston by the Sheriff). The statewide statutory model (Tex. Tax Code chapter 34) has not been read and recorded here.",
      "prior_status": "NOT_VERIFIED",
      "topic": "tax_sale_model",
+     "version": "1"
+    },
+    {
+     "affects": "data/county_source_registry.csv tx_hctax; State rules page; Auctions coverage",
+     "change": "The owner published the Harris County list on 2026-10-26 (legal review pending); a reader and the sync now use it",
+     "changed_on": "2026-10-26",
+     "county": "Harris",
+     "prior_statement": "Harris County's own tax sale listing (hctax.net, the Tax Assessor-Collector's site) is the only official per-county tax-sale list located for Harris County, and it cannot be used: the site's terms were not cleared for redistribution (registry tx_hctax, Phase 9.5), so the ingestion gate refuses it and no Harris County auction row comes from it. The county's sales appear only through the vendor calendar (tx_realauction) where that platform lists them.",
+     "prior_status": "SOURCE_RESTRICTED",
+     "topic": "tax_sale_list_source",
      "version": "1"
     }
    ],
@@ -3577,6 +4978,16 @@
        ]
       },
       {
+       "county": "Archer",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
        "county": "Atascosa",
        "sources": [
         {
@@ -3587,8 +4998,83 @@
        ]
       },
       {
+       "county": "Austin",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Bandera",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Bastrop",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Bell",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Brazoria",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Brewster",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Brown",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
        "county": "Caldwell",
        "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        },
         {
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
@@ -3600,9 +5086,64 @@
        "county": "Cameron",
        "sources": [
         {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        },
+        {
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
+        }
+       ]
+      },
+      {
+       "county": "Chambers",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Cherokee",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Childress",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Clay",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Comal",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
         }
        ]
       },
@@ -3613,6 +5154,36 @@
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
+        }
+       ]
+      },
+      {
+       "county": "Denton",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_govease"
+        }
+       ]
+      },
+      {
+       "county": "Dickens",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Dimmit",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3637,15 +5208,44 @@
        ]
       },
       {
+       "county": "Foard",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Fort Bend",
+       "procedures": [
+        "acquisition_procedure_auctions"
+       ],
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
        "county": "Galveston",
        "procedures": [
-        "acquisition_procedure_auctions_available"
+        "acquisition_procedure_auctions_available",
+        "acquisition_procedure_auctions"
        ],
        "sources": [
         {
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_lgbs"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         },
         {
          "authority": "VENDOR_AUCTION",
@@ -3665,12 +5265,37 @@
        ]
       },
       {
-       "county": "Gregg",
+       "county": "Grayson",
        "sources": [
         {
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_govease"
+        }
+       ]
+      },
+      {
+       "county": "Gregg",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        },
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
+        }
+       ]
+      },
+      {
+       "county": "Hardeman",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3685,12 +5310,81 @@
        ]
       },
       {
+       "county": "Harris",
+       "procedures": [
+        "tax_sale_list_source",
+        "acquisition_procedure_auctions_available"
+       ],
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "tx_hctax"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Hays",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Hill",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
        "county": "Hopkins",
        "sources": [
         {
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
+        }
+       ]
+      },
+      {
+       "county": "Houston",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Hunt",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Jack",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3705,6 +5399,29 @@
        ]
       },
       {
+       "county": "Jasper",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Jefferson",
+       "procedures": [
+        "acquisition_procedure_auctions_available"
+       ],
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "tx_jefferson_sheriff_sale"
+        }
+       ]
+      },
+      {
        "county": "Jim Wells",
        "sources": [
         {
@@ -3715,12 +5432,32 @@
        ]
       },
       {
+       "county": "Johnson",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
        "county": "Kaufman",
        "sources": [
         {
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
+        }
+       ]
+      },
+      {
+       "county": "Knox",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3741,6 +5478,11 @@
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_lgbs"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3758,6 +5500,11 @@
        "county": "Matagorda",
        "sources": [
         {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        },
+        {
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
@@ -3771,6 +5518,41 @@
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_lgbs"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "McLennan",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_govease"
+        }
+       ]
+      },
+      {
+       "county": "Milam",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Montague",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3778,9 +5560,34 @@
        "county": "Montgomery",
        "sources": [
         {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        },
+        {
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
+        }
+       ]
+      },
+      {
+       "county": "Nacogdoches",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Newton",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3796,11 +5603,79 @@
       },
       {
        "county": "Orange",
+       "procedures": [
+        "acquisition_procedure_auctions"
+       ],
        "sources": [
         {
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
+        }
+       ]
+      },
+      {
+       "county": "Palo Pinto",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_govease"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Panola",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Parker",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_govease"
+        }
+       ]
+      },
+      {
+       "county": "Reeves",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Runnels",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "San Jacinto",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3825,6 +5700,29 @@
        ]
       },
       {
+       "county": "Tarrant",
+       "procedures": [
+        "acquisition_procedure_auctions"
+       ],
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Throckmorton",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
        "county": "Travis",
        "sources": [
         {
@@ -3841,6 +5739,26 @@
          "authority": "VENDOR_AUCTION",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_realauction"
+        }
+       ]
+      },
+      {
+       "county": "Uvalde",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Val Verde",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
         }
        ]
       },
@@ -3865,6 +5783,61 @@
        ]
       },
       {
+       "county": "Walker",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Waller",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Washington",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Wichita",
+       "sources": [
+        {
+         "authority": "VENDOR_AUCTION",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_govease"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Wilbarger",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
        "county": "Wilson",
        "sources": [
         {
@@ -3873,19 +5846,249 @@
          "source_id": "tx_realauction"
         }
        ]
+      },
+      {
+       "county": "Young",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Zavala",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "Tax foreclosure sales are run county by county: 24 county sheriff-sale sites (tx_realauction) and LGBS sale listings are read on request, and Galveston County Sheriff's own sale procedures are a verified evidence row. Tex. Tax Code ch. 34 itself has not been read (lead only).",
+     "eligibility_basis": "Tax foreclosure sales are run county by county: 24 county sheriff-sale sites (tx_realauction) and LGBS sale listings are read daily, and Galveston County Sheriff's own sale procedures are a verified evidence row. Tex. Tax Code ch. 34 itself has not been read (lead only).",
      "eligibility_source_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
      "eligibility_verified_on": "2026-10-01",
      "meaning": "A sheriff's or constable's tax foreclosure sale of the property under a court judgment.",
-     "note": "Sheriff / county tax sales (LGBS, RealAuction) - manual harvest only.",
+     "note": "Sheriff / constable tax sales: LGBS and RealAuction listings and the Harris and Jefferson county sale lists.",
      "office": "County Sheriff or Constable; delinquent-tax counsel for the taxing units",
      "status": "TRACKED"
     },
     "AVAILABLE": {
      "coverage": [
+      {
+       "county": "Archer",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Austin",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Bandera",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Bastrop",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Bell",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Bexar",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "tx_bexar_resale"
+        }
+       ]
+      },
+      {
+       "county": "Brazoria",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Brewster",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Brown",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Caldwell",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Cameron",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Chambers",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Cherokee",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Childress",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Clay",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Comal",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Dallas",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
+       "sources": []
+      },
+      {
+       "county": "Dickens",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Dimmit",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Foard",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Fort Bend",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
       {
        "county": "Galveston",
        "procedures": [
@@ -3896,6 +6099,11 @@
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_lgbs"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3910,6 +6118,26 @@
        ]
       },
       {
+       "county": "Gregg",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Hardeman",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
        "county": "Hardin",
        "sources": [
         {
@@ -3920,12 +6148,122 @@
        ]
       },
       {
+       "county": "Harris",
+       "procedures": [
+        "acquisition_procedure_auctions_available"
+       ],
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Hays",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Hill",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Hood",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "tx_hood_cad_struck_off"
+        }
+       ]
+      },
+      {
+       "county": "Houston",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Hunt",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Jack",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Jasper",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Jefferson",
+       "procedures": [
+        "acquisition_procedure_auctions_available"
+       ],
+       "sources": []
+      },
+      {
        "county": "Jim Wells",
        "sources": [
         {
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_lgbs"
+        }
+       ]
+      },
+      {
+       "county": "Johnson",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Knox",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3946,6 +6284,21 @@
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_lgbs"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Matagorda",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
         }
        ]
       },
@@ -3956,6 +6309,189 @@
          "authority": "VENDOR_COUNSEL",
          "publication": "APPROVED_GRANDFATHERED",
          "source_id": "tx_lgbs"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Milam",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Montague",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Montgomery",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "tx_montgomery_tax_trust"
+        },
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Nacogdoches",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Newton",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Orange",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "tx_orange_trust_property"
+        }
+       ]
+      },
+      {
+       "county": "Palo Pinto",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Panola",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "Randall",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "tx_randall_trustee_property"
+        }
+       ]
+      },
+      {
+       "county": "Reeves",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Runnels",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
+        }
+       ]
+      },
+      {
+       "county": "San Jacinto",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Tarrant",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Throckmorton",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Trinity",
+       "sources": [
+        {
+         "authority": "GOVERNMENT_DIRECT",
+         "publication": "APPROVED",
+         "source_id": "tx_trinity_cad_resale"
+        }
+       ]
+      },
+      {
+       "county": "Uvalde",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Val Verde",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_mvba"
         }
        ]
       },
@@ -3968,12 +6504,84 @@
          "source_id": "tx_lgbs"
         }
        ]
+      },
+      {
+       "county": "Walker",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Waller",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Washington",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Wichita",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Wilbarger",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Young",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
+      },
+      {
+       "county": "Zavala",
+       "sources": [
+        {
+         "authority": "VENDOR_COUNSEL",
+         "publication": "APPROVED_GRANDFATHERED",
+         "source_id": "tx_pbfcm"
+        }
+       ]
       }
      ],
-     "eligibility": "NOT_VERIFIED",
-     "eligibility_basis": "LGBS lists property struck off to taxing units, but whether, when and how a taxing unit resells it (Tex. Tax Code 34.05, lead only) is set per taxing unit and has not been verified from any official page. Harris County's tax office list (tx_hctax) is restricted pending legal review; other county struck-off pages are unreviewed candidates. Struck-off property is not automatically for sale at a fixed price.",
+     "eligibility": "COUNTY_DEPENDENT",
+     "eligibility_basis": "Resale of property struck off to the taxing units is run county by county: six county offices (Bexar, Montgomery, Orange, Trinity CAD, Randall, Hood CAD) publish their own trust / resale lists, read live 2026-10-26 by scripts/harvest_tx_county_sales.py, and Galveston's process is a verified evidence row. Tex. Tax Code 34.05 itself has not been read (lead only). Struck-off property is not automatically for sale at a fixed price.",
+     "eligibility_source_url": "https://www.mctx.org/departments/departments_q_-_z/tax_office/tax_trust_property.php",
+     "eligibility_verified_on": "2026-10-26",
      "meaning": "Property struck off to a taxing unit after no sufficient bid, which the unit may later resell under its own process.",
-     "note": "Struck-off property offered for resale (LGBS) - manual harvest only.",
+     "note": "Struck-off property offered for resale: LGBS listings and county-published trust / resale lists (Bexar, Montgomery, Orange, Trinity, Randall, Hood).",
      "office": "Taxing units (county, city, school district) and their delinquent-tax counsel",
      "status": "TRACKED"
     },
@@ -4150,7 +6758,7 @@
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
-         "publication": "UNREVIEWED",
+         "publication": "APPROVED",
          "source_id": "wi_dane_tax_deed_auction"
         }
        ]
@@ -4170,11 +6778,11 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "Green County's tax deed sale page (approved) is read in production and its bid form is a verified evidence row; Dane County's auction page is collected but unreviewed. Wis. Stat. 75.35 / 75.69 have not been read (lead only).",
+     "eligibility_basis": "Dane County's tax deed auction page and Green County's tax deed sale page (both approved) are read in production; Green's bid form is a verified evidence row. Wis. Stat. 75.35 / 75.69 have not been read (lead only).",
      "eligibility_source_url": "https://www.greencountywi.org/492/Current-Tax-Deed-Sales",
      "eligibility_verified_on": "2026-09-30",
-     "meaning": "A county sale of tax-deeded land by sealed bid.",
-     "note": "Green County tax deed sales (sealed bid).",
+     "meaning": "A county sale of tax-deeded land by bid on the county's form.",
+     "note": "Dane County's tax deed auction page and Green County's tax deed sales (bids on the county's form).",
      "office": "County Clerk",
      "status": "TRACKED"
     },
@@ -4336,7 +6944,7 @@
     "FAIL": 0,
     "NOT_APPLICABLE": 3,
     "NOT_VERIFIED": 3,
-    "PASS": 18
+    "PASS": 19
    },
    "findings": [
     {
@@ -4353,21 +6961,21 @@
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 2 source(s) (co_douglas_tax_sale_list, co_morgan_treasurer_deed_auctions) read 2026-10-01",
+     "detail": "COUNTY_DEPENDENT: 3 source(s) (co_douglas_tax_sale_list, co_morgan_treasurer_deed_auctions, co_saguache_tax_sale) read 2026-10-01",
      "state": "CO",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "county_coverage",
-     "detail": "2 counties: Douglas, Morgan",
+     "detail": "3 counties: Douglas, Morgan, Saguache",
      "state": "CO",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: co_douglas_tax_sale_list, co_morgan_treasurer_deed_auctions",
+     "detail": "TRACKED: co_douglas_tax_sale_list, co_morgan_treasurer_deed_auctions, co_saguache_tax_sale",
      "state": "CO",
      "status": "PASS",
      "subject": "AUCTIONS"
@@ -4470,6 +7078,13 @@
      "subject": "co_morgan_treasurer_deed_auctions"
     },
     {
+     "check": "source_classification",
+     "detail": "AUCTIONS",
+     "state": "CO",
+     "status": "PASS",
+     "subject": "co_saguache_tax_sale"
+    },
+    {
      "check": "available_terms",
      "detail": "no AVAILABLE source tracked",
      "state": "CO",
@@ -4507,7 +7122,7 @@
     "FAIL": 0,
     "NOT_APPLICABLE": 0,
     "NOT_VERIFIED": 2,
-    "PASS": 28
+    "PASS": 30
    },
    "findings": [
     {
@@ -4552,14 +7167,14 @@
     },
     {
      "check": "county_coverage",
-     "detail": "52 counties fed; eligibility is OFFERED",
+     "detail": "56 counties fed; eligibility is OFFERED",
      "state": "FL",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: fl_laft_hillsborough, fl_laft_html, fl_laft_leon, fl_laft_orange, fl_laft_osceola, fl_laft_pdfs, fl_laft_pioneer, fl_laft_realtdm, fl_laft_stlucie",
+     "detail": "TRACKED: fl_laft_hillsborough, fl_laft_html, fl_laft_leon, fl_laft_orange, fl_laft_osceola, fl_laft_pdfs, fl_laft_pioneer, fl_laft_portals, fl_laft_realtdm, fl_laft_stlucie",
      "state": "FL",
      "status": "PASS",
      "subject": "AVAILABLE"
@@ -4580,7 +7195,7 @@
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: fl_lienhub_certificates",
+     "detail": "TRACKED: fl_lienhub_certificates, fl_sarasota_tc_certificates",
      "state": "FL",
      "status": "PASS",
      "subject": "LIENS_CERTIFICATES"
@@ -4652,6 +7267,13 @@
      "detail": "AVAILABLE",
      "state": "FL",
      "status": "PASS",
+     "subject": "fl_laft_portals"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "FL",
+     "status": "PASS",
      "subject": "fl_laft_realtdm"
     },
     {
@@ -4676,14 +7298,21 @@
      "subject": "fl_realauction"
     },
     {
+     "check": "source_classification",
+     "detail": "LIENS_CERTIFICATES",
+     "state": "FL",
+     "status": "PASS",
+     "subject": "fl_sarasota_tc_certificates"
+    },
+    {
      "check": "available_terms",
-     "detail": "every AVAILABLE source has a terms row (9)",
+     "detail": "every AVAILABLE source has a terms row (10)",
      "state": "FL",
      "status": "PASS"
     },
     {
      "check": "acquisition_path",
-     "detail": "19/52 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+     "detail": "19/56 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
      "state": "FL",
      "status": "NOT_VERIFIED"
     },
@@ -4799,7 +7428,7 @@
     },
     {
      "check": "rule_history",
-     "detail": "every rule is at version 1",
+     "detail": "1 rule(s) with a recorded prior version",
      "state": "LA",
      "status": "PASS"
     },
@@ -4848,7 +7477,7 @@
     "FAIL": 0,
     "NOT_APPLICABLE": 1,
     "NOT_VERIFIED": 4,
-    "PASS": 20
+    "PASS": 25
    },
    "findings": [
     {
@@ -4865,21 +7494,21 @@
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 2 source(s) (mi_eaton_treasurer_sale, mi_lenawee_tax_sale) read 2026-10-01",
+     "detail": "COUNTY_DEPENDENT: 3 source(s) (mi_eaton_treasurer_sale, mi_lenawee_tax_sale, mi_tax_sale_info_auction) read 2026-10-01",
      "state": "MI",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "county_coverage",
-     "detail": "2 counties: Eaton, Lenawee",
+     "detail": "77 counties: Alcona, Alger, Allegan, Alpena, Antrim, Arenac, Baraga, Barry, Bay, Benzie, Berrien, Branch …",
      "state": "MI",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: mi_eaton_treasurer_sale, mi_lenawee_tax_sale",
+     "detail": "TRACKED: mi_eaton_treasurer_sale, mi_lenawee_tax_sale, mi_tax_sale_info_auction",
      "state": "MI",
      "status": "PASS",
      "subject": "AUCTIONS"
@@ -4893,21 +7522,21 @@
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 3 source(s) (mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank) read 2026-10-02",
+     "detail": "COUNTY_DEPENDENT: 7 source(s) (mi_calhoun_landbank, mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank, mi_saginaw_landbank, mi_tax_sale_info_surplus, mi_wayne_county_landbank) read 2026-10-02",
      "state": "MI",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "county_coverage",
-     "detail": "2 counties: Oceana, Wayne",
+     "detail": "11 counties: Arenac, Bay, Calhoun, Jackson, Monroe, Montcalm, Oceana, Otsego, Presque Isle, Saginaw, Wayne",
      "state": "MI",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank",
+     "detail": "TRACKED: mi_calhoun_landbank, mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank, mi_saginaw_landbank, mi_tax_sale_info_surplus, mi_wayne_county_landbank",
      "state": "MI",
      "status": "PASS",
      "subject": "AVAILABLE"
@@ -4949,9 +7578,16 @@
     },
     {
      "check": "rule_history",
-     "detail": "every rule is at version 1",
+     "detail": "1 rule(s) with a recorded prior version",
      "state": "MI",
      "status": "PASS"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "MI",
+     "status": "PASS",
+     "subject": "mi_calhoun_landbank"
     },
     {
      "check": "source_classification",
@@ -4989,14 +7625,42 @@
      "subject": "mi_oceana_landbank"
     },
     {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "MI",
+     "status": "PASS",
+     "subject": "mi_saginaw_landbank"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AUCTIONS",
+     "state": "MI",
+     "status": "PASS",
+     "subject": "mi_tax_sale_info_auction"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "MI",
+     "status": "PASS",
+     "subject": "mi_tax_sale_info_surplus"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "MI",
+     "status": "PASS",
+     "subject": "mi_wayne_county_landbank"
+    },
+    {
      "check": "available_terms",
-     "detail": "every AVAILABLE source has a terms row (3)",
+     "detail": "every AVAILABLE source has a terms row (7)",
      "state": "MI",
      "status": "PASS"
     },
     {
      "check": "acquisition_path",
-     "detail": "2/3 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+     "detail": "2/14 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
      "state": "MI",
      "status": "NOT_VERIFIED"
     },
@@ -5024,14 +7688,14 @@
    "by_status": {
     "BLOCKED": 0,
     "FAIL": 0,
-    "NOT_APPLICABLE": 2,
-    "NOT_VERIFIED": 5,
-    "PASS": 14
+    "NOT_APPLICABLE": 1,
+    "NOT_VERIFIED": 4,
+    "PASS": 19
    },
    "findings": [
     {
      "check": "rules_valid",
-     "detail": "2 rule(s) recorded",
+     "detail": "3 rule(s) recorded",
      "state": "MN",
      "status": "PASS"
     },
@@ -5043,21 +7707,21 @@
     },
     {
      "check": "ledger_eligibility",
-     "detail": "No Minnesota auction source is tracked and no statute has been read.",
+     "detail": "COUNTY_DEPENDENT: 1 source(s) (mn_wright_tax_forfeit) read 2026-10-26",
      "state": "MN",
-     "status": "NOT_VERIFIED",
+     "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "county_coverage",
-     "detail": "no county source feeds this ledger",
+     "detail": "1 county: Wright",
      "state": "MN",
-     "status": "NOT_APPLICABLE",
+     "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "ledger_tracking",
-     "detail": "NOT_TRACKED",
+     "detail": "TRACKED: mn_wright_tax_forfeit",
      "state": "MN",
      "status": "PASS",
      "subject": "AUCTIONS"
@@ -5071,21 +7735,21 @@
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 1 source(s) (mn_ramsey_tax_forfeit) read 2026-10-04",
+     "detail": "COUNTY_DEPENDENT: 3 source(s) (mn_hubbard_tfl_otc, mn_ramsey_tax_forfeit, mn_stpaul_hra_properties) read 2026-10-04",
      "state": "MN",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "county_coverage",
-     "detail": "1 county: Ramsey",
+     "detail": "2 counties: Hubbard, Ramsey",
      "state": "MN",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: mn_ramsey_tax_forfeit",
+     "detail": "TRACKED: mn_hubbard_tfl_otc, mn_ramsey_tax_forfeit, mn_stpaul_hra_properties",
      "state": "MN",
      "status": "PASS",
      "subject": "AVAILABLE"
@@ -5136,17 +7800,38 @@
      "detail": "AVAILABLE",
      "state": "MN",
      "status": "PASS",
+     "subject": "mn_hubbard_tfl_otc"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "MN",
+     "status": "PASS",
      "subject": "mn_ramsey_tax_forfeit"
     },
     {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "MN",
+     "status": "PASS",
+     "subject": "mn_stpaul_hra_properties"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AUCTIONS",
+     "state": "MN",
+     "status": "PASS",
+     "subject": "mn_wright_tax_forfeit"
+    },
+    {
      "check": "available_terms",
-     "detail": "every AVAILABLE source has a terms row (1)",
+     "detail": "every AVAILABLE source has a terms row (3)",
      "state": "MN",
      "status": "PASS"
     },
     {
      "check": "acquisition_path",
-     "detail": "0/1 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+     "detail": "1/3 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
      "state": "MN",
      "status": "NOT_VERIFIED"
     },
@@ -5176,12 +7861,12 @@
     "FAIL": 0,
     "NOT_APPLICABLE": 2,
     "NOT_VERIFIED": 5,
-    "PASS": 14
+    "PASS": 15
    },
    "findings": [
     {
      "check": "rules_valid",
-     "detail": "2 rule(s) recorded",
+     "detail": "3 rule(s) recorded",
      "state": "MO",
      "status": "PASS"
     },
@@ -5221,21 +7906,21 @@
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 1 source(s) (mo_stl_lra_inventory) read 2026-10-04",
+     "detail": "COUNTY_DEPENDENT: 2 source(s) (mo_kc_landbank, mo_stl_lra_inventory) read 2026-10-04",
      "state": "MO",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "county_coverage",
-     "detail": "1 county: St. Louis City",
+     "detail": "2 counties: Jackson, St. Louis City",
      "state": "MO",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: mo_stl_lra_inventory",
+     "detail": "TRACKED: mo_kc_landbank, mo_stl_lra_inventory",
      "state": "MO",
      "status": "PASS",
      "subject": "AVAILABLE"
@@ -5286,17 +7971,24 @@
      "detail": "AVAILABLE",
      "state": "MO",
      "status": "PASS",
+     "subject": "mo_kc_landbank"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "MO",
+     "status": "PASS",
      "subject": "mo_stl_lra_inventory"
     },
     {
      "check": "available_terms",
-     "detail": "every AVAILABLE source has a terms row (1)",
+     "detail": "every AVAILABLE source has a terms row (2)",
      "state": "MO",
      "status": "PASS"
     },
     {
      "check": "acquisition_path",
-     "detail": "0/1 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+     "detail": "1/2 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
      "state": "MO",
      "status": "NOT_VERIFIED"
     },
@@ -5476,12 +8168,12 @@
     "FAIL": 0,
     "NOT_APPLICABLE": 2,
     "NOT_VERIFIED": 5,
-    "PASS": 14
+    "PASS": 15
    },
    "findings": [
     {
      "check": "rules_valid",
-     "detail": "2 rule(s) recorded",
+     "detail": "3 rule(s) recorded",
      "state": "PA",
      "status": "PASS"
     },
@@ -5521,21 +8213,21 @@
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 1 source(s) (pa_fayette_repository) read 2026-10-04",
+     "detail": "COUNTY_DEPENDENT: 2 source(s) (pa_fayette_repository, pa_pittsburgh_city_property) read 2026-10-04",
      "state": "PA",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "county_coverage",
-     "detail": "1 county: Fayette",
+     "detail": "2 counties: Allegheny, Fayette",
      "state": "PA",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: pa_fayette_repository",
+     "detail": "TRACKED: pa_fayette_repository, pa_pittsburgh_city_property",
      "state": "PA",
      "status": "PASS",
      "subject": "AVAILABLE"
@@ -5589,14 +8281,21 @@
      "subject": "pa_fayette_repository"
     },
     {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "PA",
+     "status": "PASS",
+     "subject": "pa_pittsburgh_city_property"
+    },
+    {
      "check": "available_terms",
-     "detail": "every AVAILABLE source has a terms row (1)",
+     "detail": "every AVAILABLE source has a terms row (2)",
      "state": "PA",
      "status": "PASS"
     },
     {
      "check": "acquisition_path",
-     "detail": "0/1 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+     "detail": "1/2 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
      "state": "PA",
      "status": "NOT_VERIFIED"
     },
@@ -5626,7 +8325,7 @@
     "FAIL": 0,
     "NOT_APPLICABLE": 1,
     "NOT_VERIFIED": 3,
-    "PASS": 20
+    "PASS": 21
    },
    "findings": [
     {
@@ -5643,21 +8342,21 @@
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 2 source(s) (sc_oconee_tax_sale_list, sc_york_tax_sale) read 2026-10-01",
+     "detail": "COUNTY_DEPENDENT: 3 source(s) (sc_horry_tax_sale, sc_oconee_tax_sale_list, sc_york_tax_sale) read 2026-10-01",
      "state": "SC",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "county_coverage",
-     "detail": "2 counties: Oconee, York",
+     "detail": "3 counties: Horry, Oconee, York",
      "state": "SC",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: sc_oconee_tax_sale_list, sc_york_tax_sale",
+     "detail": "TRACKED: sc_horry_tax_sale, sc_oconee_tax_sale_list, sc_york_tax_sale",
      "state": "SC",
      "status": "PASS",
      "subject": "AUCTIONS"
@@ -5744,6 +8443,13 @@
      "state": "SC",
      "status": "PASS",
      "subject": "sc_horry_forfeited_land"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AUCTIONS",
+     "state": "SC",
+     "status": "PASS",
+     "subject": "sc_horry_tax_sale"
     },
     {
      "check": "source_classification",
@@ -5946,60 +8652,60 @@
     "BLOCKED": 0,
     "FAIL": 0,
     "NOT_APPLICABLE": 1,
-    "NOT_VERIFIED": 5,
-    "PASS": 15
+    "NOT_VERIFIED": 4,
+    "PASS": 27
    },
    "findings": [
     {
      "check": "rules_valid",
-     "detail": "6 rule(s) recorded",
+     "detail": "15 rule(s) recorded",
      "state": "TX",
      "status": "PASS"
     },
     {
      "check": "state_law_recorded",
-     "detail": "no statute has been read and recorded for this state; unresolved: redemption, tax_sale_list_source, tax_sale_model",
+     "detail": "no statute has been read and recorded for this state; unresolved: redemption, tax_sale_model",
      "state": "TX",
      "status": "NOT_VERIFIED"
     },
     {
      "check": "ledger_eligibility",
-     "detail": "COUNTY_DEPENDENT: 2 source(s) (tx_lgbs, tx_realauction) read 2026-10-01",
+     "detail": "COUNTY_DEPENDENT: 7 source(s) (tx_govease, tx_hctax, tx_jefferson_sheriff_sale, tx_lgbs, tx_mvba, tx_pbfcm, tx_realauction) read 2026-10-01",
      "state": "TX",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "county_coverage",
-     "detail": "31 counties: Angelina, Aransas, Atascosa, Caldwell, Cameron, Dallas, El Paso, Ellis, Galveston, Goliad, Gregg, Hardin …",
+     "detail": "83 counties: Angelina, Aransas, Archer, Atascosa, Austin, Bandera, Bastrop, Bell, Brazoria, Brewster, Brown, Caldwell …",
      "state": "TX",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: tx_lgbs, tx_realauction",
+     "detail": "TRACKED: tx_govease, tx_hctax, tx_jefferson_sheriff_sale, tx_lgbs, tx_mvba, tx_pbfcm, tx_realauction",
      "state": "TX",
      "status": "PASS",
      "subject": "AUCTIONS"
     },
     {
      "check": "ledger_eligibility",
-     "detail": "LGBS lists property struck off to taxing units, but whether, when and how a taxing unit resells it (Tex. Tax Code 34.05, lead only) is set per taxing unit and h",
+     "detail": "COUNTY_DEPENDENT: 9 source(s) (tx_bexar_resale, tx_hood_cad_struck_off, tx_lgbs, tx_montgomery_tax_trust, tx_mvba, tx_orange_trust_property, tx_pbfcm, tx_randall_trustee_property, tx_trinity_cad_resale) read 2026-10-26",
      "state": "TX",
-     "status": "NOT_VERIFIED",
+     "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "county_coverage",
-     "detail": "8 counties fed; eligibility is NOT_VERIFIED",
+     "detail": "67 counties: Archer, Austin, Bandera, Bastrop, Bell, Bexar, Brazoria, Brewster, Brown, Caldwell, Cameron, Chambers …",
      "state": "TX",
      "status": "PASS",
      "subject": "AVAILABLE"
     },
     {
      "check": "ledger_tracking",
-     "detail": "TRACKED: tx_lgbs",
+     "detail": "TRACKED: tx_bexar_resale, tx_hood_cad_struck_off, tx_lgbs, tx_montgomery_tax_trust, tx_mvba, tx_orange_trust_property, tx_pbfcm, tx_randall_trustee_property, tx_trinity_cad_resale",
      "state": "TX",
      "status": "PASS",
      "subject": "AVAILABLE"
@@ -6027,9 +8733,44 @@
     },
     {
      "check": "rule_history",
-     "detail": "1 rule(s) with a recorded prior version",
+     "detail": "2 rule(s) with a recorded prior version",
      "state": "TX",
      "status": "PASS"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_bexar_resale"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AUCTIONS",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_govease"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AUCTIONS",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_hctax"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_hood_cad_struck_off"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AUCTIONS",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_jefferson_sheriff_sale"
     },
     {
      "check": "source_classification",
@@ -6040,20 +8781,62 @@
     },
     {
      "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_montgomery_tax_trust"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AUCTIONS/AVAILABLE",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_mvba"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_orange_trust_property"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AUCTIONS/AVAILABLE",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_pbfcm"
+    },
+    {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_randall_trustee_property"
+    },
+    {
+     "check": "source_classification",
      "detail": "AUCTIONS",
      "state": "TX",
      "status": "PASS",
      "subject": "tx_realauction"
     },
     {
+     "check": "source_classification",
+     "detail": "AVAILABLE",
+     "state": "TX",
+     "status": "PASS",
+     "subject": "tx_trinity_cad_resale"
+    },
+    {
      "check": "available_terms",
-     "detail": "every AVAILABLE source has a terms row (1)",
+     "detail": "every AVAILABLE source has a terms row (9)",
      "state": "TX",
      "status": "PASS"
     },
     {
      "check": "acquisition_path",
-     "detail": "1/8 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+     "detail": "1/69 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
      "state": "TX",
      "status": "NOT_VERIFIED"
     },

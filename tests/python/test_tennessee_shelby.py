@@ -60,17 +60,18 @@ def test_tennessee_is_an_activated_county_level_available_state():
     assert cfg.production_inventory_types == frozenset({"", "POST_SALE"})
     ev = states.EXPANSION_EVIDENCE["TN"]
     assert list(ev) == list(states.ACTIVATION_REQUIREMENTS)
-    assert "37856396525" in ev["live_source_verified"] and "UNREVIEWED" in ev["governance_approved"]
+    assert "37856396525" in ev["live_source_verified"] and "owner publication decision 2026-10-26" in ev["governance_approved"]
 
 
-def test_shelby_is_available_unreviewed_collected_never_published():
+def test_shelby_is_available_collected_and_owner_published():
     cfg = _src().config
     assert _src().kind == "epropertyplus" and cfg.record_source == "laft" and cfg.inventory_type is InventoryType.POST_SALE
-    assert SOURCE_LEDGERS[SID] == {Ledger.AVAILABLE} and EX.PUBLICATION[SID] == ("UNREVIEWED", EX.HELD_AVAILABLE)
+    # Owner decision 2026-10-26: published to customers, legal review pending.
+    assert SOURCE_LEDGERS[SID] == {Ledger.AVAILABLE} and EX.PUBLICATION[SID] == ("APPROVED", EX.OWNER_APPROVED_2026_10_26)
     row = _reg()[SID]
-    assert row.is_production and row.publication_status == "UNREVIEWED" and row.ledgers == "AVAILABLE"
+    assert row.is_production and row.publication_status == "APPROVED" and row.ledgers == "AVAILABLE"
     assert row.machine_format == "JSON" and row.purchase_url == "" and row.document_url.endswith("getPublishedProperties")
-    assert SP.collectable(row, "laft") and not SP.publishable(row)
+    assert SP.collectable(row, "laft") and SP.publishable(row)
     assert HE.gate("TN", reg=_reg()) == []
     reg = dict(_reg())
     reg[SID] = dataclasses.replace(reg[SID], publication_status="BLOCKED")
@@ -88,7 +89,7 @@ def test_only_the_portals_own_for_sale_and_available_rows_are_read():
     assert a.amount == 4500.0 and a.amount_kind is AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED
     assert b.amount is None and b.amount_kind is AmountKind.NOT_PUBLISHED and b.land_use is None and b.latitude is None
     assert a.owner_name is None and "comments" not in json.dumps(a.provenance)   # free text never mapped
-    assert a.purchase_url is None
+    assert a.purchase_url == "https://public-sctn.epropertyplus.com/property/07001200000010"   # the portal's own page
 
 
 def test_a_short_read_or_bad_page_fails_whole_never_partial():
@@ -113,13 +114,13 @@ def test_no_offered_row_is_the_portals_own_empty():
     assert res.outcome == "EMPTY" and res.records == []
 
 
-def test_rows_sync_labelled_unreviewed_and_close_only_after_a_trusted_read(tmp_path):
+def test_rows_sync_labelled_approved_and_close_only_after_a_trusted_read(tmp_path):
     rows, units = _run(tmp_path)
     assert units == {"Shelby": "COMPLETE"} and len(rows) == 2
     r = rows[0]
     assert r["inventory_status_raw"] == "FOR SALE" and r["purchase_amount_kind"] == "PUBLISHED_AMOUNT_KIND_UNSPECIFIED"
     sent, counts = SY.plan("TN", rows, _reg(), units)
-    assert counts["upsert"] == 2 and {s["publication_status"] for s in sent} == {"UNREVIEWED"}
+    assert counts["upsert"] == 2 and {s["publication_status"] for s in sent} == {"APPROVED"}
     assert {s["ledger_type"] for s in sent} == {"buy"}
     gone = {"id": "x", "state": "TN", "status": "active", "harvester_source": SID, "source": "laft", "county": "Shelby",
             "case_no": "NO-LONGER-LISTED"}
