@@ -850,6 +850,22 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/sync_sarasota_certificates.py
 
+      - name: Per-unit freshness (certificate counties)
+        # scripts/unit_freshness.py for the Liens & Certificates ledger
+        # (2026-11-04): until now this job never recorded its per-county reads,
+        # so county_source_registry held no LienHub unit and the app showed the
+        # LienHub rows' read health as "Not recorded" while LienHub answered 403
+        # to every county. Recording the FAILED / TRANSPORT_HTTP_403_BLOCKED
+        # attempts lets the app label them "Source unavailable" (and later
+        # STALE). A FAILED attempt never advances last_success_at; nothing here
+        # closes or changes a property row. Never fails the job.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/unit_freshness.py --status out/harvest_certificates_status.json:fl_lienhub_certificates --status out/harvest_sarasota_certificates_status.json --state FL --persist out/.harvest_cache/unit_freshness_certificates.json --report out/public/unit-freshness-certificates.json
+
       - name: Publication state - customer-publication gate (FL)
         # scripts/publication_state_writer.py (migration 031): one auditable
         # publication state per active row - source approval, verified state

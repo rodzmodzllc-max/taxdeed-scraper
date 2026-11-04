@@ -618,6 +618,14 @@ const REGISTRY_ROWS = REGISTRY_MODE === "none" ? null : [
   ...(new URLSearchParams(location.search).get("certunit") === "1" ? [
     { state: "FL", county: "Walton", source_id: "fl_lienhub_certificates", last_attempt_at: hoursAgo(5), last_attempt_status: "COMPLETE", last_success_at: hoursAgo(5), last_success_row_count: 9, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" }
   ] : []),
+  // ?certunit=blocked|stale (2026-11-04): Alachua's LienHub unit (p4's county)
+  // refused with 403 at the last attempt / last read completely 9 days ago, so
+  // the certificate card's read-health stamp can be checked. Opt-in.
+  ...(new URLSearchParams(location.search).get("certunit") === "blocked" ? [
+    { state: "FL", county: "Alachua", source_id: "fl_lienhub_certificates", last_attempt_at: hoursAgo(5), last_attempt_status: "FAILED", last_success_at: null, last_success_row_count: null, consecutive_failures: 30, last_error_category: "TRANSPORT_HTTP_403_BLOCKED", publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" }
+  ] : new URLSearchParams(location.search).get("certunit") === "stale" ? [
+    { state: "FL", county: "Alachua", source_id: "fl_lienhub_certificates", last_attempt_at: hoursAgo(216), last_attempt_status: "COMPLETE", last_success_at: hoursAgo(216), last_success_row_count: 4, consecutive_failures: 0, last_error_category: null, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" }
+  ] : []),
   { state: "FL", county: "Dixie", source_id: "fl_laft_html", last_attempt_at: hoursAgo(4), last_attempt_status: "EMPTY", last_success_at: hoursAgo(4), last_success_row_count: 0, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" },
   { state: "TX", county: "Galveston", source_id: "tx_lgbs", last_attempt_at: hoursAgo(30), last_attempt_status: "INCOMPLETE", last_success_at: hoursAgo(54), last_success_row_count: 120, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" }
 ];

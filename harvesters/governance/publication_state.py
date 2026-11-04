@@ -12,8 +12,9 @@ when every gate passes, in this order:
                 county-dependent product, the row's county is covered)
   3. validation the row names its state, county, ledger and identifier
   4. path       a credible acquisition path is documented - per ledger:
-                  AUCTIONS   the record's own sale listing or the county's
-                             auction site (url_auction, kind sale / county),
+                  AUCTIONS   the source's own page for the record, the record's
+                             sale listing or the county's auction site
+                             (url_auction, kind property / sale / county),
                              an https page that is not a homepage
                   AVAILABLE  the verified acquisition evidence for the row's
                              (state, source, county) unit (public/
@@ -324,7 +325,7 @@ def _path_for(row: dict, ledger: str, sid: str, ctx: Context) -> tuple[PathEvide
     observed = _observed_at(row)
     if ledger == "AUCTIONS":
         url, kind = str(row.get("url_auction") or "").strip(), str(row.get("url_auction_kind") or "")
-        if not url or _https_process_url(url) or kind not in ("sale", "county"):
+        if not url or _https_process_url(url) or kind not in ("property", "sale", "county"):
             listing = _source_listing(row, ctx.registry_units.get((st, sid, county)) or {}, base, observed)
             if listing:
                 return listing, None
@@ -332,9 +333,11 @@ def _path_for(row: dict, ledger: str, sid: str, ctx: Context) -> tuple[PathEvide
                 return PathEvidence(**{**base, "missing_reason": "PATH_MISSING"}), "PATH_MISSING"
             return PathEvidence(**{**base, "destination_url": url, "missing_reason": "PATH_UNTRUSTED",
                                    "notes": f"url_auction_kind {kind or 'unknown'}"}), "PATH_UNTRUSTED"
-        return PathEvidence(**{**base, "destination_url": url, "path_type": "auction_bidding", "scope": "record" if kind == "sale" else "county",
+        return PathEvidence(**{**base, "destination_url": url, "path_type": "auction_bidding",
+                               "scope": "record" if kind in ("property", "sale") else "county",
                                "verification_status": "VERIFIED", "last_verified": observed.isoformat() if observed else "",
-                               "procedure": "Bid on the county's sale listing" if kind == "sale" else "Bid on the county's auction site",
+                               "procedure": {"property": "Open the county's own page for this property, then bid at the county's sale",
+                                             "sale": "Bid on the county's sale listing"}.get(kind, "Bid on the county's auction site"),
                                "notes": "read from the county's sale site with the record"}), None
     # AVAILABLE and LIENS: a record-level typed path first.
     ptype, pscope = str(row.get("purchase_path_type") or ""), str(row.get("purchase_path_scope") or "")

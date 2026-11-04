@@ -120,3 +120,24 @@ the read.
   Hernando, Martin, Orange, Bay, Broward, Miami-Dade and Escambia's `escambiataxsale.com`. There is no `discover`
   permission for them today, so the discovery guard would refuse the capture scripts.
 - **LienHub's 32 counties** stay SOURCE_UNAVAILABLE.
+
+## Follow-up 2026-11-04: LienHub still blocked; read health now recorded
+
+- **Production (read-only, counts only):** 1,750 active FL certificate rows - 1,518 `fl_lienhub_certificates` in 24
+  counties, none ever stamped `last_seen_at`, and 232 `fl_sarasota_tc_certificates`, all read within 48 hours.
+- **Scheduled run 41821178783 (certificates job):** Alachua, Bay and Brevard answered HTTP 403 on all three attempts;
+  the other 29 counties were not requested (site-wide block rule). 0 COMPLETE, 0 INCOMPLETE, 32 FAILED. Nothing synced,
+  stamped or closed. Sarasota COMPLETE, 232 certificates.
+- **Gap fixed:** the certificates job never ran `scripts/unit_freshness.py`, so `county_source_registry` held no
+  LienHub unit and the app showed those rows' read health as "Not recorded". The job now records both status files
+  (`Per-unit freshness (certificate counties)`); a blocked county is SOURCE_UNAVAILABLE, and the certificate card
+  carries a "Source unavailable" / "Not recently read" stamp from that record.
+- **New candidate (not implemented):** Palm Beach County Tax Collector links "List of current county held
+  certificates" from `pbctax.gov/taxes/property-tax/tax-certificates-and-deeds/`, an XLSX
+  (`wp-content/uploads/2026/11/County_Certs_PBCTax-11.2.26.xlsx`, one sheet "Detail", 833 data rows; columns PIN, Sale
+  Date, Sale Year, Certificate Number, Tax Year, Bill Number, Face Amount, Interest Rate, Total Amt, Legal Description,
+  plus three link columns). Palm Beach is not a LienHub county, the file name is dated (a reader would follow the
+  page's link, never a constructed name), and no permission record exists. Not the Sarasota format.
+- Re-checked 2026-11-04 with one GET each, nothing new found: Santa Rosa (`srctc.com` page sitemap has only a tax
+  deed information page), Indian River and Lake (menus by script), Hernando's former county-held page (404),
+  Seminole (503), Miami-Dade (`mdctaxcollector.gov` 403).
