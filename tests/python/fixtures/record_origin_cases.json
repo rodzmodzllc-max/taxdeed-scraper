@@ -1,0 +1,20 @@
+{
+  "_comment": "Shared vectors: harvesters/quality/record_origins.classify(facts) == app.js recordOriginsFromFacts(facts). Facts are categories, never values.",
+  "cases": [
+    {"name": "fresh listing, published facts, nothing enriched",
+     "facts": {"stale": false, "identity": {"present": true, "src": "list"}, "address": {"present": true, "src": "list"}, "amount": {"present": true, "src": "list"}, "date": {"present": true, "src": "list"}, "status": {"present": true, "src": "rule"}, "value": {"present": false}, "coordinates": {"present": false}, "flood": {"present": false}},
+     "expect": {"identity": "PUBLISHED", "address": "PUBLISHED", "amount": "PUBLISHED", "date": "PUBLISHED", "status": "INFERRED", "value": "NOT_AVAILABLE", "coordinates": "NOT_AVAILABLE", "flood": "NOT_AVAILABLE"}},
+    {"name": "stale listing: list facts are stale, enrichment is not",
+     "facts": {"stale": true, "identity": {"present": true, "src": "list"}, "address": {"present": false}, "amount": {"present": true, "src": "vendor_listing"}, "date": {"present": true, "src": "list"}, "status": {"present": true, "src": "rule"}, "value": {"present": true, "src": "fdor_nal"}, "coordinates": {"present": true, "src": "parcel_gis"}, "flood": {"present": true, "src": "fema"}},
+     "expect": {"identity": "STALE", "address": "NOT_PUBLISHED", "amount": "STALE", "date": "STALE", "status": "INFERRED", "value": "ENRICHED", "coordinates": "ENRICHED", "flood": "ENRICHED"}},
+    {"name": "geocoded point is inferred; source point is published; published result",
+     "facts": {"stale": false, "identity": {"present": true, "src": "county_list"}, "address": {"present": true, "src": "list"}, "amount": {"present": false}, "date": {"present": false}, "status": {"present": true, "src": "result"}, "value": {"present": true, "src": "statewide_parcel"}, "coordinates": {"present": true, "src": "geocode"}, "flood": {"present": false}},
+     "expect": {"identity": "PUBLISHED", "address": "PUBLISHED", "amount": "NOT_PUBLISHED", "date": "NOT_PUBLISHED", "status": "PUBLISHED", "value": "ENRICHED", "coordinates": "INFERRED", "flood": "NOT_AVAILABLE"}},
+    {"name": "unrecorded and unknown origins are never published",
+     "facts": {"stale": false, "identity": {"present": true, "src": "list"}, "address": {"present": true, "src": "list"}, "amount": {"present": true, "src": "made_up_source"}, "date": {"present": true, "src": "list"}, "status": {"present": true, "src": "rule"}, "value": {"present": true, "src": ""}, "coordinates": {"present": true, "src": ""}, "flood": {"present": true, "src": "fema"}},
+     "expect": {"identity": "PUBLISHED", "address": "PUBLISHED", "amount": "NOT_VERIFIED", "date": "PUBLISHED", "status": "INFERRED", "value": "NOT_VERIFIED", "coordinates": "NOT_VERIFIED", "flood": "ENRICHED"}},
+    {"name": "stale record: a published result is stale too; hand research is not",
+     "facts": {"stale": true, "identity": {"present": true, "src": "hand_research"}, "address": {"present": true, "src": "county_gis"}, "amount": {"present": false}, "date": {"present": true, "src": "list"}, "status": {"present": true, "src": "result"}, "value": {"present": false}, "coordinates": {"present": true, "src": "source_point"}, "flood": {"present": false}},
+     "expect": {"identity": "ENRICHED", "address": "ENRICHED", "amount": "NOT_PUBLISHED", "date": "STALE", "status": "STALE", "value": "NOT_AVAILABLE", "coordinates": "PUBLISHED", "flood": "NOT_AVAILABLE"}}
+  ]
+}

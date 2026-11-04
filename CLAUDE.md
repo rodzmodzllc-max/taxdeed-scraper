@@ -3915,3 +3915,19 @@ The owner's brand deck (artifact Jvuoq2Mrbb9MkeWauttYun) is now the app's look. 
   published, and the hosts answer 403 to the sandbox - nothing more specific was recorded.
 - **Blocked**: Albany WY (layer publishes no link field; its 2026 sale is over and the county's page now names the 2027 sale);
   LienHub (403; per-certificate link unknown - rows keep the county's county-held list page).
+
+## Record trust + quality benchmark (2026-10-10, PR open, stacked on #129, no migration)
+
+Stable facts:
+- **Record origins.** `harvesters/quality/record_origins.py` = app.js `recordOriginsFromFacts()`, pinned by `tests/python/fixtures/record_origin_cases.json`.
+  - States: PUBLISHED / ENRICHED / INFERRED / STALE / NOT_PUBLISHED / NOT_AVAILABLE / NOT_VERIFIED.
+  - An unknown origin code is never published.
+  - Every property page (all three ledgers) shows "What this record is based on" (`#recordOrigins`). No score.
+- **Certificates.** The certificate decision has an "ownership" row: a certificate does not transfer the property (`CERTIFICATE_OWNERSHIP_NOTE`).
+- **Invariants and benchmark.** `harvesters/quality/record_invariants.py` holds the invariants and per-county metrics, with amount-kind semantics.
+  - `scripts/record_quality_benchmark.py` takes `--snapshot` (counts only) or `--rows` (with `--now`).
+  - `docs/record-quality-benchmark-results.md` is generated and `--check` pinned.
+  - Methodology: `docs/record-quality-benchmark.md`.
+- **Static guards** (`tests/python/test_record_quality.py`): every `data-action` has a handler, and the public bundle carries no secret.
+- **Other docs:** `docs/competitive-matrix.md` (search-index only, no confirmed cells) and `docs/customer-testing-script.md` (no sessions run).
+- `sw.js` → `tdw-shell-v115`.
