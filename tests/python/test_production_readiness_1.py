@@ -93,7 +93,9 @@ def test_i02_results_come_only_from_the_source_never_from_absence_dates_or_count
     assert cert.status == "certificate_listed" and cert.basis == "LIST_PRESENCE"
     assert IS.status_for_row({"state": "FL", "source": "certificate", "status": "closed"}, today=TODAY).status == "closed"
     assert "certificate_redeemed" in IS.RESULT_STATUSES and "certificate_assigned" in IS.RESULT_STATUSES
-    assert IS.status_for_row({"state": "TX", "harvester_source": "tx_realauction", "source": "auction"}, today=TODAY) is None
+    # Texas RealAuction auctions follow the same sale-calendar rule as Florida's (2026-10-11); no date -> active.
+    ra = IS.status_for_row({"state": "TX", "harvester_source": "tx_realauction", "source": "auction"}, today=TODAY)
+    assert (ra.status, ra.basis) == ("active", "LIST_PRESENCE")
 
 
 # ==================== 2. migration 021 ====================
@@ -419,7 +421,7 @@ def test_o01_outcomes_only_through_the_source_map_which_is_empty_today(monkeypat
 
 def test_x01_workflow_steps_are_non_blocking_and_after_the_sync():
     wf = yaml.safe_load((REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8"))
-    for job, expect_fresh in (("laft", True), ("deeds", True), ("texas", False)):
+    for job, expect_fresh in (("laft", True), ("deeds", True), ("texas", True)):   # texas since 2026-10-29 (admin Needs attention)
         steps = wf["jobs"][job]["steps"]
         names = [s.get("name") for s in steps]
         inv = next(s for s in steps if (s.get("name") or "").startswith("Inventory status"))
@@ -431,10 +433,10 @@ def test_x01_workflow_steps_are_non_blocking_and_after_the_sync():
         if fresh:
             assert fresh[0]["continue-on-error"] is True and fresh[0]["if"] == "always()" and "unit_freshness.py --status" in fresh[0]["run"]
     # Schedules untouched.
-    assert (wf.get("on") or wf.get(True))["schedule"] == [{"cron": "0 10 * * *"}, {"cron": "0 22 * * *"}, {"cron": "0 12 * * *"}]
+    assert (wf.get("on") or wf.get(True))["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 4 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 3 * * *"}]
 
 
 def test_x02_docs_and_service_worker():
-    assert 'const CACHE = "tdw-shell-v115"' in (REPO / "public/sw.js").read_text(encoding="utf-8")
+    assert 'const CACHE = "tdw-shell-v162"' in (REPO / "public/sw.js").read_text(encoding="utf-8")
     model = (REPO / "docs/otc-inventory-model.md").read_text(encoding="utf-8")
     assert "## 16." in model and "inventory_status" in model and "laft_purchase_link_rules.csv" in model

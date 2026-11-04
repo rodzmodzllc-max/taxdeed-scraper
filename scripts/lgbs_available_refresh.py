@@ -61,6 +61,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(HERE))
 
 import field_provenance as FP  # noqa: E402
+from harvesters import tls_chain as TLS  # noqa: E402
 
 SOURCE_ID = "tx_lgbs"
 USER_AGENT = "taxdeed-scraper lgbs-available-refresh (+https://github.com/rodzmodzllc-max/taxdeed-scraper)"
@@ -132,10 +133,14 @@ def index_feed(records: list[dict]) -> dict:
 
 
 def plan_row(row: dict, idx: dict, *, now: str, walk_complete: bool) -> tuple[str, dict]:
-    """(outcome, PATCH body). Outcomes: NOT_IN_FEED | AMBIGUOUS | OTHER_STATUS | OBSERVED."""
+    """(outcome, PATCH body). Outcomes: NOT_IN_FEED | NOT_READ | AMBIGUOUS | OTHER_STATUS | OBSERVED.
+
+    NOT_IN_FEED only after a COMPLETE walk. A row unseen in a truncated walk
+    is NOT_READ: the feed was not read to the end (2026-10-25: page 1 never
+    answered, 0 raw records), so its absence says nothing about the listing."""
     hits = idx.get((row.get("county"), norm_account(row.get("case_no"))), [])
     if not hits:
-        return "NOT_IN_FEED", {}
+        return ("NOT_IN_FEED" if walk_complete else "NOT_READ"), {}
     if len(hits) > 1:
         return "AMBIGUOUS", {}
     rec = hits[0]
@@ -173,7 +178,9 @@ def plan_row(row: dict, idx: dict, *, now: str, walk_complete: bool) -> tuple[st
 
 def http_json(url: str, *, headers: dict | None = None, method: str = "GET", body: bytes | None = None, timeout: int = 60):
     req = urllib.request.Request(url, data=body, method=method, headers={"User-Agent": USER_AGENT, **(headers or {})})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    # tls_chain: default verification plus the intermediate taxsales.lgbs.com
+    # stopped sending on 2026-10-07 (harvesters/tls_chain.py).
+    with TLS.urlopen(req, timeout=timeout) as resp:
         raw = resp.read()
     return json.loads(raw) if raw else None
 
@@ -201,8 +208,12 @@ def walk_feed() -> tuple[list[dict], dict]:
     import texas_harvester as TH  # noqa: PLC0415
     from governance.gate import check_ingestion_gate  # noqa: PLC0415
     decision = check_ingestion_gate(SOURCE_ID)
-    stats = {"gate_allowed": decision.allowed, "gate_reason": decision.reason, "pages": 0, "raw": 0, "complete": False}
-    if not decision.allowed:
+    from harvesters.governance import permissions as PERM  # noqa: PLC0415
+    permission = PERM.authorize(SOURCE_ID, "fetch", state="TX")
+    stats = {"gate_allowed": decision.allowed and permission.allowed,
+             "gate_reason": decision.reason if not decision.allowed else permission.reason,
+             "permission": permission.reason_code, "pages": 0, "raw": 0, "complete": False}
+    if not decision.allowed or not permission.allowed:
         return [], stats
     url = f"{TH.LGBS_API_URL}?{urllib.parse.urlencode({'area': 'TX', 'limit': str(TH.LGBS_PAGE_SIZE)})}"
     records: list[dict] = []
@@ -213,7 +224,11 @@ def walk_feed() -> tuple[list[dict], dict]:
             try:
                 payload = http_json(url, timeout=PAGE_TIMEOUT)
                 break
-            except Exception:  # noqa: BLE001 - counted, retried, then reported as an incomplete walk
+            except Exception as exc:  # noqa: BLE001 - counted, retried, then reported as an incomplete walk
+                # The class and reason only (never a response body): a walk that
+                # reads nothing must say why (2026-10-25: a TLS chain failure was
+                # silently reported as "raw records 0").
+                stats["last_error"] = f"{type(exc).__name__}: {str(getattr(exc, 'reason', exc))[:160]}"
                 time.sleep(min(30.0, TH.LGBS_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))))
         if payload is None:
             stats["truncated_at_page"] = stats["pages"]
@@ -248,7 +263,8 @@ def main(argv=None) -> int:
     rows = fetch_rows(base, key)
     records, stats = walk_feed()
     print(f"LGBS gate: allowed={stats['gate_allowed']} ({stats['gate_reason']}); pages {stats['pages']}, raw records {stats['raw']}, "
-          f"Texas records {len(records)}, walk {'COMPLETE' if stats['complete'] else 'INCOMPLETE'}")
+          f"Texas records {len(records)}, walk {'COMPLETE' if stats['complete'] else 'INCOMPLETE'}"
+          + (f"; last error {stats['last_error']}" if stats.get("last_error") else ""))
     idx = index_feed(records)
     now = FP.now_iso()
     outcomes: Counter = Counter()
@@ -277,6 +293,11 @@ def main(argv=None) -> int:
           f"fills {dict(fields)}, provenance columns {dict(prov_cols)}")
     written = errors = 0
     if a.apply:
+        from harvesters.governance import permissions as PERM  # noqa: PLC0415
+        store = PERM.authorize(SOURCE_ID, "store", state="TX")
+        if not store.allowed:
+            print(f"apply refused: {SOURCE_ID} store denied [{store.reason_code}] {store.reason} - nothing written")
+            planned = []
         hdr = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json", "Prefer": "return=minimal"}
         for rid, body in planned:
             try:

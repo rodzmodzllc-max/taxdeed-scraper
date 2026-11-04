@@ -1,0 +1,1037 @@
+source_id,ledger,field,availability,stored_column,measured_fill,evidence
+fl_realauction,AUCTIONS,state,CAPTURED,properties.state,,constant per harvester / adapter config
+fl_realauction,AUCTIONS,county,CAPTURED,properties.county,,harvester county list / adapter config county
+fl_realauction,AUCTIONS,parcel_id,CAPTURED,properties.parcel,2557/2644,scripts/harvest_all_counties.ps1:249 ('Parcel ID'); scripts/sync-harvest-to-supabase.ps1:159
+fl_realauction,AUCTIONS,case_number,CAPTURED,properties.case_no,,scripts/harvest_all_counties.ps1:213 ('Case #'); scripts/sync-harvest-to-supabase.ps1:158
+fl_realauction,AUCTIONS,sale_event_id,PUBLISHED_NOT_CAPTURED,,,scripts/harvest_all_counties.ps1:207 splits the feed on AITEM_ item ids; docs/auction-outcomes.md:23 (FNC=UPDATE&ref=<item ids>); the id is not stored
+fl_realauction,AUCTIONS,situs_address,CAPTURED,properties.address,2644/2644,scripts/harvest_all_counties.ps1:228-232 ('Property Address' + city line)
+fl_realauction,AUCTIONS,legal_description,NOT_YET_VERIFIED,properties.legal_desc,2008/2644,"scripts/harvest_all_counties.ps1:241-252 reads no legal description; stored values come from enrichment (scripts/enrich_property_details.py), not this source"
+fl_realauction,AUCTIONS,auction_date,CAPTURED,properties.sale_date,2644/2644,scripts/harvest_all_counties.ps1:244 (calendar AuctionDate); sync-harvest-to-supabase.ps1:163
+fl_realauction,AUCTIONS,auction_time,PUBLISHED_NOT_CAPTURED,,,docs/auction-outcomes.md:29 (closed items: status slot B = time); scheduled start time not verified; not stored
+fl_realauction,AUCTIONS,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+fl_realauction,AUCTIONS,official_url,CAPTURED,properties.url_auction (+url_auction_kind='sale'),2644/2644,scripts/harvest_all_counties.ps1:252; sync-harvest-to-supabase.ps1:165-175
+fl_realauction,AUCTIONS,opening_or_minimum_bid,CAPTURED,properties.bid,2641/2644,scripts/harvest_all_counties.ps1:226 ('Opening Bid')
+fl_realauction,AUCTIONS,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_realauction,AUCTIONS,assessed_value,CAPTURED,properties.assessed,,"scripts/harvest_all_counties.ps1:248 ('Assessed Value' - 'in some counties', header comment line 26)"
+fl_realauction,AUCTIONS,event_status,CAPTURED,auction_events.outcome / properties.inventory_status,274/1575 auction_events with a verified outcome,scripts/auction_outcomes.py; data/auction_outcome_wordings.csv; docs/auction-outcomes.md:29-35
+fl_realauction,AUCTIONS,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,"scripts/inventory_status_writer.py:62,165"
+fl_realauction,AUCTIONS,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_realauction,AUCTIONS,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_realauction,AUCTIONS,certificate_id,CAPTURED,properties.certificate_no,,scripts/harvest_all_counties.ps1:246 ('Certificate #'); carried fill-blank by scripts/stamp_seen.py:158-159
+fl_realauction,AUCTIONS,government_held_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_realauction,AUCTIONS,purchase_or_application_process,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_realauction,AUCTIONS,winning_bidder,NOT_TRACKED,,,docs/auction-outcomes.md:42-43: purchaser category ('Sold To') is published and never stored by policy
+fl_realauction,AUCTIONS,winning_bid_or_sale_amount,CAPTURED,auction_events.winning_bid,172/172 sold events,scripts/auction_outcomes.py:374 (only beside the published 'Amount' label)
+fl_realauction,AUCTIONS,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_realauction,AUCTIONS,cancellation_postponement,CAPTURED,auction_events.lifecycle='cancelled' + outcome_raw,,"docs/auction-outcomes.md:32-35,54; 'Rescheduled' / 'Bidder Walked Away' are published but deliberately not mapped"
+fl_realauction,AUCTIONS,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_realauction,AUCTIONS,retrieval_timestamp,CAPTURED,properties.last_seen_at,919/1065 active stamped,scripts/stamp_seen.py:1-17 (rows on this run's Waiting feed)
+fl_realauction,AUCTIONS,last_verification,NOT_TRACKED,,,fl_realauction has no row in the live county_source_registry table (baseline/registry_live.json); scripts/unit_freshness.py:260 only PATCHes existing rows
+fl_bid4assets_okaloosa,AUCTIONS,state,CAPTURED,properties.state,,constant per harvester / adapter config
+fl_bid4assets_okaloosa,AUCTIONS,county,CAPTURED,properties.county,,harvester county list / adapter config county
+fl_bid4assets_okaloosa,AUCTIONS,parcel_id,CAPTURED,properties.parcel,,scripts/harvest_okaloosa_bid4assets.ps1:202; scripts/sync-harvest-to-supabase.ps1:159
+fl_bid4assets_okaloosa,AUCTIONS,case_number,CAPTURED,properties.case_no,,scripts/harvest_okaloosa_bid4assets.ps1:198; scripts/sync-harvest-to-supabase.ps1:158
+fl_bid4assets_okaloosa,AUCTIONS,sale_event_id,CAPTURED,properties.url_auction (Bid4Assets auction id embedded in the URL),,scripts/harvest_okaloosa_bid4assets.ps1:205
+fl_bid4assets_okaloosa,AUCTIONS,situs_address,CAPTURED,properties.address,,scripts/harvest_okaloosa_bid4assets.ps1:204; scripts/sync-harvest-to-supabase.ps1:160
+fl_bid4assets_okaloosa,AUCTIONS,legal_description,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_bid4assets_okaloosa,AUCTIONS,auction_date,CAPTURED,properties.sale_date,,scripts/harvest_okaloosa_bid4assets.ps1:197; scripts/sync-harvest-to-supabase.ps1:163
+fl_bid4assets_okaloosa,AUCTIONS,auction_time,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_bid4assets_okaloosa,AUCTIONS,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+fl_bid4assets_okaloosa,AUCTIONS,official_url,CAPTURED,properties.url_auction (kind 'county' per the sync's rule),,scripts/harvest_okaloosa_bid4assets.ps1:205; scripts/sync-harvest-to-supabase.ps1:165-175
+fl_bid4assets_okaloosa,AUCTIONS,opening_or_minimum_bid,CAPTURED,properties.bid,,scripts/harvest_okaloosa_bid4assets.ps1:200
+fl_bid4assets_okaloosa,AUCTIONS,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_bid4assets_okaloosa,AUCTIONS,assessed_value,NOT_YET_VERIFIED,,,scripts/harvest_okaloosa_bid4assets.ps1:201 sets assessed to null
+fl_bid4assets_okaloosa,AUCTIONS,event_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_bid4assets_okaloosa,AUCTIONS,status_timestamp,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_bid4assets_okaloosa,AUCTIONS,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_bid4assets_okaloosa,AUCTIONS,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_bid4assets_okaloosa,AUCTIONS,certificate_id,CAPTURED,properties.certificate_no,,scripts/harvest_okaloosa_bid4assets.ps1:199; scripts/stamp_seen.py:158-159
+fl_bid4assets_okaloosa,AUCTIONS,government_held_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_bid4assets_okaloosa,AUCTIONS,purchase_or_application_process,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_bid4assets_okaloosa,AUCTIONS,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_bid4assets_okaloosa,AUCTIONS,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_bid4assets_okaloosa,AUCTIONS,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_bid4assets_okaloosa,AUCTIONS,cancellation_postponement,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_bid4assets_okaloosa,AUCTIONS,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_bid4assets_okaloosa,AUCTIONS,retrieval_timestamp,CAPTURED,properties.last_seen_at,,scripts/stamp_seen.py (deeds job)
+fl_bid4assets_okaloosa,AUCTIONS,last_verification,NOT_TRACKED,,,absent from the live county_source_registry table
+fl_lienhub_certificates,LIENS_CERTIFICATES,state,CAPTURED,properties.state,,constant per harvester / adapter config
+fl_lienhub_certificates,LIENS_CERTIFICATES,county,CAPTURED,properties.county,,harvester county list / adapter config county
+fl_lienhub_certificates,LIENS_CERTIFICATES,parcel_id,CAPTURED,properties.parcel (= LienHub account_number),1667/1667,scripts/harvest_lienhub_certificates.ps1:265
+fl_lienhub_certificates,LIENS_CERTIFICATES,case_number,NOT_YET_VERIFIED,properties.case_no holds the account number,,scripts/harvest_lienhub_certificates.ps1:257
+fl_lienhub_certificates,LIENS_CERTIFICATES,sale_event_id,NOT_APPLICABLE,,,"a county-held certificate list carries the certificate, not a sale event or deed"
+fl_lienhub_certificates,LIENS_CERTIFICATES,situs_address,CAPTURED,properties.address,1667/1667,scripts/harvest_lienhub_certificates.ps1:264; scripts/sync-certificates-to-supabase.ps1:191
+fl_lienhub_certificates,LIENS_CERTIFICATES,legal_description,CAPTURED,properties.legal_desc,563/1667,scripts/harvest_lienhub_certificates.ps1:267 reads it; sync drops it; scripts/stamp_seen.py:160 carries it fill-blank
+fl_lienhub_certificates,LIENS_CERTIFICATES,auction_date,NOT_YET_VERIFIED,,0/1667,"the county-held list carries issued_date / expiration_date, not a sale date"
+fl_lienhub_certificates,LIENS_CERTIFICATES,auction_time,NOT_APPLICABLE,,,"a county-held certificate list carries the certificate, not a sale event or deed"
+fl_lienhub_certificates,LIENS_CERTIFICATES,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+fl_lienhub_certificates,LIENS_CERTIFICATES,official_url,CAPTURED,properties.url_auction (kind 'county'),1667/1667,scripts/harvest_lienhub_certificates.ps1:269; scripts/sync-certificates-to-supabase.ps1:196-201
+fl_lienhub_certificates,LIENS_CERTIFICATES,opening_or_minimum_bid,CAPTURED,"properties.bid (LienHub purchase_amt, amount kind unspecified)",1666/1667,scripts/harvest_lienhub_certificates.ps1:262
+fl_lienhub_certificates,LIENS_CERTIFICATES,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_lienhub_certificates,LIENS_CERTIFICATES,assessed_value,CAPTURED,properties.assessed,,scripts/harvest_lienhub_certificates.ps1:266; scripts/sync-certificates-to-supabase.ps1:194
+fl_lienhub_certificates,LIENS_CERTIFICATES,event_status,CAPTURED,properties.inventory_status (certificate_listed / closed),,harvesters/governance/inventory_status.py; scripts/inventory_status_writer.py
+fl_lienhub_certificates,LIENS_CERTIFICATES,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+fl_lienhub_certificates,LIENS_CERTIFICATES,redemption_deadline,NOT_YET_VERIFIED,properties.expiration_date holds the certificate expiration,,scripts/harvest_lienhub_certificates.ps1:261 (expiration_date); not established to be a redemption deadline
+fl_lienhub_certificates,LIENS_CERTIFICATES,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_lienhub_certificates,LIENS_CERTIFICATES,certificate_id,CAPTURED,properties.certificate_no,,scripts/harvest_lienhub_certificates.ps1:258
+fl_lienhub_certificates,LIENS_CERTIFICATES,government_held_status,CAPTURED,implicit in source scope (LienHub 'county held' certificates endpoint),,data/county_source_registry.csv canonical_url .../countyheld/certificates
+fl_lienhub_certificates,LIENS_CERTIFICATES,purchase_or_application_process,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_lienhub_certificates,LIENS_CERTIFICATES,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_lienhub_certificates,LIENS_CERTIFICATES,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_lienhub_certificates,LIENS_CERTIFICATES,deed_execution_recording,NOT_APPLICABLE,,,"a county-held certificate list carries the certificate, not a sale event or deed"
+fl_lienhub_certificates,LIENS_CERTIFICATES,cancellation_postponement,NOT_APPLICABLE,,,"a county-held certificate list carries the certificate, not a sale event or deed"
+fl_lienhub_certificates,LIENS_CERTIFICATES,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_lienhub_certificates,LIENS_CERTIFICATES,retrieval_timestamp,CAPTURED,properties.last_seen_at,0/1611 active stamped,scripts/stamp_seen.py --status (COMPLETE/EMPTY counties only)
+fl_lienhub_certificates,LIENS_CERTIFICATES,last_verification,NOT_TRACKED,,,absent from the live county_source_registry table
+fl_laft_html,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+fl_laft_html,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+fl_laft_html,AVAILABLE,parcel_id,CAPTURED,properties.parcel,61/64,scripts/harvest_laft_html.py (parcel column) ; scripts/sync-laft-to-supabase.ps1:265
+fl_laft_html,AVAILABLE,case_number,CAPTURED,properties.case_no,,scripts/harvest_laft_html.py:281-286 (case / file / tax deed # headers)
+fl_laft_html,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_html,AVAILABLE,situs_address,CAPTURED,properties.address,64/64,scripts/harvest_laft_html.py:303-304 (where the county publishes it) (measured fill counts placeholder text written when no address is published - sync-laft-to-supabase.ps1:220-225)
+fl_laft_html,AVAILABLE,legal_description,CAPTURED,properties.legal_desc,60/64,scripts/harvest_laft_html.py:305-306; scripts/laft_source_fields.py:63-69 (fill-blank carry)
+fl_laft_html,AVAILABLE,auction_date,CAPTURED,"properties.sale_date (the original tax-deed sale date, not an upcoming auction)",63/64,scripts/harvest_laft_html.py (sale date column); scripts/sync-laft-to-supabase.ps1:266
+fl_laft_html,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_html,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+fl_laft_html,AVAILABLE,official_url,CAPTURED,"properties.url_auction (county list page, kind 'county')",64/64,scripts/sync-laft-to-supabase.ps1:250-255
+fl_laft_html,AVAILABLE,opening_or_minimum_bid,CAPTURED,properties.bid / purchase_amount + purchase_amount_kind,63/64,scripts/harvest_laft_html.py (bid column); scripts/laft_lifecycle.py (purchase_amount_kind)
+fl_laft_html,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_html,AVAILABLE,assessed_value,CAPTURED,properties.assessed,,scripts/harvest_laft_html.py:303; scripts/laft_source_fields.py:63-69 (fill-blank carry)
+fl_laft_html,AVAILABLE,event_status,CAPTURED,properties.inventory_status,,scripts/inventory_status_writer.py; harvesters/governance/inventory_status.py
+fl_laft_html,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+fl_laft_html,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_html,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_html,AVAILABLE,certificate_id,CAPTURED,properties.certificate_no,,scripts/harvest_laft_html.py:287-290; scripts/laft_source_fields.py:63-69 (fill-blank carry)
+fl_laft_html,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,scripts/laft_lifecycle.py:107 (migration 017 columns)
+fl_laft_html,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_path_type/_scope/_evidence + otc_provenance.acquisition,,scripts/purchase_path_engine.py; data/purchase_path_evidence.csv; public/acquisition-evidence.json
+fl_laft_html,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_html,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_html,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_html,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_html,AVAILABLE,source_publication_date,CAPTURED,properties.list_as_of / source_published_at,,scripts/laft_status.py:247 extract_list_as_of; scripts/laft_lifecycle.py:574-578
+fl_laft_html,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,61/61 active stamped,scripts/laft_lifecycle.py:573
+fl_laft_html,AVAILABLE,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,scripts/unit_freshness.py; baseline/registry_live.json
+fl_laft_pdfs,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+fl_laft_pdfs,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+fl_laft_pdfs,AVAILABLE,parcel_id,CAPTURED,properties.parcel,21/21,scripts/harvest_laft_pdfs.py (parcel column) ; scripts/sync-laft-to-supabase.ps1:265
+fl_laft_pdfs,AVAILABLE,case_number,CAPTURED,properties.case_no,,scripts/harvest_laft_pdfs.py:68-74
+fl_laft_pdfs,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_pdfs,AVAILABLE,situs_address,CAPTURED,properties.address,21/21,scripts/harvest_laft_pdfs.py:97-98 (where the county publishes it) (measured fill counts placeholder text written when no address is published - sync-laft-to-supabase.ps1:220-225)
+fl_laft_pdfs,AVAILABLE,legal_description,CAPTURED,properties.legal_desc,14/21,scripts/harvest_laft_pdfs.py:99-100; scripts/laft_source_fields.py:63-69 (fill-blank carry)
+fl_laft_pdfs,AVAILABLE,auction_date,CAPTURED,"properties.sale_date (the original tax-deed sale date, not an upcoming auction)",1/21,scripts/harvest_laft_pdfs.py (sale date column); scripts/sync-laft-to-supabase.ps1:266
+fl_laft_pdfs,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_pdfs,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+fl_laft_pdfs,AVAILABLE,official_url,CAPTURED,"properties.url_auction (county list page, kind 'county')",21/21,scripts/sync-laft-to-supabase.ps1:250-255
+fl_laft_pdfs,AVAILABLE,opening_or_minimum_bid,CAPTURED,properties.bid / purchase_amount + purchase_amount_kind,2/21,scripts/harvest_laft_pdfs.py (bid column); scripts/laft_lifecycle.py (purchase_amount_kind)
+fl_laft_pdfs,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_pdfs,AVAILABLE,assessed_value,CAPTURED,properties.assessed,,scripts/harvest_laft_pdfs.py:97; scripts/laft_source_fields.py:63-69 (fill-blank carry)
+fl_laft_pdfs,AVAILABLE,event_status,CAPTURED,properties.inventory_status,,scripts/inventory_status_writer.py; harvesters/governance/inventory_status.py
+fl_laft_pdfs,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+fl_laft_pdfs,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_pdfs,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_pdfs,AVAILABLE,certificate_id,CAPTURED,properties.certificate_no,,scripts/harvest_laft_pdfs.py certificate headers; scripts/laft_source_fields.py:63-69 (fill-blank carry)
+fl_laft_pdfs,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,scripts/laft_lifecycle.py:107 (migration 017 columns)
+fl_laft_pdfs,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_path_type/_scope/_evidence + otc_provenance.acquisition,,scripts/purchase_path_engine.py; data/purchase_path_evidence.csv; public/acquisition-evidence.json
+fl_laft_pdfs,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_pdfs,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_pdfs,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_pdfs,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_pdfs,AVAILABLE,source_publication_date,CAPTURED,properties.list_as_of / source_published_at,,scripts/laft_status.py:247 extract_list_as_of; scripts/laft_lifecycle.py:574-578
+fl_laft_pdfs,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,12/15 active stamped,scripts/laft_lifecycle.py:573
+fl_laft_pdfs,AVAILABLE,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,scripts/unit_freshness.py; baseline/registry_live.json
+fl_laft_pioneer,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+fl_laft_pioneer,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+fl_laft_pioneer,AVAILABLE,parcel_id,CAPTURED,properties.parcel,23/23,scripts/harvest_laft_pioneer.py:111-122 (parcel column) ; scripts/sync-laft-to-supabase.ps1:265
+fl_laft_pioneer,AVAILABLE,case_number,CAPTURED,properties.case_no,,scripts/harvest_laft_pioneer.py:113
+fl_laft_pioneer,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_pioneer,AVAILABLE,situs_address,NOT_YET_VERIFIED,properties.address,23/23,scripts/harvest_laft_pioneer.py:111-122: no address column mapped; the sync writes a placeholder (measured fill counts placeholder text written when no address is published - sync-laft-to-supabase.ps1:220-225)
+fl_laft_pioneer,AVAILABLE,legal_description,NOT_YET_VERIFIED,,18/23,scripts/harvest_laft_pioneer.py:111-122: no legal-description column mapped
+fl_laft_pioneer,AVAILABLE,auction_date,CAPTURED,"properties.sale_date (the original tax-deed sale date, not an upcoming auction)",23/23,scripts/harvest_laft_pioneer.py:111-122 (sale date column); scripts/sync-laft-to-supabase.ps1:266
+fl_laft_pioneer,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_pioneer,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+fl_laft_pioneer,AVAILABLE,official_url,CAPTURED,"properties.url_auction (county list page, kind 'county')",23/23,scripts/sync-laft-to-supabase.ps1:250-255
+fl_laft_pioneer,AVAILABLE,opening_or_minimum_bid,CAPTURED,properties.bid / purchase_amount + purchase_amount_kind,23/23,scripts/harvest_laft_pioneer.py:111-122 (bid column); scripts/laft_lifecycle.py (purchase_amount_kind)
+fl_laft_pioneer,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_pioneer,AVAILABLE,assessed_value,NOT_YET_VERIFIED,,,scripts/harvest_laft_pioneer.py:111-122: no assessed column mapped
+fl_laft_pioneer,AVAILABLE,event_status,CAPTURED,properties.inventory_status,,scripts/inventory_status_writer.py; harvesters/governance/inventory_status.py
+fl_laft_pioneer,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+fl_laft_pioneer,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_pioneer,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_pioneer,AVAILABLE,certificate_id,CAPTURED,properties.certificate_no,,scripts/harvest_laft_pioneer.py:114; scripts/laft_source_fields.py:63-69 (fill-blank carry)
+fl_laft_pioneer,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,scripts/laft_lifecycle.py:107 (migration 017 columns)
+fl_laft_pioneer,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_path_type/_scope/_evidence + otc_provenance.acquisition,,scripts/purchase_path_engine.py; data/purchase_path_evidence.csv; public/acquisition-evidence.json
+fl_laft_pioneer,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_pioneer,AVAILABLE,winning_bid_or_sale_amount,PUBLISHED_NOT_CAPTURED,,,scripts/harvest_laft_pioneer.py:119 reads 'high_bid' (and line 118 'status'); the sync does not send it
+fl_laft_pioneer,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_pioneer,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_pioneer,AVAILABLE,source_publication_date,NOT_YET_VERIFIED,,,no list date extraction in this harvester
+fl_laft_pioneer,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,21/21 active stamped,scripts/laft_lifecycle.py:573
+fl_laft_pioneer,AVAILABLE,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,scripts/unit_freshness.py; baseline/registry_live.json
+fl_laft_realtdm,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+fl_laft_realtdm,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+fl_laft_realtdm,AVAILABLE,parcel_id,CAPTURED,properties.parcel,43/43,scripts/harvest_laft_realtdm.py:331-356 (parcel column) ; scripts/sync-laft-to-supabase.ps1:265
+fl_laft_realtdm,AVAILABLE,case_number,CAPTURED,properties.case_no,,scripts/harvest_laft_realtdm.py:331
+fl_laft_realtdm,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_realtdm,AVAILABLE,situs_address,NOT_YET_VERIFIED,properties.address,43/43,scripts/harvest_laft_realtdm.py:331-356: no address column mapped; the sync writes a placeholder (measured fill counts placeholder text written when no address is published - sync-laft-to-supabase.ps1:220-225)
+fl_laft_realtdm,AVAILABLE,legal_description,NOT_YET_VERIFIED,,42/43,scripts/harvest_laft_realtdm.py:331-356: no legal-description column mapped
+fl_laft_realtdm,AVAILABLE,auction_date,CAPTURED,"properties.sale_date (the original tax-deed sale date, not an upcoming auction)",43/43,scripts/harvest_laft_realtdm.py:331-356 (sale date column); scripts/sync-laft-to-supabase.ps1:266
+fl_laft_realtdm,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_realtdm,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+fl_laft_realtdm,AVAILABLE,official_url,CAPTURED,"properties.url_auction (county list page, kind 'county')",43/43,scripts/sync-laft-to-supabase.ps1:250-255
+fl_laft_realtdm,AVAILABLE,opening_or_minimum_bid,CAPTURED,properties.bid / purchase_amount + purchase_amount_kind,41/43,scripts/harvest_laft_realtdm.py:331-356 (bid column); scripts/laft_lifecycle.py (purchase_amount_kind)
+fl_laft_realtdm,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_realtdm,AVAILABLE,assessed_value,NOT_YET_VERIFIED,,,scripts/harvest_laft_realtdm.py:331-356: no assessed column mapped
+fl_laft_realtdm,AVAILABLE,event_status,CAPTURED,properties.inventory_status,,scripts/inventory_status_writer.py; harvesters/governance/inventory_status.py
+fl_laft_realtdm,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+fl_laft_realtdm,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_realtdm,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_realtdm,AVAILABLE,certificate_id,NOT_YET_VERIFIED,,,scripts/harvest_laft_realtdm.py:331-356: no certificate column mapped
+fl_laft_realtdm,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,scripts/laft_lifecycle.py:107 (migration 017 columns)
+fl_laft_realtdm,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_path_type/_scope/_evidence + otc_provenance.acquisition,,scripts/purchase_path_engine.py; data/purchase_path_evidence.csv; public/acquisition-evidence.json
+fl_laft_realtdm,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_realtdm,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_realtdm,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_realtdm,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_realtdm,AVAILABLE,source_publication_date,NOT_YET_VERIFIED,,,no list date extraction in this harvester
+fl_laft_realtdm,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,40/40 active stamped,scripts/laft_lifecycle.py:573
+fl_laft_realtdm,AVAILABLE,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,scripts/unit_freshness.py; baseline/registry_live.json
+fl_laft_osceola,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+fl_laft_osceola,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+fl_laft_osceola,AVAILABLE,parcel_id,CAPTURED,properties.parcel,10/10,scripts/harvest_laft_osceola.py:112-128 (parcel column) ; scripts/sync-laft-to-supabase.ps1:265
+fl_laft_osceola,AVAILABLE,case_number,CAPTURED,properties.case_no (tax_number),,scripts/harvest_laft_osceola.py:113
+fl_laft_osceola,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_osceola,AVAILABLE,situs_address,NOT_YET_VERIFIED,properties.address,10/10,scripts/harvest_laft_osceola.py:112-128: no address column mapped; the sync writes a placeholder (measured fill counts placeholder text written when no address is published - sync-laft-to-supabase.ps1:220-225)
+fl_laft_osceola,AVAILABLE,legal_description,NOT_YET_VERIFIED,,10/10,scripts/harvest_laft_osceola.py:112-128: no legal-description column mapped
+fl_laft_osceola,AVAILABLE,auction_date,CAPTURED,"properties.sale_date (the original tax-deed sale date, not an upcoming auction)",10/10,scripts/harvest_laft_osceola.py:112-128 (sale date column); scripts/sync-laft-to-supabase.ps1:266
+fl_laft_osceola,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_osceola,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+fl_laft_osceola,AVAILABLE,official_url,CAPTURED,"properties.url_auction (county list page, kind 'county')",10/10,scripts/sync-laft-to-supabase.ps1:250-255
+fl_laft_osceola,AVAILABLE,opening_or_minimum_bid,CAPTURED,properties.bid / purchase_amount + purchase_amount_kind,10/10,scripts/harvest_laft_osceola.py:112-128 (bid column); scripts/laft_lifecycle.py (purchase_amount_kind)
+fl_laft_osceola,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_osceola,AVAILABLE,assessed_value,NOT_YET_VERIFIED,,,scripts/harvest_laft_osceola.py:112-128: no assessed column mapped
+fl_laft_osceola,AVAILABLE,event_status,CAPTURED,properties.inventory_status,,scripts/inventory_status_writer.py; harvesters/governance/inventory_status.py
+fl_laft_osceola,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+fl_laft_osceola,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_osceola,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_osceola,AVAILABLE,certificate_id,NOT_YET_VERIFIED,,,scripts/harvest_laft_osceola.py:112-128: no certificate column mapped
+fl_laft_osceola,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,scripts/laft_lifecycle.py:107 (migration 017 columns)
+fl_laft_osceola,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_path_type/_scope/_evidence + otc_provenance.acquisition,,scripts/purchase_path_engine.py; data/purchase_path_evidence.csv; public/acquisition-evidence.json
+fl_laft_osceola,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_osceola,AVAILABLE,winning_bid_or_sale_amount,PUBLISHED_NOT_CAPTURED,,,scripts/harvest_laft_osceola.py:116 reads bid_amt as 'high_bid'; not sent by the sync
+fl_laft_osceola,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_osceola,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_osceola,AVAILABLE,source_publication_date,NOT_YET_VERIFIED,,,no list date extraction in this harvester
+fl_laft_osceola,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,10/10 active stamped,scripts/laft_lifecycle.py:573
+fl_laft_osceola,AVAILABLE,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,scripts/unit_freshness.py; baseline/registry_live.json
+fl_laft_leon,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+fl_laft_leon,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+fl_laft_leon,AVAILABLE,parcel_id,CAPTURED,properties.parcel,2/2,scripts/harvest_laft_leon.py:59-73 (parcel column) ; scripts/sync-laft-to-supabase.ps1:265
+fl_laft_leon,AVAILABLE,case_number,NOT_YET_VERIFIED,properties.case_no holds NewCert (a certificate number),,scripts/harvest_laft_leon.py:60
+fl_laft_leon,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_leon,AVAILABLE,situs_address,CAPTURED,properties.address,2/2,scripts/harvest_laft_leon.py:62 (Legal_Address)
+fl_laft_leon,AVAILABLE,legal_description,CAPTURED,properties.legal_desc,2/2,scripts/harvest_laft_leon.py:63; scripts/laft_source_fields.py:63-69 (fill-blank carry)
+fl_laft_leon,AVAILABLE,auction_date,CAPTURED,"properties.sale_date (the original tax-deed sale date, not an upcoming auction)",2/2,scripts/harvest_laft_leon.py:59-73 (sale date column); scripts/sync-laft-to-supabase.ps1:266
+fl_laft_leon,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_leon,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+fl_laft_leon,AVAILABLE,official_url,CAPTURED,"properties.url_auction (county list page, kind 'county')",2/2,scripts/sync-laft-to-supabase.ps1:250-255
+fl_laft_leon,AVAILABLE,opening_or_minimum_bid,CAPTURED,properties.bid / purchase_amount + purchase_amount_kind,2/2,scripts/harvest_laft_leon.py:59-73 (bid column); scripts/laft_lifecycle.py (purchase_amount_kind)
+fl_laft_leon,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_leon,AVAILABLE,assessed_value,CAPTURED,properties.assessed,,scripts/harvest_laft_leon.py:65; scripts/laft_source_fields.py:63-69 (fill-blank carry)
+fl_laft_leon,AVAILABLE,event_status,CAPTURED,properties.inventory_status,,scripts/inventory_status_writer.py; harvesters/governance/inventory_status.py
+fl_laft_leon,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+fl_laft_leon,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_leon,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_leon,AVAILABLE,certificate_id,CAPTURED,properties.case_no (NewCert),,scripts/harvest_laft_leon.py:60
+fl_laft_leon,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,scripts/laft_lifecycle.py:107 (migration 017 columns)
+fl_laft_leon,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_path_type/_scope/_evidence + otc_provenance.acquisition,,scripts/purchase_path_engine.py; data/purchase_path_evidence.csv; public/acquisition-evidence.json
+fl_laft_leon,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_leon,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_leon,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_leon,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_leon,AVAILABLE,source_publication_date,NOT_YET_VERIFIED,,,no list date extraction in this harvester
+fl_laft_leon,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,2/2 active stamped,scripts/laft_lifecycle.py:573
+fl_laft_leon,AVAILABLE,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,scripts/unit_freshness.py; baseline/registry_live.json
+fl_laft_hillsborough,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+fl_laft_hillsborough,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+fl_laft_hillsborough,AVAILABLE,parcel_id,CAPTURED,properties.parcel,3/3,scripts/harvest_laft_hillsborough.py:146-154 (parcel column) ; scripts/sync-laft-to-supabase.ps1:265
+fl_laft_hillsborough,AVAILABLE,case_number,CAPTURED,properties.case_no (File #),,scripts/harvest_laft_hillsborough.py:147
+fl_laft_hillsborough,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_hillsborough,AVAILABLE,situs_address,NOT_YET_VERIFIED,properties.address,3/3,scripts/harvest_laft_hillsborough.py:146-154: no address column mapped; the sync writes a placeholder (measured fill counts placeholder text written when no address is published - sync-laft-to-supabase.ps1:220-225)
+fl_laft_hillsborough,AVAILABLE,legal_description,NOT_YET_VERIFIED,,0/3,scripts/harvest_laft_hillsborough.py:146-154: no legal-description column mapped
+fl_laft_hillsborough,AVAILABLE,auction_date,CAPTURED,"properties.sale_date (the original tax-deed sale date, not an upcoming auction)",3/3,scripts/harvest_laft_hillsborough.py:146-154 (sale date column); scripts/sync-laft-to-supabase.ps1:266
+fl_laft_hillsborough,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_hillsborough,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+fl_laft_hillsborough,AVAILABLE,official_url,CAPTURED,"properties.url_auction (county list page, kind 'county')",3/3,scripts/sync-laft-to-supabase.ps1:250-255
+fl_laft_hillsborough,AVAILABLE,opening_or_minimum_bid,CAPTURED,properties.bid / purchase_amount + purchase_amount_kind,3/3,scripts/harvest_laft_hillsborough.py:146-154 (bid column); scripts/laft_lifecycle.py (purchase_amount_kind)
+fl_laft_hillsborough,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_hillsborough,AVAILABLE,assessed_value,NOT_YET_VERIFIED,,,scripts/harvest_laft_hillsborough.py:146-154: no assessed column mapped
+fl_laft_hillsborough,AVAILABLE,event_status,CAPTURED,properties.inventory_status,,scripts/inventory_status_writer.py; harvesters/governance/inventory_status.py
+fl_laft_hillsborough,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+fl_laft_hillsborough,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_hillsborough,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_hillsborough,AVAILABLE,certificate_id,CAPTURED,properties.certificate_no,,scripts/harvest_laft_hillsborough.py:150; scripts/laft_source_fields.py:63-69 (fill-blank carry)
+fl_laft_hillsborough,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,scripts/laft_lifecycle.py:107 (migration 017 columns)
+fl_laft_hillsborough,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_path_type/_scope/_evidence + otc_provenance.acquisition,,scripts/purchase_path_engine.py; data/purchase_path_evidence.csv; public/acquisition-evidence.json
+fl_laft_hillsborough,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_hillsborough,AVAILABLE,winning_bid_or_sale_amount,PUBLISHED_NOT_CAPTURED,,,scripts/harvest_laft_hillsborough.py:153 reads 'Winning Bid'; not sent by the sync
+fl_laft_hillsborough,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_hillsborough,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_hillsborough,AVAILABLE,source_publication_date,NOT_YET_VERIFIED,,,no list date extraction in this harvester
+fl_laft_hillsborough,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,3/3 active stamped,scripts/laft_lifecycle.py:573
+fl_laft_hillsborough,AVAILABLE,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,scripts/unit_freshness.py; baseline/registry_live.json
+fl_laft_stlucie,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+fl_laft_stlucie,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+fl_laft_stlucie,AVAILABLE,parcel_id,CAPTURED,properties.parcel,3/3,scripts/harvest_laft_stlucie.py:99-110 (parcel column) ; scripts/sync-laft-to-supabase.ps1:265
+fl_laft_stlucie,AVAILABLE,case_number,CAPTURED,properties.case_no,,scripts/harvest_laft_stlucie.py:101
+fl_laft_stlucie,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_stlucie,AVAILABLE,situs_address,NOT_YET_VERIFIED,properties.address,3/3,scripts/harvest_laft_stlucie.py:99-110: no address column mapped; the sync writes a placeholder (measured fill counts placeholder text written when no address is published - sync-laft-to-supabase.ps1:220-225)
+fl_laft_stlucie,AVAILABLE,legal_description,NOT_YET_VERIFIED,,3/3,scripts/harvest_laft_stlucie.py:99-110: no legal-description column mapped
+fl_laft_stlucie,AVAILABLE,auction_date,CAPTURED,"properties.sale_date (the original tax-deed sale date, not an upcoming auction)",3/3,scripts/harvest_laft_stlucie.py:99-110 (sale date column); scripts/sync-laft-to-supabase.ps1:266
+fl_laft_stlucie,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_stlucie,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+fl_laft_stlucie,AVAILABLE,official_url,CAPTURED,"properties.url_auction (county list page, kind 'county')",3/3,scripts/sync-laft-to-supabase.ps1:250-255
+fl_laft_stlucie,AVAILABLE,opening_or_minimum_bid,CAPTURED,properties.bid / purchase_amount + purchase_amount_kind,3/3,scripts/harvest_laft_stlucie.py:99-110 (bid column); scripts/laft_lifecycle.py (purchase_amount_kind)
+fl_laft_stlucie,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_stlucie,AVAILABLE,assessed_value,NOT_YET_VERIFIED,,,scripts/harvest_laft_stlucie.py:99-110: no assessed column mapped
+fl_laft_stlucie,AVAILABLE,event_status,CAPTURED,properties.inventory_status,,scripts/inventory_status_writer.py; harvesters/governance/inventory_status.py
+fl_laft_stlucie,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+fl_laft_stlucie,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_stlucie,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_stlucie,AVAILABLE,certificate_id,CAPTURED,properties.certificate_no,,scripts/harvest_laft_stlucie.py:102; scripts/laft_source_fields.py:63-69 (fill-blank carry)
+fl_laft_stlucie,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,scripts/laft_lifecycle.py:107 (migration 017 columns)
+fl_laft_stlucie,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_path_type/_scope/_evidence + otc_provenance.acquisition,,scripts/purchase_path_engine.py; data/purchase_path_evidence.csv; public/acquisition-evidence.json
+fl_laft_stlucie,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_stlucie,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_stlucie,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_stlucie,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_stlucie,AVAILABLE,source_publication_date,NOT_YET_VERIFIED,,,no list date extraction in this harvester
+fl_laft_stlucie,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,3/3 active stamped,scripts/laft_lifecycle.py:573
+fl_laft_stlucie,AVAILABLE,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,scripts/unit_freshness.py; baseline/registry_live.json
+fl_laft_orange,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+fl_laft_orange,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+fl_laft_orange,AVAILABLE,parcel_id,CAPTURED,properties.parcel,3/3,scripts/harvest_laft_orange.py:212-229 (parcel column) ; scripts/sync-laft-to-supabase.ps1:265
+fl_laft_orange,AVAILABLE,case_number,CAPTURED,properties.case_no,,scripts/harvest_laft_orange.py:223
+fl_laft_orange,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_orange,AVAILABLE,situs_address,NOT_YET_VERIFIED,properties.address,3/3,scripts/harvest_laft_orange.py:212-229: no address column mapped; the sync writes a placeholder (measured fill counts placeholder text written when no address is published - sync-laft-to-supabase.ps1:220-225)
+fl_laft_orange,AVAILABLE,legal_description,NOT_YET_VERIFIED,,3/3,scripts/harvest_laft_orange.py:212-229: no legal-description column mapped
+fl_laft_orange,AVAILABLE,auction_date,CAPTURED,"properties.sale_date (the original tax-deed sale date, not an upcoming auction)",3/3,scripts/harvest_laft_orange.py:212-229 (sale date column); scripts/sync-laft-to-supabase.ps1:266
+fl_laft_orange,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_orange,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+fl_laft_orange,AVAILABLE,official_url,CAPTURED,"properties.url_auction (county list page, kind 'county')",3/3,scripts/sync-laft-to-supabase.ps1:250-255
+fl_laft_orange,AVAILABLE,opening_or_minimum_bid,CAPTURED,properties.bid / purchase_amount + purchase_amount_kind,3/3,scripts/harvest_laft_orange.py:212-229 (bid column); scripts/laft_lifecycle.py (purchase_amount_kind)
+fl_laft_orange,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_orange,AVAILABLE,assessed_value,NOT_YET_VERIFIED,,,scripts/harvest_laft_orange.py:212-229: no assessed column mapped
+fl_laft_orange,AVAILABLE,event_status,CAPTURED,properties.inventory_status,,scripts/inventory_status_writer.py; harvesters/governance/inventory_status.py
+fl_laft_orange,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+fl_laft_orange,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_orange,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_orange,AVAILABLE,certificate_id,NOT_YET_VERIFIED,,,scripts/harvest_laft_orange.py:212-229: no certificate column mapped
+fl_laft_orange,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,scripts/laft_lifecycle.py:107 (migration 017 columns)
+fl_laft_orange,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_path_type/_scope/_evidence + otc_provenance.acquisition,,scripts/purchase_path_engine.py; data/purchase_path_evidence.csv; public/acquisition-evidence.json
+fl_laft_orange,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_orange,AVAILABLE,winning_bid_or_sale_amount,PUBLISHED_NOT_CAPTURED,,,scripts/harvest_laft_orange.py:229 reads 'high_bid'; not sent by the sync
+fl_laft_orange,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+fl_laft_orange,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+fl_laft_orange,AVAILABLE,source_publication_date,NOT_YET_VERIFIED,,,no list date extraction in this harvester
+fl_laft_orange,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,3/3 active stamped,scripts/laft_lifecycle.py:573
+fl_laft_orange,AVAILABLE,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,scripts/unit_freshness.py; baseline/registry_live.json
+tx_realauction,AUCTIONS,state,CAPTURED,properties.state,,constant per harvester / adapter config
+tx_realauction,AUCTIONS,county,CAPTURED,properties.county,,harvester county list / adapter config county
+tx_realauction,AUCTIONS,parcel_id,CAPTURED,properties.case_no (CAD account number; properties.parcel holds the tax-suit cause number),,scripts/sync-texas-to-supabase.py:303-304; CLAUDE.md 'Texas parcel is the tax-suit CAUSE number'
+tx_realauction,AUCTIONS,case_number,CAPTURED,properties.parcel (tax-suit cause number),,scripts/sync-texas-to-supabase.py:304
+tx_realauction,AUCTIONS,sale_event_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_realauction,AUCTIONS,situs_address,CAPTURED,properties.address,103/103,harvesters/texas_harvester.py:374/390; scripts/sync-texas-to-supabase.py:295 (placeholder 'Account <n>' when blank)
+tx_realauction,AUCTIONS,legal_description,NOT_PUBLISHED,,0/103,harvesters/texas_harvester.py:389 'legal_description: None # not published by this vendor'
+tx_realauction,AUCTIONS,auction_date,CAPTURED,properties.sale_date,103/103,harvesters/texas_harvester.py:369/386; scripts/sync-texas-to-supabase.py:309
+tx_realauction,AUCTIONS,auction_time,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_realauction,AUCTIONS,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+tx_realauction,AUCTIONS,official_url,CAPTURED,properties.url_auction (kind 'sale'),103/103,harvesters/texas_harvester.py:395-396; scripts/sync-texas-to-supabase.py:330-334
+tx_realauction,AUCTIONS,opening_or_minimum_bid,CAPTURED,properties.min_bid / bid,103/103,harvesters/texas_harvester.py:371/387; scripts/sync-texas-to-supabase.py:306-307
+tx_realauction,AUCTIONS,judgment_amount,NOT_YET_VERIFIED,,,not read by the harvester; whether the vendor publishes it is not established
+tx_realauction,AUCTIONS,assessed_value,CAPTURED,properties.assessed (holds a market / adjudged value),,harvesters/texas_harvester.py:372/388; scripts/sync-texas-to-supabase.py:308
+tx_realauction,AUCTIONS,event_status,NOT_YET_VERIFIED,properties.tx_sale_status,,"harvesters/texas_harvester.py:397 ('Sale Type' read, observed blank, not a status vocabulary)"
+tx_realauction,AUCTIONS,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62; measured NULL on every TX row
+tx_realauction,AUCTIONS,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_realauction,AUCTIONS,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_realauction,AUCTIONS,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_realauction,AUCTIONS,government_held_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_realauction,AUCTIONS,purchase_or_application_process,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_realauction,AUCTIONS,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_realauction,AUCTIONS,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_realauction,AUCTIONS,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_realauction,AUCTIONS,cancellation_postponement,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_realauction,AUCTIONS,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_realauction,AUCTIONS,retrieval_timestamp,NOT_TRACKED,,0/103 active stamped,scripts/sync-texas-to-supabase.py sends no last_seen_at; no stamp step for TX auctions
+tx_realauction,AUCTIONS,last_verification,NOT_TRACKED,,,absent from the live county_source_registry table; manual-only
+tx_lgbs,AUCTIONS,state,CAPTURED,properties.state,,constant per harvester / adapter config
+tx_lgbs,AUCTIONS,county,CAPTURED,properties.county,,harvester county list / adapter config county
+tx_lgbs,AUCTIONS,parcel_id,CAPTURED,properties.case_no (CAD account number; properties.parcel holds the tax-suit cause number),,scripts/sync-texas-to-supabase.py:303-304; CLAUDE.md 'Texas parcel is the tax-suit CAUSE number'
+tx_lgbs,AUCTIONS,case_number,CAPTURED,properties.parcel (tax-suit cause number),,scripts/sync-texas-to-supabase.py:304
+tx_lgbs,AUCTIONS,sale_event_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AUCTIONS,situs_address,CAPTURED,properties.address,19/19,harvesters/texas_harvester.py:374/390; scripts/sync-texas-to-supabase.py:295 (placeholder 'Account <n>' when blank)
+tx_lgbs,AUCTIONS,legal_description,CAPTURED,properties.legal_desc (LGBS sale_notes),10/19,harvesters/texas_harvester.py:373; scripts/sync-texas-to-supabase.py:310
+tx_lgbs,AUCTIONS,auction_date,CAPTURED,properties.sale_date,19/19,harvesters/texas_harvester.py:369/386; scripts/sync-texas-to-supabase.py:309
+tx_lgbs,AUCTIONS,auction_time,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AUCTIONS,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+tx_lgbs,AUCTIONS,official_url,NOT_YET_VERIFIED,,0/19,harvesters/texas_harvester.py:379 'no per-property or per-sale LGBS URL is known - never composed'
+tx_lgbs,AUCTIONS,opening_or_minimum_bid,CAPTURED,properties.min_bid / bid,19/19,harvesters/texas_harvester.py:371/387; scripts/sync-texas-to-supabase.py:306-307
+tx_lgbs,AUCTIONS,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AUCTIONS,assessed_value,CAPTURED,properties.assessed (holds a market / adjudged value),,harvesters/texas_harvester.py:372/388; scripts/sync-texas-to-supabase.py:308
+tx_lgbs,AUCTIONS,event_status,CAPTURED,properties.tx_sale_status (vendor status verbatim),,harvesters/texas_harvester.py:381; scripts/sync-texas-to-supabase.py:335-338
+tx_lgbs,AUCTIONS,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62; measured NULL on every TX row
+tx_lgbs,AUCTIONS,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AUCTIONS,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AUCTIONS,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AUCTIONS,government_held_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AUCTIONS,purchase_or_application_process,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AUCTIONS,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AUCTIONS,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AUCTIONS,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AUCTIONS,cancellation_postponement,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AUCTIONS,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AUCTIONS,retrieval_timestamp,NOT_TRACKED,,0/19 active stamped,scripts/sync-texas-to-supabase.py sends no last_seen_at; no stamp step for TX auctions
+tx_lgbs,AUCTIONS,last_verification,NOT_TRACKED,,,manual-only source (scripts/unit_freshness.py MANUAL_ONLY_SOURCES); unit freshness never advanced
+tx_lgbs,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+tx_lgbs,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+tx_lgbs,AVAILABLE,parcel_id,CAPTURED,properties.case_no (CAD account number; properties.parcel holds the tax-suit cause number),,scripts/sync-texas-to-supabase.py:303-304; CLAUDE.md 'Texas parcel is the tax-suit CAUSE number'
+tx_lgbs,AVAILABLE,case_number,CAPTURED,properties.parcel (tax-suit cause number),,scripts/sync-texas-to-supabase.py:304
+tx_lgbs,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+tx_lgbs,AVAILABLE,situs_address,CAPTURED,properties.address,421/421,harvesters/texas_harvester.py:374/390; scripts/sync-texas-to-supabase.py:295 (placeholder 'Account <n>' when blank)
+tx_lgbs,AVAILABLE,legal_description,CAPTURED,properties.legal_desc (LGBS sale_notes),236/421,harvesters/texas_harvester.py:373; scripts/sync-texas-to-supabase.py:310
+tx_lgbs,AVAILABLE,auction_date,NOT_YET_VERIFIED,properties.sale_date,0/421,struck-off rows: the LGBS sale date's meaning for an AVAILABLE row is not established
+tx_lgbs,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+tx_lgbs,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+tx_lgbs,AVAILABLE,official_url,NOT_YET_VERIFIED,,0/421,"harvesters/texas_harvester.py:379 'no per-property or per-sale LGBS URL is known'; lgbs.com is the listing, never the acquisition page (CLAUDE.md)"
+tx_lgbs,AVAILABLE,opening_or_minimum_bid,CAPTURED,properties.min_bid / bid,402/421,harvesters/texas_harvester.py:371/387; scripts/sync-texas-to-supabase.py:306-307
+tx_lgbs,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AVAILABLE,assessed_value,CAPTURED,properties.assessed (holds a market / adjudged value),,harvesters/texas_harvester.py:372/388; scripts/sync-texas-to-supabase.py:308
+tx_lgbs,AVAILABLE,event_status,CAPTURED,properties.tx_sale_status (vendor status verbatim),,harvesters/texas_harvester.py:381
+tx_lgbs,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62; measured NULL on every TX row
+tx_lgbs,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AVAILABLE,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AVAILABLE,government_held_status,NOT_YET_VERIFIED,,,struck-off status is the vendor's own status word; government-held not established per row
+tx_lgbs,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_path_* (county evidence rows only),,scripts/apply_acquisition_paths.py --state TX --source-id tx_lgbs; docs/gap-queue.md section F (7 counties publish no resale page)
+tx_lgbs,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+tx_lgbs,AVAILABLE,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tx_lgbs,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,382/421 active stamped,"scripts/lgbs_available_refresh.py (manual, attestation only)"
+tx_lgbs,AVAILABLE,last_verification,NOT_TRACKED,,,manual-only source (scripts/unit_freshness.py MANUAL_ONLY_SOURCES); unit freshness never advanced
+la_ebr_adjudicated,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+la_ebr_adjudicated,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+la_ebr_adjudicated,AVAILABLE,parcel_id,CAPTURED,properties.parcel,10334/10334,harvesters/otc/adapters/louisiana.py:275-276
+la_ebr_adjudicated,AVAILABLE,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+la_ebr_adjudicated,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+la_ebr_adjudicated,AVAILABLE,situs_address,CAPTURED,properties.address,10334/10334,harvesters/otc/adapters/louisiana.py:277 (PHYSICAL ADDRESS)
+la_ebr_adjudicated,AVAILABLE,legal_description,CAPTURED,properties.legal_desc,8351/10334,harvesters/otc/adapters/louisiana.py:277
+la_ebr_adjudicated,AVAILABLE,auction_date,NOT_TRACKED,,0/10334,harvesters/otc/model.py:191 refuses sale_date on a non-auction record
+la_ebr_adjudicated,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+la_ebr_adjudicated,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+la_ebr_adjudicated,AVAILABLE,official_url,CAPTURED,properties.url_auction (= the source's list_url),10334/10334,harvesters/otc/model.py:273
+la_ebr_adjudicated,AVAILABLE,opening_or_minimum_bid,NOT_PUBLISHED,purchase_amount_kind NOT_PUBLISHED,0/10334,"harvesters/otc/adapters/louisiana.py:108,269,280 (no price column)"
+la_ebr_adjudicated,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+la_ebr_adjudicated,AVAILABLE,assessed_value,CAPTURED,properties.assessed,,"harvesters/otc/adapters/louisiana.py:256,278"
+la_ebr_adjudicated,AVAILABLE,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+la_ebr_adjudicated,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+la_ebr_adjudicated,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+la_ebr_adjudicated,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+la_ebr_adjudicated,AVAILABLE,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+la_ebr_adjudicated,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,harvesters/otc/model.py to_properties_row (inventory_type)
+la_ebr_adjudicated,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_url / purchase_path_* (where configured or evidenced),,harvesters/otc/model.py to_properties_row; scripts/purchase_path_engine.py; data/purchase_path_evidence_expansion.csv
+la_ebr_adjudicated,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+la_ebr_adjudicated,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+la_ebr_adjudicated,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+la_ebr_adjudicated,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+la_ebr_adjudicated,AVAILABLE,source_publication_date,CAPTURED,properties.list_as_of / source_published_at (dataset rowsUpdatedAt),,"harvesters/otc/adapters/louisiana.py:200-206,271,282"
+la_ebr_adjudicated,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,10334/10334 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+la_ebr_adjudicated,AVAILABLE,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,baseline/registry_live.json
+mi_eaton_treasurer_sale,AUCTIONS,state,CAPTURED,properties.state,,constant per harvester / adapter config
+mi_eaton_treasurer_sale,AUCTIONS,county,CAPTURED,properties.county,,harvester county list / adapter config county
+mi_eaton_treasurer_sale,AUCTIONS,parcel_id,CAPTURED,properties.parcel,8/8,harvesters/otc/adapters/expansion.py:41 (lparcel)
+mi_eaton_treasurer_sale,AUCTIONS,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_eaton_treasurer_sale,AUCTIONS,sale_event_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_eaton_treasurer_sale,AUCTIONS,situs_address,CAPTURED,properties.address,8/8,harvesters/otc/adapters/expansion.py:41 (SITEADDRESS)
+mi_eaton_treasurer_sale,AUCTIONS,legal_description,CAPTURED,properties.legal_desc,8/8,harvesters/otc/adapters/expansion.py:41 (description)
+mi_eaton_treasurer_sale,AUCTIONS,auction_date,NOT_YET_VERIFIED,properties.sale_date,3/8,harvesters/otc/adapters/expansion.py:37-47 maps no sale date and sets no cycle_field; stored values exist (MI auctions 38/43) but their origin is not established from current code
+mi_eaton_treasurer_sale,AUCTIONS,auction_time,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_eaton_treasurer_sale,AUCTIONS,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+mi_eaton_treasurer_sale,AUCTIONS,official_url,CAPTURED,properties.url_auction (= the source's list_url),8/8,harvesters/otc/model.py:273
+mi_eaton_treasurer_sale,AUCTIONS,opening_or_minimum_bid,CAPTURED,properties.min_bid/purchase_amount (OPENING_BID),8/8,harvesters/otc/adapters/expansion.py:42-44 (minbid)
+mi_eaton_treasurer_sale,AUCTIONS,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_eaton_treasurer_sale,AUCTIONS,assessed_value,CAPTURED,properties.assessed (SEV),,harvesters/otc/adapters/expansion.py:43 (SEV_1)
+mi_eaton_treasurer_sale,AUCTIONS,event_status,CAPTURED,properties.inventory_status (sold from the layer's 'Has Been Sold' flag),,"harvesters/otc/adapters/expansion.py:42,46 (Sold); inventory_status.adapter_record_status"
+mi_eaton_treasurer_sale,AUCTIONS,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+mi_eaton_treasurer_sale,AUCTIONS,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_eaton_treasurer_sale,AUCTIONS,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_eaton_treasurer_sale,AUCTIONS,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_eaton_treasurer_sale,AUCTIONS,government_held_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_eaton_treasurer_sale,AUCTIONS,purchase_or_application_process,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_eaton_treasurer_sale,AUCTIONS,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_eaton_treasurer_sale,AUCTIONS,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_eaton_treasurer_sale,AUCTIONS,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_eaton_treasurer_sale,AUCTIONS,cancellation_postponement,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_eaton_treasurer_sale,AUCTIONS,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_eaton_treasurer_sale,AUCTIONS,retrieval_timestamp,CAPTURED,properties.last_seen_at,3/3 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+mi_eaton_treasurer_sale,AUCTIONS,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,baseline/registry_live.json
+mi_lenawee_tax_sale,AUCTIONS,state,CAPTURED,properties.state,,constant per harvester / adapter config
+mi_lenawee_tax_sale,AUCTIONS,county,CAPTURED,properties.county,,harvester county list / adapter config county
+mi_lenawee_tax_sale,AUCTIONS,parcel_id,CAPTURED,properties.parcel,35/35,harvesters/otc/adapters/expansion.py:53 (TAXID)
+mi_lenawee_tax_sale,AUCTIONS,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_lenawee_tax_sale,AUCTIONS,sale_event_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_lenawee_tax_sale,AUCTIONS,situs_address,CAPTURED,properties.address,35/35,harvesters/otc/adapters/expansion.py:53 (PropAdd)
+mi_lenawee_tax_sale,AUCTIONS,legal_description,CAPTURED,properties.legal_desc,35/35,harvesters/otc/adapters/expansion.py:53 (TaxDesc)
+mi_lenawee_tax_sale,AUCTIONS,auction_date,NOT_YET_VERIFIED,properties.sale_date,35/35,harvesters/otc/adapters/expansion.py:49-57 maps no sale date; stored values exist but origin not established
+mi_lenawee_tax_sale,AUCTIONS,auction_time,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_lenawee_tax_sale,AUCTIONS,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+mi_lenawee_tax_sale,AUCTIONS,official_url,CAPTURED,properties.url_auction (= the source's list_url),35/35,harvesters/otc/model.py:273
+mi_lenawee_tax_sale,AUCTIONS,opening_or_minimum_bid,CAPTURED,properties.min_bid/purchase_amount (OPENING_BID),35/35,"harvesters/otc/adapters/expansion.py:53,55 (MinBid)"
+mi_lenawee_tax_sale,AUCTIONS,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_lenawee_tax_sale,AUCTIONS,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_lenawee_tax_sale,AUCTIONS,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+mi_lenawee_tax_sale,AUCTIONS,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+mi_lenawee_tax_sale,AUCTIONS,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_lenawee_tax_sale,AUCTIONS,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_lenawee_tax_sale,AUCTIONS,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_lenawee_tax_sale,AUCTIONS,government_held_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_lenawee_tax_sale,AUCTIONS,purchase_or_application_process,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_lenawee_tax_sale,AUCTIONS,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_lenawee_tax_sale,AUCTIONS,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_lenawee_tax_sale,AUCTIONS,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_lenawee_tax_sale,AUCTIONS,cancellation_postponement,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_lenawee_tax_sale,AUCTIONS,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_lenawee_tax_sale,AUCTIONS,retrieval_timestamp,CAPTURED,properties.last_seen_at,35/35 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+mi_lenawee_tax_sale,AUCTIONS,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,baseline/registry_live.json
+wy_albany_tax_sale,AUCTIONS,state,CAPTURED,properties.state,,constant per harvester / adapter config
+wy_albany_tax_sale,AUCTIONS,county,CAPTURED,properties.county,,harvester county list / adapter config county
+wy_albany_tax_sale,AUCTIONS,parcel_id,CAPTURED,properties.parcel,253/253,harvesters/otc/adapters/expansion.py:63 (pidn)
+wy_albany_tax_sale,AUCTIONS,case_number,NOT_YET_VERIFIED,properties.case_no holds accountno,,harvesters/otc/adapters/expansion.py:63
+wy_albany_tax_sale,AUCTIONS,sale_event_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wy_albany_tax_sale,AUCTIONS,situs_address,CAPTURED,properties.address,253/253,harvesters/otc/adapters/expansion.py:63 (st_address)
+wy_albany_tax_sale,AUCTIONS,legal_description,CAPTURED,properties.legal_desc,253/253,harvesters/otc/adapters/expansion.py:64
+wy_albany_tax_sale,AUCTIONS,auction_date,NOT_YET_VERIFIED,,0/253,harvesters/otc/adapters/expansion.py:68-73: the county pages now name the 2027 sale; the 2026 list's date is not stored
+wy_albany_tax_sale,AUCTIONS,auction_time,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wy_albany_tax_sale,AUCTIONS,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+wy_albany_tax_sale,AUCTIONS,official_url,CAPTURED,properties.url_auction (= the source's list_url),253/253,harvesters/otc/model.py:273
+wy_albany_tax_sale,AUCTIONS,opening_or_minimum_bid,CAPTURED,"properties.purchase_amount (PUBLISHED_AMOUNT_KIND_UNSPECIFIED, 'TOTAL')",253/253,"harvesters/otc/adapters/expansion.py:64,66; never called a bid"
+wy_albany_tax_sale,AUCTIONS,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wy_albany_tax_sale,AUCTIONS,assessed_value,NOT_YET_VERIFIED,properties.market holds totalval,,harvesters/otc/adapters/expansion.py:64
+wy_albany_tax_sale,AUCTIONS,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+wy_albany_tax_sale,AUCTIONS,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+wy_albany_tax_sale,AUCTIONS,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wy_albany_tax_sale,AUCTIONS,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wy_albany_tax_sale,AUCTIONS,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wy_albany_tax_sale,AUCTIONS,government_held_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wy_albany_tax_sale,AUCTIONS,purchase_or_application_process,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wy_albany_tax_sale,AUCTIONS,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wy_albany_tax_sale,AUCTIONS,winning_bid_or_sale_amount,NOT_PUBLISHED,,,harvesters/otc/adapters/expansion.py:73-74 'the county publishes no result for it'
+wy_albany_tax_sale,AUCTIONS,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wy_albany_tax_sale,AUCTIONS,cancellation_postponement,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wy_albany_tax_sale,AUCTIONS,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wy_albany_tax_sale,AUCTIONS,retrieval_timestamp,CAPTURED,properties.last_seen_at,253/253 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+wy_albany_tax_sale,AUCTIONS,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,baseline/registry_live.json
+sc_york_tax_sale,AUCTIONS,state,CAPTURED,properties.state,,constant per harvester / adapter config
+sc_york_tax_sale,AUCTIONS,county,CAPTURED,properties.county,,harvester county list / adapter config county
+sc_york_tax_sale,AUCTIONS,parcel_id,CAPTURED,properties.parcel,853/853,harvesters/otc/adapters/expansion.py:88 (TAXMAPID)
+sc_york_tax_sale,AUCTIONS,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_york_tax_sale,AUCTIONS,sale_event_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_york_tax_sale,AUCTIONS,situs_address,CAPTURED,properties.address,853/853,harvesters/otc/adapters/expansion.py:88 (PropertyAddress)
+sc_york_tax_sale,AUCTIONS,legal_description,CAPTURED,properties.legal_desc,852/853,harvesters/otc/adapters/expansion.py:89
+sc_york_tax_sale,AUCTIONS,auction_date,NOT_YET_VERIFIED,,0/853,CLAUDE.md property-enrichment: 'York SC sale date: the source document returned 404'
+sc_york_tax_sale,AUCTIONS,auction_time,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_york_tax_sale,AUCTIONS,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+sc_york_tax_sale,AUCTIONS,official_url,CAPTURED,properties.url_auction (= the source's list_url),853/853,harvesters/otc/model.py:273
+sc_york_tax_sale,AUCTIONS,opening_or_minimum_bid,NOT_PUBLISHED,,0/853,harvesters/otc/adapters/expansion.py:94 'layer publishes no bid amount'
+sc_york_tax_sale,AUCTIONS,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_york_tax_sale,AUCTIONS,assessed_value,CAPTURED,properties.assessed,,harvesters/otc/adapters/expansion.py:91 (AsdTotVal)
+sc_york_tax_sale,AUCTIONS,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+sc_york_tax_sale,AUCTIONS,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+sc_york_tax_sale,AUCTIONS,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_york_tax_sale,AUCTIONS,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_york_tax_sale,AUCTIONS,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_york_tax_sale,AUCTIONS,government_held_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_york_tax_sale,AUCTIONS,purchase_or_application_process,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_york_tax_sale,AUCTIONS,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_york_tax_sale,AUCTIONS,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_york_tax_sale,AUCTIONS,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_york_tax_sale,AUCTIONS,cancellation_postponement,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_york_tax_sale,AUCTIONS,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_york_tax_sale,AUCTIONS,retrieval_timestamp,CAPTURED,properties.last_seen_at,853/853 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+sc_york_tax_sale,AUCTIONS,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,baseline/registry_live.json
+sc_oconee_tax_sale_list,AUCTIONS,state,CAPTURED,properties.state,,constant per harvester / adapter config
+sc_oconee_tax_sale_list,AUCTIONS,county,CAPTURED,properties.county,,harvester county list / adapter config county
+sc_oconee_tax_sale_list,AUCTIONS,parcel_id,CAPTURED,properties.parcel,,harvesters/otc/adapters/expansion.py:224 (map number)
+sc_oconee_tax_sale_list,AUCTIONS,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,sale_event_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,situs_address,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,legal_description,CAPTURED,properties.legal_desc,,harvesters/otc/adapters/expansion.py:224
+sc_oconee_tax_sale_list,AUCTIONS,auction_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,auction_time,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+sc_oconee_tax_sale_list,AUCTIONS,official_url,CAPTURED,properties.url_auction (= the source's list_url),,harvesters/otc/model.py:273
+sc_oconee_tax_sale_list,AUCTIONS,opening_or_minimum_bid,CAPTURED,"properties.purchase_amount ('total tax due', kind unspecified)",,harvesters/otc/adapters/expansion.py:225-226
+sc_oconee_tax_sale_list,AUCTIONS,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+sc_oconee_tax_sale_list,AUCTIONS,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+sc_oconee_tax_sale_list,AUCTIONS,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,government_held_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,purchase_or_application_process,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,cancellation_postponement,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_oconee_tax_sale_list,AUCTIONS,retrieval_timestamp,CAPTURED,properties.last_seen_at,,"configured; never read (UNREVIEWED auction source, gated before any request)"
+sc_oconee_tax_sale_list,AUCTIONS,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,baseline/registry_live.json
+co_douglas_tax_sale_list,AUCTIONS,state,CAPTURED,properties.state,,constant per harvester / adapter config
+co_douglas_tax_sale_list,AUCTIONS,county,CAPTURED,properties.county,,harvester county list / adapter config county
+co_douglas_tax_sale_list,AUCTIONS,parcel_id,CAPTURED,properties.parcel,,harvesters/otc/adapters/expansion.py:173 (Account_No)
+co_douglas_tax_sale_list,AUCTIONS,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_tax_sale_list,AUCTIONS,sale_event_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_tax_sale_list,AUCTIONS,situs_address,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_tax_sale_list,AUCTIONS,legal_description,CAPTURED,properties.legal_desc,,harvesters/otc/adapters/expansion.py:173
+co_douglas_tax_sale_list,AUCTIONS,auction_date,CAPTURED,properties.sale_date (cycle date per Tax_Year),,"harvesters/otc/adapters/expansion.py:176 (cycle_field Tax_Year, cycles 2025->2026-11-05); harvesters/otc/adapters/arcgis.py:357-380"
+co_douglas_tax_sale_list,AUCTIONS,auction_time,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_tax_sale_list,AUCTIONS,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+co_douglas_tax_sale_list,AUCTIONS,official_url,CAPTURED,properties.url_auction (= the source's list_url),,harvesters/otc/model.py:273
+co_douglas_tax_sale_list,AUCTIONS,opening_or_minimum_bid,CAPTURED,"properties.purchase_amount ('Total_Due', kind unspecified)",,harvesters/otc/adapters/expansion.py:174-175
+co_douglas_tax_sale_list,AUCTIONS,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_tax_sale_list,AUCTIONS,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_tax_sale_list,AUCTIONS,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+co_douglas_tax_sale_list,AUCTIONS,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+co_douglas_tax_sale_list,AUCTIONS,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_tax_sale_list,AUCTIONS,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_tax_sale_list,AUCTIONS,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_tax_sale_list,AUCTIONS,government_held_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_tax_sale_list,AUCTIONS,purchase_or_application_process,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_tax_sale_list,AUCTIONS,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_tax_sale_list,AUCTIONS,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_tax_sale_list,AUCTIONS,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_tax_sale_list,AUCTIONS,cancellation_postponement,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_tax_sale_list,AUCTIONS,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_tax_sale_list,AUCTIONS,retrieval_timestamp,CAPTURED,properties.last_seen_at,,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+co_douglas_tax_sale_list,AUCTIONS,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,baseline/registry_live.json
+co_morgan_treasurer_deed_auctions,AUCTIONS,state,CAPTURED,properties.state,,constant per harvester / adapter config
+co_morgan_treasurer_deed_auctions,AUCTIONS,county,CAPTURED,properties.county,,harvester county list / adapter config county
+co_morgan_treasurer_deed_auctions,AUCTIONS,parcel_id,CAPTURED,properties.parcel,,harvesters/otc/adapters/expansion.py:190
+co_morgan_treasurer_deed_auctions,AUCTIONS,case_number,CAPTURED,properties.case_no (tax deed #),,harvesters/otc/adapters/expansion.py:190
+co_morgan_treasurer_deed_auctions,AUCTIONS,sale_event_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_treasurer_deed_auctions,AUCTIONS,situs_address,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_treasurer_deed_auctions,AUCTIONS,legal_description,CAPTURED,properties.legal_desc ('property description and address'),,harvesters/otc/adapters/expansion.py:191
+co_morgan_treasurer_deed_auctions,AUCTIONS,auction_date,CAPTURED,properties.sale_date,,harvesters/otc/adapters/expansion.py:191
+co_morgan_treasurer_deed_auctions,AUCTIONS,auction_time,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_treasurer_deed_auctions,AUCTIONS,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+co_morgan_treasurer_deed_auctions,AUCTIONS,official_url,CAPTURED,properties.url_auction (= the source's list_url),,harvesters/otc/model.py:273
+co_morgan_treasurer_deed_auctions,AUCTIONS,opening_or_minimum_bid,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_treasurer_deed_auctions,AUCTIONS,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_treasurer_deed_auctions,AUCTIONS,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_treasurer_deed_auctions,AUCTIONS,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+co_morgan_treasurer_deed_auctions,AUCTIONS,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+co_morgan_treasurer_deed_auctions,AUCTIONS,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_treasurer_deed_auctions,AUCTIONS,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_treasurer_deed_auctions,AUCTIONS,certificate_id,CAPTURED,properties.certificate_no,,harvesters/otc/adapters/expansion.py:190
+co_morgan_treasurer_deed_auctions,AUCTIONS,government_held_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_treasurer_deed_auctions,AUCTIONS,purchase_or_application_process,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_treasurer_deed_auctions,AUCTIONS,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_treasurer_deed_auctions,AUCTIONS,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_treasurer_deed_auctions,AUCTIONS,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_treasurer_deed_auctions,AUCTIONS,cancellation_postponement,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_treasurer_deed_auctions,AUCTIONS,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_treasurer_deed_auctions,AUCTIONS,retrieval_timestamp,CAPTURED,properties.last_seen_at,,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+co_morgan_treasurer_deed_auctions,AUCTIONS,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,baseline/registry_live.json
+wi_green_tax_deed_sales,AUCTIONS,state,CAPTURED,properties.state,,constant per harvester / adapter config
+wi_green_tax_deed_sales,AUCTIONS,county,CAPTURED,properties.county,,harvester county list / adapter config county
+wi_green_tax_deed_sales,AUCTIONS,parcel_id,CAPTURED,properties.parcel,9/9,harvesters/otc/adapters/expansion.py:111
+wi_green_tax_deed_sales,AUCTIONS,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_green_tax_deed_sales,AUCTIONS,sale_event_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_green_tax_deed_sales,AUCTIONS,situs_address,CAPTURED,properties.address,9/9,harvesters/otc/adapters/expansion.py:111
+wi_green_tax_deed_sales,AUCTIONS,legal_description,NOT_YET_VERIFIED,,0/9,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_green_tax_deed_sales,AUCTIONS,auction_date,CAPTURED,properties.sale_date,9/9,harvesters/otc/adapters/expansion.py:112
+wi_green_tax_deed_sales,AUCTIONS,auction_time,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_green_tax_deed_sales,AUCTIONS,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+wi_green_tax_deed_sales,AUCTIONS,official_url,CAPTURED,properties.url_auction (= the source's list_url),9/9,harvesters/otc/model.py:273
+wi_green_tax_deed_sales,AUCTIONS,opening_or_minimum_bid,CAPTURED,properties.min_bid/purchase_amount (OPENING_BID),9/9,harvesters/otc/adapters/expansion.py:112-113
+wi_green_tax_deed_sales,AUCTIONS,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_green_tax_deed_sales,AUCTIONS,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_green_tax_deed_sales,AUCTIONS,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+wi_green_tax_deed_sales,AUCTIONS,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+wi_green_tax_deed_sales,AUCTIONS,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_green_tax_deed_sales,AUCTIONS,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_green_tax_deed_sales,AUCTIONS,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_green_tax_deed_sales,AUCTIONS,government_held_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_green_tax_deed_sales,AUCTIONS,purchase_or_application_process,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_green_tax_deed_sales,AUCTIONS,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_green_tax_deed_sales,AUCTIONS,winning_bid_or_sale_amount,CAPTURED,properties.result_amount (Previous Sales 'sale price'),,harvesters/otc/adapters/expansion.py:118-122; harvesters/otc/model.py:299-304
+wi_green_tax_deed_sales,AUCTIONS,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_green_tax_deed_sales,AUCTIONS,cancellation_postponement,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_green_tax_deed_sales,AUCTIONS,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_green_tax_deed_sales,AUCTIONS,retrieval_timestamp,CAPTURED,properties.last_seen_at,0/0 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+wi_green_tax_deed_sales,AUCTIONS,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,baseline/registry_live.json
+wi_dane_tax_deed_auction,AUCTIONS,state,CAPTURED,properties.state,,constant per harvester / adapter config
+wi_dane_tax_deed_auction,AUCTIONS,county,CAPTURED,properties.county,,harvester county list / adapter config county
+wi_dane_tax_deed_auction,AUCTIONS,parcel_id,CAPTURED,properties.parcel,,harvesters/otc/adapters/expansion.py:204
+wi_dane_tax_deed_auction,AUCTIONS,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_dane_tax_deed_auction,AUCTIONS,sale_event_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_dane_tax_deed_auction,AUCTIONS,situs_address,CAPTURED,properties.address,,harvesters/otc/adapters/expansion.py:204
+wi_dane_tax_deed_auction,AUCTIONS,legal_description,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_dane_tax_deed_auction,AUCTIONS,auction_date,CAPTURED,properties.sale_date (the Bid Due date),,"harvesters/otc/adapters/expansion.py:205,210"
+wi_dane_tax_deed_auction,AUCTIONS,auction_time,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_dane_tax_deed_auction,AUCTIONS,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+wi_dane_tax_deed_auction,AUCTIONS,official_url,CAPTURED,properties.url_auction (= the source's list_url),,harvesters/otc/model.py:273
+wi_dane_tax_deed_auction,AUCTIONS,opening_or_minimum_bid,CAPTURED,properties.min_bid/purchase_amount (OPENING_BID),,harvesters/otc/adapters/expansion.py:205-206
+wi_dane_tax_deed_auction,AUCTIONS,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_dane_tax_deed_auction,AUCTIONS,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_dane_tax_deed_auction,AUCTIONS,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+wi_dane_tax_deed_auction,AUCTIONS,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+wi_dane_tax_deed_auction,AUCTIONS,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_dane_tax_deed_auction,AUCTIONS,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_dane_tax_deed_auction,AUCTIONS,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_dane_tax_deed_auction,AUCTIONS,government_held_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_dane_tax_deed_auction,AUCTIONS,purchase_or_application_process,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_dane_tax_deed_auction,AUCTIONS,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_dane_tax_deed_auction,AUCTIONS,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_dane_tax_deed_auction,AUCTIONS,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_dane_tax_deed_auction,AUCTIONS,cancellation_postponement,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_dane_tax_deed_auction,AUCTIONS,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+wi_dane_tax_deed_auction,AUCTIONS,retrieval_timestamp,CAPTURED,properties.last_seen_at,,configured; never read (UNREVIEWED auction source)
+wi_dane_tax_deed_auction,AUCTIONS,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,baseline/registry_live.json
+co_douglas_county_held_liens,LIENS_CERTIFICATES,state,CAPTURED,properties.state,,constant per harvester / adapter config
+co_douglas_county_held_liens,LIENS_CERTIFICATES,county,CAPTURED,properties.county,,harvester county list / adapter config county
+co_douglas_county_held_liens,LIENS_CERTIFICATES,parcel_id,CAPTURED,properties.parcel (account_id),143/143,harvesters/otc/adapters/expansion.py:151
+co_douglas_county_held_liens,LIENS_CERTIFICATES,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_county_held_liens,LIENS_CERTIFICATES,sale_event_id,NOT_APPLICABLE,,,"a county-held certificate list carries the certificate, not a sale event or deed"
+co_douglas_county_held_liens,LIENS_CERTIFICATES,situs_address,NOT_YET_VERIFIED,,143/143,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_county_held_liens,LIENS_CERTIFICATES,legal_description,NOT_YET_VERIFIED,,116/143,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_county_held_liens,LIENS_CERTIFICATES,auction_date,NOT_YET_VERIFIED,,0/143,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_county_held_liens,LIENS_CERTIFICATES,auction_time,NOT_APPLICABLE,,,"a county-held certificate list carries the certificate, not a sale event or deed"
+co_douglas_county_held_liens,LIENS_CERTIFICATES,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+co_douglas_county_held_liens,LIENS_CERTIFICATES,official_url,CAPTURED,properties.url_auction (= the source's list_url),143/143,harvesters/otc/model.py:273
+co_douglas_county_held_liens,LIENS_CERTIFICATES,opening_or_minimum_bid,CAPTURED,"properties.purchase_amount ('lien_balance', kind unspecified)",143/143,"harvesters/otc/adapters/expansion.py:151,153"
+co_douglas_county_held_liens,LIENS_CERTIFICATES,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_county_held_liens,LIENS_CERTIFICATES,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_county_held_liens,LIENS_CERTIFICATES,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+co_douglas_county_held_liens,LIENS_CERTIFICATES,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+co_douglas_county_held_liens,LIENS_CERTIFICATES,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_county_held_liens,LIENS_CERTIFICATES,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_county_held_liens,LIENS_CERTIFICATES,certificate_id,CAPTURED,properties.certificate_no (lien_id),,harvesters/otc/adapters/expansion.py:151
+co_douglas_county_held_liens,LIENS_CERTIFICATES,government_held_status,CAPTURED,"implicit in source scope (where type = 'CHL', county-held liens)",,harvesters/otc/adapters/expansion.py:153
+co_douglas_county_held_liens,LIENS_CERTIFICATES,purchase_or_application_process,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_county_held_liens,LIENS_CERTIFICATES,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_county_held_liens,LIENS_CERTIFICATES,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_county_held_liens,LIENS_CERTIFICATES,deed_execution_recording,NOT_APPLICABLE,,,"a county-held certificate list carries the certificate, not a sale event or deed"
+co_douglas_county_held_liens,LIENS_CERTIFICATES,cancellation_postponement,NOT_APPLICABLE,,,"a county-held certificate list carries the certificate, not a sale event or deed"
+co_douglas_county_held_liens,LIENS_CERTIFICATES,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_douglas_county_held_liens,LIENS_CERTIFICATES,retrieval_timestamp,CAPTURED,properties.last_seen_at,138/138 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+co_douglas_county_held_liens,LIENS_CERTIFICATES,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,baseline/registry_live.json
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,state,CAPTURED,properties.state,,constant per harvester / adapter config
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,county,CAPTURED,properties.county,,harvester county list / adapter config county
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,parcel_id,CAPTURED,properties.parcel (acct #),3/3,harvesters/otc/adapters/expansion.py:100
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,sale_event_id,NOT_APPLICABLE,,,"a county-held certificate list carries the certificate, not a sale event or deed"
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,situs_address,NOT_YET_VERIFIED,,3/3,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,legal_description,CAPTURED,properties.legal_desc,3/3,harvesters/otc/adapters/expansion.py:101
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,auction_date,PUBLISHED_NOT_CAPTURED,otc_provenance only ('date eligible for auction'),,harvesters/otc/adapters/expansion.py:102; harvesters/otc/adapters/tabular.py:303-304
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,auction_time,NOT_APPLICABLE,,,"a county-held certificate list carries the certificate, not a sale event or deed"
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,official_url,CAPTURED,properties.url_auction (= the source's list_url),3/3,harvesters/otc/model.py:273
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,opening_or_minimum_bid,CAPTURED,properties.purchase_amount (FIXED_PURCHASE_PRICE),3/3,"harvesters/otc/adapters/expansion.py:101,103"
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,certificate_id,CAPTURED,properties.certificate_no (cert #),,harvesters/otc/adapters/expansion.py:100
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,government_held_status,CAPTURED,implicit in source scope (county-held certificate page),,data/county_source_registry.csv Morgan row
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,purchase_or_application_process,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,deed_execution_recording,NOT_APPLICABLE,,,"a county-held certificate list carries the certificate, not a sale event or deed"
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,cancellation_postponement,NOT_APPLICABLE,,,"a county-held certificate list carries the certificate, not a sale event or deed"
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,retrieval_timestamp,CAPTURED,properties.last_seen_at,3/3 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+co_morgan_county_held_certificates,LIENS_CERTIFICATES,last_verification,CAPTURED,county_source_registry.last_success_at (unit level),,baseline/registry_live.json
+mi_detroit_landbank_lots,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+mi_detroit_landbank_lots,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+mi_detroit_landbank_lots,AVAILABLE,parcel_id,CAPTURED,properties.parcel,30830/30830,harvesters/otc/adapters/expansion.py:273
+mi_detroit_landbank_lots,AVAILABLE,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_lots,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+mi_detroit_landbank_lots,AVAILABLE,situs_address,CAPTURED,properties.address (layer 'name' = Address),30830/30830,"harvesters/otc/adapters/expansion.py:273,279"
+mi_detroit_landbank_lots,AVAILABLE,legal_description,NOT_YET_VERIFIED,,0/30830,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_lots,AVAILABLE,auction_date,NOT_TRACKED,,0/30830,harvesters/otc/model.py:191 refuses sale_date on a non-auction record
+mi_detroit_landbank_lots,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+mi_detroit_landbank_lots,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+mi_detroit_landbank_lots,AVAILABLE,official_url,CAPTURED,properties.url_auction (= the source's list_url),30830/30830,harvesters/otc/model.py:273
+mi_detroit_landbank_lots,AVAILABLE,opening_or_minimum_bid,NOT_PUBLISHED,,0/30830,harvesters/otc/adapters/expansion.py:279 'No price published.'
+mi_detroit_landbank_lots,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_lots,AVAILABLE,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_lots,AVAILABLE,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+mi_detroit_landbank_lots,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+mi_detroit_landbank_lots,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_lots,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_lots,AVAILABLE,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_lots,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,harvesters/otc/model.py to_properties_row (inventory_type)
+mi_detroit_landbank_lots,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_url / purchase_path_* (where configured or evidenced),,harvesters/otc/model.py to_properties_row; scripts/purchase_path_engine.py; data/purchase_path_evidence_expansion.csv
+mi_detroit_landbank_lots,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_lots,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_lots,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_lots,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+mi_detroit_landbank_lots,AVAILABLE,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_lots,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,30590/30590 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+mi_detroit_landbank_lots,AVAILABLE,last_verification,NOT_TRACKED,,,absent from the live county_source_registry table (unit_freshness.py PATCHes existing rows only)
+mi_detroit_landbank_programs,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+mi_detroit_landbank_programs,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+mi_detroit_landbank_programs,AVAILABLE,parcel_id,CAPTURED,properties.parcel,12/12,harvesters/otc/adapters/expansion.py:288
+mi_detroit_landbank_programs,AVAILABLE,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_programs,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+mi_detroit_landbank_programs,AVAILABLE,situs_address,CAPTURED,properties.address,12/12,harvesters/otc/adapters/expansion.py:288
+mi_detroit_landbank_programs,AVAILABLE,legal_description,NOT_YET_VERIFIED,,0/12,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_programs,AVAILABLE,auction_date,NOT_TRACKED,,0/12,harvesters/otc/model.py:191 refuses sale_date on a non-auction record
+mi_detroit_landbank_programs,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+mi_detroit_landbank_programs,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+mi_detroit_landbank_programs,AVAILABLE,official_url,CAPTURED,properties.url_auction (= the source's list_url),12/12,harvesters/otc/model.py:273
+mi_detroit_landbank_programs,AVAILABLE,opening_or_minimum_bid,NOT_YET_VERIFIED,,0/12,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_programs,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_programs,AVAILABLE,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_programs,AVAILABLE,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+mi_detroit_landbank_programs,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+mi_detroit_landbank_programs,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_programs,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_programs,AVAILABLE,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_programs,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,harvesters/otc/model.py to_properties_row (inventory_type)
+mi_detroit_landbank_programs,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_url / purchase_path_* (where configured or evidenced),,harvesters/otc/model.py to_properties_row; scripts/purchase_path_engine.py; data/purchase_path_evidence_expansion.csv
+mi_detroit_landbank_programs,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_programs,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_programs,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_programs,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+mi_detroit_landbank_programs,AVAILABLE,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_detroit_landbank_programs,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,12/12 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+mi_detroit_landbank_programs,AVAILABLE,last_verification,NOT_TRACKED,,,absent from the live county_source_registry table (unit_freshness.py PATCHes existing rows only)
+mi_oceana_landbank,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+mi_oceana_landbank,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+mi_oceana_landbank,AVAILABLE,parcel_id,CAPTURED,properties.parcel,5/5,harvesters/otc/adapters/expansion.py:302
+mi_oceana_landbank,AVAILABLE,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_oceana_landbank,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+mi_oceana_landbank,AVAILABLE,situs_address,CAPTURED,properties.address,5/5,harvesters/otc/adapters/expansion.py:302
+mi_oceana_landbank,AVAILABLE,legal_description,NOT_YET_VERIFIED,,0/5,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_oceana_landbank,AVAILABLE,auction_date,NOT_TRACKED,,0/5,harvesters/otc/model.py:191 refuses sale_date on a non-auction record
+mi_oceana_landbank,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+mi_oceana_landbank,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+mi_oceana_landbank,AVAILABLE,official_url,CAPTURED,properties.url_auction (= the source's list_url),5/5,harvesters/otc/model.py:273
+mi_oceana_landbank,AVAILABLE,opening_or_minimum_bid,NOT_YET_VERIFIED,,0/5,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_oceana_landbank,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_oceana_landbank,AVAILABLE,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_oceana_landbank,AVAILABLE,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+mi_oceana_landbank,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+mi_oceana_landbank,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_oceana_landbank,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_oceana_landbank,AVAILABLE,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_oceana_landbank,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,harvesters/otc/model.py to_properties_row (inventory_type)
+mi_oceana_landbank,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_url (APPLICATION_FORM),,harvesters/otc/adapters/expansion.py:304-305
+mi_oceana_landbank,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_oceana_landbank,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_oceana_landbank,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_oceana_landbank,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+mi_oceana_landbank,AVAILABLE,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mi_oceana_landbank,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,5/5 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+mi_oceana_landbank,AVAILABLE,last_verification,NOT_TRACKED,,,absent from the live county_source_registry table (unit_freshness.py PATCHes existing rows only)
+sc_horry_forfeited_land,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+sc_horry_forfeited_land,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+sc_horry_forfeited_land,AVAILABLE,parcel_id,CAPTURED,properties.parcel (PIN),51/51,harvesters/otc/adapters/expansion.py:321
+sc_horry_forfeited_land,AVAILABLE,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_horry_forfeited_land,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+sc_horry_forfeited_land,AVAILABLE,situs_address,NOT_YET_VERIFIED,,51/51,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_horry_forfeited_land,AVAILABLE,legal_description,CAPTURED,properties.legal_desc,51/51,harvesters/otc/adapters/expansion.py:321
+sc_horry_forfeited_land,AVAILABLE,auction_date,NOT_TRACKED,,0/51,harvesters/otc/model.py:191 refuses sale_date on a non-auction record
+sc_horry_forfeited_land,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+sc_horry_forfeited_land,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+sc_horry_forfeited_land,AVAILABLE,official_url,CAPTURED,properties.url_auction (= the source's list_url),51/51,harvesters/otc/model.py:273
+sc_horry_forfeited_land,AVAILABLE,opening_or_minimum_bid,CAPTURED,properties.min_bid/purchase_amount (OPENING_BID),51/51,harvesters/otc/adapters/expansion.py:321-322
+sc_horry_forfeited_land,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_horry_forfeited_land,AVAILABLE,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_horry_forfeited_land,AVAILABLE,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+sc_horry_forfeited_land,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+sc_horry_forfeited_land,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_horry_forfeited_land,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,"harvesters/otc/adapters/sc_flc.py list_year_past_redemption: a statutory rule applied by year, not a published per-row field"
+sc_horry_forfeited_land,AVAILABLE,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_horry_forfeited_land,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,harvesters/otc/model.py to_properties_row (inventory_type)
+sc_horry_forfeited_land,AVAILABLE,purchase_or_application_process,CAPTURED,"properties.purchase_url (BID_FORM, county-wide)",,harvesters/otc/adapters/expansion.py:324-325
+sc_horry_forfeited_land,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_horry_forfeited_land,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_horry_forfeited_land,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_horry_forfeited_land,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+sc_horry_forfeited_land,AVAILABLE,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_horry_forfeited_land,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,51/51 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+sc_horry_forfeited_land,AVAILABLE,last_verification,NOT_TRACKED,,,absent from the live county_source_registry table (unit_freshness.py PATCHes existing rows only)
+sc_georgetown_forfeited_land,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+sc_georgetown_forfeited_land,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+sc_georgetown_forfeited_land,AVAILABLE,parcel_id,CAPTURED,properties.parcel (TMS #),1/1,harvesters/otc/adapters/sc_flc.py:350-368
+sc_georgetown_forfeited_land,AVAILABLE,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_georgetown_forfeited_land,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+sc_georgetown_forfeited_land,AVAILABLE,situs_address,NOT_YET_VERIFIED,,1/1,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_georgetown_forfeited_land,AVAILABLE,legal_description,CAPTURED,properties.legal_desc (Description),1/1,"harvesters/otc/adapters/sc_flc.py:109,368"
+sc_georgetown_forfeited_land,AVAILABLE,auction_date,PUBLISHED_NOT_CAPTURED,otc_provenance.tax_sale_date only,,"harvesters/otc/adapters/sc_flc.py:109,334,359 (the list's 'Tax Sale Date' read to apply the redemption rule)"
+sc_georgetown_forfeited_land,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+sc_georgetown_forfeited_land,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+sc_georgetown_forfeited_land,AVAILABLE,official_url,CAPTURED,properties.url_auction (= the source's list_url),1/1,harvesters/otc/model.py:273
+sc_georgetown_forfeited_land,AVAILABLE,opening_or_minimum_bid,CAPTURED,properties.purchase_amount (OPENING_BID),1/1,"harvesters/otc/adapters/sc_flc.py:108,322,369"
+sc_georgetown_forfeited_land,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_georgetown_forfeited_land,AVAILABLE,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_georgetown_forfeited_land,AVAILABLE,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+sc_georgetown_forfeited_land,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+sc_georgetown_forfeited_land,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_georgetown_forfeited_land,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,"harvesters/otc/adapters/sc_flc.py:19-24: past-redemption is derived from the sale date by statute rule, not a published field"
+sc_georgetown_forfeited_land,AVAILABLE,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_georgetown_forfeited_land,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,harvesters/otc/model.py to_properties_row (inventory_type)
+sc_georgetown_forfeited_land,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_url / purchase_path_* (where configured or evidenced),,harvesters/otc/model.py to_properties_row; scripts/purchase_path_engine.py; data/purchase_path_evidence_expansion.csv
+sc_georgetown_forfeited_land,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_georgetown_forfeited_land,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_georgetown_forfeited_land,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_georgetown_forfeited_land,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+sc_georgetown_forfeited_land,AVAILABLE,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+sc_georgetown_forfeited_land,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,1/1 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+sc_georgetown_forfeited_land,AVAILABLE,last_verification,NOT_TRACKED,,,absent from the live county_source_registry table (unit_freshness.py PATCHes existing rows only)
+mo_stl_lra_inventory,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+mo_stl_lra_inventory,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+mo_stl_lra_inventory,AVAILABLE,parcel_id,CAPTURED,properties.parcel (ParcelId),9778/9778,harvesters/otc/adapters/expansion.py:349
+mo_stl_lra_inventory,AVAILABLE,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mo_stl_lra_inventory,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+mo_stl_lra_inventory,AVAILABLE,situs_address,CAPTURED,properties.address,9778/9778,harvesters/otc/adapters/expansion.py:349
+mo_stl_lra_inventory,AVAILABLE,legal_description,CAPTURED,properties.legal_desc,9778/9778,harvesters/otc/adapters/expansion.py:349
+mo_stl_lra_inventory,AVAILABLE,auction_date,NOT_TRACKED,,0/9778,harvesters/otc/model.py:191 refuses sale_date on a non-auction record
+mo_stl_lra_inventory,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+mo_stl_lra_inventory,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+mo_stl_lra_inventory,AVAILABLE,official_url,CAPTURED,properties.url_auction (= the source's list_url),9778/9778,harvesters/otc/model.py:273
+mo_stl_lra_inventory,AVAILABLE,opening_or_minimum_bid,NOT_YET_VERIFIED,,0/9778,harvesters/otc/adapters/expansion.py:349-350 maps no amount column
+mo_stl_lra_inventory,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mo_stl_lra_inventory,AVAILABLE,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mo_stl_lra_inventory,AVAILABLE,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+mo_stl_lra_inventory,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+mo_stl_lra_inventory,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mo_stl_lra_inventory,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mo_stl_lra_inventory,AVAILABLE,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mo_stl_lra_inventory,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,harvesters/otc/model.py to_properties_row (inventory_type)
+mo_stl_lra_inventory,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_url / purchase_path_* (where configured or evidenced),,harvesters/otc/model.py to_properties_row; scripts/purchase_path_engine.py; data/purchase_path_evidence_expansion.csv
+mo_stl_lra_inventory,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mo_stl_lra_inventory,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mo_stl_lra_inventory,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mo_stl_lra_inventory,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+mo_stl_lra_inventory,AVAILABLE,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mo_stl_lra_inventory,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,9778/9778 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+mo_stl_lra_inventory,AVAILABLE,last_verification,NOT_TRACKED,,,absent from the live county_source_registry table (unit_freshness.py PATCHes existing rows only)
+ok_oklahoma_county_owned,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+ok_oklahoma_county_owned,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+ok_oklahoma_county_owned,AVAILABLE,parcel_id,CAPTURED,properties.parcel,195/195,harvesters/otc/adapters/expansion.py:366
+ok_oklahoma_county_owned,AVAILABLE,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+ok_oklahoma_county_owned,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+ok_oklahoma_county_owned,AVAILABLE,situs_address,NOT_YET_VERIFIED,,195/195,harvesters/otc/adapters/expansion.py:367: address and legal description share one column; stored in legal_desc
+ok_oklahoma_county_owned,AVAILABLE,legal_description,CAPTURED,properties.legal_desc ('Physical Address Per Assessor/Legal Description' - one combined column),195/195,harvesters/otc/adapters/expansion.py:367
+ok_oklahoma_county_owned,AVAILABLE,auction_date,NOT_TRACKED,,0/195,harvesters/otc/model.py:191 refuses sale_date on a non-auction record
+ok_oklahoma_county_owned,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+ok_oklahoma_county_owned,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+ok_oklahoma_county_owned,AVAILABLE,official_url,CAPTURED,properties.url_auction (= the source's list_url),195/195,harvesters/otc/model.py:273
+ok_oklahoma_county_owned,AVAILABLE,opening_or_minimum_bid,CAPTURED,"properties.purchase_amount ('Suggested Initial Bid Amount', kind unspecified)",195/195,harvesters/otc/adapters/expansion.py:368-369
+ok_oklahoma_county_owned,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+ok_oklahoma_county_owned,AVAILABLE,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+ok_oklahoma_county_owned,AVAILABLE,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+ok_oklahoma_county_owned,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+ok_oklahoma_county_owned,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+ok_oklahoma_county_owned,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+ok_oklahoma_county_owned,AVAILABLE,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+ok_oklahoma_county_owned,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,harvesters/otc/model.py to_properties_row (inventory_type)
+ok_oklahoma_county_owned,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_url (BID_FORM),,harvesters/otc/adapters/expansion.py:371-372
+ok_oklahoma_county_owned,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+ok_oklahoma_county_owned,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+ok_oklahoma_county_owned,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+ok_oklahoma_county_owned,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+ok_oklahoma_county_owned,AVAILABLE,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+ok_oklahoma_county_owned,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,195/195 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+ok_oklahoma_county_owned,AVAILABLE,last_verification,NOT_TRACKED,,,absent from the live county_source_registry table (unit_freshness.py PATCHes existing rows only)
+pa_fayette_repository,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+pa_fayette_repository,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+pa_fayette_repository,AVAILABLE,parcel_id,CAPTURED,properties.parcel,376/376,harvesters/otc/adapters/expansion.py:389
+pa_fayette_repository,AVAILABLE,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+pa_fayette_repository,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+pa_fayette_repository,AVAILABLE,situs_address,NOT_YET_VERIFIED,,376/376,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+pa_fayette_repository,AVAILABLE,legal_description,CAPTURED,properties.legal_desc,376/376,harvesters/otc/adapters/expansion.py:389
+pa_fayette_repository,AVAILABLE,auction_date,NOT_TRACKED,,0/376,harvesters/otc/model.py:191 refuses sale_date on a non-auction record
+pa_fayette_repository,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+pa_fayette_repository,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+pa_fayette_repository,AVAILABLE,official_url,CAPTURED,properties.url_auction (= the source's list_url),376/376,harvesters/otc/model.py:273
+pa_fayette_repository,AVAILABLE,opening_or_minimum_bid,CAPTURED,properties.min_bid/purchase_amount (OPENING_BID),375/376,"harvesters/otc/adapters/expansion.py:389,391"
+pa_fayette_repository,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+pa_fayette_repository,AVAILABLE,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+pa_fayette_repository,AVAILABLE,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+pa_fayette_repository,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+pa_fayette_repository,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+pa_fayette_repository,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+pa_fayette_repository,AVAILABLE,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+pa_fayette_repository,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,harvesters/otc/model.py to_properties_row (inventory_type)
+pa_fayette_repository,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_url / purchase_path_* (where configured or evidenced),,harvesters/otc/model.py to_properties_row; scripts/purchase_path_engine.py; data/purchase_path_evidence_expansion.csv
+pa_fayette_repository,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+pa_fayette_repository,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+pa_fayette_repository,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+pa_fayette_repository,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+pa_fayette_repository,AVAILABLE,source_publication_date,CAPTURED,properties.list_as_of (from the document name),,"harvesters/otc/adapters/expansion.py:383,393"
+pa_fayette_repository,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,376/376 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+pa_fayette_repository,AVAILABLE,last_verification,NOT_TRACKED,,,absent from the live county_source_registry table (unit_freshness.py PATCHes existing rows only)
+mn_ramsey_tax_forfeit,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+mn_ramsey_tax_forfeit,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+mn_ramsey_tax_forfeit,AVAILABLE,parcel_id,CAPTURED,properties.parcel (PIN),2/2,harvesters/otc/adapters/expansion.py:408
+mn_ramsey_tax_forfeit,AVAILABLE,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mn_ramsey_tax_forfeit,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+mn_ramsey_tax_forfeit,AVAILABLE,situs_address,CAPTURED,properties.address,2/2,harvesters/otc/adapters/expansion.py:408
+mn_ramsey_tax_forfeit,AVAILABLE,legal_description,CAPTURED,properties.legal_desc,2/2,harvesters/otc/adapters/expansion.py:408
+mn_ramsey_tax_forfeit,AVAILABLE,auction_date,NOT_TRACKED,,0/2,harvesters/otc/model.py:191 refuses sale_date on a non-auction record
+mn_ramsey_tax_forfeit,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+mn_ramsey_tax_forfeit,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+mn_ramsey_tax_forfeit,AVAILABLE,official_url,CAPTURED,properties.url_auction (= the source's list_url),2/2,harvesters/otc/model.py:273
+mn_ramsey_tax_forfeit,AVAILABLE,opening_or_minimum_bid,CAPTURED,properties.min_bid/purchase_amount (OPENING_BID),2/2,"harvesters/otc/adapters/expansion.py:409,411"
+mn_ramsey_tax_forfeit,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mn_ramsey_tax_forfeit,AVAILABLE,assessed_value,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mn_ramsey_tax_forfeit,AVAILABLE,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+mn_ramsey_tax_forfeit,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+mn_ramsey_tax_forfeit,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mn_ramsey_tax_forfeit,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mn_ramsey_tax_forfeit,AVAILABLE,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mn_ramsey_tax_forfeit,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,harvesters/otc/model.py to_properties_row (inventory_type)
+mn_ramsey_tax_forfeit,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_url / purchase_path_* (where configured or evidenced),,harvesters/otc/model.py to_properties_row; scripts/purchase_path_engine.py; data/purchase_path_evidence_expansion.csv
+mn_ramsey_tax_forfeit,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mn_ramsey_tax_forfeit,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mn_ramsey_tax_forfeit,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mn_ramsey_tax_forfeit,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+mn_ramsey_tax_forfeit,AVAILABLE,source_publication_date,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+mn_ramsey_tax_forfeit,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,2/2 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+mn_ramsey_tax_forfeit,AVAILABLE,last_verification,NOT_TRACKED,,,absent from the live county_source_registry table (unit_freshness.py PATCHes existing rows only)
+tn_shelby_landbank,AVAILABLE,state,CAPTURED,properties.state,,constant per harvester / adapter config
+tn_shelby_landbank,AVAILABLE,county,CAPTURED,properties.county,,harvester county list / adapter config county
+tn_shelby_landbank,AVAILABLE,parcel_id,CAPTURED,properties.parcel (parcelNumber),2111/2111,"harvesters/otc/adapters/expansion.py:443,450-456"
+tn_shelby_landbank,AVAILABLE,case_number,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tn_shelby_landbank,AVAILABLE,sale_event_id,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+tn_shelby_landbank,AVAILABLE,situs_address,CAPTURED,properties.address (propertyAddress1),2111/2111,harvesters/otc/adapters/epropertyplus.py:183
+tn_shelby_landbank,AVAILABLE,legal_description,NOT_YET_VERIFIED,,0/2111,harvesters/otc/adapters/epropertyplus.py:150-191 maps no legal description
+tn_shelby_landbank,AVAILABLE,auction_date,NOT_TRACKED,,0/2111,harvesters/otc/model.py:191 refuses sale_date on a non-auction record
+tn_shelby_landbank,AVAILABLE,auction_time,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+tn_shelby_landbank,AVAILABLE,platform,CAPTURED,"county_source_registry.publishing_unit_name (source level, not per row)",,data/county_source_registry.csv
+tn_shelby_landbank,AVAILABLE,official_url,CAPTURED,properties.url_auction (= the source's list_url),2111/2111,harvesters/otc/model.py:273
+tn_shelby_landbank,AVAILABLE,opening_or_minimum_bid,CAPTURED,"properties.purchase_amount ('askingPrice', kind unspecified)",2110/2111,harvesters/otc/adapters/expansion.py:455
+tn_shelby_landbank,AVAILABLE,judgment_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tn_shelby_landbank,AVAILABLE,assessed_value,CAPTURED,properties.assessed (currentAssessment),,harvesters/otc/adapters/epropertyplus.py:188
+tn_shelby_landbank,AVAILABLE,event_status,CAPTURED,properties.inventory_status (+ inventory_status_raw where the source publishes a status word),,harvesters/governance/inventory_status.py available_record_status / adapter_record_status; scripts/inventory_status_writer.py
+tn_shelby_landbank,AVAILABLE,status_timestamp,CAPTURED,properties.inventory_status_observed_at,,scripts/inventory_status_writer.py:62
+tn_shelby_landbank,AVAILABLE,redemption_deadline,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tn_shelby_landbank,AVAILABLE,redemption_status,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tn_shelby_landbank,AVAILABLE,certificate_id,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tn_shelby_landbank,AVAILABLE,government_held_status,CAPTURED,properties.inventory_type,,harvesters/otc/model.py to_properties_row (inventory_type)
+tn_shelby_landbank,AVAILABLE,purchase_or_application_process,CAPTURED,properties.purchase_url / purchase_path_* (where configured or evidenced),,harvesters/otc/model.py to_properties_row; scripts/purchase_path_engine.py; data/purchase_path_evidence_expansion.csv
+tn_shelby_landbank,AVAILABLE,winning_bidder,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tn_shelby_landbank,AVAILABLE,winning_bid_or_sale_amount,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tn_shelby_landbank,AVAILABLE,deed_execution_recording,NOT_YET_VERIFIED,,,no mapping in the harvester / sync; whether the source publishes it is not established from repository evidence
+tn_shelby_landbank,AVAILABLE,cancellation_postponement,NOT_APPLICABLE,,,an over-the-counter / land-bank list has no auction event
+tn_shelby_landbank,AVAILABLE,source_publication_date,NOT_PUBLISHED,,,harvesters/otc/adapters/epropertyplus.py:69-71 (the portal states no list date for this tenant)
+tn_shelby_landbank,AVAILABLE,retrieval_timestamp,CAPTURED,properties.last_seen_at,1787/1787 active stamped,scripts/sync_state_inventory.py:68 (CLAUDE.md five-state enrichment: sync stamps last_seen_at)
+tn_shelby_landbank,AVAILABLE,last_verification,NOT_TRACKED,,,absent from the live county_source_registry table (unit_freshness.py PATCHes existing rows only)

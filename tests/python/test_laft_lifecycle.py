@@ -159,15 +159,21 @@ def _server(store):
             qs = parse_qs(u.query)
             assert self.headers.get("User-Agent", "").startswith("taxdeed-scraper/")
             sel = qs.get("select", [""])[0]
-            if sel == "county" and qs.get("status") == ["eq.active"]:
+            if sel in ("county", "county,id") and qs.get("status") == ["eq.active"]:
                 # Every county with active rows (the carry pass reads all of them).
-                return self._send(200, json.dumps([{"county": r["county"]} for r in store.rows if str(r.get("status") or "active") == "active"]).encode())
+                # get_all() pages by id (keyset), so it adds `id` to the select.
+                return self._send(200, json.dumps([{"county": r["county"], "id": r.get("id")} for r in store.rows
+                                                   if str(r.get("status") or "active") == "active"]).encode())
             if "limit" in qs and "county" not in qs:
                 # Column probes: 017 (lifecycle columns) and 019 (list dates).
                 present = store.have_017 if "last_seen_at" in sel else store.have_019
                 if present:
                     return self._send(200, b"[]")
                 return self._send(400, json.dumps({"code": "42703", "message": f"column properties.{sel.split(',')[0]} does not exist"}).encode())
+            if qs.get("id", [""])[0].startswith("in."):
+                # fetch_state_rows phase 2: the wide columns by primary key.
+                ids = unquote(qs["id"][0])[len("in.("):-1].replace('"', "").split(",")
+                return self._send(200, json.dumps([r for r in store.rows if str(r.get("id")) in ids]).encode())
             assert qs.get("state") == ["eq.FL"] and qs.get("source") == ["eq.laft"], self.path
             counties = unquote(qs["county"][0])[len("in.("):-1].replace('"', "").split(",")
             self._send(200, json.dumps([r for r in store.rows if r["county"] in counties]).encode())
@@ -234,7 +240,8 @@ def test_e01_with_migration_017_observed_rows_get_last_seen_and_provenance_absen
     for path, body in store.patches:
         kinds.setdefault(tuple(sorted(body)), []).append((path, body))
     # Reactivation of the closed, re-listed row A.
-    react = [(p, b) for p, b in store.patches if b == {"status": "active"}]
+    # With 017 the re-listed row also sheds its delisted_at (2026-10-26).
+    react = [(p, b) for p, b in store.patches if b == {"status": "active", "delisted_at": None}]
     assert len(react) == 1 and 'case_no=in.("A")' in react[0][0] and "county=eq.Marion" in react[0][0]
     # Provenance/last_seen for the two observed Marion rows (two payloads: one priced, one not).
     prov = [(p, b) for p, b in store.patches if "last_seen_at" in b]
@@ -386,9 +393,9 @@ def test_s03_workflow_wires_status_file_lifecycle_and_changes_no_schedule():
             if "laft_lifecycle.py" in str(s.get("run", "")):
                 assert job == "laft"
     raw = (REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8")
-    assert raw.count("cron:") == 3 and "cron: '0 12 * * *'" in raw
+    assert raw.count("cron:") == 4 and "cron: '37 11 * * *'" in raw
     texas = raw[raw.index("  texas:"):raw.index("\n  backup:")]
-    assert "if: github.event_name == 'workflow_dispatch'" in texas and "laft_lifecycle" not in texas
+    assert "github.event.schedule == '37 11 * * *'" in texas and "laft_lifecycle" not in texas  # daily since 2026-10-26
     assert names.index("Sync to Supabase") < names.index("Record source health")
 
 

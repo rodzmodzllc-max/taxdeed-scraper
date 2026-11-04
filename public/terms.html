@@ -12,21 +12,21 @@
 <main>
 <header class="legal-head"><a href="index.html">&larr; Back to the app</a>
 <h1>Terms of Service</h1>
-<p class="legal-meta">Operator: <span data-legal="operatorName"></span> · Effective: <span data-legal="effectiveDate"></span></p>
+<p class="legal-meta"><span data-legal-needs="operatorName">Operator: <span data-legal="operatorName"></span></span><span data-legal-sep> · </span><span data-legal-needs="effectiveDate">Effective: <span data-legal="effectiveDate"></span></span></p>
 <div class="legal-unconfigured" id="legalUnconfigured" role="note" hidden></div>
 </header>
 
-<p>These terms govern your use of the TAXACQ service (the "Service"), operated by <span data-legal="operatorName"></span> ("we", "us"). By creating an account or using the Service you agree to them. If you do not agree, do not use the Service.</p>
+<p>These terms govern your use of the TAXACQ service (the "Service")<span data-legal-needs="operatorName">, operated by <span data-legal="operatorName"></span> ("we", "us")</span><span data-legal-unless="operatorName">, operated by the operator of the TAXACQ service ("we", "us")</span>. By creating an account or using the Service you agree to them. If you do not agree, do not use the Service.</p>
 
 <h2>1. What the Service is</h2>
 <p>The Service is a research tool. It organises information about tax-sale auctions, properties listed as available after a tax sale, and tax lien certificates, collected from the public sources it names on each record. It is not a title search, a title opinion, an appraisal, a broker, an auction platform or a purchase channel. The Service does not sell, reserve or hold any property, and it does not submit bids or applications for you.</p>
 
 <h2>2. Your account</h2>
-<p>You must give accurate account information and keep your password confidential. You are responsible for activity under your account. One account is for one person: do not share your sign-in. Tell us promptly at <span data-legal="contactEmail"></span> if you believe your account has been used without your permission.</p>
+<p>You must give accurate account information and keep your password confidential. You are responsible for activity under your account. One account is for one person: do not share your sign-in.<span data-legal-needs="contactEmail"> Tell us promptly at <span data-legal="contactEmail"></span> if you believe your account has been used without your permission.</span></p>
 <p>Some accounts are granted access by an administrator (for example testers during a beta). That access may be changed or withdrawn by the administrator.</p>
 
 <h2>3. Subscription and payment</h2>
-<p>Paid access is a monthly subscription (<span data-legal="priceDisplay"></span>), billed in advance through our payment processor, Stripe. Stripe processes your card details; we do not receive or store your full card number. The subscription renews each month until you cancel. Prices and the plan's contents may change; we will tell you before a price change applies to your subscription.</p>
+<p>Paid access is a monthly subscription<span data-legal-needs="priceDisplay"> (<span data-legal="priceDisplay"></span>)</span>, billed in advance through our payment processor, Stripe. Stripe processes your card details; we do not receive or store your full card number. The subscription renews each month until you cancel. Prices and the plan's contents may change; we will tell you before a price change applies to your subscription.</p>
 <p>If a payment fails, paid access may continue for a short grace period while the payment is retried; if the payment is not completed, paid access stops until it is.</p>
 
 <h2>4. Cancellation</h2>
@@ -36,7 +36,7 @@
 <p>Your use of the Service must follow the <a href="acceptable-use.html">Acceptable Use Policy</a>, which forms part of these terms.</p>
 
 <h2>6. Source information</h2>
-<p>Information in the Service comes from the government offices and other sources identified on each record, read at the date shown. We may normalise, combine and enrich that information (for example adding location or flood-zone data from other named public sources). We do not control those sources. Read the <a href="source-disclaimer.html">Source &amp; research disclaimer</a>.</p>
+<p>Information in the Service comes from the government offices and other sources identified on each record, read at the date shown. We do not control those sources. What we add to source information, what you must verify before acting, and how acquisition works are set out once, in the <a href="source-disclaimer.html">Source &amp; research disclaimer</a>, which forms part of these terms.</p>
 <p>Inclusion of a source in the Service does not mean the source endorses the Service, and it does not grant you any right to reuse that source's material beyond what the source itself permits.</p>
 
 <h2>7. No guarantee of availability or acquisition</h2>
@@ -55,10 +55,10 @@
 <p>We may suspend or end access for a breach of these terms or the Acceptable Use Policy, for non-payment, or where required by law or by a source's terms. You may delete your account at any time from the account menu.</p>
 
 <h2>12. Changes and governing law</h2>
-<p>We may update these terms; the effective date above changes when we do, and material changes are announced in the Service. These terms are governed by <span data-legal="governingLaw"></span>.</p>
+<p>We may update these terms;<span data-legal-needs="effectiveDate"> the effective date above changes when we do, and</span> material changes are announced in the Service.<span data-legal-needs="governingLaw"> These terms are governed by <span data-legal="governingLaw"></span>.</span></p>
 
-<h2>13. Contact</h2>
-<p><span data-legal="contactEmail"></span></p>
+<h2 data-legal-needs="contactEmail">13. Contact</h2>
+<p data-legal-needs="contactEmail"><span data-legal="contactEmail"></span></p>
 
 <nav class="legal-nav" aria-label="Legal documents"><a href="terms.html">Terms of Service</a><a href="privacy.html">Privacy Policy</a><a href="acceptable-use.html">Acceptable Use</a><a href="source-disclaimer.html">Source &amp; research disclaimer</a></nav>
 </main>

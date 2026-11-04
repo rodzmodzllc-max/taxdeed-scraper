@@ -19,9 +19,10 @@ import csv
 import io
 import re
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from ..model import AmountKind, InventoryType, OtcRecord, PurchaseUrlKind, SourceAuthority
+from .property_page import PropertyPage
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,23 @@ class ColumnMap:
     land_use: tuple[str, ...] = ()          # the source's own property type wording (AVAILABLE expansion)
 
 
+# Fields that identify a row (or filter it) rather than describe it.
+IDENTITY_FIELDS = frozenset({"case_no", "parcel", "status"})
+
+
+PUBLISHED_SALE_DATE_GRACE = 30   # days after a config's published sale date it still dates rows
+
+
+def published_sale_date(cfg, retrieved_at):
+    """cfg.published_sale_date as a date, or None once it is more than
+    PUBLISHED_SALE_DATE_GRACE days before the read."""
+    if not cfg.published_sale_date:
+        return None
+    day = date.fromisoformat(cfg.published_sale_date[0])
+    read = retrieved_at.date() if isinstance(retrieved_at, datetime) else retrieved_at
+    return day if read <= day + timedelta(days=PUBLISHED_SALE_DATE_GRACE) else None
+
+
 @dataclass(frozen=True)
 class TabularConfig:
     source_id: str
@@ -62,6 +80,11 @@ class TabularConfig:
     # Every row of this table is a PAST sale listing (e.g. a "Previous Sales" table):
     # the record is closed; a result is stored only where a price column publishes one.
     past_listing: bool = False
+    # Audit B10 (2026-10-29): a list whose every row normally carries its data
+    # cells. A row published with only its identifier is marked
+    # `identity_only_row` and the runner reads the list INCOMPLETE. Off by
+    # default: several lists publish legitimately sparse rows (Oceana MI).
+    data_cells_expected: bool = False
     # Regex with one group capturing a date in the DOCUMENT NAME/TITLE,
     # e.g. r"(\d{1,2}\.\d{1,2}\.\d{2,4})" for "6.2.2026_Resale_List.pdf".
     list_as_of_pattern: str | None = None
@@ -107,6 +130,63 @@ class TabularConfig:
     # (e.g. Fayette PA's "Bid Received": a bid is pending the taxing bodies'
     # consent). Counted in `excluded_status`, never kept.
     status_exclude: tuple[str, ...] = ()
+    # Audit B22 (2026-10-29). The sale date the county publishes for this
+    # whole list on its own page or document, when the list itself carries
+    # no date column: (ISO date, where it is stated, quoted). Applied only to
+    # an auction row with no date of its own, and only until
+    # PUBLISHED_SALE_DATE_GRACE days after that date - a config left behind
+    # after the county posts next year's list never dates the new rows.
+    published_sale_date: tuple[str, str] | None = None
+    # 2026-10-26 (Fayette PA): the ONE workbook sheet a source's XLSX list is
+    # read from (matched case- and whitespace-insensitively). Other sheets -
+    # e.g. a "Completed" sheet of finished sales - are never read.
+    document_sheet: str | None = None
+
+    # Acquisition-path sprint (2026-10-25). The source's own per-property page
+    # (harvesters/otc/adapters/property_page.py), attached by
+    # attach_property_pages(). `property_page_listed_url` names the source's own
+    # file of the identifiers its page actually shows (St. Louis LRA: the
+    # 'LRA Property For Sale' CSV - a parcel absent from it reads "No records
+    # found" on the page); `property_page_listed_column` is that file's
+    # identifier column. Without it every row with a valid identifier gets the
+    # link.
+    property_page: PropertyPage | None = None
+    property_page_listed_url: str | None = None
+    property_page_listed_column: str | None = None
+
+
+def listed_ids(text: str, column: str) -> set[str]:
+    """The identifiers in the source's own listed-on-page CSV. A file
+    without the column is a format change: ValueError, never an empty set."""
+    reader = csv.DictReader(io.StringIO(text.lstrip("\ufeff")))
+    if column not in (reader.fieldnames or []):
+        raise ValueError(f"listed-ids file has no {column!r} column")
+    return {(r.get(column) or "").strip() for r in reader if (r.get(column) or "").strip()}
+
+
+def attach_property_pages(records: list[OtcRecord], cfg: TabularConfig, listed: set[str] | None) -> int:
+    """Give each record the source's own per-property page as its purchase
+    URL (property scope). `listed` = the identifiers the source says its page
+    shows; None when the config names no such file. Rows without a page keep
+    whatever they had - nothing is dropped. -> the number of rows linked."""
+    page = cfg.property_page
+    if page is None:
+        return 0
+    if cfg.property_page_listed_url and listed is None:
+        return 0                     # the listed file could not be read: no link is guessed
+    n = 0
+    for r in records:
+        if listed is not None and r.case_no not in listed:
+            continue
+        url = page.url_for(r.case_no)
+        if not url:
+            continue
+        r.purchase_url, r.purchase_url_kind = url, page.kind
+        r.provenance["purchase_url_basis"] = page.basis()
+        if cfg.property_page_listed_url:
+            r.provenance["purchase_url_listed_in"] = cfg.property_page_listed_url
+        n += 1
+    return n
 
 
 # Cell tokens a source uses for "no value here" (never a published value).
@@ -172,6 +252,12 @@ class TabularListAdapter:
         self.label_as_of: date | None = None
         self._row_links: list[dict[str, str]] = []
         self.rejected_ids = 0
+        # Rows carrying only their identifier while the list's header names
+        # data columns (audit B10, 2026-10-29: Oconee SC published 213 of its
+        # 562 rows with Owner / Description / Total Tax Due blank while the
+        # county was updating the list). Counted; the runner reads such a
+        # list INCOMPLETE and the sync never lets those blanks erase values.
+        self.identity_only_rows = 0
         self.excluded_status = 0
 
     def field_for(self, label: str) -> tuple[str, ...] | None:
@@ -259,6 +345,7 @@ class TabularListAdapter:
                                or any(re.search(p, only, re.I) for p in self.cfg.empty_patterns)):
             self.empty_statement = True
             return []
+        data_fields = {f for fs in fields if fs for f in fs} - IDENTITY_FIELDS
         out: list[OtcRecord] = []
         for raw, row_links in zip(body, links + [{}] * (len(body) - len(links))):
             values: dict[str, str] = {}
@@ -295,6 +382,9 @@ class TabularListAdapter:
                 "columns": {f: True for f in values},
                 "amount": (f"column {self.cfg.columns.amount[0]!r} = {kind.value}" if amount is not None else "no amount column value"),
             }
+            if self.cfg.data_cells_expected and data_fields and not (set(values) & data_fields):
+                self.identity_only_rows += 1
+                prov["identity_only_row"] = True
             if as_of:
                 prov["list_as_of"] = f"parsed from document name {document_name!r}"
             elif self.label_as_of:
@@ -307,6 +397,10 @@ class TabularListAdapter:
                 result_amount = sold_price
                 prov["result"] = f"the amount cell's own 'SOLD - <price>' wording (a completed sale, as published)"
             sale_date = _date(values.get("sale_date")) if "sale_date" in values else None
+            if sale_date is None and self.cfg.record_source == "auction":
+                sale_date = published_sale_date(self.cfg, retrieved_at)
+                if sale_date is not None:
+                    prov["sale_date"] = f"the county's published sale date: {self.cfg.published_sale_date[1]}"
             if result_amount is not None and "result" not in prov:
                 prov["result"] = f"column {self.cfg.columns.result_amount[0]!r} as published (a completed sale)"
             purchase_url, purchase_kind = self.cfg.purchase_url, self.cfg.purchase_url_kind
@@ -356,26 +450,81 @@ def pdf_table_rows(data: bytes) -> list[list[str]]:
     return rows
 
 
+def _cell(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()
+
+
+def workbook_sheet_rows(data: bytes, sheet: str | None) -> list[list[str]]:
+    """Every non-empty row of ONE named sheet of an XLSX workbook, as text
+    cells. A workbook without that sheet (or no sheet configured) raises
+    KeyError - the list is not the configured one, never an empty list."""
+    if not sheet:
+        raise KeyError("no workbook sheet configured for this source")
+    import openpyxl  # noqa: PLC0415 - only the XLSX sources need it
+    wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    names = {re.sub(r"\s+", " ", n).strip().lower(): n for n in wb.sheetnames}
+    # "*" (2026-10-26, Horry SC): the workbook's ONLY sheet - a workbook with
+    # several sheets is not the configured one (KeyError), never a guess.
+    if sheet == "*":
+        if len(wb.sheetnames) != 1:
+            raise KeyError("workbook has more than one sheet; the source's single list sheet is expected")
+        name = wb.sheetnames[0]
+    else:
+        name = names.get(re.sub(r"\s+", " ", sheet).strip().lower())
+    if name is None:
+        raise KeyError(f"workbook has no {sheet!r} sheet")
+    rows: list[list[str]] = []
+    for r in wb[name].iter_rows(values_only=True):
+        cells = [_cell(c) for c in r]
+        if any(cells):
+            rows.append(cells)
+    return rows
+
+
+def latest_dated_link(html: str | bytes, base_url: str, cfg: TabularConfig) -> tuple[str, date] | None:
+    """(url, date) of the link on a list page whose file name carries the
+    newest date by the config's `list_as_of_pattern` - or None. Only https
+    links on the page's own host are considered; the date is the one in the
+    file name (the county's own label for the list), never the retrieval
+    date. Ties keep the lexically greatest URL (deterministic)."""
+    from urllib.parse import unquote, urljoin, urlsplit  # noqa: PLC0415
+    from bs4 import BeautifulSoup  # noqa: PLC0415
+    host = urlsplit(base_url).hostname
+    best: tuple[str, date] | None = None
+    for a in BeautifulSoup(html, "html.parser").find_all("a", href=True):
+        href = urljoin(base_url, a["href"].strip())
+        parts = urlsplit(href)
+        if parts.scheme != "https" or parts.hostname != host:
+            continue
+        when = list_as_of_from_name(unquote(parts.path.rstrip("/").rsplit("/", 1)[-1]), cfg)
+        if when is None:
+            continue
+        if best is None or (when, href) > (best[1], best[0]):
+            best = (href, when)
+    return best
+
+
 # The Texas government-direct lists the audit found, and why each is a
 # candidate rather than a configured adapter. `blocker` is what a human
 # must do before a TabularConfig can exist. None of these is fetched by
-# anything in this repository.
+# anything in this repository. (Bexar, Hood, Montgomery, Orange and Trinity
+# left this list on 2026-10-26: scripts/harvest_tx_county_sales.py reads
+# their lists in production.)
 TX_CANDIDATES: tuple[tuple[str, str, str, str], ...] = (
     # county, expected format, adapter family, blocker
     ("Travis", "XLSX", "tabular (needs an XLSX reader - openpyxl not a dependency yet)", "fetch ResaleList.xlsx; read columns; terms"),
     ("Grayson", "PORTAL", "tabular (HTML) if the portal renders a table server-side", "fetch; confirm rendering; terms"),
     ("Camp", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
-    ("Hood", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
     ("Fayette", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
-    ("Montgomery", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
     ("Collin", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
     ("Brazoria", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
     ("Dallas", "HTML_TABLE", "tabular (HTML) or a downloadable list", "fetch; locate the list file; terms"),
     ("Jefferson", "PDF", "PDF header-map (scripts/harvest_laft_pdfs.py pattern)", "fetch dated PDFs; distinguish resale list from sale notice; terms"),
     ("Gregg", "PDF", "PDF header-map", "fetch; read columns; terms"),
-    ("Orange", "PDF", "PDF header-map", "fetch 04.09.25 listing; confirm currency; terms"),
     ("Jim Wells", "PDF", "PDF header-map", "fetch; read columns; terms; reconcile with the LGBS rows"),
     ("Tom Green", "HTML_TABLE", "tabular (HTML) + procedures PDF", "fetch; read columns; terms"),
-    ("Trinity", "HTML_TABLE", "tabular (HTML)", "fetch; read columns; terms"),
-    ("Bexar", "UNKNOWN", "unknown until the DocumentCenter container is opened", "open DocumentCenter View/41852; terms"),
 )

@@ -35,18 +35,24 @@ runner is scripts/enrich_statewide_parcels.py).
 """
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable
 from urllib.parse import urlencode
 
 __all__ = ["ID_RULES", "ParcelSourceConfig", "MatchResult", "Coverage", "normalize_id", "enrichment_allowed",
-           "query_urls", "index_features", "match_rows", "plan_update", "polygon_centroid", "LAYER_URL_RE"]
+           "query_urls", "socrata_features", "index_features", "match_rows", "plan_update", "polygon_centroid", "polygon_area_sqft",
+           "LAYER_URL_RE", "DERIVED_AREA_NOTE"]
 
 LAYER_URL_RE = re.compile(r"^https://[^?#\s]+/(FeatureServer|MapServer)/\d+$")
 # A Socrata (SODA) dataset resource: https://<host>/resource/<4x4>.json
 SODA_URL_RE = re.compile(r"^https://[^/?#\s]+/resource/[a-z0-9]{4}-[a-z0-9]{4}\.json$")
-TRANSPORTS = ("arcgis", "socrata")
+# "county_file": one published file per county (a zipped shapefile); the
+# runner reads its attribute table and keeps only the requested identifiers.
+TRANSPORTS = ("arcgis", "socrata", "county_file")
+# A county file URL: https only, with a {fips} placeholder for the county.
+FILE_TEMPLATE_RE = re.compile(r"^https://[^?#\s]+\{fips\}[^?#\s]*\.zip$")
 
 # Deterministic identifier normalizations. Each is a pure function of the
 # string; none guesses, pads or re-derives an identifier.
@@ -62,6 +68,14 @@ ID_RULES: dict[str, Callable[[str], str]] = {
     # that stores the id as a number (a Socrata "number" column loses the
     # leading zeros the published form carries); applied to both sides.
     "numeric": lambda v: re.sub(r"\D", "", v).lstrip("0"),
+    # A Texas appraisal district's REAL-PROPERTY account: digits, optionally
+    # written with the district's 'R' (real property) prefix, leading zeros
+    # dropped. Any other shape - another prefix ('N' mineral interest, 'P'
+    # personal property), a separator, a second letter - is not a real-
+    # property account and yields no identifier, so it can never meet a
+    # parcel polygon through the bare number (TX enrichment, 2026-10-28:
+    # Waller's PBFCM list carries both 'R' parcels and 'N' mineral leases).
+    "r_account": lambda v: (lambda m: m.group(1).lstrip("0") if m else "")(re.fullmatch(r"R?(\d+)", v.strip().upper())),
 }
 
 # Columns this pipeline may write, and their type. Anything else in a field
@@ -70,7 +84,13 @@ COLUMN_TYPES = {
     "owner_name": "text", "address": "text", "legal_desc": "text", "land_use": "text", "prop_type": "text",
     "assessed": "num", "market": "num", "land_value": "num", "improvement_value": "num", "taxable_value": "num",
     "acreage": "num", "year_built": "int", "living_area": "int", "value_year": "int", "homestead": "bool",
+    "lot_sqft": "int",
 }
+# The provenance wording of a lot area computed from the matched parcel's own
+# polygon (thin-fields sprint, 2026-10-27). The app shows it as "Derived by our
+# system - <this>", so a reader never takes it for the deed / assessed area.
+DERIVED_AREA_NOTE = ("area of the matched parcel polygon, computed by us (spherical approximation, within about half a "
+                     "percent); a GIS area, not the deed or assessed lot size")
 SENTINEL_TEXT = {"", "N/A", "NA", "NONE", "NULL", "UNKNOWN", "0"}
 APPROVED_PUBLICATION = {"APPROVED", "APPROVED_GRANDFATHERED"}
 
@@ -140,6 +160,49 @@ class ParcelSourceConfig:
     # floor - one distinct value in that year or nothing - and its provenance
     # names that year. Only for an identifier that already matched exactly.
     column_year_floor: dict = field(default_factory=dict)
+    # county_file transport (TX enrichment 2026-10-27): the per-county file URL
+    # template ({fips}), each covered county's FIPS code, and - because each
+    # county's appraisal district fills a different identifier attribute - the
+    # identifier attribute(s) and rule MEASURED for that county:
+    # county -> ((attribute, ...), id_rule). A county without an entry is not
+    # covered (never matched on a guessed attribute).
+    file_url_template: str = ""
+    county_fips: dict = field(default_factory=dict)
+    county_id: dict = field(default_factory=dict)
+    # Only blank columns are ever written. A column a listing sync also writes
+    # is never mapped at all; this keeps a later sync and this source from
+    # taking turns overwriting each other.
+    fill_blank_only: bool = False
+    # Only rows of these sources (properties.source_id, else harvester_source)
+    # are matched - the sources whose row_id_column IS this layer's identifier
+    # (Texas: the vendor listings carry the appraisal-district account in
+    # case_no; a county list's case_no may be something else). Empty = every row.
+    row_source_ids: tuple = ()
+
+    def takes_row(self, row: dict) -> bool:
+        return not self.row_source_ids or (row.get("source_id") or row.get("harvester_source") or "") in self.row_source_ids
+    # Thin-states sprint (2026-10-27). column -> regular expressions (matched
+    # at the start of the upper-cased value) that mean "not published" for
+    # that column - e.g. a county layer writing "0 UNKNOWN <city>" as the
+    # situs of a parcel with no street address. Such a value is never stored.
+    no_value_patterns: dict = field(default_factory=dict)
+    # column -> ((attribute, prefix), ...): a TEXT column the source publishes
+    # in parts (house number, direction, street name, type, unit). The parts
+    # are joined with single spaces in the source's own order, a blank part
+    # is skipped, a part's prefix (e.g. "#" before a unit number) is written
+    # only with that part. Nothing is added that the parts do not say; no
+    # part means no value, and a blank FIRST part (the house number) means no
+    # value at all. Only for text columns.
+    composite_map: dict = field(default_factory=dict)
+    # Thin-fields sprint (2026-10-27). For a layer that publishes the parcel
+    # POLYGON but no defined area attribute: write lot_sqft as the area of the
+    # matched parcel's own polygon, provenance-labelled as derived
+    # (DERIVED_AREA_NOTE). Never replaces a value any source published (the
+    # shared precedence rule: equal rank never overwrites, a blank only).
+    derived_lot_area: bool = False
+    # socrata transport: the dataset column holding the parcel geometry
+    # (GeoJSON), read only for derived_lot_area and / or centroid.
+    geometry_field: str | None = None
 
     def __post_init__(self) -> None:
         if self.transport not in TRANSPORTS:
@@ -148,16 +211,48 @@ class ParcelSourceConfig:
             raise ValueError(f"{self.source_id}: layer_url must be https://.../FeatureServer|MapServer/<n>")
         if self.transport == "socrata" and not SODA_URL_RE.match(self.layer_url):
             raise ValueError(f"{self.source_id}: a socrata source's layer_url must be https://<host>/resource/<id>.json")
-        if self.transport == "socrata" and self.centroid:
-            raise ValueError(f"{self.source_id}: a centroid needs polygon geometry (arcgis transport)")
-        if self.id_query not in ("string", "number"):
-            raise ValueError(f"{self.source_id}: id_query must be string or number")
+        if self.transport == "county_file":
+            if not FILE_TEMPLATE_RE.match(self.file_url_template):
+                raise ValueError(f"{self.source_id}: a county_file source needs an https .zip file_url_template with {{fips}}")
+            if not self.county_id or set(self.county_id) != set(self.counties):
+                raise ValueError(f"{self.source_id}: a county_file source's counties must be exactly the counties with a measured identifier rule")
+            missing = set(self.counties) - set(self.county_fips)
+            if missing:
+                raise ValueError(f"{self.source_id}: no FIPS code for {sorted(missing)}")
+            for c, (fields_, rule) in self.county_id.items():
+                if not fields_ or rule not in ID_RULES:
+                    raise ValueError(f"{self.source_id}: bad identifier rule for {c}")
+        if self.transport == "socrata" and self.centroid and not self.geometry_field:
+            raise ValueError(f"{self.source_id}: a socrata centroid needs the parcel polygon column (geometry_field)")
+        if self.derived_lot_area and not (self.transport == "arcgis" or (self.transport == "socrata" and self.geometry_field)):
+            raise ValueError(f"{self.source_id}: a derived lot area needs the parcel polygon (arcgis, or socrata with geometry_field)")
+        if self.geometry_field and not (self.transport == "socrata" and (self.derived_lot_area or self.centroid)):
+            raise ValueError(f"{self.source_id}: geometry_field is read only for a socrata derived lot area or centroid")
+        if self.derived_lot_area and ("lot_sqft" in self.field_map or "lot_sqft" in self.conditional_map):
+            raise ValueError(f"{self.source_id}: lot_sqft is either published (mapped) or derived, never both")
+        if self.id_query not in ("string", "number", "normalized"):
+            raise ValueError(f"{self.source_id}: id_query must be string, number or normalized")
         if self.id_rule not in ID_RULES:
             raise ValueError(f"{self.source_id}: unknown id_rule {self.id_rule!r}")
         bad_cond = set(self.conditional_map) & set(self.field_map)
         if bad_cond:
             raise ValueError(f"{self.source_id}: column(s) {sorted(bad_cond)} are both mapped and conditional")
-        unknown = (set(self.field_map) | set(self.conditional_map)) - set(COLUMN_TYPES)
+        clash = set(self.composite_map) & (set(self.field_map) | set(self.conditional_map))
+        if clash:
+            raise ValueError(f"{self.source_id}: column(s) {sorted(clash)} are both composite and mapped")
+        for column, parts in self.composite_map.items():
+            if COLUMN_TYPES.get(column) != "text":
+                raise ValueError(f"{self.source_id}: composite column {column!r} must be a text column")
+            if not parts or any(not (isinstance(p, tuple) and len(p) == 2 and p[0]) for p in parts):
+                raise ValueError(f"{self.source_id}: composite column {column!r} needs ((attribute, prefix), ...)")
+            if self.id_field in {a for a, _ in parts} and column in ("owner_name", "address"):
+                raise ValueError(f"{self.source_id}: the identifier attribute cannot also fill {column}")
+        for column, pats in self.no_value_patterns.items():
+            if column not in COLUMN_TYPES or not pats:
+                raise ValueError(f"{self.source_id}: no_value_patterns names {column!r} without patterns")
+            for p in pats:
+                re.compile(p)
+        unknown = (set(self.field_map) | set(self.conditional_map) | set(self.composite_map)) - set(COLUMN_TYPES)
         if unknown:
             raise ValueError(f"{self.source_id}: field_map names unknown column(s) {sorted(unknown)}")
         forbidden = {"owner_name", "address"} & {c for c, a in self.field_map.items() if a == self.id_field}
@@ -177,11 +272,36 @@ class ParcelSourceConfig:
     def county_value(self, county: str) -> str:
         return self.county_values.get(county, county)
 
-    def id_fields(self) -> tuple:
+    def id_fields(self, county: str | None = None) -> tuple:
+        if county is not None and county in self.county_id:
+            return tuple(self.county_id[county][0])
         return (self.id_field, *self.alt_id_fields)
+
+    def id_rule_for(self, county: str | None = None) -> str:
+        if county is not None and county in self.county_id:
+            return self.county_id[county][1]
+        return self.id_rule
+
+    def file_url(self, county: str) -> str:
+        return self.file_url_template.format(fips=self.county_fips[county])
+
+    def written_columns(self) -> frozenset:
+        """Every properties column this layer can write."""
+        cols = set(self.field_map) | set(self.conditional_map) | set(self.composite_map)
+        if self.value_year_field:
+            cols.add("value_year")
+        if self.centroid:
+            cols.update(("latitude", "longitude"))
+        if self.derived_lot_area:
+            cols.add("lot_sqft")
+        return frozenset(cols)
 
     def out_fields(self) -> list[str]:
         names = {*self.id_fields(), *self.field_map.values(), *self.provenance_attrs}
+        for fields_, _rule in self.county_id.values():
+            names.update(fields_)
+        for parts in self.composite_map.values():
+            names.update(a for a, _ in parts)
         for attr, cond, _vals in self.conditional_map.values():
             names.update((attr, cond))
         if self.county_field:
@@ -190,6 +310,8 @@ class ParcelSourceConfig:
             names.add(self.value_year_field)
         if self.latest_field:
             names.add(self.latest_field)
+        if self.geometry_field:
+            names.add(self.geometry_field)
         return sorted(names)
 
 
@@ -206,12 +328,44 @@ def normalize_id(value: Any, rule: str) -> str | None:
     return key or None
 
 
+def _governance_permissions():
+    try:
+        from ..governance import permissions as PERM  # noqa: PLC0415
+    except ImportError:  # imported as top-level `enrichment` (harvesters/ on sys.path)
+        from governance import permissions as PERM  # noqa: PLC0415
+    return PERM
+
+
+def recorded_permission(cfg: ParcelSourceConfig) -> tuple[bool, str]:
+    """The source's recorded fetch AND enrich permission
+    (data/source_permissions.csv, harvesters/governance/permissions.py).
+    Fail closed: an error loading governance is a refusal."""
+    try:
+        PERM = _governance_permissions()
+    except Exception as exc:  # noqa: BLE001
+        return False, f"permission check unavailable ({type(exc).__name__})"
+    for op in ("fetch", "enrich"):
+        d = PERM.authorize(cfg.source_id, op, state=cfg.state)
+        if not d.allowed:
+            return False, f"no recorded {op} permission [{d.reason_code}]"
+    return True, ""
+
+
+# The permission check enrichment_allowed() applies. A module attribute so a
+# test exercising the matching mechanics on a FIXTURE layer can stand it in;
+# the real check is covered by tests/python/test_source_permissions.py.
+PERMISSION_CHECK = recorded_permission
+
+
 def enrichment_allowed(cfg: ParcelSourceConfig) -> tuple[bool, str]:
     if not cfg.columns_verified:
         return False, "layer columns not verified against the live source"
     if cfg.publication_status not in APPROVED_PUBLICATION:
         return False, f"publication status {cfg.publication_status} - reuse not cleared"
-    return True, "verified columns, approved publication"
+    ok, why = PERMISSION_CHECK(cfg)
+    if not ok:
+        return False, why
+    return True, "verified columns, approved publication, recorded permission"
 
 
 def _sql_str(v: str) -> str:
@@ -224,8 +378,15 @@ def query_urls(cfg: ParcelSourceConfig, county: str, raw_ids: Iterable[str]) -> 
     normalization on both sides). Batched; county-scoped when the layer is
     statewide."""
     ids = sorted({str(i).strip() for i in raw_ids if str(i or "").strip()})
+    if cfg.transport == "county_file":
+        # One file per county; the identifiers are filtered while it is read.
+        return [cfg.file_url(county)] if ids and county in cfg.county_id else []
     if cfg.id_query == "number":
         ids = sorted({k for k in (normalize_id(i, cfg.id_rule) for i in ids) if k and k.isdigit()}, key=int)
+    elif cfg.id_query == "normalized":
+        # The layer stores the identifier in its normalized spelling (e.g. a
+        # PIN written without its dashes): ask for exactly that string.
+        ids = sorted({k for k in (normalize_id(i, cfg.id_rule) for i in ids) if k})
     urls = []
     for i in range(0, len(ids), cfg.batch_size):
         chunk = ids[i:i + cfg.batch_size]
@@ -240,15 +401,27 @@ def query_urls(cfg: ParcelSourceConfig, county: str, raw_ids: Iterable[str]) -> 
             # Case-insensitive on the county NAME only (layers spell it "Morgan" or
             # "MORGAN"); the identifier stays an exact IN list.
             where = f"UPPER({cfg.county_field}) = {_sql_str(cfg.county_value(county).upper())} AND ({where})"
-        params = {"where": where, "outFields": ",".join(cfg.out_fields()), "returnGeometry": "true" if cfg.centroid else "false",
+        params = {"where": where, "outFields": ",".join(cfg.out_fields()),
+                  "returnGeometry": "true" if (cfg.centroid or cfg.derived_lot_area) else "false",
                   "outSR": "4326", "f": "json"}
         urls.append(cfg.layer_url + "/query?" + urlencode(params))
     return urls
 
 
-def index_features(cfg: ParcelSourceConfig, features: Iterable[dict]) -> dict[tuple[str, str], list[dict]]:
+def socrata_features(cfg: ParcelSourceConfig, records) -> list[dict]:
+    """A SODA answer (a list of records) as ArcGIS-shaped features: the
+    attributes without the geometry column, the geometry (GeoJSON) beside
+    them. None / anything but a list is a failed read - the caller decides."""
+    gf = cfg.geometry_field
+    return [{"attributes": {k: v for k, v in rec.items() if k != gf}, **({"geometry": rec.get(gf)} if gf else {})}
+            for rec in records if isinstance(rec, dict)]
+
+
+def index_features(cfg: ParcelSourceConfig, features: Iterable[dict], county: str | None = None) -> dict[tuple[str, str], list[dict]]:
     """(layer county value or '', normalized id) -> features. More than one
-    feature per key is kept so the match can call it ambiguous."""
+    feature per key is kept so the match can call it ambiguous. `county`
+    selects a county_file source's measured identifier attribute(s) and rule."""
+    id_fields, rule = cfg.id_fields(county), cfg.id_rule_for(county)
     idx: dict[tuple[str, str], list[dict]] = {}
     seen: dict[tuple[str, str], set] = {}
     for ident, ft in enumerate(features):
@@ -257,8 +430,8 @@ def index_features(cfg: ParcelSourceConfig, features: Iterable[dict]) -> dict[tu
         # One feature (its position in the response) reached through two of
         # its own identifier attributes is still ONE candidate; two different
         # features always stay two, even with identical attribute values.
-        for f in cfg.id_fields():
-            key = normalize_id(attrs.get(f), cfg.id_rule)
+        for f in id_fields:
+            key = normalize_id(attrs.get(f), rule)
             if key is None or ident in seen.setdefault((county, key), set()):
                 continue
             seen[(county, key)].add(ident)
@@ -306,7 +479,9 @@ class MatchResult:
 def match_rows(cfg: ParcelSourceConfig, rows: Iterable[dict], index: dict[tuple[str, str], list[dict]]) -> list[MatchResult]:
     out = []
     for r in rows:
-        key = normalize_id(r.get(cfg.row_id_column), cfg.id_rule)
+        county_key = r.get("county") if cfg.county_id else None
+        rule = cfg.id_rule_for(county_key)
+        key = normalize_id(r.get(cfg.row_id_column), rule)
         if key is None:
             out.append(MatchResult(r["id"], "NO_IDENTIFIER", reason="row carries no parcel/account identifier with a digit"))
             continue
@@ -315,7 +490,7 @@ def match_rows(cfg: ParcelSourceConfig, rows: Iterable[dict], index: dict[tuple[
         if len(hits) == 1:
             out.append(MatchResult(r["id"], "MATCHED", hits[0], key))
         elif not hits:
-            out.append(MatchResult(r["id"], "UNMATCHED", key=key, reason=f"no {cfg.id_field} equal to the row's identifier ({cfg.id_rule}) in {r.get('county')}"))
+            out.append(MatchResult(r["id"], "UNMATCHED", key=key, reason=f"no {'/'.join(cfg.id_fields(county_key))} equal to the row's identifier ({rule}) in {r.get('county')}"))
         else:
             out.append(MatchResult(r["id"], "AMBIGUOUS", key=key, reason=f"{len(hits)} features share the identifier - nothing attached"))
     return out
@@ -335,6 +510,8 @@ def _coerce(column: str, value: Any):
             return None
         if n <= 0:
             return None                  # zero / negative = not published, never a real value
+        if column == "year_built" and not 1700 <= n <= 2100:
+            return None                  # not a year (e.g. several years run together: "1990,2005")
         return int(round(n)) if kind == "int" else round(n, 4)
     if kind == "bool":
         s = str(value).strip().upper()
@@ -346,19 +523,49 @@ def _coerce(column: str, value: Any):
     return None
 
 
+def _ring_moments(ring) -> tuple[float, float, float]:
+    """(2 x signed area, x moment, y moment) of one ring (shoelace)."""
+    pts = [(float(p[0]), float(p[1])) for p in ring if isinstance(p, (list, tuple)) and len(p) >= 2]
+    a = mx = my = 0.0
+    if len(pts) < 3:
+        return a, mx, my
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:] + pts[:1]):
+        cross = x0 * y1 - x1 * y0
+        a += cross
+        mx += (x0 + x1) * cross
+        my += (y0 + y1) * cross
+    return a, mx, my
+
+
 def polygon_centroid(geometry: dict | None) -> tuple[float, float] | None:
-    """Area-weighted centroid (lat, lng) of an Esri JSON polygon in WGS84 -
-    the parcel's own geometry, never a geocode. None when there is none."""
-    rings = (geometry or {}).get("rings") or []
+    """Area-weighted centroid (lat, lng) of a WGS84 parcel polygon - the
+    parcel's own geometry, never a geocode. Accepts an Esri JSON polygon
+    ({"rings": ...}) or a GeoJSON Polygon / MultiPolygon (a Socrata
+    dataset's geometry column). None when there is none.
+
+    Esri rings keep their published orientation (outer clockwise, holes
+    counter-clockwise), so the signed sums already subtract the holes. A
+    GeoJSON polygon is normalised per part - its first ring counts as area,
+    every later ring (a hole) as negative area - so a dataset that does not
+    enforce the right-hand rule still yields the right centroid."""
+    geometry = geometry if isinstance(geometry, dict) else {}
     a_sum = cx = cy = 0.0
-    for ring in rings:
-        if len(ring) < 3:
-            continue
-        for (x0, y0, *_), (x1, y1, *_) in zip(ring, ring[1:] + ring[:1]):
-            cross = x0 * y1 - x1 * y0
-            a_sum += cross
-            cx += (x0 + x1) * cross
-            cy += (y0 + y1) * cross
+    if geometry.get("rings"):
+        for ring in geometry["rings"]:
+            a, mx, my = _ring_moments(ring)
+            a_sum, cx, cy = a_sum + a, cx + mx, cy + my
+    else:
+        kind, coords = geometry.get("type"), geometry.get("coordinates") or []
+        polys = [coords] if kind == "Polygon" else coords if kind == "MultiPolygon" else []
+        for poly in polys:
+            if not isinstance(poly, list):
+                continue
+            for i, ring in enumerate(poly):
+                if not isinstance(ring, list):
+                    continue
+                a, mx, my = _ring_moments(ring)
+                sign = (1.0 if a >= 0 else -1.0) * (1.0 if i == 0 else -1.0)
+                a_sum, cx, cy = a_sum + sign * a, cx + sign * mx, cy + sign * my
     if abs(a_sum) < 1e-18:
         return None
     lng, lat = cx / (3 * a_sum), cy / (3 * a_sum)
@@ -367,8 +574,76 @@ def polygon_centroid(geometry: dict | None) -> tuple[float, float] | None:
     return round(lat, 7), round(lng, 7)
 
 
+def _rings(geometry) -> list:
+    """Polygon rings as lists of (lng, lat) from an Esri JSON polygon
+    ({"rings": ...}) or a GeoJSON Polygon / MultiPolygon. [] when neither."""
+    if not isinstance(geometry, dict):
+        return []
+    if geometry.get("rings"):
+        return [r for r in geometry["rings"] if isinstance(r, list)]
+    kind, coords = geometry.get("type"), geometry.get("coordinates") or []
+    if kind == "Polygon":
+        return [r for r in coords if isinstance(r, list)]
+    if kind == "MultiPolygon":
+        return [r for poly in coords if isinstance(poly, list) for r in poly if isinstance(r, list)]
+    return []
+
+
+# Authalic radius of the WGS 84 ellipsoid: a sphere of the same surface area.
+_AUTHALIC_R_M = 6371007.181
+_SQFT_PER_M2 = 10.763910417
+
+
+def _signed_ring_area_m2(ring) -> float:
+    pts = [(float(p[0]), float(p[1])) for p in ring if isinstance(p, (list, tuple)) and len(p) >= 2]
+    if len(pts) < 3:
+        return 0.0
+    s = 0.0
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:] + pts[:1]):
+        s += math.radians(x1 - x0) * (2 + math.sin(math.radians(y0)) + math.sin(math.radians(y1)))
+    return s * _AUTHALIC_R_M ** 2 / 2.0
+
+
+def polygon_area_sqft(geometry) -> int | None:
+    """Area of a WGS 84 polygon in square feet (spherical excess on the
+    authalic sphere; holes subtract). In one polygon the outer ring and its
+    holes run in opposite directions (Esri: outer clockwise; GeoJSON: outer
+    counter-clockwise), so the absolute sum of the signed ring areas is its
+    area; a GeoJSON MultiPolygon is summed part by part. An Esri polygon with
+    several outer rings is summed the same way (all its outer rings share one
+    direction). None for no / degenerate geometry."""
+    if isinstance(geometry, dict) and geometry.get("type") == "MultiPolygon":
+        total = sum(abs(sum(_signed_ring_area_m2(r) for r in poly if isinstance(r, list)))
+                    for poly in geometry.get("coordinates") or [] if isinstance(poly, list))
+    else:
+        rings = _rings(geometry)
+        if not rings:
+            return None
+        total = abs(sum(_signed_ring_area_m2(r) for r in rings))
+    sqft = total * _SQFT_PER_M2
+    return int(round(sqft)) if sqft >= 1 else None
+
+
 def _is_no_value(cfg: ParcelSourceConfig, column: str, value) -> bool:
-    return str(value).strip().upper() in {str(v).upper() for v in cfg.no_value.get(column, ())}
+    text = str(value).strip().upper()
+    if text in {str(v).upper() for v in cfg.no_value.get(column, ())}:
+        return True
+    return any(re.match(p, text) for p in cfg.no_value_patterns.get(column, ()))
+
+
+def composite_value(column: str, parts, attrs: dict):
+    """A text column published in parts, joined as the source orders them
+    (blank parts skipped, a prefix only beside its own part), or None. The
+    FIRST part is required: a street name without its house number is not a
+    situs address, so a record missing it yields no value at all."""
+    out = []
+    for i, (attr, prefix) in enumerate(parts):
+        v = _coerce(column, attrs.get(attr))
+        if v is None and i == 0:
+            return None
+        if v is not None:
+            out.append(f"{prefix}{v}" if prefix else v)
+    return " ".join(out) or None
 
 
 def plan_update(cfg: ParcelSourceConfig, row: dict, match: MatchResult, *, recorded_at: str) -> tuple[dict, dict]:
@@ -389,6 +664,10 @@ def plan_update(cfg: ParcelSourceConfig, row: dict, match: MatchResult, *, recor
         if str(attrs.get(cond) or "").strip().upper() not in {str(a).upper() for a in accepted}:
             continue
         v = _coerce(column, attrs.get(attr))
+        if v is not None and not _is_no_value(cfg, column, v):
+            fields[column] = v
+    for column, parts in cfg.composite_map.items():
+        v = composite_value(column, parts, attrs)
         if v is not None and not _is_no_value(cfg, column, v):
             fields[column] = v
     column_years: dict = {}
@@ -414,9 +693,15 @@ def plan_update(cfg: ParcelSourceConfig, row: dict, match: MatchResult, *, recor
         c = polygon_centroid(match.feature.get("geometry"))
         if c:
             fields["latitude"], fields["longitude"] = c
-    meta = {"source_id": cfg.source_id, "dataset": cfg.dataset, "agency": cfg.agency, "layer_url": cfg.layer_url,
+    if cfg.derived_lot_area and "lot_sqft" not in fields:
+        area = polygon_area_sqft(match.feature.get("geometry"))
+        if area:
+            fields["lot_sqft"] = area
+    county_key = row.get("county") if cfg.county_id else None
+    layer = cfg.file_url(county_key) if cfg.transport == "county_file" and county_key in cfg.county_fips else cfg.layer_url
+    meta = {"source_id": cfg.source_id, "dataset": cfg.dataset, "agency": cfg.agency, "layer_url": layer,
             "matched_id_field": match.feature.get("_matched_field") or cfg.id_field, "matched_row_column": cfg.row_id_column,
-            "matched_parcel_id": match.key, "id_rule": cfg.id_rule,
+            "matched_parcel_id": match.key, "id_rule": cfg.id_rule_for(county_key),
             "licence": cfg.licence, "value_year": year, "recorded_at": recorded_at}
     if cfg.latest_field and attrs.get(cfg.latest_field) not in (None, ""):
         meta["record_of"] = f"{cfg.latest_field}={attrs.get(cfg.latest_field)} (latest published)"
@@ -431,6 +716,8 @@ def plan_update(cfg: ParcelSourceConfig, row: dict, match: MatchResult, *, recor
                                   f"later years leave it blank)")
         if column in ("latitude", "longitude"):
             entry["derived"] = "area-weighted centroid of the matched parcel polygon"
+        if column == "lot_sqft" and cfg.derived_lot_area:
+            entry["derived"] = DERIVED_AREA_NOTE
         prov[column] = entry
     return fields, prov
 

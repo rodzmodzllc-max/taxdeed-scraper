@@ -413,7 +413,136 @@ if (new URLSearchParams(location.search).get("offlist") === "1") {
   if (p8) p8.last_seen_at = new Date(Date.now() - 3600 * 1000).toISOString();
 }
 
+// ?unconfirmed=1 (2026-10-27 unconfirmed Available records): every Florida
+// Available row is read back an hour ago, except Bay's p3 (never confirmed:
+// last_seen_at NULL, like production's Hendry row) and Citrus' p15 (last
+// confirmed ten days ago). tests/config.js turns the gate on for this knob
+// only - the fixture's other rows carry historical dates.
+if (new URLSearchParams(location.search).get("unconfirmed") === "1") {
+  const fresh = new Date(Date.now() - 3600 * 1000).toISOString();
+  FIXTURE_PROPERTIES.forEach(r => { if (r.source === "laft") r.last_seen_at = fresh; });
+  const p3 = FIXTURE_PROPERTIES.find(r => r.id === "p3");
+  if (p3) { p3.last_seen_at = null; p3.first_seen_at = null; }
+  const p15 = FIXTURE_PROPERTIES.find(r => r.id === "p15");
+  if (p15) p15.last_seen_at = new Date(Date.now() - 10 * 86400 * 1000).toISOString();
+}
+// ?brokenlinks=1 (2026-10-27 source link checks, migration 036): the table
+// holds p15's list page BROKEN on two daily checks (hidden as a link), its
+// purchase page BROKEN once (still a link) and p3's list BLOCKED (still a
+// link). Absent = the table is not deployed (PGRST205).
+const LINK_CHECKS = new URLSearchParams(location.search).get("brokenlinks") === "1" ? [
+  { url: "https://x/citrus-list", host: "x", status: "BROKEN", http_code: 404, detail: "HTTP_404", checked_at: "2026-10-27T11:55:00Z", first_failed_at: "2026-10-26T11:55:00Z", consecutive_failures: 2, referenced_by: ["properties.list_url"] },
+  { url: "https://www.citrusclerk.example.gov/lands-available/how-to-purchase", status: "BROKEN", http_code: 404, checked_at: "2026-10-27T11:55:00Z", first_failed_at: "2026-10-27T11:55:00Z", consecutive_failures: 1 },
+  { url: "https://x", status: "BLOCKED", http_code: 403, checked_at: "2026-10-27T11:55:00Z", first_failed_at: null, consecutive_failures: 0 }
+] : null;
+
+// ?zerosize=1 (2026-10-22 card facts): p1 carries a stored living area and lot
+// size of zero. The card must read "Not published", never "0 sq ft".
+if (new URLSearchParams(location.search).get("zerosize") === "1") {
+  const p1 = FIXTURE_PROPERTIES.find(r => r.id === "p1");
+  if (p1) { p1.living_area = 0; p1.lot_sqft = 0; }
+}
+
+// ?storedphoto=1 (2026-10-21 stored-aerial outline regression): p5 carries a
+// stored USDA NAIP aerial, as 62 of the 64 production properties with an
+// outline did. The image is a labelled fixture placard, never a real aerial.
+if (new URLSearchParams(location.search).get("storedphoto") === "1") {
+  const p5 = FIXTURE_PROPERTIES.find(r => r.id === "p5");
+  if (p5) {
+    p5.photo_source = "usda_naip";
+    p5.photo_url = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400'><rect width='100%' height='100%' fill='%2364748b'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='26' fill='%23ffffff'>FIXTURE STORED AERIAL</text></svg>";
+  }
+}
+
+// ?txcause=1 (2026-10-10 Texas cause-number regression): a second LGBS row in
+// Galveston listed under the SAME tax-suit cause as ptx3 but a different CAD
+// account (production: one cause on up to 26 different properties). The two
+// are different parcels and must never be shown as the same parcel. Off by
+// default so every other pin is unchanged.
+if (new URLSearchParams(location.search).get("txcause") === "1") {
+  const ptx3 = FIXTURE_PROPERTIES.find(r => r.id === "ptx3");
+  if (ptx3) FIXTURE_PROPERTIES.push(Object.assign({}, ptx3, { id: "ptx8", case_no: "129500040016000",
+    address: "VACANT LOT IN 6600 BLOCK OF OBRIEN ST, Hitchcock, TX 77563", bid: 3100, min_bid: 3100 }));
+}
+
+// ?gatefresh=1 (2026-10-10, acquisition-path gate): one extra Florida
+// Available row that PASSES the gate - a customer-published source
+// (fl_laft_html), Calhoun County (a VERIFIED unit with a county process
+// record in public/acquisition-evidence.json), read today, no list date, no
+// typed path of its own. Every other fixture Available row fails the gate
+// for a documented reason (stale read, never stamped, dated list, unit not
+// verified), so this is the one positive case. Off by default.
+if (new URLSearchParams(location.search).get("gatefresh") === "1") {
+  FIXTURE_PROPERTIES.push({ id: "pgate1", source: "laft", state: "FL", county: "Calhoun", case_no: "CAL-GATE-1", parcel: "0099001", address: "9 FIXTURE GATE RD",
+    owner_name: "", bid: 0, assessed: 12000, market: 12500, value_year: 2025, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Vacant Lot", sale_date: null,
+    homestead: false, url_auction: null, url_auction_kind: null, updated_at: new Date().toISOString(), last_seen_at: new Date().toISOString(), first_seen_at: "2026-10-01T00:00:00Z",
+    source_id: "fl_laft_html", harvester_source: "fl_laft_html", publication_status: "APPROVED_GRANDFATHERED", inventory_type: "LANDS_AVAILABLE",
+    purchase_amount: null, purchase_amount_kind: null, purchase_url: null, purchase_url_kind: null, list_url: "https://calhounclerk.com/court-services/", latitude: null, longitude: null });
+}
+
 const PROFILE_MODE = new URLSearchParams(location.search).get("profile") || "default";
+
+// ?pubgate=1 (2026-10-10 mandatory acquisition-path gate, migration 031): the
+// SERVER side of the customer-publication gate. Every fixture row carries a
+// publication decision - the ones below are withheld, every other active row
+// is CUSTOMER_PUBLISHED - and, as the real access policy does, a non-admin
+// caller's property RPCs (get_properties, get_properties_list,
+// get_property_provenance) return only CUSTOMER_PUBLISHED rows while an admin
+// (?profile=admin) reads every row. count_publication_states() answers every
+// approved caller with counts only; get_withheld_states() answers an admin
+// with the withheld rows' decisions and a customer with nothing (RLS).
+// Without the knob both RPCs are "not deployed" (PGRST202): today's behaviour.
+const PUB_GATE = new URLSearchParams(location.search).get("pubgate") === "1";
+const PUB_PATH_FL_CERT = { ledger: "LIENS_CERTIFICATES", inventory_type: "certificate", state: "FL", county: "Alachua",
+  authority: "Alachua County Tax Collector", source_url: "https://alachua.county-held.example.gov/certificates", source_type: "county_held_list",
+  destination_url: "https://alachua.county-held.example.gov/certificates", path_type: "certificate_purchase", scope: "county",
+  verification_status: "VERIFIED", last_verified: "2026-10-01" };
+const PUB_DECISIONS = {
+  // AUCTIONS: the only link is the county's homepage - not a route to the process
+  // (p11 is active; p2's "dropped" lifecycle status makes it CLOSED here).
+  p11: { publication_state: "ADMIN_ONLY_NO_PATH", publication_progress: "RULES_VERIFIED", publication_reasons: ["PATH_UNTRUSTED"],
+    publication_remediation: "Record the actual process page or published procedure, not the homepage.",
+    publication_path: { ledger: "AUCTIONS", state: "FL", county: "Marion", path_type: "auction_bidding", scope: "record", verification_status: "UNTRUSTED", missing_reason: "PATH_UNTRUSTED" } },
+  // AVAILABLE: no official acquisition page found for the county yet.
+  p3: { publication_state: "ADMIN_ONLY_NO_PATH", publication_progress: "RULES_VERIFIED", publication_reasons: ["PATH_NOT_FOUND"],
+    publication_remediation: "Add candidate pages (data/acquisition_candidate_pages.csv) and capture them.",
+    publication_path: { ledger: "AVAILABLE", state: "FL", county: "Bay", scope: "county", verification_status: "NOT_FOUND", missing_reason: "PATH_NOT_FOUND" } },
+  // LIENS: a county-level certificate purchase page is verified, but the record was not observed in the last 7 days.
+  p4: { publication_state: "ADMIN_ONLY_STALE", publication_progress: "PATH_VERIFIED", publication_reasons: ["OBSERVATION_STALE"],
+    publication_remediation: "Run the source's harvest; a successful read refreshes the observation.", publication_path: PUB_PATH_FL_CERT },
+  // AUCTIONS: sale date passed, no result published.
+  p13: { publication_state: "ADMIN_ONLY_STALE", publication_progress: "PATH_VERIFIED", publication_reasons: ["SALE_DATE_PASSED"],
+    publication_remediation: "The lifecycle closes past sales; verify the outcome or wait for the close-out.",
+    publication_path: { ledger: "AUCTIONS", state: "FL", county: "Alachua", path_type: "auction_bidding", scope: "record", verification_status: "VERIFIED" } },
+  // AVAILABLE: a RESTRICTED source.
+  p14: { publication_state: "ADMIN_ONLY_SOURCE_REVIEW", publication_progress: "DISCOVERED", publication_reasons: ["SOURCE_RESTRICTED"],
+    publication_remediation: "Resolve the legal review and record the publication decision.", publication_path: null },
+  // AVAILABLE outside Florida: unreviewed sources / unverified state rules.
+  ptn1: { publication_state: "ADMIN_ONLY_SOURCE_REVIEW", publication_progress: "DISCOVERED", publication_reasons: ["SOURCE_UNREVIEWED"],
+    publication_remediation: "Record an admin publication review for the source (Admin > Source publication).", publication_path: null },
+  ptx3: { publication_state: "ADMIN_ONLY_SOURCE_REVIEW", publication_progress: "DISCOVERED", publication_reasons: ["RULES_NOT_VERIFIED"],
+    publication_remediation: "Read the governing statute or county procedure and record it in data/state_ledgers.csv / state_rules.csv.", publication_path: null },
+  ptx6: { publication_state: "ADMIN_ONLY_SOURCE_REVIEW", publication_progress: "DISCOVERED", publication_reasons: ["RULES_NOT_VERIFIED"],
+    publication_remediation: "Read the governing statute or county procedure and record it in data/state_ledgers.csv / state_rules.csv.", publication_path: null }
+};
+function pubDecisionOf(row) {
+  const d = PUB_DECISIONS[row.id];
+  if (d) return Object.assign({ publication_state_at: "2026-10-10T12:00:00Z" }, d);
+  // The engine decides active rows (the writer reads status=eq.active); the
+  // fixture's legacy Florida Available rows carry "available" where
+  // production carries "active" (one legacy row aside), so both count here.
+  const active = ["active", "available"].includes(String(row.status || "active"));
+  return { publication_state: active ? "CUSTOMER_PUBLISHED" : "CLOSED", publication_progress: active ? "CUSTOMER_PUBLISHED" : "DISCOVERED",
+    publication_reasons: active ? [] : ["NOT_ACTIVE"], publication_remediation: null, publication_path: null, publication_state_at: "2026-10-10T12:00:00Z" };
+}
+// The access policy's customer rule: approved AND (customer-published OR admin).
+function pubVisibleTo(row, callerIsAdmin) {
+  if (!PUB_GATE || callerIsAdmin) return true;
+  return pubDecisionOf(row).publication_state === "CUSTOMER_PUBLISHED";
+}
+function stubCallerIsAdmin() {
+  return PROFILE_MODE === "admin";
+}
 
 const PROFILES_TABLE = PROFILE_MODE === "notable" ? null : [
   PROFILE_MODE === "pending"
@@ -483,6 +612,12 @@ const REGISTRY_ROWS = REGISTRY_MODE === "none" ? null : [
   { state: "FL", county: "Broward", source_id: "fl_laft_broward_candidate", last_attempt_at: null, last_attempt_status: null, last_success_at: null, last_success_row_count: null, consecutive_failures: 0, publication_status: "RESTRICTED", restrictions: "terms of use under legal review", governance_status: "LEGAL_REVIEW_REQUIRED", verification_status: "CANDIDATE" },
   // Dixie: a complete read in which the source listed nothing (checked zero) -
   // never shown like Bay's unreachable source.
+  // ?certunit=1 (2026-10-10): a certificate unit read completely - the Liens &
+  // Certificates zero case "no current inventory" needs a successful read on
+  // record. Opt-in so the dashboard / admin unit counts stay as pinned.
+  ...(new URLSearchParams(location.search).get("certunit") === "1" ? [
+    { state: "FL", county: "Walton", source_id: "fl_lienhub_certificates", last_attempt_at: hoursAgo(5), last_attempt_status: "COMPLETE", last_success_at: hoursAgo(5), last_success_row_count: 9, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" }
+  ] : []),
   { state: "FL", county: "Dixie", source_id: "fl_laft_html", last_attempt_at: hoursAgo(4), last_attempt_status: "EMPTY", last_success_at: hoursAgo(4), last_success_row_count: 0, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" },
   { state: "TX", county: "Galveston", source_id: "tx_lgbs", last_attempt_at: hoursAgo(30), last_attempt_status: "INCOMPLETE", last_success_at: hoursAgo(54), last_success_row_count: 120, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" }
 ];
@@ -594,8 +729,12 @@ class MockQuery {
   limit(n) { this._limit = n; return this; }
   // PostgREST or=(...) - only the customer publication filter the state
   // picker sends is understood (see the properties branch below).
-  or(expr) { this._or = String(expr || ""); return this; }
+  // Several or() calls are separate filters (AND-ed), as in PostgREST.
+  or(expr) { this._or = (this._or ? this._or + ";" : "") + String(expr || ""); return this; }
+  // not(col, "in", "(a,b)"): SQL semantics - a NULL value is never "not in".
+  not(col, op, val) { if (op === "in") this._filters.push([col, String(val || "").replace(/^\(|\)$/g, "").split(","), "notin"]); return this; }
   gte() { return this; }
+  gt() { return this; }
   maybeSingle() { this._single = true; return this; }
   insert(row) { this._op = "insert"; this._row = row; return this; }
   update(patch) { this._op = "update"; this._row = patch; return this; }
@@ -659,6 +798,29 @@ class MockQuery {
       // counted so a test can prove a state switch never removes anything.
       if (this._op === "select") result = { data: BIDLIST_SEED.map(id => ({ property_id: id })), error: null };
       else if (this._op === "delete") window.__stubBidListDeletes = (window.__stubBidListDeletes || 0) + 1;
+    } else if (this._op === "select" && this.table === "source_link_checks") {
+      // Like the server read: BROKEN on 2+ separate daily checks only.
+      window.__stubLinkCheckReads = (window.__stubLinkCheckReads || 0) + 1;
+      if (!LINK_CHECKS) result = { data: null, error: { message: "Could not find the table 'public.source_link_checks' in the schema cache", code: "PGRST205" } };
+      else result = { data: LINK_CHECKS.filter(r => r.status === "BROKEN" && r.consecutive_failures >= 2), error: null };
+    } else if (this._op === "select" && this.table === "parcel_boundaries") {
+      // Which properties carry an outline (cards ask only for those). Follows
+      // ?boundary=: absent = table not deployed (PGRST205); none = no rows;
+      // error = read failure; any other mode = every fixture row with
+      // coordinates in the requested state, or only ?boundaryids=<id>,<id>.
+      const qs = new URLSearchParams(location.search);
+      const mode = qs.get("boundary");
+      window.__stubBoundaryIdReads = (window.__stubBoundaryIdReads || 0) + 1;
+      if (!mode) result = { data: null, error: { message: "Could not find the table 'public.parcel_boundaries' in the schema cache", code: "PGRST205" } };
+      else if (mode === "error") result = { data: null, error: { message: "stub: boundary id read failed", code: "XX000" } };
+      else if (mode === "none") result = { data: [], error: null };
+      else {
+        const only = qs.get("boundaryids") ? qs.get("boundaryids").split(",") : null;
+        const st = (this._filters.find(([c]) => c === "state") || [])[1];
+        result = { data: FIXTURE_PROPERTIES
+          .filter(r => typeof r.latitude === "number" && (!st || (r.state || "FL") === st) && (!only || only.includes(r.id)))
+          .map(r => ({ property_id: r.id })), error: null };
+      }
     } else if (this._op === "select") {
       const matches = row => this._filters.every(([c, v, kind]) => kind === "in" ? (v || []).includes(row[c]) : kind === "lt" ? String(row[c]) < String(v) : row[c] === v);
       if (this.table === "properties") {
@@ -671,8 +833,22 @@ class MockQuery {
         else if (new URLSearchParams(location.search).get("probefail") === "1") result = { data: null, error: { message: "probe failed (stub)" } };
         else {
           window.__stubPropertyProbes = (window.__stubPropertyProbes || 0) + 1;
-          let rows = FIXTURE_PROPERTIES.filter(r => this._filters.every(([c, v]) => (c === "state" ? (r.state || "FL") : r[c]) === v));
+          window.__stubProbeLog = (window.__stubProbeLog || []).concat([{ filters: this._filters.map(f => f.slice()), or: this._or || "" }]);
+          let rows = FIXTURE_PROPERTIES.filter(r => this._filters.every(([c, v, kind]) => {
+            const val = c === "state" ? (r.state || "FL") : r[c];
+            return kind === "in" ? (v || []).includes(val) : kind === "notin" ? (val != null && !(v || []).includes(val)) : kind === "lt" ? String(val) < String(v) : val === v;
+          }));
+          // or=(status.is.null,status.not.in.(...)): the probe's current-row rule.
+          const statusCut = /status\.is\.null,status\.not\.in\.\(([^)]*)\)/.exec(this._or || "");
+          if (statusCut) { const gone = statusCut[1].split(","); rows = rows.filter(r => r.status == null || !gone.includes(r.status)); }
+          // or=(sale_date.is.null,sale_date.gte.<day>): a current auction row.
+          const saleCut = /sale_date\.is\.null,sale_date\.gte\.([^,);]+)/.exec(this._or || "");
+          if (saleCut) rows = rows.filter(r => !r.sale_date || String(r.sale_date).slice(0, 10) >= saleCut[1]);
           if (/publication_status\.is\.null/.test(this._or || "")) rows = rows.filter(r => !r.publication_status || ["APPROVED", "APPROVED_GRANDFATHERED"].includes(r.publication_status));
+          // The admin "Needs attention" read of unconfirmed Available rows:
+          // or=(last_seen_at.is.null,last_seen_at.lt.<iso>).
+          const seenCut = /last_seen_at\.is\.null,last_seen_at\.lt\.([^,)]+)/.exec(this._or || "");
+          if (seenCut) rows = rows.filter(r => !r.last_seen_at || String(r.last_seen_at) < seenCut[1]);
           result.data = this._limit ? rows.slice(0, this._limit) : rows;
         }
       }
@@ -684,9 +860,21 @@ class MockQuery {
           : { data: SOURCE_HEALTH_ROWS, error: null };
       }
       else if (this.table === "county_source_registry") {
-        result = REGISTRY_ROWS === null
+        // ?unitstatus=<source_id>:<STATUS>[,...] (2026-10-10 zero-count
+        // semantics): that source's units answer with this last_attempt_status
+        // (COMPLETE / EMPTY also mark a success now), so a ledger's read health
+        // can be set independently of the fixture's default rows.
+        const us = (new URLSearchParams(location.search).get("unitstatus") || "").split(",").filter(Boolean).map(x => x.split(":"));
+        const rows = REGISTRY_ROWS === null ? null : REGISTRY_ROWS.map(r => {
+          const o = us.find(x => x[0] === r.source_id);
+          if (!o) return r;
+          const success = o[1] === "COMPLETE" || o[1] === "EMPTY";
+          return { ...r, last_attempt_at: hoursAgo(1), last_attempt_status: o[1], last_success_at: success ? hoursAgo(1) : r.last_success_at,
+            last_success_row_count: success ? (o[2] !== undefined ? Number(o[2]) : r.last_success_row_count) : r.last_success_row_count, last_error_category: success ? null : r.last_error_category };
+        });
+        result = rows === null
           ? { data: null, error: { message: "column county_source_registry.last_attempt_at does not exist", code: "42703" } }
-          : { data: REGISTRY_ROWS, error: null };
+          : { data: rows, error: null };
       }
       else if (this.table === "inventory_status_observations") {
         result = INVENTORY_HISTORY_ROWS === null
@@ -957,6 +1145,53 @@ export function createClient() {
     // found" shape (PGRST202) so app.js's own missingFn fallback-detection
     // logic can be exercised too if a future test needs it.
     async rpc(fnName, args) {
+      // Parcel boundary (2026-10-20, migration 034 get_property_boundary).
+      // Deterministic FIXTURE geometry built around the row's own point,
+      // labelled as a fixture - never parcel data. Modes via ?boundary=:
+      // absent = not deployed (PGRST202); ok = one polygon with a UGRC-shaped
+      // attribution (credit, CC BY 4.0 link, change notice, disclaimer link,
+      // metadata link); fl = one polygon with a DOR-shaped attribution (no
+      // licence link, no disclaimer); multi = two components and a hole;
+      // none = zero rows; unauth = not display-permitted; invalid = an open
+      // ring; nolicencelink = a licence named without its link; error = a
+      // read failure. ?boundarydelay=ms delays the answer.
+      if (fnName === "get_property_boundary") {
+        const qs = new URLSearchParams(location.search);
+        const mode = qs.get("boundary");
+        if (!mode) return { data: null, error: { message: "Could not find the function public.get_property_boundary(p_property_id) in the schema cache", code: "PGRST202" } };
+        window.__stubBoundaryCalls = (window.__stubBoundaryCalls || []).concat([String(args && args.p_property_id)]);
+        const delay = Number(qs.get("boundarydelay") || 0);
+        if (delay) await new Promise(res => setTimeout(res, delay));
+        if (mode === "error") return { data: null, error: { message: "stub: boundary read failed", code: "XX000" } };
+        const row = FIXTURE_PROPERTIES.find(r => r.id === String(args && args.p_property_id));
+        if (mode === "none" || !row || typeof row.latitude !== "number") return { data: [], error: null };
+        const cx = row.longitude, cy = row.latitude, h = 0.0004;
+        const sq = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+        let coordinates = [[sq(cx - h, cy - h, cx + h, cy + h)]];
+        if (mode === "multi") {
+          coordinates = [
+            [sq(cx - h, cy - h, cx + h, cy + h), sq(cx - h / 3, cy - h / 3, cx + h / 3, cy + h / 3)],
+            [sq(cx + h * 1.4, cy - h / 2, cx + h * 2.2, cy + h / 2)]
+          ];
+        }
+        if (mode === "invalid") coordinates = [[[[cx - h, cy - h], [cx + h, cy - h], [cx + h, cy + h], [cx - h, cy + h]]]];
+        const fl = mode === "fl";
+        const attrib = fl
+          ? { attribution: "FIXTURE Florida Department of Revenue, Property Tax Oversight", license_name: "", license_url: "",
+              change_notice: "FIXTURE: boundaries simplified for display", disclaimer: "", disclaimer_url: "", metadata_url: "" }
+          : { attribution: "FIXTURE Utah Geospatial Resource Center (UGRC)", license_name: "CC BY 4.0",
+              license_url: mode === "nolicencelink" ? "" : "https://creativecommons.org/licenses/by/4.0/",
+              change_notice: "FIXTURE: boundaries reprojected and simplified", disclaimer: "",
+              disclaimer_url: "https://gis.utah.gov/documentation/policy/license/",
+              metadata_url: "https://example.org/fixture-metadata" };
+        const boundary = { type: "MultiPolygon", coordinates };
+        return { data: [Object.assign({ property_id: row.id, boundary, display_permitted: mode !== "unauth",
+          source_id: fl ? "fl_dor_pto_parcel_gis" : "ut_ugrc_lir_saltlake", source_dataset: "FIXTURE", source_feature_id: "fixture-1",
+          match_method: qs.get("boundarymatch") === "listing" ? "PARCEL_NUMBER_LOCATION_CONFIRMED" : "EXACT_PARCEL_ID",
+          source_observed_at: "2026-10-01T00:00:00Z",
+          source_last_successful_refresh_at: mode === "norefresh" ? null : "2026-10-02T06:00:00Z",
+          source_expected_cadence: fl ? "Annual, about mid-August to early September" : "Generally monthly" }, attrib)], error: null };
+      }
       // SaaS hardening: self-service account deletion (migration 015).
       // ?rpcmissing=1 mimics a deployment where 015 has not been applied.
       if (fnName === "delete_my_account") {
@@ -982,7 +1217,7 @@ export function createClient() {
       if (fnName === "get_property_provenance") {
         window.__stubProvenanceCalls = (window.__stubProvenanceCalls || 0) + 1;
         if (new URLSearchParams(location.search).get("nolistrpc") === "1") return { data: null, error: { message: "Could not find the function public.get_property_provenance(p_id) in the schema cache", code: "PGRST202" } };
-        const row = FIXTURE_PROPERTIES.map(stubVariant).find(r => String(r.id) === String(args.p_id));
+        const row = FIXTURE_PROPERTIES.map(stubVariant).filter(r => pubVisibleTo(r, stubCallerIsAdmin())).find(r => String(r.id) === String(args.p_id));
         return { data: row ? [{ id: row.id, otc_provenance: row.otc_provenance ?? null, field_provenance: row.field_provenance ?? null }] : [], error: null };
       }
       if (fnName === "get_properties_list" && new URLSearchParams(location.search).get("nolistrpc") === "1") {
@@ -1026,15 +1261,21 @@ export function createClient() {
             latitude: 42.30 + rnd() * 0.12, longitude: -83.20 + rnd() * 0.22, publication_status: "UNREVIEWED", ledger_type: "buy",
             last_seen_at: "2026-10-02T12:00:00Z", updated_at: "2026-10-02T12:00:00Z" }));
         }
-        const rows = FIXTURE_PROPERTIES.concat(pState === "MI" && window.__stubBigRows ? window.__stubBigRows : [])
+        const rows = FIXTURE_PROPERTIES.concat(window.__stubExtraRows || []).concat(pState === "MI" && window.__stubBigRows ? window.__stubBigRows : [])
           .filter(p => !EMPTY_STATE && (p.state || "FL") === pState)
           .filter(p => !args.p_ledger_type || (p.ledger_type || LEDGER_FOR_SOURCE[p.source]) === args.p_ledger_type)
           .slice().sort((a, b) => String(a.county).localeCompare(String(b.county)) || String(a.case_no).localeCompare(String(b.case_no)))
           // ?stripacq=1 (2026-10-05): pla2 in the shape production's 3,500 East
           // Baton Rouge rows had after an adapter sync replaced otc_provenance
           // wholesale - the typed path columns stay, the acquisition record is gone.
-          .map(stubVariant);
+          .map(stubVariant)
+          // ?pubgate=1: the access policy - a customer reads customer-published rows only.
+          .filter(p => pubVisibleTo(p, stubCallerIsAdmin()));
         const offset = Number(args.p_offset) || 0, limit = Math.min(Number(args.p_limit) || 20000, cap);
+        // ?emptyledger=<ledger>[,...] (2026-10-10 zero-count semantics): that
+        // ledger answers with no rows at all, so the zero-case copy can be
+        // exercised for a state whose fixture otherwise holds rows.
+        if ((new URLSearchParams(location.search).get("emptyledger") || "").split(",").includes(args.p_ledger_type)) return { data: [], error: null };
         // Load-resilience fixtures (2026-10-04):
         //   ?failpage=<ledger>:<offset>[,...]   that page always fails (statement timeout)
         //   ?flakypage=<ledger>:<offset>:<n>     that page fails n times, then succeeds
@@ -1065,6 +1306,24 @@ export function createClient() {
       // "not deployed" (PGRST202) and the app keeps the approval-record path -
       // which is what every pre-existing check exercises.
       //   ?entitlement=tester|admin|customer|manual|cancelling|grace|inactive|payment_failed|cancelled|activating
+      // Migration 031 (2026-10-10): the customer-publication gate's two RPCs.
+      if (fnName === "count_publication_states" || fnName === "get_withheld_states") {
+        if (!PUB_GATE) return { data: null, error: { message: `Could not find the function public.${fnName}(p_state) in the schema cache`, code: "PGRST202" } };
+        const LEDGER_FOR_SOURCE = { auction: "auctions", laft: "buy", certificate: "lien" };
+        const active = FIXTURE_PROPERTIES.filter(p => (p.state || "FL") === (args && args.p_state))
+          .filter(p => ["active", "available"].includes(String(p.status || "active")));
+        if (fnName === "count_publication_states") {
+          const counts = {};
+          active.forEach(p => {
+            const k = `${p.ledger_type || LEDGER_FOR_SOURCE[p.source]}|${pubDecisionOf(p).publication_state}`;
+            counts[k] = (counts[k] || 0) + 1;
+          });
+          return { data: Object.entries(counts).sort().map(([k, n]) => ({ ledger: k.split("|")[0], publication_state: k.split("|")[1], n })), error: null };
+        }
+        if (!stubCallerIsAdmin()) return { data: [], error: null };   // RLS: a customer reads no withheld row
+        return { data: active.filter(p => pubDecisionOf(p).publication_state !== "CUSTOMER_PUBLISHED")
+          .map(p => Object.assign({ id: p.id, ledger: p.ledger_type || LEDGER_FOR_SOURCE[p.source] }, pubDecisionOf(p))), error: null };
+      }
       if (fnName === "my_entitlement") {
         const mode = new URLSearchParams(location.search).get("entitlement");
         if (!mode) return { data: null, error: { message: "Could not find the function public.my_entitlement without parameters in the schema cache", code: "PGRST202" } };

@@ -184,6 +184,11 @@ def details_pass(s: requests.Session, base: str, row_id: str) -> None:
 
 
 def main() -> int:
+    # Source permission for discovery (data/source_permissions.csv, operation
+    # "discover"): every request below is refused before any connection unless
+    # its URL belongs to a source with an in-date discover permission.
+    import permission_gate as _PG  # noqa: PLC0415
+    _PG.install_discovery_guard("capture_pioneer_statements")
     s = requests.Session()
     s.headers["User-Agent"] = UA
     rows = list(csv.DictReader(open(SOURCES, newline="", encoding="utf-8")))

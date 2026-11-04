@@ -150,7 +150,7 @@ def test_every_data_action_has_a_handler():
     for text in shipped:
         actions |= set(re.findall(r'data-action="([a-z0-9_-]+)"', text))
     assert actions, "no data-action controls found"
-    handlers = "\n".join(l for t in shipped[:2] for l in t.splitlines() if re.search(r"action ===|case |dataset\.action", l))
+    handlers = "\n".join(l for t in shipped[:2] for l in t.splitlines() if re.search(r"action ===|case |dataset\.action|closest\(", l))
     missing = sorted(a for a in actions if not re.search(r"""["']""" + re.escape(a) + r"""["']""", handlers))
     assert not missing, f"controls without a handler: {missing}"
 

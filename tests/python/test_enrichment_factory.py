@@ -9,6 +9,15 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 
 from harvesters.enrichment import parcels as P
+
+
+@pytest.fixture(autouse=True)
+def _fixture_layers_hold_permission(monkeypatch):
+    """The invented layers below have no source-permission record; this module
+    tests matching mechanics, so the permission check is stood in for THOSE ids
+    only (real sources keep the real check - test_source_permissions.py)."""
+    from permission_fixtures import allow_fixture_layers
+    allow_fixture_layers(monkeypatch, P, {"xx_parcels"})
 from scripts import field_provenance as FP
 
 

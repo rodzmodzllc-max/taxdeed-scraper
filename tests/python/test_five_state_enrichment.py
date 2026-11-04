@@ -6,6 +6,7 @@ Fixtures are SYNTHETIC (live column names and identifier shapes only).
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import sys
 from datetime import date, datetime, timezone
@@ -68,9 +69,12 @@ def test_s03_certificates_listed_then_closed_never_redeemed():
 
 
 def test_s04_other_states_and_non_adapter_rows_are_not_touched():
-    # FL / TX / AL / LA keep their own mappings; a row with no adapter provenance maps to nothing.
+    # FL / TX / AL keep their own mappings; an auction row with no adapter provenance maps to nothing.
     assert IS.status_for_row(_row(otc_provenance={}), today=TODAY) is None
-    assert IS.status_for_row(_row(state="LA", source="laft"), today=TODAY) is None
+    # Since 2026-10-11 an AVAILABLE row of any other state is mapped by its source id
+    # (available_record_status): Louisiana's list presence reads "active", never more.
+    la = IS.status_for_row(_row(state="LA", source="laft", source_id="la_ebr_adjudicated"), today=TODAY)
+    assert (la.status, la.basis) == ("active", "LIST_PRESENCE")
     fl = IS.status_for_row({"state": "FL", "source": "auction", "status": "active", "sale_date": "2026-12-01"}, today=TODAY)
     assert fl.status == "upcoming" and "auction feed" in fl.note
 
@@ -256,23 +260,31 @@ def test_n05_albany_superseded_list_reads_not_published_never_listed():
 def test_g01_publication_decisions_per_source():
     reg = {r.source_id: r for r in csr.load_registry()}
     approved = {"co_douglas_county_held_liens", "co_douglas_tax_sale_list"} | set(EX.SIX_STATE_SOURCE_IDS)
-    gated = {"co_morgan_treasurer_deed_auctions", "wi_dane_tax_deed_auction", "sc_oconee_tax_sale_list"}
     for sid in approved:
         assert SP.publishable(reg[sid]) and pub.publication_problems(reg[sid]) == [], sid
     for sid in ("co_douglas_county_held_liens", "co_douglas_tax_sale_list"):
         assert "Creative Commons Attribution-ShareAlike 4.0" in reg[sid].restrictions
-    for sid in gated:
-        assert pub.effective_publication(reg[sid]) == "UNREVIEWED" and not SP.publishable(reg[sid]), sid
-    # AVAILABLE sprint: the held AVAILABLE sources are UNREVIEWED too (collected and held, never written).
-    held = set(EX.AVAILABLE_SPRINT_SOURCE_IDS) | set(EX.AVAILABLE_FIVE_SOURCE_IDS) | set(EX.TN_SOURCE_IDS)   # + AVAILABLE expansion 2026-10-04
-    for sid in held:
-        assert pub.effective_publication(reg[sid]) == "UNREVIEWED" and not SP.publishable(reg[sid]), sid
-    assert set(EX.PUBLICATION) == approved | gated | held
+    # Owner decision 2026-10-26: every source that was UNREVIEWED (the three gated
+    # auction sources and the held AVAILABLE ones) is published, legal review pending.
+    owner = {"co_morgan_treasurer_deed_auctions", "wi_dane_tax_deed_auction", "sc_oconee_tax_sale_list"} \
+        | set(EX.AVAILABLE_SPRINT_SOURCE_IDS) | set(EX.AVAILABLE_FIVE_SOURCE_IDS) | set(EX.TN_SOURCE_IDS)
+    assert owner == set(EX.OWNER_APPROVED_2026_10_26_SOURCE_IDS)
+    for sid in owner:
+        assert pub.effective_publication(reg[sid]) == "APPROVED" and SP.publishable(reg[sid]), sid
+        assert pub.publication_problems(reg[sid]) == [] and "legal review pending" in reg[sid].restrictions, sid
+    # New-sources sprint (2026-10-26): the same owner decision ("Do not block vendors. Post their shit").
+    new = set(EX.NEW_SOURCE_IDS)
+    for sid in new:
+        assert pub.effective_publication(reg[sid]) == "APPROVED" and SP.publishable(reg[sid]), sid
+        assert pub.publication_problems(reg[sid]) == [] and "legal review pending" in reg[sid].restrictions, sid
+    assert set(EX.PUBLICATION) == approved | owner | new
 
 
 def test_g02_unreviewed_sources_make_no_request_and_write_no_row():
     import harvest_expansion as HX2
     reg, _ = SP.registry_with_reviews("WI", reviews={})
+    # Dane is published since 2026-10-26; the rule is pinned on Dane as it stood before.
+    reg = dict(reg, wi_dane_tax_deed_auction=dataclasses.replace(reg["wi_dane_tax_deed_auction"], publication_status="UNREVIEWED"))
     run, gated = HX2.runnable_sources("WI", reg)
     assert {s.config.source_id for s in run} == {"wi_green_tax_deed_sales"} and gated == [("wi_dane_tax_deed_auction", "UNREVIEWED")]
     rows = [r.to_properties_row() for r in TabularListAdapter(EX.WI_DANE_AVAILABLE).parse_html_table((FIX / "wi_dane.html").read_text(), retrieved_at=T)]
@@ -280,17 +292,31 @@ def test_g02_unreviewed_sources_make_no_request_and_write_no_row():
     assert sent == [] and counts["withheld_not_publishable"] == 2
 
 
-def test_g03_an_admin_review_turns_a_source_on_and_an_invalid_one_does_not():
+def test_g03_an_admin_review_turns_a_source_on_and_an_invalid_one_does_not(monkeypatch):
     review = {("WI", "wi_dane_tax_deed_auction"): {"id": 1, "state": "WI", "source_id": "wi_dane_tax_deed_auction",
                                                     "publication_status": "APPROVED", "restrictions": "owner decision (test)",
                                                     "decided_at": "2026-10-01T00:00:00Z"}}
-    reg, report = SP.registry_with_reviews("WI", reviews=review)
-    assert SP.publishable(reg["wi_dane_tax_deed_auction"]) and "WI/wi_dane_tax_deed_auction" in report["reviews"]["applied"]
+    pending = {r.source_id: r for r in csr.load_registry() if r.state == "WI"}
+    pending["wi_dane_tax_deed_auction"] = dataclasses.replace(pending["wi_dane_tax_deed_auction"], publication_status="UNREVIEWED")
+    import publication_gate as PG
+    reg_list, rep = PG.apply_reviews(list(pending.values()), review)
+    reg = {r.source_id: r for r in reg_list}
+    assert "WI/wi_dane_tax_deed_auction" in rep["applied"]
+    # 2026-10-12: a publication review alone no longer publishes - the source
+    # also needs a recorded `display` permission (data/source_permissions.csv).
+    # Without one the review publishes nothing; with one recorded, it turns it on.
+    from permission_fixtures import install, record
+    install(monkeypatch, record(source_id="wi_dane_tax_deed_auction", jurisdiction="WI", operation="fetch"), base=False)
+    assert not SP.publishable(reg["wi_dane_tax_deed_auction"])
+    install(monkeypatch, record(source_id="wi_dane_tax_deed_auction", jurisdiction="WI", operation="fetch"),
+            record(source_id="wi_dane_tax_deed_auction", jurisdiction="WI", operation="display"), base=False)
+    assert SP.publishable(reg["wi_dane_tax_deed_auction"])
     # A review that tries to publish a blocked vendor is refused by the same validator publication_gate uses.
-    bad = {("TX", "tx_govease"): {"id": 2, "state": "TX", "source_id": "tx_govease", "publication_status": "APPROVED",
-                                  "restrictions": "", "decided_at": "2026-10-01T00:00:00Z"}}
+    # (tx_ctsa - the one vendor still blocked since the owner unblocked GovEase / PBFCM / MVBA on 2026-10-26.)
+    bad = {("TX", "tx_ctsa"): {"id": 2, "state": "TX", "source_id": "tx_ctsa", "publication_status": "APPROVED",
+                               "restrictions": "", "decided_at": "2026-10-01T00:00:00Z"}}
     reg_tx, rep_tx = SP.registry_with_reviews("TX", reviews=bad)
-    assert not SP.publishable(reg_tx.get("tx_govease")) and ("TX/tx_govease" in rep_tx["reviews"]["rejected"] or "TX/tx_govease" in rep_tx["reviews"]["unknown_source"])
+    assert not SP.publishable(reg_tx.get("tx_ctsa")) and ("TX/tx_ctsa" in rep_tx["reviews"]["rejected"] or "TX/tx_ctsa" in rep_tx["reviews"]["unknown_source"])
 
 
 def test_g04_acquisition_evidence_rows_are_verified_and_anchored():
@@ -307,3 +333,22 @@ def test_g04_acquisition_evidence_rows_are_verified_and_anchored():
     path, _ = PPE.resolve(row, state="WI", source_id="wi_dane_tax_deed_auction", county="Dane", registry_row=None, evidence=ev,
                           list_url="https://treasurer.danecounty.gov/taxdeedauction", harvest_date="2026-10-01")
     assert path and path.scope == "property" and path.url.endswith("/BidForm/1") and path.steps and path.email == "treasurer@danecounty.gov"
+
+
+def test_a_superseded_list_reads_empty_with_no_request_so_close_out_closes_it():
+    """Owner decision 2026-10-26: close Albany WY's finished 2026 sale. The
+    config's `superseded` makes the runner return EMPTY ('superseded_list')
+    before any request, so the sync's --close-absent closes the stored rows."""
+    import sys
+    from datetime import datetime, timezone
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+    import harvest_expansion as HX
+    from harvesters.otc.adapters.expansion import SOURCES, WY_ALBANY
+    assert WY_ALBANY.superseded
+    src = next(s for s in SOURCES["WY"] if s.config is WY_ALBANY)
+
+    def no_request(*_a, **_k):
+        raise AssertionError("a superseded list is never requested")
+    out = HX.run_source(src, no_request, no_request, retrieved_at=datetime.now(timezone.utc), fetch_bytes=no_request)
+    assert out == ("EMPTY", [], None, None, "superseded_list")

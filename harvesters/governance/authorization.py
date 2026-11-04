@@ -1032,11 +1032,270 @@ _REALAUCTION_VOLUSIA = ProviderAuthorization(
 )
 
 
+# Florida DOR Property Tax Oversight - parcel geometry (2026-10-20). The first
+# GRANTED record: a written response from DOR, relayed by the product owner.
+# The original email is NOT on file in this repository, so the document stays
+# pending (is_pending=True, no location) and `written_permission` stays False
+# - this record never claims a document it cannot point to. The grant covers
+# parcel GEOMETRY in the eligible DOR-published county GIS files only; export /
+# API redistribution was not stated and is not authorized here. Every use is
+# still gated by data/source_permissions.csv, whose records also require the
+# technical Readme to be reviewed first (technical_readme_reviewed).
+_DOR_PTO_PARCEL_GIS = ProviderAuthorization(
+    authorization_id="fl_dor_pto_parcel_gis__provider__dor_pto",
+    source_id="fl_dor_pto_parcel_gis",
+    provider="Florida Department of Revenue, Property Tax Oversight",
+    government_entity="Florida Department of Revenue, Property Tax Oversight (statewide publisher of county GIS parcel files)",
+    state="FL",
+    county=None,  # the response states no separate county-level permissions are required
+    deployment_scope="provider",
+    requested_by="Product owner",
+    request_date=None,
+    contact_name="Tom Canter, Systems Project Consultant",
+    contact_email=None,  # not supplied; never invented
+    request_status=AuthorizationStatus.RECEIVED,
+    authorization_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS,
+    document=AuthorizationDocument(
+        document_name="Written response from Florida DOR Property Tax Oversight (email)",
+        document_location=None,
+        document_hash=None,
+        effective_date="2026-10-20",
+        expiration_date=None,
+        reviewer="Product owner",
+        review_date="2026-10-20",
+        scope_summary=(
+            "Relayed by the product owner on 2026-10-20; the original email is not in this repository and its "
+            "received date was not supplied. As relayed: TAXACQ may retain simplified parcel-boundary geometry "
+            "derived from eligible DOR-published county GIS files, display those boundaries over aerial imagery "
+            "in a commercial research application, and use the data without separate county-level permissions; "
+            "DOR places no restrictions on the data; both linked dataset sources are refreshed annually from "
+            "mid-August to early September; attribution, disclaimers and other display restrictions are at "
+            "TAXACQ's discretion."
+        ),
+        is_pending=True,
+    ),
+    agreement_url="https://floridarevenue.com/property/Pages/DataPortal_RequestAssessmentRollGISData.aspx",
+    agreement_version=None,
+    agreement_date=None,
+    effective_date="2026-10-20",
+    expiration_date=None,
+    review_due_date="2027-10-20",
+    scope=AuthorizationScope(
+        automated_access=UsePermission(requested=True, authorized=True),
+        commercial_use=UsePermission(requested=True, authorized=True),
+        storage=UsePermission(requested=True, authorized=True),
+        normalization=UsePermission(requested=True, authorized=True),
+        derived_data=UsePermission(requested=True, authorized=True),
+        customer_display=UsePermission(requested=True, authorized=True),
+        image_display=UsePermission(requested=True, authorized=True),
+    ),
+    attribution_required=False,
+    rate_limit=None,
+    retention_requirement="None stated; retention of simplified boundary geometry is expressly permitted.",
+    privacy_restrictions="Not covered: owner names and other tax-roll personal fields are outside this geometry approval.",
+    technical_restrictions=(
+        "Parcel Shapefiles Readme (PIN/PAR variants, PARCELNO to PARCEL_ID joins, condominium units, stacked and "
+        "multi-parcel polygons, unmatched geometries) must be reviewed before ingestion - a technical caveat, not "
+        "a permission restriction."
+    ),
+    written_permission=False,
+    reviewed_by="Product owner",
+    reviewed_at="2026-10-20",
+    notes=(
+        "Scope: parcel-boundary geometry in DOR Property Tax Oversight county GIS files and the current-year "
+        "statewide parcels linked from Florida GeoData. Not: other DOR datasets, tax-sale or auction data, "
+        "third-party data, or the existing fl_fdor_cadastral / fl_dor_statewide records (unchanged). See "
+        "data/source_approvals.csv and docs/parcel-source-approvals.md."
+    ),
+    last_terms_check="2026-10-20",
+    audit_log=(
+        AuditLogEntry(
+            event="approved",
+            who="Product owner",
+            when="2026-10-20",
+            old_status=None,
+            new_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS.value,
+            reason="Written response from Florida DOR Property Tax Oversight, relayed by the product owner.",
+            document_reference=None,
+        ),
+    ),
+)
+
+
+# Office replies relayed by the product owner on 2026-11-04 (inbox review).
+# The original e-mails are not in this repository and their received dates
+# were not supplied, so neither is recorded. data/office_replies.csv lists
+# each reply with the question it actually answered: a reply that permits a
+# link, or that only routes a records request, is never permission to collect
+# or to reuse the records commercially (docs/source-permissions.md).
+_ORANGE_COMPTROLLER = ProviderAuthorization(
+    authorization_id="fl_laft_orange__county__orange_comptroller",
+    source_id="fl_laft_orange",
+    provider="Orange County Comptroller",
+    government_entity="Orange County Comptroller (publisher of the Land Available for Taxes list)",
+    state="FL",
+    county="Orange",
+    deployment_scope="county",
+    requested_by="Product owner",
+    request_date=None,
+    contact_name=None,     # not supplied; never invented
+    contact_email=None,
+    request_status=AuthorizationStatus.RECEIVED,
+    # Granted for links only: every use dimension below stays unauthorized.
+    authorization_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS,
+    document=AuthorizationDocument(
+        document_name="Written reply from the Orange County Comptroller (email)",
+        document_location=None,
+        document_hash=None,
+        effective_date="2026-11-04",
+        expiration_date=None,
+        reviewer="Product owner",
+        review_date="2026-11-04",
+        scope_summary=(
+            "Relayed by the product owner on 2026-11-04; the original email is not in this repository and its "
+            "received date was not supplied. As relayed: links to the Comptroller's pages and individual record "
+            "viewing are expressly permitted; automated collection and commercial incorporation of its records "
+            "are prohibited without prior written authorization."
+        ),
+        is_pending=True,
+    ),
+    agreement_url=None,
+    agreement_version=None,
+    agreement_date=None,
+    effective_date="2026-11-04",
+    expiration_date=None,
+    review_due_date="2027-11-04",
+    scope=AuthorizationScope(
+        automated_access=UsePermission(requested=True, authorized=False),
+        commercial_use=UsePermission(requested=True, authorized=False),
+        storage=UsePermission(requested=True, authorized=False),
+        customer_display=UsePermission(requested=True, authorized=False),
+    ),
+    attribution_required=None,
+    rate_limit=None,
+    retention_requirement=None,
+    privacy_restrictions=None,
+    technical_restrictions=(
+        "Automated collection is prohibited without prior written authorization. harvest_laft_orange.py (a scripted "
+        "guest-disclaimer acknowledgement and search) is exactly that, and is no longer scheduled."
+    ),
+    written_permission=False,
+    reviewed_by="Product owner",
+    reviewed_at="2026-11-04",
+    notes=(
+        "Scope: the Comptroller's own websites (occompt.com, or.occompt.com). Links only - data/source_permissions.csv "
+        "records link as APPROVED and fetch / parse / store / display as RESTRICTED. Not covered: Orange tax deed "
+        "sales collected from RealAuction (fl_realauction) and Orange certificates from LienHub - separate sources "
+        "with their own terms. Restoring collection needs a prior written authorization from the Comptroller."
+    ),
+    last_terms_check="2026-11-04",
+    audit_log=(
+        AuditLogEntry(
+            event="approved",
+            who="Product owner",
+            when="2026-11-04",
+            old_status=None,
+            new_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS.value,
+            reason="Links to the Comptroller's pages and individual record viewing, as permitted in its written reply.",
+            document_reference=None,
+        ),
+        AuditLogEntry(
+            event="restricted",
+            who="Product owner",
+            when="2026-11-04",
+            old_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS.value,
+            new_status=AuthorizationStatus.APPROVED_WITH_RESTRICTIONS.value,
+            reason="Written reply from the Orange County Comptroller, relayed by the product owner: links permitted; "
+                   "automated collection and commercial incorporation prohibited without prior written authorization.",
+            document_reference=None,
+        ),
+    ),
+)
+
+_PALM_BEACH_CLERK = ProviderAuthorization(
+    authorization_id="fl_laft_pioneer__county__palm_beach_clerk",
+    source_id="fl_laft_pioneer",
+    provider="Palm Beach County Clerk of the Circuit Court & Comptroller",
+    government_entity="Palm Beach County Clerk of the Circuit Court & Comptroller (tax deed site on the Pioneer platform)",
+    state="FL",
+    county="Palm Beach",
+    deployment_scope="county",
+    requested_by="Product owner",
+    request_date=None,
+    contact_name=None,     # not supplied; never invented
+    contact_email=None,
+    request_status=AuthorizationStatus.RECEIVED,
+    # A technical answer: it says what is technically acceptable and does not
+    # answer the commercial-use question, so nothing here is granted.
+    authorization_status=AuthorizationStatus.RECEIVED,
+    document=AuthorizationDocument(
+        document_name="Technical reply from the Palm Beach County Clerk (email)",
+        document_location=None,
+        document_hash=None,
+        effective_date="2026-11-04",
+        expiration_date=None,
+        reviewer="Product owner",
+        review_date="2026-11-04",
+        scope_summary=(
+            "Relayed by the product owner on 2026-11-04; the original email is not in this repository and its "
+            "received date was not supplied. As relayed: direct links to Official Records, limited factual display "
+            "and retention of published outcomes are technically acceptable; court-case deep links are restricted; "
+            "the website is intended for human interaction. Commercial use was not answered."
+        ),
+        is_pending=True,
+    ),
+    agreement_url=None,
+    agreement_version=None,
+    agreement_date=None,
+    effective_date="2026-11-04",
+    expiration_date=None,
+    review_due_date="2027-11-04",
+    scope=AuthorizationScope(
+        automated_access=UsePermission(requested=True, authorized=False),
+        commercial_use=UsePermission(requested=True, authorized=False),
+        customer_display=UsePermission(requested=True, authorized=False),
+        historical_storage=UsePermission(requested=True, authorized=False),
+    ),
+    attribution_required=None,
+    rate_limit=None,
+    retention_requirement="Retention of published outcomes described as technically acceptable (not a grant).",
+    privacy_restrictions=None,
+    technical_restrictions=(
+        "Court-case deep links are restricted (enforced: office_replies.restricted_link_reason refuses them as a "
+        "customer link). The website is intended for human interaction - automated reading is not endorsed."
+    ),
+    written_permission=False,
+    reviewed_by="Product owner",
+    reviewed_at="2026-11-04",
+    notes=(
+        "Scope: the Clerk's own sites for Palm Beach only, never another Pioneer county. The Palm Beach Lands "
+        "Available rows keep their existing interim records in data/source_permissions.csv; the only new record is "
+        "a link-only row. Not covered: Palm Beach tax deed sales collected from RealAuction (fl_realauction)."
+    ),
+    last_terms_check="2026-11-04",
+    audit_log=(
+        AuditLogEntry(
+            event="document_received",
+            who="Product owner",
+            when="2026-11-04",
+            old_status=None,
+            new_status=AuthorizationStatus.RECEIVED.value,
+            reason="Technical reply from the Palm Beach County Clerk, relayed by the product owner; commercial use "
+                   "not answered, so nothing is granted.",
+            document_reference=None,
+        ),
+    ),
+)
+
+
 PROVIDER_AUTHORIZATIONS: dict[str, ProviderAuthorization] = {
     r.authorization_id: r
     for r in (
         _LIENHUB_GRANT_STREET,
         _REALAUCTION_ALACHUA,
         _REALAUCTION_VOLUSIA,
+        _DOR_PTO_PARCEL_GIS,
+        _ORANGE_COMPTROLLER,
+        _PALM_BEACH_CLERK,
     )
 }

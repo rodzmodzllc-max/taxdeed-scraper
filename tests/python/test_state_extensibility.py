@@ -31,6 +31,7 @@ from harvesters.governance.states import STATEWIDE_UNIT, PublishingUnit, StateCo
 from harvesters.otc import (DB_SUPPORTED_AMOUNT_KINDS, DB_SUPPORTED_INVENTORY_TYPES, AmountKind, InventoryType,  # noqa: E402
                             OtcRecord, SourceAuthority)
 import laft_lifecycle as L  # noqa: E402
+from permission_fixtures import install, record  # noqa: E402
 import laft_status as ls  # noqa: E402
 
 T = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
@@ -205,9 +206,9 @@ def test_r01_committed_registry_is_unchanged_county_level_and_still_valid():
     # 227 (2026-10-01, five-state sprint) = 222 + Douglas CO (2, CC BY-SA 4.0) and the three
     # implemented-but-UNREVIEWED county sources (Morgan CO deed auctions, Dane WI, Oconee SC).
     # 232 = 227 + the AVAILABLE sprint's five held MI / SC AVAILABLE sources (expansion.py).
-    assert len(rows) == 237 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA", "AZ", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"}
+    assert len(rows) == 287 + 93 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA", "AZ", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"}  # + PBFCM / MVBA / GovEase and the county sources (2026-10-26) + 93 new-sources sprint rows (Wright MN scheduled 2026-10-27)
     available = [r for r in rows if r.state in ("FL", "TX") and "AVAILABLE" in r.ledger_set or r.state in ("FL", "TX") and not r.ledger_set]
-    assert len(available) == 112 - 3
+    assert len(available) == 112 - 3 - 14 + 55
     assert all(r.publishing_unit == "COUNTY" for r in rows if r.state in ("FL", "TX"))
     with open(csr.REGISTRY_PATH, newline="", encoding="utf-8") as fh:
         assert csv.DictReader(fh).fieldnames == csr.EXTENDED_COLUMNS
@@ -385,6 +386,10 @@ def _server(store):
             qs = parse_qs(urlparse(self.path).query)
             if "limit" in qs and "county" not in qs:
                 return self._send(200, b"[]")   # 017 and 019 present
+            if qs.get("id", [""])[0].startswith("in."):
+                # fetch_state_rows phase 2: the wide columns by primary key.
+                ids = unquote(qs["id"][0])[len("in.("):-1].replace('"', "").split(",")
+                return self._send(200, json.dumps([r for r in store.rows if str(r.get("id")) in ids]).encode())
             assert qs.get("state") == [f"eq.{store.state}"] and qs.get("source") == ["eq.laft"], self.path
             counties = unquote(qs["county"][0])[len("in.("):-1].replace('"', "").split(",")
             self._send(200, json.dumps([r for r in store.rows if r["county"] in counties]).encode())
@@ -446,7 +451,23 @@ ZZ_REGISTRY = ("state,county,source_id,verification_status\nZZ,Alpha,zz_state_la
                "FL,Marion,fl_laft_pdfs,PRODUCTION_VERIFIED\n")
 
 
+def _permit_zz_store(monkeypatch):
+    # The invented ZZ sources need a recorded `store` permission like any
+    # real source (laft_lifecycle.apply_store_permission); a fixture record.
+    install(monkeypatch, *(record(source_id=s, jurisdiction="ZZ", operation="store") for s in ("zz_state_land", "zz_h")))
+
+
+def test_l04_without_a_store_permission_nothing_is_observed_written_or_closed(tmp_path, monkeypatch):
+    store = _Store([dict(r) for r in ZZ_DB], "ZZ")
+    with states.registered(ZZ_ACTIVE):
+        rc, report = _run_main(tmp_path, monkeypatch, store, "ZZ", ZZ_STATUS, ZZ_HARVEST, ZZ_REGISTRY)
+    assert rc == 0 and set(report["counties"].values()) == {L.NOT_PERMITTED}
+    assert report["observed"] == 0 and report["reactivated"] == 0 and report["closed"] == 0
+    assert not [b for _p, b in store.patches if "last_seen_at" in b or b.get("status") in ("active", "closed")]
+
+
 def test_l04_end_to_end_for_an_activated_third_state_applies_the_same_gates(tmp_path, monkeypatch):
+    _permit_zz_store(monkeypatch)
     store = _Store([dict(r) for r in ZZ_DB], "ZZ")
     with states.registered(ZZ_ACTIVE):
         rc, report = _run_main(tmp_path, monkeypatch, store, "ZZ", ZZ_STATUS, ZZ_HARVEST, ZZ_REGISTRY)
@@ -457,7 +478,7 @@ def test_l04_end_to_end_for_an_activated_third_state_applies_the_same_gates(tmp_
     scoped = [p for p, b in store.patches if "state=eq." in p]
     assert scoped and all("state=eq.ZZ" in p and "source=eq.laft" in p for p in scoped)
     # Observed: COMPLETE + INCOMPLETE rows only; A1 reactivated.
-    assert [(p, b) for p, b in store.patches if b == {"status": "active"}][0][0].count("Alpha") == 1
+    assert [(p, b) for p, b in store.patches if b == {"status": "active", "delisted_at": None}][0][0].count("Alpha") == 1
     prov = [(p, b) for p, b in store.patches if "last_seen_at" in b]
     assert {p.split("county=eq.")[1].split("&")[0] for p, _ in prov} == {"Alpha", "Gamma"}
     for _, b in prov:

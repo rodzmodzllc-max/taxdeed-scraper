@@ -1,5 +1,126 @@
 $ErrorActionPreference = "Stop"
 
+# --- Source permission gate (2026-10-12) ---------------------------------------
+# Runs before any request or write. Fail closed: no Python, no governance
+# package, or a missing / expired / denied record in data/source_permissions.csv
+# stops this script with exit 3. scripts/source_permission_check.py is the CLI of
+# harvesters/governance/permissions.py (the one permission decision).
+$permPython = Get-Command python3 -ErrorAction SilentlyContinue
+if (-not $permPython) { $permPython = Get-Command python -ErrorAction SilentlyContinue }
+if (-not $permPython) {
+    Write-Host "::error title=source_permission::Python not found - permission cannot be checked; stopping before any request"
+    exit 3
+}
+& $permPython.Source (Join-Path $PSScriptRoot "source_permission_check.py") --source fl_realauction --source fl_bid4assets_okaloosa --operation store --state FL --dataset sale_calendar
+if (0 -ne $LASTEXITCODE) {
+    Write-Host "::error title=source_permission::deed auction sync not permitted (see the decision above) - stopping before any request or write"
+    exit 3
+}
+# --- end source permission gate ------------------------------------------------
+
+# --- Three-ledger contract (2026-10-14) ----------------------------------------
+# The row contract (harvesters/ledgers/records.py) and the status-file reader
+# (harvesters/ledgers/health.py) are applied through scripts/ledger_gate.py, the
+# same rules the Python syncs apply - never a second copy of them here. Both
+# helpers fail closed: a contract that cannot be checked writes nothing, and a
+# status file that cannot be read closes nothing.
+function Get-LedgerPython {
+    $py = Get-Command python3 -ErrorAction SilentlyContinue
+    if (-not $py) { $py = Get-Command python -ErrorAction SilentlyContinue }
+    if (-not $py) { throw "Python not found - the ledger contract cannot be checked; nothing is written." }
+    return $py.Source
+}
+function Select-LedgerRows([string]$Ledger, $Rows) {
+    $all = @($Rows)
+    if ($all.Count -eq 0) { return }
+    $tmp = [System.IO.Path]::GetTempFileName()
+    try {
+        $json = $all | ConvertTo-Json -Depth 6
+        if ($all.Count -eq 1) { $json = "[$json]" }
+        [System.IO.File]::WriteAllText($tmp, $json, [System.Text.UTF8Encoding]::new($false))
+        $out = & (Get-LedgerPython) (Join-Path $PSScriptRoot "ledger_gate.py") rows --ledger $Ledger --in $tmp
+        if (0 -ne $LASTEXITCODE) { throw "ledger_gate.py could not check the $Ledger rows (exit $LASTEXITCODE) - nothing is written." }
+        $verdict = ($out -join "`n") | ConvertFrom-Json
+        $refused = [System.Collections.Generic.HashSet[int]]::new()
+        foreach ($i in @($verdict.refused)) { $refused.Add([int]$i) | Out-Null }
+        if ($refused.Count -gt 0) {
+            Write-Warning "Ledger contract refused $($refused.Count) of $($all.Count) row(s) that do not belong to the $Ledger ledger - nothing is written for them."
+        }
+        for ($i = 0; $i -lt $all.Count; $i++) {
+            if (-not $refused.Contains($i)) { $all[$i] }
+        }
+    } finally {
+        Remove-Item $tmp -ErrorAction SilentlyContinue
+    }
+}
+function Get-LedgerCloseableCounties([string]$Ledger, [string]$StatusPath) {
+    $out = & (Get-LedgerPython) (Join-Path $PSScriptRoot "ledger_gate.py") closeable --ledger $Ledger --status $StatusPath
+    if (0 -ne $LASTEXITCODE) { throw "ledger_gate.py could not read $StatusPath (exit $LASTEXITCODE)" }
+    return @((($out -join "`n") | ConvertFrom-Json))
+}
+# --- end three-ledger contract -------------------------------------------------
+# --- Stored-value guard (2026-10-26) -------------------------------------------
+# PostgREST's bulk upsert needs one key set per batch, so a column the list did
+# not publish is sent as null - and merge-duplicates used to write that null
+# over the stored value (146 FL auction rows lost their FDOR tax-roll
+# `assessed`). scripts/sync_value_guard.py reads the stored rows and puts the
+# stored value back wherever a blank or placeholder would replace it, or where
+# field_provenance names another source of equal or higher rank
+# (scripts/field_provenance.py). Fail closed: if the stored rows cannot be
+# read, nothing is written.
+function Protect-StoredValues([string]$Source, $Rows) {
+    $all = @($Rows)
+    if ($all.Count -eq 0) { return }
+    $in = [System.IO.Path]::GetTempFileName()
+    $out = [System.IO.Path]::GetTempFileName()
+    try {
+        $json = $all | ConvertTo-Json -Depth 6
+        if ($all.Count -eq 1) { $json = "[$json]" }
+        [System.IO.File]::WriteAllText($in, $json, [System.Text.UTF8Encoding]::new($false))
+        & (Get-LedgerPython) (Join-Path $PSScriptRoot "sync_value_guard.py") --source $Source --state FL --in $in --out $out
+        if (0 -ne $LASTEXITCODE) { throw "sync_value_guard.py could not guard the $Source rows (exit $LASTEXITCODE) - nothing is written." }
+        $guarded = @((Get-Content $out -Raw -Encoding utf8) | ConvertFrom-Json)
+        if ($guarded.Count -ne $all.Count) { throw "sync_value_guard.py returned $($guarded.Count) of $($all.Count) rows - nothing is written." }
+        $guarded
+    } finally {
+        Remove-Item $in, $out -ErrorAction SilentlyContinue
+    }
+}
+# --- end stored-value guard ----------------------------------------------------
+# --- Write only what changed (2026-10-26) --------------------------------------
+# Every run used to upsert every harvested row again, changed or not: each
+# UPDATE bumps updated_at (properties_touch) and leaves a dead tuple, and one
+# run rewrote ~15,770 rows in ten minutes on 2026-10-26 (production overload).
+# scripts/write_diff_filter.py applies scripts/write_diff.py's one rule - a row
+# whose stored copy already holds the same values is not sent - never a second
+# copy of it here. Fail OPEN: if the filter cannot run or the stored rows cannot
+# be read, every row is sent, exactly as before. Only the upsert uses the result;
+# close-out decides on what was harvested, never on what was written.
+function Select-ChangedRows([string]$Source, $Rows) {
+    $all = @($Rows)
+    if ($all.Count -eq 0) { return }
+    $in = [System.IO.Path]::GetTempFileName()
+    $out = [System.IO.Path]::GetTempFileName()
+    try {
+        $json = $all | ConvertTo-Json -Depth 6
+        if ($all.Count -eq 1) { $json = "[$json]" }
+        [System.IO.File]::WriteAllText($in, $json, [System.Text.UTF8Encoding]::new($false))
+        & (Get-LedgerPython) (Join-Path $PSScriptRoot "write_diff_filter.py") --state FL --source $Source --in $in --out $out
+        if (0 -ne $LASTEXITCODE) {
+            Write-Warning "write_diff_filter.py exited $LASTEXITCODE - sending all $($all.Count) $Source row(s) (fail open)."
+            return $all
+        }
+        return @((Get-Content $out -Raw -Encoding utf8) | ConvertFrom-Json)
+    } catch {
+        Write-Warning "Unchanged-row filter failed ($($_.Exception.Message)) - sending all $($all.Count) $Source row(s) (fail open)."
+        return $all
+    } finally {
+        Remove-Item $in, $out -ErrorAction SilentlyContinue
+    }
+}
+# --- end write only what changed -----------------------------------------------
+
+
 # Pushes the statewide harvest (harvest_all.json, produced by
 # harvest_all_counties.ps1 + harvest_okaloosa_bid4assets.ps1) into the same
 # `properties` table the app reads from.
@@ -87,16 +208,24 @@ function ConvertTo-IsoDate($s) {
 $rows = @()
 $skipped = 0
 foreach ($p in $harvest) {
-    if ([string]::IsNullOrWhiteSpace($p.case) -or [string]::IsNullOrWhiteSpace($p.address)) {
+    # Only a row with no case number is unusable (it is the row's identity).
+    # A vacant lot the county lists with no situs address is still on the
+    # sale list: it is kept with an EMPTY address (the column is NOT NULL, ''
+    # satisfies it, and the app titles such a row from its parcel). Before
+    # 2026-10-29 these rows were dropped, so every no-address lot of a fully
+    # read sale day was missing from the Auctions ledger (audit B1). An empty
+    # address never erases a stored one: the stored-value guard keeps it.
+    if ([string]::IsNullOrWhiteSpace($p.case)) {
         $skipped++
         continue
     }
+    $addr = if ([string]::IsNullOrWhiteSpace($p.address)) { "" } else { $p.address }
     $rows += [ordered]@{
         source        = "auction"
         county        = $p.county
         case_no       = $p.case
         parcel        = $p.parcel
-        address       = $p.address
+        address       = $addr
         bid           = $p.bid
         assessed      = $p.assessed
         sale_date     = ConvertTo-IsoDate $p.sale_date
@@ -105,6 +234,9 @@ foreach ($p in $harvest) {
         # Listed on a scheduled feed this run => active (see header). This is
         # what brings a previously closed-out, now re-listed row back.
         status        = "active"
+        # On the feed now, so not delisted: a re-listed row sheds the
+        # delisted_at its earlier close-out wrote (2026-10-26).
+        delisted_at   = $null
         # Phase 72: every writer of url_auction also writes what that URL
         # opens (migration 013). harvest_all_counties.ps1 stores the
         # RealAuction sale-date PREVIEW page (index.cfm?zaction=AUCTION&
@@ -119,8 +251,17 @@ foreach ($p in $harvest) {
     }
 }
 
-if ($rows.Count -eq 0) { throw "Every harvested row was missing case # or address - nothing to sync." }
-Write-Output "Prepared $($rows.Count) properties ($skipped skipped for missing case/address)."
+# Every row must belong to the AUCTIONS ledger and pass its record contract
+# (scripts/ledger_gate.py) before anything is written.
+$rows = @(Select-LedgerRows "AUCTIONS" $rows)
+if ($rows.Count -eq 0) { throw "Every harvested row was missing its case # - nothing to sync." }
+Write-Output "Prepared $($rows.Count) properties ($skipped skipped for missing case #)."
+# A listing that publishes no assessed value (most RealAuction counties) never
+# erases the state tax roll's, nor any stored value of a higher-ranked source.
+$rows = @(Protect-StoredValues "auction" $rows)
+# Only new / changed rows are upserted; $rows (everything harvested) still
+# drives the close-out below.
+$writeRows = @(Select-ChangedRows "auction" $rows)
 
 $headers = @{
     "apikey"        = $serviceRoleKey
@@ -139,8 +280,8 @@ $useFallback = $false
 
 $batchSize = 40
 $sent = 0
-for ($i = 0; $i -lt $rows.Count; $i += $batchSize) {
-    $batch = $rows[$i..([math]::Min($i + $batchSize - 1, $rows.Count - 1))]
+for ($i = 0; $i -lt $writeRows.Count; $i += $batchSize) {
+    $batch = @($writeRows[$i..([math]::Min($i + $batchSize - 1, $writeRows.Count - 1))])
     $json = $batch | ConvertTo-Json -Depth 5
     if ($batch.Count -eq 1) { $json = "[$json]" }
     $body = [System.Text.Encoding]::UTF8.GetBytes($json)
@@ -161,10 +302,10 @@ for ($i = 0; $i -lt $rows.Count; $i += $batchSize) {
         }
     }
     $sent += $batch.Count
-    Write-Output "  synced $sent / $($rows.Count)"
+    Write-Output "  synced $sent / $($writeRows.Count)"
 }
 
-Write-Output "Done. $sent properties upserted to Supabase (existing owner/lien research untouched)."
+Write-Output "Done. $sent of $($rows.Count) properties upserted to Supabase ($($rows.Count - $writeRows.Count) unchanged, not rewritten; existing owner/lien research untouched)."
 Write-Output "Counties covered: $((($rows | ForEach-Object { $_.county }) | Select-Object -Unique).Count)"
 
 # ---- Close out properties that fell off the Waiting feed ----
@@ -211,10 +352,10 @@ Write-Output "Counties covered: $((($rows | ForEach-Object { $_.county }) | Sele
 $completeCounties = [System.Collections.Generic.HashSet[string]]::new()
 if (Test-Path $statusPath) {
     try {
-        $countyStatusRaw = Get-Content $statusPath -Raw | ConvertFrom-Json
-        foreach ($cs in @($countyStatusRaw)) {
-            if ($cs.status -eq "COMPLETE") { $completeCounties.Add([string]$cs.county) | Out-Null }
-        }
+        # The ledger health reader decides which counties may close: COMPLETE
+        # (or EMPTY with a valid empty signal) from a read that did not fail at
+        # transport or parse; FAILED / INCOMPLETE / SOURCE_UNAVAILABLE never.
+        foreach ($c in (Get-LedgerCloseableCounties "AUCTIONS" $statusPath)) { $completeCounties.Add([string]$c) | Out-Null }
         Write-Output "Reconciliation-eligible (COMPLETE) counties this run: $($completeCounties.Count)"
     } catch {
         Write-Warning "harvest_all_status.json could not be parsed - skipping stale-property closeout entirely this run (fail closed): $($_.Exception.Message)"

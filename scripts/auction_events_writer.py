@@ -705,6 +705,28 @@ def build_store(dry_run: bool) -> Store:
     return DryRunStore(real) if dry_run else real
 
 
+# Sources whose harvested rows each --source run writes as event sightings,
+# and the dataset their permission records name. Each needs a recorded
+# `store` permission (data/source_permissions.csv) before any write.
+STORE_SOURCES = {
+    "fl": (("fl_realauction", "fl_bid4assets_okaloosa"), "FL", "sale_calendar"),
+    "tx": (("tx_realauction", "tx_lgbs"), "TX", None),
+}
+PERMISSION_DENIED_EXIT = 3
+
+
+def store_permitted(source: str) -> bool:
+    """True only when every source behind --source has a recorded `store`
+    permission; fails closed on an unknown --source or a governance error."""
+    entry = STORE_SOURCES.get(source)
+    if entry is None:
+        return False
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import permission_gate as PG  # noqa: PLC0415
+    ids, state, dataset = entry
+    return all(PG.allowed(s, ("store",), state=state, dataset=dataset, label="auction_events_writer") for s in ids)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     ap.add_argument("--source", choices=["fl", "tx"], required=True)
@@ -712,6 +734,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--harvest-json", type=Path, default=None)
     ap.add_argument("--status-json", type=Path, default=None)
     args = ap.parse_args(argv)
+    if not args.dry_run and not store_permitted(args.source):
+        return PERMISSION_DENIED_EXIT
 
     observed_at = datetime.now(timezone.utc).isoformat()
     run_id = os.environ.get("GITHUB_RUN_ID") or None

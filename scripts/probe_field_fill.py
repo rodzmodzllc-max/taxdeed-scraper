@@ -94,6 +94,11 @@ def probe(session, label: str, url: str, fmap: dict[str, str], sample: int, wher
 
 
 def main(argv=None) -> int:
+    # Source permission for discovery (data/source_permissions.csv, operation
+    # "discover"): every request below is refused before any connection unless
+    # its URL belongs to a source with an in-date discover permission.
+    import permission_gate as _PG  # noqa: PLC0415
+    _PG.install_discovery_guard("probe_field_fill")
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--state", default=None)
     ap.add_argument("--sample", type=int, default=200)

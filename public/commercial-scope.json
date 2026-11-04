@@ -94,8 +94,20 @@
   {
    "source_id": "co_morgan_treasurer_deed_auctions",
    "state": "CO",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "UNREVIEWED",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "co_saguache_tax_sale",
+   "state": "CO",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": false,
    "paid_beta": false,
    "tester_preview": false,
@@ -169,11 +181,11 @@
   {
    "source_id": "fl_laft_orange",
    "state": "FL",
-   "publication_status": "APPROVED_GRANDFATHERED",
-   "commercial_scope": "REQUIRES_PUBLICATION_DECISION",
+   "publication_status": "RESTRICTED",
+   "commercial_scope": "BLOCKED",
    "collected": true,
    "paid_beta": false,
-   "tester_preview": true,
+   "tester_preview": false,
    "active_rows": 3,
    "checks": {
     "provenance": "ok",
@@ -233,6 +245,18 @@
     "acquisition": "partial"
    },
    "reason": "APPROVED_GRANDFATHERED: legacy approval, never explicitly reviewed for paid reuse. Requires a publication decision."
+  },
+  {
+   "source_id": "fl_laft_portals",
+   "state": "FL",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
   },
   {
    "source_id": "fl_laft_realtdm",
@@ -303,6 +327,18 @@
    "reason": "No publication decision on the rows (NULL); the registry records only a grandfathered approval of the RealAuction county sites. Requires a publication decision."
   },
   {
+   "source_id": "fl_sarasota_tc_certificates",
+   "state": "FL",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "la_ebr_adjudicated",
    "state": "LA",
    "publication_status": "APPROVED",
@@ -320,10 +356,22 @@
    "reason": "Public Domain open-data list approved by the owner as a dated list (never called available now); financial terms OFFER_NEGOTIATED (no price published); acquisition process verified from the Parish Attorney's own memorandum and form."
   },
   {
+   "source_id": "mi_calhoun_landbank",
+   "state": "MI",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "mi_detroit_landbank_lots",
    "state": "MI",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -334,13 +382,13 @@
     "financial": "ok",
     "acquisition": "gap"
    },
-   "reason": "UNREVIEWED: tester preview only (Detroit customer subset applies)."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta (Detroit customer subset applies)."
   },
   {
    "source_id": "mi_detroit_landbank_programs",
    "state": "MI",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -351,7 +399,7 @@
     "financial": "ok",
     "acquisition": "gap"
    },
-   "reason": "UNREVIEWED: tester preview only (Detroit customer subset applies)."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta (Detroit customer subset applies)."
   },
   {
    "source_id": "mi_eaton_treasurer_sale",
@@ -390,8 +438,8 @@
   {
    "source_id": "mi_oceana_landbank",
    "state": "MI",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -402,13 +450,73 @@
     "financial": "ok",
     "acquisition": "ok"
    },
-   "reason": "UNREVIEWED: tester preview only."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
+  },
+  {
+   "source_id": "mi_saginaw_landbank",
+   "state": "MI",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "mi_tax_sale_info_auction",
+   "state": "MI",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "mi_tax_sale_info_surplus",
+   "state": "MI",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "mi_wayne_county_landbank",
+   "state": "MI",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "mn_hubbard_tfl_otc",
+   "state": "MN",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
   },
   {
    "source_id": "mn_ramsey_tax_forfeit",
    "state": "MN",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -419,13 +527,49 @@
     "financial": "ok",
     "acquisition": "gap"
    },
-   "reason": "UNREVIEWED: tester preview only."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
+  },
+  {
+   "source_id": "mn_stpaul_hra_properties",
+   "state": "MN",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "mn_wright_tax_forfeit",
+   "state": "MN",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "mo_kc_landbank",
+   "state": "MO",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
   },
   {
    "source_id": "mo_stl_lra_inventory",
    "state": "MO",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -436,13 +580,13 @@
     "financial": "ok",
     "acquisition": "gap"
    },
-   "reason": "UNREVIEWED: tester preview only."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
   },
   {
    "source_id": "ok_oklahoma_county_owned",
    "state": "OK",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -453,13 +597,13 @@
     "financial": "ok",
     "acquisition": "ok"
    },
-   "reason": "UNREVIEWED: tester preview only."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
   },
   {
    "source_id": "pa_fayette_repository",
    "state": "PA",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -470,13 +614,25 @@
     "financial": "ok",
     "acquisition": "gap"
    },
-   "reason": "UNREVIEWED: tester preview only."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
+  },
+  {
+   "source_id": "pa_pittsburgh_city_property",
+   "state": "PA",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
   },
   {
    "source_id": "sc_georgetown_forfeited_land",
    "state": "SC",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -487,13 +643,13 @@
     "financial": "ok",
     "acquisition": "ok"
    },
-   "reason": "UNREVIEWED: tester preview only."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
   },
   {
    "source_id": "sc_horry_forfeited_land",
    "state": "SC",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "TESTER_PREVIEW",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": true,
    "paid_beta": false,
    "tester_preview": true,
@@ -504,13 +660,25 @@
     "financial": "ok",
     "acquisition": "ok"
    },
-   "reason": "UNREVIEWED: tester preview only."
+   "reason": "Customer-published by the owner's 2026-10-26 decision (legal review pending); not in the paid beta."
+  },
+  {
+   "source_id": "sc_horry_tax_sale",
+   "state": "SC",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
   },
   {
    "source_id": "sc_oconee_tax_sale_list",
    "state": "SC",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "UNREVIEWED",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": false,
    "paid_beta": false,
    "tester_preview": false,
@@ -538,6 +706,78 @@
   {
    "source_id": "tn_shelby_landbank",
    "state": "TN",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_bexar_resale",
+   "state": "TX",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_brazoria_tax_resale",
+   "state": "TX",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_collin_constable_sale",
+   "state": "TX",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_govease",
+   "state": "TX",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "commercial_scope": "REQUIRES_PUBLICATION_DECISION",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_grayson_struck_off",
+   "state": "TX",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_gregg_tax_resale",
+   "state": "TX",
    "publication_status": "UNREVIEWED",
    "commercial_scope": "UNREVIEWED",
    "collected": false,
@@ -550,7 +790,55 @@
   {
    "source_id": "tx_hctax",
    "state": "TX",
-   "publication_status": "RESTRICTED",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_hood_cad_struck_off",
+   "state": "TX",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_jefferson_county_resale",
+   "state": "TX",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_jefferson_sheriff_sale",
+   "state": "TX",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_johnson_constable_sale",
+   "state": "TX",
+   "publication_status": "UNREVIEWED",
    "commercial_scope": "UNREVIEWED",
    "collected": false,
    "paid_beta": false,
@@ -577,10 +865,34 @@
    "reason": "Vendor listing (LGBS); its own rights audit is REVIEW_REQUIRED and it runs manual-only. Requires a publication decision."
   },
   {
+   "source_id": "tx_montgomery_tax_trust",
+   "state": "TX",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "tx_mvba",
    "state": "TX",
-   "publication_status": "BLOCKED",
-   "commercial_scope": "BLOCKED",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "commercial_scope": "REQUIRES_PUBLICATION_DECISION",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_orange_trust_property",
+   "state": "TX",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": false,
    "paid_beta": false,
    "tester_preview": false,
@@ -591,8 +903,20 @@
   {
    "source_id": "tx_pbfcm",
    "state": "TX",
-   "publication_status": "BLOCKED",
-   "commercial_scope": "BLOCKED",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "commercial_scope": "REQUIRES_PUBLICATION_DECISION",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
+   "source_id": "tx_randall_trustee_property",
+   "state": "TX",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": false,
    "paid_beta": false,
    "tester_preview": false,
@@ -618,10 +942,22 @@
    "reason": "No publication decision on the rows (NULL); rights audit REVIEW_REQUIRED; manual-only. Requires a publication decision."
   },
   {
+   "source_id": "tx_trinity_cad_resale",
+   "state": "TX",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "wi_dane_tax_deed_auction",
    "state": "WI",
-   "publication_status": "UNREVIEWED",
-   "commercial_scope": "UNREVIEWED",
+   "publication_status": "APPROVED",
+   "commercial_scope": "CUSTOMER_APPROVED",
    "collected": false,
    "paid_beta": false,
    "tester_preview": false,

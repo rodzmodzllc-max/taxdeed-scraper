@@ -118,26 +118,53 @@ def _parcel_sources() -> list[UnifiedSource]:
     return out
 
 
+# Inventory id -> the id its permission records use (data/source_permissions.csv).
+PERMISSION_IDS = {"fl_statewide_cadastral": "fl_fdor_cadastral"}
+
+
+def permission_basis(source_id: str) -> str:
+    """What data/source_permissions.csv records for fetching and enriching
+    from this source - the only evidence a built-in source cites. A
+    grandfathered practice or an internal acceptance is named as interim,
+    never as a licence."""
+    from harvesters.governance import permissions as PERM  # noqa: PLC0415 - avoids a load cycle at import
+    pid = PERMISSION_IDS.get(source_id, source_id)
+    recs = [r for r in PERM.Permissions.from_file().records
+            if r.source_id == pid and r.operation in ("fetch", "enrich")]
+    if not recs:
+        return f"data/source_permissions.csv: no fetch/enrich record for {pid} - every operation is denied"
+    parts = set()
+    for r in recs:
+        if r.evidence_type in PERM.DOCUMENTED_EVIDENCE and r.status in PERM.DOCUMENTED_STATUSES:
+            parts.add(f"{r.operation} documented ({r.evidence_type}), re-read by {r.expires_on}")
+        elif r.evidence_type in PERM.INTERIM_EVIDENCE:
+            parts.add(f"{r.operation} interim ({r.evidence_type}, status {r.status}; not documented permission), "
+                      f"expires {r.expires_on}")
+        else:
+            parts.add(f"{r.operation} {r.status} ({r.evidence_type})")
+    return f"data/source_permissions.csv ({pid}): " + "; ".join(sorted(parts))
+
+
 def _builtin_sources() -> list[UnifiedSource]:
     return [
         UnifiedSource("fema_nfhl", NATIONAL, NATIONAL, "National Flood Hazard Layer", "FEMA", "FEDERAL_DATASET",
                       "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer", frozenset({"flood"}),
                       access="ACCESSIBLE", access_note="scripts/enrich_flood_zone.py; needs coordinates",
-                      evidence="federal public-domain dataset", origin="builtin", governance="APPROVED"),
+                      evidence=permission_basis("fema_nfhl"), origin="builtin", governance="APPROVED"),
         UnifiedSource("usda_naip", NATIONAL, NATIONAL, "NAIP aerial imagery (USGS National Map)", "USDA / USGS",
                       "FEDERAL_DATASET", "https://imagery.nationalmap.gov/", frozenset({"imagery"}), access="ACCESSIBLE",
                       access_note="scripts/enrich_property_photos_naip.py; needs coordinates; 950 MB storage budget",
-                      evidence="federal public-domain imagery", origin="builtin", governance="APPROVED"),
+                      evidence=permission_basis("usda_naip"), origin="builtin", governance="APPROVED"),
         UnifiedSource("census_geocoder", NATIONAL, NATIONAL, "Census Bureau Geocoder", "US Census Bureau", "FEDERAL_DATASET",
                       "https://geocoding.geo.census.gov/", frozenset({"coordinates"}), access="ACCESSIBLE",
-                      access_note="scripts/geocode_properties.py; needs a street address", evidence="federal service",
+                      access_note="scripts/geocode_properties.py; needs a street address", evidence=permission_basis("census_geocoder"),
                       origin="builtin", governance="APPROVED"),
         UnifiedSource("fl_statewide_cadastral", "FL", STATEWIDE, "Florida Statewide Cadastral (FDOR NAL on parcels)",
                       "Florida Department of Revenue / Florida Geographic Information Office", "GIS",
                       "https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/services/",
                       frozenset({"identity", "assessment", "legal", "acreage", "land_use", "coordinates"}),
                       access="ACCESSIBLE", access_note="scripts/enrich_property_details.py (FDOR)",
-                      evidence="scripts/enrich_property_details.py module docstring", origin="builtin", governance="APPROVED"),
+                      evidence=permission_basis("fl_statewide_cadastral"), origin="builtin", governance="APPROVED"),
     ]
 
 

@@ -51,7 +51,11 @@ def test_c05_validator_refuses_selling_an_unapproved_or_unready_source():
             r["paid_beta"] = "yes"
         if r["source_id"] == "wy_albany_tax_sale":
             r["paid_beta"] = "yes"
-    errs = cs.problems(bad)
+    # St. Louis LRA is APPROVED since the owner's 2026-10-26 decision; the rule is
+    # pinned on the same source as it stood before (UNREVIEWED).
+    reg = dict(cs.registry_publication())
+    reg["mo_stl_lra_inventory"] = (reg["mo_stl_lra_inventory"][0], "UNREVIEWED")
+    errs = cs.problems(bad, reg)
     assert any("mo_stl_lra_inventory" in e and "explicit APPROVED" in e for e in errs)
     assert any("wy_albany_tax_sale" in e and "lifecycle" in e for e in errs)
 

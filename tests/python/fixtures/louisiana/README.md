@@ -14,3 +14,10 @@ owner or address is in this repository.
 `ebr_adjudicated_SYNTHETIC.csv` / `ebr_adjudicated_badheader_SYNTHETIC.csv`:
 the original search-index-era fixtures (header as indexed - it matched the
 live header exactly), kept for the parser's structural tests.
+
+`ebr_adjudicated_parcel_LIVE_SHAPE.csv` / `ebr_parcel_metadata_LIVE_SHAPE.json`
+(2026-10-25): the header and metadata keys / values of the Parish's NEWER
+"Adjudicated Parcel" dataset (shrr-fsqq, rowsUpdatedAt 1778037958 =
+2026-05-06), read live; every ROW VALUE is SYNTHETIC. The live list carries
+STATUS 'AJ' on every row - the 'RD' row and the blank-identifier row are
+synthetic negatives for the parser.

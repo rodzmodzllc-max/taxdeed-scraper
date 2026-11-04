@@ -83,6 +83,15 @@ _AUTHORITY = {
     "mn_ramsey_tax_forfeit": ("other_government", "Ramsey County Tax-Forfeited Land"),
     "sc_horry_forfeited_land": ("other_government", "Horry County Forfeited Land Commission"),
     "sc_georgetown_forfeited_land": ("other_government", "Georgetown County Forfeited Land Commission"),
+    "tn_shelby_landbank": ("county_land_bank", "Shelby County Land Bank"),
+    "mo_kc_landbank": ("county_land_bank", "Land Bank of Kansas City, Missouri"),
+    "pa_pittsburgh_city_property": ("other_government", "City of Pittsburgh (city-owned property)"),
+    "mi_wayne_county_landbank": ("county_land_bank", "Wayne County Land Bank Corporation"),
+    "mi_saginaw_landbank": ("county_land_bank", "Saginaw County Land Bank Authority"),
+    "mi_calhoun_landbank": ("county_land_bank", "Calhoun County Land Bank Authority"),
+    "mn_stpaul_hra_properties": ("other_government", "Saint Paul Housing and Redevelopment Authority"),
+    "mn_hubbard_tfl_otc": ("other_government", "Hubbard County Tax-Forfeited Land"),
+    "mi_tax_sale_info_surplus": ("other_government", "Michigan county treasurer (foreclosing governmental unit) via Tax-Sale.info"),
 }
 _AUTHORITY_COUNTY = {("tx_lgbs", "Galveston"): ("other_government", "Galveston County Sheriff's Office")}
 
@@ -149,6 +158,17 @@ def load_candidates(path: Path = CANDIDATES) -> list[dict]:
         return rows
 
 
+def record_url(record: dict | None) -> str:
+    """The https URL a county record gives a customer to act on: the path's own
+    URL, else its application document, else the evidence page; '' for none."""
+    rec = record or {}
+    acq = rec.get("acquisition") if isinstance(rec.get("acquisition"), dict) else {}
+    for u in (rec.get("process_url"), acq.get("application_url"), rec.get("purchase_evidence_url"), acq.get("evidence_url")):
+        if isinstance(u, str) and u.startswith("https://"):
+            return u
+    return ""
+
+
 @dataclass
 class UnitStatus:
     state: str
@@ -173,18 +193,37 @@ class UnitStatus:
 
 
 def unit_status(state: str, source_id: str, county: str, *, evidence, registry_row=None,
-                outcomes=(), candidates=()) -> UnitStatus:
-    """The status of one acquisition unit. Pure: every input is passed in."""
+                outcomes=(), candidates=(), record: dict | None = None, records_known: bool = False,
+                refusal: str = "") -> UnitStatus:
+    """The status of one acquisition unit. Pure: every input is passed in.
+
+    With ``records_known`` (the builder of public/acquisition-evidence.json),
+    VERIFIED also needs ``record``: the county record the purchase-path engine
+    actually built for this unit (a path type and a URL to act on). Evidence the
+    engine refused - a link it will not accept - is NEEDS_REVIEW with the
+    engine's ``refusal``, never a VERIFIED status the acquisition gate cannot
+    use (2026-10-26)."""
     at, an = authority_for(source_id, county)
     base = dict(state=state, source_id=source_id, county=county, authority_type=at, authority=an)
+    usable = (not records_known) or bool(record and record.get("path_type") and record_url(record))
     for e in evidence:
         if e.applicable and e.state == state and e.source_id == source_id and e.county in (county, "*"):
-            return UnitStatus(status="VERIFIED", basis="evidence_table", attempted_on=e.observed_on, path_type=e.path_type,
+            if not usable:
+                return UnitStatus(status="NEEDS_REVIEW", basis="evidence_table", attempted_on=e.observed_on,
+                                  reason="Official process recorded, but the purchase-path engine built no usable record"
+                                         + (f": {refusal}" if refusal else ""), **base)
+            return UnitStatus(status="VERIFIED", basis="evidence_table", attempted_on=e.observed_on,
+                              path_type=(record or {}).get("path_type") or e.path_type,
                               reason=e.source_title or "Official process recorded", **base)
     if registry_row is not None and getattr(registry_row, "purchase_url", "") and \
             getattr(registry_row, "verification_status", "") == "PRODUCTION_VERIFIED" and \
             str(registry_row.purchase_url).startswith("https://"):
+        if not usable:
+            return UnitStatus(status="NEEDS_REVIEW", basis="registry", attempted_on=getattr(registry_row, "last_checked", ""),
+                              reason="The source's purchase document is recorded, but the purchase-path engine built no usable record"
+                                     + (f": {refusal}" if refusal else ""), **base)
         return UnitStatus(status="VERIFIED", basis="registry", attempted_on=getattr(registry_row, "last_checked", ""),
+                          path_type=(record or {}).get("path_type") or "",
                           reason="The source's own purchase document, recorded with the source", **base)
     cands = [c for c in candidates if c["state"] == state and c["county"] == county and c["source_id"] in ("", source_id)]
     cand_out = [{"url": c["url"], "doc_kind": c["doc_kind"]} for c in cands]
@@ -196,3 +235,61 @@ def unit_status(state: str, source_id: str, county: str, *, evidence, registry_r
         return UnitStatus(status="NEEDS_REVIEW", basis="search_index", candidates=cand_out,
                           reason="Official pages identified; no capture recorded yet", **base)
     return UnitStatus(status="NOT_FOUND", basis="search_index", reason="No official acquisition page identified yet", **base)
+
+
+# What kind of acquisition evidence a ROW carries (2026-10-10). One value per
+# row, decided only from what was verified - never from a URL's existence:
+#   property_specific        a verified per-parcel purchase page (scope 'property')
+#   listing_level            a verified purchase / offer step on the source's
+#                            listing, shared by its parcels (source scope)
+#   application_process      a verified county process that is an application,
+#                            instructions or an offline step
+#   source_list_only         no verified process; only the official list the
+#                            row was read from
+#   no_verified_online_path  nothing verified and no usable official list link
+EVIDENCE_TYPES = ("property_specific", "listing_level", "application_process", "source_list_only",
+                  "no_verified_online_path")
+EVIDENCE_TYPE_LABELS = {
+    "property_specific": "Property-specific purchase page (verified)",
+    "listing_level": "Purchase step on the official listing (verified)",
+    "application_process": "Official application process (verified)",
+    "source_list_only": "Official list only - no online purchase link on file",
+    "no_verified_online_path": "No online purchase link on file",
+}
+_LISTING_TYPES = frozenset({"direct_property_url"})
+_URL_TYPES = frozenset({"direct_property_url", "county_instructions", "application_page", "application_download"})
+_PROCESS_TYPES = frozenset({"county_instructions", "application_page", "application_download", "in_person",
+                            "phone_mail", "quoted_amount", "amount_plus_costs", "amount_on_application"})
+
+
+def _https(url) -> bool:
+    u = str(url or "").strip()
+    return u.startswith("https://") and len(u) > len("https://x.y") and " " not in u
+
+
+def evidence_type(row: dict, unit: "UnitStatus | None" = None) -> str:
+    """The acquisition evidence type of one properties row. Pure.
+
+    `row` carries the stored path columns (purchase_path_type /
+    purchase_path_scope / purchase_url) and list_url; `unit` is the row's
+    acquisition unit status, when known. A path the engine did not type
+    (purchase_path_type NULL) is never treated as verified, whatever URL the
+    row holds; a URL type without an https URL is malformed and counts as
+    nothing verified."""
+    ptype = (row.get("purchase_path_type") or "").strip()
+    scope = (row.get("purchase_path_scope") or "").strip()
+    url = row.get("purchase_url")
+    typed_ok = bool(ptype) and (ptype not in _URL_TYPES or _https(url)) and ptype != "none_published"
+    if typed_ok and scope == "property" and ptype in _URL_TYPES:
+        return "property_specific"
+    if typed_ok and ptype in _LISTING_TYPES:
+        return "listing_level"
+    if typed_ok and ptype in _PROCESS_TYPES:
+        return "application_process"
+    if unit is not None and unit.status == "VERIFIED" and unit.path_type in _PROCESS_TYPES:
+        return "application_process"
+    if unit is not None and unit.status == "VERIFIED" and unit.path_type in _LISTING_TYPES:
+        return "listing_level"
+    if _https(row.get("list_url")):
+        return "source_list_only"
+    return "no_verified_online_path"

@@ -43,6 +43,13 @@ class CappedApi(L.Api):
         if "order" in q:
             assert q["order"] == ["id.asc"]
             data = sorted(data, key=lambda r: r["id"])
+        if "id" in q and q["id"][0].startswith("in."):  # by-id batch (fetch_state_rows phase 2)
+            wanted = {int(v.strip('"')) for v in q["id"][0][4:-1].split(",")}
+            data = [r for r in data if r["id"] in wanted]
+        elif "id" in q:  # keyset paging: id=gt.<last id read>
+            assert q["id"][0].startswith("gt.")
+            after = int(q["id"][0][3:])
+            data = [r for r in data if r["id"] > after]
         offset = int(q.get("offset", ["0"])[0])
         limit = min(int(q.get("limit", [str(MAX_ROWS)])[0]), MAX_ROWS)
         return [dict(r) for r in data[offset:offset + limit]]

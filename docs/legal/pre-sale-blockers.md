@@ -20,7 +20,7 @@ Owner key:
 | 1 | Legal opinion on selling data collected from RealAuction sites, given the recorded automated-access and redistribution restrictions. Obtain written permission if counsel requires it. | Counsel, Vendor |
 | 2 | Same for LienHub (robots/spiders prohibited, redistribution restricted). | Counsel, Vendor |
 | 3 | LGBS: does its legal-disclosures clause cover the `taxsales` API, and does it allow commercial display? | Counsel, Vendor |
-| 4 | Decision on the Orange disclaimer click-through, the Volusia disclaimer bypass, the Osceola private API and ScraperAPI IP-block avoidance: keep, change or discontinue. | Counsel, then Owner |
+| 4 | Decision on the Volusia disclaimer bypass, the Osceola private API and ScraperAPI IP-block avoidance: keep, change or discontinue. The Orange disclaimer click-through was discontinued on 2026-11-04: the Orange County Comptroller's written reply prohibits automated collection without prior written authorization (`data/office_replies.csv`). | Counsel, then Owner |
 | 5 | Terms of Service, Privacy Policy and Acceptable Use for paying customers, drafted or approved by counsel. | Counsel |
 | 6 | Decision on displaying, searching and exporting owner names of record, and on LienHub owner mailing addresses stored as `address`. | Counsel, then Eng |
 | 7 | Replace the Google Maps **Demo Key**, which Google describes as testing-only, with a production key under a paid-use-appropriate plan, or remove the Google basemap. | Owner, Eng |

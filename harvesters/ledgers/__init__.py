@@ -39,7 +39,7 @@ from __future__ import annotations
 from enum import Enum
 
 __all__ = ["Ledger", "LEDGER_BY_SOURCE", "LEDGER_BY_LEDGER_TYPE", "CUSTOMER_NAMES", "ledger_for_source",
-           "ledger_for_ledger_type", "ledger_for_row", "ledgers_for_source_id"]
+           "ledger_for_ledger_type", "ledger_for_row", "ledgers_for_source_id", "lgbs_status_ledger"]
 
 
 class Ledger(str, Enum):
@@ -101,15 +101,32 @@ SOURCE_LEDGERS: dict[str, frozenset[Ledger]] = {
     "fl_realauction": frozenset({Ledger.AUCTIONS}),
     "fl_bid4assets_okaloosa": frozenset({Ledger.AUCTIONS}),
     "fl_lienhub_certificates": frozenset({Ledger.LIENS_CERTIFICATES}),
+    "fl_sarasota_tc_certificates": frozenset({Ledger.LIENS_CERTIFICATES}),
     "fl_laft_pdfs": frozenset({Ledger.AVAILABLE}), "fl_laft_html": frozenset({Ledger.AVAILABLE}),
     "fl_laft_pioneer": frozenset({Ledger.AVAILABLE}), "fl_laft_realtdm": frozenset({Ledger.AVAILABLE}),
     "fl_laft_orange": frozenset({Ledger.AVAILABLE}), "fl_laft_stlucie": frozenset({Ledger.AVAILABLE}),
     "fl_laft_osceola": frozenset({Ledger.AVAILABLE}), "fl_laft_hillsborough": frozenset({Ledger.AVAILABLE}),
     "fl_laft_leon": frozenset({Ledger.AVAILABLE}),
+    "fl_laft_portals": frozenset({Ledger.AVAILABLE}),   # 2026-10-26: clerk tax-deed portals (scripts/harvest_laft_portals.py)
     # Texas (existing restrictions untouched: LGBS is never retried here; blocked vendors feed nothing)
     "tx_realauction": frozenset({Ledger.AUCTIONS}),
     "tx_lgbs": frozenset({Ledger.AUCTIONS, Ledger.AVAILABLE}),
-    "tx_hctax": frozenset({Ledger.AVAILABLE}),
+    # Harris: the hctax.net listing is the next monthly constable SALE (read live
+    # 2026-10-26: "Sale Date: November 03, 2026", types SALE / RESALE / EOS / EXE).
+    "tx_hctax": frozenset({Ledger.AUCTIONS}),
+    # County-published lists read by scripts/harvest_tx_county_sales.py (2026-10-26; published by the owner's decision, legal review pending)
+    "tx_jefferson_sheriff_sale": frozenset({Ledger.AUCTIONS}),
+    "tx_bexar_resale": frozenset({Ledger.AVAILABLE}),
+    "tx_montgomery_tax_trust": frozenset({Ledger.AVAILABLE}),
+    "tx_orange_trust_property": frozenset({Ledger.AVAILABLE}),
+    "tx_trinity_cad_resale": frozenset({Ledger.AVAILABLE}),
+    "tx_randall_trustee_property": frozenset({Ledger.AVAILABLE}),
+    "tx_hood_cad_struck_off": frozenset({Ledger.AVAILABLE}),
+    # 2026-10-26 (owner decision): the delinquent-tax law firms publish sale lists
+    # (AUCTIONS) and resale / trust lists (AVAILABLE); GovEase runs online auctions.
+    "tx_pbfcm": frozenset({Ledger.AUCTIONS, Ledger.AVAILABLE}),
+    "tx_mvba": frozenset({Ledger.AUCTIONS, Ledger.AVAILABLE}),
+    "tx_govease": frozenset({Ledger.AUCTIONS}),
     # Registered, not activated states
     "al_ador_state_land": frozenset({Ledger.AVAILABLE}),
     "ar_cosl_post_auction": frozenset({Ledger.AVAILABLE}),
@@ -144,9 +161,26 @@ SOURCE_LEDGERS: dict[str, frozenset[Ledger]] = {
     "mn_ramsey_tax_forfeit": frozenset({Ledger.AVAILABLE}),
     # Tennessee (2026-10-08): Shelby County Land Bank (UNREVIEWED) - docs/tennessee-survey.md.
     "tn_shelby_landbank": frozenset({Ledger.AVAILABLE}),
+    # New-sources sprint (2026-10-26, owner decision; INTERIM permission, UNREVIEWED) -
+    # docs/new-sources-2026-10-26.md.
+    "mo_kc_landbank": frozenset({Ledger.AVAILABLE}),
+    "pa_pittsburgh_city_property": frozenset({Ledger.AVAILABLE}),
+    "mi_wayne_county_landbank": frozenset({Ledger.AVAILABLE}),
+    "mi_saginaw_landbank": frozenset({Ledger.AVAILABLE}),
+    "mi_calhoun_landbank": frozenset({Ledger.AVAILABLE}),
+    "mi_tax_sale_info_auction": frozenset({Ledger.AUCTIONS}),
+    "mi_tax_sale_info_surplus": frozenset({Ledger.AVAILABLE}),
+    "sc_horry_tax_sale": frozenset({Ledger.AUCTIONS}),
+    "co_saguache_tax_sale": frozenset({Ledger.AUCTIONS}),
+    "mn_hubbard_tfl_otc": frozenset({Ledger.AVAILABLE}),
+    "mn_wright_tax_forfeit": frozenset({Ledger.AUCTIONS}),
+    "mn_stpaul_hra_properties": frozenset({Ledger.AVAILABLE}),
+    # (new-sources sprint 2026-10-26 entries end here)
 }
-# The four blocked Texas vendors: discovery only, they feed no ledger.
-BLOCKED_SOURCE_IDS = frozenset({"tx_pbfcm", "tx_mvba", "tx_govease", "tx_ctsa"})
+# tx_pbfcm / tx_mvba / tx_govease were unblocked by the owner's decision of 2026-10-26
+# ("Do not block vendors ..."; terms risk accepted, legal review pending). tx_ctsa stays blocked (paywall).
+# The remaining blocked Texas vendor: discovery only, it feeds no ledger.
+BLOCKED_SOURCE_IDS = frozenset({"tx_ctsa"})
 
 
 def ledger_for_source(source: str) -> Ledger:
@@ -184,11 +218,18 @@ def ledger_for_row(row: dict) -> Ledger | None:
         return LEDGER_BY_LEDGER_TYPE[lt]
     status = row.get("sale_status") or row.get("tx_sale_status")
     if row.get("harvester_source") == "tx_lgbs" and status:
-        try:
-            from ..texas_harvester import LGBS_STATUS_TO_LEDGER
-        except Exception:  # pragma: no cover - the harvester module needs its own deps
-            LGBS_STATUS_TO_LEDGER = {"Scheduled for Auction": "auction", "Scheduled for Online Auction": "auction",
-                                     "Available for Future Sale": "laft", "Struck off to Jurisdiction": "laft"}
-        mapped = LGBS_STATUS_TO_LEDGER.get(status)
-        return LEDGER_BY_SOURCE.get(mapped) if mapped else None
+        return lgbs_status_ledger(status)
     return None
+
+
+def lgbs_status_ledger(status: str | None) -> Ledger | None:
+    """The ledger an LGBS row belongs to by the vendor's OWN raw sale status
+    (harvesters/texas_harvester.py LGBS_STATUS_TO_LEDGER); None = a wording
+    outside that map (nothing is assumed)."""
+    try:
+        from ..texas_harvester import LGBS_STATUS_TO_LEDGER
+    except Exception:  # pragma: no cover - the harvester module needs its own deps
+        LGBS_STATUS_TO_LEDGER = {"Scheduled for Auction": "auction", "Scheduled for Online Auction": "auction",
+                                 "Available for Future Sale": "laft", "Struck off to Jurisdiction": "laft"}
+    mapped = LGBS_STATUS_TO_LEDGER.get(str(status or "").strip())
+    return LEDGER_BY_SOURCE.get(mapped) if mapped else None

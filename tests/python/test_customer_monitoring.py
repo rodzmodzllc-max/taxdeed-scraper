@@ -105,8 +105,8 @@ def test_c10_frontend_mirrors_every_criterion_and_degrades_without_024():
         assert f"c.{key}" in body, key
     assert (REPO / "app.js").read_text(encoding="utf-8") == app                     # mirrored
     # Every 024 table is feature-detected; nothing assumes the migration ran.
-    for wording in ("Alerts are not enabled on this deployment yet", "Server change history is not enabled on this deployment yet",
-                    "Saved in this browser only", "E-mail - not configured on this deployment"):
+    for wording in ("Alerts are not available yet", "Server change history is not available yet",
+                    "Saved in this browser only", "E-mail alerts are not available yet"):
         assert wording in app, wording
     # Analytics never send the search text.
     track_calls = [l for l in app.splitlines() if 'track("search_performed"' in l]

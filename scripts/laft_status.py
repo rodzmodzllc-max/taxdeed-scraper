@@ -94,7 +94,21 @@ CLOSEOUT_ELIGIBLE = frozenset({"COMPLETE", "EMPTY"})
 
 SOURCE_CLASSES = ("GOVERNMENT_DIRECT", "GOVERNMENT_PLATFORM", "VENDOR_COUNSEL", "VENDOR_AUCTION")
 
-EMPTY_SIGNALS = ("empty_marker", "empty_table", "reported_count_zero", "empty_list")
+EMPTY_SIGNALS = (
+    "empty_marker", "empty_table", "reported_count_zero", "empty_list",
+    # Signals the expansion runner (scripts/harvest_expansion.py) emits for
+    # its shared-adapter sources. Since the per-source status (2026-10-10)
+    # every source of a county reaches the recorder on its own, so a county
+    # with one COMPLETE source and one EMPTY source records both - the EMPTY
+    # one must carry a signal this list knows (Douglas CO, 2026-10-11: the
+    # tax-sale list for a past tax year beside a COMPLETE liens list).
+    "past_cycle",               # ArcGIS cycle guard: the list is for a past tax year
+    "no_list_past_redemption",  # SC FLC: no list year is past the redemption period
+    "no_offered_status",        # status-filtered list: no row carries an offered status
+    "empty_layer",              # the layer / table answered with zero features
+    "superseded_list",          # the county's own pages say this list's sale is over (config `superseded`; Albany WY 2026)
+    "no_catalog_listed",        # Tax-Sale.info: the index lists no upcoming / surplus catalog for this county (2026-10-26)
+)
 
 ERROR_CATEGORIES = (
     "TRANSPORT_HTTP_403_BLOCKED",  # WAF / IP block signature (direct request)
@@ -112,6 +126,7 @@ ERROR_CATEGORIES = (
     "PARSE_COUNT_MISMATCH",        # platform-reported count != rows parsed
     "PARSE_TRUNCATED",             # source says more rows exist than shown
     "UNCONFIRMED_EMPTY",           # zero rows, no signal that zero is real
+    "PERMISSION_DENIED",           # no recorded permission for this read (data/source_permissions.csv); 0 requests
     "UNKNOWN",
 )
 
@@ -373,9 +388,13 @@ class StatusRecorder:
     # ---- recording helpers -------------------------------------------------
     def _add(self, entry: CountyStatus) -> CountyStatus:
         entry.validate()
-        # Replace an earlier entry for the same county from this harvester
-        # (a retry within one run supersedes the first attempt).
-        self.entries = [e for e in self.entries if e.county != entry.county]
+        # Replace an earlier entry for the same county AND source from this
+        # harvester (a retry within one run supersedes the first attempt).
+        # A harvester that reads several sources of one county (the
+        # expansion runner: Detroit lots + programs, both Wayne) keeps one
+        # entry per source - one source's failure never stands in for
+        # another source's complete read.
+        self.entries = [e for e in self.entries if (e.county, e.source_id) != (entry.county, entry.source_id)]
         self.entries.append(entry)
         return entry
 
@@ -498,3 +517,47 @@ def statuses_by_county(entries: list[dict], *, expected: list[tuple[str, str]] |
         if county not in out:
             out[county] = {"status": "NOT_RUN", "harvester": harvester, "entry": None}
     return out
+
+
+# --- source permission (2026-10-12) -------------------------------------------
+# Every LAFT harvester asks before its first request. harvesters/governance/
+# permissions.py is the one decision; this is its thin, fail-closed adapter for
+# scripts/ (which run as a plain directory, not a package).
+
+PERMISSION_DENIED_EXIT = 3
+
+
+def _permissions():
+    import sys as _sys  # noqa: PLC0415
+    repo = str(Path(__file__).resolve().parent.parent)
+    if repo not in _sys.path:
+        _sys.path.insert(0, repo)
+    from harvesters.governance import permissions as PERM  # noqa: PLC0415
+    return PERM
+
+
+def permission(source_id: str, operation: str, *, state: str = "FL", county: str | None = None,
+               dataset: str | None = "lands_available"):
+    """The PermissionDecision, or a denial when governance cannot be loaded."""
+    try:
+        return _permissions().authorize(source_id, operation, state=state, county=county, dataset=dataset)
+    except Exception as exc:  # noqa: BLE001 - no governance means no permission
+        class _Denied:  # minimal stand-in carrying the same fields a caller reads
+            allowed = False
+            reason_code = "GOVERNANCE_UNAVAILABLE"
+            reason = f"{type(exc).__name__}: {exc}"
+        return _Denied()
+
+
+def permission_gate(source_id: str, *, operations=("fetch", "parse"), state: str = "FL",
+                    dataset: str | None = "lands_available") -> int:
+    """0 when every operation is permitted for the source; otherwise print a
+    workflow error and return PERMISSION_DENIED_EXIT (the caller returns it
+    before any request is made)."""
+    for op in operations:
+        d = permission(source_id, op, state=state, dataset=dataset)
+        if not d.allowed:
+            print(f"::error title={source_id}::{op} denied [{d.reason_code}] {d.reason} - 0 requests made, nothing written",
+                  flush=True)
+            return PERMISSION_DENIED_EXIT
+    return 0

@@ -1,0 +1,37 @@
+{
+  "note": "Counts only, read-only production evidence. No row value (parcel, address, owner, amount) is recorded here.",
+  "horry_sc": {
+    "evidence": {"run": "37971480332", "job": "113958930434", "commit": "09ee30b", "includes": "e7040d2",
+                 "measured": "read-only SQL after the 2026-10-09 scheduled SC sync"},
+    "active_rows": 51,
+    "bid_amount_discrepancies": 0,
+    "bid_amount_discrepancies_before": 23,
+    "amounts_not_2dp": 0,
+    "missing_amounts": 0,
+    "last_seen_at_distinct": 1,
+    "updated_at_from_sync": true
+  },
+  "tennessee_shelby": {
+    "evidence": {"job": "113958930478", "measured": "job log + read-only SQL, 2026-10-09/10"},
+    "read_status": "COMPLETE",
+    "portal_rows": 12884,
+    "offered": 2038,
+    "not_offered": 10846,
+    "malformed_ids": 0,
+    "duplicate_ids": 0,
+    "synced": 2038,
+    "closed": 0,
+    "county": "Shelby",
+    "ledger": "Available",
+    "source_status_text": "FOR SALE",
+    "parcel_length": 14,
+    "case_numbers_unique": true,
+    "without_coordinates": 1,
+    "amount_not_published": 1,
+    "list_as_of_present": 0,
+    "acquisition_path_rows": 0,
+    "flood_checked_rows": 0,
+    "publication_status": {"UNREVIEWED": 2038},
+    "frontend_mode": "preview"
+  }
+}

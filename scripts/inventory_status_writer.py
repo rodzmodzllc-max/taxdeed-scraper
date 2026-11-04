@@ -47,14 +47,17 @@ REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(1, str(REPO))
 from harvesters.governance import inventory_status as IS  # noqa: E402
+from harvesters.ledgers import ledger_for_row  # noqa: E402
+from harvesters.ledgers import records as LR  # noqa: E402
+import rest_pages as RP  # noqa: E402
 from harvesters.governance import states  # noqa: E402
 import outcome_ingest as OI  # noqa: E402
 
 DEFAULT_SOLD_FILES = [REPO / "out" / n for n in ("harvest_laft_sold.json", "harvest_laft_sold_html.json", "harvest_laft_sold_pdfs.json")]
 REPORT_PATH = REPO / "out" / "public" / "inventory-status.json"
 USER_AGENT = "taxdeed-scraper/1.0 (+https://github.com/rodzmodzllc-max/taxdeed-scraper; inventory status writer)"
-SELECT = ("id,state,county,case_no,source,harvester_source,status,sale_date,tx_sale_status,list_url,url_auction,"
-          "inventory_status,inventory_status_raw,otc_provenance")
+SELECT = ("id,state,county,case_no,source,source_id,harvester_source,status,sale_date,tx_sale_status,list_url,url_auction,"
+          "list_as_of,inventory_status,inventory_status_raw,otc_provenance,last_seen_at")
 BATCH = 40
 STATUS_COLUMNS = ("inventory_status", "inventory_status_raw", "inventory_status_basis", "inventory_status_observed_at")
 RESULT_COLUMNS = ("result_amount", "result_date", "result_party")   # migration 023, probed
@@ -91,7 +94,7 @@ def load_sold_identities(paths) -> set[tuple[str, str]]:
 
 
 def plan(rows: list[dict], *, today: date, sold: set[tuple[str, str]] | None = None,
-         results: dict[tuple[str, str], dict] | None = None) -> tuple[list[dict], dict]:
+         results: dict[tuple[str, str], dict] | None = None, now: datetime | None = None) -> tuple[list[dict], dict]:
     """[{id, county, case_no, status, raw, basis, evidence_url, transition,
     result?}] for every row whose observation differs from what is stored,
     plus counts. `results` = source-published result fields by identity
@@ -103,8 +106,23 @@ def plan(rows: list[dict], *, today: date, sold: set[tuple[str, str]] | None = N
     for r in rows:
         is_sold = (str(r.get("county") or ""), str(r.get("case_no") or "")) in sold
         obs = IS.status_for_row(r, today=today, sold_column_present=is_sold)
+        # A presence status needs a recent read of the row itself
+        # (harvesters/ledgers/health.py row_observation): a NEVER_READ or
+        # STALE row is `unknown`, never closed.
+        current = IS.apply_staleness(obs, r, now=now or datetime.now(timezone.utc))
+        if current is not obs:
+            counts["not_current"] = counts.get("not_current", 0) + 1
+            obs = current
         if obs is None:
             counts["unmapped"] += 1
+            continue
+        # Each ledger keeps its own status vocabulary (harvesters/ledgers
+        # LEDGER_STATUSES): a status outside the row's ledger - e.g. a
+        # property 'sold' on a certificate row - is a classification bug and
+        # is never written. An unclassifiable row gets no status at all.
+        ledger = ledger_for_row(r)
+        if ledger is None or not LR.status_allowed(ledger, obs.status):
+            counts["refused_outside_ledger"] = counts.get("refused_outside_ledger", 0) + 1
             continue
         counts["mapped"] += 1
         counts["by_status"][obs.status] = counts["by_status"].get(obs.status, 0) + 1
@@ -132,7 +150,9 @@ def plan(rows: list[dict], *, today: date, sold: set[tuple[str, str]] | None = N
             transition = "status_changed"
         counts.setdefault("by_transition", {})[transition] = counts.get("by_transition", {}).get(transition, 0) + 1
         change = {"id": r["id"], "county": r.get("county"), "case_no": r.get("case_no"), "status": obs.status,
-                  "raw": obs.raw, "basis": obs.basis_text(), "source_id": r.get("harvester_source"),
+                  # source_id (migration 022) first: Florida rows carry it and no
+                  # harvester_source, so 4,857 observations had none (2026-10-11).
+                  "raw": obs.raw, "basis": obs.basis_text(), "source_id": IS.source_id_of(r) or None,
                   "evidence_url": r.get("list_url") or r.get("url_auction"), "transition": transition}
         if transition == "result_published":
             fields = results.get((str(r.get("county") or ""), str(r.get("case_no") or ""))) or {}
@@ -252,15 +272,14 @@ def fetch_rows(api: Api, state: str, *, with_results: bool = False) -> list[dict
     result_amount (probed by the caller): a published sale price in a
     county's past-sales table is what marks such a row sold
     (inventory_status.adapter_record_status)."""
-    out: list[dict] = []
-    offset, page = 0, 1000
     select = SELECT + (",result_amount" if with_results else "")
-    while True:
-        chunk = api.get("properties", f"select={select}&state=eq.{state}&order=id&limit={page}&offset={offset}")
-        out.extend(chunk)
-        if len(chunk) < page:
-            return out
-        offset += page
+    # Keyset pages (scripts/rest_pages), never offset pages: an offset page
+    # sorts the state's whole set before skipping (Michigan: 30,801 rows) and
+    # crossed the statement timeout under parallel state jobs (2026-10-10).
+    root = api.base[: -len("/rest/v1")] if api.base.endswith("/rest/v1") else api.base
+    rows = RP.read_all(root, "properties", api._headers(), {"select": select, "state": f"eq.{state}"})
+    api.requests_made += max(1, (len(rows) + RP.PAGE - 1) // RP.PAGE)
+    return rows
 
 
 def execute(api: Api, changes: list[dict], *, observed_at: str, run_id: str | None, include_transition: bool = False,
@@ -281,7 +300,8 @@ def execute(api: Api, changes: list[dict], *, observed_at: str, run_id: str | No
 
 def summarize(state: str, counts: dict, write_counts: dict | None, have_021: bool | None, dry_run: bool) -> str:
     lines = [f"Inventory status ({state}): {counts['rows']} rows - mapped {counts['mapped']}, unmapped {counts['unmapped']}, "
-             f"unchanged {counts['unchanged']}, changed {counts['changed']}, results from a source-published status {counts['results_from_source']}",
+             f"unchanged {counts['unchanged']}, changed {counts['changed']}, results from a source-published status {counts['results_from_source']}, "
+             f"not current (never read / stale -> unknown) {counts.get('not_current', 0)}",
              "  by status: " + (", ".join(f"{k} {v}" for k, v in sorted(counts["by_status"].items())) or "none")]
     if have_021 is False:
         lines.append("  migration 021 not applied - nothing written (plan only)")

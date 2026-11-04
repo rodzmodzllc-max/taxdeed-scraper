@@ -64,8 +64,9 @@ def test_g01_texas_row_inherits_the_county_level_record_with_listing_and_match()
     assert payload["purchase_url"].startswith("https://www.galvestoncountytx.gov/") and payload["purchase_path_observed_on"] == "2026-10-01"
     prov = payload["otc_provenance"]
     assert prov["source_match"] == {"identifier": "case_no", "value": "129500040015000", "parcel": "23-TX-0644", "source": "https://taxsales.lgbs.com/",
-                                    "basis": prov["source_match"]["basis"], "read_at": "2026-09-23"}
-    assert "last successful source read 2026-09-23" in prov["source_match"]["basis"]
+                                    "basis": prov["source_match"]["basis"]}
+    # Undated (audit 2026-10-28 B17): the registry's last_checked is not this row's read date.
+    assert "2026-09-23" not in prov["source_match"]["basis"]
     assert prov["purchase_evidence_url"].startswith("https://www.galvestoncountytx.gov/") and prov["acquisition"]["steps"]
     full = dict(_tx(), **payload)
     assert PE.acquisition_gaps(full) == []
@@ -149,12 +150,21 @@ def test_g08_acquisition_gaps_and_frontend_parity_and_no_withholding():
     m = re.search(r"const ACQUISITION_GAP_REASONS = \{(.*?)\n\};", APP, re.S).group(1)
     js = dict(re.findall(r'(\w+): "([^"]+)"', m))
     assert js == PE.ACQUISITION_GAP_REASONS
-    # Publication is the source decision only: the customer filter never consults the acquisition record.
+    # Publication is the source decision (publication_status). The gap list
+    # above is enrichment and never withholds. Since 2026-10-10 a second,
+    # STAGED gate (config.js availableGate, shipped "off") withholds an
+    # unverified Available row from non-admins only when set to "enforce"
+    # (harvesters/sources/acquisition_gate.py = app.js acquisitionVerification);
+    # administrators are never gated, and the gap reasons never feed it.
     flt = APP[APP.index("  ALL = rows.filter(p => {"):APP.index("function loadIssueHtml() {")]   # 2026-10-05: re-run per ledger
     assert "if (isPublishable(p)) {" in flt and "if (p.source in WITHHELD) WITHHELD[p.source]++;" in flt
-    assert "acquisition" not in flt.lower()
-    assert "acquisitionGap" not in re.search(r"function isPublishable\(p\) \{(.*?)\n\}", APP, re.S).group(1)
-    assert "WITHHELD_ACQ" not in APP and "ledgerWithheldAcq" not in APP and "acquisitionGate" not in APP
+    assert "acquisitionGap" not in flt and "ACQUISITION_GAP_REASONS" not in flt
+    pub = re.search(r"function isPublishable\(p\) \{(.*?)\n\}", APP, re.S).group(1)
+    assert "acquisitionGap" not in pub and "acqGateAllows(p)" in pub and "if (IS_ADMIN) return true;" in pub
+    allows = re.search(r"function acqGateAllows\(p\) \{(.*?)\n\}", APP, re.S).group(1)
+    assert 'if (ACQ_GATE_MODE !== "enforce" || !p || p.source !== "laft") return true;' in allows
+    assert 'availableGate: "off"' in (REPO / "config.js").read_text(encoding="utf-8")
+    assert "WITHHELD_ACQ" not in APP and "ledgerWithheldAcq" not in APP
     assert PE.acquisition_state(_published()) == "partial"                   # a path without steps: partial, still a path
 
 
@@ -201,7 +211,7 @@ def test_g11_coverage_report_separates_inventory_from_acquisition_enrichment():
 
 def test_g12_texas_step_makes_no_source_request_and_is_never_the_lgbs_harvest():
     step = WORKFLOW.split("Texas - acquisition paths from verified county evidence")[1].split("\n  expansion:")[0]
-    assert "apply_acquisition_paths.py --state TX --source-id tx_lgbs" in step and "continue-on-error: true" in step
+    assert "apply_acquisition_paths.py --state TX --ledgers laft,auction" in step and "continue-on-error: true" in step
     assert "texas_harvester" not in step and "lgbs.com" not in step
     src = (REPO / "scripts/apply_acquisition_paths.py").read_text(encoding="utf-8")
     assert "requests" not in src and "texas_harvester" not in src
@@ -221,7 +231,9 @@ def test_g13_candidate_pages_are_https_official_and_never_blocked_vendors():
 
 
 def test_g14_committed_evidence_from_the_candidate_capture():
-    by = {(e.state, e.county): e for e in PE.load_evidence()}
+    by: dict = {}
+    for e in PE.load_evidence():
+        by.setdefault((e.state, e.county), e)     # the first row per county (Galveston: tx_lgbs, then tx_realauction)
     exp = {("FL", "Alachua"): ("fl_laft_realtdm", "quoted_amount", "(352) 374-3615", "taxdeeds@alachuaclerk.org"),
            ("FL", "Duval"): ("fl_laft_pioneer", "phone_mail", "", "Ask.TaxDeeds@DuvalClerk.com"),
            ("FL", "Highlands"): ("fl_laft_realtdm", "quoted_amount", "(863) 402-6565", "clkbustd@hcclerk.org"),

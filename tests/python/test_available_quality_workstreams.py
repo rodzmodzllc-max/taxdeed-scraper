@@ -32,8 +32,9 @@ ROWS = [
 def test_three_workstreams_are_counted_independently():
     out = {(r["state"], r["source_id"]): r for r in Q.report(ROWS, NOW)}
     mo, mn, fl = out[("MO", "mo_stl_lra_inventory")], out[("MN", "mn_ramsey_tax_forfeit")], out[("FL", "fl_laft_pioneer")]
-    assert mo["acquisition"]["needs_review"] == 1 and mo["coordinates"]["missing"] == 1 and mo["amounts"]["no_current_amount"] == 1
-    assert mn["acquisition"]["needs_review"] == 1 and mn["coordinates"]["authoritative_parcel_gis"] == 1
+    # MO / MN processes were read 2026-10-26 (verified evidence rows): their units are VERIFIED now.
+    assert mo["acquisition"]["verified"] == 1 and mo["coordinates"]["missing"] == 1 and mo["amounts"]["no_current_amount"] == 1
+    assert mn["acquisition"]["verified"] == 1 and mn["coordinates"]["authoritative_parcel_gis"] == 1
     assert mn["amounts"]["opening_bid"] == 1 and mn["amounts"]["temporal_current"] == 1
     assert fl["acquisition"]["verified"] == 1 and fl["amounts"]["current_amount_due"] == 1
     assert fl["amounts"]["published_taxes"] == 1 and fl["amounts"]["published_fees"] == 1

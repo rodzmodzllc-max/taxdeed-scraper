@@ -35,6 +35,20 @@ def to_cents(value: float | None) -> float | None:
     return float(Decimal(repr(float(value))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
+def amounts_disagree(a: float | None, b: float | None) -> bool | None:
+    """Whether two stored currency figures (e.g. `bid` numeric(12,2) and
+    `purchase_amount` unbounded numeric) are different amounts. Compared at
+    whole cents, so a scale-only difference (1234.565 vs 1234.57, 0.3 vs
+    0.30000000000000004) is never a discrepancy and a real one (a cent or
+    more) always is. None when either side is missing: a missing figure is
+    neither equal nor unequal to a published one. The read-only checks
+    (scripts/sql/source_quality_matrix.sql) use the same rule:
+    round(a, 2) <> round(b, 2)."""
+    if a is None or b is None:
+        return None
+    return to_cents(a) != to_cents(b)
+
+
 # Currency columns an OtcRecord carries besides its amount / result_amount.
 CURRENCY_VALUE_FIELDS = ("assessed", "market", "taxable_value", "land_value", "improvement_value")
 
@@ -153,6 +167,12 @@ class OtcRecord:
     # Five-state sprint: a CERTIFICATE's own sale / purchase date, as the
     # source publishes it (properties.issued_date).
     issued_date: date | None = None
+    # Thin-fields sprint (2026-10-27): building and lot facts, ONLY as the
+    # source publishes them on the row (an ePropertyPlus portal's own
+    # parcelSquareFootage / yearBuilt / structureSquareFootage) - never computed.
+    lot_sqft: int | None = None                     # the parcel's area in square feet, as published
+    year_built: int | None = None                   # as published
+    living_area: int | None = None                  # the structure's square footage, as published
 
     def validate(self) -> list[str]:
         problems: list[str] = []
@@ -180,10 +200,12 @@ class OtcRecord:
             problems.append("issued_date belongs to a certificate record")
         if self.record_source == "auction" and self.amount is not None and self.amount_kind not in (AmountKind.OPENING_BID, AmountKind.MINIMUM_PURCHASE_AMOUNT, AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED):
             problems.append("an auction amount is the published opening / minimum bid (or of unspecified kind)")
-        for name in ("acreage", "taxable_value", "land_value", "improvement_value"):
+        for name in ("acreage", "taxable_value", "land_value", "improvement_value", "lot_sqft", "living_area"):
             value = getattr(self, name)
             if value is not None and value < 0:
                 problems.append(f"{name} cannot be negative")
+        if self.year_built is not None and not 1700 <= self.year_built <= 2100:
+            problems.append("year_built must be a year")
         if self.interest_rate is not None and self.interest_rate < 0:
             problems.append("interest_rate cannot be negative")
         if not self.county or not self.case_no or not self.source_id:
@@ -274,7 +296,8 @@ class OtcRecord:
         # Only when the source published one: an absent key never writes
         # NULL over a value another step carried.
         for name in ("owner_name", "assessed", "market", "tax_year", "latitude", "longitude", "certificate_no", "interest_rate",
-                     "acreage", "land_use", "taxable_value", "land_value", "improvement_value"):
+                     "acreage", "land_use", "taxable_value", "land_value", "improvement_value",
+                     "lot_sqft", "year_built", "living_area"):
             value = getattr(self, name)
             if value is not None:
                 row[name] = to_cents(value) if name in CURRENCY_VALUE_FIELDS else value
@@ -339,6 +362,7 @@ class OtcRecord:
             "sale_date": self.sale_date.isoformat() if self.sale_date else None,
             "acreage": self.acreage, "land_use": self.land_use, "taxable_value": to_cents(self.taxable_value),
             "land_value": to_cents(self.land_value), "improvement_value": to_cents(self.improvement_value),
+            "lot_sqft": self.lot_sqft, "year_built": self.year_built, "living_area": self.living_area,
         }
         return {k: v for k, v in row.items() if v is not None}
 

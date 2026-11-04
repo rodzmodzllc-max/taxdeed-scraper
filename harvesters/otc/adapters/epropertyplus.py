@@ -18,25 +18,46 @@ exactly one of
 
   COMPLETE  every page read, at least one row carries the configured offered status
   EMPTY     every page read, no row carries it (the portal's own statement)
+  INCOMPLETE every page read, offered rows found, but at least one OFFERED
+            row's parcel id failed `id_pattern`: the good rows are kept,
+            and nothing is closed (the rejected row may be a stored row the
+            portal still lists under a reformatted id)
   FAILED    transport error, success=false, a malformed page, a missing
             required field, a page cap hit, or fewer rows than the portal's own
             `size` - nothing read is trusted, never a partial zero
 
 Free text (`comments`) and the portal's thumbnail URLs are never mapped.
+
+Per-portal configuration (2026-10-25, Cook County Land Bank): tenants do not
+publish the same fields. Shelby publishes `currentStatus` + `available`; the
+Cook County Land Bank Authority's portal (public-cclba) publishes
+`currentStatus` but no `available` flag, and the fields a tenant leaves out
+of its public list are simply absent from every row. So the fields a read
+REQUIRES are derived from the configuration (`required_fields()`: the
+parcel number, the fields named by `offered` / `excluded`, the county field)
+instead of one fixed tuple; `offered` may be empty (every published row is
+read on list presence, the row's own status kept verbatim), `excluded`
+names (field, value) pairs that are never read (e.g. a parcel the land bank
+only TARGETS for acquisition), and `county_field` / `county_values` keep a
+portal that publishes more than one county to the county the registry row
+names (anything else is counted, never silently re-labelled).
 """
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Callable
 from urllib.parse import urlencode
 
 from ..model import AmountKind, InventoryType, OtcRecord, PurchaseUrlKind, SourceAuthority
+from .property_page import PropertyPage
 
-__all__ = ["EppConfig", "EppResult", "fetch_all", "page_url", "parse_rows"]
+__all__ = ["EppConfig", "EppResult", "fetch_all", "list_date", "page_url", "parse_rows", "required_fields"]
 
 LIST_PATH = "/landmgmtpub/remote/public/property/getPublishedProperties"
+# What the Shelby configuration requires (kept as the documented baseline; the
+# live rule is required_fields(cfg), which derives the same tuple for Shelby).
 REQUIRED = ("parcelNumber", "currentStatus", "available")
 NO_VALUE = frozenset({"", "NA", "N/A", "TBD", "NONE"})
 
@@ -48,8 +69,19 @@ class EppConfig:
     county: str
     portal: str                                   # https://<tenant>.epropertyplus.com
     list_url: str                                 # the public page a person opens
-    offered: tuple[tuple[str, str], ...]          # every (field, value) must hold for a row to be offered
+    offered: tuple[tuple[str, str], ...]          # every (field, value) must hold for a row to be offered; () = every published row
     id_pattern: str
+    # (field, value) pairs a row must NOT carry to be read (counted as
+    # excluded_status, like a row failing `offered`). A tenant that publishes
+    # no availability flag may still publish a status that says the land
+    # bank does not hold the parcel yet.
+    excluded: tuple[tuple[str, str], ...] = ()
+    # A portal that publishes more than one county: only rows whose
+    # `county_field` is one of `county_values` (case-insensitive) belong to
+    # this configuration's county; the rest are counted (excluded_county).
+    # None = the portal publishes one county (Shelby) and the field is not read.
+    county_field: str | None = None
+    county_values: tuple[str, ...] = ()
     inventory_type: InventoryType | None = InventoryType.POST_SALE
     record_source: str = "laft"
     source_authority: SourceAuthority = SourceAuthority.GOVERNMENT_DIRECT
@@ -61,12 +93,35 @@ class EppConfig:
     page_limit: int = 500
     max_pages: int = 100
     columns_verified: bool = False
+    # The portal field whose value is kept verbatim as the row's own status
+    # wording (inventory_status_raw). Shelby / Cook: currentStatus. A tenant
+    # that publishes its sale status in a custom field (City of Pittsburgh:
+    # s_custom_0010 'Available for Sale') names that field.
+    status_field: str = "currentStatus"
+    # A portal field that states the LIST's own date. None (Shelby, every
+    # verified tenant so far) = the portal states none, and list_as_of stays
+    # empty: the read time is never a publication date.
+    list_as_of_field: str | None = None
+    # The portal's own per-property page (2026-10-25): the portal's code routes
+    # a property's details to /property/<parcelNumber>; each offered row gets
+    # that page as its purchase URL (property scope). None = no per-row link.
+    property_page: PropertyPage | None = None
+    # Thin-fields sprint (2026-10-27): the portal fields a tenant fills with
+    # the parcel's lot area / the structure's year built and square footage
+    # (read live per tenant: Kansas City and Pittsburgh fill
+    # parcelSquareFootage on every row, Saginaw on some, with yearBuilt /
+    # structureSquareFootage on its structures). Kept as published; None =
+    # the tenant leaves it empty and nothing is read. Never computed from
+    # parcelLength x parcelWidth.
+    lot_sqft_field: str | None = None
+    year_built_field: str | None = None
+    living_area_field: str | None = None
     notes: str = ""
 
 
 @dataclass
 class EppResult:
-    outcome: str                                  # COMPLETE | EMPTY | FAILED
+    outcome: str                                  # COMPLETE | EMPTY | INCOMPLETE | FAILED
     records: list[OtcRecord] = field(default_factory=list)
     error_category: str | None = None
     error_detail: str | None = None
@@ -75,10 +130,26 @@ class EppResult:
     excluded_status: int = 0
     rejected_ids: int = 0
     duplicates: int = 0
+    excluded_county: int = 0
+    shared_point_withheld: int = 0       # coordinates not stored: a point shared by SHARED_POINT_MIN+ parcels
 
 
 def page_url(cfg: EppConfig, page: int) -> str:
     return f"{cfg.portal}{LIST_PATH}?{urlencode({'page': page, 'limit': cfg.page_limit})}"
+
+
+def required_fields(cfg: EppConfig) -> tuple[str, ...]:
+    """The row fields a page must carry for this configuration: the parcel
+    number, every field an `offered` / `excluded` rule reads, and the county
+    field when one is configured - in first-seen order. A page whose first
+    row lacks one is a format change (FAILED), never read around."""
+    out = ["parcelNumber"]
+    for f, _ in cfg.offered + cfg.excluded:
+        if f not in out:
+            out.append(f)
+    if cfg.county_field and cfg.county_field not in out:
+        out.append(cfg.county_field)
+    return tuple(out)
 
 
 def _text(v: Any) -> str | None:
@@ -96,16 +167,102 @@ def _positive(v: Any) -> float | None:
     return f if f > 0 else None
 
 
+_DATE_FORMATS = ("%Y-%m-%d", "%m/%d/%Y")
+
+
+def _whole(v: Any) -> int | None:
+    """A positive published figure as a whole number, else None."""
+    n = _positive(v)
+    return int(round(n)) if n is not None and round(n) > 0 else None
+
+
+def _year(v: Any) -> int | None:
+    n = _whole(v)
+    return n if n is not None and 1700 <= n <= 2100 else None
+
+
+def list_date(v: Any) -> date | None:
+    """A source-published date, or None. Accepts a calendar date
+    (YYYY-MM-DD, MM/DD/YYYY) or an ISO datetime WITH its offset, whose date
+    is taken as the source wrote it (2026-10-07T23:30:00-05:00 is the 7th,
+    never shifted to UTC). A naive datetime, an epoch number, or anything
+    else is ambiguous or malformed -> None (never guessed)."""
+    t = _text(v)
+    if not t:
+        return None
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(t, fmt).date()
+        except ValueError:
+            pass
+    try:
+        dt = datetime.fromisoformat(t.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt.date() if dt.tzinfo is not None else None
+
+
 def _offered(row: dict, cfg: EppConfig) -> bool:
+    if any((_text(row.get(f)) or "").upper() == v.upper() for f, v in cfg.excluded):
+        return False
     return all((_text(row.get(f)) or "").upper() == v.upper() for f, v in cfg.offered)
+
+
+def _in_county(row: dict, cfg: EppConfig) -> bool:
+    if not cfg.county_field:
+        return True
+    return (_text(row.get(cfg.county_field)) or "").upper() in {v.upper() for v in cfg.county_values}
+
+
+def _offered_rule(cfg: EppConfig) -> str:
+    parts = [" and ".join(f"{f} = {v!r}" for f, v in cfg.offered)
+             or "every published row (the portal publishes no availability flag; the row's own status is kept verbatim)"]
+    if cfg.excluded:
+        parts.append("never " + " or ".join(f"{f} = {v!r}" for f, v in cfg.excluded))
+    return "; ".join(parts)
+
+
+# Audit F34 (2026-10-29): a point the portal publishes for this many DISTINCT
+# parcels in one read is a placeholder (a subdivision or city point), not a
+# parcel's location. Wayne County Land Bank: 62, 26 and 21 offered parcels on
+# three single points. Such a point is never stored or labelled as the
+# parcel's own; the parcel-layer enrichment (mi_wayne_county_parcels) fills it.
+SHARED_POINT_MIN = 3
+
+
+def _point(row: dict) -> tuple[float, float] | None:
+    try:
+        lat, lng = float(row.get("latitude")), float(row.get("longitude"))
+    except (TypeError, ValueError):
+        return None
+    if -90 <= lat <= 90 and -180 <= lng <= 180 and (lat, lng) != (0.0, 0.0):
+        return lat, lng
+    return None
+
+
+def shared_points(rows: list[dict], *, minimum: int = SHARED_POINT_MIN) -> set[tuple[float, float]]:
+    """Points (rounded to 5 decimals, ~1 m) the portal publishes for at least
+    `minimum` distinct parcel numbers among `rows`."""
+    by_point: dict[tuple[float, float], set[str]] = {}
+    for row in rows:
+        pt = _point(row)
+        pid = _text(row.get("parcelNumber"))
+        if pt and pid:
+            by_point.setdefault((round(pt[0], 5), round(pt[1], 5)), set()).add(pid)
+    return {pt for pt, pids in by_point.items() if len(pids) >= minimum}
 
 
 def parse_rows(cfg: EppConfig, rows: list[dict], *, retrieved_at: datetime) -> tuple[list[OtcRecord], dict]:
     """Rows of the portal's list -> offered records, plus counts."""
-    counts = {"excluded_status": 0, "rejected_ids": 0, "duplicates": 0}
+    counts = {"excluded_status": 0, "rejected_ids": 0, "duplicates": 0, "excluded_county": 0}
+    # `shared_point_withheld` is added only when a point was withheld.
+    shared = shared_points([r for r in rows if _in_county(r, cfg) and _offered(r, cfg)])
     seen: set[str] = set()
     out: list[OtcRecord] = []
     for row in rows:
+        if not _in_county(row, cfg):
+            counts["excluded_county"] += 1
+            continue
         if not _offered(row, cfg):
             counts["excluded_status"] += 1
             continue
@@ -120,37 +277,58 @@ def parse_rows(cfg: EppConfig, rows: list[dict], *, retrieved_at: datetime) -> t
         amount = _positive(row.get(cfg.amount_field)) if cfg.amount_field else None
         kind = cfg.amount_kind if amount is not None else AmountKind.NOT_PUBLISHED
         coords = {}
-        try:
-            lat, lng = float(row.get("latitude")), float(row.get("longitude"))
-            if -90 <= lat <= 90 and -180 <= lng <= 180 and (lat, lng) != (0.0, 0.0):
-                coords = {"latitude": lat, "longitude": lng}
-        except (TypeError, ValueError):
-            pass
+        shared_point = False
+        pt = _point(row)
+        if pt and (round(pt[0], 5), round(pt[1], 5)) in shared:
+            shared_point = True
+            counts["shared_point_withheld"] = counts.get("shared_point_withheld", 0) + 1
+        elif pt:
+            coords = {"latitude": pt[0], "longitude": pt[1]}
         land_use = _text(row.get("propertyClass"))
         prov = {
             "adapter": "epropertyplus",
             "portal": cfg.portal,
             "list_endpoint": LIST_PATH,
             "portal_property_id": row.get("id"),
-            "offered_rule": " and ".join(f"{f} = {v!r}" for f, v in cfg.offered),
+            "offered_rule": _offered_rule(cfg),
             "amount": (f"field {cfg.amount_field!r} ({cfg.amount_label}) = {kind.value}" if amount is not None
                        else "no amount on the row"),
         }
+        if _text(row.get("inventoryType")):
+            prov["portal_inventory_type"] = _text(row.get("inventoryType"))      # the source's own wording
         if coords:
             prov["coordinates"] = "the portal's own latitude / longitude for the parcel"
+        elif shared_point:
+            prov["coordinates"] = (f"not stored: the portal publishes the same point for {SHARED_POINT_MIN} or more "
+                                   "different parcels in this read (a shared placeholder, not this parcel's location)")
+        purchase_url, purchase_kind = cfg.purchase_url, cfg.purchase_url_kind
+        page = cfg.property_page.url_for(pid) if cfg.property_page else None
+        if page:
+            purchase_url, purchase_kind = page, cfg.property_page.kind
+            prov["purchase_url_basis"] = cfg.property_page.basis()
+        if cfg.county_field:
+            prov["county_rule"] = f"field {cfg.county_field!r} in {sorted(cfg.county_values)} (rows of another county are counted, never re-labelled)"
+        as_of = list_date(row.get(cfg.list_as_of_field)) if cfg.list_as_of_field else None
+        prov["list_as_of"] = (f"field {cfg.list_as_of_field!r} (the portal's own date)" if as_of
+                              else "not stated by the portal - never the read time")
         out.append(OtcRecord(
             state=cfg.state, county=cfg.county, case_no=pid,
             source_id=cfg.source_id, source_authority=cfg.source_authority,
             inventory_type=cfg.inventory_type, retrieved_at=retrieved_at,
             parcel=pid,
             address=_text(row.get("propertyAddress1")),
+            legal_desc=_text(row.get("legalDescription")),
             amount=amount, amount_kind=kind,
-            list_url=cfg.list_url, purchase_url=cfg.purchase_url, purchase_url_kind=cfg.purchase_url_kind,
+            list_url=cfg.list_url, purchase_url=purchase_url, purchase_url_kind=purchase_kind,
             provenance=prov, record_source=cfg.record_source,
             land_use=None if (land_use or "").upper() in NO_VALUE else land_use,
             assessed=_positive(row.get("currentAssessment")),
             tax_year=_text(row.get("assessmentYear")),
-            source_status_text=_text(row.get("currentStatus")),
+            source_status_text=_text(row.get(cfg.status_field)),
+            list_as_of=as_of,
+            lot_sqft=_whole(row.get(cfg.lot_sqft_field)) if cfg.lot_sqft_field else None,
+            year_built=_year(row.get(cfg.year_built_field)) if cfg.year_built_field else None,
+            living_area=_whole(row.get(cfg.living_area_field)) if cfg.living_area_field else None,
             **coords,
         ))
     return out, counts
@@ -175,8 +353,9 @@ def fetch_all(cfg: EppConfig, fetch_json: Callable[[str], Any], *, retrieved_at:
             return EppResult("FAILED", error_category="PARSE_FORMAT_CHANGE", error_detail=f"page {page}: no total size")
         size = payload["size"]
         batch = payload["rows"]
-        if batch and any(k not in batch[0] for k in REQUIRED):
-            missing = [k for k in REQUIRED if k not in batch[0]]
+        required = required_fields(cfg)
+        if batch and any(k not in batch[0] for k in required):
+            missing = [k for k in required if k not in batch[0]]
             return EppResult("FAILED", error_category="PARSE_FORMAT_CHANGE", error_detail=f"missing field(s) {missing}")
         rows += batch
         if not batch or len(rows) >= size:
@@ -191,4 +370,11 @@ def fetch_all(cfg: EppConfig, fetch_json: Callable[[str], Any], *, retrieved_at:
     if not records and counts["rejected_ids"]:
         # Offered rows exist but none carries a valid identifier: a format change, never "empty".
         res.outcome, res.error_category, res.error_detail = "FAILED", "PARSE_FORMAT_CHANGE", "no offered row with a valid parcel id"
+    elif counts["rejected_ids"]:
+        # 2026-10-10: an offered row whose id fails the pattern used to leave
+        # the read COMPLETE, and close-out treats COMPLETE as the whole list -
+        # a stored row the portal still offers (under a reformatted id) would
+        # have been closed. Keep the valid rows; never close on this read.
+        res.outcome, res.error_category = "INCOMPLETE", "PARSE_FORMAT_CHANGE"
+        res.error_detail = f"{counts['rejected_ids']} offered row(s) with an unrecognised parcel id"
     return res

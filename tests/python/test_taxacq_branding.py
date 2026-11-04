@@ -79,7 +79,7 @@ def test_manifest_and_app_script_use_taxacq():
     assert not OLD.search(json.dumps(manifest))
     app = (PUBLIC / "app.js").read_text(encoding="utf-8")
     code = js_strings_outside_comments(app)
-    assert '"TAXACQ — " + STATE_INFO.name' in code          # tab title after sign-in
+    assert '" · TAXACQ — " + STATE_INFO.name' in code          # tab title after sign-in
     assert "`[TAXACQ] ${title}`" in code                    # support e-mail subject
     for name in ("app.js", "explore.js", "satellite-map.js", "boot.js", "admin.js", "legal.js"):
         assert not OLD.search(js_strings_outside_comments((PUBLIC / name).read_text(encoding="utf-8"))), name

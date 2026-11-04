@@ -76,9 +76,13 @@ sys.path.insert(1, str(Path(__file__).resolve().parent.parent))  # harvesters.* 
 from laft_status import (DB_AMOUNT_KINDS, CLOSEOUT_ELIGIBLE, load_status,  # noqa: E402
                          plausible_identifier, statuses_by_county)
 import laft_source_fields as SF  # noqa: E402
+import rest_pages as RP  # noqa: E402
+import write_diff as WD  # noqa: E402
 import purchase_path_engine as PE  # noqa: E402
 from harvesters.governance import states  # noqa: E402
 from harvesters.governance.county_source_registry import DB_SUPPORTED_INVENTORY_TYPES, PurchaseUrlKind  # noqa: E402
+from harvesters.ledgers import Ledger, ledgers_for_source_id  # noqa: E402
+from harvesters.ledgers import health as LH  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
@@ -87,7 +91,7 @@ DEFAULT_REGISTRY = REPO / "data/county_source_registry.csv"
 DEFAULT_HARVEST_FILES = [REPO / "out" / n for n in (
     "harvest_laft.json", "harvest_laft_html.json", "harvest_laft_realtdm.json", "harvest_laft_pioneer.json",
     "harvest_laft_orange.json", "harvest_laft_stlucie.json", "harvest_laft_osceola.json",
-    "harvest_laft_hillsborough.json", "harvest_laft_leon.json",
+    "harvest_laft_hillsborough.json", "harvest_laft_leon.json", "harvest_laft_portals.json",
 )]
 
 USER_AGENT = "taxdeed-scraper/1.0 (+https://github.com/rodzmodzllc-max/taxdeed-scraper; GitHub Actions)"
@@ -284,18 +288,127 @@ def county_gates(status_entries: list[dict], expected: list[tuple[str, str]], *,
     kept, as before."""
     if state is not None:
         status_entries = [e for e in status_entries if not e.get("state") or str(e["state"]) == state]
+    # The ledger health reader first (harvesters/ledgers/health.py): an EMPTY
+    # without a valid empty signal, or a COMPLETE / EMPTY from a read that
+    # failed at transport or parse, is INCOMPLETE - observed, never closeable.
+    status_entries = [health_checked(e) for e in status_entries]
     by_county = statuses_by_county(status_entries, expected=expected, now=now, max_age_hours=max_age_hours)
+    units = source_units(status_entries, now=now, max_age_hours=max_age_hours)
+    expected_by_county: dict[str, set[str]] = {}
+    for sid, county in expected or []:
+        expected_by_county.setdefault(county, set()).add(sid)
     gates: dict[str, dict] = {}
     for county, info in by_county.items():
         status = info["status"]
+        county_units = {sid: st for (sid, c), st in units.items() if c == county}
         gates[county] = {
             "status": status,
             "observed_ok": status in OBSERVED_STATUSES,
             "closeout_ok": status in CLOSEOUT_ELIGIBLE,
             "harvester": info.get("harvester"),
             "entry": info.get("entry"),
+            # Per-source reads of this county, and the registry's sources for
+            # it that left no entry at all: one source's read never closes a
+            # sibling source's rows (plan_lifecycle).
+            "units": county_units,
+            "missing_sources": sorted(expected_by_county.get(county, set()) - set(county_units)),
         }
     return gates
+
+
+def health_checked(entry: dict) -> dict:
+    """The entry as the ledger health reader allows it to be acted on: a
+    recorded COMPLETE / EMPTY the reader does not accept becomes INCOMPLETE
+    (with `health_downgrade` naming why); every other entry is unchanged."""
+    recorded = str(entry.get("status") or "").upper()
+    if recorded not in CLOSEOUT_ELIGIBLE:
+        return entry
+    read = LH.reader_status(entry)
+    if read == recorded:
+        return entry
+    return {**entry, "status": "INCOMPLETE", "health_downgrade": f"{recorded}->{read}"}
+
+
+def entry_source(entry: dict) -> str:
+    return str(entry.get("source_id") or entry.get("harvester") or "")
+
+
+def source_units(entries: list[dict], *, now: float | None = None, max_age_hours: float = 36.0) -> dict[tuple[str, str], str]:
+    """{(source_id, county): weakest effective status} - each LAFT source's
+    own read of each county (laft_status.effective_status, so staleness
+    applies). An entry naming a source that does not feed the AVAILABLE
+    ledger is never a unit here."""
+    from laft_status import effective_status  # noqa: PLC0415
+    order = ("SOURCE_UNAVAILABLE", "FAILED", "NOT_RUN", "STALE", "INCOMPLETE", "EMPTY", "COMPLETE")
+    out: dict[tuple[str, str], str] = {}
+    for e in entries:
+        sid, county = entry_source(e), str(e.get("county") or "")
+        if not sid or not county:
+            continue
+        fed = ledgers_for_source_id(sid)
+        if fed and Ledger.AVAILABLE not in fed:
+            continue
+        eff = effective_status(e, now=now, max_age_hours=max_age_hours)
+        cur = out.get((sid, county))
+        if cur is None or order.index(eff) < order.index(cur):
+            out[(sid, county)] = eff
+    return out
+
+
+def row_closeable(row: dict, gate: dict) -> bool:
+    """May this stored row be closed by this run's read of its county?
+    The county gate must allow close-out (its weakest read COMPLETE / EMPTY),
+    and then:
+      * a row naming its source (source_id) closes only on THAT source's own
+        COMPLETE / EMPTY read - a sibling source's read never closes it, and a
+        source that does not feed the AVAILABLE ledger never closes anything;
+      * a row naming no source closes only when the county was read by exactly
+        one source and the registry expects no other (otherwise the row cannot
+        be attributed to the read that missed it)."""
+    if not gate.get("closeout_ok"):
+        return False
+    units = gate.get("units") or {}
+    sid = str(row.get("source_id") or "")
+    if sid:
+        fed = ledgers_for_source_id(sid)
+        if fed and Ledger.AVAILABLE not in fed:
+            return False
+        return LH.closeable(Ledger.AVAILABLE, units.get(sid))
+    if gate.get("missing_sources"):
+        return False
+    return len(units) <= 1
+
+
+NOT_PERMITTED = "NOT_PERMITTED"
+
+
+def apply_store_permission(gates: dict[str, dict], state: str, *, authorize=None) -> dict[str, str]:
+    """Withdraw every county whose source has no recorded `store` permission
+    (data/source_permissions.csv): nothing is observed, reactivated, closed
+    or carried from its list. Fails closed - no source, a denial or a
+    governance error all withdraw the county. Returns {county: reason code}
+    for the withdrawn ones."""
+    if authorize is None:
+        import laft_status  # noqa: PLC0415 - the LAFT harvesters' own permission helper
+
+        def authorize(source_id, county):
+            return laft_status.permission(source_id, "store", state=state, county=county)
+    withdrawn: dict[str, str] = {}
+    for county, gate in gates.items():
+        entry = gate.get("entry") or {}
+        source_id = entry.get("source_id") or gate.get("harvester")
+        if not source_id:
+            reason = "NO_SOURCE"
+        else:
+            try:
+                d = authorize(source_id, county)
+                reason = "" if d.allowed else (d.reason_code or "DENIED")
+            except Exception as exc:  # noqa: BLE001 - no governance means no permission
+                reason = f"GOVERNANCE_UNAVAILABLE:{type(exc).__name__}"
+        if reason:
+            gate.update(status=NOT_PERMITTED, observed_ok=False, closeout_ok=False, permission=reason)
+            withdrawn[county] = reason
+    return withdrawn
 
 
 @dataclass
@@ -305,6 +418,7 @@ class Plan:
     close: list[dict] = field(default_factory=list)                     # DB rows {id, county, case_no}
     skipped_counties: dict[str, str] = field(default_factory=dict)      # county -> why nothing may be closed
     ignored_rows: int = 0                                               # harvested rows from non-observed counties
+    kept_unattributed: int = 0                                          # absent rows another source's read cannot close
 
 
 def plan_lifecycle(gates: dict[str, dict], observed: dict[str, dict[str, dict]], db_rows: list[dict]) -> Plan:
@@ -336,6 +450,11 @@ def plan_lifecycle(gates: dict[str, dict], observed: dict[str, dict[str, dict]],
             if str(r.get("status") or "active").lower() in GONE_STATUSES:
                 continue
             if (county, str(r.get("case_no"))) in observed_keys:
+                continue
+            if not row_closeable(r, gate):
+                # Its own source's read did not confirm the whole list (see
+                # row_closeable): left exactly as it is.
+                plan.kept_unattributed += 1
                 continue
             plan.close.append({"id": r.get("id"), "county": county, "case_no": str(r.get("case_no"))})
     plan.observe.sort()
@@ -511,6 +630,42 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str =
     return payload
 
 
+# otc_provenance keys provenance_payload() itself writes (outside the
+# purchase-path group below). A state sync that also writes otc_provenance
+# (scripts/sync_state_inventory.py - Louisiana) leaves these keys to the
+# lifecycle once the lifecycle has stamped a row (its "harvester" key is
+# there), so the two writers converge on one stable dict instead of each
+# rewriting the other's values every run (2026-10-26).
+LIFECYCLE_OTC_KEYS = ("harvester", "source_id", "retrieved_at", "list_url", "document_url", "inventory_type",
+                      "purchase_amount", "list_as_of", "source_published_at", "purchase_url", "purchase_path_mode",
+                      "status_terminology", "source_match")
+# PurchasePath.provenance()'s keys: verified acquisition evidence, which
+# moves as ONE unit (same group as sync_state_inventory.ACQUISITION_KEYS).
+PATH_PROVENANCE_KEYS = ("acquisition", "purchase_evidence_url", "purchase_evidence_type", "purchase_evidence_title",
+                        "purchase_instructions", "purchase_path_observed_on")
+# Every column provenance_payload() can write - read with the state's rows so
+# each observed row's payload is compared with what is stored.
+PAYLOAD_COLUMNS = ("last_seen_at", "list_as_of", "source_published_at", "inventory_type", "source_authority", "source_id",
+                   "list_url", "document_url", "purchase_amount", "purchase_amount_kind", "source_document_sha256",
+                   "source_etag", "source_last_modified", "otc_provenance", "purchase_url", "purchase_url_kind")
+
+
+def merge_otc(stored, payload_otc: dict) -> dict:
+    """The otc_provenance to write for an observed row: the STORED dict with
+    this read's keys laid over it (never a wholesale replacement - keys
+    another writer owns, e.g. the Louisiana adapter's column notes, are kept).
+    The verified purchase-path group moves as a unit: this read's group when
+    it resolved a path, else the stored group untouched (verified evidence is
+    never erased by a read that did not establish it). Pure."""
+    base = dict(stored) if isinstance(stored, dict) else {}
+    new = dict(payload_otc or {})
+    if any(k in new for k in PATH_PROVENANCE_KEYS):
+        for k in PATH_PROVENANCE_KEYS:
+            base.pop(k, None)
+    base.update(new)
+    return base
+
+
 def source_match_of(row: dict, *, list_url, document_url, read_at: str) -> dict | None:
     """otc_provenance.source_match: which published identifier ties the row
     to the list it was read from. None when the row carries neither a case
@@ -657,6 +812,7 @@ def group_provenance(rows: list[tuple[str, dict]], gate: dict, retrieved_at: str
 # ---------------------------------------------------------------------------
 
 API_PAGE = 1000          # PostgREST max-rows on this project
+WIDE_BATCH = 100         # rows per by-id read of the wide columns (fetch_state_rows)
 
 
 class Api:
@@ -673,28 +829,39 @@ class Api:
         return h
 
     def get(self, query: str) -> list[dict]:
-        req = urllib.request.Request(f"{self.base}?{query}", headers=self._headers())
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            self.requests_made += 1
-            return json.loads(resp.read().decode())
+        # Bounded retry on a transient 5xx / timeout (rest_pages): a GET is
+        # idempotent, and one loaded-database 500 used to stop the lifecycle.
+        rows = RP.get_json(f"{self.base}?{query}", self._headers(), timeout=60)
+        self.requests_made += 1
+        return rows
 
     def get_all(self, query: str, *, page: int = API_PAGE) -> list[dict]:
-        """Every row matching `query`, read in `page`-sized pages.
+        """Every row matching `query`, read in `page`-sized keyset pages.
 
         PostgREST caps every response at its max-rows (1,000 on this
         project), whatever `limit` asks for - a single 10,000-row limit
         silently returned the first 1,000 rows (East Baton Rouge's 10,334
-        Louisiana rows were cut to 1,000). Pages are ordered by the primary
-        key so no row is read twice or skipped; a short page ends the read.
+        Louisiana rows were cut to 1,000). Pages walk the primary key
+        (`id=gt.<last>&order=id.asc`), so no row is read twice or skipped
+        and a deep page costs what the first one does - an offset page made
+        Postgres sort the whole state first and crossed the statement
+        timeout under load (2026-10-09). A short page ends the read.
         """
+        params = urllib.parse.parse_qsl(query, keep_blank_values=True)
+        sel = [i for i, (k, _) in enumerate(params) if k == "select"]
+        for i in sel:
+            cols = [c.strip() for c in params[i][1].split(",")]
+            if "id" not in cols:
+                params[i] = ("select", params[i][1] + ",id")
+        base_q = urllib.parse.urlencode(params, safe="(),.*:\"", quote_via=urllib.parse.quote)
         rows: list[dict] = []
-        offset = 0
+        after = None
         while True:
-            chunk = self.get(f"{query}&order=id.asc&limit={page}&offset={offset}")
+            chunk = self.get(f"{base_q}&order=id.asc&limit={page}" + (f"&id=gt.{after}" if after is not None else ""))
             rows.extend(chunk)
             if len(chunk) < page:
                 return rows
-            offset += len(chunk)
+            after = chunk[-1]["id"]
 
     def patch(self, query: str, body: dict) -> None:
         if self.dry_run:
@@ -741,12 +908,23 @@ def fetch_state_rows(api: Api, state: str, counties: list[str], extra_columns=()
     """The state's laft rows for these counties: identity + status for the
     lifecycle plan, plus the source-field columns (and field_provenance) the
     fill-blank step needs to know what is already there."""
-    select = ["id", "county", "case_no", "status", "field_provenance", *SF.BASE_COLUMNS, *extra_columns]
-    rows: list[dict] = []
+    select = list(dict.fromkeys(["id", "county", "case_no", "status", "field_provenance", *SF.BASE_COLUMNS, *extra_columns]))
+    # Two phases (2026-10-29, audit B13). A keyset page over the county filter
+    # ORDER BY id has to sort every matching row; with the wide columns
+    # (otc_provenance, field_provenance ...) in the select, Postgres detoasts
+    # all of them first - 2.3 s per page on Louisiana's 11,163 rows when the
+    # database is quiet, and past the 8 s statement timeout (HTTP 500) on every
+    # loaded laft run since 2026-10-26. The narrow identity read costs ~30 ms a
+    # page; the wide columns are then read by primary key in small batches.
+    ids: list = []
     for i in range(0, len(counties), 25):
         chunk = counties[i:i + 25]
-        rows.extend(api.get_all(f"state=eq.{state}&source=eq.{SOURCE}&county=in.{q(in_list(chunk))}"
-                                f"&select={','.join(select)}"))
+        ids.extend(r["id"] for r in api.get_all(f"state=eq.{state}&source=eq.{SOURCE}&county=in.{q(in_list(chunk))}"
+                                                f"&select=id"))
+    rows: list[dict] = []
+    for i in range(0, len(ids), WIDE_BATCH):
+        batch = ids[i:i + WIDE_BATCH]
+        rows.extend(api.get(f"id=in.{q(in_list(batch))}&select={','.join(select)}&order=id.asc"))
     return rows
 
 
@@ -763,7 +941,8 @@ def run_source_fields(observed: dict[str, dict[str, dict]], gates: dict[str, dic
 
 def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, dict]], api: Api,
             *, state: str, have_017: bool, retrieved_at: str, registry_paths: dict | None = None,
-            registry_modes: dict | None = None, path_ctx: "PathContext | None" = None, db_rows: list[dict] | None = None) -> dict:
+            registry_modes: dict | None = None, path_ctx: "PathContext | None" = None, db_rows: list[dict] | None = None,
+            fresh_guard: bool = True) -> dict:
     counts = {"observed": len(plan.observe), "reactivated": 0, "closed": 0, "provenance_patches": 0}
     # 1. Reactivation (status column exists today).
     by_county: dict[str, list[str]] = {}
@@ -771,11 +950,60 @@ def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, di
         by_county.setdefault(county, []).append(case_no)
     for county, keys in by_county.items():
         for i in range(0, len(keys), BATCH):
+            # A re-listed row is not delisted: it sheds the delisted_at its
+            # earlier close-out wrote (2026-10-26), once the column exists.
             api.patch(f"state=eq.{state}&source=eq.{SOURCE}&county=eq.{q(county)}&case_no=in.{q(in_list(keys[i:i + BATCH]))}",
-                      {"status": "active"})
+                      {"status": "active", "delisted_at": None} if have_017 else {"status": "active"})
             counts["reactivated"] += len(keys[i:i + BATCH])
-    # 2. last_seen_at + provenance (migration 017 only).
-    if have_017:
+    # 2. last_seen_at + provenance (migration 017 only). Write only what is due
+    # (2026-10-26, scripts/write_diff.py) - every PATCH bumps updated_at and
+    # leaves a dead tuple. With the stored rows in hand (main() always passes
+    # db_rows) each row is compared with what is stored (below); reactivation
+    # (1) and close-out (4) are not gated by this. Without them (a caller that
+    # passes no db_rows) the older guard applies: a row whose stored
+    # last_seen_at is newer than FRESH_HOURS is not patched (`fresh_guard`).
+    if have_017 and db_rows is not None:
+        # 2026-10-26: per row, against what is stored (scripts/write_diff.py):
+        # the payload's otc_provenance is MERGED onto the stored dict, and the
+        # row is patched only when a value changed (read-time stamps aside) or
+        # its last_seen_at is due a re-stamp. A row a state sync stamped
+        # moments ago is still written when its lifecycle provenance is new or
+        # changed (so Louisiana needs no --no-fresh-guard any more), and a
+        # second read of an unchanged list writes nothing.
+        for k in ("provenance_new", "provenance_changed", "provenance_restamp", "provenance_unchanged_skipped"):
+            counts[k] = 0
+        by_key = {(str(r.get("county")), str(r.get("case_no"))): r for r in db_rows}
+        now_dt = datetime.now(timezone.utc)
+        restamp_ids: list = []
+        for county, case_no in plan.observe:
+            row = observed[county][case_no]
+            payload = provenance_payload(row, gates[county], retrieved_at, state=state, registry_paths=registry_paths,
+                                         registry_modes=registry_modes, path_ctx=path_ctx)
+            stored = by_key.get((county, case_no))
+            if stored is not None:
+                payload["otc_provenance"] = merge_otc(stored.get("otc_provenance"), payload["otc_provenance"])
+            why = WD.needs_write(payload, stored, now_dt)
+            if why is None:
+                counts["provenance_unchanged_skipped"] += 1
+                continue
+            counts[f"provenance_{why}"] += 1
+            if why == "restamp" and stored.get("id"):
+                # Only last_seen_at is due: batched by id with a pause
+                # between batches (write_diff.run_restamps, 2026-10-27).
+                restamp_ids.append(stored["id"])
+                continue
+            # Scoped to this state's laft row by its identity, as before.
+            api.patch(f"state=eq.{state}&source=eq.{SOURCE}&county=eq.{q(county)}&case_no=in.{q(in_list([case_no]))}", payload)
+            counts["provenance_patches"] += 1
+        if restamp_ids:
+            sent, failed = WD.run_restamps(
+                restamp_ids, retrieved_at,
+                lambda query, body: api.patch(f"state=eq.{state}&source=eq.{SOURCE}&{query}", body),
+                pause=0 if getattr(api, "dry_run", False) else WD.RESTAMP_PAUSE_SECONDS)
+            counts["provenance_patches"] += sent
+            counts["provenance_restamp_failed_batches"] = failed
+    elif have_017:
+        fresh_filter = f"&or=(last_seen_at.is.null,last_seen_at.lt.{q(WD.stale_before())})" if fresh_guard else ""
         obs_by_county: dict[str, list[tuple[str, dict]]] = {}
         for county, case_no in plan.observe:
             obs_by_county.setdefault(county, []).append((case_no, observed[county][case_no]))
@@ -783,8 +1011,8 @@ def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, di
             for payload, keys in group_provenance(rows, gates[county], retrieved_at, state=state, registry_paths=registry_paths,
                                                   registry_modes=registry_modes, path_ctx=path_ctx):
                 for i in range(0, len(keys), BATCH):
-                    api.patch(f"state=eq.{state}&source=eq.{SOURCE}&county=eq.{q(county)}&case_no=in.{q(in_list(keys[i:i + BATCH]))}",
-                              payload)
+                    api.patch(f"state=eq.{state}&source=eq.{SOURCE}&county=eq.{q(county)}&case_no=in.{q(in_list(keys[i:i + BATCH]))}"
+                              + fresh_filter, payload)
                     counts["provenance_patches"] += 1
     # 3. Carry verified evidence onto rows this run did not read (never erases).
     counts["carried"] = 0
@@ -813,7 +1041,8 @@ def summarize(plan: Plan, gates: dict[str, dict], counts: dict | None, have_017:
             lines.append(f"  {status}: {len(by_status[status])} - {', '.join(by_status[status])}")
     lines.append(f"  observed rows: {len(plan.observe)} (reactivated {len(plan.reactivate)}); "
                  f"close-out candidates: {len(plan.close)} across {len({r['county'] for r in plan.close})} county(ies); "
-                 f"rows ignored (county not COMPLETE/INCOMPLETE): {plan.ignored_rows}")
+                 f"rows ignored (county not COMPLETE/INCOMPLETE): {plan.ignored_rows}; "
+                 f"absent rows kept (their own source's read did not confirm the list): {plan.kept_unattributed}")
     if plan.skipped_counties:
         lines.append("  close-out skipped (fail closed): " + ", ".join(f"{c} [{s}]" for c, s in sorted(plan.skipped_counties.items())))
     lines.append("  migration 017 columns: " + ("present" if have_017 else "absent - last_seen_at/provenance not written" if have_017 is False else "not probed"))
@@ -834,6 +1063,10 @@ def main(argv=None) -> int:
     ap.add_argument("--max-age-hours", type=float, default=36.0)
     ap.add_argument("--dry-run", action="store_true", help="plan and report; write nothing")
     ap.add_argument("--report", default="out/public/laft-lifecycle.json", help="counts-only report (no row values)")
+    ap.add_argument("--no-fresh-guard", dest="fresh_guard", action="store_false",
+                    help="obsolete (2026-10-26): provenance writes are now decided per row against the stored "
+                         "values (changed, or last_seen_at older than "
+                         f"{WD.FRESH_HOURS} h); accepted and ignored")
     args = ap.parse_args(argv)
 
     state = args.state
@@ -859,6 +1092,8 @@ def main(argv=None) -> int:
     registry_paths = load_registry_purchase_paths(Path(args.registry), state)
     registry_modes = load_registry_purchase_modes(Path(args.registry), state)
     gates = county_gates(entries, expected, max_age_hours=args.max_age_hours, state=state) if entries else {}
+    for county, reason in sorted(apply_store_permission(gates, state).items()):
+        print(f"::warning title=laft_lifecycle::{county}: store not permitted [{reason}] - nothing observed, written or closed there")
     # A harvest row that names another state is not this run's (the FL
     # harvesters write no state key and are kept; the Alabama harvester
     # writes "AL" and is kept only by an AL run).
@@ -880,6 +1115,10 @@ def main(argv=None) -> int:
     have_023 = have_017 and api.has_migration_023()
     path_ctx = PathContext(Path(args.registry), state, have_023=have_023, evidence_path=Path(args.path_evidence))
     extra = (tuple(SF.OPTIONAL_COLUMNS) if have_019 else ()) + (CARRY_COLUMNS if have_023 else CARRY_017_COLUMNS if have_017 else ())
+    if have_017:
+        # Every column a provenance payload can write, so each observed row is
+        # compared with its stored values (execute(): write only what changed).
+        extra = tuple(dict.fromkeys(extra + PAYLOAD_COLUMNS))
     # Every county on record, not only this run's: a county missing from the
     # status file entirely (NOT_RUN) still keeps and receives its evidence.
     counties_all = sorted(set(counties) | {str(r.get("county")) for r in api.get_all(f"state=eq.{state}&source=eq.{SOURCE}&status=eq.active&select=county")})
@@ -893,7 +1132,8 @@ def main(argv=None) -> int:
         print("::notice title=laft_lifecycle::migration 023 not applied - purchase_path_type / _scope / _evidence / _observed_on are not written")
     retrieved_at = now_iso()
     counts = execute(plan, gates, observed, api, state=state, have_017=have_017, retrieved_at=retrieved_at,
-                     registry_paths=registry_paths, registry_modes=registry_modes, path_ctx=path_ctx, db_rows=db_rows)
+                     registry_paths=registry_paths, registry_modes=registry_modes, path_ctx=path_ctx, db_rows=db_rows,
+                     fresh_guard=args.fresh_guard)
     # Observed rows only: the same COMPLETE/INCOMPLETE gate as last_seen_at.
     observed_gated = {c: rows for c, rows in observed.items() if gates.get(c, {}).get("status") in OBSERVED_STATUSES}
     sf_counts, sf_columns = run_source_fields(observed_gated, gates, db_rows, api, have_019=have_019, retrieved_at=retrieved_at)

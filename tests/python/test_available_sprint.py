@@ -12,7 +12,17 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "harvesters"))
 import lgbs_available_refresh as L  # noqa: E402
+import pytest  # noqa: E402
 from harvesters.enrichment import parcels as P  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _fixture_layers_hold_permission(monkeypatch):
+    """The invented layers below have no source-permission record; this module
+    tests matching mechanics, so the permission check is stood in for THOSE ids
+    only (real sources keep the real check - test_source_permissions.py)."""
+    from permission_fixtures import allow_fixture_layers
+    allow_fixture_layers(monkeypatch, P, {"t_roll", "t_first", "t_second"})
 
 NOW = "2026-10-01T23:30:00+00:00"
 
@@ -119,7 +129,8 @@ def test_a_row_read_in_a_truncated_walk_is_still_observed_but_nothing_unseen_is_
     idx = L.index_feed(recs(raw("100")))
     oc, body = L.plan_row(row(), idx, now=NOW, walk_complete=False)
     assert oc == "OBSERVED" and body["last_seen_at"] == NOW
-    assert L.plan_row(row(case_no="999"), idx, now=NOW, walk_complete=False) == ("NOT_IN_FEED", {})
+    # Unseen in a truncated walk is NOT_READ - never "not in the feed".
+    assert L.plan_row(row(case_no="999"), idx, now=NOW, walk_complete=False) == ("NOT_READ", {})
 
 
 def test_absence_and_other_statuses_are_counted_never_closed():

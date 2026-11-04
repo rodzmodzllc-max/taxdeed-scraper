@@ -497,6 +497,11 @@ def digest(path: Path, *, max_links: int = 25, max_snippets: int = 25, snippet_c
 
 
 def main(argv=None) -> int:
+    # Source permission for discovery (data/source_permissions.csv, operation
+    # "discover"): every request below is refused before any connection unless
+    # its URL belongs to a source with an in-date discover permission.
+    import permission_gate as _PG  # noqa: PLC0415
+    _PG.install_discovery_guard("capture_purchase_evidence")
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--digest", default=None, help="print a compact digest of an existing capture file and exit")
     ap.add_argument("--state", default="FL")

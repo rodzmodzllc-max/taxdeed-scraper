@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { signupPasswordProblem, MIN_SIGNUP_PASSWORD, MAX_SIGNUP_PASSWORD } from "../../supabase/functions/_shared/signup_password.js";
-import { handleSignup, PROFILE_FIELDS } from "../../supabase/functions/_shared/signup_request.js";
+import { handleSignup, PROFILE_FIELDS, OPTIONAL_PROFILE_FIELDS } from "../../supabase/functions/_shared/signup_request.js";
 
 const read = (p) => readFileSync(new URL("../../" + p, import.meta.url), "utf8");
 const APP = read("public/app.js");
@@ -112,8 +112,36 @@ test("server: a valid password reaches createUser exactly as typed - never trimm
     assert.equal(cu.calls[0].password, p, "stored password is the one entered");
     assert.equal(cu.calls[0].email_confirm, true);
     assert.deepEqual(Object.keys(cu.calls[0]).sort(), ["email", "email_confirm", "password", "user_metadata"]);
-    assert.deepEqual(Object.keys(cu.calls[0].user_metadata).sort(), [...PROFILE_FIELDS].sort());
+    assert.deepEqual(Object.keys(cu.calls[0].user_metadata).sort(), [...PROFILE_FIELDS, ...OPTIONAL_PROFILE_FIELDS].sort());
   }
+});
+
+test("server: company and phone are optional - name and address are required (2026-10-10)", async () => {
+  assert.deepEqual([...PROFILE_FIELDS], ["first_name", "last_name", "address"]);
+  assert.deepEqual([...OPTIONAL_PROFILE_FIELDS], ["company", "phone"]);
+  // The sign-up form's own body: no company, no phone.
+  const slim = { email: "new@example.com", first_name: "Pat", last_name: "Example", address: "1 Main St", ...pw("valid-pass-1") };
+  let cu = fakeCreateUser();
+  let r = await handleSignup(slim, cu);
+  assert.equal(r.status, 200);
+  assert.deepEqual(cu.calls[0].user_metadata, { first_name: "Pat", last_name: "Example", address: "1 Main St" });
+  // Sent empty: not stored, not refused.
+  cu = fakeCreateUser();
+  r = await handleSignup({ ...slim, company: "   ", phone: "" }, cu);
+  assert.equal(r.status, 200);
+  assert.deepEqual(Object.keys(cu.calls[0].user_metadata).sort(), ["address", "first_name", "last_name"]);
+  // A missing required field is still refused, with wording that no longer mentions a company.
+  for (const missing of ["first_name", "last_name", "address"]) {
+    cu = fakeCreateUser();
+    r = await handleSignup({ ...slim, [missing]: " " }, cu);
+    assert.equal(r.status, 400, missing);
+    assert.equal(r.body.error, "missing_fields");
+    assert.ok(!/Independent/.test(r.body.message));
+    assert.equal(cu.calls.length, 0);
+  }
+  // An over-long optional value is refused like any other over-long field.
+  cu = fakeCreateUser();
+  assert.equal((await handleSignup({ ...slim, phone: "9".repeat(201) }, cu)).status, 400);
 });
 
 test("server: a client cannot bypass the rule or add privileges by crafting the body", async () => {
@@ -123,7 +151,7 @@ test("server: a client cannot bypass the rule or add privileges by crafting the 
   // Extra fields (approval, admin, recipient) are never passed on.
   const r = await handleSignup(body({ ...pw("valid-pass-1"), approved: true, is_admin: true, notify_to: "x@evil.test", role: "service_role" }), cu);
   assert.equal(r.status, 200);
-  assert.deepEqual(Object.keys(cu.calls[0].user_metadata).sort(), [...PROFILE_FIELDS].sort());
+  assert.deepEqual(Object.keys(cu.calls[0].user_metadata).sort(), [...PROFILE_FIELDS, ...OPTIONAL_PROFILE_FIELDS].sort());
   assert.ok(!JSON.stringify(cu.calls[0]).includes("evil.test"));
   // Non-object bodies and the honeypot are refused before createUser.
   for (const b of [null, [], "password", 42]) assert.equal((await handleSignup(b, cu)).status, 400);

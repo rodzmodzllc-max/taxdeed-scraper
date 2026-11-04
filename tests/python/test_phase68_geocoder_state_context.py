@@ -226,7 +226,7 @@ def test_p68_04b_bare_street_match_written_only_when_county_verifies(harness):
         }],
     }
     geo.main()
-    assert [u for u, _ in harness.patches] == ["https://example.test/rest/v1/properties?id=eq.ok"]
+    assert [u for u, _ in harness.patches] == ["https://example.test/rest/v1/properties?id=eq.ok&latitude=is.null"]
     assert harness.patches[0][1] == {"latitude": 25.8153, "longitude": -80.3247}
 
 
@@ -239,7 +239,7 @@ def test_p68_04c_first_verifying_candidate_wins_when_census_returns_several(harn
         census_match(26.62, -81.87, "FL", "Lee"),            # verified
     ]}
     geo.main()
-    assert harness.patches == [("https://example.test/rest/v1/properties?id=eq.multi", {"latitude": 26.62, "longitude": -81.87})]
+    assert harness.patches == [("https://example.test/rest/v1/properties?id=eq.multi&latitude=is.null", {"latitude": 26.62, "longitude": -81.87})]
 
 
 def test_p68_04d_verify_match_normalises_county_spellings(geo):

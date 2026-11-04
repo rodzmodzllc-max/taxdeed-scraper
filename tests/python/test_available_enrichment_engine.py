@@ -17,8 +17,18 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 import enrich_available as EA  # noqa: E402
 import enrich_statewide_parcels as ESP  # noqa: E402
+from harvesters.governance.county_source_registry import load_registry  # noqa: E402
 from harvesters.documents import extract as D  # noqa: E402
 from harvesters.enrichment import parcels as P  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _fixture_layers_hold_permission(monkeypatch):
+    """The invented layers below have no source-permission record; this module
+    tests matching mechanics, so the permission check is stood in for THOSE ids
+    only (real sources keep the real check - test_source_permissions.py)."""
+    from permission_fixtures import allow_fixture_layers
+    allow_fixture_layers(monkeypatch, P, {"t_layer", "t_ok", "t_unrev"})
 from harvesters.enrichment import sources as PS  # noqa: E402
 from harvesters.governance import states as ST  # noqa: E402
 from harvesters.sources import inventory as INV  # noqa: E402
@@ -125,7 +135,10 @@ def test_lgbs_is_in_scope_as_review_required_never_dropped():
 def test_blocked_vendors_are_hard_blocked_and_never_accessed():
     inv = INV.build_inventory()
     blocked = [s for s in inv if s.governance == "HARD_BLOCKED"]
-    assert {s.source_id.split(":")[-1] for s in blocked if s.origin == "registry"} >= {"tx_pbfcm", "tx_mvba"}
+    # 2026-10-26: the owner unblocked PBFCM / MVBA / GovEase; no registry row of theirs is hard-blocked any more
+    # (tx_ctsa, the one vendor still blocked, has no registry row at all).
+    reg_blocked = {s.source_id.split(":")[-1] for s in blocked if s.origin == "registry"}
+    assert not reg_blocked & {"tx_pbfcm", "tx_mvba", "tx_govease"}
     assert all(s.access == "NOT_ACCESSED_BLOCKED" and not s.may_access and not s.may_write for s in blocked)
     with pytest.raises(ValueError):
         UnifiedSource("x", "FL", "Lee", "x", "x", "THIRD_PARTY", "", governance="HARD_BLOCKED", governance_reason="r",
@@ -149,8 +162,14 @@ def test_catalog_rows_are_valid_and_carry_their_basis():
     with (ROOT / "data" / "enrichment_source_catalog.csv").open(encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh))
     assert rows
+    registry_ids = {r.source_id for r in load_registry()}
     for r in rows:
-        assert r["governance"] in ("REVIEW_REQUIRED", "HARD_BLOCKED")
+        if r["governance"] == "APPROVED":
+            # Only a catalog entry that graduated to a registry source the owner approved
+            # on 2026-10-26 (the registry row is what the inventory lists).
+            assert r["source_id"] in registry_ids and "Owner approved customer publication 2026-10-26" in r["governance_reason"]
+        else:
+            assert r["governance"] in ("REVIEW_REQUIRED", "HARD_BLOCKED")
         assert r["governance_reason"] and r["evidence"] and r["next_action"]
         if r["governance"] == "HARD_BLOCKED":
             assert not r["url"] and r["access"] == "NOT_ACCESSED_BLOCKED"

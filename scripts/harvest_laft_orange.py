@@ -100,6 +100,7 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
+import laft_status as _LS  # noqa: E402 - permission gate
 from laft_status import StatusRecorder, describe_exception
 
 HERE = Path(__file__).resolve().parent
@@ -248,6 +249,11 @@ def record_outcome(recorder: StatusRecorder, rows: list[dict], outcome: dict) ->
 
 
 def main() -> int:
+    # Source permission (2026-10-12): no recorded fetch/parse permission for
+    # fl_laft_orange -> 0 requests, exit 3. data/source_permissions.csv.
+    _denied = _LS.permission_gate("fl_laft_orange")
+    if _denied:
+        return _denied
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     recorder = StatusRecorder("fl_laft_orange", source_class="GOVERNMENT_DIRECT")
     print(f"[1/1] {COUNTY}", flush=True)

@@ -38,7 +38,7 @@ def test_sort_key_cache_is_a_var_and_reset_per_sort():
 
 
 def test_badges_are_facts_with_no_score_or_weighting():
-    block = _block("// ==================== opportunity finder: record evidence", "function card(p, showCounty) {")
+    block = _block("// ==================== opportunity finder: record evidence", "function card(p, showCounty, ctx) {")
     keys = re.findall(r'key: "([a-z]+)"', block)
     assert keys == ["path", "official", "amount", "fresh", "dated"]
     code = re.sub(r"^\s*//.*$", "", block, flags=re.M)
@@ -48,7 +48,9 @@ def test_badges_are_facts_with_no_score_or_weighting():
     # An expired clerk statement is never a published amount.
     assert 'ai.state !== "official_expired"' in block
     # Shown on both card kinds.
-    assert APP.count("${recordBadgesHtml(p)}") == 2
+    # The lean deed / LAFT card (2026-10-11) carries no record badges; the
+    # certificate card still does, so the call site count is one.
+    assert APP.count("${recordBadgesHtml(p)}") == 1
 
 
 def test_command_center_uses_only_row_fields_and_invents_no_sale_terms():

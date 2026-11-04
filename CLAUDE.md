@@ -1688,7 +1688,7 @@ Full description: `docs/available-ledger.md` section 8. The stable facts:
 - **`harvest-and-sync.yml` has a `job` selector** on manual dispatch (all /
   deeds / certificates / laft / texas / backup). Dispatch `job=laft` for the
   normal AVAILABLE path; never dispatch `all` or `texas` unless LGBS is
-  meant to run. Schedules unchanged; texas is never scheduled.
+  meant to run. (Since 2026-10-26 texas also runs daily in the 07:37 ET run.)
 - **`scripts/purchase_path_engine.py`** is the only writer of
   `purchase_path_type` / `_scope` / `_evidence` / `_observed_on` (ten
   types; refusals for search engines, homepages, guessed patterns,
@@ -1835,12 +1835,19 @@ Full description: `docs/auction-outcomes.md`. Stable facts:
 
 Full description: `docs/state-expansion.md`. Stable facts:
 - **Production states are FL, TX, LA** (`states.PRODUCTION_STATES`). LA's one
-  source is East Baton Rouge Parish's open-data "Adjudicated Property" list
-  (Public Domain), approved by the owner **as a dated list only**: every
-  row's `list_as_of` is the dataset's own `rowsUpdatedAt` (2024-02-27 when
-  approved) and the frontend never calls an `ADJUDICATED_PROPERTY` row
-  "available now" (`isDatedList()` in app.js). The harvest refuses a run
-  whose metadata licence is no longer PUBLIC_DOMAIN.
+  source is East Baton Rouge Parish's open data (Public Domain), approved by
+  the owner **as a dated list only**: every row's `list_as_of` is the
+  dataset's own `rowsUpdatedAt` and the frontend never calls an
+  `ADJUDICATED_PROPERTY` row "available now" (`isDatedList()` in app.js). The
+  harvest refuses a run whose metadata licence is no longer PUBLIC_DOMAIN.
+  **Since 2026-10-26** (owner: "Yes close 6,643") the source is the newer
+  "Adjudicated Parcel" dataset `shrr-fsqq` (rows updated 2026-05-06, STATUS
+  `AJ` only; `louisiana.EBR_SOURCE` = `EBR_PARCEL_SOURCE`); the older
+  "Adjudicated Property" `a4h4-zi7e` (2024-02-27) is kept disabled as
+  `EBR_LEGACY_SOURCE`. Same source_id and identity (ASSESSMENT NO. = the old
+  PROPERTY NUMBER, same format), so the next COMPLETE read closes only the
+  numbers not on the newer list - through `laft_lifecycle.py --state LA` (the
+  LA sync step runs without `--close-absent`).
 - **Migration 020 is APPLIED** (2026-09-30): POST_SALE / STATE_HELD_TAX_LAND /
   ADJUDICATED_PROPERTY and QUOTED_ON_APPLICATION are storable; the storable
   sets in model.py / county_source_registry.py / laft_status.py include them.
@@ -2063,10 +2070,12 @@ Full description: `docs/image-storage.md`. Stable facts:
   status file stamps nothing. A one-object JSON (PowerShell's single-element
   array) is read as one row. The NULLs on 2026-10-01 were correct: LienHub
   returned 403 for all 32 counties on the only run since stamping shipped.
-- **Texas is manual-only by design** (the `texas` job is dispatch-only; LGBS
-  and TX RealAuction run nowhere else). `unit_freshness.MANUAL_ONLY_SOURCES`
-  marks those units `manual_only` and never ages them by the clock. Their
-  last read is never advanced. A test pins that set to the job's trigger.
+- **Texas reads daily since 2026-10-26** (owner approval): the `texas` job
+  runs in the 07:37 ET scheduled run (once a day, never the 17:37 read) and
+  on dispatch; LGBS and TX RealAuction run nowhere else. Their permission
+  records stay interim (expire 2027-04-12). `unit_freshness.MANUAL_ONLY_SOURCES`
+  still lists both, mirrored by app.js `MANUAL_ONLY_SOURCE_IDS` (front end):
+  emptying both together is the follow-up that lets the clock age them.
 
 ## All-sources AVAILABLE enrichment engine (2026-10-01, PR open, no migration)
 
@@ -2340,7 +2349,7 @@ Full description: `docs/available-expansion-2026-10.md`.
 |---|---|---|
 | MO | St. Louis LRA CSV (`Parcel_Status = Available` only) | 9,758 |
 | OK | Oklahoma County county-owned list (suggested bid = `PUBLISHED_AMOUNT_KIND_UNSPECIFIED`; offline bid form) | 195 |
-| PA | Fayette repository PDF (`Bid Received` excluded; dated 2025-10-07) | 376 |
+| PA | Fayette repository: the Repository Sale page's newest dated file (`latest_dated_document`; XLSX `Active` sheet or PDF; `Bid Received` excluded; since 2026-10-26, was the 10-7-2025 PDF) | 247 (10-7-2026 file) |
 | MN | Ramsey tax-forfeited layer (`Available for purchase` only) | 2 |
 
 **Shared adapter additions** (`tabular.py`):
@@ -2441,6 +2450,253 @@ lines (`.minimap-county`, `renderMinimapInto()` county-only: tinted, never a
 dot). No request leaves the site. A real image for those rows still needs
 coordinates (an authorized geocode / enrichment run). Playwright block
 "Imagery without coordinates".
+
+## Sign-up asks for name and address only (2026-10-10, PR open, function NOT redeployed)
+
+- The sign-up form (index / tx / la / generated state pages) no longer has Company or Phone number fields;
+  `SIGNUP_PROFILE_FIELDS` is first name, last name, address. The pending-details screen for provider accounts asks for
+  the same three. Edit profile keeps Company and Phone as optional fields.
+- Server: `_shared/signup_request.js` `PROFILE_FIELDS` = first_name, last_name, address (required);
+  `OPTIONAL_PROFILE_FIELDS` = company, phone (stored only when sent non-empty, at most 200 characters). The deployed
+  `self-signup` still enforces the old five-field rule until the owner redeploys it - until then a sign-up from the
+  new form is refused with "missing_fields", so redeploy with the merge.
+- `sw.js` -> `tdw-shell-v115`.
+## Current-state sprint: keyset reads, per-source status, enrichment isolation (2026-10-10, PR open, no migration)
+
+Full description: `docs/current-state-sprint.md`; coverage matrix: `docs/current-state-coverage.md`. Stable facts:
+- **Population reads go through `scripts/rest_pages.py`.** Keyset pages
+  (`id=gt.<last>&order=id.asc`) and a bounded retry, GET only, on 5xx /
+  connection errors; a 4xx is raised unchanged. Offset paging sorted the
+  whole state per page and hit the statement timeout (HTTP 500) under load.
+  That stopped the SC and LA syncs and the deeds job's geocoding. A test
+  forbids offset paging in the sync and the lifecycle.
+- **Status is per (source, county).** `StatusRecorder` keeps one entry per
+  source of a county. The sync and its close-out read `unit_status()`; a
+  county-only key is the worst read of that county. One failed Detroit
+  source had hidden the other's 30,706-row complete read.
+- **Deeds enrichment steps are isolated:** `if: !cancelled()` +
+  `continue-on-error`.
+- **Coverage matrix:** `scripts/sql/current_state_coverage.sql` (read-only)
+  → `data/current_state/*.json` → `scripts/current_state_report.py`
+  (`--check` pinned).
+
+## Data-quality sprint: baselines, Tennessee enrichment, Texas causes (2026-10-10, PR open, no migration)
+
+Full description: `docs/data-quality-sprint.md`; per-source matrix: `docs/source-quality-matrix.md`. Stable facts:
+- **Verified baselines** (Horry SC, Tennessee Shelby) are pinned, counts only, in
+  `data/current_state/verified-baselines-2026-10-10.json` and `tests/python/test_data_quality_sprint.py`.
+- **ePropertyPlus:** an OFFERED row whose parcel id fails `id_pattern` makes the read INCOMPLETE (good rows synced, nothing
+  closed). `list_date()` reads only a portal-published date (an offset datetime keeps its written date; naive/epoch -> None);
+  `list_as_of_field` is None for Shelby, which publishes none.
+- **Address geocoder:** `geocode_properties.NO_ADDRESS_GEOCODE_SOURCES` (`tn_shelby_landbank`) is never address-geocoded -
+  a source that publishes its own points keeps a missing point missing. The filter is NULL-safe on `harvester_source`.
+- **Fair enrichment queue:** `scripts/enrichment_queue.py` (`env_limit`, `plan_slices` round-robin pass 2, `rotate`,
+  `take_after`, `Checkpoint`). The geocoder plans per (state, county) and resumes from
+  `GEOCODE_CHECKPOINT` (deeds job: `out/.harvest_cache/geocode_checkpoint.json`); its PATCH carries
+  `latitude=is.null`. Limits: geocode 250 (max 1,000), flood 500 / 40 per county (max 10,000); invalid -> exit 2.
+- **Tennessee semantics:** `expansion.TN_SHELBY_SEMANTICS` (Land Bank post-sale inventory, offer process, no auction)
+  is why Shelby is AVAILABLE; `currency` checks use `model.amounts_disagree` (whole cents; missing is None).
+- **Acquisition evidence type** per row: `acquisition_evidence_status.evidence_type()` (property_specific / listing_level /
+  application_process / source_list_only / no_verified_online_path), never from a URL's existence. Shelby is NEEDS_REVIEW.
+- **Texas `parcel` is the tax-suit CAUSE number** for `tx_lgbs` / `tx_realauction` (the CAD account is `case_no`); one cause
+  covers several parcels. app.js `parcelOf(p)` / `causeOf(p)` / `caseIdentText(p)`: the account is the parcel shown and
+  matched across ledgers, the cause is "Tax suit cause #". Never read `p.parcel` as a parcel identity on a new surface.
+  Stub knob `?txcause=1` (ptx8 shares ptx3's cause). `sw.js` -> `tdw-shell-v116` (v115 is held by #130).
+- **Source matrix:** `scripts/sql/source_quality_matrix.sql` (read-only) -> `data/current_state/source-quality-*.json` ->
+  `scripts/source_quality_report.py` (`--check` pinned); every cell `n/N`.
+
+## State rules registry, verification engine, State rules page (2026-10-10, PR open, no migration)
+
+Full description: `docs/state-rules.md`. Stable facts:
+- **`data/state_rules.csv`** (`harvesters/governance/state_rules.py`): kind LAW / PROCEDURE / SOURCE / UNRESOLVED; status
+  VERIFIED only with an https source, title, `verified_on` and repository evidence (LAW also its citation). A "lead only"
+  citation is never VERIFIED; an unverified row has no date. County rows replace the statewide topic for that county only.
+  Only three Florida statute provisions are VERIFIED LAW (read 2026-10-05); the sandbox cannot reach statute sites.
+- **`data/state_ledgers.csv`**: TRACKED / NOT_TRACKED / NOT_OFFERED (needs evidence; none claimed) / NOT_VERIFIED per ledger.
+- **`harvesters/governance/state_verification.py`**: PASS / FAIL / BLOCKED / NOT_APPLICABLE / NOT_VERIFIED findings, no score.
+  A missing record FAILs. `ledger_copy` fails customer copy that denies a fed ledger; `copy_law_claims` fails a statute cited
+  in ledger copy without a VERIFIED LAW rule unless the string says "not verified".
+- **`scripts/build_state_rules.py`** (`--check` pinned) -> `public/state-rules.json` (mirrored) + `data/state_verification.json`.
+  Rebuild after editing either CSV, the evidence tables, the registry or ledger copy in app.js.
+- **Frontend**: `#/rules`, `#/rules?county=` (`renderRulesPage`, `rulesForCounty` mirrors `rules_for`), linked from the state
+  picker and every property's Source truth. `sw.js` -> `tdw-shell-v117`.
+
+## Ledger eligibility, county coverage, zero-count semantics (2026-10-10, PR open, no migration)
+
+Full description: `docs/ledger-eligibility.md`. Stable facts:
+- **Seven separate facts per ledger**: eligibility (`data/state_ledgers.csv` `eligibility`: OFFERED / NOT_OFFERED /
+  COUNTY_DEPENDENT / NOT_VERIFIED / SOURCE_RESTRICTED, with basis, https source and date for the evidenced classes),
+  county coverage (`state_verification.county_coverage`: registry rows + county-scoped verified procedures), tracking
+  (`status`), the current count (loaded rows), the last known count (`last_success_row_count` over the ledger's units),
+  read health (`sourceHealthState`) and verification status. Never derive one from another. OFFERED / NOT_OFFERED need
+  a VERIFIED LAW rule for that ledger (FL only today); nothing is NOT_OFFERED.
+- **A zero is never ambiguous**: `ledgerZeroState(kind)` in app.js (var / function declarations - TDZ) picks one of
+  NOT_OFFERED / NO_CURRENT_INVENTORY / COUNTY_DEPENDENT / NOT_VERIFIED / NOT_IMPLEMENTED / SOURCE_RESTRICTED /
+  SOURCE_FAILURE in the documented precedence; `ZERO_CASE_COPY` keys must equal `state_verification.ZERO_CASES`. A
+  failed load or read shows the last known count labelled as such, never a bare zero; a missing record is NOT_VERIFIED.
+  The strip (`.ledger-status`) sits in every ledger head and in each `#/rules` ledger block.
+- **Rules carry `ledger` (`|`-joined or ALL), `office`, `related_sources`, `depends_on`, `implementation_status`,
+  `test_ref`, `version`, `changed_on`**; `data/state_rules_history.csv` is append-only and a rule at version N needs
+  history rows 1..N-1 (never overwrite a statement silently - add a history row and bump the version).
+- Engine checks added: `ledger_eligibility`, `county_coverage`, `rule_history`, `zero_state_cases`,
+  `no_false_zero_copy`, `no_false_zero_lifecycle`, `tx_classification`, `tx_struck_off_copy`, `fl_separation`.
+  Stub knobs `?emptyledger=`, `?unitstatus=`. `sw.js` -> `tdw-shell-v118`.
+
+## Publication gate on the side tables (2026-10-13, PR open, migration 032 NOT applied)
+
+`scripts/migrations/032_publication_gate_side_tables.sql` ALTERs (never drops) the read policies of
+`auction_events`, `auction_event_observations`, `inventory_status_observations`, `property_change_events`,
+and adds a RESTRICTIVE SELECT policy on `user_alerts`, so a side row is readable only when the same caller can
+read its property (`exists (select 1 from public.properties p where p.id = ...)` under the caller's own RLS -
+no second copy of 031's rule). Requires 031; skips tables not yet created; idempotent; re-apply after 024.
+Order: 031 -> writer for every state -> 032. Review table of every customer surface: `docs/publication-gate.md`.
+Rule: a new table holding per-property rows for customers must gate its reads on the property's own
+readability, never on `is_approved()` alone.
+
+## Three ledgers: record contracts + read health (2026-10-13, PR open, no migration)
+
+Full description: `docs/three-ledgers.md` (last section). Stable facts:
+- `harvesters/ledgers/records.py`: `AuctionRecord` / `AvailableRecord` / `CertificateRecord` over the same
+  `properties` row; `problems(row)` = classification bugs (refused by `sync_state_inventory.py` and
+  `sync-texas-to-supabase.py` before any write); `customer_view(row)` = per-ledger fields with explicit
+  "Not published" / "No online purchase link on file" / "Not published by the source"; `property_key(row)` =
+  (state, county, normalized parcel; TX tax-suit sources use the CAD account in `case_no`).
+- An opening bid is never a winning bid; a certificate row never carries a result field; a list or document
+  page is never a purchase link; an amount's kind is never assumed.
+- `harvesters/ledgers/health.py`: `reader_status()` (false EMPTY/COMPLETE -> INCOMPLETE; transport FAILED ->
+  SOURCE_UNAVAILABLE); `ledger_units()` builds the bare-county fallback ONLY from source-less entries;
+  `plan_close()` closes only rows of a ledger the reading source feeds.
+- `inventory_status_writer.plan()` refuses a status outside the row's ledger; the Texas sync de-dups on
+  `(source, county, case_no)`.
+- **Integrated 2026-10-14 (all paths):** the FL PowerShell syncs call `scripts/ledger_gate.py`
+  (`rows` / `closeable`) through one identical helper block (`Select-LedgerRows`,
+  `Get-LedgerCloseableCounties`) - never a PowerShell copy of the rules; `test_ledger_ps_syncs.py` runs the
+  real scripts under pwsh against a fake Supabase. `laft_lifecycle.county_gates()` health-checks every entry
+  and closes per source (`row_closeable`, `units`, `missing_sources`). `app.js ledgerRecordView()` mirrors
+  `customer_view()` (vectors `ledger_record_cases.json`); `publication_state` reason `LEDGER_CONTRACT`
+  (customer-binding only once 031 is applied).
+
+## Texas vendors unblocked: PBFCM, MVBA, GovEase (2026-10-26, PR open, no migration)
+
+Full description: `docs/texas-vendor-sources.md`. Stable facts:
+- Owner decision 2026-10-26 ("Do not block vendors ..."): `tx_pbfcm`, `tx_mvba`, `tx_govease` are harvested daily in the
+  `texas` job (`harvesters/texas_vendors.py`, PDF tables via `harvesters/tx_sale_tables.py`). Permission is an interim
+  INTERNAL_RISK_ACCEPTANCE (expires 2027-04-12), never documented permission; `enrich` / `redistribute` stay BLOCKED.
+  `tx_ctsa` (paywall) is the only hard-blocked vendor left.
+- Plain HTTPS, `taxdeed-scraper/1.0`, >= 1 s between requests, no login / CAPTCHA / proxy; a 401/403 is a FAILED unit.
+- Rows: account = `case_no`, cause = `parcel` (`CAUSE_IN_PARCEL_SOURCES`); per-(source, county) `units` in
+  `out/harvest_texas_status.json`. County roster: `data/tx_vendor_counties.csv` -> registry rows (rebuild with
+  `scripts/build_county_source_registry.py`, then the generated JSON files).
+- Front-end follow-up (public/ not touched): app.js `parcelOf()` cause-in-parcel list and source labels name only LGBS /
+  RealAuction.
+
+## Florida PowerShell syncs never erase a stored value (2026-10-26, PR open, no migration)
+
+- **Why:** PostgREST bulk upsert needs one key set per batch (PGRST102), so a column the list did not publish is sent
+  as null, and merge-duplicates wrote that null over the stored value. Production 2026-10-26: 146 active FL auction
+  rows had lost their FDOR `assessed` this way.
+- **Guard:** `scripts/sync_value_guard.py` (helper block "Stored-value guard", identical in all three `sync-*.ps1`,
+  called once after `Select-LedgerRows` and before the upsert) reads the stored rows and sends the stored value back
+  in three cases:
+  - for a blank;
+  - for a sync placeholder ("Account <case>", "Parcel <p>", "Case <c>", the LAFT "Address not published" string, a
+    0 bid);
+  - for a value whose `field_provenance` names another source of equal or higher rank.
+
+  The sync's own source refreshing its own value is allowed (auction / certificate = `vendor_listing`, LAFT =
+  `county_list`). If the stored rows cannot be read, nothing is written.
+- **Refill:** `enrich_property_details.py` refills erased tax-roll values (`fetch_erased_rows`, enabled by
+  `ENRICH_REFILL_ERASED=1` in the deeds job).
+- **Orange certificate numbers:** Orange's RealAuction feed publishes the "Certificate #" cell EMPTY (label capture,
+  run 40383361568), so Orange auction rows have no certificate number to carry.
+- **Sarasota certificates (production, owner decision 2026-10-26):** the certificates job runs
+  `scripts/harvest_sarasota_certificates.py` (the Tax Collector's own county-held PDF) and then
+  `scripts/sync_sarasota_certificates.py`.
+  - Source `fl_sarasota_tc_certificates`, a registry row with APPROVED governance and publication, interim
+    permission records through display / link (expire 2027-04-12).
+  - One row per certificate: `case_no` = `<tax year>-<cert #>`, `parcel` = the account.
+  - Close-out covers only its own rows, after a COMPLETE read.
+  - The LienHub close-out reads only `source_id` `fl_lienhub_certificates` (or unset).
+- **TaxSys** (`<county>.county-taxes.com`, Grant Street) answered a runner with a Cloudflare 403 challenge (run
+  40384773704): stopped, never worked around.
+- Survey: `docs/review/fl-certificate-sources-2026-10-26.md`.
+
+## Texas enrichment: property facts + how to buy (2026-10-27, PR open, no migration)
+
+Full description: `docs/tx-enrichment-2026-10-27.md`. Stable facts:
+- **Property facts:** `tx_txgio_stratmap_parcels` (TxGIO StratMap 2026 county shapefiles) and `tx_hcad_parcels`
+  (Harris), both with interim permission records.
+  - They run through the parcel factory's new `county_file` transport (`harvesters/enrichment/county_file.py`), which
+    downloads one zip per county and keeps only the requested identifiers. The StratMap map service refuses every query.
+  - Each county's identifier column and rule is measured (`county_id`); a county without one is never read.
+  - Writes are `fill_blank_only` and cover only `row_source_ids` (the vendor listings, whose `case_no` is the CAD
+    account).
+  - `address`, `legal_desc` and `assessed` are never mapped: the Texas syncs write them, so mapping them would make the
+    two writers take turns.
+  - Two county layers may overlap only when one is fill-blank only.
+- **Ledger scope of evidence rows:** `data/acquisition_evidence_ledgers.csv` (`purchase_path_engine.load_ledger_scope`).
+  A row without an entry is AVAILABLE only.
+  - `apply_acquisition_paths.py --ledgers laft,auction` uses each row only for its own ledgers.
+  - `build_acquisition_evidence` keeps AVAILABLE-scoped rows only.
+  - Procedure rules take the scope as their ledger.
+- **2026-10-28 (coordinates for later listings):** StratMap covers 106 counties. ID rule `r_account` (digits, optional
+  real-property `R` prefix; `N` mineral / `P` personal never match). One county may serve two columns
+  (Val Verde, Reeves: GEO_ID + PROP_ID, measured disjoint). `TX_CAD_ACCOUNT_ROW_SOURCES` adds the county lists whose
+  `case_no` is the CAD account (Harris, Bexar, Jefferson, Orange, Trinity, Randall). Matagorda's file has no account
+  column - no fix. Details: `docs/tx-enrichment-2026-10-27.md` section 3.
+- **Statewide listing fallback:** a source whose registry rows all name one listing (LGBS) gives counties off the
+  roster that listing.
+- **Evidence capture:** TX county process pages sit in `acquisition_candidate_pages.csv` under the discovery-only id
+  `tx_county_sale_process`.
+
+## Property page tiers: Free preview / Guided / Full record (2026-10-27, PR open, migration 029 APPLIED)
+
+- **Migration 029 is APPLIED** (2026-10-27): `research_lists`, `research_items` exist in production with
+  the own-row PERMISSIVE + RESTRICTIVE `is_approved()` policies and grants to `authenticated` only. The
+  research workspace and the Guided ticks now save per account (`RESEARCH.mode === "server"`).
+- `pageTier()` in app.js: `?tier=` else `localStorage` `tdw_page_tier_v1` (admins / testers only) else
+  `"pro"`. No account carries a tier yet (billing off); `tierSwitchHtml()` shows the switch to admins /
+  testers on every property page. `detailHtml()` returns `freeDetailHtml()` / `guidedDetailHtml()` for
+  those tiers; the full record is unchanged.
+- **Free** never puts a hidden value in the page: blurred cells are glyphs (`TIER_BLUR`), the crumb names
+  the county (`detailCrumbsHtml(p, {anonymous})`), no picture (the county locator only). It is a display
+  tier, not a server gate - approved accounts still receive full rows through RLS.
+- **Guided**: `guidedThree()` (what it is / what it costs / how you buy it), `guidedStages()` (six stages
+  per ledger; facts only from the records, everything else a buyer task). Ticks live in
+  `research_items.diligence.journey` (`"<stage>.<task>": {done, at}`); a first tick saves the property to
+  the first list or a new "My properties". Ticks never change a record or a diligence state.
+- `sw.js` -> `tdw-shell-v149`. Pro cleanup (one "Open questions" box, no filler rows) is the next PR.
+
+## Full record cleanup: answers once, one Open questions box (2026-10-27, PR open, frontend only)
+
+- `proCleanupHtml()` (end of app.js) runs on the full record (`pageTier() === "pro"`) after `detailHtml()` builds it:
+  a row whose only answer is filler (`FILLER_VALUE_RX`: Not published / Not tracked / Not verified / Not on file ...)
+  leaves its section; the acquisition checklist and the decision rows how / contact / proof / cost go when "How to
+  acquire" is on the page (answers once); due-diligence items keep VERIFIED only; financial items with no amount fold
+  into one line that still names them.
+- **Open questions** (`openQuestionsHtml`, `data-section="questions"`): one entry per buyer topic
+  (`OPEN_QUESTION_TOPICS`, with where to look). Record-keeping rows (provenance, last read, source health, identifiers
+  the record carries) and values shown elsewhere with an unrecorded origin are never listed.
+- **Show every field** (`fullFieldsOn()`: `?fields=all|clean`, sessionStorage `tdw_full_fields_v1`) restores the
+  complete record. The Playwright harness sets `window.__tdwFullFieldsDefault` so the section checks read the
+  complete record; the cleaned default is pinned by `fullRecord*` checks (`?fields=clean`).
+- `sw.js` -> `tdw-shell-v150`.
+
+## Office replies: a link is not permission to reuse (2026-11-04, PR open, no migration)
+
+Full description: `docs/source-permissions.md` "Office replies". Stable facts:
+- **`data/office_replies.csv`** (`harvesters/governance/office_replies.py`) lists each reply from a county office.
+  It records the question the reply actually answered (`ROUTING_ONLY` / `TECHNICAL_ONLY` / `COMMERCIAL_USE`) and
+  what it said about commercial use. A link permission, a routing answer or a technical answer never backs a
+  documented reuse record (`problems()`, tested).
+- **Orange County Comptroller (`fl_laft_orange`):** links are approved; automated collection and commercial
+  incorporation are prohibited without prior written authorization.
+  - fetch / parse / store / display are RESTRICTED.
+  - The step is out of the daily job and out of the Lands Available sync guard.
+  - Its rows read `BLOCKED` for every customer view, the tester preview included.
+- **Palm Beach County Clerk:** a technical answer only. There is a `FL:Palm Beach` link-only row, and court-case
+  deep links are refused as customer links. Everything else is unchanged.
+- Neither reply covers RealAuction or LienHub for those counties.
 
 ## Where to look for more
 
@@ -2677,7 +2933,7 @@ Full description: `docs/identity-redesign.md`. Stable facts:
   is the owner's decision.
 - **Pages:**
   - Home has `#homeDesk` (`renderHomeDesk()`).
-  - The auction ledger head has `upcomingSalesHtml()`.
+  - The auction ledger head has `saleDayStripHtml()`.
   - On the property page, Source truth comes after the map.
 - `sw.js` → `tdw-shell-v90`.
 
@@ -2707,8 +2963,8 @@ Full description: `docs/final-visual-refinement.md`. Stable facts:
   a CSS counter.
 - **Source truth rows** (fixed order): Source record, Last read, Source date,
   Publication status, Source health, Acquisition path / Sale process, Price /
-  bid / Certificate amount, Official listing, County intelligence. Never add a
-  score or a confidence.
+  bid / Certificate amount, Official listing, County intelligence (and, since
+  2026-10-10, State rules). Never add a score or a confidence.
 - `sw.js` → `tdw-shell-v92`.
 
 ## AVAILABLE financial position + documents & links (2026-10-05, PR open, no migration)
@@ -2850,7 +3106,7 @@ Full description: `docs/research-workspace.md`. Stable facts:
   ACQUISITION_READY / PASSED / ACQUIRED, `RESEARCH_STATES`) is NEVER a source
   status: shown beside `officialStatusText(p)`, refused outside the six
   values before any request, never written to `properties`.
-- Migration 029 (`research_lists`, `research_items`; own-row PERMISSIVE +
+- Migration 029 (APPLIED 2026-10-27; `research_lists`, `research_items`; own-row PERMISSIVE +
   RESTRICTIVE `is_approved()`, InitPlans, grants revoked first) is written and
   live-tested, NOT applied. Without it the workspace lives in localStorage
   (`tdw_research_v1:<user>`), labelled "Kept in this browser only".
@@ -2986,6 +3242,16 @@ close-out only closes rows whose sale day has PASSED, so they stayed "active" an
 - `OFF_LIST_GRACE_MS` / `AUCTION_READ_CACHE` are `var` (TDZ). Stub knob `?offlist=1` (p8 fresh, p9 unread).
 - Closing such rows server-side would be a lifecycle change to the deed sync (future-dated rows absent from a
   COMPLETE county) and is a separate, owner-authorized decision. `sw.js` -> `tdw-shell-v108`.
+- **Since 2026-10-26 (owner: the auction ledger must be current after one daily run)** the deeds job closes them:
+  - `scripts/auction_offlist_closeout.py` is ON (`vars.AUCTION_OFFLIST_CLOSE == '0'` is the kill switch). It never
+    closes on a sale day the harvest holds 10+ rows for: **the RealAuction Waiting harvest reads only the first page
+    (10 items) of each sale day** - the second request repeats page one (deeds run 40200487211: 62 sale days at
+    exactly 10 of "20 seen"). Rows on page two are never stamped and look "off list" without being so. Fixing the
+    pager in `harvest_all_counties.ps1` needs a capture of the site's own paging call first.
+  - It also closes past-dated active rows in counties no deeds harvester reads (DeSoto).
+  - `auction_outcomes.py` also reads upcoming sale days with an item off the Waiting list (`--harvest`);
+    `scripts/auction_outcome_status.py` moves the row out of active from a verified result on its CURRENT sale
+    day's event: 'sold' for "Auction Sold", 'closed' otherwise; status only.
 
 ## Tennessee: Shelby County Land Bank (2026-10-08, PR open, no migration)
 
@@ -3096,6 +3362,543 @@ Full description: `docs/auth-email.md`. Stable facts:
   - recovery then emits PASSWORD_RECOVERY and opens the existing form;
   - a used or expired token reads "That password-reset link has expired …".
 - **Tests.** `tests/recovery_flow_test.mjs` covers this with the real supabase-js (POST `/auth/v1/verify` fake).
+
+## Inventory status for every AVAILABLE source and Texas (2026-10-11, PR open, no migration)
+
+Full description: `docs/inventory-status.md`. Stable facts:
+- `status_for_row()` dispatches on `source_id_of(row)` (`source_id` else `harvester_source`), never on
+  `otc_provenance.adapter` for AVAILABLE rows. Every non-FL `laft` row goes through
+  `available_record_status`: `available_otc` only when `inventory_status_raw` is in
+  `AVAILABLE_OFFERED_WORDINGS` for that source (pinned to the adapter configs); otherwise `active` on list
+  presence (a dated list is named in the basis); `closed` on absence; `sold` only from the adapter's sold flag.
+- `feed_auction_status` serves FL and Texas RealAuction auctions. The observation rows carry `source_id`.
+- Before this, 54,102 rows outside Florida had no `inventory_status` (counts-only replay in
+  `docs/review/inventory-status-dryrun-2026-10-11.md`, pinned by `scripts/inventory_status_gap_report.py --check`).
+  The `laft` job now runs the writer for LA after the Louisiana lifecycle.
+## Mandatory acquisition-path gate for customer publication (2026-10-10, PR open, migration 031 NOT applied)
+
+Full description: `docs/publication-gate.md`. Stable facts:
+- **Harvested data is not customer inventory.** `harvesters/governance/publication_state.py`
+  decides ONE state per row, in order: source approved → state / county rules
+  verified (`data/state_ledgers.csv` + coverage) → record valid → a credible
+  acquisition path (AUCTIONS: sale / county `url_auction`; AVAILABLE: verified
+  acquisition evidence for the unit or a record-level typed path; LIENS: a
+  typed path or the county's registry certificate page; a county portal or
+  procedure is enough, a homepage / search page / http never) → freshness
+  (AUCTIONS 7 d, AVAILABLE 14 d, LIENS 7 d; sale date; evidence ≤ 180 d).
+  States: DISCOVERED / RULES_VERIFIED / PATH_VERIFIED / CUSTOMER_PUBLISHED /
+  ADMIN_ONLY_NO_PATH / ADMIN_ONLY_SOURCE_REVIEW / ADMIN_ONLY_STALE / CLOSED,
+  with `publication_progress` (milestone), `publication_reasons`,
+  `publication_remediation`, `publication_path` (structured evidence). They
+  never replace the lifecycle status; a failed read changes nothing; nothing
+  here closes a row.
+- **Migration 031** (`031_publication_state_gate.sql`, NOT applied) ALTERS the
+  single `properties` policy to `is_approved() AND (publication_state =
+  'CUSTOMER_PUBLISHED' OR is_admin())` - server-side for every surface; NULL
+  is never customer-visible, so **apply order is 031, then the writer for
+  every state (`job=publication`)**; between the two steps customers see
+  nothing. RPCs `count_publication_states` (counts, every approved account)
+  and `get_withheld_states` (admins); table `publication_decisions` (log).
+- **Writer:** `scripts/publication_state_writer.py --state XX` (after every
+  sync and manual `job=publication`); keyset reads, changed rows only, never a
+  lifecycle status; plan-only without 031.
+- **Frontend:** `PUBLICATION` (`applyPublicationReads`) in app.js; labels
+  pinned to Python; the strip's "Withheld from customers" item, zero case
+  `WITHHELD`, admin chips `.pub-state-chip`, property-page `publicationGateHtml`.
+  Stub knob `?pubgate=1`. Tester preview no longer bypasses the gate once 031
+  is applied. `sw.js` -> `tdw-shell-v119`.
+
+## State-by-state coverage report, registry metadata, rules vocabulary (2026-10-11, PR open, no migration)
+
+Full description: `docs/source-coverage-verification.md`. Stable facts:
+- **`harvesters/governance/state_coverage.py`** classifies every production
+  state x ledger into ONE of ten concepts (PRODUCT_NOT_OFFERED,
+  RULES_NOT_VERIFIED, SOURCE_RESTRICTED, OFFERED_SOURCE_NOT_IMPLEMENTED,
+  APPROVAL_UNRESOLVED, SOURCE_IMPLEMENTED_NEVER_READ, SOURCE_FAILED_OR_STALE,
+  RECORDS_WITHHELD_NO_PATH, OFFERED_VERIFIED_EMPTY, CURRENT) from the
+  registry, the rules, `state_ledgers.csv`, the counts-only snapshots and
+  `acquisition-evidence.json`. `scripts/build_state_coverage.py` ->
+  `data/current_state/state-coverage.json` + `docs/state-coverage.md`
+  (`--check` pinned). A NOT_VERIFIED zero is never OFFERED_VERIFIED_EMPTY.
+  Rebuild after editing the registry, the rules, the ledgers, the evidence
+  file or a snapshot.
+- **Every PRODUCTION_VERIFIED registry row names** `publishing_unit_name`,
+  `amount_kind`, `update_frequency`, `source_terminology` (filled by the
+  builder; a test forbids blanks). `publishing_unit` is a government unit;
+  a platform or vendor is named in `publishing_unit_name`, never as the unit.
+- **Rules statuses** gained `PARTIALLY_VERIFIED` (needs `ambiguity`) and
+  `SOURCE_RESTRICTED` (needs `evidence`, no date); `READ_STATUSES` names the
+  two read ones. The engine passes VERIFIED only. `test_ref` is a file path.
+- **`stamp_seen.py --provenance`** (both FL stamp steps) writes
+  `vendor_listing` field provenance for list columns where none exists;
+  never replaces an entry; idempotent.
+
+## Final backend completion sprint: gap closure (2026-10-11, PR open, no migration)
+
+Full description: `docs/gap-closure-2026-10-11.md`; the queue:
+`docs/gap-queue.md` (`scripts/build_gap_queue.py --check`). Stable facts:
+- **Every scheduled per-state population read pages by keyset.**
+  `detect_property_changes.Api.population`, `inventory_status_writer.fetch_rows`
+  and `publication_gate.fetch_rows` go through `rest_pages.read_all`; a test
+  forbids `offset` there. The LA / WY syncs failed on HTTP 500 at the offset
+  read on every run from 2026-10-07 to 2026-10-10 on `main`, whose
+  `sync_state_inventory.py` still lacks the keyset fix (PR #132's stack).
+- **`stamp_seen.CARRY_COLUMNS`** carries the RealAuction certificate number
+  (`cert` → `certificate_no`) and the LienHub legal description
+  (`legal_desc`) fill-blank under `field_provenance.may_write`, with a
+  `vendor_listing` entry per carried column; never replaces a higher-ranked
+  value; idempotent; one PATCH per changed row.
+- **`harvesters/governance/procedure_rules.py`**: one VERIFIED PROCEDURE rule
+  per applicable evidence row and ledger (`acquisition_procedure_<ledger>`),
+  statement = the evidence wording. `scripts/build_procedure_rules.py`
+  appends missing rules and never rewrites one; `--check` fails on a missing
+  or drifted rule. Rebuild the rules outputs after it.
+- **`harvesters/governance/gap_queue.py`**: categories A–F per unresolved
+  acquisition unit and non-current state × ledger unit, from the records.
+- The DLBA Vacant Land Policy is a verified evidence row (MI Wayne lots);
+  the source stays UNREVIEWED. No county or statute host is reachable from
+  the sandbox (proxy 403 / DNS); only `job=evidence` reads them.
+## Front-end remediation + staged acquisition-path gate (2026-10-10/11, PR #137, no migration)
+
+Full description: `docs/acquisition-gate.md`; screenshots: `docs/review/pr-137-screenshots/`. Stable facts:
+- **One county selection.** `state.counties` is the selection for the List quick select, the Filters
+  chips and the Map select (`applyCountySelection(v)`, `syncCountyPickers()`, `selectedCountyOrAll()`);
+  `mapFilter.county` is derived from it, never set on its own. A county picked on the Map is the
+  List's county too (`countySharedMapToList`).
+- **Watchlist is a page** (`#pageWatchlist`, `SHELL_PAGES.watchlist`, `#/watchlist`, created by
+  `ensureWatchlistSection()`; `WATCHLIST_FROM` remembers where "Back" goes). `renderBidListModal()`
+  keeps its historical name and renders the page; `renderWatchlistPage()` is the alias `showPage()`
+  calls. `#bidListModal` no longer exists.
+- **Home** has no `#dashStats` tiles or counts subtitle; the per-ledger cards (`#homeLedgers`) carry
+  counts, "N withheld" and "N pending verification".
+- **Operator diagnostics live in admin.html** (`#freshness`, `#inventory` cards in admin.js; the
+  Detroit subset rule is copied there and test-pinned equal). app.js keeps customer wording only
+  (`CUSTOMER_HEALTH_TEXT`); `unitLedgerKeys` / `ledgerFreshnessSummary` / `SOURCE_ID_LEDGERS` stay
+  in app.js because Home's freshness line uses them.
+- **Acquisition-path gate** (`harvesters/sources/acquisition_gate.py` = app.js
+  `acquisitionVerificationWith()`, vectors `tests/python/fixtures/acquisition_gate_cases.json`):
+  16 reasons in 5 classes (source_not_published / no_route / pending_verification / metadata_gap /
+  stale). **Staged off**: `config.js` `availableGate: "off"`; `"enforce"` withholds every failing
+  Available row from non-admins (tester preview included), never from admins, never deleting or
+  re-statusing a row. Dry run on production (read-only): 54,105 active Available rows → 185
+  customer-visible if enforced (FL 153→41, TX 421→144, LA 10,334→0 as a dated list). Louisiana's
+  `purchase_url` is one informational Parish instructions page on every row, not a transactional
+  link. Enabling the gate and the LA dated-list policy are owner decisions.
+- `sw.js` -> `tdw-shell-v120`.
+
+## Source permissions: per-operation, expiring, fail closed (2026-10-12, PR open, no migration)
+
+Full description: `docs/source-permissions.md`. Stable facts:
+- **`harvesters/governance/permissions.authorize(source_id, operation, state=, county=, dataset=)`** is the one
+  permission decision. Records live in `data/source_permissions.csv`, one per source × dataset × jurisdiction ×
+  operation.
+  - Operations: discover / fetch / fetch_via_proxy / parse / store / enrich / display / redistribute / link.
+  - It allows only one applicable, in-date record that is either DOCUMENTED (a published licence or written
+    permission) or INTERIM (an open status with a dated, expiring internal-acceptance or grandfathered
+    allowance), with its conditions met.
+  - Anything else denies with a reason code. An invalid or unreadable file denies everything.
+- **INTERIM is never permission.** `decision.documented` is False for it, and validation refuses APPROVED on
+  internal / grandfathered evidence. WRITTEN_PERMISSION must match a granted `authorization.py` record.
+- **Expiry:** interim allowances expire 2027-04-12, documented licences are re-read by 2027-10-12, and expired
+  records deny. `python3 scripts/source_permission_check.py --due 60` lists what is due.
+- **Hard blocks:** tx_govease / tx_pbfcm / tx_mvba / tx_ctsa are denied in code, and a record saying otherwise
+  invalidates the file.
+- **Wired:**
+  - the six Florida PowerShell harvest / sync scripts (a guard first statement, exit 3; pinned by
+    `tests/python/ps1_permission_guard.py`);
+  - the nine LAFT harvesters (`laft_status.permission_gate`, per-county for PDFs, `fetch_via_proxy` for the
+    ScraperAPI fallback);
+  - Texas harvester and sync, LGBS refresh, auction outcomes, state inventory;
+  - expansion harvest / sync through `source_publication.collectable(row, record_source, operation)`;
+  - `publishable()` and `publication_state.decide()` require `display`;
+  - parcel / coordinate enrichment and the geocode / flood / NAIP / FDOR / Street View scripts.
+- **The permission module loads only as `harvesters.governance.permissions`**, never the bare `governance.*`
+  path, so a process has one permission set.
+- **FDOR / Santa Rosa** coordinate sources read `APPROVED_GRANDFATHERED` (no licence on file) and need the
+  recorded interim permission. FDOR display / redistribution / polygon storage is denied.
+- **Gaps closed 2026-10-13** (`tests/python/test_permission_gaps.py`):
+  - store gates in `laft_lifecycle.py` (`apply_store_permission`; a denied county reads `NOT_PERMITTED`), `stamp_seen.py`,
+    `auction_events_writer.py` and `apply_acquisition_paths.py`;
+  - fetch/enrich checks *inside* the FDOR / Santa Rosa / Flagler lookups (`SourceNotPermitted`), so the FDOR backfill job
+    and any other caller are gated too;
+  - the draft TX CAD fetchers and the Alabama live mode deny (no record);
+  - the source inventory's built-in sources cite their permission records (`inventory.permission_basis`), never
+    "public domain" or a docstring.
+  An invented test source needs a fixture record (`permission_fixtures.install(record(...))`) to pass a gate.
+- **Discovery is gated too (2026-10-13):** every `capture_*` / `discover_sources.py` / `probe_*` script installs
+  `harvesters/governance/discovery_guard.py` as the first statement of `main()`; each request needs an in-date
+  `discover` permission for the source its URL belongs to, or it is refused before any connection. No source
+  holds one today, so these manual jobs read nothing until the owner records them. `tests/python/conftest.py`
+  uninstalls the guard after every test.
+
+## Parcel source approvals: Florida DOR + Utah UGRC (2026-10-20, no migration)
+
+Full description: `docs/parcel-source-approvals.md`. Stable facts:
+- **`data/source_approvals.csv`** (`harvesters/governance/source_approvals.py`) is the register for sources approved
+  on written / published terms: scope, exclusions, basis, evidence + what is NOT on file, permitted activities,
+  conditions, attribution, the source's EXPECTED cadence and TAXACQ's ACTUAL last successful refresh (separate
+  columns; NEVER / UNKNOWN / timestamp). Never record an email date, address or id that was not supplied.
+- **`fl_dor_pto_parcel_gis`** (parcel geometry in DOR PTO county GIS files): APPROVED_WITH_CONDITIONS on
+  WRITTEN_PERMISSION (`authorization.py` `fl_dor_pto_parcel_gis__provider__dor_pto`, the only granted record;
+  `written_permission=False`, document pending - the email is not on file). Every operation is denied until the
+  Parcel Shapefiles Readme is reviewed (condition `technical_readme_reviewed`). `fl_fdor_cadastral` and
+  `fl_dor_statewide` are unchanged.
+- **`ut_ugrc_lir_saltlake`**: CC BY 4.0 published licence, now also store + display records; display needs
+  `attribution_terms_recorded` (credit, licence link, change notice, disclaimer, metadata) - no UGRC disclaimer is
+  recorded yet, so display is denied. Utah is not activated.
+- No geometry storage exists on `main` (PR #144 is the unmerged design). `source_approvals.py` holds the rules a
+  future path must use: `apply_refresh`, `match_geometries` (exact identifier; UNMATCHED / AMBIGUOUS never
+  associated), `simplify_ring`, `plan_geometry_refresh` (failed read changes nothing; nothing deleted).
+
+## Parcel boundaries from the approved sources (2026-10-20; 034 LIVE in production, 035 NOT applied)
+
+Full description: `docs/parcel-boundaries.md`. Stable facts:
+- **Two boundary sources only, and they are the approval register's own ids** (`harvesters/boundary/sources.py`). There is
+  no second permission matrix.
+  - `fl_dor_pto_parcel_gis`: DOR PTO county parcel files, dataset key `county_parcel_geometry`.
+  - `ut_ugrc_lir_saltlake`: `Parcels_SaltLake_LIR`.
+- **Dataset mapping:** `data/source_approvals.csv` `covered_datasets` / `unresolved_mapping` record what each approval
+  covers and which datasets are MAPPED to a source id.
+  - `fl_statewide_cadastral_fgio` / `fl_fdor_cadastral` is NOT the covered dataset and is not approved for geometry.
+  - `Parcels_Utah_LIR` is Utah County, not statewide.
+- **Florida:** README reviewed by the owner 2026-10-20 (`technical_caveats`); the reader is
+  `harvesters/boundary/fl_dor.py` (+ `shapefile.py`, pyshp/pyproj; NAD83 Florida State Plane / GDL Albers only) over LOCAL county PIN files
+  (Broward: `scripts/load_florida_broward_boundaries.py`, manual workflow, dry run by default):
+  PARCELNO read as DBF text only, matched EXACTLY to the record's validated NAL PARCEL_ID
+  (`field_provenance` `fdor_nal` `matched_parcel_id`) - never a reformatted listing parcel; `format_check` must pass;
+  DOR use code 04 (condo) / 94 (right-of-way) never attached; condo files (Miami-Dade, St. Johns) refused; a kept
+  polygon must lie in Florida and within 1 km of the record's own point when it has one (`LOCATION_MISMATCH`);
+  per-county refresh in `parcel_boundary_refresh_units`. A county read reprojects only the joinable keys' polygons
+  but sees the whole file for format, stacked and multi-parcel checks.
+- **Florida Available** (`scripts/load_florida_available_boundaries.py`, manual workflow
+  `parcel-boundaries-florida-available.yml`, owner's decision 2026-10-22): `laft` records by default; `--ledgers`
+  (workflow input `ledgers`) may add `auction` and `certificate` (owner's request 2026-10-22: outlines for every property); county files from DOR's own
+  `Map Data/<year>F/<year>F PIN` listing (2026 default); a record without a validated NAL id may join on its listing parcel
+  with separators ignored (`fl_dor.separators_removed`, leading zeros kept) only when exactly one PARCELNO matches AND its
+  own stored point lies inside the polygon (`match_method` `PARCEL_NUMBER_LOCATION_CONFIRMED`, allowed by 035). A
+  malformed shape is skipped (`MALFORMED_SHAPE`); a truncated .shp fails the county.
+- **Utah:** display is allowed; the disclaimer is linked to UGRC's license and disclaimer policy page.
+- **Production (read-only, 2026-10-21):** 034 was applied directly (bodies = the repo file; not in the migration
+  history) and workflow run #2 of `parcel-boundaries-broward` (main `e5ec234`, listing-parcel matching) wrote 64
+  Broward outlines incl. 34 condo units and set Florida's statewide refresh. Never edit 034 again: changes go in
+  **035** (`035_parcel_boundary_county_refresh.sql`, NOT applied, idempotent upgrade). Cleanup for the owner:
+  `scripts/sql/parcel_boundaries_superseded_broward_2025.sql` (not run).
+- **Migration 034** (033 is held by the billing PR) + **035**:
+  - `parcel_boundary_sources`: display grant, attribution, expected cadence vs `last_successful_refresh_at`.
+  - `parcel_boundaries`: PK `property_id` (uuid), unique source feature, valid MultiPolygon 4326.
+  - `get_property_boundary(uuid)` (invoker, respects the publication gate).
+  - Service-role `upsert_parcel_boundaries()` / `record_parcel_boundary_refresh()`.
+  - Nothing deletes; only COMPLETE advances the last success.
+  - 035: `source_dataset_date`, `parcel_boundary_refresh_units`, `parcel_boundary_refresh_of()` (definer, one
+    timestamp: the property's county for a per-county source), 6-arg `record_parcel_boundary_refresh()`; clears
+    Florida's source-level refresh. Files sources stop (exit 4) unless 035 is applied.
+- **Plan** (`harvesters/boundary/plan.py`): exact identifier match only. These are never associated:
+  - stacked polygons, multi-parcel features, shared features, invalid geometry;
+  - a record without a polygon.
+
+  Another source's boundary is never replaced.
+- **Writer:** `scripts/parcel_boundary_refresh.py` is readiness-only by default. `--apply` needs `--confirm-apply`. Only
+  the manual Broward workflow calls it (dispatch only, `mode` dry_run default, `confirm=APPLY` to write).
+- **FGIO statewide parcels** (Florida GeoData item `efa909d6...` = `Florida_Statewide_Cadastral` = `fl_fdor_cadastral`)
+  carry NAL attributes; NOT used for boundaries - follow-up in `docs/parcel-boundaries.md`.
+- **Front end** (`public/parcel-boundary.js`, app.js `drawBoundary()`): the property page, the map preview and, since
+  2026-10-22, the cards whose id is in the state's outline ids (`fetchBoundaryIds()`: one `parcel_boundaries` read per load,
+  `BOUNDARY_IDS`, `cardHasBoundary()`) request a boundary. The outline is shown with the credit, licence link, change
+  notice, disclaimer and metadata (on a card: short credit on the picture, the full line in the photo bubble); geometry
+  never rides on a property row or in an export. Stub knobs `?boundary=ok|fl|multi|none|unauth|invalid|nolicencelink|
+  error`, `?boundaryids=<id>,<id>` (outline ids the cards see).
+- `sw.js` -> `tdw-shell-v145` (2026-10-27: one fact one place, sticky "Now showing" county bar on Available; v144 was 2026-10-26: card outlines load lazily, 4 in flight; v143: sale-day strip at the top of Auctions, popups kept inside the screen; v142 was 2026-10-25: header and filter cleanup, path-first customer view, essentials-first cards and the Merged look; v141 was the header Look switch and the trial Tactile / Terrain List experiences - see "Look switch" below; v138-v140 are held by the redesign PRs. v137 was 2026-10-24: At-a-glance block removed from the property page; shell files served with `Cache-Control: no-cache` so a reload revalidates. v136 was outlines on cards; v131 shipped the boundaries, v130 is held by the source-transparency PR).
+
+
+## Look switch: Classic / Tactile / Terrain (2026-10-25, PR open, frontend only)
+
+A trial so the owner can compare two List experiences on live data before choosing one.
+- **Header "Look" button** (`installLookSwitch()` in app.js, injected into `.header-btns`; no HTML change): Classic (the
+  existing card list, default) / Tactile / Terrain. Choice: `?look=<name>` else `localStorage` `tdw_experience_v1`;
+  `<html data-experience>`. A failed module load falls back to Classic with a toast.
+- **Modules** `experience-tactile.js/.css`, `experience-terrain.js/.css` load on demand (dynamic `import()`), draw the
+  rows of the `tdw:rendered` payload into `#xpStage` (created above `#main`), and set
+  `<html data-experience-ready="<name>">`, which hides `#main`. The payload carries `api` (`experienceApi()`): the card's
+  own label/display helpers (`amountInfo`, `auctionBidLabel`, `valueLabel`, `previewFacts`, `propertyVisual`,
+  `openDetail`, ...), so a module never invents a label. Watchlist buttons are `data-action="bidlist" data-pid`, handled
+  by the existing document-level action handler. Ledger tabs, filters and search keep driving the rows.
+- All four files are in the mirror `FILES`, `DEPLOYED_BUNDLE_FILES` and the sw `SHELL`.
+
+## Header, filters and free tier (2026-10-25, PR open, frontend only)
+
+Full description: `docs/review/header-tiers.md`. Stable facts:
+- `installShellV3()` / `installListToolbarV3()` (end of app.js) MOVE the existing elements into one header
+  (`#hdrNav`: ledgers + Map; brand = Home; Watchlist / Saved searches / My Research / County Intelligence / About
+  live in the account menu) and one List toolbar (County, Filters, Sort; Table + Export inside Filters).
+- Default `statusView` is `"live"` (`isCurrentListing()`); admins pick another view in `#statusViewSelect`.
+- Cards are essentials first: one stamp from `cardStamp()`, one figure, the way in, Watchlist; the rest in
+  "Record details". The property page groups research sections in ONE closed `details.detail-research`
+  (`<!--RESEARCH-->` markers in `detailHtml()`); a nav jump opens it. Tests open it through the harness
+  (`window.__suiteKeepResearchClosed` reads the default).
+- Shell CSS must never override `[hidden]` (filter rows and fields each needed a guard).
+
+## Every collected source published (owner decision 2026-10-26, PR open, no migration)
+
+Full description: `docs/publish-all-sources.md`. Stable facts:
+- **The 13 implemented sources that were UNREVIEWED are now APPROVED** (`expansion.OWNER_APPROVED_2026_10_26_SOURCE_IDS`):
+  - the ten Available sources: Detroit lots + programs, Oceana, St. Louis LRA, Oklahoma County, Fayette, Ramsey, Horry,
+    Georgetown, Shelby;
+  - three auction lists, which are now collected: Morgan CO deed auctions, Dane WI, Oconee SC.
+
+  Registry `restrictions` begins "Owner approved customer publication 2026-10-26; legal review pending".
+- **The decision is an internal risk acceptance, never the source's permission.**
+  - `display` / `link` records in `data/source_permissions.csv` are INTERIM (`OWNER_PERMISSION_REQUIRED` +
+    `INTERNAL_RISK_ACCEPTANCE`, expiring 2027-04-12); `redistribute` is not granted.
+  - `available_coverage.problems()` accepts an APPROVED review without a grant only when the review cites the owner
+    decision and that INTERIM display record exists.
+- **Unchanged:** the Detroit customer subset, `availableGate: "off"`, the paid-beta set (5 sources), `tx_ctsa`'s block.
+
+## Texas close-out (2026-10-26, PR open, no migration)
+
+- **`out/harvest_texas_status.json` now carries `counties`**: one entry per (source_id, county) read, read through
+  `harvesters/ledgers/health.py`. LGBS is one statewide feed (`lgbs_county_entries`): COMPLETE / EMPTY only when the
+  walk ended, read exactly the API's own `count` (the same on every page; distinct `id`s when present) and attributed
+  every Texas record; a failed page is FAILED (TRANSPORT_, closes nothing); anything else INCOMPLETE. Every other county
+  of `data/tx_county_coverage_matrix.csv` gets EMPTY from a verified walk.
+- **TX RealAuction pager fixed**: page 0 is `PageDir=0&doR=1`, the next page `PageDir=1&doR=0` (doR=1 re-reads page 0 -
+  every sale date stopped at ten properties before). A county is COMPLETE only when every request succeeded, every item
+  had an Account Number and each date's paging ended on a short page; EMPTY from a real calendar with no sale day or a
+  JSON listing response with no items; a full page repeated, a login / non-JSON body or a failed request closes nothing.
+  The Florida `harvest_all_counties.ps1` still asks `PageDir=$page&doR=1` - same cap, not changed here.
+- **TX RealAuction end of list (2026-11-03):** past the end the pager repeats the last page, so a Waiting list of
+  exactly 10*N items ends on a repeated FULL page. The harvester then asks the site's own status refresh
+  (`FNC=UPDATE&ref=<ids>`, field `WM` = page count) and reads COMPLETE only when `WM` equals the pages read
+  (Galveston had read INCOMPLETE every run). Sale days already past are not requested (their items sit only in
+  Closed / Canceled). The roster is the platform's own "Jump To" list (24 sites); Tyler's host is
+  `tylercounty.texas.sheriffsaleauctions.com`. Bexar / Brooks / Cherokee / Fort Bend / Rusk instances exist but are
+  unused templates; Hidalgo's calendar is behind the login page - none is in the roster.
+- **`scripts/texas_closeout.py`** (texas job, after the stamp, `continue-on-error`): closes ('closed' + delisted_at, never
+  a result) stored active tx_lgbs / tx_realauction rows absent from a COMPLETE / EMPTY read of their own (source,
+  county), through `sync_state_inventory.plan_close()`; reopens 'closed' rows the harvest lists again (never 'sold');
+  refuses a source that would lose >50% of its active, not-yet-past-sale rows in one run (`--allow-large-close`).
+
+## Louisiana: no sync / lifecycle rewrite loop (2026-10-26, PR open, no migration)
+
+- Every Louisiana `laft` run used to rewrite each active row TWICE: the sync wrote the adapter's otc_provenance /
+  list_url / document_url, then the lifecycle (`--no-fresh-guard`) PATCHed its own values back (always with a new
+  retrieved_at). Now:
+  - `write_diff.VOLATILE_PATHS` (otc_provenance.retrieved_at, .source_match.read_at) never make a row "changed";
+  - `laft_lifecycle.execute()` (with db_rows, as main() passes) MERGES its otc_provenance onto the stored dict
+    (`merge_otc`; the purchase-path group moves as a unit, kept when this read resolved none) and patches a row only
+    when `write_diff.needs_write` says new / changed / restamp; `--no-fresh-guard` is obsolete (accepted, ignored);
+  - the sync leaves `laft_lifecycle.LIFECYCLE_OTC_KEYS` to the lifecycle once the stored dict has its "harvester" key;
+  - the LA status entry names the list page as `source_url` and the CSV as `document_url` (as the records do).
+- `rest_pages.read_all` accepts `select=*` (PR #217's sync read refused it). Proof: `tests/python/test_la_no_pingpong.py`
+  runs harvest -> sync -> lifecycle against an in-memory PostgREST table: a second run writes 0 rows.
+
+## FL / TX county sources (2026-10-26, PR open, no migration)
+
+Full description: `docs/county-sources-2026-10-26.md`. Stable facts:
+- **Owner decision 2026-10-26:** collect every county source now; legal review afterwards. New sources carry
+  `OWNER_PERMISSION_REQUIRED` / `INTERNAL_RISK_ACCEPTANCE` records (effective 2026-10-26, expiring 2027-04-12),
+  including `discover` records - so `test_discovery_guard` now allows exactly those. No challenge, login,
+  paywall or IP block is bypassed; a block reads FAILED / ACCESS_DENIED.
+- **FL:** Lake joined realTDM, DeSoto and Wakulla the static-HTML list (both pages state an empty list);
+  `scripts/harvest_laft_portals.py` (`fl_laft_portals`, `data/laft_portal_sources.csv`) reads Charlotte's Kendo
+  grid JSON - 403 from Actions runners. Publication is per SOURCE: Lake / DeSoto / Wakulla carry their platform's
+  decision; `fl_laft_portals` is APPROVED by the owner's publication decision (`OWNER_APPROVED_2026_10_26`).
+  `FL_ADDED_2026_10_26` in the registry builder names the additions (migration 017's backfill covers only the earlier 52).
+- **TX:** `scripts/harvest_tx_county_sales.py` (texas job) reads Harris (`tx_hctax`, AUCTIONS), Jefferson,
+  Bexar, Montgomery, Orange, Trinity, Randall, Hood; one harvest + status + properties-rows file per ledger.
+  Published (owner, 2026-10-26, legal review pending): registry `PRODUCTION_VERIFIED` / `APPROVED`
+  (`TX_COUNTY_SOURCES` + `TX_COUNTY_META`), INTERIM state-level fetch/parse/store/display/link records.
+  Synced by `sync_state_inventory.py --keep-other-sources` (never takes over an LGBS / RealAuction row); closed
+  per source by `texas_closeout.py --harvest/--status` (county files) after a COMPLETE / EMPTY read only.
+  `registry.py` `_TX_HCTAX` stays LEGAL_REVIEW_REQUIRED (the legal record; the vendor sync path only).
+- **Vendor row wins (owner decision 2026-10-27):** when a Texas vendor listing (LGBS / PBFCM / MVBA / GovEase) and the
+  county's own list carry the same property, the vendor row is kept - the county-list sync never takes it over and runs
+  after the vendor sync (pinned by `test_vendor_row_wins_over_the_county_list_row`).
+
+## New sources sprint: every property, every source (2026-10-26, PR open, no migration)
+
+Full description: `docs/new-sources-2026-10-26.md`. Stable facts:
+- **Owner decision 2026-10-26**: collect every source; terms risk accepted. Each new source holds INTERIM
+  `discover`/`fetch`/`parse`/`store` records (`scripts/add_owner_interim_permissions.py`, `INTERNAL_RISK_ACCEPTANCE`,
+  expiring 2027-04-12) plus INTERIM `display` / `link`, and is APPROVED ("Owner approved customer publication
+  2026-10-26; legal review pending", the owner's "Do not block vendors" decision). `expansion.NEW_SOURCE_IDS` +
+  `source_publication.owner_collection()` let these sources be collected for AUCTIONS too (not only AVAILABLE).
+- **Sources**: ePropertyPlus tenants KC MO (`public-kclb`), Pittsburgh PA (`public-pgh`), Wayne / Saginaw / Calhoun MI;
+  Tax-Sale.info MI upcoming auction catalogs (one
+  registry row per county, `tax_sale_info.py`) + surplus catalogs; Horry SC delinquent tax sale list (newest dated XLSX,
+  `document_sheet="*"`); Saguache CO 2026 tax sale layer; Hubbard MN OTC land; Saint Paul HRA land; Wright MN
+  tax-forfeited parcels (AUCTIONS, scheduled since 2026-10-27 once the MN auctions copy named it).
+- Registry rows are keyed `(source_id, county)` in `build_county_source_registry.expansion_rows()`.
+- Held, configured but not scheduled: Genesee MI land bank (`paged_table.py`; the site's random HTTP 500s move its
+  session cursor).
+- Read-only validation: `job=evidence`, `evidence_scope=new_sources_validate` (MI MO PA SC CO MN, no DB credential).
+
+## Data-enrichment sprint: county parcel layers for held records (2026-10-25, PR open, no migration)
+
+Full description: `docs/data-enrichment-2026-10-25.md` (also the research agents' source findings for the next batches).
+Stable facts:
+- **Owner's direction:** collect public records to fill gaps and demonstrate coverage; nothing sold until legal review.
+  Never log in, bypass a CAPTCHA / block / click-through, or use the hard-blocked vendors.
+- **Five county-scoped parcel layers** in `harvesters/enrichment/sources.py`, fields read live and a sample of held
+  parcel numbers matched on 2026-10-25: `mo_stl_parcels_coordinates` (St. Louis Assessor layer 11, ParcelId),
+  `mi_detroit_assessor_parcels` (Detroit parcel_file_current, parcel_id with its trailing dot),
+  `ok_oklahoma_county_parcels` (pin), `pa_fayette_pasda_parcels` (TAXIDNUM), `sc_horry_county_parcels` (numeric PIN).
+  Exempt parcels carry $0 values; zeros are never stored (`_coerce`), so assessed / taxable are not mapped on
+  land-bank / county-owned layers. Batch 25 for OK / PA (larger geometry batches fail).
+- **Permissions:** fetch + enrich only, `OWNER_PERMISSION_REQUIRED` on `INTERNAL_RISK_ACCEPTANCE`, condition
+  `excluded_from_paid_tier`, expiring 2027-04-12 - never documented permission.
+- They run through `job=available` (`available_mode=apply`) and, for coordinates, `job=geocode`.
+
+## Thin-states enrichment: every layer, batched; sync keeps enriched values (2026-10-27, PR open, no migration)
+
+Full description, with the per-gap results: `docs/enrich-thin-states-2026-10-27.md`.
+
+- **New layers** (deterministic identifier match):
+  - `sc_horry_assessor_parcels` (values / acreage / legal, numeric PIN);
+  - `sc_horry_address_points` (address);
+  - `co_douglas_property_locations` (address from its published parts, acreage, legal; CC BY-SA 4.0);
+  - `co_douglas_property_improvements` (year built; a multi-building account is AMBIGUOUS).
+- **Extended:** OK `location` (situs; `0 UNKNOWN …` never stored), EBR `physical_address` /
+  `sum_improvement_value`, and the EBR roll's `parcel_address` from tax year 2023 (blank from 2024 on).
+- **Factory additions:** `composite_map` (parts joined; no house number, no value), `no_value_patterns`, and
+  `written_columns()`. Two county layers may share a county only on disjoint columns.
+- **Runner:** `enrich_statewide_parcels.py --all-layers [--limit N] [--dry-run]` runs every cleared layer
+  (county first) over every active row of every ledger.
+  - The checkpoint in `out/.harvest_cache` lets a run resume.
+  - `write_diff.unchanged` skips no-op patches.
+  - A placeholder address counts as missing.
+  - The expansion legs run it daily with `--limit 500`.
+  - `job=enrich` takes `enrich_kinds` (e.g. `parcels`) and `enrich_limit`.
+- **Sync guard:** `sync_state_inventory.keep_enriched_values` stops a list's blank or `Parcel <id>` from
+  overwriting a value another source filled. Before this, 55 CO addresses were erased on every sync.
+- **No source exists for:** PA Fayette (geometry only; the assessment site is click-through), TN Shelby lot
+  size, MO acreage (columns undefined). FL mappings exist; its gap is identifier matching (PR #180).
+
+## Thin-fields enrichment: derived lot area, published portal facts, Genesee reader (2026-10-27, PR open, no migration)
+
+Full description: `docs/enrich-thin-fields-2026-10-27.md`. Stable facts:
+- **Derived lot area** (`ParcelSourceConfig.derived_lot_area`, socrata needs `geometry_field`): `lot_sqft` = the matched
+  parcel polygon's own area, provenance `derived` = `parcels.DERIVED_AREA_NOTE` ("not the deed or assessed lot size").
+  Only where no area attribute is DEFINED (St. Louis layer 11, EBR Tax Parcel `the_geom`); a published value always wins.
+- **Published portal facts:** `EppConfig.lot_sqft_field` / `year_built_field` / `living_area_field` -> `OtcRecord.lot_sqft`
+  / `year_built` / `living_area` (in `sync_state_inventory.LIST_FIELDS`). KC + Pittsburgh `parcelSquareFootage`,
+  Saginaw / Calhoun structures. Never `parcelLength` x `parcelWidth`.
+- **New layers:** `ok_okc_government_owned_parcels` (land use, `id_query="normalized"`), `sc_oconee_county_parcels`;
+  `co_oit_public_parcels` also matches `parcel_id` (Saguache's list parcel). ArcGIS GETs over ~2 KB answered 404:
+  keep `batch_size` small when the where clause names two attributes.
+- **Socrata centroids (2026-10-28):** `centroid=True` works on a socrata layer with `geometry_field` (GeoJSON;
+  `polygon_centroid` normalises ring winding per polygon). `la_ebr_tax_parcels` now writes the matched `the_geom`
+  centroid (PARCEL_GIS / PARCEL_CENTROID), through the factory run and `geocode_authoritative.py`; the factory never
+  writes a centroid over an equal or stronger stored point (`coordinates.should_replace`). Douglas CO has no
+  CC BY-SA parcel geometry reachable without a token (the "Parcels w/ Accounts" service needs one; the public
+  Parcels services state no licence), so its certificate rows stay without coordinates.
+- **Genesee paged reader:** exact stated totals (`total_pattern`) and in-place session recovery (`stay_data` /
+  `prev_data`); still HELD (not scheduled) pending the workflow change.
+
+## Source link health + unconfirmed Available records (2026-10-27, PR open, migration 036 NOT applied)
+
+Report: `docs/review/source-links-2026-10-27.md`. Stable facts:
+- **`scripts/check_source_links.py`** (own workflow `source-link-check.yml`, cron `50 11 * * *`, own concurrency group,
+  `continue-on-error`) checks every distinct URL a customer can click once: active / available `properties`
+  url_auction / list_url / document_url / purchase_url + the rendered otc_provenance links (keyset paging), the
+  registry's canonical / document / purchase URLs, every URL in `acquisition-evidence.json`. HEAD, GET (64 KB) on
+  405 / 403 / 501 / 400 or an HTML answer; one request at a time per host; at most 1,500 per host per run (last
+  failures first). OK / BROKEN (404, 410, DNS, soft 404) / BLOCKED (401 / 403 / 429 / challenge - never broken) /
+  ERROR. `consecutive_failures` counts BROKEN on separate UTC days. Logs: counts per status and host only.
+- **Migration 036** (`source_link_checks`, PK url): approved accounts read (InitPlan `is_approved()`), service_role
+  writes, grants revoked first. Without it the checker prints counts only.
+- **app.js**: one read per load of BROKEN rows with `consecutive_failures >= 2` (`fetchBrokenLinks`), applied to
+  every rendered `<a href>` by one MutationObserver (`decorateBrokenLinks`): label + "Link broken at source
+  (checked <date>)", no href. Stub knob `?brokenlinks=1`.
+- **Unconfirmed Available** (`unconfirmedAvailable(p)`): a laft row with `last_seen_at` NULL or older than 7 days is
+  withheld from customers (list / map / counts / exports via `isPublishable` + `applyLedgerRows`), counted in
+  `UNCONFIRMED_WITHHELD`; the zero case is SOURCE_FAILURE and empty county / ledger text says the source could not be
+  read. Admins see `.unconfirmed-chip` / `#unconfirmedBanner`. Display only - nothing is closed.
+  `TDW_CONFIG.unconfirmedAvailableGate === false` switches it off (tests/config.js does, except under `?unconfirmed=1`).
+- `sw.js` -> `tdw-shell-v146` (v145 left to a parallel app.js PR).
+
+## Coordinates for MI / PA / OK records without a point (2026-10-28, PR open, no migration)
+
+Full description: `docs/coordinates-mi-pa-ok-2026-10-28.md`. Stable facts:
+- **`mi_wayne_county_parcels`**: Wayne County GIS's own `Parcels_AssessmentData` (ArcGIS Online org `wayne`), `pnum`
+  exact (Detroit's trailing dot kept), centroid only, scoped to `mi_wayne_county_landbank` rows (`row_source_ids`);
+  INTERIM fetch / enrich. Measured: 146 of 153 point-less land-bank rows match one polygon, 2 AMBIGUOUS, 5 absent.
+- **`geocode.plan_row()` honours `row_source_ids`** (`takes_row`), as the enrichment runner does: a scoped layer
+  (also `tx_hcad_parcels`) is never asked for another source's row.
+- **PA Fayette (80) and OK Oklahoma County (27) have no deterministic fix**: the identifiers are not on the
+  county layers (Fayette sub-accounts / undrawn map sections; Oklahoma PINs absent or stacked). Never trim a
+  suffix to its base parcel.
+
+## Full audit + fixes: deck, map peek card, phone ledger bar, Buyer's Guide (2026-10-28 → 11-02, PR open, no migration)
+
+Audit report: `docs/review/audit-2026-10-28.md` (148 findings from 24 auditors, split FRONT END / BACKEND; the
+judge pass never ran, so each finding is reproduced before it is fixed). Stable facts:
+- **`tests/audit/*.mjs`** are standalone Playwright files (BASE_URL env, PASS/FAIL lines, exit 1), one per fix
+  theme; `playwright-test.yml` runs every one after `run_test.mjs`. Screenshot scripts live in `tests/screenshots/`.
+- **Look menu is Classic / Merged only** (`EXPERIENCES`); a stored or linked `tactile` / `terrain` choice reads
+  Classic. Merged still draws Available with experience-terrain.js and Auctions with experience-tactile.js.
+- **Merged Auctions deck** (experience-tactile.js): `updateDeck()` swaps only the top placard, pager and grid
+  highlight (never the stage); a horizontal drag on the top placard moves through the deck (`SWIPE_PX`), a short
+  drag springs back and is not a flip; the rail / grid scroll positions survive a redraw; the entrance animation
+  plays once per ledger (`S.key = ledger`), not per page of rows.
+- **Map peek card** (explore.js `showPreview()`): one compact card for the Outline, Google and MapTiler maps -
+  picture (never blank), ledger + stamp chips, address, at most three `previewFacts` facts, "Open property" +
+  Watchlist. Desktop: floats bottom-left of the stage and moves corners to keep the selected pin clear; phone: a
+  ~160px sheet, swipe down / Escape / Back / empty-map tap (`tdw:mapbackgroundtap`) closes it, lifted above the
+  bottom bar by `--mp-lift` (`liftPeekAboveBar()`). satellite-map.js separates marking the selected pin from
+  moving the camera; pins are 44px hit boxes; the provider popups are gone. The card's covered area travels in
+  `tdw:mapselection`. A county change under an open card closes the card without a draw (`absorb()`), so the
+  self-back never races the route.
+- **Phone ledger bar** (`installBottomBarV3()` in app.js, <1024px): Available / Auctions / Liens / Map with the
+  header counts; the open ledger's own count is hidden (the title carries it); Home moved into the account menu's
+  "Go to" group; the property modal stops above the bar and a bar tap from an open property closes it first.
+- **Buyer's Guide** (`#/guide`, `#/guide?ledger=AUCTIONS&county=<name>`): `public/buyers-guide.js` / `.css`
+  (loaded on first open; precached; in the mirror `FILES` and `DEPLOYED_BUNDLE_FILES`) render
+  `public/buyers-guide.json` (backend-built, contract `docs/buyers-guide-contract.md`) and fall back to
+  `state-rules.json` when that file is missing. Opened from the account menu, every property's Source truth row and
+  every county page (`data-action="buyersguide"`); `config.js buyersGuideAccess`: `all` (default) / `guided` / `admin`.
+- An assessed value of 0 is "not published" on every surface (`hasValueNum`); taxable 0 stays a real figure.
+- `sw.js` -> `tdw-shell-v155` (v154 is the launch PR, #257).
+
+## Audit round 2: list states, amounts, record text, Guided copy, legal / offline (2026-11-03, PR open, no migration)
+
+Findings are the FRONT END rows of `docs/review/audit-2026-10-28.md`; each theme has its own `tests/audit/<theme>.mjs`
+(list-loading, amounts-labels, record-text-links, guided-home-copy, shell-legal-sw). Stable facts:
+- **List states:** a ledger still loading shows `…`, never 0; a failed load shows `—` and says it could not be loaded,
+  never an empty claim. The toolbar Sort orders the whole list (groups follow the comparator). A Watch tap updates
+  buttons, counts and the sale-day strip in place (no full render).
+- **Amounts:** an amount of unstated kind is never called a bid (`isBidAmount`); Florida-only rules (tax-deed
+  application eligibility, Just Value) appear only on Florida rows; a 0 value is not published.
+- **Record text:** `realAddress()` rejects placeholder addresses (`JUNK_ADDRESS_PREFIX` needs a digit after the
+  prefix word, so "PIN OAK DR" stays an address); `unitLabelOf()` / `useCodeLabel()` name the unit (Parish, no word
+  after "St. Louis City"); `customerEvidenceText()` / `customerInventoryBasis()` keep repository paths and harvester
+  ids from customers (admins see them); `isDataServiceUrl()` never shows an ArcGIS REST / item URL as a county page;
+  `appraiserLink()` drops a link whose key is empty and upgrades http only for `APPRAISER_HTTPS_HOSTS`.
+- **Guided / Home:** `saleKindOf(p)` names the sale per source (a lien sale ends with a certificate, Morgan CO sells
+  an option); certificates are bought by assignment (`certOffice`), never bid; type words in search are read on the
+  Florida page only; a sale-day pick carries `data-date` and the range is dropped on a ledger change.
+- `sw.js` -> `tdw-shell-v157` (v156 is the customer-map PR, #259; the offline fallback stores non-redirected responses).
+
+## TAXACQ brand applied to the app (2026-11-03, PR open, frontend only)
+
+The owner's brand deck (artifact Jvuoq2Mrbb9MkeWauttYun) is now the app's look. Stable facts:
+- **Palette** (identity.css tokens + a one-to-one remap of the old stone/charcoal hex values in identity, explore,
+  experience-tactile / -terrain / -merged, buyers-guide and legal css): ivory `#F8F8F5` page, mist `#D8DED6` rules,
+  ink `#202925`, soft ink `#56695E` / `#4C685A`, forest `#1F3A2E` for brand roles (`--copper*` tokens now hold
+  forest; `--forest`, `--sage-brand`, `--sage-light`, `--mist`, `--ivory` added). Dark theme is forest-dark
+  (`#141C18`). **Ledger colours are unchanged** (Available sage `#4E6B54`, Auctions rust `#A4512A`, Liens plum
+  `#6B4A6E`) - a hard-coded `#A4512A` is the Auctions colour, never the brand. Every text colour passes WCAG AA.
+- **Type:** Montserrat (light 300 for h1 / statements, 400 h2, 500 h3, wordmark, navigation, tabs, eyebrows and
+  buttons - uppercase, tracked) and Inter for reading and figures (`--font-mono` is Inter; body uses tabular
+  figures). No Source Serif / IBM Plex remains; all fonts go through `--font-display` / `--font-sans` /
+  `--font-mono`. Section 14 of identity.css holds the brand component rules (`:not(#_)` lifts specificity over the
+  per-page `!important` rules above it).
+- **Mark:** the TA monogram (ivory Montserrat Light on forest, sage rule) is `icons/*.png`, referenced as `?v=3`;
+  theme colour `#F8F8F5`. Primary buttons are forest; search fields are pills with a sage hairline.
+- Screenshots: `tests/screenshots/brand-shots.mjs`. `sw.js` -> `tdw-shell-v158`.
+- **Merged is the default look (2026-11-04):** `config.js defaultLook: "merged"` is read by `currentExperience()` only
+  when neither `?look=` nor a stored Look-menu choice exists; an unknown value falls back to Classic. `tests/config.js`
+  has no `defaultLook`, so the suite keeps testing Classic; `tests/audit/merged-default.mjs` serves config.js with the
+  production setting appended. `sw.js` -> `tdw-shell-v159`.
 
 ## Record trust + quality benchmark (2026-10-10, PR open, stacked on #129, no migration)
 
