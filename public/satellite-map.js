@@ -116,8 +116,6 @@ const $ = id => document.getElementById(id);
 // header note on why sharing one node between two map libraries was buggy.
 const GOOGLE_CANVAS_ID = "satelliteMapCanvasGoogle";
 const MAPTILER_CANVAS_ID = "satelliteMapCanvasMaptiler";
-const PAGE_STATE = document.body.dataset.state === "TX" ? "TX" : "FL";
-
 // Roughly centers each state in frame at a zoom that shows the whole thing
 // without excess ocean/neighbor-state padding. Not derived from data (there's
 // no "centroid of all counties" reason to prefer over a plain eyeballed
@@ -126,8 +124,28 @@ const PAGE_STATE = document.body.dataset.state === "TX" ? "TX" : "FL";
 // each convert the [lng, lat] tuple into their own center-object shape.
 const STATEWIDE_VIEW = {
   FL: { center: [-81.6, 28.1], zoom: 5.6 },
-  TX: { center: [-99.3, 31.4], zoom: 5.1 }
+  TX: { center: [-99.3, 31.4], zoom: 5.1 },
+  LA: { center: [-91.9, 31.0], zoom: 6.2 },
+  MI: { center: [-86.42, 44.94], zoom: 6.0 },
+  WY: { center: [-107.56, 43.0], zoom: 6.1 },
+  SC: { center: [-80.95, 33.62], zoom: 6.7 },
+  CO: { center: [-105.55, 39.0], zoom: 6.1 },
+  WI: { center: [-89.85, 44.78], zoom: 6.1 },
+  MO: { center: [-92.43, 38.3], zoom: 6.0 },
+  OK: { center: [-98.72, 35.31], zoom: 6.0 },
+  PA: { center: [-77.61, 41.0], zoom: 6.3 },
+  MN: { center: [-93.37, 46.44], zoom: 5.7 },
+  TN: { center: [-85.98, 35.83], zoom: 6.0 }
 };
+
+// Same derivation as app.js/explore.js: the page's state, accepted only if
+// STATEWIDE_VIEW above has a camera for it (and county-centroids.json a
+// block - see loadCentroids). A state without both is not drawn over
+// Florida's; the page falls back to FL only so it still loads.
+const PAGE_STATE = (() => {
+  const wanted = document.body.dataset.state;
+  return wanted && Object.prototype.hasOwnProperty.call(STATEWIDE_VIEW, wanted) ? wanted : "FL";
+})();
 
 let rows = [];
 let ledger = "all";
@@ -156,9 +174,33 @@ function bindStyleToggle() {
   outlineBtn.addEventListener("click", () => setStyle("outline"));
   if (googleBtn) googleBtn.addEventListener("click", () => setStyle("google"));
   if (maptilerBtn) maptilerBtn.addEventListener("click", () => setStyle("maptiler"));
+  applyViewer();
 }
 
+// Customer basemaps (owner 2026-11-03): customers get Outline and MapTiler,
+// with MapTiler opened first when its key is configured; the Google button
+// is shown to admins only until the Google key's permits are changed after
+// launch. app.js sets window.__tdwIsAdmin and fires tdw:viewer once it knows
+// the account; until then the Google button stays hidden (fails closed).
+// Visibility only - the map shows the same rows either way.
+let viewerApplied = null;
+function googleAllowed() { return window.__tdwIsAdmin === true; }
+function applyViewer() {
+  const known = typeof window.__tdwIsAdmin === "boolean";
+  const admin = googleAllowed();
+  const googleBtn = $("mapStyleGoogle");
+  if (googleBtn) googleBtn.hidden = !admin;
+  if (!admin && activeStyle === "google") setStyle(maptilerKey() ? "maptiler" : "outline");
+  // Pick the customer's first basemap once, when the viewer becomes known.
+  if (known && viewerApplied === null) {
+    viewerApplied = admin ? "admin" : "customer";
+    if (!admin && maptilerKey() && activeStyle === "outline") setStyle("maptiler");
+  }
+}
+window.addEventListener("tdw:viewer", applyViewer);
+
 function setStyle(style) {
+  if (style === "google" && !googleAllowed()) return;
   if (style === activeStyle) return;
   activeStyle = style;
   const outlineBtn = $("mapStyleOutline");
@@ -183,12 +225,13 @@ function setStyle(style) {
     if (googleState.map && window.google && window.google.maps && window.google.maps.event) {
       requestAnimationFrame(() => window.google.maps.event.trigger(googleState.map, "resize"));
     }
-    renderGoogle();
+    renderGoogle({ move: true });
   } else if (style === "maptiler") {
     ensureMaptilerMap();
     if (maptilerState.map) requestAnimationFrame(() => maptilerState.map.resize());
-    renderMaptiler();
+    renderMaptiler({ move: true });
   }
+  syncImageryToggle();
 }
 
 function setupMessage(canvasId, html) {
@@ -256,19 +299,6 @@ function selectCounty(county) {
   select.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-  }[c]));
-}
-
-function priceLineFor(p) {
-  const bids = Number(p.bid);
-  return bids > 0
-    ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(bids)
-    : "no published price";
-}
-
 function groupByCounty() {
   const byCounty = new Map();
   rows.forEach(p => {
@@ -287,12 +317,109 @@ function groupByCounty() {
 // Maps Management -> Map IDs) if/when this moves off the demo key. A Map ID
 // is required for AdvancedMarkerElement - it isn't optional the way a
 // MapTiler style URL was.
+// ---------------------------------------------------------------------------
+// Scale (2026-10-02): zoomed-in pins are clustered in the viewport, so a
+// county with tens of thousands of geocoded rows (Detroit Land Bank, Wayne
+// MI) never becomes tens of thousands of HTML markers. Only rows inside the
+// current view (plus a margin) are considered; when more than
+// SAT_CLUSTER_MIN of them are in view they are grouped on a CLUSTER_CELL_PX
+// screen grid in Web Mercator pixel space at the current zoom - one marker per
+// cell with its exact count, a click fits the map to that cell's rows. The
+// view re-clusters on every pan / zoom (Google "idle", MapLibre "moveend"),
+// so individual pins appear progressively. The selected property is always
+// its own pin. Nothing is sampled: every in-view row is a pin or counted in a
+// cluster.
+// ---------------------------------------------------------------------------
+const SAT_CLUSTER_MIN = 250;
+const SAT_CELL_PX = 60;
+const SAT_MAX_CLUSTER_ZOOM = 17;
+function mercX(lng, z) { return (lng + 180) / 360 * 256 * Math.pow(2, z); }
+function mercY(lat, z) {
+  const s = Math.sin(lat * Math.PI / 180);
+  return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * 256 * Math.pow(2, z);
+}
+// bounds: { s, w, n, e } or null (= no culling). -> [{ kind: "pin", p } | { kind: "cluster", n, lat, lng, s, w, n2, e }]
+function clusterPins(list, bounds, zoom, selectedPid) {
+  const pins = list.filter(hasPin);
+  let inView = pins;
+  if (bounds) {
+    const dLat = (bounds.n - bounds.s) * 0.1, dLng = (bounds.e - bounds.w) * 0.1;
+    inView = pins.filter(p => p.latitude >= bounds.s - dLat && p.latitude <= bounds.n + dLat &&
+      p.longitude >= bounds.w - dLng && p.longitude <= bounds.e + dLng);
+  }
+  const out = [];
+  const sel = selectedPid != null ? inView.find(p => String(p.id) === String(selectedPid)) : null;
+  const rest = sel ? inView.filter(p => p !== sel) : inView;
+  if (rest.length <= SAT_CLUSTER_MIN || zoom >= SAT_MAX_CLUSTER_ZOOM) {
+    rest.forEach(p => out.push({ kind: "pin", p }));
+  } else {
+    const cells = new Map();
+    rest.forEach(p => {
+      const key = Math.floor(mercX(p.longitude, zoom) / SAT_CELL_PX) + "," + Math.floor(mercY(p.latitude, zoom) / SAT_CELL_PX);
+      let c = cells.get(key);
+      if (!c) { c = { members: [], sLat: 0, sLng: 0, s: 90, n: -90, w: 180, e: -180 }; cells.set(key, c); }
+      c.members.push(p); c.sLat += p.latitude; c.sLng += p.longitude;
+      c.s = Math.min(c.s, p.latitude); c.n = Math.max(c.n, p.latitude);
+      c.w = Math.min(c.w, p.longitude); c.e = Math.max(c.e, p.longitude);
+    });
+    cells.forEach(c => {
+      if (c.members.length === 1) { out.push({ kind: "pin", p: c.members[0] }); return; }
+      out.push({ kind: "cluster", n: c.members.length, lat: c.sLat / c.members.length, lng: c.sLng / c.members.length, s: c.s, w: c.w, n2: c.n, e: c.e });
+    });
+  }
+  if (sel) out.push({ kind: "pin", p: sel });
+  return out;
+}
+function satPinEl(p) {
+  // Map peek card (2026-10-29): the element is a 44px hit box (the touch
+  // rule) anchored at its bottom centre; the teardrop inside it is the visible
+  // marker, coloured by ledger, with a centre dot so it reads on imagery.
+  // A wrapper rather than the teardrop itself because MapLibre writes its own
+  // inline transform on the marker element, which would wipe the rotation.
+  const el = document.createElement("div");
+  el.className = "sat-pin";
+  el.setAttribute("role", "button");
+  el.setAttribute("tabindex", "0");
+  el.setAttribute("aria-label", pinLabel(p) + " - view details");
+  el.dataset.pid = String(p.id);
+  if (p.source) el.dataset.ledger = String(p.source);
+  el.innerHTML = '<span class="sat-pin-mark" aria-hidden="true"></span>';
+  // Phase 67: a pin selects the property in the SHARED preview card
+  // (explore.js's showPreview, via tdw:pinselect) - one selection, one card,
+  // whichever basemap is showing. Phase 63: Enter / Space as well as click.
+  el.addEventListener("click", e => { e.stopPropagation(); selectPin(p, false); });
+  el.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectPin(p, true); }
+  });
+  return el;
+}
+function satClusterEl(c, onZoom) {
+  const el = document.createElement("div");
+  el.className = "sat-county-bubble sat-cluster";
+  const r = Math.round(14 + 6 * Math.log10(c.n));
+  el.style.width = el.style.height = (r * 2) + "px";
+  el.style.fontSize = Math.max(11, Math.min(16, r * 0.6)) + "px";
+  el.textContent = c.n.toLocaleString("en-US");
+  el.dataset.count = String(c.n);
+  el.setAttribute("role", "button");
+  el.setAttribute("tabindex", "0");
+  el.setAttribute("aria-label", `${c.n} properties here - activate to zoom in`);
+  el.addEventListener("click", () => { markTap(); onZoom(); });
+  el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onZoom(); } });
+  return el;
+}
+function markClusterStats(canvasId, items) {
+  const canvas = $(canvasId);
+  if (!canvas) return;
+  canvas.dataset.pinNodes = String(items.filter(i => i.kind === "pin").length);
+  canvas.dataset.clusterNodes = String(items.filter(i => i.kind === "cluster").length);
+}
+
 const GOOGLE_MAP_ID = "DEMO_MAP_ID";
 
 const googleState = {
   map: null,
   AdvancedMarkerElement: null,
-  infoWindow: null,
   loadState: "idle", // "idle" | "loading" | "ready" | "unconfigured" | "error"
   markers: [],
   lastZoomedCounty: null
@@ -338,8 +465,8 @@ async function ensureGoogleMap() {
       GOOGLE_CANVAS_ID,
       `<b>Google satellite view isn't set up yet</b>` +
       `<span>Add a Google Maps API key as <code>googleMapsApiKey</code> in ` +
-      `<code>config.js</code>, then reload. The outline map on the left ` +
-      `still works fully without one.</span>`
+      `<code>config.js</code>, then reload. The Outline map still works ` +
+      `fully without one.</span>`
     );
     return;
   }
@@ -347,11 +474,11 @@ async function ensureGoogleMap() {
   setupMessage(GOOGLE_CANVAS_ID, `<b>Loading Google satellite map…</b>`);
   try {
     installGoogleMapsBootstrap(key);
-    const { Map, InfoWindow } = await google.maps.importLibrary("maps");
+    const { Map } = await google.maps.importLibrary("maps");
     ({ AdvancedMarkerElement: googleState.AdvancedMarkerElement } = await google.maps.importLibrary("marker"));
     const canvas = $(GOOGLE_CANVAS_ID);
     canvas.innerHTML = "";
-    const view = STATEWIDE_VIEW[PAGE_STATE] || STATEWIDE_VIEW.FL;
+    const view = STATEWIDE_VIEW[PAGE_STATE];
     googleState.map = new Map(canvas, {
       center: { lat: view.center[1], lng: view.center[0] },
       zoom: view.zoom,
@@ -361,9 +488,15 @@ async function ensureGoogleMap() {
       fullscreenControl: false,
       mapTypeControl: false
     });
-    googleState.infoWindow = new InfoWindow();
+    googleState.map.addListener("idle", () => { if (googleState.zoomList) drawGoogleZoomed(); });
+    // A tap on empty map closes the shared card, as it does on the outline
+    // map. A marker tap may also reach the map's click on some versions, so
+    // a tap within 400ms of a marker tap is not "empty map".
+    googleState.map.addListener("click", () => { if (Date.now() - lastPinTapAt >= 400) backgroundTap(); });
     googleState.loadState = "ready";
-    renderGoogle();
+    if (imagery !== "satellite") googleState.map.setMapTypeId("roadmap");
+    syncImageryToggle();
+    renderGoogle({ move: true });
   } catch (err) {
     googleState.loadState = "error";
     setupMessage(
@@ -378,15 +511,6 @@ async function ensureGoogleMap() {
 function clearGoogleMarkers() {
   googleState.markers.forEach(m => { m.map = null; });
   googleState.markers = [];
-  // Phase 62: an InfoWindow is its own object, not a marker - clearing
-  // markers never touched it, so a popup opened from one ledger/county
-  // stayed pinned on screen after switching to another (Auctions -> Lands
-  // Available, or a different county), showing a property that ledger no
-  // longer even includes. Confirmed live via Marc's own screenshot: a
-  // Broward "Lands Available" filter with zero matches ("Nothing matches
-  // the current filters") still showed an open popup for an Auctions-ledger
-  // parcel from before the switch. Every re-render must close it too.
-  if (googleState.infoWindow) googleState.infoWindow.close();
 }
 
 // Phase 63: renderGoogle()/renderMaptiler() both await loadCentroids() (a
@@ -402,7 +526,7 @@ function clearGoogleMarkers() {
 // call has since started.
 let googleRenderGen = 0;
 
-async function renderGoogle() {
+async function renderGoogle(opts) {
   if (activeStyle !== "google" || googleState.loadState !== "ready" || !googleState.map) return;
   const myGen = ++googleRenderGen;
   const map = googleState.map;
@@ -421,35 +545,23 @@ async function renderGoogle() {
     const cc = await loadCentroids();
     if (myGen !== googleRenderGen) return; // superseded by a newer render
     const center = cc[selectedCounty];
-    if (center && googleState.lastZoomedCounty !== selectedCounty) {
+    const newCounty = googleState.lastZoomedCounty !== selectedCounty;
+    const selHere = selectionIn(list);
+    if (center && newCounty && !selHere) {
       map.panTo({ lat: center.lat, lng: center.lng });
       map.setZoom(10);
-      googleState.lastZoomedCounty = selectedCounty;
     }
-    list.filter(hasPin).forEach(p => {
-      const el = document.createElement("div");
-      el.className = "sat-pin";
-      el.setAttribute("role", "button");
-      el.setAttribute("tabindex", "0");
-      el.setAttribute("aria-label", pinLabel(p) + " - view details");
-      const position = { lat: p.latitude, lng: p.longitude };
-      el.addEventListener("click", () => showGooglePopup(p, position));
-      // Phase 63: role="button"/tabindex="0" alone don't make a plain <div>
-      // fire "click" on Enter/Space the way a real <button> would - the
-      // county bubble markers below already add this same handler, pins
-      // never did, in either provider. Without it, a keyboard-only user can
-      // tab to a pin but Enter does nothing - no way to open its popup,
-      // even though the identical gesture works on the default outline map.
-      el.addEventListener("keydown", e => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showGooglePopup(p, position); }
-      });
-      const m = new AdvancedMarkerElement({ map, position, content: el });
-      googleState.markers.push(m);
-    });
+    googleState.lastZoomedCounty = selectedCounty;
+    googleState.zoomList = list;
+    drawGoogleZoomed();
+    // A basemap switch (or first load) with the card open brings the
+    // selected pin into the part of the stage the card leaves clear.
+    if (selHere && (newCounty || (opts && opts.move))) moveToSelection("google", false);
     return;
   }
 
   googleState.lastZoomedCounty = null;
+  googleState.zoomList = null;
   if (STATEWIDE_VIEW[PAGE_STATE]) {
     const v = STATEWIDE_VIEW[PAGE_STATE];
     const c = map.getCenter();
@@ -479,7 +591,7 @@ async function renderGoogle() {
       el.setAttribute("tabindex", "0");
       el.setAttribute("aria-label",
         `${county} County, ${list.length} ${list.length === 1 ? "property" : "properties"} - activate to filter the list`);
-      el.addEventListener("click", () => selectCounty(county));
+      el.addEventListener("click", () => { markTap(); selectCounty(county); });
       el.addEventListener("keydown", e => {
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectCounty(county); }
       });
@@ -488,21 +600,25 @@ async function renderGoogle() {
     });
 }
 
-function showGooglePopup(p, position) {
-  if (!googleState.infoWindow || !googleState.map) return;
-  const el = document.createElement("div");
-  el.innerHTML =
-    `<p class="sat-popup-addr">${escapeHtml(pinLabel(p))}</p>` +
-    `<p class="sat-popup-meta">${escapeHtml(p.county || "")} County - ${escapeHtml(priceLineFor(p))}</p>`;
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "sat-popup-open";
-  btn.textContent = "View details";
-  btn.addEventListener("click", () => { if (openDetail) openDetail(p); });
-  el.appendChild(btn);
-  googleState.infoWindow.setPosition(position);
-  googleState.infoWindow.setContent(el);
-  googleState.infoWindow.open(googleState.map);
+// The zoomed-in county's pins / clusters for the CURRENT Google viewport.
+function drawGoogleZoomed() {
+  const map = googleState.map;
+  const list = googleState.zoomList;
+  if (!map || !list || activeStyle !== "google") return;
+  clearGoogleMarkers();
+  const b = map.getBounds && map.getBounds();
+  const bounds = b ? { s: b.getSouthWest().lat(), w: b.getSouthWest().lng(), n: b.getNorthEast().lat(), e: b.getNorthEast().lng() } : null;
+  const items = clusterPins(list, bounds, map.getZoom() || 10, selection.pid);
+  const AdvancedMarkerElement = googleState.AdvancedMarkerElement;
+  items.forEach(it => {
+    const el = it.kind === "pin" ? satPinEl(it.p)
+      : satClusterEl(it, () => map.fitBounds({ south: it.s, west: it.w, north: it.n2, east: it.e }, 60));
+    const position = it.kind === "pin" ? { lat: it.p.latitude, lng: it.p.longitude } : { lat: it.lat, lng: it.lng };
+    const isSel = it.kind === "pin" && selection.pid != null && String(it.p.id) === selection.pid;
+    googleState.markers.push(new AdvancedMarkerElement({ map, position, content: el, zIndex: isSel ? 1000 : undefined }));
+  });
+  markClusterStats(GOOGLE_CANVAS_ID, items);
+  markSelection("google");
 }
 
 // ============================================================================
@@ -520,7 +636,6 @@ const maptilerState = {
   map: null,          // the maplibregl.Map instance, once created
   loadState: "idle",  // "idle" | "loading" | "ready" | "unconfigured" | "error"
   markers: [],
-  popup: null,
   lastZoomedCounty: null
 };
 
@@ -551,8 +666,8 @@ async function ensureMaptilerMap() {
       MAPTILER_CANVAS_ID,
       `<b>MapTiler satellite view isn't set up yet</b>` +
       `<span>Add a free MapTiler key as <code>maptilerKey</code> in ` +
-      `<code>config.js</code>, then reload. The outline map on the left ` +
-      `still works fully without one.</span>`
+      `<code>config.js</code>, then reload. The Outline map still works ` +
+      `fully without one.</span>`
     );
     return;
   }
@@ -562,21 +677,31 @@ async function ensureMaptilerMap() {
     maptilerState.gl = await loadMapLibreGl();
     const canvas = $(MAPTILER_CANVAS_ID);
     canvas.innerHTML = "";
-    const view = STATEWIDE_VIEW[PAGE_STATE] || STATEWIDE_VIEW.FL;
+    const view = STATEWIDE_VIEW[PAGE_STATE];
     maptilerState.map = new maptilerState.gl.Map({
       container: canvas,
       // "hybrid" = satellite imagery + labels, MapTiler's closest match to
       // Mapbox's old satellite-streets-v12 style this replaced.
-      style: `https://api.maptiler.com/maps/hybrid/style.json?key=${key}`,
+      style: maptilerStyleUrl(),
       center: view.center,
       zoom: view.zoom,
       attributionControl: true
     });
-    maptilerState.map.addControl(new maptilerState.gl.NavigationControl({ showCompass: false }), "top-right");
-    maptilerState.popup = new maptilerState.gl.Popup({ closeButton: true, closeOnClick: false, offset: 14 });
+    // Phase 67: zoom control bottom-right, out from under the imagery
+    // toggle (top-right overlay, see #mapImageryToggle).
+    maptilerState.map.addControl(new maptilerState.gl.NavigationControl({ showCompass: false }), "bottom-right");
+    maptilerState.map.on("moveend", () => { if (maptilerState.zoomList) drawMaptilerZoomed(); });
+    // A tap on empty map closes the shared card (see the Google note).
+    maptilerState.map.on("click", e => {
+      const t = e.originalEvent && e.originalEvent.target;
+      if (t && t.closest && t.closest(".sat-pin,.sat-county-bubble,.sat-cluster")) return;
+      if (Date.now() - lastPinTapAt < 400) return;
+      backgroundTap();
+    });
     maptilerState.map.on("load", () => {
       maptilerState.loadState = "ready";
-      renderMaptiler();
+      syncImageryToggle();
+      renderMaptiler({ move: true });
     });
   } catch (err) {
     maptilerState.loadState = "error";
@@ -592,15 +717,12 @@ async function ensureMaptilerMap() {
 function clearMaptilerMarkers() {
   maptilerState.markers.forEach(m => m.remove());
   maptilerState.markers = [];
-  // Phase 62: same fix as clearGoogleMarkers() above, for the MapLibre
-  // Popup, which is likewise its own object clearing markers never reached.
-  if (maptilerState.popup) maptilerState.popup.remove();
 }
 
 // Phase 63: same stale-render race as googleRenderGen above, for MapTiler.
 let maptilerRenderGen = 0;
 
-async function renderMaptiler() {
+async function renderMaptiler(opts) {
   if (activeStyle !== "maptiler" || maptilerState.loadState !== "ready" || !maptilerState.map) return;
   const myGen = ++maptilerRenderGen;
   const gl = maptilerState.gl;
@@ -619,36 +741,27 @@ async function renderMaptiler() {
     const cc = await loadCentroids();
     if (myGen !== maptilerRenderGen) return; // superseded by a newer render
     const center = cc[selectedCounty];
-    if (center && maptilerState.lastZoomedCounty !== selectedCounty) {
-      map.flyTo({ center: [center.lng, center.lat], zoom: 10, essential: true });
-      maptilerState.lastZoomedCounty = selectedCounty;
+    const newCounty = maptilerState.lastZoomedCounty !== selectedCounty;
+    const selHere = selectionIn(list);
+    if (center && newCounty && !selHere) {
+      // padding 0: an earlier selection's card padding persists on a
+      // MapLibre camera and would offset the county view.
+      map.flyTo({ center: [center.lng, center.lat], zoom: 10, padding: ZERO_PAD, essential: true });
     }
-    list.filter(hasPin).forEach(p => {
-      const el = document.createElement("div");
-      el.className = "sat-pin";
-      el.setAttribute("role", "button");
-      el.setAttribute("tabindex", "0");
-      el.setAttribute("aria-label", pinLabel(p) + " - view details");
-      el.addEventListener("click", () => showMaptilerPopup(p, [p.longitude, p.latitude]));
-      // Phase 63: same fix as the Google provider above - a plain <div>
-      // never fires "click" on Enter/Space no matter what role/tabindex say.
-      el.addEventListener("keydown", e => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showMaptilerPopup(p, [p.longitude, p.latitude]); }
-      });
-      const m = new gl.Marker({ element: el, anchor: "bottom" })
-        .setLngLat([p.longitude, p.latitude])
-        .addTo(map);
-      maptilerState.markers.push(m);
-    });
+    maptilerState.lastZoomedCounty = selectedCounty;
+    maptilerState.zoomList = list;
+    drawMaptilerZoomed();
+    if (selHere && (newCounty || (opts && opts.move))) moveToSelection("maptiler", false);
     return;
   }
 
   maptilerState.lastZoomedCounty = null;
+  maptilerState.zoomList = null;
   if (STATEWIDE_VIEW[PAGE_STATE]) {
     const v = STATEWIDE_VIEW[PAGE_STATE];
     const c = map.getCenter();
     if (Math.abs(c.lng - v.center[0]) > 4 || Math.abs(c.lat - v.center[1]) > 4) {
-      map.jumpTo({ center: v.center, zoom: v.zoom });
+      map.jumpTo({ center: v.center, zoom: v.zoom, padding: ZERO_PAD });
     }
   }
 
@@ -672,7 +785,7 @@ async function renderMaptiler() {
       el.setAttribute("tabindex", "0");
       el.setAttribute("aria-label",
         `${county} County, ${list.length} ${list.length === 1 ? "property" : "properties"} - activate to filter the list`);
-      el.addEventListener("click", () => selectCounty(county));
+      el.addEventListener("click", () => { markTap(); selectCounty(county); });
       el.addEventListener("keydown", e => {
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectCounty(county); }
       });
@@ -683,19 +796,155 @@ async function renderMaptiler() {
     });
 }
 
-function showMaptilerPopup(p, lngLat) {
-  if (!maptilerState.popup || !maptilerState.map) return;
-  const el = document.createElement("div");
-  el.innerHTML =
-    `<p class="sat-popup-addr">${escapeHtml(pinLabel(p))}</p>` +
-    `<p class="sat-popup-meta">${escapeHtml(p.county || "")} County - ${escapeHtml(priceLineFor(p))}</p>`;
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "sat-popup-open";
-  btn.textContent = "View details";
-  btn.addEventListener("click", () => { if (openDetail) openDetail(p); });
-  el.appendChild(btn);
-  maptilerState.popup.setLngLat(lngLat).setDOMContent(el).addTo(maptilerState.map);
+// The zoomed-in county's pins / clusters for the CURRENT MapLibre viewport.
+function drawMaptilerZoomed() {
+  const map = maptilerState.map;
+  const gl = maptilerState.gl;
+  const list = maptilerState.zoomList;
+  if (!map || !gl || !list || activeStyle !== "maptiler") return;
+  clearMaptilerMarkers();
+  const b = map.getBounds && map.getBounds();
+  const bounds = b ? { s: b.getSouth(), w: b.getWest(), n: b.getNorth(), e: b.getEast() } : null;
+  // MapLibre zoom is in 512px tiles; the Mercator helpers use 256px tiles.
+  const items = clusterPins(list, bounds, (map.getZoom() || 10) + 1, selection.pid);
+  items.forEach(it => {
+    const el = it.kind === "pin" ? satPinEl(it.p)
+      : satClusterEl(it, () => { if (map.setPadding) map.setPadding(ZERO_PAD); map.fitBounds([[it.w, it.s], [it.e, it.n2]], { padding: 60, maxZoom: 18 }); });
+    const m = new gl.Marker({ element: el, anchor: it.kind === "pin" ? "bottom" : "center" })
+      .setLngLat(it.kind === "pin" ? [it.p.longitude, it.p.latitude] : [it.lng, it.lat])
+      .addTo(map);
+    maptilerState.markers.push(m);
+  });
+  markClusterStats(MAPTILER_CANVAS_ID, items);
+  markSelection("maptiler");
+}
+
+// ============================================================================
+// PHASE 67: ONE SELECTION ACROSS ALL THREE BASEMAPS
+// ============================================================================
+// explore.js owns the selected property (activeProp) and the shared peek
+// card. A pin tapped here asks it to select (tdw:pinselect); it answers every
+// selection change with tdw:mapselection { pid, lat, lng, focus, inset }.
+// Two separate jobs here:
+//   markSelection() - marks the matching marker (.sel). Runs on every redraw
+//     (every pan / zoom re-clusters), so it must never move the camera.
+//   moveToSelection() - moves the camera of the ACTIVE basemap, only on a
+//     selection change (or a basemap switch / first load with the card open):
+//     the pin lands in the middle of the part of the stage the card leaves
+//     clear (`inset`). Zoom rule (2026-10-29): a pin tapped at zoom 12 or
+//     closer only pans; from the county or statewide view it goes to 15, not
+//     straight to 16; `focus` (re-selecting the open property) asks for at
+//     least SELECT_ZOOM. No camera move for a property without coordinates.
+// ============================================================================
+const SELECT_ZOOM = 16;
+const ZERO_PAD = { top: 0, right: 0, bottom: 0, left: 0 };
+let selection = { pid: null, lat: null, lng: null, inset: null };
+let lastPinTapAt = 0;
+function markTap() { lastPinTapAt = Date.now(); }
+function backgroundTap() { window.dispatchEvent(new CustomEvent("tdw:mapbackgroundtap")); }
+
+function selectPin(p, keyboard) {
+  markTap();
+  window.dispatchEvent(new CustomEvent("tdw:pinselect", { detail: { pid: String(p.id), keyboard: !!keyboard } }));
+}
+function selectionIn(list) {
+  if (selection.pid == null || selection.lat == null || selection.lng == null || !list) return false;
+  return list.some(p => String(p.id) === selection.pid);
+}
+function selectionZoom(z, focus) {
+  return focus ? Math.max(z, SELECT_ZOOM) : (z < 12 ? 15 : z);
+}
+
+function markSelection(provider) {
+  const pid = selection.pid;
+  const canvas = $(provider === "google" ? GOOGLE_CANVAS_ID : MAPTILER_CANVAS_ID);
+  if (!canvas) return;
+  canvas.querySelectorAll(".sat-pin.sel").forEach(el => el.classList.remove("sel"));
+  if (pid != null) {
+    const el = canvas.querySelector(`.sat-pin[data-pid="${CSS.escape(pid)}"]`);
+    if (el) el.classList.add("sel");
+  }
+}
+
+function moveToSelection(provider, focus) {
+  if (selection.pid == null || activeStyle !== provider || selection.lat == null || selection.lng == null) return;
+  const inset = Object.assign({}, ZERO_PAD, selection.inset || {});
+  if (provider === "google" && googleState.map && googleState.loadState === "ready") {
+    const map = googleState.map;
+    const z = map.getZoom() || 10;
+    const target = selectionZoom(z, focus);
+    if (target !== z) map.setZoom(target);
+    map.panTo({ lat: selection.lat, lng: selection.lng });
+    // Google has no camera padding: once the move settles, shift the view by
+    // half the covered side so the pin sits mid-way in the clear area.
+    // panBy(+x) moves the view east (the pin appears left of centre);
+    // panBy(0,+y) moves it south (the pin appears above centre).
+    const dx = (inset.left - inset.right) / 2, dy = (inset.bottom - inset.top) / 2;
+    if ((dx || dy) && window.google && google.maps && google.maps.event) {
+      let done = false;
+      const go = () => { if (done) return; done = true; map.panBy(-dx, dy); };
+      google.maps.event.addListenerOnce(map, "idle", go);
+      setTimeout(go, 700);
+    }
+  } else if (provider === "maptiler" && maptilerState.map && maptilerState.loadState === "ready") {
+    const map = maptilerState.map;
+    const z = map.getZoom();
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+    const cam = { center: [selection.lng, selection.lat], zoom: selectionZoom(z, focus), padding: inset, essential: true };
+    // Only when asked: an explicit `duration: undefined` would replace
+    // MapLibre's own default rather than fall back to it.
+    if (reduce) cam.duration = 0;
+    map.easeTo(cam);
+  }
+}
+
+window.addEventListener("tdw:mapselection", e => {
+  const d = e.detail || {};
+  selection = { pid: d.pid == null ? null : String(d.pid), lat: d.lat, lng: d.lng, inset: d.inset || null };
+  // A property inside a cluster must become its own pin: redraw the zoomed view.
+  if (googleState.zoomList && activeStyle === "google") drawGoogleZoomed();
+  if (maptilerState.zoomList && activeStyle === "maptiler") drawMaptilerZoomed();
+  markSelection("google");
+  markSelection("maptiler");
+  if (selection.pid != null) moveToSelection(activeStyle, !!d.focus);
+});
+if (window.__tdwMapSelection) {
+  const d = window.__tdwMapSelection;
+  selection = { pid: d.pid == null ? null : String(d.pid), lat: d.lat, lng: d.lng, inset: d.inset || null };
+}
+
+// ---------------------------------------------------------------------------
+// Phase 67: imagery toggle (Satellite / Streets) for the two third-party
+// basemaps. Google flips mapTypeId between "hybrid" and "roadmap"; MapTiler
+// swaps the style URL between its hybrid and streets-v2 styles (HTML markers
+// survive a setStyle). Hidden on the outline map, which has no imagery.
+// Parcel/GIS layers: neither provider publishes US parcel boundaries, and
+// the backend holds no parcel geometry, so there is no parcel toggle - see
+// CLAUDE.md's Phase 67 audit.
+// ---------------------------------------------------------------------------
+let imagery = "satellite";
+function maptilerStyleUrl() {
+  const key = maptilerKey();
+  return `https://api.maptiler.com/maps/${imagery === "satellite" ? "hybrid" : "streets-v2"}/style.json?key=${key}`;
+}
+function syncImageryToggle() {
+  const wrap = $("mapImageryToggle");
+  if (!wrap) return;
+  const provider = activeStyle === "google" ? googleState : activeStyle === "maptiler" ? maptilerState : null;
+  wrap.hidden = !(provider && provider.loadState === "ready");
+  wrap.querySelectorAll("[data-imagery]").forEach(b => b.classList.toggle("on", b.dataset.imagery === imagery));
+}
+function setImagery(next) {
+  if (next === imagery) return;
+  imagery = next;
+  if (googleState.map && googleState.loadState === "ready") googleState.map.setMapTypeId(imagery === "satellite" ? "hybrid" : "roadmap");
+  if (maptilerState.map && maptilerState.loadState === "ready") maptilerState.map.setStyle(maptilerStyleUrl());
+  syncImageryToggle();
+}
+function bindImageryToggle() {
+  const wrap = $("mapImageryToggle");
+  if (!wrap) return;
+  wrap.querySelectorAll("[data-imagery]").forEach(b => b.addEventListener("click", () => setImagery(b.dataset.imagery)));
 }
 
 // ---------------------------------------------------------------------------
@@ -715,3 +964,4 @@ window.addEventListener("tdw:maprendered", e => absorb(e.detail));
 if (window.__tdwMapLastRender) absorb(window.__tdwMapLastRender);
 
 bindStyleToggle();
+bindImageryToggle();

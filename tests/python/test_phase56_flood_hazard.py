@@ -231,14 +231,22 @@ def test_p56_22_county_batch_is_randomly_windowed(flood):
     run, and a county never advances past its first failures."""
     src = SCRIPT.read_text(encoding="utf-8")
     body = src[src.index("def fetch_county_batch"):src.index("def patch_property")]
-    assert "random.randrange" in body
-    assert '"order"' in body
+    # 2026-10-26: the window is a keyset read from a random id that wraps
+    # (EU.get_window), not a random offset - a deep offset timed out.
+    assert "EU.get_window(" in body and '"offset"' not in body
+    units_src = (SCRIPT.parent / "enrichment_units.py").read_text(encoding="utf-8")
+    win = units_src[units_src.index("def get_window"):]
+    assert "uuid.uuid4()" in win and '"order"] = "id.asc"' in units_src
 
 
 def test_p56_23_counties_are_shuffled(flood):
     src = SCRIPT.read_text(encoding="utf-8")
     body = src[src.index("def fetch_counties_needing_flood"):src.index("def fetch_county_batch")]
-    assert "random.shuffle" in body
+    # Shuffling lives in the shared (state, county) unit helper the flood and
+    # NAIP backfills both use; the helper itself is pinned to shuffle.
+    assert "EU.outstanding_units(" in body
+    units_src = (SCRIPT.parent / "enrichment_units.py").read_text(encoding="utf-8")
+    assert "random.shuffle(units)" in units_src and "shuffle: bool = True" in units_src
 
 
 def test_p56_24_only_rows_with_coordinates_are_selected(flood):

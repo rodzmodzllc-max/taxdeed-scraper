@@ -1,0 +1,9 @@
+state,county,ledger,kind,note,evidence
+FL,,LIEN,freshness,LienHub returned HTTP 403 for all 32 counties on the last recorded certificate run (2026-10-01); certificate last-seen stamps stop until a complete read,CLAUDE.md: Data-quality fixes before merge
+LA,,AVAILABLE,dated_list,The East Baton Rouge list is a dated list (rowsUpdatedAt 2024-02-27 when approved); rows are never shown as available now,docs/state-expansion.md
+WY,,AUCTION,not_current,Albany County's 2026 sale has been held; the ledger copy names it a finished sale,CLAUDE.md: Five-state enrichment (per-state ledger copy)
+TX,,AVAILABLE,source_review,The LGBS listing is REVIEW_REQUIRED by its rights audit and runs manual-only; a retry is not permitted,CLAUDE.md: All-sources AVAILABLE enrichment engine
+TX,,AUCTION,freshness,Texas RealAuction runs only on manual dispatch (the texas job); its read is never advanced on a schedule,CLAUDE.md: Data-quality fixes before merge
+PA,,AVAILABLE,dated_list,The Fayette repository list read was dated 2025-10-07,CLAUDE.md: AVAILABLE expansion MO OK PA MN
+SC,York,AUCTION,gap,York County's sale date is not stored (the source document returned 404),CLAUDE.md: Property-enrichment sprint
+MI,,AVAILABLE,source_review,Detroit Land Bank sources are UNREVIEWED; customers see only the deterministic ~50% structure subset once approved,docs/detroit-customer-subset.md

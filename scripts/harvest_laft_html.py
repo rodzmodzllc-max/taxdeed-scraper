@@ -87,7 +87,12 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
-from harvest_cache import conditional_get, load_cache, record_cache_stats, save_cache
+from harvest_cache import PARSER_VERSION, conditional_get, load_cache, record_cache_stats, save_cache
+from laft_purchase_paths import apply_rules, capture_links, link_evidence, links_as_dicts, links_from_dicts, load_rules, write_evidence
+from unit_freshness import backoff_decision, load_persisted as load_freshness, lookup as freshness_lookup
+import laft_status as _LS  # noqa: E402 - permission gate
+from laft_status import (CategorizedError, StatusRecorder, amount_kind_for_header, describe_exception,
+                         extract_list_as_of, record_identifiers_plausible)
 
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_html_sources.csv"
@@ -190,11 +195,20 @@ def fetch(session: requests.Session, url: str, *, extra_headers: dict | None = N
         resp.raise_for_status()
         return resp
 
+    # Routing around a block through a commercial proxy is its own operation
+    # (pre-sale blocker 4). Without a recorded fetch_via_proxy permission the
+    # 403 stands and the county reads FAILED / PERMISSION_DENIED.
+    _proxy = _LS.permission("fl_laft_html", "fetch_via_proxy")
+    if not _proxy.allowed:
+        raise CategorizedError("PERMISSION_DENIED", f"blocked with 403; proxy fallback not permitted "
+                                                    f"[{_proxy.reason_code}] {_proxy.reason}")
+
     if not SCRAPERAPI_KEY:
-        raise RuntimeError(
+        raise CategorizedError(
+            "PROXY_NOT_CONFIGURED",
             "blocked with 403 (this is the known IP-range block on GitHub "
             "Actions runners, not a dead source - see module docstring) and "
-            "SCRAPERAPI_KEY is not set, so there's no proxy to fall back to"
+            "SCRAPERAPI_KEY is not set, so there's no proxy to fall back to",
         )
 
     last_exc: Exception | None = None
@@ -228,7 +242,10 @@ def fetch(session: requests.Session, url: str, *, extra_headers: dict | None = N
                 time.sleep(SCRAPERAPI_RETRY_DELAY_SECONDS)
 
     assert last_exc is not None
-    raise last_exc
+    # Every proxy attempt failed. This is a PROXY failure, not a source
+    # failure and not an empty list - recorded as such so the county is
+    # FAILED in harvest_laft_status.json rather than a silent zero.
+    raise CategorizedError("PROXY_FAILURE", f"ScraperAPI proxy failed on all {SCRAPERAPI_MAX_ATTEMPTS} attempts: {last_exc}") from last_exc
 
 
 class _CacheAwareFetcher:
@@ -297,7 +314,127 @@ EMPTY_MARKERS = (
     "no available lands", "no properties at this time", "no properties available",
     "no parcels available", "there are no properties", "nothing available",
     "no lands available",
+    # Read off the county pages themselves 2026-10-26 (each county read
+    # INCOMPLETE every day because its own empty statement was not known):
+    # Hamilton "No available properties at this time.", Holmes "THERE ARE NO
+    # LOLA FILES AT THIS TIME" (LOLA = List Of Lands Available), Gulf "Gulf
+    # County Does Not Have Any Property On The List Of Lands."
+    "no available properties", "no lola files",
+    "does not have any property on the list of lands",
 )
+
+# Several clerk sites built on one WordPress theme (Franklin, Taylor,
+# Lafayette - read 2026-10-26) render their lists client-side from a Vue
+# component whose data is server-rendered into an attribute:
+#   <tax-deed-sales :taxdeeds="[{...}, ...]">
+# There is no <table> in the HTML, so the table parser saw nothing and the
+# county read INCOMPLETE every day while Franklin (2) and Taylor (10)
+# published real Lands Available entries. The same component also carries
+# upcoming tax-deed SALES on other pages (Lafayette's tax-deeds page), so an
+# entry counts as Lands Available only when the site's own permalink puts it
+# in its `landavailables` post type; anything else is never inventory here.
+_VUE_TAXDEEDS_RE = re.compile(r"<tax-deed-sales\b[^>]*?\s:taxdeeds\s*=\s*\"([^\"]*)\"", re.I | re.S)
+_VUE_LAFT_POST_TYPE = "landavailables"
+# Entry `status` values that mean the entry is on the list as offered. Any
+# other value is not understood: the county reads INCOMPLETE (nothing is
+# closed on a read we do not understand). "sold" is the list's own sold mark.
+_VUE_OFFERED_STATUSES = frozenset({"", "available", "active"})
+_VUE_SOLD_STATUSES = frozenset({"sold"})
+
+
+def _vue_post_type(link: str | None) -> str | None:
+    from urllib.parse import urlparse  # noqa: PLC0415
+    parts = [p for p in urlparse(str(link or "")).path.split("/") if p]
+    return parts[0].lower() if parts else None
+
+
+def _vue_date(value) -> str | None:
+    """MM/DD/YYYY from the component's own formatted date ("03/04/2024 10:00
+    am" -> "03/04/2024"); None when it publishes none."""
+    m = re.match(r"\s*(\d{1,2}/\d{1,2}/\d{4})", str(value or ""))
+    return m.group(1) if m else None
+
+
+def vue_taxdeed_entries(html_text: str) -> list[list[dict]] | None:
+    """The decoded `:taxdeeds` arrays of every <tax-deed-sales> component on
+    the page, or None when the page has no such component. A component
+    whose attribute does not decode to a list of objects is returned as []
+    (seen, not understood)."""
+    import html as _html  # noqa: PLC0415
+    found = _VUE_TAXDEEDS_RE.findall(html_text or "")
+    if not found:
+        return None
+    out: list[list[dict]] = []
+    for raw in found:
+        try:
+            data = json.loads(_html.unescape(raw))
+        except ValueError:
+            out.append([])
+            continue
+        out.append([d for d in data if isinstance(d, dict)] if isinstance(data, list) else [])
+    return out
+
+
+def rows_from_vue_taxdeeds(html_text: str, county: str, source_url: str) -> tuple[list[dict], dict] | None:
+    """(rows, info) from the page's Lands Available component entries, or
+    None when the page carries no `landavailables` entry at all (the caller
+    then falls back to the table parser). `info` counts what was not kept:
+    sold (identities in info['sold_rows']), rejected (identifier gate) and
+    unrecognised (a status this reader does not understand)."""
+    arrays = vue_taxdeed_entries(html_text)
+    if arrays is None:
+        return None
+    entries = [e for arr in arrays for e in arr if _vue_post_type(e.get("link")) == _VUE_LAFT_POST_TYPE]
+    if not entries:
+        return None
+    info = {"sold_rows": [], "rejected": 0, "unrecognised": 0}
+    rows: list[dict] = []
+    for e in entries:
+        status = str(e.get("status") or "").strip().lower()
+        record: dict = {"county": county, "source": "laft", "url_auction": source_url}
+        case_no = str(e.get("file") or "").strip()
+        parcel = str(e.get("parcel") or "").strip()
+        cert = str(e.get("cert") or "").strip()
+        if case_no:
+            record["case_no"] = case_no
+        if parcel:
+            record["parcel"] = parcel
+        if cert:
+            record["certificate_no"] = cert
+        sale = _vue_date(e.get("formatted_sale_date"))
+        if sale:
+            record["sale_date"] = sale
+        esch = _vue_date(e.get("formatted_escheatment_date"))
+        if esch:
+            record["escheatment_date"] = esch
+        # The figure is the ORIGINAL opening bid on both sites: Taylor's own
+        # page says "The amounts listed are no longer the opening bid", and
+        # Franklin labels its figure original_bid. Never a current price.
+        amount = str(e.get("original_bid") or e.get("opening_bid") or "").strip()
+        if amount and re.fullmatch(r"\d+(?:\.\d+)?", amount.replace(",", "")):
+            record["bid"] = amount
+            record["bid_kind"] = amount_kind_for_header("original opening bid")
+        links = []
+        if str(e.get("link") or "").startswith("https://"):
+            links.append({"header": "Lands Available entry", "text": str(e.get("title") or ""), "href": e["link"]})
+        pdf = e.get("pdf_file") if isinstance(e.get("pdf_file"), dict) else {}
+        if str(pdf.get("url") or "").startswith("https://"):
+            links.append({"header": "Tax deed file", "text": str(pdf.get("title") or ""), "href": pdf["url"]})
+        if links:
+            record["row_links"] = links
+        if not (record.get("case_no") or record.get("parcel")) or not record_identifiers_plausible(record):
+            info["rejected"] += 1
+            continue
+        if status in _VUE_SOLD_STATUSES:
+            ident = _sold_identity(record)
+            if ident:
+                info["sold_rows"].append(ident)
+            continue
+        if status not in _VUE_OFFERED_STATUSES:
+            info["unrecognised"] += 1
+            continue
+        rows.append(finalize_record(record))
+    return rows, info
 
 # Putnam publishes real, current LAFT data (confirmed live 2026-08, 38
 # properties) but not as a column-oriented table at all - it's a layout
@@ -317,12 +454,15 @@ _AUCTION_DATE_RE = re.compile(r"Auction date:\s*([\d/]+)", re.IGNORECASE)
 _AVAILABLE_DATE_RE = re.compile(r"Available for Purchase:\s*([\d/]+)", re.IGNORECASE)
 _PRICE_RE = re.compile(r"Estimated Purchase Price:\s*\$?([\d,]+\.\d{2})", re.IGNORECASE)
 
+def normalize_header_key(h: str) -> str:
+    key = re.sub(r"[^a-z0-9()#. ]", "", re.sub(r"\s+", " ", (h or "").strip().lower()))
+    return re.sub(r"\s+", " ", key).strip()
+
+
 def normalize_header(h: str) -> str | None:
     if not h:
         return None
-    key = re.sub(r"[^a-z0-9()#. ]", "", re.sub(r"\s+", " ", h.strip().lower()))
-    key = re.sub(r"\s+", " ", key).strip()
-    return HEADER_MAP.get(key)
+    return HEADER_MAP.get(normalize_header_key(h))
 
 def normalize_parcel(p: str) -> str:
     return re.sub(r"\s+", "", p.strip()).upper()
@@ -408,23 +548,68 @@ def _rows_from_card_table(rows: list[list[str]], county: str, source_url: str) -
                     record["available_date"] = avail_m.group(1)
                 if price_m:
                     record["bid"] = price_m.group(1)
-                out.append(finalize_record(record))
+                    # Putnam's own label: "Estimated Purchase Price".
+                    record["bid_kind"] = "ESTIMATED_PURCHASE_PRICE"
+                if record_identifiers_plausible(record):
+                    out.append(finalize_record(record))
                 i += 2
                 continue
         i += 1
     return out
 
 def extract_rows(html: bytes, county: str, source_url: str) -> list[dict]:
+    return extract_rows_with_outcome(html, county, source_url)[0]
+
+
+def extract_rows_with_outcome(html: bytes, county: str, source_url: str) -> tuple[list[dict], dict]:
+    """(rows, outcome). `outcome` records what the parser SAW so a zero can
+    be classified honestly (see scripts/laft_status.py):
+
+        empty_marker        - the page says nothing is listed        -> EMPTY
+        header_table_found  - a table with a recognised header row was
+                              found; with zero data rows that is a real,
+                              published-but-empty list                -> EMPTY
+        card_rows           - Putnam-style card table matched
+        rows                - usable rows extracted
+
+    No recognised table, no card rows and no marker (a page whose table
+    structure was never seen populated - Sumter, Lafayette - or a page
+    that changed shape) is INCOMPLETE: the list may be empty, this parser
+    did not confirm it."""
+    outcome = {"empty_marker": False, "header_table_found": False, "card_rows": False, "rows": 0, "rejected": 0,
+               "list_as_of": None,
+               # Rows the list itself marks sold ('Sold To' with a value):
+               # identities only (county + case / parcel), for
+               # scripts/inventory_status_writer.py - never inventory.
+               "sold_rows": []}
     soup = BeautifulSoup(html, "html.parser")
     page_text = soup.get_text(" ", strip=True)
+    # The page's own "as of / updated / list date" statement, if it makes
+    # one (laft_status.extract_list_as_of - the same phrase set the PDF
+    # harvester reads off the document text). Recorded on the county's
+    # status entry as list_as_of; never the retrieval time.
+    outcome["list_as_of"] = extract_list_as_of(page_text)
     if looks_empty(page_text):
-        return []
+        outcome["empty_marker"] = True
+        return [], outcome
 
-    best: tuple[int, list, list[list[str]]] | None = None
+    # Vue-rendered list (Franklin / Taylor theme) - see _VUE_TAXDEEDS_RE.
+    raw_text = html.decode("utf-8", "replace") if isinstance(html, (bytes, bytearray)) else str(html or "")
+    vue = rows_from_vue_taxdeeds(raw_text, county, source_url)
+    if vue is not None:
+        vue_rows, info = vue
+        outcome["vue_component"] = True
+        outcome["sold_rows"] = info["sold_rows"]
+        outcome["rejected"] = info["rejected"]
+        outcome["unrecognised_status"] = info["unrecognised"]
+        outcome["rows"] = len(vue_rows)
+        return vue_rows, outcome
+
+    best: tuple[int, list, list[list[str]], list[str], list] | None = None
     best_score = 1
     for table in soup.find_all("table"):
         rows = _table_to_rows(table)
-        if len(rows) < 2:
+        if len(rows) < 1:
             continue
         found = _find_header_row(rows)
         if not found:
@@ -433,7 +618,11 @@ def extract_rows(html: bytes, county: str, source_url: str) -> list[dict]:
         score = sum(1 for f in field_names if f)
         if score > best_score:
             best_score = score
-            best = (header_idx, field_names, rows)
+            # The anchors of every cell, per <tr> (same order as `rows`):
+            # what the list publishes as links, kept beside each row for the
+            # purchase-path rules (scripts/laft_purchase_paths.py).
+            best = (header_idx, field_names, rows, [normalize_header_key(c) for c in rows[header_idx]],
+                    capture_links(table, source_url))
 
     if not best:
         # No table had a real header row - try the card-style fallback
@@ -442,18 +631,25 @@ def extract_rows(html: bytes, county: str, source_url: str) -> list[dict]:
             rows = _table_to_rows(table)
             card_rows = _rows_from_card_table(rows, county, source_url)
             if card_rows:
-                return [r for r in card_rows if not r.get("sold_to")]
-        return []
-    header_idx, field_names, rows = best
+                outcome["card_rows"] = True
+                kept = [r for r in card_rows if not r.get("sold_to")]
+                outcome["sold_rows"] = [x for x in (_sold_identity(r) for r in card_rows if r.get("sold_to")) if x]
+                outcome["rows"] = len(kept)
+                return kept, outcome
+        return [], outcome
+    outcome["header_table_found"] = True
+    header_idx, field_names, rows, header_keys, links_by_row = best
     body = rows[header_idx + 1:]
+    links_body = links_by_row[header_idx + 1:]
 
     note = NOTES_BY_COUNTY.get(county)
     out: list[dict] = []
-    for raw in body:
+    for k, raw in enumerate(body):
         cell_texts = [c.strip() for c in raw if c and c.strip()]
         if not cell_texts:
             continue
         if all(looks_empty(c) for c in cell_texts):
+            outcome["empty_marker"] = True
             continue
 
         record: dict = {"county": county, "source": "laft", "url_auction": source_url}
@@ -465,13 +661,42 @@ def extract_rows(html: bytes, county: str, source_url: str) -> list[dict]:
             val = raw[i].strip()
             if val:
                 record[field] = val
+                if field == "bid":
+                    record["bid_kind"] = amount_kind_for_header(header_keys[i] if i < len(header_keys) else None)
         if record.get("sold_to"):
+            ident = _sold_identity(record)
+            if ident:
+                outcome["sold_rows"].append(ident)
             continue
         if record.get("case_no") or record.get("parcel"):
+            # Identifier plausibility gate (laft_status.plausible_identifier):
+            # a second header line ("Account" in Escambia's case column,
+            # 2026-09) is not a property. Dropped whole, counted.
+            if not record_identifiers_plausible(record):
+                outcome["rejected"] += 1
+                continue
+            links = links_body[k] if k < len(links_body) else []
+            if links:
+                record["row_links"] = links_as_dicts(links)
             out.append(finalize_record(record))
-    return out
+    outcome["rows"] = len(out)
+    return out, outcome
+
+
+def _sold_identity(record: dict) -> dict | None:
+    """The identity of a row the list marks sold - county + case / parcel
+    as the sync would key it - and nothing else (never the purchaser)."""
+    ident = finalize_record({k: record.get(k) for k in ("county", "case_no", "parcel") if record.get(k)})
+    if not ident.get("county") or not (ident.get("case_no") or ident.get("parcel")) or not record_identifiers_plausible(ident):
+        return None
+    return {"county": ident["county"], "case_no": ident.get("case_no"), "parcel": ident.get("parcel"), "source": "laft"}
 
 def main() -> int:
+    # Source permission (2026-10-12): no recorded fetch/parse permission for
+    # fl_laft_html -> 0 requests, exit 3. data/source_permissions.csv.
+    _denied = _LS.permission_gate("fl_laft_html")
+    if _denied:
+        return _denied
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(SOURCES_CSV, newline="", encoding="utf-8") as f:
         sources = list(csv.DictReader(f))
@@ -487,6 +712,15 @@ def main() -> int:
     new_cache: dict = {}
     reused = 0
 
+    recorder = StatusRecorder("fl_laft_html", source_class="GOVERNMENT_DIRECT", parser_version=str(PARSER_VERSION))
+    # Purchase-path rules (data/laft_purchase_link_rules.csv - none enabled
+    # until verified) and the per-unit freshness record that drives the
+    # blocked-source back-off (scripts/unit_freshness.py).
+    rules = load_rules()
+    freshness = load_freshness()
+    link_evidence_by_county: dict[str, dict] = {}
+    sold_rows: list[dict] = []
+
     all_rows: list[dict] = []
     session = requests.Session()
     fetcher = _CacheAwareFetcher(session)
@@ -494,14 +728,28 @@ def main() -> int:
         county, url = src["County"], src["Url"]
         print(f"[{i}/{len(sources)}] {county}", flush=True)
         entry = cache.get(url)
+        status_kw = dict(source_url=(src.get("SourcePage") or "").strip() or url, document_url=url)
+        attempt, why = backoff_decision(freshness_lookup(freshness, "FL", "fl_laft_html", county))
+        if not attempt:
+            # Held: no request is made, the county is recorded FAILED with the
+            # hold as its reason (fail closed downstream), the cache is kept.
+            print(f"    skipped - {why}", flush=True)
+            recorder.failed(county, "TRANSPORT_HTTP_403_BLOCKED", why, **status_kw)
+            if entry:
+                new_cache[url] = entry
+            continue
         try:
             status, content, validators = conditional_get(fetcher, url, entry, timeout=30)
+            doc_kw = dict(document_sha256=validators.get("sha256"), document_etag=validators.get("etag"),
+                          document_last_modified=validators.get("last_modified"))
 
             if status in ("not_modified", "unchanged") and entry and "rows" in entry:
                 rows = entry["rows"]
                 reused += 1
                 why = "server says unchanged" if status == "not_modified" else "identical content"
                 print(f"    unchanged ({why}) - reusing {len(rows)} cached rows, parse skipped", flush=True)
+                doc_kw["list_as_of"] = entry.get("list_as_of")
+                recorder.complete(county, len(rows), from_cache=True, **status_kw, **doc_kw)
             else:
                 if content is None:
                     # 304 but no cached rows to reuse (cache was cleared, or
@@ -509,33 +757,84 @@ def main() -> int:
                     # unconditionally rather than reporting zero rows.
                     resp = fetch(session, url)
                     content = resp.content
-                rows = extract_rows(content, county, url)
-                if rows:
+                rows, outcome = extract_rows_with_outcome(content, county, url)
+                doc_kw["list_as_of"] = outcome.get("list_as_of")
+                sold_rows.extend(outcome.get("sold_rows") or [])
+                if outcome.get("sold_rows"):
+                    print(f"    {len(outcome['sold_rows'])} row(s) the list marks sold - identities recorded, not inventory", flush=True)
+                if outcome.get("rejected"):
+                    print(f"    {outcome['rejected']} row(s) rejected by the identifier gate (not a parcel/case number)", flush=True)
+                if outcome.get("unrecognised_status"):
+                    # An entry whose status this reader does not understand:
+                    # the list was read but not understood in full, so it
+                    # never closes anything (rows read are still synced).
+                    print(f"    {len(rows)} properties, {outcome['unrecognised_status']} entry(ies) with an "
+                          "unrecognised status - INCOMPLETE", flush=True)
+                    recorder.incomplete(county, "PARSE_FORMAT_CHANGE",
+                                        "list entries carry a status this reader does not recognise",
+                                        row_count=len(rows), **status_kw, **doc_kw)
+                elif rows:
                     print(f"    {len(rows)} properties", flush=True)
+                    recorder.complete(county, len(rows), **status_kw, **doc_kw)
+                elif outcome["empty_marker"]:
+                    print("    no properties currently listed (page says so)", flush=True)
+                    recorder.empty(county, "empty_marker", **status_kw, **doc_kw)
+                elif outcome.get("rejected"):
+                    # A recognised table whose every row failed the identifier
+                    # gate is a layout change, not an empty list - never EMPTY
+                    # (EMPTY would let the lifecycle close the county out).
+                    print("    0 usable rows - INCOMPLETE (every parsed row failed the identifier gate)", flush=True)
+                    recorder.incomplete(county, "PARSE_FORMAT_CHANGE",
+                                        "every parsed row failed the identifier plausibility gate",
+                                        **status_kw, **doc_kw)
+                elif outcome["header_table_found"]:
+                    print("    no properties currently listed (recognised table, zero data rows)", flush=True)
+                    recorder.empty(county, "empty_table", **status_kw, **doc_kw)
                 else:
-                    print("    no properties currently listed", flush=True)
+                    print("    0 rows, no recognised table and no empty marker - INCOMPLETE (unconfirmed empty)", flush=True)
+                    recorder.incomplete(county, "PARSE_NO_TABLE",
+                                        "no table with a recognised header, no card rows and no empty-list marker",
+                                        **status_kw, **doc_kw)
 
+            # Purchase path: only an enabled, verified rule turns a captured
+            # link into purchase_url; the value-free evidence summary is what
+            # a human verifies a rule against.
+            links_by_row = [links_from_dicts(r.get("row_links")) for r in rows]
+            for r, links in zip(rows, links_by_row):
+                apply_rules(r, links, rules, state="FL", source_id="fl_laft_html", list_url=status_kw["source_url"], document_url=url)
+            link_evidence_by_county[county] = link_evidence(links_by_row, list_url=status_kw["source_url"], document_url=url)
             all_rows.extend(rows)
             # Only cache rows we actually believe in - caching a zero-row
             # parse would let one bad parse suppress a county until the page
             # changes (same discipline as harvest_laft_pdfs.py).
             if rows:
                 validators["rows"] = rows
+                validators["list_as_of"] = doc_kw.get("list_as_of")
                 new_cache[url] = validators
         except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
-            print(f"    ERROR: {exc}", flush=True)
+            category, _detail = describe_exception(exc)
+            print(f"    ERROR ({category}): {exc}", flush=True)
+            recorder.failed(county, exc, **status_kw)
             # Keep the previous good entry so a transient failure doesn't
             # also throw away a usable cache for the next run.
             if entry:
                 new_cache[url] = entry
 
     save_cache("laft_html", new_cache)
+    recorder.write()
+    print(recorder.summary_line(), flush=True)
     record_cache_stats("laft_html", reused, len(sources))
     if reused:
         print(f"\n{reused} of {len(sources)} sources were unchanged - parse skipped for those.", flush=True)
 
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(all_rows, f, indent=2)
+    with open(OUT_DIR / "harvest_laft_sold_html.json", "w", encoding="utf-8") as f:
+        json.dump(sold_rows, f, indent=2)
+    write_evidence(link_evidence_by_county)
+    linked = sum(1 for r in all_rows if r.get("purchase_url"))
+    print(f"purchase paths: {linked} row(s) carry a rule-verified link ({len([r for r in rules if r.enabled])} enabled rule(s)); "
+          f"link evidence for {len(link_evidence_by_county)} county(ies) written to out/public/laft-link-evidence.json", flush=True)
 
     if all_rows:
         fieldnames = sorted({k for row in all_rows for k in row.keys()})

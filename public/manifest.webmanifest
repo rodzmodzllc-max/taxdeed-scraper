@@ -1,17 +1,17 @@
 {
-  "name": "Tax Acquisitions",
-  "short_name": "Tax Acq",
-  "description": "Tax deed, lien and resale auction intelligence across state desks, with title screening, true acquisition cost, and shared team notes.",
+  "name": "TAXACQ — Tax Acquisition Intelligence",
+  "short_name": "TAXACQ",
+  "description": "Research tool for public tax deed, tax certificate and county-held property listings. Not a title search, appraisal, or legal or investment advice.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#F8FAFC",
-  "theme_color": "#0F172A",
+  "background_color": "#F8F8F5",
+  "theme_color": "#F8F8F5",
   "categories": ["finance", "business", "productivity"],
   "icons": [
-    { "src": "icons/icon-192.png?v=2", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-maskable-512.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icons/icon-192.png?v=3", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png?v=3", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png?v=3", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

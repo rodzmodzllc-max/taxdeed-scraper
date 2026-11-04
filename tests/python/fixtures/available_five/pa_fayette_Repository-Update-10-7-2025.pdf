@@ -1,0 +1,89 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 600] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 2059 >>
+stream
+0.5 w
+20 560 m 560 560 l S
+20 542 m 560 542 l S
+20 524 m 560 524 l S
+20 506 m 560 506 l S
+20 488 m 560 488 l S
+20 470 m 560 470 l S
+20 452 m 560 452 l S
+20 560 m 20 452 l S
+90 560 m 90 452 l S
+170 560 m 170 452 l S
+280 560 m 280 452 l S
+380 560 m 380 452 l S
+435 560 m 435 452 l S
+490 560 m 490 452 l S
+560 560 m 560 452 l S
+BT /F1 6 Tf 22 548 Td (PARCEL) Tj ET
+BT /F1 6 Tf 92 548 Td (Municipality) Tj ET
+BT /F1 6 Tf 172 548 Td (OWNER) Tj ET
+BT /F1 6 Tf 282 548 Td (DESCRIPTION) Tj ET
+BT /F1 6 Tf 382 548 Td (SALE) Tj ET
+BT /F1 6 Tf 437 548 Td (Min. Bid) Tj ET
+BT /F1 6 Tf 492 548 Td (Comments) Tj ET
+BT /F1 6 Tf 22 530 Td (01-02-0003) Tj ET
+BT /F1 6 Tf 92 530 Td (TESTVILLE TWP) Tj ET
+BT /F1 6 Tf 172 530 Td (SYNTHETIC OWNER ONE) Tj ET
+BT /F1 6 Tf 282 530 Td (LOT 1 TEST PLAN) Tj ET
+BT /F1 6 Tf 382 530 Td (A&A 1001) Tj ET
+BT /F1 6 Tf 437 530 Td ($1,250.00) Tj ET
+BT /F1 6 Tf 492 530 Td () Tj ET
+BT /F1 6 Tf 22 512 Td (01-02-0004-01) Tj ET
+BT /F1 6 Tf 92 512 Td (TESTVILLE TWP) Tj ET
+BT /F1 6 Tf 172 512 Td (SYNTHETIC OWNER TWO) Tj ET
+BT /F1 6 Tf 282 512 Td (0.5 AC TEST RD) Tj ET
+BT /F1 6 Tf 382 512 Td (A&A 1002) Tj ET
+BT /F1 6 Tf 437 512 Td ($900.00) Tj ET
+BT /F1 6 Tf 492 512 Td (Bid Received) Tj ET
+BT /F1 6 Tf 22 494 Td (11-22-3333) Tj ET
+BT /F1 6 Tf 92 494 Td (SAMPLE BORO) Tj ET
+BT /F1 6 Tf 172 494 Td (SYNTHETIC OWNER THREE) Tj ET
+BT /F1 6 Tf 282 494 Td (HOUSE & LOT) Tj ET
+BT /F1 6 Tf 382 494 Td (A&A 1003) Tj ET
+BT /F1 6 Tf 437 494 Td ($2,000.00) Tj ET
+BT /F1 6 Tf 492 494 Td () Tj ET
+BT /F1 6 Tf 22 476 Td (PARCEL) Tj ET
+BT /F1 6 Tf 92 476 Td (Municipality) Tj ET
+BT /F1 6 Tf 172 476 Td (OWNER) Tj ET
+BT /F1 6 Tf 282 476 Td (DESCRIPTION) Tj ET
+BT /F1 6 Tf 382 476 Td (SALE) Tj ET
+BT /F1 6 Tf 437 476 Td (Min. Bid) Tj ET
+BT /F1 6 Tf 492 476 Td (Comments) Tj ET
+BT /F1 6 Tf 22 458 Td (22-33-4444-002) Tj ET
+BT /F1 6 Tf 92 458 Td (SAMPLE BORO) Tj ET
+BT /F1 6 Tf 172 458 Td (SYNTHETIC OWNER FOUR) Tj ET
+BT /F1 6 Tf 282 458 Td (LOT 9) Tj ET
+BT /F1 6 Tf 382 458 Td (A&A 1004) Tj ET
+BT /F1 6 Tf 437 458 Td ($500.00) Tj ET
+BT /F1 6 Tf 492 458 Td () Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000002352 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+2422
+%%EOF

@@ -122,6 +122,10 @@ from datetime import datetime, timezone
 
 import requests
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from field_provenance import filter_by_provenance, merge_field_provenance, provenance_entry  # noqa: E402
+from laft_status import plausible_identifier  # noqa: E402
+
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 # Raised 2026-09-02 from 300/10. Measured live at that point: 2,041 of 3,232
@@ -159,7 +163,27 @@ PER_COUNTY_LIMIT = int(os.environ.get("ENRICH_PER_COUNTY_LIMIT", "40"))
 # from scratch on the very next run (misses are never stamped), so a format
 # fixed later still picks up its whole backlog - exactly what happened for
 # Duval. It only stops one run from wasting minutes on a known-bad format.
+#
+# Phase 69 (2026-09-22): the streak is counted PER SOURCE within the county's
+# slice, not per county. Certificate rows (LienHub account numbers) and
+# auction/LAFT rows (the deed listing's parcel number) share a county's slice
+# but not an identifier scheme, and a county-wide streak let six certificate
+# misses abandon a county whose auction rows all matched - measured: Volusia
+# 50/50, Escambia 6/6, Santa Rosa 12/12 unenriched auction rows hit the layer
+# on request while their slices led with 228, 31 and 333 certificate rows.
+# The threshold itself is unchanged; it now bounds each ledger separately.
 COUNTY_MISS_STREAK = int(os.environ.get("ENRICH_COUNTY_MISS_STREAK", "6"))
+# 2026-10-29 (audit B15/B28): the deeds job's step timeout (15 min) killed this
+# step on every run - one county's lookups (Hillsborough, Marion, Escambia)
+# kept ending in ReadTimeout (~20 s each) and used the whole budget, so no
+# summary was ever printed and the counties after it were never reached.
+#   * COUNTY_ERROR_STREAK consecutive transport errors (timeouts, connection
+#     errors) abandon that county's slice for this run - rows untouched,
+#     retried next run - so one unresponsive county cannot starve the rest;
+#   * ENRICH_TIME_BUDGET_SECONDS (0 = none) stops the run cleanly before the
+#     step timeout, printing the summary and writing the report.
+COUNTY_ERROR_STREAK = max(1, int(os.environ.get("ENRICH_COUNTY_ERROR_STREAK", "3")))
+TIME_BUDGET_SECONDS = float(os.environ.get("ENRICH_TIME_BUDGET_SECONDS", "0") or 0)
 REQUEST_DELAY_SECONDS = 0.3  # polite pacing against a free public API
 FDOR_ENDPOINT = (
     "https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/services/"
@@ -359,6 +383,203 @@ def _expand_lake_str_block(parcel):
     return f"{m.group(1)}-{m.group(2)}-{m.group(3)}-{m.group(4)}-{m.group(5)}"
 
 
+# Added 2026-09-29 (enrichment phase) from production evidence, not from a
+# live FDOR call (this sandbox cannot reach the layer): Hendry's Lands
+# Available PDF prints its parcel numbers hyphenated with the section /
+# township / range groups in the OPPOSITE order from FDOR's PARCEL_ID, and
+# the final group without FDOR's decimal point. One property appears in
+# production under both spellings - the same clerk case (23-09), one row
+# harvested from the list, one older row that already matched the layer:
+#     list form   2-01-43-29-010-0050-F020
+#     FDOR form   2 29 43 01 010 0050-F02.0
+# and every FDOR-matched Hendry row carries the same "A BB CC DD EEE FFFF"
+# space-separated head with a "-XXX.X" (or ".XXXX") tail. The rule is the
+# exact structural transform between those two spellings: groups 2-4
+# reversed, hyphens between the first six groups become spaces, and the
+# 4-character seventh group splits as XXX.X. It matches only a
+# 7-group hyphenated shape of exactly these widths, so it returns None (no
+# extra request) for every other county's format. Verified against the
+# pair above; further pairs will be visible as Hendry's match rate once
+# the deeds job runs with this rule - a persistent 0 there is the signal
+# the rule needs a second look, same as every other rule here.
+_HENDRY_LIST_FORM = re.compile(r"^(\d)-(\d{2})-(\d{2})-(\d{2})-([A-Z0-9]{3})-(\d{4})-([A-Z0-9]{4})$")
+def _expand_hendry_list_form(parcel):
+    m = _HENDRY_LIST_FORM.match(parcel.upper())
+    if not m:
+        return None
+    a, b, c, d, e, f, g = m.groups()
+    return f"{a} {d} {c} {b} {e} {f}-{g[:3]}.{g[3]}"
+
+
+# Sentinel returned as the third element of lookup_fdor()'s tuple when a
+# candidate resolved to MORE THAN ONE feature in the layer. A parcel id is
+# unique within a county on the tax roll, so two hits mean the candidate is
+# not this row's identifier (or the layer is inconsistent) - the row is
+# skipped, counted as ambiguous, and never enriched from either feature.
+AMBIGUOUS_MATCH = "AMBIGUOUS_MATCH"
+
+
+class FdorUnavailable(Exception):
+    """The layer answered, but not with a query result: an ArcGIS error
+    payload (`{"error": {...}}`, which the service returns with HTTP 200) or
+    a body with no `features` list. Before 2026-09-29 such an answer fell
+    through `data.get("features", [])` and was counted as a MISS - the row
+    was left unstamped (correct) but the run's log said "unmatched", the
+    ledger's miss streak advanced, and a layer outage was indistinguishable
+    from an unknown parcel format. Raised instead, counted as
+    `source_unavailable`, and the county's slice is abandoned for this run."""
+
+
+class FdorParserRejection(Exception):
+    """The layer answered with something that is not JSON at all (an HTML
+    maintenance page with HTTP 200, a truncated body). Counted as
+    `parser_rejection`; never a miss."""
+
+
+# ---------------------------------------------------------------------------
+# Alternate-key lookups (2026-09-29). Some counties identify a property by an
+# ACCOUNT number that the FDOR layer carries as ALT_KEY ("optional alternate
+# key identifier some counties use in addition to unique parcel
+# identification" - docs/fdor-field-provenance.md), not as PARCEL_ID. A row
+# whose stored identifier is that account number can never match PARCEL_ID
+# under any reformatting, but matches ALT_KEY exactly.
+#
+# This is county-scoped and evidence-gated: a county is listed here only when
+# its already-matched rows PROVE the layer's ALT_KEY shape for that county
+# and the county publishes the same shape as a property identifier.
+#
+#   Escambia (CO_NO 27) - measured in production 2026-09-29: all 45 FDOR-
+#   matched Escambia rows carry a 9-digit ALT_KEY (e.g. the digit blocks
+#   dd dddd ddd: "10-2361-000" stored as "102361000"), and the county's own
+#   account number - what the Property Appraiser and the tax collector
+#   (LienHub certificate rows, 36 of them, 0 matched by PARCEL_ID) publish
+#   as the property's identifier - has exactly that dd-dddd-ddd shape.
+#   The rule is the identity transform on the digits: strip the two dashes.
+#
+# The match is still an exact equality on one layer field, county-scoped
+# (CO_NO), unique-feature-only (two features = AMBIGUOUS_MATCH), and it is
+# tried only after every PARCEL_ID candidate has missed. It is recorded in
+# provenance as matched_field="ALT_KEY" with the PARCEL_ID the layer
+# returned, so an alternate-key match is never confused with a parcel match.
+# ---------------------------------------------------------------------------
+#   Marion (CO_NO 52) and Monroe (CO_NO 54) - verified live 2026-10-25: the
+#   layer's ALT_KEY is the county's own account number, and the identifiers
+#   the RealAuction (Marion) and LienHub (Monroe) rows carry are exactly those
+#   digits (Marion 6 of 6 sampled unmatched rows, 5- to 7-digit; Monroe 3 of
+#   4, 7-digit), each matching one feature and only on ALT_KEY.
+ALT_KEY_RULES = {
+    "Escambia": re.compile(r"^(\d{2})-?(\d{4})-?(\d{3})$"),
+    # Hillsborough's 10-digit folio: LienHub writes it with an "A" prefix,
+    # RealAuction and the Lands Available list write it bare; the layer's
+    # ALT_KEY is the bare folio (2026-10-25: certificates 8 of 8 answered
+    # queries matched exactly, auction / Lands Available 7 of 7).
+    "Hillsborough": re.compile(r"^A?(\d{10})$"),
+    "Marion": re.compile(r"^(\d{5,7})$"),
+    "Monroe": re.compile(r"^(\d{7})$"),
+}
+ALT_KEY_PREFIX = "ALT_KEY:"
+
+
+def alt_key_candidate(county, parcel):
+    """The ALT_KEY spelling for a county's account-style identifier, or None
+    when the county has no rule or the identifier is not that shape."""
+    rule = ALT_KEY_RULES.get(COUNTY_ALIASES.get(county, county))
+    if rule is None or parcel is None:
+        return None
+    m = rule.match(str(parcel).strip())
+    if not m:
+        return None
+    return "".join(m.groups())
+
+
+# ---------------------------------------------------------------------------
+# County spellings of the SAME parcel number (2026-10-25). The tax-collector
+# and auction sites write some counties' parcel numbers with different
+# separators than the FDOR layer's PARCEL_ID. Each rule below only moves or
+# swaps separators - the digits and letters, in order, are unchanged - and it
+# runs for that one county only, after every generic spelling has missed. The
+# match is still exact equality on PARCEL_ID, county-scoped, one feature only.
+# Verified live against the layer on 2026-10-25 with sampled unmatched rows:
+#
+#   Hernando  "R28-421-18-0000-0010-0040" -> "R28 421 18 0000 0010 0040"
+#             (dash -> space; 6 of 6)
+#   Lake      "05-23-26-005000000500"     -> "05-23-26-0050-000-00500"
+#             (2-2-2-4-3-5 blocks; 5 of 6)
+#   Flagler   "3111304600000100000"       -> "31-11-30-4600-00010-0000"
+#             (19 characters, 2-2-2-4-5-4 blocks; 6 of 6)
+#   Martin    "03-38-41-025-002-00230.70000" -> "03-38-41-025-002-00230-7"
+#             (the trailing ".D0000" is the layer's "-D"; 3 of 3)
+#
+# Not rules, on purpose: Santa Rosa / Pasco numbers ending in "M" are
+# mobile-home accounts and Walton "MINR" numbers are mineral rights - none is
+# a land parcel, and stripping the suffix matched nothing (0 of 6).
+#
+# Re-checked 2026-10-28 for the certificate rows still without coordinates
+# (read-only, a handful of identifiers per county; no value logged). No
+# deterministic re-spelling exists, so no rule was added:
+#   Santa Rosa "...M" (333 rows): with the M removed, 0 of 10 sampled
+#             equal any PAR_NUM in the county layer or any FDOR PARCEL_ID
+#             (dashed 2-2-2-4-5-4 form); 3 of 10 share only the section /
+#             tract head with a "-0000" parcel - a DIFFERENT parcel, never a
+#             match. They are numbered sub-accounts (0010, 0020, ...) of one
+#             tract, assessed at a few hundred dollars. The 74 "M" rows that do
+#             equal a PAR_NUM after the M is removed already match.
+#   Volusia 12-digit (221 rows): the number is already the PARCEL_ID format,
+#             but 0 of 6 sampled exist in FDOR or in the county's own parcel
+#             and ownership layers; most share no 11-digit head with any
+#             parcel at all ("NO STREET", assessed $300-$600).
+#   Alachua "ddddd ddd ddd" (21 rows): the space -> dash spelling above is
+#             already tried; 0 of 5 sampled 5-digit blocks exist in FDOR or the
+#             Property Appraiser's public parcel layer ("UNASSIGNED LOCATION",
+#             assessed $300).
+#   Walton "MINR" (38 rows): mineral-rights accounts; geocoding plans them as
+#             NOT_A_PARCEL (harvesters/enrichment/geocode.NON_PARCEL_IDENTIFIERS).
+#   Hillsborough "A" + folio (53 rows): ALT_KEY_RULES above already maps them;
+#             what is left is AMBIGUOUS (two features share one ALT_KEY) or
+#             the layer's transient errors, not the identifier's format.
+# ---------------------------------------------------------------------------
+def _blocks(compact, lens):
+    if len(compact) != sum(lens):
+        return None
+    out, i = [], 0
+    for n in lens:
+        out.append(compact[i:i + n])
+        i += n
+    return "-".join(out)
+
+
+def county_format_candidates(county, parcel):
+    """The county's own re-spelling of `parcel`, or [] (see the rule table above)."""
+    if parcel is None:
+        return []
+    p = str(parcel).strip()
+    c = COUNTY_ALIASES.get(county, county)
+    out = []
+    if c == "Hernando" and re.fullmatch(r"[A-Z]\d{2}(-[0-9A-Z]+){5}", p):
+        out.append(p.replace("-", " "))
+    elif c == "Lake" and re.fullmatch(r"\d{2}-\d{2}-\d{2}-[0-9A-Z]{12}", p):
+        out.append(_blocks(p.replace("-", ""), [2, 2, 2, 4, 3, 5]))
+    elif c == "Flagler" and re.fullmatch(r"[0-9A-Z]{19}", p):
+        out.append(_blocks(p, [2, 2, 2, 4, 5, 4]))
+    elif c == "Martin":
+        m = re.fullmatch(r"(\d{2}-\d{2}-\d{2}-\d{3}-\d{3}-\d{5})\.(\d)0000", p)
+        if m:
+            out.append(f"{m.group(1)}-{m.group(2)}")
+    return [v for v in out if v and v != p]
+
+
+def identifier_shape(value):
+    """A value-free description of an identifier's shape for the public
+    log: digit runs -> d<len>, letter runs -> A<len>, separators kept.
+    "0035260000" -> "d10"; "11-1856-000" -> "d2-d4-d3"; "A0009240000" ->
+    "A1d10". Two identifiers with the same shape print identically, so a
+    shape never identifies a parcel."""
+    text = str(value or "").strip()
+    # One pass, so the markers this writes are never re-encoded.
+    text = re.sub(r"\d+|[A-Za-z]+", lambda m: ("d" if m.group(0)[0].isdigit() else "A") + str(len(m.group(0))), text)
+    return text or "(blank)"
+
+
 # Added 2026-09-18 from live FDOR evidence (probe_fl_parcel_formats.py, Actions
 # runs 35406185583 / 35407266083): three more counties whose stored parcel is the layer's
 # PARCEL_ID with different separators/padding. Each helper returns None for
@@ -455,6 +676,10 @@ def normalize_candidates(parcel):
     if expanded_lake and expanded_lake not in seen:
         seen.add(expanded_lake)
         candidates.append(expanded_lake)
+    expanded_hendry = _expand_hendry_list_form(parcel)
+    if expanded_hendry and expanded_hendry not in seen:
+        seen.add(expanded_hendry)
+        candidates.append(expanded_hendry)
     for shaped in (_expand_lake_dashed_tail(parcel), _pad_leon_block(parcel),
                    _pad_citrus_section(parcel)):
         if shaped and shaped not in seen:
@@ -492,6 +717,28 @@ def _dor_use_int(dor_uc):
         return int(str(dor_uc).strip())
     except (TypeError, ValueError):
         return None
+
+
+def _use_code(value):
+    """PA_UC - the county's own use code - kept as text INCLUDING an all-zero
+    code. `_code()`'s "0"/"00"/"000" no-data rule is right for record
+    numbers and sale-qualification codes, where a zero is the layer's
+    sentinel, but a county that mirrors the state's scheme submits "00" for
+    vacant residential land - the single most common class of tax-deed
+    parcel - and that value was dropped as "no code". Measured in production
+    2026-09-29: 1,011 enriched rows carry DOR_UC 00, only 141 of them a
+    county use code, and not one stored county code is "00", while rows
+    with DOR_UC 01 do carry "01". Only None, blank and a NUMERIC zero (an
+    int/float column's null sentinel) are treated as absent."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        if isinstance(value, float) and value.is_integer():
+            value = int(value)
+        if value == 0:
+            return None
+    text = str(value).strip()
+    return text or None
 
 
 def dor_use_code_str(dor_uc):
@@ -562,6 +809,10 @@ def is_junk_fdor_address(phy_addr1, phy_city):
     return False
 
 
+COUNTY_SCAN_PAGE = 1000
+COUNTY_SCAN_MAX_PAGES = 50
+
+
 def fetch_needing_enrichment_counties():
     """All distinct counties that still have at least one row with a parcel
     number that this script hasn't successfully enriched yet - the fairness
@@ -594,11 +845,22 @@ def fetch_needing_enrichment_counties():
         "state": f"eq.{ENRICH_STATE}",
         "and": "(parcel.not.is.null,parcel.neq.\"\")",
         "fdor_enriched_at": "is.null",
-        "limit": "5000",
+        "order": "id.asc",
+        "limit": str(COUNTY_SCAN_PAGE),
     }
-    resp = requests.get(f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30)
-    resp.raise_for_status()
-    outstanding = Counter(row["county"] for row in resp.json() if row.get("county"))
+    # Paged (2026-10-29): PostgREST caps every read at 1,000 rows, so the old
+    # single `limit=5000` read saw only the first 1,000 outstanding rows (FL
+    # held 1,869 in 31 counties) and a county whose rows all sat past that
+    # point was never offered a slice at all.
+    outstanding = Counter()
+    for page in range(COUNTY_SCAN_MAX_PAGES):
+        resp = requests.get(f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS,
+                            params={**params, "offset": str(page * COUNTY_SCAN_PAGE)}, timeout=30)
+        resp.raise_for_status()
+        batch = resp.json()
+        outstanding.update(row["county"] for row in batch if row.get("county"))
+        if len(batch) < COUNTY_SCAN_PAGE:
+            break
     counties = sorted(outstanding)
     random.shuffle(counties)
     # (county, outstanding) rather than bare names: fetch_county_batch() needs
@@ -631,22 +893,96 @@ def fetch_county_batch(county, limit, outstanding=None):
     # not lost - they are still unstamped, and a later run's window covers
     # them. This does not weaken the anti-starvation design; it completes it,
     # extending the same fairness from between-counties to within-a-county.
-    offset = 0
-    if outstanding and outstanding > limit:
-        offset = random.randrange(0, outstanding - limit + 1)
-    params = {
-        "select": "id,parcel,address,county,prop_type,market,assessed,owner_name,latitude,longitude",
+    # AVAILABLE first (2026-09-30, AVAILABLE commercialization): the county's
+    # slice is filled from its Lands Available rows before any other ledger's
+    # - a purchasable-now parcel with no tax-roll facts is the costliest gap
+    # for a customer. The random window applies within each pass, so the
+    # anti-starvation design above is kept, per ledger. Every ledger still
+    # shares the county's one slice; nothing is enriched twice.
+    select = "id,source,parcel,address,county,prop_type,market,assessed,owner_name,latitude,longitude,field_provenance"
+    base = {
+        "select": select,
         "state": f"eq.{ENRICH_STATE}",
         "county": f"eq.{county}",
-        "and": "(parcel.not.is.null,parcel.neq.\"\")",
         "fdor_enriched_at": "is.null",
         "order": "id.asc",
-        "offset": str(offset),
-        "limit": str(limit),
     }
-    resp = requests.get(f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30)
-    resp.raise_for_status()
-    return resp.json()
+    rows = []
+    for source_filter in ("eq.laft", "neq.laft"):
+        remaining = limit - len(rows)
+        if remaining <= 0:
+            break
+        offset = 0
+        if source_filter == "neq.laft" and outstanding and outstanding > remaining:
+            offset = random.randrange(0, outstanding - remaining + 1)
+        params = dict(base, **{"and": f"(parcel.not.is.null,parcel.neq.\"\",source.{source_filter})",
+                               "offset": str(offset), "limit": str(remaining)})
+        resp = requests.get(f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30)
+        resp.raise_for_status()
+        seen = {r.get("id") for r in rows}
+        rows.extend(r for r in resp.json() if r.get("id") not in seen)   # a row never enters the slice twice
+    return rows[:limit]
+
+
+# Columns this script fills that a PowerShell sync also sends, and so could
+# erase with a blank listing cell before scripts/sync_value_guard.py existed
+# (2026-10-26): sync-harvest-to-supabase.ps1 sent `assessed` as null for every
+# RealAuction county that publishes no assessed value, and sync-certificates-
+# to-supabase.ps1 did the same with `owner_name`. Production, read-only
+# 2026-10-26: 146 active FL auction rows carried an `fdor_nal` provenance entry
+# for `assessed` with the value blank - and all 146 were already stamped
+# `fdor_enriched_at`, so the normal backlog query (fdor_enriched_at IS NULL)
+# would never have looked at them again.
+ERASABLE_COLUMNS = ("assessed", "owner_name")
+
+
+def fetch_erased_rows(limit):
+    """Rows this script enriched before whose FDOR-provenanced value a sync
+    has since blanked: `fdor_enriched_at` set, the column blank, and its
+    provenance entry still naming the tax roll. They are re-looked-up and
+    refilled through the same fill-blank + provenance rules as any other row.
+    Returns {county: [rows]}; counties come from the rows themselves."""
+    select = "id,source,parcel,address,county,prop_type,market,assessed,owner_name,latitude,longitude,field_provenance"
+    out = {}
+    seen = set()
+    for column in ERASABLE_COLUMNS:
+        params = {
+            "select": select,
+            "state": f"eq.{ENRICH_STATE}",
+            "fdor_enriched_at": "not.is.null",
+            column: "is.null",
+            f"field_provenance->{column}->>source": "in.(fdor_nal,county_gis)",
+            "and": "(parcel.not.is.null,parcel.neq.\"\")",
+            "order": "id.asc",
+            "limit": str(limit),
+        }
+        resp = requests.get(f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30)
+        resp.raise_for_status()
+        for r in resp.json():
+            if r.get("id") in seen or not r.get("county"):
+                continue
+            seen.add(r.get("id"))
+            out.setdefault(r["county"], []).append(r)
+    return out
+
+
+class SourceNotPermitted(RuntimeError):
+    """A lookup was called for a source whose fetch + enrich permission is
+    not recorded (data/source_permissions.csv). Raised BEFORE any request,
+    so a caller that skipped main()'s check (a backfill, a probe) can never
+    query the source or mistake the refusal for "no match"."""
+
+
+_LOOKUP_PERMISSIONS: dict[tuple[str, str | None], bool] = {}
+
+
+def _require_lookup_permission(source_id: str, *datasets) -> None:
+    for dataset in datasets or (None,):
+        key = (source_id, dataset)
+        if key not in _LOOKUP_PERMISSIONS:
+            _LOOKUP_PERMISSIONS[key] = _permitted(source_id, dataset)
+        if not _LOOKUP_PERMISSIONS[key]:
+            raise SourceNotPermitted(f"{source_id} {dataset or ''} fetch/enrich not permitted - 0 requests made")
 
 
 def lookup_fdor(county, parcel):
@@ -663,30 +999,120 @@ def lookup_fdor(county, parcel):
     coordinates, which is what makes the map pin, the Street View link and
     the coordinate-based Zillow link work for those rows.
     """
+    _require_lookup_permission("fl_fdor_cadastral", "parcel_attributes", "parcel_centroid")
     co_no = COUNTY_CODES.get(COUNTY_ALIASES.get(county, county))
     if co_no is None:
         return None, None, None  # unmapped county name - skip rather than guess
-    for candidate in normalize_candidates(parcel):
-        # Escape single quotes defensively - parcel numbers are normally
-        # digits/letters/dashes only, but never trust scraped input in a
-        # hand-built filter string.
-        safe = candidate.replace("'", "''")
-        params = {
-            "where": f"PARCEL_ID='{safe}' AND CO_NO={co_no}",
-            "outFields": FDOR_OUT_FIELDS,
-            "returnGeometry": "false",
-            "returnCentroid": "true",
-            "outSR": "4326",
-            "f": "json",
-        }
-        resp = requests.get(FDOR_ENDPOINT, params=params, timeout=20)
-        resp.raise_for_status()
-        data = resp.json()
-        features = data.get("features", [])
+    # dict.fromkeys: one request per distinct spelling (Lake's 4-3-5 split is
+    # produced by both lists).
+    for candidate in dict.fromkeys(normalize_candidates(parcel) + county_format_candidates(county, parcel)):
+        features = _query_layer(f"PARCEL_ID='{_sql_str(candidate)}' AND CO_NO={co_no}")
+        if len(features) > 1:
+            return None, None, AMBIGUOUS_MATCH
         if features:
             feature = features[0]
             return feature.get("attributes", {}), feature.get("centroid"), candidate
+    # Alternate key, only for a county with a proven rule and only after
+    # every PARCEL_ID spelling has missed (see ALT_KEY_RULES).
+    alt = alt_key_candidate(county, parcel)
+    if alt is not None:
+        features = _query_layer(f"ALT_KEY='{_sql_str(alt)}' AND CO_NO={co_no}")
+        if len(features) > 1:
+            return None, None, AMBIGUOUS_MATCH
+        if features:
+            feature = features[0]
+            attrs = feature.get("attributes", {}) or {}
+            # Belt and braces: the layer's own ALT_KEY on the feature must be
+            # the value asked for; anything else is not an exact match.
+            if re.sub(r"\D", "", str(attrs.get("ALT_KEY") or "")) != alt:
+                return None, None, None
+            return attrs, feature.get("centroid"), ALT_KEY_PREFIX + alt
     return None, None, None
+
+
+def _sql_str(value):
+    """Escape single quotes defensively - parcel numbers are normally
+    digits/letters/dashes only, but never trust scraped input in a
+    hand-built filter string."""
+    return str(value).replace("'", "''")
+
+
+# Transient layer errors (2026-10-27). The FDOR layer answers a share of
+# perfectly valid queries with an ArcGIS error payload - measured from a
+# sandbox on 2026-10-27 against Hillsborough ALT_KEY queries: the SAME
+# where-clause returned `{"error": {"code": 400, "message": "Cannot perform
+# query. Invalid query parameters."}}` on one request and exactly one feature
+# on the next (roughly 4 of 10 first attempts). Before this, one such answer
+# raised FdorUnavailable and abandoned the county's whole slice for the run -
+# and a certificate row asks the layer up to four questions (each PARCEL_ID
+# spelling, then ALT_KEY), so Hillsborough's 82 LienHub certificates, whose
+# folios DO match ALT_KEY (13 of 14 sampled; 1 ambiguous), almost never got
+# a full row through. The geocoding pipeline (scripts/geocode_authoritative.py)
+# calls the same lookups and counted 123 SOURCE_UNAVAILABLE on 2026-10-27.
+#
+# The same query is re-asked, unchanged, a bounded number of times with a
+# short back-off. A retry never changes the question, so it can never turn a
+# miss into a match: an error payload is not an answer, and only a real
+# feature list is ever returned. A layer that keeps erroring still raises
+# FdorUnavailable after the last attempt, exactly as before.
+FDOR_LAYER_ATTEMPTS = max(1, int(os.environ.get("FDOR_LAYER_ATTEMPTS", "4")))
+FDOR_RETRY_BACKOFF_SECONDS = 2.0
+# Count of queries that errored at least once and then answered (logged as a
+# count only).
+LAYER_RETRY_STATS = {"recovered": 0, "exhausted": 0}
+
+
+def _query_layer(where):
+    """One `/query` against the FDOR layer -> the feature list. An ArcGIS
+    error payload or a body without a `features` list is re-asked up to
+    FDOR_LAYER_ATTEMPTS times (see above) and then raises FdorUnavailable;
+    a non-JSON body raises FdorParserRejection at once, and requests' own
+    exceptions (HTTP errors, transport) propagate."""
+    last = None
+    for attempt in range(FDOR_LAYER_ATTEMPTS):
+        if attempt:
+            time.sleep(FDOR_RETRY_BACKOFF_SECONDS * attempt)
+        try:
+            features = _query_layer_once(where)
+        except FdorUnavailable as exc:
+            last = exc
+            continue
+        if attempt:
+            LAYER_RETRY_STATS["recovered"] += 1
+        return features
+    LAYER_RETRY_STATS["exhausted"] += 1
+    raise last
+
+
+def _query_layer_once(where):
+    params = {
+        "where": where,
+        "outFields": FDOR_OUT_FIELDS,
+        "returnGeometry": "false",
+        "returnCentroid": "true",
+        "outSR": "4326",
+        "f": "json",
+        # Two records are enough to tell "exactly one" from "more than
+        # one" - a duplicate is rejected, never resolved by taking the
+        # first (see AMBIGUOUS_MATCH).
+        "resultRecordCount": "2",
+    }
+    resp = requests.get(FDOR_ENDPOINT, params=params, timeout=20)
+    resp.raise_for_status()
+    try:
+        data = resp.json()
+    except ValueError as exc:
+        raise FdorParserRejection(f"layer body is not JSON: {type(exc).__name__}") from exc
+    if not isinstance(data, dict):
+        raise FdorUnavailable(f"layer body is {type(data).__name__}, not an object")
+    if "error" in data:
+        err = data.get("error")
+        code = err.get("code") if isinstance(err, dict) else None
+        raise FdorUnavailable(f"layer error {code}")
+    features = data.get("features")
+    if not isinstance(features, list):
+        raise FdorUnavailable("layer body has no features list")
+    return features
 
 
 # Santa Rosa's own ArcGIS Hub open-data FeatureServer (discovered 2026-09-07,
@@ -728,6 +1154,7 @@ def lookup_santa_rosa_gis(parcel):
     lookup_fdor() - (None, None, None) on no match - so main()'s handling
     doesn't need to know which source actually matched.
     """
+    _require_lookup_permission("fl_santa_rosa_parcels")
     for candidate in _santa_rosa_candidates(parcel):
         safe = candidate.replace("'", "''")
         params = {
@@ -737,6 +1164,8 @@ def lookup_santa_rosa_gis(parcel):
             "returnCentroid": "true",
             "outSR": "4326",
             "f": "json",
+            # Two are enough to tell "exactly one" from "more than one".
+            "resultRecordCount": "2",
         }
         resp = requests.get(SANTA_ROSA_GIS_ENDPOINT, params=params, timeout=20)
         resp.raise_for_status()
@@ -744,6 +1173,11 @@ def lookup_santa_rosa_gis(parcel):
         features = data.get("features", [])
         if not features:
             continue
+        # Same rule as lookup_fdor(): two features sharing one PAR_NUM are
+        # never resolved by taking the first (2026-10-27; before, the first
+        # feature's owner, address and centroid were written).
+        if len(features) > 1:
+            return None, None, AMBIGUOUS_MATCH
         raw = features[0].get("attributes", {})
         addr1 = next(
             (v for v in (raw.get("Addr1"), raw.get("Addr2"), raw.get("Addr3"))
@@ -822,6 +1256,7 @@ def lookup_flagler_gis(parcel):
     lookup_fdor() - (None, None, None) on no match, centroid always None
     here since this layer doesn't support returnCentroid.
     """
+    _require_lookup_permission("fl_palm_coast_flagler_parcels")
     for candidate in _flagler_candidates(parcel):
         safe = candidate.replace("'", "''")
         params = {
@@ -1142,7 +1577,7 @@ def build_update_fields(row, attrs, centroid):
         ("acreage", acreage_from(attrs)),
         # The county's own use code, beside the state's. Not cross-county
         # comparable, which is exactly why it is not merged with dor_use_code.
-        ("land_use", _code(attrs.get("PA_UC"))),
+        ("land_use", _use_code(attrs.get("PA_UC"))),
         ("effective_year_built", _int(attrs.get("EFF_YR_BLT"))),
         ("num_res_units", _int(attrs.get("NO_RES_UNT"))),
         # Last sale: the qualification code travels with the price, always.
@@ -1180,9 +1615,76 @@ def build_update_fields(row, attrs, centroid):
     return fields
 
 
+REPORT_PATH = os.environ.get("ENRICH_REPORT", "out/public/fdor-enrichment.json")
+
+
+def write_report(report):
+    """Counts-only JSON for the run (same public-artifact discipline as
+    scripts/laft_lifecycle.py's report) plus a step-summary block when
+    running under GitHub Actions. Never fails the run."""
+    import json
+    try:
+        os.makedirs(os.path.dirname(REPORT_PATH) or ".", exist_ok=True)
+        with open(REPORT_PATH, "w", encoding="utf-8") as fh:
+            json.dump(report, fh, indent=2, sort_keys=True)
+            fh.write("\n")
+    except OSError as exc:
+        print(f"  (report not written: {type(exc).__name__})", file=sys.stderr)
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        try:
+            with open(summary, "a", encoding="utf-8") as fh:
+                fh.write("### FDOR enrichment\n\n| outcome | rows |\n|---|---:|\n")
+                for key in ("attempted", "matched", "written", "already_populated", "unmatched", "ambiguous",
+                            "malformed_identifier", "source_unavailable", "parser_rejection", "error",
+                            "withheld_by_provenance", "alt_key_matches"):
+                    fh.write(f"| {key} | {report[key]} |\n")
+        except OSError:
+            pass
+
+
+def _permitted(source_id, dataset=None) -> bool:
+    """Recorded fetch + enrich permission (data/source_permissions.csv),
+    fail closed: any error loading governance is a refusal."""
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from harvesters.governance import permissions as PERM  # noqa: PLC0415
+    except Exception as exc:  # noqa: BLE001
+        print(f"::error title=enrich_property_details::governance unavailable ({type(exc).__name__}) - 0 requests")
+        return False
+    for op in ("fetch", "enrich"):
+        d = PERM.authorize(source_id, op, state="FL", dataset=dataset)
+        if not d.allowed:
+            print(f"::warning title=enrich_property_details::{source_id} {dataset or ''} {op} not permitted [{d.reason_code}]")
+            return False
+    return True
+
+
 def main():
+    # Source permission (2026-10-12). FDOR is the primary source: without a
+    # recorded permission for BOTH the attributes and the centroid point this
+    # job does not run. The two county fallbacks are skipped individually.
+    if not (_permitted("fl_fdor_cadastral", "parcel_attributes") and _permitted("fl_fdor_cadastral", "parcel_centroid")):
+        print("FDOR enrichment not permitted - nothing requested, nothing written.")
+        return
+    santa_rosa_ok = _permitted("fl_santa_rosa_parcels")
+    flagler_ok = _permitted("fl_palm_coast_flagler_parcels")
     counties = fetch_needing_enrichment_counties()
     print(f"{len(counties)} counties have rows needing enrichment (parcel set, not yet FDOR-enriched).")
+    # Rows whose tax-roll value a sync erased (see fetch_erased_rows) lead their
+    # county's slice; a county with only such rows joins the list.
+    # Switched on by the workflow (ENRICH_REFILL_ERASED=1, harvest-and-sync.yml
+    # deeds job); off by default so a caller that only wants the backlog query
+    # (and the unit tests that fake exactly that query) sees no extra request.
+    try:
+        erased = fetch_erased_rows(BATCH_LIMIT) if os.environ.get("ENRICH_REFILL_ERASED") == "1" else {}
+    except requests.RequestException as e:
+        print(f"Erased-value refill skipped this run: {type(e).__name__}", file=sys.stderr)
+        erased = {}
+    if erased:
+        print(f"{sum(len(v) for v in erased.values())} enriched row(s) in {len(erased)} counties lost a tax-roll value to a sync - refilling first.")
+        listed = {c for c, _ in counties}
+        counties = counties + [(c, 0) for c in sorted(erased) if c not in listed]
     if not counties:
         print("Nothing to enrich.")
         return
@@ -1190,28 +1692,78 @@ def main():
     total_attempted = 0
     total_matched = 0
     total_unmapped_county = 0
+    total_ambiguous = 0
+    total_unmatched = 0
+    total_written = 0
+    total_errored = 0
+    total_skipped_provenance = 0
+    # 2026-09-29 diagnosability: the outcomes a production run could not
+    # tell apart before. Counts only - never an identifier or a value.
+    total_malformed = 0          # identifier failed the plausibility gate; no request spent
+    total_source_unavailable = 0 # the layer answered with an error payload; slice abandoned
+    total_parser_rejection = 0   # the layer answered with a non-JSON body
+    total_already_populated = 0  # matched, but every roll value was already on file
+    total_alt_key_matches = 0    # matched by a county's alternate key, not PARCEL_ID
+    # county -> source -> identifier SHAPE -> count, for rows the layer had
+    # no feature for. A persistent shape here is the signal a format needs a
+    # rule (or live verification); the shape itself identifies nothing.
+    unmatched_shapes = {}
     per_county_matches = {}
     # Per-column fill counts, so a run's log says exactly which card fields got
     # populated rather than just "N rows matched".
     filled_counts = {}
 
+    deadline = time.monotonic() + TIME_BUDGET_SECONDS if TIME_BUDGET_SECONDS > 0 else None
+    budget_reached = False
+    counties_abandoned_errors = 0
     for county, outstanding in counties:
         if total_attempted >= BATCH_LIMIT:
             break
-        rows = fetch_county_batch(
-            county, min(PER_COUNTY_LIMIT, BATCH_LIMIT - total_attempted), outstanding
-        )
+        if deadline is not None and time.monotonic() >= deadline:
+            budget_reached = True
+            break
+        refill = erased.get(county, [])[:max(0, BATCH_LIMIT - total_attempted)]
+        rows = refill + (fetch_county_batch(
+            county, min(PER_COUNTY_LIMIT, BATCH_LIMIT - total_attempted - len(refill)), outstanding
+        ) if outstanding and BATCH_LIMIT - total_attempted - len(refill) > 0 else [])
         if not rows:
             continue
         county_matched = 0
-        miss_streak = 0
+        county_attempted = 0
+        # Phase 69: one miss streak PER SOURCE (auction / laft / certificate),
+        # not one per county. The three ledgers carry different identifiers
+        # from different harvesters - a LienHub certificate's account number
+        # never resolves in a county where the deed listing's parcel number
+        # does - so a run of certificate misses says nothing about the
+        # auction rows behind them. Measured 2026-09-22 (docs/phase-69-fdor-
+        # starvation.md): Escambia's slice was 31 certificate rows followed
+        # by its 6 auction rows, so the county-wide streak abandoned it after
+        # six certificate misses on every run while all 6 auction rows
+        # matched the layer on request; Volusia 50/50 and Santa Rosa 12/12
+        # likewise. A source that has missed COUNTY_MISS_STREAK times in a
+        # row is skipped for the rest of the slice (no request spent), the
+        # other sources keep going, and the cap on runaway requests holds
+        # per source instead of per county - never more than
+        # COUNTY_MISS_STREAK consecutive misses are paid for any one ledger.
+        miss_streaks = {}
+        exhausted = set()
+        error_streak = 0
         for row in rows:
-            if miss_streak >= COUNTY_MISS_STREAK:
-                # Give up on this county for THIS run only - see the
-                # COUNTY_MISS_STREAK note above. Retried in full next run.
-                print(f"  [{county}] {miss_streak} consecutive misses - skipping the rest of this county's slice this run.")
+            if deadline is not None and time.monotonic() >= deadline:
+                budget_reached = True
                 break
+            if error_streak >= COUNTY_ERROR_STREAK:
+                counties_abandoned_errors += 1
+                print(f"  [{county}] {COUNTY_ERROR_STREAK} consecutive request errors - abandoning this county's slice this run; rows untouched", file=sys.stderr)
+                break
+            source = row.get("source") or "unknown"
+            if miss_streaks.get(source, 0) >= COUNTY_MISS_STREAK:
+                if source not in exhausted:
+                    exhausted.add(source)
+                    print(f"  [{county}] {source}: {COUNTY_MISS_STREAK} consecutive misses - skipping this ledger's remaining rows in this county's slice this run.")
+                continue
             total_attempted += 1
+            county_attempted += 1
             parcel = row.get("parcel")
             if not parcel:
                 continue
@@ -1219,66 +1771,175 @@ def main():
                 total_unmapped_county += 1
                 time.sleep(REQUEST_DELAY_SECONDS)
                 continue
+            # Identifier plausibility gate (scripts/laft_status.py's rule: a
+            # digit somewhere, no line break, at most 40 characters). A junk
+            # value that slipped into `parcel` before the harvesters gained
+            # this gate (a PDF paragraph, a column heading) can never be a
+            # layer key; it used to spend every normalize_candidates()
+            # request on every run. No request, no streak, not a miss.
+            if not plausible_identifier(parcel, kind="parcel"):
+                total_malformed += 1
+                continue
             try:
                 attrs, centroid, matched_candidate = lookup_fdor(county, parcel)
-            except requests.RequestException as e:
-                print(f"  [{county}] ERROR looking up parcel {parcel!r}: {e}", file=sys.stderr)
+            except FdorUnavailable as e:
+                # The layer is answering with errors, not results: nothing
+                # learned about this or any later row in the slice. Abandon
+                # the county for this run; every row stays unstamped.
+                total_source_unavailable += 1
+                print(f"  [{county}] FDOR layer unavailable ({e}) - abandoning this county's slice this run; rows untouched", file=sys.stderr)
+                break
+            except FdorParserRejection as e:
+                total_parser_rejection += 1
+                print(f"  [{county}] FDOR layer returned an unreadable body for row {row.get('id')} ({e}) - skipped, not a miss", file=sys.stderr)
                 time.sleep(REQUEST_DELAY_SECONDS)
                 continue
+            except requests.RequestException as e:
+                # Row id only: a parcel number is a row value and this log is
+                # public CI output.
+                print(f"  [{county}] ERROR looking up row {row.get('id')}: {type(e).__name__}", file=sys.stderr)
+                total_errored += 1
+                error_streak += 1
+                time.sleep(REQUEST_DELAY_SECONDS)
+                continue
+            error_streak = 0
+            if matched_candidate == AMBIGUOUS_MATCH:
+                total_ambiguous += 1
+                print(f"  [{county}] row {row.get('id')}: candidate matched more than one layer feature - skipped (ambiguous)")
+                time.sleep(REQUEST_DELAY_SECONDS)
+                continue
+            provider = "fdor_nal"
 
             # Santa Rosa-only fallback: FDOR is a confirmed permanent 0% match
             # for this county (see lookup_santa_rosa_gis()'s docstring), so a
             # miss there is worth one extra request against the county's own
             # GIS layer before counting it as a real miss.
-            if attrs is None and COUNTY_ALIASES.get(county, county) == "Santa Rosa":
+            if attrs is None and santa_rosa_ok and COUNTY_ALIASES.get(county, county) == "Santa Rosa":
                 try:
                     attrs, centroid, matched_candidate = lookup_santa_rosa_gis(parcel)
+                    provider = "county_gis"
                 except requests.RequestException as e:
-                    print(f"  [{county}] ERROR looking up parcel {parcel!r} via Santa Rosa GIS: {e}", file=sys.stderr)
+                    print(f"  [{county}] ERROR looking up row {row.get('id')} via Santa Rosa GIS: {type(e).__name__}", file=sys.stderr)
 
             # Flagler-only fallback, same reasoning as Santa Rosa's above:
             # FDOR is unreliable/non-matching for this county specifically
             # (see lookup_flagler_gis()'s docstring), so a miss there is
             # worth one extra request against Palm Coast's own GIS layer.
-            if attrs is None and COUNTY_ALIASES.get(county, county) == "Flagler":
+            if attrs is None and flagler_ok and COUNTY_ALIASES.get(county, county) == "Flagler":
                 try:
                     attrs, centroid, matched_candidate = lookup_flagler_gis(parcel)
+                    provider = "county_gis"
                 except requests.RequestException as e:
-                    print(f"  [{county}] ERROR looking up parcel {parcel!r} via Flagler GIS: {e}", file=sys.stderr)
+                    print(f"  [{county}] ERROR looking up row {row.get('id')} via Flagler GIS: {type(e).__name__}", file=sys.stderr)
 
+            if attrs is None and matched_candidate == AMBIGUOUS_MATCH:
+                # A county fallback layer held two features for the number:
+                # nothing written, counted as ambiguous, not as a miss.
+                total_ambiguous += 1
+                time.sleep(REQUEST_DELAY_SECONDS)
+                continue
             if attrs is None:
                 # Left unmarked on purpose - retried on a later run, so a
                 # county whose format gets cracked later picks up its backlog.
-                miss_streak += 1
+                miss_streaks[source] = miss_streaks.get(source, 0) + 1
+                total_unmatched += 1
+                shapes = unmatched_shapes.setdefault(county, {}).setdefault(source, {})
+                shape = identifier_shape(parcel)
+                shapes[shape] = shapes.get(shape, 0) + 1
                 time.sleep(REQUEST_DELAY_SECONDS)
                 continue
 
             total_matched += 1
             county_matched += 1
-            miss_streak = 0  # a hit proves the format works; keep going
+            miss_streaks[source] = 0  # a hit proves this ledger's format works; keep going
+            matched_alt_key = None
+            if isinstance(matched_candidate, str) and matched_candidate.startswith(ALT_KEY_PREFIX):
+                matched_alt_key = matched_candidate[len(ALT_KEY_PREFIX):]
+                matched_candidate = _text(attrs.get("PARCEL_ID"))
+                total_alt_key_matches += 1
 
             fields = build_update_fields(row, attrs, centroid)
+            # Precedence (scripts/field_provenance.py): a column whose stored
+            # value carries a provenance entry of equal or higher rank (the
+            # county's own list, hand research) is never replaced by the tax
+            # roll's copy; build_update_fields' own fill-blank rules already
+            # decided everything else.
+            before = len(fields)
+            fields = filter_by_provenance(row, fields, provider)
+            total_skipped_provenance += before - len(fields)
+            # Every column written this run gets a provenance entry naming
+            # the layer and the candidate spelling that matched.
+            stamp = datetime.now(timezone.utc).isoformat()
+            if fields:
+                entry = provenance_entry(provider, recorded_at=stamp, matched_parcel_id=matched_candidate,
+                                         matched_field=("ALT_KEY" if matched_alt_key else None),
+                                         matched_alt_key=matched_alt_key)
+                fields["field_provenance"] = merge_field_provenance(row.get("field_provenance"),
+                                                                    {column: dict(entry) for column in fields})
+            else:
+                total_already_populated += 1
             # Stamped only on a successful match, and in the same PATCH as the
             # data, so a row is never marked enriched unless its values landed.
-            fields["fdor_enriched_at"] = datetime.now(timezone.utc).isoformat()
+            fields["fdor_enriched_at"] = stamp
 
             try:
                 patch_property(row["id"], fields)
+                total_written += 1
                 for column in fields:
-                    if column != "fdor_enriched_at":
+                    if column not in ("fdor_enriched_at", "field_provenance"):
                         filled_counts[column] = filled_counts.get(column, 0) + 1
             except requests.RequestException as e:
-                print(f"  [{county}] ERROR saving parcel {parcel!r} (matched via {matched_candidate!r}): {e}", file=sys.stderr)
+                total_errored += 1
+                print(f"  [{county}] ERROR saving row {row.get('id')}: {type(e).__name__}", file=sys.stderr)
 
             time.sleep(REQUEST_DELAY_SECONDS)
 
         if rows:
-            per_county_matches[county] = (county_matched, len(rows))
+            # matched / rows actually looked up - not the slice length. The
+            # old denominator (len(rows)) printed "0/40" for a county the
+            # streak had abandoned after six lookups, which read as forty
+            # misses and hid the starvation this phase fixed.
+            per_county_matches[county] = (county_matched, county_attempted)
+        if budget_reached:
+            break
 
+    if budget_reached:
+        print(f"Time budget of {TIME_BUDGET_SECONDS:.0f} s reached - stopped cleanly; the remaining rows stay unenriched for a later run.")
     print(
-        f"Done. Attempted {total_attempted}, FDOR matches {total_matched}, "
+        f"Done. Attempted {total_attempted}, matched {total_matched}, written {total_written}, "
+        f"unmatched {total_unmatched}, ambiguous (skipped) {total_ambiguous}, errored {total_errored}, "
+        f"columns withheld by provenance precedence {total_skipped_provenance}, "
         f"unmapped-county rows skipped {total_unmapped_county}."
     )
+    print(
+        f"Outcomes: already populated (matched, nothing new to write) {total_already_populated}, "
+        f"matched by alternate key {total_alt_key_matches}, malformed identifier (no request) {total_malformed}, "
+        f"source unavailable {total_source_unavailable}, parser rejection {total_parser_rejection}, "
+        f"layer errors recovered by a retry {LAYER_RETRY_STATS['recovered']}."
+    )
+    if unmatched_shapes:
+        print("Unmatched identifier shapes (county / ledger: shape x rows) - a shape is value-free; a persistent one needs a rule or live verification:")
+        for county in sorted(unmatched_shapes):
+            for source in sorted(unmatched_shapes[county]):
+                shapes = unmatched_shapes[county][source]
+                listed = ", ".join(f"{shape} x{n}" for shape, n in sorted(shapes.items(), key=lambda kv: (-kv[1], kv[0])))
+                print(f"  {county} / {source}: {listed}")
+    report = {
+        "attempted": total_attempted, "matched": total_matched, "written": total_written,
+        "already_populated": total_already_populated, "unmatched": total_unmatched,
+        "ambiguous": total_ambiguous, "malformed_identifier": total_malformed,
+        "source_unavailable": total_source_unavailable, "parser_rejection": total_parser_rejection,
+        "error": total_errored, "withheld_by_provenance": total_skipped_provenance,
+        "unmapped_county": total_unmapped_county, "alt_key_matches": total_alt_key_matches,
+        "layer_retries_recovered": LAYER_RETRY_STATS["recovered"],
+        "counties_abandoned_after_errors": counties_abandoned_errors,
+        "time_budget_reached": budget_reached,
+        "fields_populated": dict(sorted(filled_counts.items())),
+        "per_county": {c: {"matched": m, "attempted": a} for c, (m, a) in sorted(per_county_matches.items())},
+        "unmatched_shapes": {c: {s: dict(sorted(sh.items())) for s, sh in sorted(src.items())} for c, src in sorted(unmatched_shapes.items())},
+        "note": "counts, county names, ledger names and value-free identifier shapes only; never a parcel number, owner, address or roll value",
+    }
+    write_report(report)
     print("Fields populated this run (column: rows filled):")
     for column, count in sorted(filled_counts.items(), key=lambda kv: (-kv[1], kv[0])):
         print(f"  {column}: {count}")

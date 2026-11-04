@@ -58,11 +58,28 @@ def _005_sql() -> str:
     return _read("scripts", "migrations", "005_customer_safe_properties_projection.sql")
 
 
-def _005_returns_table_columns() -> set[str]:
-    sql = _005_sql()
+def _returns_table_columns(sql: str) -> set[str]:
     block = sql.split("returns table (")[1].split(")\nlanguage sql")[0]
+    # Comment lines inside the block are prose, not columns.
+    block = "\n".join(l for l in block.splitlines() if not l.strip().startswith("--"))
     entries = [e.strip() for e in block.replace("\n", " ").split(",") if e.strip()]
     return {e.split()[0] for e in entries}
+
+
+def _005_returns_table_columns() -> set[str]:
+    """The live get_properties() contract. 005 defined it; 012 (Phase 58)
+    and 013 (Phase 72) each dropped and recreated the function with columns
+    APPENDED, so the live RETURNS TABLE is the latest of those definitions.
+    Read the highest-numbered migration that (re)creates the function, so a
+    CSV column added alongside a projection change reconciles against the
+    contract that is actually live rather than against 005 alone."""
+    latest = None
+    for path in sorted((REPO_ROOT / "scripts" / "migrations").glob("*.sql")):
+        text = path.read_text(encoding="utf-8")
+        if "create function public.get_properties(" in text and "returns table (" in text:
+            latest = text
+    assert latest is not None
+    return _returns_table_columns(latest)
 
 
 def _csv_cols_block() -> str:
@@ -130,7 +147,11 @@ def test_A_fetchProperties_still_calls_get_properties_as_its_primary_path():
     else first, the stub's rpc() implementation would need updating too -
     this test makes that dependency explicit rather than implicit."""
     app_js = _app_js()
-    assert 'sb.rpc("get_properties", { p_state: PAGE_STATE })' in app_js
+    # Paged per ledger since 2026-10-01 (PostgREST max-rows = 1000 applies to RPCs).
+    # 2026-10-05: the same state-scoped page through LIST_RPC (get_properties_list,
+    # migration 028, falling back to get_properties when that is not deployed).
+    assert 'sb.rpc(LIST_RPC, { p_state: PAGE_STATE, p_ledger_type: ledgerType, p_limit: PROPERTY_PAGE_SIZE, p_offset: offset })' in app_js
+    assert 'var LIST_RPC = "get_properties_list";' in app_js and 'LIST_RPC = "get_properties";' in app_js
 
 
 # ==================== B: CSV field reconciliation against 005's live contract ====================

@@ -1,0 +1,6 @@
+source_family,raw_wording,result,amount_label,enabled,verified_on,evidence_run,notes
+realauction,Auction Sold,sold,Amount,true,2026-09-30,36729310846 36729752890 36731266591,"Status refresh (FNC=UPDATE, the sale-day page's own call) for an item in the Auctions Closed or Canceled area: A = 'Auction Sold', B = the time, C = 'Amount' with a money value in D, SL = 'Sold To' with a purchaser CATEGORY in ST (never stored). 65 items on 17 county sale days, 2026-09-16..2026-09-29."
+realauction,Redeemed,redeemed,,true,2026-09-30,36731088178 36731266591,"A = one-letter layout code, B = 'Redeemed'. The clerk's own sale site stating the certificate was redeemed before the sale. 126 items on 23 county sale days."
+realauction,Redeemed After Sale,redeemed,,true,2026-09-30,36731266591,"A = one-letter layout code, B = 'Redeemed After Sale'. The sale site stating a redemption after the sale. 1 item (Osceola 2026-09-29)."
+realauction,Canceled per County,cancelled,,true,2026-09-30,36731266591,"A = one-letter layout code, B = 'Canceled per County'. 5 items (Lee 2026-09-22, Leon 2026-09-16, Palm Beach 2026-09-16)."
+realauction,Canceled per Bankruptcy,cancelled,,true,2026-09-30,36731266591,"A = one-letter layout code, B = 'Canceled per Bankruptcy'. 1 item (Hillsborough 2026-09-17)."
