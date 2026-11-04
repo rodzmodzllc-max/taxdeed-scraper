@@ -63,6 +63,11 @@ window.TDW_CONFIG = {
   // verified and customers are onboarded.
   availableGate: "off",
 
+  // The look a visitor lands in when they have not picked one in the Look
+  // menu (2026-11-04, owner: "Merge by default"). A choice made in the menu
+  // or a ?look= link still wins. "classic" or "merged".
+  defaultLook: "merged",
+
   // Paid beta (2026-10-05). Switched OFF until the owner completes the
   // production steps in docs/commercial-layer.md (Stripe account, monthly
   // price, webhook, Edge Function secrets, migration 027). While off, nobody

@@ -3879,3 +3879,7 @@ The owner's brand deck (artifact Jvuoq2Mrbb9MkeWauttYun) is now the app's look. 
 - **Mark:** the TA monogram (ivory Montserrat Light on forest, sage rule) is `icons/*.png`, referenced as `?v=3`;
   theme colour `#F8F8F5`. Primary buttons are forest; search fields are pills with a sage hairline.
 - Screenshots: `tests/screenshots/brand-shots.mjs`. `sw.js` -> `tdw-shell-v158`.
+- **Merged is the default look (2026-11-04):** `config.js defaultLook: "merged"` is read by `currentExperience()` only
+  when neither `?look=` nor a stored Look-menu choice exists; an unknown value falls back to Classic. `tests/config.js`
+  has no `defaultLook`, so the suite keeps testing Classic; `tests/audit/merged-default.mjs` serves config.js with the
+  production setting appended. `sw.js` -> `tdw-shell-v159`.
