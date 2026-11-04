@@ -272,9 +272,9 @@ WI = _expansion("WI", "Wisconsin",
 # One county AVAILABLE source each, read value-free by the AVAILABLE-five
 # evidence passes (harvesters/otc/adapters/expansion.py,
 # docs/available-expansion-2026-10.md). Activation here makes the state
-# COLLECTABLE; customer publication stays per source: every one is UNREVIEWED
-# (scripts/source_publication.py) - admins see the rows labelled, customers see
-# none until an admin review approves the source. Mississippi was evaluated
+# COLLECTABLE; customer publication stays per source (scripts/source_publication.py):
+# each was UNREVIEWED until the owner's 2026-10-26 decision published them, legal
+# review pending (docs/publish-all-sources.md). Mississippi was evaluated
 # and deferred (no deterministic public source of record).
 def _available_expansion(code: str, name: str, source_of_record: str, coverage: str, identifier: str, semantics: str,
                          purchase: str, amount: str, **evidence: str) -> StateConfig:
@@ -290,8 +290,8 @@ def _available_expansion(code: str, name: str, source_of_record: str, coverage: 
         "parser_fixture_validated": "tests/python/fixtures/available_five/ carries the LIVE column names verbatim with synthetic "
                                     "values in the live shapes; the shared adapter parses it deterministically. Live parser "
                                     "validation (harvest only, no database): run 37204541253, every source COMPLETE",
-        "governance_approved": "existing publication governance: the source is UNREVIEWED - collected for admin use, never "
-                              "customer-published until an admin review approves it (no reuse licence assumed)",
+        "governance_approved": "owner publication decision 2026-10-26: customer-published, legal review pending (no reuse "
+                              "licence assumed or published; an internal risk acceptance, docs/publish-all-sources.md)",
         "production_registry_authorized": "owner instruction 2026-10-04 to build and register these AVAILABLE sources for admin "
                                           "collection; merging the PR is the decision",
     }

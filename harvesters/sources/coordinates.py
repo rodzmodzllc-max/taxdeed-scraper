@@ -67,6 +67,20 @@ SOURCE_COORDINATES = {
     "mi_detroit_landbank_programs": ("LAND_BANK_GIS", "POINT", "the DLBA layer's own latitude / longitude attributes"),
     "mn_ramsey_tax_forfeit": ("PARCEL_GIS", "POINT", "the county tax-forfeited land layer's own point for the parcel"),
     "tn_shelby_landbank": ("LAND_BANK_GIS", "POINT", "the Shelby County Land Bank portal's own latitude / longitude"),
+    # New-sources sprint (2026-10-26): the ePropertyPlus land bank portals
+    # publish each parcel's own latitude / longitude (epropertyplus.py), as
+    # Shelby's does; Pittsburgh's portal is the City's, not a land bank's.
+    "mo_kc_landbank": ("LAND_BANK_GIS", "POINT", "the Land Bank of Kansas City portal's own latitude / longitude"),
+    "mi_wayne_county_landbank": ("LAND_BANK_GIS", "POINT", "the Wayne County Land Bank portal's own latitude / longitude"),
+    "mi_saginaw_landbank": ("LAND_BANK_GIS", "POINT", "the Saginaw County Land Bank portal's own latitude / longitude"),
+    "mi_calhoun_landbank": ("LAND_BANK_GIS", "POINT", "the Calhoun County Land Bank portal's own latitude / longitude"),
+    "pa_pittsburgh_city_property": ("OTHER_REVIEWED", "POINT", "the City of Pittsburgh property portal's own latitude / longitude"),
+    # ArcGIS layers read with centroid=True (expansion.py): the area-weighted
+    # centroid of the source layer's own parcel polygon (arcgis._geometry_centroid).
+    "mn_hubbard_tfl_otc": ("PARCEL_GIS", "PARCEL_CENTROID", "the centroid of the county TFL Sales layer's own parcel polygon"),
+    "mn_stpaul_hra_properties": ("PARCEL_GIS", "PARCEL_CENTROID", "the centroid of the HRA layer's own parcel polygon"),
+    "mn_wright_tax_forfeit": ("PARCEL_GIS", "PARCEL_CENTROID", "the centroid of the county Tax Forfeited Parcels layer's own polygon"),
+    "co_saguache_tax_sale": ("PARCEL_GIS", "PARCEL_CENTROID", "the centroid of the county 2026 Tax Sale layer's own parcel polygon"),
 }
 # field_provenance.latitude.source -> method / geometry, for enriched rows.
 PROVENANCE_COORDINATES = {

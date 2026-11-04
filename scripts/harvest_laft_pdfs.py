@@ -142,17 +142,121 @@ _MUNIDOC_LINK_RE = re.compile(r"https?://mcclibraryfunctions\.azurewebsites\.us/
 _MUNIDOC_RELATIVE_RE = re.compile(r"/api/munidocDownload/\d+/[0-9a-f]+/pdf", re.I)
 
 
-def discover_successor_pdf(source_page_html: str, current_url: str) -> str | None:
-    """First munidocDownload PDF link on the clerk's Municode node page that
-    is NOT the (dead) URL we already tried, or None."""
+# A county page that links its own Lands Available PDF directly (Pasco: the
+# Clerk's "Lists of Lands" reports page re-dates the file name every
+# publication - "...20260706.pdf" went 404 when "...20261014.pdf" replaced it,
+# 2026-10-25). On a 404 the harvester follows the page's own PDF link whose
+# file name or link text says Lands Available - never a guessed URL, never a
+# link on another host than the page or the registered document.
+_ANCHOR_RE = re.compile(r"<a\b[^>]*?href\s*=\s*[\"']([^\"']+)[\"'][^>]*>(.*?)</a>", re.I | re.S)
+_LANDS_AVAILABLE_RE = re.compile(r"lands?[\s_%20-]*available", re.I)
+
+
+def discover_successor_pdf(source_page_html: str, current_url: str, page_url: str | None = None) -> str | None:
+    """The current list's link on the clerk's source page that is NOT the
+    (dead) URL we already tried, or None: a Municode munidocDownload link
+    first, else (when `page_url` is given) a .pdf link on the page whose file
+    name or link text says Lands Available, resolved against the page and
+    kept only on the page's or the registered document's own host."""
+    found = discover_successor_pdfs(source_page_html, current_url, page_url=page_url)
+    return found[0] if found else None
+
+
+def discover_successor_pdfs(source_page_html: str, current_url: str, page_url: str | None = None) -> list[str]:
+    """Every candidate discover_successor_pdf() would consider, in its order,
+    without duplicates or the dead URL. Municode links whose own anchor text
+    says Lands Available come first (a node page can list several
+    documents)."""
     if not source_page_html:
-        return None
-    candidates = list(_MUNIDOC_LINK_RE.findall(source_page_html))
+        return []
+    from urllib.parse import unquote, urljoin, urlparse  # noqa: PLC0415
+    labelled = []
+    for href, text in _ANCHOR_RE.findall(source_page_html):
+        label = re.sub(r"<[^>]+>", " ", text)
+        if _LANDS_AVAILABLE_RE.search(label) or re.search(r"\blola\b", label, re.I):
+            m = _MUNIDOC_LINK_RE.search(href) or _MUNIDOC_RELATIVE_RE.search(href)
+            if m:
+                labelled.append(m.group(0) if m.group(0).startswith("http") else f"https://{MUNICODE_HOST}{m.group(0)}")
+    candidates = labelled + list(_MUNIDOC_LINK_RE.findall(source_page_html))
     candidates += [f"https://{MUNICODE_HOST}{m}" for m in _MUNIDOC_RELATIVE_RE.findall(source_page_html)]
+    if page_url:
+        hosts = {urlparse(page_url).hostname, urlparse(current_url).hostname}
+        for href, text in _ANCHOR_RE.findall(source_page_html):
+            href = href.replace("&amp;", "&").strip()
+            label = unquote(href) + " " + re.sub(r"<[^>]+>", " ", text)
+            if ".pdf" not in href.lower() or not _LANDS_AVAILABLE_RE.search(label):
+                continue
+            absolute = urljoin(page_url, href)
+            if absolute.startswith("http://"):
+                absolute = "https://" + absolute[len("http://"):]
+            if urlparse(absolute).hostname in hosts:
+                candidates.append(absolute)
+    out: list[str] = []
     for cand in candidates:
-        if cand.rstrip("/") != current_url.rstrip("/"):
-            return cand
-    return None
+        if cand.rstrip("/") != current_url.rstrip("/") and cand not in out:
+            out.append(cand)
+    return out
+
+
+def municode_lands_available_nodes(html_text: str, page_url: str) -> list[str]:
+    """Links in the same Municode library (same host and the page's own
+    library path) whose link text says Lands Available - a child node of the
+    source page. Never another host or another library."""
+    from urllib.parse import urljoin, urlparse  # noqa: PLC0415
+    base = urlparse(page_url or "")
+    lib = "/".join(base.path.split("/")[:3]).lower()  # "/FL/<library>"
+    out: list[str] = []
+    for href, text in _ANCHOR_RE.findall(html_text or ""):
+        label = re.sub(r"<[^>]+>", " ", text)
+        if not (_LANDS_AVAILABLE_RE.search(label) or re.search(r"\blola\b", label, re.I)):
+            continue
+        absolute = urljoin(page_url, href.replace("&amp;", "&").strip())
+        u = urlparse(absolute)
+        if (u.scheme != "https" or u.hostname != base.hostname or not u.path.lower().startswith(lib)
+                or "nodeid=" not in u.query.lower()):
+            continue
+        if absolute.split("#")[0] != (page_url or "").split("#")[0] and absolute not in out:
+            out.append(absolute)
+    return out
+
+
+def urlparse_host(url: str | None) -> str | None:
+    from urllib.parse import urlparse  # noqa: PLC0415
+    return urlparse(url or "").hostname
+
+
+_INDEX_TEXT_RE = re.compile(r"lists?\s+of\s+lands|lands?\s+available", re.I)
+
+
+def _site(host: str | None) -> str:
+    parts = (host or "").lower().split(".")
+    return ".".join(parts[-2:])
+
+
+def discover_list_index_pages(source_page_html: str, page_url: str, current_url: str) -> list[str]:
+    """Non-PDF links on the source page whose link TEXT names the lists of
+    lands (e.g. "Lists of Lands"), on the same site (registrable domain) as
+    the source page or the registered document: the county's own index of
+    its published lists. Upgraded to https; never another site."""
+    if not source_page_html or not page_url:
+        return []
+    from urllib.parse import urljoin, urlparse  # noqa: PLC0415
+    sites = {_site(urlparse(page_url).hostname), _site(urlparse(current_url).hostname)}
+    out: list[str] = []
+    for href, text in _ANCHOR_RE.findall(source_page_html):
+        href = href.replace("&amp;", "&").strip()
+        label = re.sub(r"<[^>]+>", " ", text)
+        if ".pdf" in href.lower() or not _INDEX_TEXT_RE.search(label):
+            continue
+        absolute = urljoin(page_url, href)
+        if absolute.startswith("http://"):
+            absolute = "https://" + absolute[len("http://"):]
+        if not absolute.startswith("https://") or _site(urlparse(absolute).hostname) not in sites:
+            continue
+        if absolute.split("#")[0].rstrip("/") == page_url.split("#")[0].rstrip("/") or absolute in out:
+            continue
+        out.append(absolute)
+    return out
 
 
 def source_class_for_url(url: str) -> str:
@@ -196,6 +300,25 @@ def finalize_record(record: dict) -> dict:
     if not record.get("case_no") and record.get("parcel"):
         record["case_no"] = canonical_key(record["parcel"])
     return record
+
+
+# Counties whose clerk publishes an empty list as the table header alone, with
+# no "no properties" wording (Hendry's 09-28-2026 list, read 2026-10-28: title,
+# the statutory paragraph, the column header row, nothing after it). For these
+# counties ONLY, that exact shape is an explicit empty table (laft_status
+# "empty_table"), so the county counts as read and absent rows close. Any digit
+# after the header row - a parcel, a bid, a date - means the parser missed
+# rows, and the read stays INCOMPLETE.
+HEADER_ONLY_EMPTY_COUNTIES = frozenset({"Hendry"})
+_HEADER_LINE_RE = re.compile(r"parcel identification number.*minimum bid", re.I)
+
+
+def header_only_list(text: str) -> bool:
+    lines = [l.strip() for l in (text or "").splitlines() if l.strip()]
+    idx = next((i for i, l in enumerate(lines) if _HEADER_LINE_RE.search(l)), None)
+    if idx is None or "list of lands available" not in (text or "").lower():
+        return False
+    return not any(re.search(r"\d", l) for l in lines[idx + 1:])
 
 
 def looks_empty(text: str) -> bool:
@@ -456,29 +579,168 @@ def extract_rows_with_outcome(pdf_bytes: bytes, county: str, source_url: str) ->
         rows = deduped
     outcome["rows"] = len(rows)
     outcome["rejected"] = len(rejected)
+    if not rows and not rejected and county in HEADER_ONLY_EMPTY_COUNTIES and header_only_list(full_text):
+        outcome["empty_table"] = True
     return rows, outcome
 
 
-def _fetch_with_successor(url: str, source_page: str | None, entry: dict | None):
-    """conditional_get(), plus the Municode successor-link discovery on a
-    404 (see discover_successor_pdf). Returns (status, content, validators,
-    url_used, discovered_from)."""
+# A dead registered link: 404 Not Found, or 410 Gone (Brevard's _cache path,
+# 2026-10-26). Either way the source page may link the current document.
+SUCCESSOR_ON_STATUS = (404, 410)
+
+# A successor this harvester DISCOVERED (never the registered URL) is read as
+# the county's list only when it says it is one - its file name, or the text
+# of its first pages. A Municode node or an index page can link more than one
+# document (tax-deed sale notices, procedures); reading the wrong one as the
+# Lands Available list would close every row of the county.
+_LAFT_DOCUMENT_TEXT_RE = re.compile(r"lands?\s+available|available\s+for\s+taxes|list\s+of\s+lands|\blola\b", re.I)
+
+
+def successor_is_lands_available(url: str, content: bytes | None) -> bool:
+    from urllib.parse import unquote  # noqa: PLC0415
+    if _LANDS_AVAILABLE_RE.search(unquote(url or "")):
+        return True
+    if not content:
+        return False
+    try:
+        with pdfplumber.open(io.BytesIO(content)) as pdf:
+            text = "\n".join((p.extract_text() or "") for p in pdf.pages[:2])
+    except Exception:  # noqa: BLE001 - not a readable PDF is "not shown to be the list"
+        return False
+    return bool(_LAFT_DOCUMENT_TEXT_RE.search(text))
+
+
+# Municode munidocs node pages (Hendry) are a JavaScript application: the
+# static HTML the runner fetched on 2026-10-26 carried no munidocDownload link,
+# so the 404 on the registered document left Hendry FAILED every day and its
+# row was never re-verified. The document link appears only once the page has
+# rendered (the CSV note: "found by opening the Tax Deeds node and reading the
+# iframe src"). The laft job already installs Playwright/Chromium (St. Lucie,
+# Hillsborough), so the official page is rendered - the same page a visitor
+# opens, no login, no other host - and the rendered DOM's iframe sources and
+# anchors are offered to discover_successor_pdf(). Not verified live from the
+# sandbox (library.municode.com answers 403 here); the content check above
+# keeps a wrong document from ever being read as the list.
+MUNICODE_LIBRARY_HOST = "library.municode.com"
+MUNICODE_DOCUMENT_SELECTOR = "iframe[src*='munidoc'], embed[src*='munidoc'], a[href*='munidocDownload'], iframe[src$='.pdf']"
+
+
+def render_page_links(url: str, timeout_ms: int = 45_000) -> str:
+    """HTML made of the rendered page's iframe / embed / anchor targets with
+    their visible text, for discover_successor_pdf(). Empty on any failure."""
+    try:
+        from playwright.sync_api import sync_playwright  # noqa: PLC0415
+    except ImportError:
+        return ""
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            try:
+                page = browser.new_page(user_agent=UA)
+                # Not "networkidle": the Municode application keeps polling, so
+                # the page never goes idle and every daily render timed out
+                # (laft job, 2026-10-27: 45 s TimeoutError, Hendry FAILED for a
+                # month). Load the document, then wait for the thing we read -
+                # a document frame or a munidocDownload link - and read what is
+                # there either way.
+                page.goto(url, timeout=timeout_ms, wait_until="domcontentloaded")
+                try:
+                    page.wait_for_selector(MUNICODE_DOCUMENT_SELECTOR, timeout=timeout_ms, state="attached")
+                except Exception:  # noqa: BLE001 - read whatever rendered
+                    pass
+                found = page.evaluate(
+                    """() => {
+                        const out = [];
+                        for (const el of document.querySelectorAll('iframe[src], embed[src], object[data]'))
+                            out.push([el.src || el.data || '', el.title || 'Lands Available document frame']);
+                        for (const a of document.querySelectorAll('a[href]'))
+                            out.push([a.href, (a.innerText || a.textContent || '').trim()]);
+                        return out;
+                    }""")
+                srcs = [f.url for f in page.frames if f.url and f.url != "about:blank"]
+            finally:
+                browser.close()
+    except Exception as exc:  # noqa: BLE001 - a render failure leaves the 404 standing
+        print(f"      rendering the source page failed ({type(exc).__name__})", flush=True)
+        return ""
+    import html as _html  # noqa: PLC0415
+    parts = [f'<a href="{_html.escape(h, quote=True)}">{_html.escape(t or "")}</a>' for h, t in (found or []) if h]
+    parts += [f'<iframe src="{_html.escape(s, quote=True)}"></iframe>' for s in srcs]
+    return "\n".join(parts)
+
+
+def rendered_outline(rendered_html: str, limit: int = 20) -> str:
+    """A value-free outline of what render_page_links() saw - frame / link
+    hosts and link texts with every digit masked - so a run that cannot find
+    the current document says where to look (job logs are public)."""
+    from urllib.parse import urlparse  # noqa: PLC0415
+    frames = re.findall(r'<iframe src="([^"]*)"', rendered_html or "")
+    links = _ANCHOR_RE.findall(rendered_html or "")
+    hosts = sorted({urlparse(h).hostname or "?" for h in frames + [a for a, _ in links]})
+    texts = []
+    for _, t in links:
+        t = re.sub(r"\d", "#", re.sub(r"<[^>]+>|\s+", " ", t)).strip()
+        if t and t not in texts:
+            texts.append(t[:60])
+    return (f"{len(frames)} frame(s), {len(links)} link(s); hosts {hosts[:10]}; "
+            f"link texts {texts[:limit]}")
+
+
+def _fetch_with_successor(url: str, source_page: str | None, entry: dict | None, *, render=None):
+    """conditional_get(), plus the successor-link discovery on a dead
+    registered link (404 / 410 - see discover_successor_pdf). Returns
+    (status, content, validators, url_used, discovered_from). `render`
+    (tests) replaces render_page_links."""
+    render = render or render_page_links
     try:
         status, content, validators = conditional_get(requests, url, entry, headers={"User-Agent": UA}, timeout=30)
         return status, content, validators, url, None
     except requests.exceptions.HTTPError as exc:
         code = getattr(getattr(exc, "response", None), "status_code", None)
-        if code != 404 or not source_page:
+        if code not in SUCCESSOR_ON_STATUS or not source_page:
             raise
-        print("      registered PDF link returned 404 - looking for the current link on the clerk's source page", flush=True)
+        print(f"      registered PDF link returned {code} - looking for the current link on the clerk's source page", flush=True)
         page = requests.get(source_page, headers={"User-Agent": UA}, timeout=30)
         page.raise_for_status()
-        successor = discover_successor_pdf(page.text, url)
-        if not successor:
+        page_url = getattr(page, "url", None) or source_page
+        candidates = discover_successor_pdfs(page.text, url, page_url=page_url)
+        if not candidates:
+            # One hop, no further: the county's own index page that the source
+            # page links as its "Lists of Lands" (Pasco: pascoclerk.com/202 ->
+            # app.pascoclerk.com's reports page, which links the dated PDF).
+            for index_url in discover_list_index_pages(page.text, page_url, url)[:2]:
+                print(f"      following the source page's own list index: {index_url}", flush=True)
+                index = requests.get(index_url, headers={"User-Agent": UA}, timeout=30)
+                if index.status_code != 200:
+                    continue
+                candidates = discover_successor_pdfs(index.text, url, page_url=getattr(index, "url", None) or index_url)
+                if candidates:
+                    break
+        if not candidates and _site(urlparse_host(page_url)) == _site(MUNICODE_LIBRARY_HOST):
+            print("      the source page is a Municode application - rendering it to read the current document link", flush=True)
+            rendered = render(page_url)
+            candidates = discover_successor_pdfs(rendered, url, page_url=page_url)
+            if not candidates:
+                print(f"      rendered page: {rendered_outline(rendered)}", flush=True)
+            if not candidates:
+                # One hop inside the same Municode library: a child node whose
+                # own link text says Lands Available.
+                for node_url in municode_lands_available_nodes(rendered, page_url)[:1]:
+                    print(f"      rendering the library's own Lands Available node: {node_url}", flush=True)
+                    candidates = discover_successor_pdfs(render(node_url), url, page_url=node_url)
+        if not candidates:
             raise
-        print(f"      trying discovered successor: {successor}", flush=True)
-        status, content, validators = conditional_get(requests, successor, None, headers={"User-Agent": UA}, timeout=30)
-        return status, content, validators, successor, source_page
+        mismatched = 0
+        for successor in candidates[:4]:
+            print(f"      trying discovered successor: {successor}", flush=True)
+            status, content, validators = conditional_get(requests, successor, None, headers={"User-Agent": UA}, timeout=30)
+            if successor_is_lands_available(successor, content):
+                return status, content, validators, successor, source_page
+            mismatched += 1
+            print("      not the Lands Available list (neither its file name nor its text says so) - skipped", flush=True)
+        raise _LS.CategorizedError(
+            "PARSE_FORMAT_CHANGE",
+            f"{mismatched} discovered document(s) did not say they are the Lands Available list - none read")
 
 
 def main() -> int:
@@ -548,6 +810,9 @@ def main() -> int:
                 elif outcome["empty_marker"]:
                     print("      no properties currently listed (document says so)", flush=True)
                     recorder.empty(county, "empty_marker", **status_kw, **doc_kw)
+                elif outcome.get("empty_table"):
+                    print("      no properties currently listed (the list is its header row alone)", flush=True)
+                    recorder.empty(county, "empty_table", **status_kw, **doc_kw)
                 elif outcome.get("rejected"):
                     # Every candidate row failed the identifier gate: the
                     # parser found something but none of it was a property.

@@ -58,9 +58,23 @@ AVAILABLE_HOSTS = {
 AVAILABLE_FIVE_HOSTS = {   # AVAILABLE expansion 2026-10-04 (docs/available-expansion-2026-10.md)
     "mo_stl_lra_inventory": "https://static.stlouis-mo.gov/open-data/SLDC/REAL-ESTATE/",
     "ok_oklahoma_county_owned": "https://docs.oklahomacounty.org/treasurer/",
-    "pa_fayette_repository": "https://www.fayettecountypa.org/DocumentCenter/View/9761/",
+    "pa_fayette_repository": "https://www.fayettecountypa.org/",   # the Repository Sale page; the newest dated file is followed (2026-10-26)
     "mn_ramsey_tax_forfeit": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/",
     "tn_shelby_landbank": "https://public-sctn.epropertyplus.com",     # Tennessee 2026-10-08 (docs/tennessee-survey.md)
+}
+NEW_SOURCE_HOSTS = {   # new-sources sprint 2026-10-26 (owner decision; docs/new-sources-2026-10-26.md)
+    "mo_kc_landbank": "https://public-kclb.epropertyplus.com",
+    "pa_pittsburgh_city_property": "https://public-pgh.epropertyplus.com",
+    "mi_wayne_county_landbank": "https://public-wclb.epropertyplus.com",
+    "mi_saginaw_landbank": "https://public-sclb.epropertyplus.com",
+    "mi_calhoun_landbank": "https://public-cclb.epropertyplus.com",
+    "sc_horry_tax_sale": "https://www.horrycountysc.gov/departments/treasurer/delinquent-tax/",
+    "co_saguache_tax_sale": "https://services1.arcgis.com/zH7gQ37AKcpvTX6d/",
+    "mn_hubbard_tfl_otc": "https://services.arcgis.com/auNjCUvKlkSqV04X/",
+    "mn_stpaul_hra_properties": "https://services1.arcgis.com/9meaaHE3uiba0zr8/",
+    "mn_wright_tax_forfeit": "https://services2.arcgis.com/CiQCvRGImIxsaFnM/",
+    "mi_tax_sale_info_auction": "https://www.tax-sale.info/",
+    "mi_tax_sale_info_surplus": "https://www.tax-sale.info/",
 }
 FIVE_STATE_HOSTS = {
     "co_douglas_county_held_liens": "https://services.arcgis.com/seTexOicoRXDvRsJ/",
@@ -129,7 +143,7 @@ def test_r02_every_config_is_column_verified_and_pinned_to_its_host():
             cfg = src.config
             assert cfg.columns_verified and cfg.state == st
             url = getattr(cfg, "layer_url", None) or src.url
-            assert url.startswith({**HOSTS, **FIVE_STATE_HOSTS, **AVAILABLE_HOSTS, **AVAILABLE_FIVE_HOSTS}[cfg.source_id]), (cfg.source_id, url)
+            assert url.startswith({**HOSTS, **FIVE_STATE_HOSTS, **AVAILABLE_HOSTS, **AVAILABLE_FIVE_HOSTS, **NEW_SOURCE_HOSTS}[cfg.source_id]), (cfg.source_id, url)
     # Certificates only where the county itself publishes certificates.
     kinds = {src.config.source_id: src.config.record_source for srcs in EX.SOURCES.values() for src in srcs}
     certs = {"co_morgan_county_held_certificates", "co_douglas_county_held_liens"}
@@ -137,7 +151,8 @@ def test_r02_every_config_is_column_verified_and_pinned_to_its_host():
     # AVAILABLE only where the source itself offers government-held property (the AVAILABLE sprint's sources).
     available = EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS
     assert {kinds[k] for k in available} == {"laft"}
-    assert {v for k, v in kinds.items() if k not in certs | available} == {"auction"}
+    assert {v for k, v in kinds.items() if k not in certs | available | EX.NEW_SOURCE_IDS} == {"auction"}
+    assert set(NEW_SOURCE_HOSTS) == set(EX.NEW_SOURCE_IDS)
 
 
 # ==================== 3. adapters through the runner ====================
@@ -208,7 +223,8 @@ def test_a04_wisconsin_current_empty_statement_and_previous_published_sales(tmp_
 # ==================== 4. failures ====================
 
 def test_f01_error_payload_transport_failure_and_missing_table_are_failed_never_empty():
-    arc = next(s for s in EX.SOURCES["WY"])
+    # Albany WY's list is superseded (2026-10-26: never requested live), so a live ArcGIS source stands in.
+    arc = next(s for s in EX.SOURCES["SC"] if s.kind == "arcgis")
     status, recs, cat, _, _ = HX.run_source(arc, lambda url: {"error": {"code": 500, "message": "x"}}, None, retrieved_at=T)
     assert status == "FAILED" and recs == []
 
@@ -395,12 +411,12 @@ def test_w01_expansion_job_is_a_matrix_in_the_existing_slot_and_touches_no_sched
     wf = yaml.safe_load((REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8"))
     job = wf["jobs"]["expansion"]
     assert job["strategy"]["matrix"]["state"] == ["MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"] and job["strategy"]["fail-fast"] is False
-    assert "github.event.schedule == '0 12 * * *'" in job["if"] and "'expansion'" in job["if"]
+    assert "github.event.schedule == '37 11 * * *'" in job["if"] and "'expansion'" in job["if"]
     runs = " ".join(s.get("run", "") for s in job["steps"])
     assert "harvest_expansion.py" in runs and "--close-absent" in runs and "enrich_statewide_parcels.py" in runs
     assert "texas" not in runs.lower() and "lgbs" not in runs.lower()
     on = wf.get("on") or wf.get(True)
-    assert on["schedule"] == [{"cron": "0 10 * * *"}, {"cron": "0 22 * * *"}, {"cron": "0 12 * * *"}]
+    assert on["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 4 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 3 * * *"}]
     assert "expansion" in on["workflow_dispatch"]["inputs"]["job"]["options"]
 
 
@@ -412,8 +428,10 @@ def test_a05_an_amount_of_unstated_kind_is_never_a_minimum_bid(tmp_path):
     mi = run("MI", tmp_path / "mi")["rows"]
     assert all(r["min_bid"] > 0 and "purchase_amount" not in r for r in mi)
     app = (REPO / "public/app.js").read_text(encoding="utf-8")
-    # 2026-10-05: one label function on every surface; Michigan's column is an opening bid, only LGBS is a minimum bid.
-    assert "function auctionBidLabel(p, titleCase)" in app and 'var MINIMUM_BID_SOURCES = ["tx_lgbs"];' in app
+    # 2026-10-05: one label function on every surface; Michigan county lists' column is an opening bid.
+    # 2026-11-03 (audit F104): Tax-Sale.info's Michigan catalogs publish a "Minimum Bid" column, so that
+    # source joins LGBS as a minimum-bid source; the county lists (Lenawee / Eaton) stay opening bids.
+    assert "function auctionBidLabel(p, titleCase)" in app and 'var MINIMUM_BID_SOURCES = ["tx_lgbs", "mi_tax_sale_info_auction"];' in app
     assert "Published amount (kind not stated)" in app
 
 

@@ -78,6 +78,11 @@ def classify(decisions: list[dict] | None = None, registry: dict | None = None) 
         d = by_id.get(sid)
         collected = d is not None
         scope = scope_for(pub, collected)
+        # A source an office prohibited in writing (data/office_replies.csv)
+        # is outside every customer scope, the tester preview included.
+        from .office_replies import load as _replies  # noqa: PLC0415
+        if any(sid in r.source_ids and r.commercial_use == "PROHIBITED_WITHOUT_WRITTEN_AUTHORIZATION" for r in _replies()):
+            scope = "BLOCKED"
         out.append({
             "source_id": sid,
             "state": state,

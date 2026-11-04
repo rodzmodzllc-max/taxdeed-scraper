@@ -101,7 +101,9 @@ def test_generated_status_is_county_wide_and_complete():
                 ("MI", "mi_detroit_landbank_lots", "Wayne"), ("MI", "mi_oceana_landbank", "Oceana"),
                 ("LA", "la_ebr_adjudicated", "East Baton Rouge"), ("TX", "tx_lgbs", "Liberty"), ("FL", "fl_laft_html", "Putnam")]:
         assert key in by, key
-    assert by[("MO", "mo_stl_lra_inventory", "St. Louis City")]["status"] == "NEEDS_REVIEW"
+    # The LRA's Offer to Purchase page was read 2026-10-26 (evidence table): VERIFIED now.
+    mo = by[("MO", "mo_stl_lra_inventory", "St. Louis City")]
+    assert (mo["status"], mo["basis"], mo["path_type"]) == ("VERIFIED", "evidence_table", "application_download")
     assert by[("FL", "fl_laft_realtdm", "Sarasota")]["status"] == "UNAVAILABLE"
     assert by[("LA", "la_ebr_adjudicated", "East Baton Rouge")]["status"] == "VERIFIED"
     # County-wide evidence is one record per unit, never per property.

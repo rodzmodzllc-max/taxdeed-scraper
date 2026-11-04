@@ -61,6 +61,13 @@ def test_e01_ten_path_types_and_the_db_constraint_agree():
         assert f"{t}:" in APP, t
 
 
+# Texas county offices whose own pages the evidence rows quote (Galveston: run 36858070184;
+# the rest: run 40430155571, TX enrichment 2026-10-27).
+TX_COUNTY_OFFICE_PAGES = ("https://sheriff.galvestoncountytx.gov/", "https://www.dallascounty.org/",
+                          "https://www.tarrantcountytx.gov/", "https://www.hctax.net/", "https://jeffcotax.com/",
+                          "https://www.co.orange.tx.us/", "https://www.bexar.org/", "https://www.fortbendcountytx.gov/")
+
+
 def test_e02_evidence_table_holds_only_verified_captured_rows_and_outcome_rules_ship_empty():
     # Customer Value / Evidence Acquisition sprint (2026-09-30): the evidence
     # table carries rows ONLY for counties whose own page/document was read by
@@ -78,13 +85,15 @@ def test_e02_evidence_table_holds_only_verified_captured_rows_and_outcome_rules_
         # third_party_permitted only where the listing is a vendor's (Texas: delinquent-tax
         # counsel) and the URL is the county's OWN office page the evidence was read from.
         assert not r.third_party_permitted or (r.state == "TX" and r.url == r.evidence_url
-                                               and r.url.startswith("https://sheriff.galvestoncountytx.gov/")), r.county
-        # No invented property URL: a URL appears only on an instructions-page row, and only as
-        # the same government site's own page the evidence was read from.
-        assert r.url == "" or (r.path_type == "county_instructions" and (
+                                               and r.url.startswith(TX_COUNTY_OFFICE_PAGES)), r.county
+        # No invented property URL: a URL appears only on an instructions-page row (or, in Texas,
+        # a county's own bid-form document), and only as the same government site's own page the
+        # evidence was read from.
+        assert r.url == "" or (r.path_type in ("county_instructions", "application_download") and (
             (r.url.startswith("https://www.brla.gov/") and r.evidence_url.startswith("https://www.brla.gov/"))
-            or (r.url.startswith("https://sheriff.galvestoncountytx.gov/") and r.url == r.evidence_url))), r.county
-        assert re.search(r"\brun[s]? 3669828546|\bruns 36717720575|\brun 36835470121|\brun 36858070184", r.notes), r.county  # traceable to the capture run(s)
+            or (r.url.startswith(TX_COUNTY_OFFICE_PAGES) and r.url == r.evidence_url))), r.county
+        assert re.search(r"\brun[s]? 3669828546|\bruns 36717720575|\brun 36835470121|\brun 36858070184|\brun 40430155571",
+                         r.notes), r.county  # traceable to the capture run(s)
     assert len({(r.state, r.source_id, r.county) for r in rows}) == len(rows)   # one row per source/county
     assert OI.load_rules() == []
     with open(PE.EVIDENCE_PATH, newline="", encoding="utf-8") as fh:
@@ -249,7 +258,7 @@ def test_e10_committed_registry_alone_establishes_no_path_and_only_captured_evid
         assert path.url in ("", None) or ev.path_type in PE.URL_TYPES
         prov = path.provenance()
         assert prov["purchase_evidence_url"] == ev.evidence_url and prov["purchase_instructions"] == ev.instructions
-        assert prov["purchase_path_observed_on"] == ev.observed_on and ev.observed_on in ("2026-09-30", "2026-10-01")
+        assert prov["purchase_path_observed_on"] == ev.observed_on and ev.observed_on in ("2026-09-30", "2026-10-01", "2026-10-29")  # 10-29: Brevard re-read (audit F84)
     fl_evidence = [k for k, e in evidence.items() if e.state == "FL"]
     assert typed == len(fl_evidence), (typed, len(fl_evidence))                  # every committed FL row is reachable
     # Every path type the table uses is a real, labelled type - the frontend names it.
@@ -325,21 +334,27 @@ def test_w02_absence_is_never_a_result_even_with_result_fields_on_file():
 
 def test_g01_reviews_are_validated_like_csv_values_and_the_strictest_override_stands():
     reviews = {("FL", "fl_laft_pdfs"): {"id": 3, "publication_status": "RESTRICTED", "restrictions": "terms under review", "decided_at": "2026-09-30T00:00:00Z"},
-               ("TX", "tx_hctax"): {"id": 2, "publication_status": "APPROVED", "evidence": "x", "decided_at": "2026-09-30T00:00:00Z"},
+               # (tx_hctax was the refused example until the owner published it on 2026-10-26.)
+               ("TX", "tx_brazoria_tax_resale"): {"id": 2, "publication_status": "APPROVED", "evidence": "x", "decided_at": "2026-09-30T00:00:00Z"},
                ("AL", "al_ador_state_land"): {"id": 4, "publication_status": "APPROVED", "evidence": "x", "decided_at": "2026-09-30T00:00:00Z"},
                ("TX", "tx_pbfcm"): {"id": 6, "publication_status": "APPROVED", "evidence": "x", "decided_at": "2026-09-30T00:00:00Z"},
                ("ZZ", "nope"): {"id": 5, "publication_status": "APPROVED", "decided_at": "2026-09-30T00:00:00Z"}}
     out, rep = PG.apply_reviews(ROWS, reviews)
-    assert list(rep["applied"]) == ["FL/fl_laft_pdfs"]
-    assert set(rep["rejected"]) >= {"TX/tx_hctax", "AL/al_ador_state_land"}
-    assert any("LEGAL_REVIEW_REQUIRED" in r for r in rep["rejected"]["TX/tx_hctax"]["reasons"])
+    # tx_pbfcm is an approved, production source since the owner's decision of 2026-10-26, so its review applies.
+    assert list(rep["applied"]) == ["FL/fl_laft_pdfs", "TX/tx_pbfcm"]
+    # (tx_hctax was the refused example until the owner published it on 2026-10-26.)
+    assert set(rep["rejected"]) >= {"TX/tx_brazoria_tax_resale", "AL/al_ador_state_land"}
+    assert any("not PRODUCTION_VERIFIED" in r for r in rep["rejected"]["TX/tx_brazoria_tax_resale"]["reasons"])
     assert any("not PRODUCTION_VERIFIED" in r for r in rep["rejected"]["AL/al_ador_state_land"]["reasons"])
     assert "ZZ/nope" in rep["unknown_source"]
-    # A blocked vendor can never be approved - by rejection or by having no registry row at all.
-    assert "TX/tx_pbfcm" in rep["rejected"] or "TX/tx_pbfcm" in rep["unknown_source"]
+    # A blocked vendor can never be approved - by rejection or by having no registry row at all
+    # (tx_ctsa; PBFCM was unblocked by the owner on 2026-10-26 and its review applies above).
+    _, rep2 = PG.apply_reviews(ROWS, {("TX", "tx_ctsa"): {"id": 7, "publication_status": "APPROVED", "evidence": "x",
+                                                          "decided_at": "2026-09-30T00:00:00Z"}})
+    assert "TX/tx_ctsa" in rep2["rejected"] or "TX/tx_ctsa" in rep2["unknown_source"]
     decisions = pub.decisions_by_source(out)
     assert decisions["fl_laft_pdfs"].publication == "RESTRICTED" and not decisions["fl_laft_pdfs"].customer_publishable
-    assert decisions["tx_hctax"].publication == "RESTRICTED"
+    assert decisions["tx_hctax"].publication == "APPROVED"          # owner decision 2026-10-26, legal review pending
     for sid in BLOCKED_SOURCE_IDS:
         if sid in decisions:
             assert decisions[sid].publication == "BLOCKED"
@@ -360,7 +375,11 @@ def test_g03_registry_only_run_takes_no_reviews_and_writes_the_report(tmp_path, 
     assert PG.main(["--state", "FL", "--report", str(report)]) == 0
     data = json.loads(report.read_text(encoding="utf-8"))
     assert data["mode"] == "registry-only (no credentials)" and "reviews" not in data
-    assert all(d["publication"] == "APPROVED_GRANDFATHERED" for k, d in data["sources"].items() if k.startswith("fl_laft_") and "candidate" not in k)
+    # fl_laft_portals (2026-10-26) is a new source, published by the owner's decision (legal review pending).
+    # fl_laft_orange (2026-11-04): restricted by the Comptroller's written reply (data/office_replies.csv).
+    assert all(d["publication"] == ("APPROVED" if k == "fl_laft_portals" else
+                                    "RESTRICTED" if k == "fl_laft_orange" else "APPROVED_GRANDFATHERED")
+               for k, d in data["sources"].items() if k.startswith("fl_laft_") and "candidate" not in k)
 
 
 # ==================== 5. migration 023 ====================
@@ -410,7 +429,7 @@ def test_wf01_job_selector_gates_every_job_and_never_schedules_texas():
     wf = yaml.safe_load((REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8"))
     on = wf.get("on") or wf.get(True)
     job = on["workflow_dispatch"]["inputs"]["job"]
-    assert job["default"] == "all" and job["options"] == ["all", "deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes", "expansion", "enrich", "storage", "available", "geocode", "publication"]
+    assert job["default"] == "all" and job["options"] == ["all", "deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes", "expansion", "enrich", "storage", "available", "geocode", "publication", "registry"]  # registry: audit B14
     # Authoritative geocoding (2026-10-06) is manual-only, never part of "all".
     assert wf["jobs"]["geocode"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'geocode'"
     # The enrichment backfill (property-enrichment sprint) is manual-only, never part of "all".
@@ -420,15 +439,17 @@ def test_wf01_job_selector_gates_every_job_and_never_schedules_texas():
     assert wf["jobs"]["evidence"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'evidence'"
     # Auction-outcome evidence: the stand-alone outcome read is manual-only too.
     assert wf["jobs"]["outcomes"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'outcomes'"
-    assert on["schedule"] == [{"cron": "0 10 * * *"}, {"cron": "0 22 * * *"}, {"cron": "0 12 * * *"}]
-    for name, crons in (("deeds", ("0 10 * * *", "0 22 * * *")), ("certificates", ("0 12 * * *",)), ("laft", ("0 12 * * *",)), ("backup", ("0 12 * * *",)),
-                        ("expansion", ("0 12 * * *",))):   # six-state expansion (2026-09-30): the existing 12:00 slot
+    assert on["schedule"] == [{"cron": "13 10 * * *"}, {"cron": "13 4 * * *"}, {"cron": "37 11 * * *"}, {"cron": "37 3 * * *"}]
+    for name, crons in (("deeds", ("13 10 * * *", "13 4 * * *")), ("certificates", ("37 11 * * *",)), ("laft", ("37 11 * * *",)), ("backup", ("37 11 * * *",)),
+                        ("expansion", ("37 11 * * *",))):   # six-state expansion (2026-09-30): the existing 12:00 slot
         cond = wf["jobs"][name]["if"]
         assert f"github.event.inputs.job == '{name}'" in cond and "github.event.inputs.job == 'all'" in cond and "github.event.inputs.job == ''" in cond
         for c in crons:
             assert f"github.event.schedule == '{c}'" in cond
     texas = wf["jobs"]["texas"]["if"]
-    assert texas.startswith("github.event_name == 'workflow_dispatch'") and "schedule" not in texas and "job == 'texas'" in texas
+    # Texas reads daily in the 07:37 ET run since 2026-10-26 (owner approval), once a day.
+    # Audit B25 (2026-10-29): wrapped by the schedule guard (a slot a catch-up run already completed is skipped).
+    assert texas == "${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'texas' || github.event.inputs.job == '')) || github.event.schedule == '37 11 * * *') && !contains(needs.schedule_guard.outputs.covered, 'texas') }}"
     assert "job == 'laft'" not in texas
 
 
@@ -462,7 +483,7 @@ def test_f02_history_is_append_only_wording_and_export_is_published_fields_only(
 def test_f03_filters_read_stored_fields_and_the_admin_panel_is_admin_gated():
     assert 'if (state.availLandUse !== "any" && String(p.land_use || "") !== state.availLandUse) return false;' in APP
     assert "if (state.availGeocoded && !(hasNum(p.latitude) && hasNum(p.longitude))) return false;" in APP
-    assert "if (state.availValues && !(hasNum(p.market) || hasNum(p.assessed))) return false;" in APP
+    assert "if (state.availValues && !(hasValueNum(p.market) || hasValueNum(p.assessed))) return false;" in APP  # a 0 value is "not published" (2026-11-02)
     # Admin-gated twice over: the panel loads only inside the admin-only governance
     # view (account menu / #/governance, 2026-09-30), and the loader refuses a non-admin.
     assert "if (IS_ADMIN) refreshAdminApprovals();" in APP and "await refreshAdminPublication();" in APP
@@ -472,7 +493,7 @@ def test_f03_filters_read_stored_fields_and_the_admin_panel_is_admin_gated():
     for f in ("public/index.html", "public/tx.html"):
         html = (REPO / f).read_text(encoding="utf-8")
         assert 'id="adminPublication" hidden' in html and 'id="availLandUseFilter"' in html and 'id="availGeocoded"' in html and 'id="availValues"' in html
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v137"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v160"') == 1
 
 
 # ==================== 8. regressions ====================
@@ -486,16 +507,26 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
         if r.source_id == "la_ebr_adjudicated":
             # The one reviewed (not grandfathered) approval: owner decision 2026-09-30, dated list.
             assert eff == "APPROVED" and r.is_production and "as of" in r.restrictions
+        elif r.source_id == "fl_sarasota_tc_certificates":
+            # Owner decision 2026-10-26 ("stop asking for approval"): a reviewed approval, not grandfathered.
+            assert eff == "APPROVED" and r.is_production and "owner on 2026-10-26" in r.restrictions, (r.state, r.source_id)
         elif r.state in EXPANSION_STATES and r.source_id in EX.SIX_STATE_SOURCE_IDS:
             # Six-state expansion (2026-09-30): a reviewed owner decision, not grandfathered.
             assert eff == "APPROVED" and r.is_production and "owner on 2026-09-30" in r.restrictions, (r.state, r.source_id)
+        elif r.source_id in EX.OWNER_APPROVED_2026_10_26_SOURCE_IDS | EX.NEW_SOURCE_IDS:
+            # Owner decision 2026-10-26 (docs/publish-all-sources.md): published now, legal review pending.
+            assert eff == "APPROVED" and r.is_production and "Owner approved customer publication 2026-10-26" in r.restrictions, (r.state, r.source_id)
         elif r.state in EXPANSION_STATES:
             # Five-state sprint (2026-10-01): APPROVED only on a licence the source states (quoted), else UNREVIEWED.
             if eff == "APPROVED":
                 assert r.is_production and "Creative Commons" in r.restrictions, (r.state, r.source_id)
             else:
-                expected = "not customer-published" if r.source_id in (EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS) else "no row is written"
+                expected = "not customer-published" if r.source_id in (EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS | EX.NEW_SOURCE_IDS) else "no row is written"
                 assert eff == "UNREVIEWED" and expected in r.restrictions, (r.state, r.source_id)
+        elif r.is_production and r.restrictions.startswith("Owner approved customer publication 2026-10-26"):
+            assert eff == "APPROVED", (r.state, r.source_id)   # new sources 2026-10-26 (Charlotte portal, TX county lists)
+        elif r.is_production and r.restrictions.startswith("Orange County Comptroller written reply"):
+            assert eff == "RESTRICTED", (r.state, r.source_id)   # 2026-11-04: data/office_replies.csv
         elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.source_id)
         elif r.source_id in BLOCKED_SOURCE_IDS:
@@ -508,5 +539,5 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
     assert [r.source_id for r in ROWS if r.state == "LA" and r.runnable] == ["la_ebr_adjudicated"]
     assert not any(r.runnable for r in ROWS if r.source_id in BLOCKED_SOURCE_IDS)
     # The AVAILABLE harvest units the registry expects (the laft job's own
-    # "52 unit entries this run"): FL 52, TX 8 - unchanged by this release.
-    assert len(csr.expected_harvest_units(ROWS, "FL")) == 52 and len(csr.expected_harvest_units(ROWS, "TX")) == 8
+    # "52 unit entries this run"): FL 52 (+4 on 2026-10-26); TX LGBS 8 + PBFCM 45 + MVBA 10 + 6 county lists (2026-10-26).
+    assert len(csr.expected_harvest_units(ROWS, "FL")) == 56 and len(csr.expected_harvest_units(ROWS, "TX")) == 69

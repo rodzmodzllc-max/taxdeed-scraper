@@ -91,7 +91,7 @@ def test_n05_router_routes_four_pages_and_keeps_every_existing_hash_working():
     assert 'if (seg === "list")' in block and 'seg === "dashboard" || seg === "map" || seg === "watchlist"' in block
     # County Intelligence (2026-10-06) is a fourth shell page; the three original pages are unchanged.
     # State rules (2026-10-10) is one more shell page (#/rules).
-    assert 'const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch", rules: "pageRules", watchlist: "pageWatchlist" };' in APP
+    assert 'const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch", rules: "pageRules", guide: "pageGuide", watchlist: "pageWatchlist" };' in APP
     assert 'if (seg === "counties")' in block and 'if (seg === "county")' in block and 'if (seg === "research")' in block
     assert 'if (name === "auctions") name = "list";' in APP
     # Remediation (2026-10-10): the watchlist is a shell page of its own, not a
@@ -116,7 +116,9 @@ def test_n06_map_county_select_is_scoped_to_state_and_ledger_and_counts_the_sele
     # clears the SHARED selection once that ledger's rows are settled (never a
     # Map-only fallback), and is kept while they are still loading.
     assert 'if (mapFilter.county !== "ALL" && !counts.has(mapFilter.county)) {' in block
-    assert 'if (mapLedgerSettled()) { applyCountySelection("ALL"); return; }' in block
+    # Audit F50 (2026-11-03): the clear runs only while the Map page is shown, so a
+    # List pick of a county with no rows in this ledger keeps its county and chip.
+    assert 'if (onMap && mapLedgerSettled()) { applyCountySelection("ALL"); return; }' in block
     assert "function mapLedgerSettled()" in block
     assert "countyCounts()" not in block                                # never the portfolio-wide count
     # The rows the map draws use the same ledger test.
@@ -165,6 +167,6 @@ def test_n09_watchlist_folds_the_same_parcel_across_ledgers_and_is_a_destination
 
 
 def test_n10_service_worker_bumped_and_root_mirror_matches_public():
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v137"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v160"') == 1
     for f in ("app.js", "styles.css", "sw.js", "index.html", "tx.html", "explore.css"):
         assert (REPO / f).read_bytes() == (REPO / "public" / f).read_bytes(), f

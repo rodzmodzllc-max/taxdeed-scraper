@@ -47,7 +47,7 @@ def test_a_star_record_still_applies_to_every_ledger_and_to_none():
 
 def test_no_record_and_unknown_sources_fail_closed():
     assert not P.listing_display("no_such_source", state="FL", county="Leon", ledger="AVAILABLE").allowed
-    assert not P.listing_display("tx_govease", state="TX", county="Harris", ledger="AUCTIONS").allowed
+    assert not P.listing_display("tx_ctsa", state="TX", county="Harris", ledger="AUCTIONS").allowed
 
 
 def test_the_publication_gate_passes_the_rows_ledger():

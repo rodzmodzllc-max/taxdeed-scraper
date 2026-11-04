@@ -314,7 +314,127 @@ EMPTY_MARKERS = (
     "no available lands", "no properties at this time", "no properties available",
     "no parcels available", "there are no properties", "nothing available",
     "no lands available",
+    # Read off the county pages themselves 2026-10-26 (each county read
+    # INCOMPLETE every day because its own empty statement was not known):
+    # Hamilton "No available properties at this time.", Holmes "THERE ARE NO
+    # LOLA FILES AT THIS TIME" (LOLA = List Of Lands Available), Gulf "Gulf
+    # County Does Not Have Any Property On The List Of Lands."
+    "no available properties", "no lola files",
+    "does not have any property on the list of lands",
 )
+
+# Several clerk sites built on one WordPress theme (Franklin, Taylor,
+# Lafayette - read 2026-10-26) render their lists client-side from a Vue
+# component whose data is server-rendered into an attribute:
+#   <tax-deed-sales :taxdeeds="[{...}, ...]">
+# There is no <table> in the HTML, so the table parser saw nothing and the
+# county read INCOMPLETE every day while Franklin (2) and Taylor (10)
+# published real Lands Available entries. The same component also carries
+# upcoming tax-deed SALES on other pages (Lafayette's tax-deeds page), so an
+# entry counts as Lands Available only when the site's own permalink puts it
+# in its `landavailables` post type; anything else is never inventory here.
+_VUE_TAXDEEDS_RE = re.compile(r"<tax-deed-sales\b[^>]*?\s:taxdeeds\s*=\s*\"([^\"]*)\"", re.I | re.S)
+_VUE_LAFT_POST_TYPE = "landavailables"
+# Entry `status` values that mean the entry is on the list as offered. Any
+# other value is not understood: the county reads INCOMPLETE (nothing is
+# closed on a read we do not understand). "sold" is the list's own sold mark.
+_VUE_OFFERED_STATUSES = frozenset({"", "available", "active"})
+_VUE_SOLD_STATUSES = frozenset({"sold"})
+
+
+def _vue_post_type(link: str | None) -> str | None:
+    from urllib.parse import urlparse  # noqa: PLC0415
+    parts = [p for p in urlparse(str(link or "")).path.split("/") if p]
+    return parts[0].lower() if parts else None
+
+
+def _vue_date(value) -> str | None:
+    """MM/DD/YYYY from the component's own formatted date ("03/04/2024 10:00
+    am" -> "03/04/2024"); None when it publishes none."""
+    m = re.match(r"\s*(\d{1,2}/\d{1,2}/\d{4})", str(value or ""))
+    return m.group(1) if m else None
+
+
+def vue_taxdeed_entries(html_text: str) -> list[list[dict]] | None:
+    """The decoded `:taxdeeds` arrays of every <tax-deed-sales> component on
+    the page, or None when the page has no such component. A component
+    whose attribute does not decode to a list of objects is returned as []
+    (seen, not understood)."""
+    import html as _html  # noqa: PLC0415
+    found = _VUE_TAXDEEDS_RE.findall(html_text or "")
+    if not found:
+        return None
+    out: list[list[dict]] = []
+    for raw in found:
+        try:
+            data = json.loads(_html.unescape(raw))
+        except ValueError:
+            out.append([])
+            continue
+        out.append([d for d in data if isinstance(d, dict)] if isinstance(data, list) else [])
+    return out
+
+
+def rows_from_vue_taxdeeds(html_text: str, county: str, source_url: str) -> tuple[list[dict], dict] | None:
+    """(rows, info) from the page's Lands Available component entries, or
+    None when the page carries no `landavailables` entry at all (the caller
+    then falls back to the table parser). `info` counts what was not kept:
+    sold (identities in info['sold_rows']), rejected (identifier gate) and
+    unrecognised (a status this reader does not understand)."""
+    arrays = vue_taxdeed_entries(html_text)
+    if arrays is None:
+        return None
+    entries = [e for arr in arrays for e in arr if _vue_post_type(e.get("link")) == _VUE_LAFT_POST_TYPE]
+    if not entries:
+        return None
+    info = {"sold_rows": [], "rejected": 0, "unrecognised": 0}
+    rows: list[dict] = []
+    for e in entries:
+        status = str(e.get("status") or "").strip().lower()
+        record: dict = {"county": county, "source": "laft", "url_auction": source_url}
+        case_no = str(e.get("file") or "").strip()
+        parcel = str(e.get("parcel") or "").strip()
+        cert = str(e.get("cert") or "").strip()
+        if case_no:
+            record["case_no"] = case_no
+        if parcel:
+            record["parcel"] = parcel
+        if cert:
+            record["certificate_no"] = cert
+        sale = _vue_date(e.get("formatted_sale_date"))
+        if sale:
+            record["sale_date"] = sale
+        esch = _vue_date(e.get("formatted_escheatment_date"))
+        if esch:
+            record["escheatment_date"] = esch
+        # The figure is the ORIGINAL opening bid on both sites: Taylor's own
+        # page says "The amounts listed are no longer the opening bid", and
+        # Franklin labels its figure original_bid. Never a current price.
+        amount = str(e.get("original_bid") or e.get("opening_bid") or "").strip()
+        if amount and re.fullmatch(r"\d+(?:\.\d+)?", amount.replace(",", "")):
+            record["bid"] = amount
+            record["bid_kind"] = amount_kind_for_header("original opening bid")
+        links = []
+        if str(e.get("link") or "").startswith("https://"):
+            links.append({"header": "Lands Available entry", "text": str(e.get("title") or ""), "href": e["link"]})
+        pdf = e.get("pdf_file") if isinstance(e.get("pdf_file"), dict) else {}
+        if str(pdf.get("url") or "").startswith("https://"):
+            links.append({"header": "Tax deed file", "text": str(pdf.get("title") or ""), "href": pdf["url"]})
+        if links:
+            record["row_links"] = links
+        if not (record.get("case_no") or record.get("parcel")) or not record_identifiers_plausible(record):
+            info["rejected"] += 1
+            continue
+        if status in _VUE_SOLD_STATUSES:
+            ident = _sold_identity(record)
+            if ident:
+                info["sold_rows"].append(ident)
+            continue
+        if status not in _VUE_OFFERED_STATUSES:
+            info["unrecognised"] += 1
+            continue
+        rows.append(finalize_record(record))
+    return rows, info
 
 # Putnam publishes real, current LAFT data (confirmed live 2026-08, 38
 # properties) but not as a column-oriented table at all - it's a layout
@@ -472,6 +592,18 @@ def extract_rows_with_outcome(html: bytes, county: str, source_url: str) -> tupl
     if looks_empty(page_text):
         outcome["empty_marker"] = True
         return [], outcome
+
+    # Vue-rendered list (Franklin / Taylor theme) - see _VUE_TAXDEEDS_RE.
+    raw_text = html.decode("utf-8", "replace") if isinstance(html, (bytes, bytearray)) else str(html or "")
+    vue = rows_from_vue_taxdeeds(raw_text, county, source_url)
+    if vue is not None:
+        vue_rows, info = vue
+        outcome["vue_component"] = True
+        outcome["sold_rows"] = info["sold_rows"]
+        outcome["rejected"] = info["rejected"]
+        outcome["unrecognised_status"] = info["unrecognised"]
+        outcome["rows"] = len(vue_rows)
+        return vue_rows, outcome
 
     best: tuple[int, list, list[list[str]], list[str], list] | None = None
     best_score = 1
@@ -632,7 +764,16 @@ def main() -> int:
                     print(f"    {len(outcome['sold_rows'])} row(s) the list marks sold - identities recorded, not inventory", flush=True)
                 if outcome.get("rejected"):
                     print(f"    {outcome['rejected']} row(s) rejected by the identifier gate (not a parcel/case number)", flush=True)
-                if rows:
+                if outcome.get("unrecognised_status"):
+                    # An entry whose status this reader does not understand:
+                    # the list was read but not understood in full, so it
+                    # never closes anything (rows read are still synced).
+                    print(f"    {len(rows)} properties, {outcome['unrecognised_status']} entry(ies) with an "
+                          "unrecognised status - INCOMPLETE", flush=True)
+                    recorder.incomplete(county, "PARSE_FORMAT_CHANGE",
+                                        "list entries carry a status this reader does not recognise",
+                                        row_count=len(rows), **status_kw, **doc_kw)
+                elif rows:
                     print(f"    {len(rows)} properties", flush=True)
                     recorder.complete(county, len(rows), **status_kw, **doc_kw)
                 elif outcome["empty_marker"]:

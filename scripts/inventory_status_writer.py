@@ -57,7 +57,7 @@ DEFAULT_SOLD_FILES = [REPO / "out" / n for n in ("harvest_laft_sold.json", "harv
 REPORT_PATH = REPO / "out" / "public" / "inventory-status.json"
 USER_AGENT = "taxdeed-scraper/1.0 (+https://github.com/rodzmodzllc-max/taxdeed-scraper; inventory status writer)"
 SELECT = ("id,state,county,case_no,source,source_id,harvester_source,status,sale_date,tx_sale_status,list_url,url_auction,"
-          "list_as_of,inventory_status,inventory_status_raw,otc_provenance")
+          "list_as_of,inventory_status,inventory_status_raw,otc_provenance,last_seen_at")
 BATCH = 40
 STATUS_COLUMNS = ("inventory_status", "inventory_status_raw", "inventory_status_basis", "inventory_status_observed_at")
 RESULT_COLUMNS = ("result_amount", "result_date", "result_party")   # migration 023, probed
@@ -94,7 +94,7 @@ def load_sold_identities(paths) -> set[tuple[str, str]]:
 
 
 def plan(rows: list[dict], *, today: date, sold: set[tuple[str, str]] | None = None,
-         results: dict[tuple[str, str], dict] | None = None) -> tuple[list[dict], dict]:
+         results: dict[tuple[str, str], dict] | None = None, now: datetime | None = None) -> tuple[list[dict], dict]:
     """[{id, county, case_no, status, raw, basis, evidence_url, transition,
     result?}] for every row whose observation differs from what is stored,
     plus counts. `results` = source-published result fields by identity
@@ -106,6 +106,13 @@ def plan(rows: list[dict], *, today: date, sold: set[tuple[str, str]] | None = N
     for r in rows:
         is_sold = (str(r.get("county") or ""), str(r.get("case_no") or "")) in sold
         obs = IS.status_for_row(r, today=today, sold_column_present=is_sold)
+        # A presence status needs a recent read of the row itself
+        # (harvesters/ledgers/health.py row_observation): a NEVER_READ or
+        # STALE row is `unknown`, never closed.
+        current = IS.apply_staleness(obs, r, now=now or datetime.now(timezone.utc))
+        if current is not obs:
+            counts["not_current"] = counts.get("not_current", 0) + 1
+            obs = current
         if obs is None:
             counts["unmapped"] += 1
             continue
@@ -293,7 +300,8 @@ def execute(api: Api, changes: list[dict], *, observed_at: str, run_id: str | No
 
 def summarize(state: str, counts: dict, write_counts: dict | None, have_021: bool | None, dry_run: bool) -> str:
     lines = [f"Inventory status ({state}): {counts['rows']} rows - mapped {counts['mapped']}, unmapped {counts['unmapped']}, "
-             f"unchanged {counts['unchanged']}, changed {counts['changed']}, results from a source-published status {counts['results_from_source']}",
+             f"unchanged {counts['unchanged']}, changed {counts['changed']}, results from a source-published status {counts['results_from_source']}, "
+             f"not current (never read / stale -> unknown) {counts.get('not_current', 0)}",
              "  by status: " + (", ".join(f"{k} {v}" for k, v in sorted(counts["by_status"].items())) or "none")]
     if have_021 is False:
         lines.append("  migration 021 not applied - nothing written (plan only)")

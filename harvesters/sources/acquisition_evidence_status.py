@@ -84,6 +84,14 @@ _AUTHORITY = {
     "sc_horry_forfeited_land": ("other_government", "Horry County Forfeited Land Commission"),
     "sc_georgetown_forfeited_land": ("other_government", "Georgetown County Forfeited Land Commission"),
     "tn_shelby_landbank": ("county_land_bank", "Shelby County Land Bank"),
+    "mo_kc_landbank": ("county_land_bank", "Land Bank of Kansas City, Missouri"),
+    "pa_pittsburgh_city_property": ("other_government", "City of Pittsburgh (city-owned property)"),
+    "mi_wayne_county_landbank": ("county_land_bank", "Wayne County Land Bank Corporation"),
+    "mi_saginaw_landbank": ("county_land_bank", "Saginaw County Land Bank Authority"),
+    "mi_calhoun_landbank": ("county_land_bank", "Calhoun County Land Bank Authority"),
+    "mn_stpaul_hra_properties": ("other_government", "Saint Paul Housing and Redevelopment Authority"),
+    "mn_hubbard_tfl_otc": ("other_government", "Hubbard County Tax-Forfeited Land"),
+    "mi_tax_sale_info_surplus": ("other_government", "Michigan county treasurer (foreclosing governmental unit) via Tax-Sale.info"),
 }
 _AUTHORITY_COUNTY = {("tx_lgbs", "Galveston"): ("other_government", "Galveston County Sheriff's Office")}
 
@@ -150,6 +158,17 @@ def load_candidates(path: Path = CANDIDATES) -> list[dict]:
         return rows
 
 
+def record_url(record: dict | None) -> str:
+    """The https URL a county record gives a customer to act on: the path's own
+    URL, else its application document, else the evidence page; '' for none."""
+    rec = record or {}
+    acq = rec.get("acquisition") if isinstance(rec.get("acquisition"), dict) else {}
+    for u in (rec.get("process_url"), acq.get("application_url"), rec.get("purchase_evidence_url"), acq.get("evidence_url")):
+        if isinstance(u, str) and u.startswith("https://"):
+            return u
+    return ""
+
+
 @dataclass
 class UnitStatus:
     state: str
@@ -174,18 +193,37 @@ class UnitStatus:
 
 
 def unit_status(state: str, source_id: str, county: str, *, evidence, registry_row=None,
-                outcomes=(), candidates=()) -> UnitStatus:
-    """The status of one acquisition unit. Pure: every input is passed in."""
+                outcomes=(), candidates=(), record: dict | None = None, records_known: bool = False,
+                refusal: str = "") -> UnitStatus:
+    """The status of one acquisition unit. Pure: every input is passed in.
+
+    With ``records_known`` (the builder of public/acquisition-evidence.json),
+    VERIFIED also needs ``record``: the county record the purchase-path engine
+    actually built for this unit (a path type and a URL to act on). Evidence the
+    engine refused - a link it will not accept - is NEEDS_REVIEW with the
+    engine's ``refusal``, never a VERIFIED status the acquisition gate cannot
+    use (2026-10-26)."""
     at, an = authority_for(source_id, county)
     base = dict(state=state, source_id=source_id, county=county, authority_type=at, authority=an)
+    usable = (not records_known) or bool(record and record.get("path_type") and record_url(record))
     for e in evidence:
         if e.applicable and e.state == state and e.source_id == source_id and e.county in (county, "*"):
-            return UnitStatus(status="VERIFIED", basis="evidence_table", attempted_on=e.observed_on, path_type=e.path_type,
+            if not usable:
+                return UnitStatus(status="NEEDS_REVIEW", basis="evidence_table", attempted_on=e.observed_on,
+                                  reason="Official process recorded, but the purchase-path engine built no usable record"
+                                         + (f": {refusal}" if refusal else ""), **base)
+            return UnitStatus(status="VERIFIED", basis="evidence_table", attempted_on=e.observed_on,
+                              path_type=(record or {}).get("path_type") or e.path_type,
                               reason=e.source_title or "Official process recorded", **base)
     if registry_row is not None and getattr(registry_row, "purchase_url", "") and \
             getattr(registry_row, "verification_status", "") == "PRODUCTION_VERIFIED" and \
             str(registry_row.purchase_url).startswith("https://"):
+        if not usable:
+            return UnitStatus(status="NEEDS_REVIEW", basis="registry", attempted_on=getattr(registry_row, "last_checked", ""),
+                              reason="The source's purchase document is recorded, but the purchase-path engine built no usable record"
+                                     + (f": {refusal}" if refusal else ""), **base)
         return UnitStatus(status="VERIFIED", basis="registry", attempted_on=getattr(registry_row, "last_checked", ""),
+                          path_type=(record or {}).get("path_type") or "",
                           reason="The source's own purchase document, recorded with the source", **base)
     cands = [c for c in candidates if c["state"] == state and c["county"] == county and c["source_id"] in ("", source_id)]
     cand_out = [{"url": c["url"], "doc_kind": c["doc_kind"]} for c in cands]

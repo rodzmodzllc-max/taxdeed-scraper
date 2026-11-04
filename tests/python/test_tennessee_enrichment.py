@@ -70,10 +70,13 @@ def test_shelby_acquisition_is_needs_review_from_a_capture_never_verified():
     assert all(not AES.outcome_problems(o) for o in AES.load_outcomes())
 
 
-def test_shelby_rows_carry_no_purchase_link():
+def test_shelby_rows_carry_only_the_portals_own_property_page():
+    # 2026-10-25: each offered row carries the portal's own /property/<parcelNumber> page (the
+    # pattern the portal's code publishes, verified live) - never any other constructed link.
     for r in _records():
         row = r.to_properties_row()
-        assert row.get("purchase_url") is None and row.get("purchase_path_type") in (None, "")
+        assert row["purchase_url"] == f"{EX.TN_SHELBY_LANDBANK.portal}/property/{row['case_no']}"
+        assert row["purchase_url_kind"] == "online_purchase" and row.get("purchase_path_type") in (None, "")
         assert row["list_url"] == EX.TN_SHELBY_LANDBANK.list_url
 
 
@@ -299,13 +302,18 @@ def test_flood_run_spends_the_budget_on_shelby_and_writes_only_answers(monkeypat
 # ------------------------------------------------------------- F publication gate
 
 def test_a_complete_harvest_never_approves_the_source():
-    reg = SP.registry_with_reviews("TN", reviews={})[0]
+    # Pinned on Shelby as it stood before the owner's 2026-10-26 decision: a harvest
+    # carries the registry's decision and never upgrades it.
+    import dataclasses
+    reg = dict(SP.registry_with_reviews("TN", reviews={})[0])
+    reg[SID] = dataclasses.replace(reg[SID], publication_status="UNREVIEWED")
     rows = [r.to_properties_row() for r in _records()]
     sent, counts = SY.plan("TN", rows, reg, {(SID, "Shelby"): "COMPLETE"},
                            observed_at="2026-10-10T12:00:00+00:00")
     assert {r["publication_status"] for r in sent} == {"UNREVIEWED"}
     assert counts["written_review_pending"] == len(sent)
-    assert not SP.publishable(reg[SID]) and EX.PUBLICATION[SID][0] == "UNREVIEWED"
+    assert not SP.publishable(reg[SID])
+    assert EX.PUBLICATION[SID] == ("APPROVED", EX.OWNER_APPROVED_2026_10_26)      # the owner's decision, not the harvest's
 
 
 @pytest.mark.parametrize("script", ["enrich_flood_zone.py", "geocode_properties.py", "enrich_statewide_parcels.py",

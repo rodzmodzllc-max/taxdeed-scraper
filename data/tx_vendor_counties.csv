@@ -1,0 +1,62 @@
+source_id,county,ledgers,canonical_url,machine_format,observed_status,observed_rows,documents,observed_on
+tx_pbfcm,Archer,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,EMPTY,0,1,2026-10-26
+tx_pbfcm,Austin,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,COMPLETE,1,1,2026-10-26
+tx_pbfcm,Brazoria,AUCTIONS|AVAILABLE,https://www.pbfcm.com/taxsale.html,PDF,INCOMPLETE,7,2,2026-10-26
+tx_pbfcm,Brewster,AUCTIONS,https://www.pbfcm.com/taxsale.html,PDF,COMPLETE,21,1,2026-10-26
+tx_pbfcm,Caldwell,AUCTIONS|AVAILABLE,https://www.pbfcm.com/taxsale.html,PDF,INCOMPLETE,6,2,2026-10-26
+tx_pbfcm,Cameron,AUCTIONS,https://www.pbfcm.com/taxsale.html,PDF,COMPLETE,12,1,2026-10-26
+tx_pbfcm,Chambers,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,INCOMPLETE,19,1,2026-10-26
+tx_pbfcm,Childress,AUCTIONS,https://www.pbfcm.com/taxsale.html,PDF,INCOMPLETE,0,1,2026-10-26
+tx_pbfcm,Clay,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,EMPTY,0,3,2026-10-26
+tx_pbfcm,Dickens,AUCTIONS,https://www.pbfcm.com/taxsale.html,PDF,COMPLETE,3,1,2026-10-26
+tx_pbfcm,Dimmit,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,COMPLETE,42,1,2026-10-26
+tx_pbfcm,Foard,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,EMPTY,0,1,2026-10-26
+tx_pbfcm,Fort Bend,AUCTIONS|AVAILABLE,https://www.pbfcm.com/taxsale.html,PDF,COMPLETE,19,6,2026-10-26
+tx_pbfcm,Galveston,AUCTIONS|AVAILABLE,https://www.pbfcm.com/taxsale.html,PDF,COMPLETE,6,3,2026-10-26
+tx_pbfcm,Hardeman,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,EMPTY,0,2,2026-10-26
+tx_pbfcm,Harris,AUCTIONS|AVAILABLE,https://www.pbfcm.com/taxsale.html,PDF,COMPLETE,42,15,2026-10-26
+tx_pbfcm,Hays,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,COMPLETE,3,1,2026-10-26
+tx_pbfcm,Hill,AUCTIONS,https://www.pbfcm.com/taxsale.html,PDF,COMPLETE,38,1,2026-10-26
+tx_pbfcm,Houston,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,COMPLETE,2,1,2026-10-26
+tx_pbfcm,Hunt,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,COMPLETE,14,1,2026-10-26
+tx_pbfcm,Jack,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,EMPTY,0,1,2026-10-26
+tx_pbfcm,Jasper,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,COMPLETE,6,1,2026-10-26
+tx_pbfcm,Johnson,AUCTIONS,https://www.pbfcm.com/taxsale.html,PDF,COMPLETE,1,1,2026-10-26
+tx_pbfcm,Knox,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,COMPLETE,7,1,2026-10-26
+tx_pbfcm,Liberty,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,INCOMPLETE,0,1,2026-10-26
+tx_pbfcm,Matagorda,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,COMPLETE,40,1,2026-10-26
+tx_pbfcm,Maverick,AUCTIONS|AVAILABLE,https://www.pbfcm.com/taxsale.html,PDF,COMPLETE,19,2,2026-10-26
+tx_pbfcm,Milam,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,COMPLETE,1,1,2026-10-26
+tx_pbfcm,Montague,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,COMPLETE,2,1,2026-10-26
+tx_pbfcm,Montgomery,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,INCOMPLETE,16,3,2026-10-26
+tx_pbfcm,Nacogdoches,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,INCOMPLETE,2,1,2026-10-26
+tx_pbfcm,Newton,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,COMPLETE,5,1,2026-10-26
+tx_pbfcm,Palo Pinto,AUCTIONS,https://www.pbfcm.com/taxsale.html,PDF,EMPTY,0,1,2026-10-26
+tx_pbfcm,Reeves,AUCTIONS,https://www.pbfcm.com/taxsale.html,PDF,COMPLETE,10,1,2026-10-26
+tx_pbfcm,San Jacinto,AUCTIONS|AVAILABLE,https://www.pbfcm.com/taxsale.html,PDF,COMPLETE,96,2,2026-10-26
+tx_pbfcm,Tarrant,AUCTIONS,https://www.pbfcm.com/taxsale.html,PDF,COMPLETE,2,1,2026-10-26
+tx_pbfcm,Throckmorton,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,COMPLETE,1,1,2026-10-26
+tx_pbfcm,Uvalde,AUCTIONS|AVAILABLE,https://www.pbfcm.com/taxsale.html,PDF,COMPLETE,40,2,2026-10-26
+tx_pbfcm,Walker,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,COMPLETE,12,1,2026-10-26
+tx_pbfcm,Waller,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,COMPLETE,37,1,2026-10-26
+tx_pbfcm,Washington,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,COMPLETE,1,1,2026-10-26
+tx_pbfcm,Wichita,AUCTIONS|AVAILABLE,https://www.pbfcm.com/taxsale.html,PDF,EMPTY,0,5,2026-10-26
+tx_pbfcm,Wilbarger,AUCTIONS|AVAILABLE,https://www.pbfcm.com/taxsale.html,PDF,COMPLETE,11,2,2026-10-26
+tx_pbfcm,Young,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,EMPTY,0,2,2026-10-26
+tx_pbfcm,Zavala,AVAILABLE,https://www.pbfcm.com/taxresale.html,PDF,COMPLETE,1,1,2026-10-26
+tx_mvba,Bandera,AVAILABLE,https://mvbalaw.com/tax-sales/trust-properties-for-sale/,PDF,INCOMPLETE,0,1,2026-10-26
+tx_mvba,Bastrop,AUCTIONS,https://mvbalaw.com/tax-sales/month-sales/,PDF,COMPLETE,37,1,2026-10-26
+tx_mvba,Bell,AUCTIONS,https://mvbalaw.com/tax-sales/month-sales/,PDF,INCOMPLETE,60,1,2026-10-26
+tx_mvba,Brown,AVAILABLE,https://mvbalaw.com/tax-sales/trust-properties-for-sale/,PDF,COMPLETE,27,1,2026-10-26
+tx_mvba,Cherokee,AUCTIONS,https://www.mvbataxsales.com/,JSON,COMPLETE,13,1,2026-10-26
+tx_mvba,Comal,AUCTIONS,https://www.mvbataxsales.com/,JSON,COMPLETE,10,1,2026-10-26
+tx_mvba,Gregg,AUCTIONS,https://www.mvbataxsales.com/,JSON,COMPLETE,9,1,2026-10-26
+tx_mvba,Panola,AUCTIONS,https://mvbalaw.com/tax-sales/month-sales/,PDF,COMPLETE,9,1,2026-10-26
+tx_mvba,Runnels,AVAILABLE,https://mvbalaw.com/tax-sales/trust-properties-for-sale/,PDF,COMPLETE,1,1,2026-10-26
+tx_mvba,Val Verde,AUCTIONS,https://mvbalaw.com/tax-sales/month-sales/,PDF,COMPLETE,28,1,2026-10-26
+tx_govease,Denton,AUCTIONS,https://liveauctions.govease.com/tx/txdenton/1355/browse,HTML_TABLE,COMPLETE,6,1,2026-10-26
+tx_govease,Grayson,AUCTIONS,https://liveauctions.govease.com/tx/txgrayson/1280/browse,HTML_TABLE,COMPLETE,22,1,2026-10-26
+tx_govease,McLennan,AUCTIONS,https://liveauctions.govease.com/tx/txmclennan/1444/browse,HTML_TABLE,COMPLETE,33,1,2026-10-26
+tx_govease,Palo Pinto,AUCTIONS,https://liveauctions.govease.com/tx/txpalopinto/1558/browse,HTML_TABLE,COMPLETE,10,1,2026-10-26
+tx_govease,Parker,AUCTIONS,https://liveauctions.govease.com/tx/txparker/1545/browse,HTML_TABLE,COMPLETE,8,1,2026-10-26
+tx_govease,Wichita,AUCTIONS,https://liveauctions.govease.com/tx/txwichita/1429/browse,HTML_TABLE,COMPLETE,13,1,2026-10-26
