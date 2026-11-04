@@ -7773,6 +7773,25 @@ await big.press('#globalSearchInput', 'Enter');
 }
 
 
+// ---- Unpriced rows never match a bid bound (2026-10-13) --------------------
+// A listing with no published price is unknown, not $0. Before this fix a
+// null bid read as 0 and passed every maximum. Fixture: p15 (Citrus) has no
+// published price; p3 (Bay County) shows an opening bid of $2,000.
+{
+  const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+  pg.on('pageerror', e => errors.push('bidbound pageerror: ' + e.message));
+  await pg.goto(BASE_URL + '#/list', { waitUntil: 'networkidle' });
+  await pg.waitForTimeout(500);
+  const count = (pid) => pg.locator(`#main .prop-card[data-pid="${pid}"]`).count();
+  results.bidBoundUnpricedBaseline = await count('p15');
+  await pg.click('#filtersToggle'); await pg.waitForTimeout(300);
+  await pg.click('#bidMaxInput'); await pg.keyboard.press('Control+A'); await pg.keyboard.type('5000', { delay: 20 });
+  await pg.keyboard.press('Enter'); await pg.waitForTimeout(500);
+  results.bidBoundUnpricedWithMax = await count('p15');
+  results.bidBoundPricedWithMax = await count('p3');
+  await pg.close();
+}
+
 await browser.close();
 
 // ============================================================
@@ -7784,6 +7803,9 @@ await browser.close();
 
 
 const EXPECTED = {
+  bidBoundUnpricedBaseline: 1,
+  bidBoundUnpricedWithMax: 0,
+  bidBoundPricedWithMax: 1,
   // One fact, one place + the sticky "Now showing" county bar (2026-10-27).
   countyNowBar_classic_phone: {"visible": true, "inScope": true, "eyebrow": "Counties in this list ▾", "name": "Jump to a county", "heads": ["Bay", "Citrus"], "headsNoDigits": true, "noSidewaysPills": true, "stepTargets": true, "noRepeatViewCount": true, "noOverflow": true, "next": {"county": "Citrus", "headUnderBar": true, "barStuck": true}, "list": [["Bay", "1"], ["Citrus", "1"]], "picked": {"county": "Bay", "listHidden": true}},  // 2026-10-27: docked county bar / location panel
   countyNowBar_classic_desktop: {"visible": true, "inScope": true, "eyebrow": "Counties in this list ▾", "name": "Jump to a county", "heads": ["Bay", "Citrus"], "headsNoDigits": true, "noSidewaysPills": true, "stepTargets": true, "noRepeatViewCount": true, "noOverflow": true, "next": {"county": "Citrus", "headUnderBar": true, "barStuck": true}, "list": [["Bay", "1"], ["Citrus", "1"]], "picked": {"county": "Bay", "listHidden": true}},  // 2026-10-27: docked county bar / location panel
@@ -8401,9 +8423,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 546,   // 2026-10-28: + Wayne County MI parcels (coordinates, #241); 2026-10-27: + OKC government-owned parcels and Oconee SC parcels (#233); + Wright MN scheduled (registry row); + the TX enrichment layers (StratMap, HCAD), county process candidates and evidence rows (#221); + 8 parcel layers (#220); + the #213 / #214 / #216 county sources; 366 - 14 blocked-vendor-only rows + 61 PBFCM / MVBA / GovEase county rows (owner decision 2026-10-26); + Sarasota Tax Collector certificates (2026-10-26); + the LRA, Ramsey and Fayette process evidence rows (2026-10-26) and the TX/LA candidates
+  adminSourcesRows: 553,   // 2026-11-04: + 7 FL acquisition candidate pages (#189); 2026-10-28: + Wayne County MI parcels (coordinates, #241); 2026-10-27: + OKC government-owned parcels and Oconee SC parcels (#233); + Wright MN scheduled (registry row); + the TX enrichment layers (StratMap, HCAD), county process candidates and evidence rows (#221); + 8 parcel layers (#220); + the #213 / #214 / #216 county sources; 366 - 14 blocked-vendor-only rows + 61 PBFCM / MVBA / GovEase county rows (owner decision 2026-10-26); + Sarasota Tax Collector certificates (2026-10-26); + the LRA, Ramsey and Fayette process evidence rows (2026-10-26) and the TX/LA candidates
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: "546 source(s): 455 approved, 90 review required, 1 hard blocked.",
+  adminSourcesStatusText: "553 source(s): 462 approved, 90 review required, 1 hard blocked.",
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,

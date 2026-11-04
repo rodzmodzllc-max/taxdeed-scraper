@@ -1059,6 +1059,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1082,6 +1083,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1107,6 +1109,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1132,6 +1135,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1157,6 +1161,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1182,6 +1187,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1399,6 +1405,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1424,6 +1431,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1449,6 +1457,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1474,6 +1483,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1499,6 +1509,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1524,6 +1535,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1549,6 +1561,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1574,6 +1587,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1598,6 +1612,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1622,6 +1637,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1646,6 +1662,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],
@@ -1670,6 +1687,7 @@
     "scripts/sync-laft-to-supabase.ps1",
     "scripts/source_publication.py (collectable / publishable)",
     "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)",
     "scripts/laft_lifecycle.py (apply_store_permission)"
    ],
    "conditions": [],

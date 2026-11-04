@@ -244,7 +244,7 @@
   },
   {
    "approved_for_customers": true,
-   "candidate_pages": 2,
+   "candidate_pages": 5,
    "category": "C",
    "completable_now": false,
    "county": "Putnam",
@@ -742,7 +742,7 @@
   },
   {
    "approved_for_customers": true,
-   "candidate_pages": 2,
+   "candidate_pages": 3,
    "category": "D",
    "completable_now": false,
    "county": "Escambia",
@@ -762,7 +762,7 @@
   },
   {
    "approved_for_customers": true,
-   "candidate_pages": 2,
+   "candidate_pages": 3,
    "category": "D",
    "completable_now": false,
    "county": "Hendry",
@@ -822,7 +822,7 @@
   },
   {
    "approved_for_customers": true,
-   "candidate_pages": 2,
+   "candidate_pages": 4,
    "category": "D",
    "completable_now": false,
    "county": "Palm Beach",
