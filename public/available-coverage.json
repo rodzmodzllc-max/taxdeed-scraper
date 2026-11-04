@@ -79,6 +79,18 @@
     {
      "access": "NOT_CHECKED",
      "availability": "NOT_READ",
+     "county": "Baker",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "county list",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "FL:Baker:unharvested_list",
+     "url": "https://www.bakerclerk.com"
+    },
+    {
+     "access": "NOT_CHECKED",
+     "availability": "NOT_READ",
      "county": "Broward",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
@@ -91,54 +103,6 @@
     {
      "access": "NOT_CHECKED",
      "availability": "NOT_READ",
-     "county": "Charlotte",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Charlotte:unharvested_list",
-     "url": "https://www.charlotteclerk.com/departments/taxdeed/"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Collier",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Collier:unharvested_list",
-     "url": "https://www.collierclerk.com/accessing-tax-deed-sales-in-collier-county/"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "DeSoto",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:DeSoto:unharvested_list",
-     "url": "https://www.desotoclerk.com/public-sales/tax-deeds/"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Gilchrist",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Gilchrist:unharvested_list",
-     "url": "https://www.gilchristclerk.com/tax-deeds/"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
      "county": "Jefferson",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
@@ -146,85 +110,25 @@
      "publication_review": "",
      "read_at": "",
      "source_id": "FL:Jefferson:unharvested_list",
-     "url": "https://www.jeffersonclerk.com"
+     "url": "https://www.jeffersonclerk.com/clerk-services/property-sales/tax-deed-sales/"
     },
     {
-     "access": "NOT_CHECKED",
+     "access": "ACCESSIBLE",
      "availability": "NOT_READ",
-     "county": "Lake",
+     "county": "Orange",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
-     "name": "county list",
+     "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
      "publication_review": "",
      "read_at": "",
-     "source_id": "FL:Lake:unharvested_list",
-     "url": "https://taxdeeds.lakecountyclerk.org"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Monroe",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Monroe:unharvested_list",
-     "url": "https://www.monroe-clerk.com"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Nassau",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Nassau:unharvested_list",
-     "url": "https://www.nassauclerk.com/view-tax-deeds-1"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Okaloosa",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Okaloosa:unharvested_list",
-     "url": "https://www.okaloosaclerk.com/board-services/tax-deed-sales/lands-available-for-taxes/"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Suwannee",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Suwannee:unharvested_list",
-     "url": "https://www.suwgov.org/tax-deed-sales/"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Wakulla",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "FL:Wakulla:unharvested_list",
-     "url": "https://www.wakullaclerk.org/official_records/tax_deed_sales.php"
+     "source_id": "FL:Orange:fl_laft_orange",
+     "url": "https://occompt.com/158/Land-Available-For-Taxes"
     }
    ],
    "last_reads": {
-    "COMPLETE": 24,
+    "COMPLETE": 23,
     "FAILED": 3,
-    "UNKNOWN": 25
+    "UNKNOWN": 29
    },
    "production_counties": [
     "Alachua",
@@ -232,9 +136,11 @@
     "Bradford",
     "Brevard",
     "Calhoun",
+    "Charlotte",
     "Citrus",
     "Clay",
     "Columbia",
+    "DeSoto",
     "Dixie",
     "Duval",
     "Escambia",
@@ -252,6 +158,7 @@
     "Holmes",
     "Indian River",
     "Lafayette",
+    "Lake",
     "Lee",
     "Leon",
     "Levy",
@@ -261,7 +168,6 @@
     "Martin",
     "Miami-Dade",
     "Okeechobee",
-    "Orange",
     "Osceola",
     "Palm Beach",
     "Pasco",
@@ -277,10 +183,11 @@
     "Taylor",
     "Union",
     "Volusia",
+    "Wakulla",
     "Walton",
     "Washington"
    ],
-   "production_sources": 52,
+   "production_sources": 55,
    "rejected": [],
    "research": {},
    "state": "FL",
@@ -313,47 +220,25 @@
      "read_at": "2026-10-02T13:00:41Z",
      "source_id": "mi_lenawee_landbank",
      "url": "https://www.lenawee.mi.us/850/Lenawee-County-Landbank-Authority"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Oceana",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MI:Oceana:mi_oceana_landbank",
-     "url": "https://oceana.mi.us/departments/treasurer/land-bank-authority/"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Wayne",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MI:Wayne:mi_detroit_landbank_lots",
-     "url": "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Wayne",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MI:Wayne:mi_detroit_landbank_programs",
-     "url": "https://www.arcgis.com/home/item.html?id=e0c4f46a09b9405cb18837e66e85c622"
     }
    ],
-   "last_reads": {},
-   "production_counties": [],
-   "production_sources": 0,
+   "last_reads": {
+    "UNKNOWN": 14
+   },
+   "production_counties": [
+    "Arenac",
+    "Bay",
+    "Calhoun",
+    "Jackson",
+    "Monroe",
+    "Montcalm",
+    "Oceana",
+    "Otsego",
+    "Presque Isle",
+    "Saginaw",
+    "Wayne"
+   ],
+   "production_sources": 14,
    "rejected": [],
    "research": {
     "checked_on": "2026-10-02",
@@ -364,126 +249,69 @@
     "next_action": "Capture the Lenawee Landbank page; Eaton has no candidate yet"
    },
    "state": "MI",
-   "status": "REVIEW_REQUIRED"
+   "status": "SOURCE_TRACKED"
   },
   {
-   "candidates": [
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Ramsey",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MN:Ramsey:mn_ramsey_tax_forfeit",
-     "url": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/MapServer/0"
-    }
+   "candidates": [],
+   "last_reads": {
+    "UNKNOWN": 3
+   },
+   "production_counties": [
+    "Hubbard",
+    "Ramsey"
    ],
-   "last_reads": {},
-   "production_counties": [],
-   "production_sources": 0,
+   "production_sources": 3,
    "rejected": [],
    "research": {},
    "state": "MN",
-   "status": "REVIEW_REQUIRED"
+   "status": "SOURCE_TRACKED"
   },
   {
-   "candidates": [
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "St. Louis City",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "MO:St. Louis City:mo_stl_lra_inventory",
-     "url": "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=30"
-    }
+   "candidates": [],
+   "last_reads": {
+    "UNKNOWN": 2
+   },
+   "production_counties": [
+    "Jackson",
+    "St. Louis City"
    ],
-   "last_reads": {},
-   "production_counties": [],
-   "production_sources": 0,
+   "production_sources": 2,
    "rejected": [],
    "research": {},
    "state": "MO",
-   "status": "REVIEW_REQUIRED"
+   "status": "SOURCE_TRACKED"
   },
   {
-   "candidates": [
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Oklahoma",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "OK:Oklahoma:ok_oklahoma_county_owned",
-     "url": "https://docs.oklahomacounty.org/treasurer/CountyOwnedList.asp"
-    }
+   "candidates": [],
+   "last_reads": {
+    "UNKNOWN": 1
+   },
+   "production_counties": [
+    "Oklahoma"
    ],
-   "last_reads": {},
-   "production_counties": [],
-   "production_sources": 0,
+   "production_sources": 1,
    "rejected": [],
    "research": {},
    "state": "OK",
-   "status": "REVIEW_REQUIRED"
+   "status": "SOURCE_TRACKED"
   },
   {
-   "candidates": [
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Fayette",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "PA:Fayette:pa_fayette_repository",
-     "url": "https://www.fayettecountypa.org/DocumentCenter/View/9761/Repository-Update-10-7-2025"
-    }
+   "candidates": [],
+   "last_reads": {
+    "UNKNOWN": 2
+   },
+   "production_counties": [
+    "Allegheny",
+    "Fayette"
    ],
-   "last_reads": {},
-   "production_counties": [],
-   "production_sources": 0,
+   "production_sources": 2,
    "rejected": [],
    "research": {},
    "state": "PA",
-   "status": "REVIEW_REQUIRED"
+   "status": "SOURCE_TRACKED"
   },
   {
    "candidates": [
-    {
-     "access": "ACCESSIBLE",
-     "availability": "CURRENT_INVENTORY",
-     "county": "Georgetown",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": true,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "REVIEW_REQUIRED",
-     "read_at": "2026-10-02T16:27:27Z",
-     "source_id": "SC:Georgetown:sc_georgetown_forfeited_land",
-     "url": "https://www.gtcountysc.gov/415/Forfeited-Land-Commission"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Horry",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "SC:Horry:sc_horry_forfeited_land",
-     "url": "https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/"
-    },
     {
      "access": "ACCESSIBLE",
      "availability": "EMPTY",
@@ -545,9 +373,14 @@
      "url": "https://www.yorkcountysc.gov/216/Tax-Collection"
     }
    ],
-   "last_reads": {},
-   "production_counties": [],
-   "production_sources": 0,
+   "last_reads": {
+    "UNKNOWN": 2
+   },
+   "production_counties": [
+    "Georgetown",
+    "Horry"
+   ],
+   "production_sources": 2,
    "rejected": [
     {
      "availability": "AUCTION_ONLY",
@@ -577,30 +410,21 @@
     "next_action": "Capture York's FLC posting when published (January) and the other counties' FLC pages; review before any adapter"
    },
    "state": "SC",
-   "status": "REVIEW_REQUIRED"
+   "status": "SOURCE_TRACKED"
   },
   {
-   "candidates": [
-    {
-     "access": "ACCESSIBLE",
-     "availability": "NOT_READ",
-     "county": "Shelby",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "TN:Shelby:tn_shelby_landbank",
-     "url": "https://public-sctn.epropertyplus.com/landmgmtpub/app/base/landing"
-    }
+   "candidates": [],
+   "last_reads": {
+    "UNKNOWN": 1
+   },
+   "production_counties": [
+    "Shelby"
    ],
-   "last_reads": {},
-   "production_counties": [],
-   "production_sources": 0,
+   "production_sources": 1,
    "rejected": [],
    "research": {},
    "state": "TN",
-   "status": "REVIEW_REQUIRED"
+   "status": "SOURCE_TRACKED"
   },
   {
    "candidates": [
@@ -631,25 +455,13 @@
     {
      "access": "NOT_CHECKED",
      "availability": "NOT_READ",
-     "county": "Bexar",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "TX:Bexar:unharvested_list",
-     "url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
      "county": "Brazoria",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
-     "name": "county list",
+     "name": "tx_brazoria_tax_resale",
      "publication_review": "",
      "read_at": "",
-     "source_id": "TX:Brazoria:unharvested_list",
+     "source_id": "TX:Brazoria:tx_brazoria_tax_resale",
      "url": "https://www.brazoriacountytx.gov/departments/tax-office/property-taxes/sheriff-sale-tax-resales"
     },
     {
@@ -662,7 +474,7 @@
      "publication_review": "",
      "read_at": "",
      "source_id": "TX:Camp:unharvested_list",
-     "url": "https://www.campcad.org/struck-off-list/"
+     "url": "https://campcad.org/struck-off-list/"
     },
     {
      "access": "NOT_CHECKED",
@@ -670,11 +482,11 @@
      "county": "Collin",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
-     "name": "county list",
+     "name": "tx_collin_constable_sale",
      "publication_review": "",
      "read_at": "",
-     "source_id": "TX:Collin:unharvested_list",
-     "url": "https://www.collincountytx.gov/Tax-Assessor/properties-for-sale"
+     "source_id": "TX:Collin:tx_collin_constable_sale",
+     "url": "https://www.collincountytx.gov/courts/constables/constable-sales"
     },
     {
      "access": "NOT_CHECKED",
@@ -698,7 +510,7 @@
      "publication_review": "",
      "read_at": "",
      "source_id": "TX:Fayette:unharvested_list",
-     "url": "https://www.fayettecad.org/trust-properties-offered-for-sale"
+     "url": "https://fayettecad.org/trust-properties-offered-for-sale"
     },
     {
      "access": "NOT_CHECKED",
@@ -706,10 +518,10 @@
      "county": "Grayson",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
-     "name": "county list",
+     "name": "tx_grayson_struck_off",
      "publication_review": "",
      "read_at": "",
-     "source_id": "TX:Grayson:unharvested_list",
+     "source_id": "TX:Grayson:tx_grayson_struck_off",
      "url": "https://taxsearch.co.grayson.tx.us:8443/Sales/Struck-Off-Properties"
     },
     {
@@ -718,35 +530,11 @@
      "county": "Gregg",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
-     "name": "county list",
+     "name": "tx_gregg_tax_resale",
      "publication_review": "",
      "read_at": "",
-     "source_id": "TX:Gregg:unharvested_list",
+     "source_id": "TX:Gregg:tx_gregg_tax_resale",
      "url": "https://www.greggcounty.texas.gov/assets/main/tax-assessor-collector/tax-resale-property.pdf"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Harris",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "tx_hctax",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "TX:Harris:tx_hctax",
-     "url": "https://www.hctax.net/Property/listings/taxsalelisting"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Hood",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "TX:Hood:unharvested_list",
-     "url": "https://www.hoodcad.net/struck-off-property-list/"
     },
     {
      "access": "NOT_CHECKED",
@@ -754,10 +542,10 @@
      "county": "Jefferson",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
-     "name": "county list",
+     "name": "tx_jefferson_county_resale",
      "publication_review": "",
      "read_at": "",
-     "source_id": "TX:Jefferson:unharvested_list",
+     "source_id": "TX:Jefferson:tx_jefferson_county_resale",
      "url": "https://www.jeffersoncountytx.gov"
     },
     {
@@ -775,38 +563,14 @@
     {
      "access": "NOT_CHECKED",
      "availability": "NOT_READ",
-     "county": "Montgomery",
+     "county": "Johnson",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
-     "name": "county list",
+     "name": "tx_johnson_constable_sale",
      "publication_review": "",
      "read_at": "",
-     "source_id": "TX:Montgomery:unharvested_list",
-     "url": "https://www.mctx.org/departments/departments_q_-_z/tax_office/tax_trust_property.php"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Orange",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "TX:Orange:unharvested_list",
-     "url": "https://www.co.orange.tx.us/departments/TaxAssessor-Collector/PropertyTaxSales"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Randall",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "TX:Randall:unharvested_list",
-     "url": "https://www.randallcounty.gov/293/Sheriff-Sale"
+     "source_id": "TX:Johnson:tx_johnson_constable_sale",
+     "url": "https://www.johnsoncountytx.org/public-safety/constables/constable-sale"
     },
     {
      "access": "ACCESSIBLE",
@@ -843,38 +607,87 @@
      "read_at": "",
      "source_id": "TX:Travis:unharvested_list",
      "url": "https://tax-office.traviscountytx.gov/properties/foreclosed"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Trinity",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "county list",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "TX:Trinity:unharvested_list",
-     "url": "https://www.trinitycad.net/resale-property-information/"
     }
    ],
    "last_reads": {
-    "FAILED": 8
+    "COMPLETE": 38,
+    "EMPTY": 8,
+    "FAILED": 8,
+    "INCOMPLETE": 9,
+    "UNKNOWN": 6
    },
    "production_counties": [
+    "Archer",
+    "Austin",
+    "Bandera",
+    "Bastrop",
+    "Bell",
+    "Bexar",
+    "Brazoria",
+    "Brewster",
+    "Brown",
+    "Caldwell",
+    "Cameron",
+    "Chambers",
+    "Cherokee",
+    "Childress",
+    "Clay",
+    "Comal",
+    "Dickens",
+    "Dimmit",
+    "Foard",
+    "Fort Bend",
     "Galveston",
     "Goliad",
+    "Gregg",
+    "Hardeman",
     "Hardin",
+    "Harris",
+    "Hays",
+    "Hill",
+    "Hood",
+    "Houston",
+    "Hunt",
+    "Jack",
+    "Jasper",
     "Jim Wells",
+    "Johnson",
+    "Knox",
     "Leon",
     "Liberty",
+    "Matagorda",
     "Maverick",
-    "Van Zandt"
+    "Milam",
+    "Montague",
+    "Montgomery",
+    "Nacogdoches",
+    "Newton",
+    "Orange",
+    "Palo Pinto",
+    "Panola",
+    "Randall",
+    "Reeves",
+    "Runnels",
+    "San Jacinto",
+    "Tarrant",
+    "Throckmorton",
+    "Trinity",
+    "Uvalde",
+    "Val Verde",
+    "Van Zandt",
+    "Walker",
+    "Waller",
+    "Washington",
+    "Wichita",
+    "Wilbarger",
+    "Young",
+    "Zavala"
    ],
-   "production_sources": 8,
+   "production_sources": 69,
    "rejected": [],
    "research": {},
    "state": "TX",
-   "status": "SOURCE_UNAVAILABLE"
+   "status": "SOURCE_TRACKED"
   },
   {
    "candidates": [],

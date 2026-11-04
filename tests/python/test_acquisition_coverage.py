@@ -229,7 +229,10 @@ def test_c11_scope_labels_and_last_verified_freshness_on_the_acquisition_answer(
     assert "Acquisition process last verified" in block and "retry pending - this is the last verified process" in block
     assert "First step:" in block
     dec = APP[APP.index("function availableDecisionHtml"):APP.index("function auctionDecisionHtml")]
-    assert "Property-specific: this parcel appears on the official county list." in dec
+    # Audit F74 (2026-11-03): the list is named by its publisher - a vendor
+    # listing for the taxing units, or the county's / Parish's own list.
+    assert "Property-specific: this parcel appears on ${listNoun}." in dec
+    assert "the vendor's listing for the taxing units" in dec and "`the official ${UNIT_WORD.toLowerCase()} list`" in dec
 
 
 def test_c12_capture_never_records_a_per_property_link_or_a_digit_run():

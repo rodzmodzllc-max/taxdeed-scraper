@@ -33,6 +33,29 @@
 /admin.html
   X-Robots-Tag: noindex, nofollow
 
+# Repository internals (2026-11-02, launch). Cloudflare Pages deploys the
+# repository root, so these directories are reachable by URL. robots.txt asks
+# crawlers to stay out; this header tells any crawler that still fetches a
+# page not to index it. Neither hides anything (the repository is public).
+# Moving the deploy to an output folder is a Pages project setting, not a
+# file in this repository.
+/.github/*
+  X-Robots-Tag: noindex, nofollow
+/data/*
+  X-Robots-Tag: noindex, nofollow
+/docs/*
+  X-Robots-Tag: noindex, nofollow
+/harvesters/*
+  X-Robots-Tag: noindex, nofollow
+/scripts/*
+  X-Robots-Tag: noindex, nofollow
+/supabase/*
+  X-Robots-Tag: noindex, nofollow
+/tests/*
+  X-Robots-Tag: noindex, nofollow
+/out/*
+  X-Robots-Tag: noindex, nofollow
+
 /icons/*
   Cache-Control: public, max-age=604800
 

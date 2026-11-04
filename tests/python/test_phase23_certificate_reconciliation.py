@@ -159,11 +159,16 @@ def test_harvester_always_writes_the_status_file_even_when_nothing_harvested():
 
 
 def test_harvester_never_uses_certificate_number_as_the_row_identity():
-    """case_no must come from account_number, not certificate_number - the
-    identity the sync's upsert and this phase's reconciliation both key
-    on."""
+    """case_no is never the bare certificate number (numbers repeat across
+    tax years). Since 2026-10-29 (audit B2) it is '<tax year>-<certificate #>'
+    - one row per certificate - rather than the account, which kept only one
+    certificate per parcel; the account stays in `parcel` (and is the
+    fallback key when either part is missing)."""
     src = _harvester_src()
-    assert "case_no         = $d.account_number" in src
+    assert "case_no         = $certKey" in src
+    assert "$certKey = $d.account_number" in src
+    assert '$certKey = "$(([string]$d.tax_year).Trim())-$(([string]$d.certificate_number).Trim())"' in src
+    assert "case_no         = $d.certificate_number" not in src
     assert "certificate_no  = [string]$d.certificate_number" in src
 
 
@@ -174,7 +179,7 @@ def test_reconciliation_runs_after_the_upsert_section():
     """Implementation prompt requirement: 'perform scoped reconciliation
     after successful upsert'."""
     src = _sync_src()
-    upsert_idx = src.index("Done. $sent certificates upserted to Supabase.")
+    upsert_idx = src.index("certificates upserted to Supabase")
     reconcile_idx = src.index("# ---- Reconcile certificates absent from a COMPLETE county's harvest ----")
     assert upsert_idx < reconcile_idx
 

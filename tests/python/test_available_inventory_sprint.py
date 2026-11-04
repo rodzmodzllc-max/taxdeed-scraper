@@ -212,10 +212,15 @@ def test_review_pending_available_sources_are_collected_and_auction_gating_is_un
     sc_run, sc_gated = HE.runnable_sources("SC", _reg("SC"))
     assert {"mi_detroit_landbank_lots", "mi_detroit_landbank_programs", "mi_oceana_landbank"} <= {s.config.source_id for s in mi_run}
     assert {"sc_horry_forfeited_land", "sc_georgetown_forfeited_land"} <= {s.config.source_id for s in sc_run}
-    assert ("sc_oconee_tax_sale_list", "UNREVIEWED") in sc_gated     # UNREVIEWED auction source: still never requested
+    # Owner decision 2026-10-26: Oconee's auction list is published, so it is requested now.
+    assert "sc_oconee_tax_sale_list" in {s.config.source_id for s in sc_run} and sc_gated == []
     for sid in SPRINT:
         row = _reg(_src(sid).config.state).get(sid)
-        assert not SP.publishable(row) and SP.collectable(row, "laft")   # review pending is not a prohibition
+        assert SP.publishable(row) and SP.collectable(row, "laft")
+        pending = dataclasses.replace(row, publication_status="UNREVIEWED")
+        assert not SP.publishable(pending) and SP.collectable(pending, "laft")   # review pending is not a prohibition
+    oconee = dataclasses.replace(_reg("SC")["sc_oconee_tax_sale_list"], publication_status="UNREVIEWED")
+    assert not SP.collectable(oconee, "auction")     # an UNREVIEWED auction source is still never requested
 
 
 def test_hard_blocked_source_is_never_collected_or_written():
@@ -233,7 +238,7 @@ def test_sprint_sources_are_available_ledger_only():
     for sid in SPRINT:
         assert SOURCE_LEDGERS[sid] == {Ledger.AVAILABLE}
         assert _src(sid).config.record_source == "laft"
-        assert EX.PUBLICATION[sid][0] == "UNREVIEWED"
+        assert EX.PUBLICATION[sid] == ("APPROVED", EX.OWNER_APPROVED_2026_10_26)   # owner decision 2026-10-26
 
 
 def test_detroit_and_oceana_enter_the_sync_path_labelled_with_their_review_status(tmp_path, capsys):
@@ -246,25 +251,26 @@ def test_detroit_and_oceana_enter_the_sync_path_labelled_with_their_review_statu
     dl = by_src["mi_detroit_landbank_lots"][0]
     assert dl["source"] == "laft" and dl["parcel"] == dl["case_no"] and dl["inventory_status_raw"] == "Side Lot For Sale"
     sent, counts = SY.plan("MI", rows, _reg("MI"), units)
-    assert counts["upsert"] == 5 and counts["written_review_pending"] == 5 and counts["withheld_not_publishable"] == 0
-    assert {r["publication_status"] for r in sent} == {"UNREVIEWED"}       # never relabelled APPROVED
+    assert counts["upsert"] == 5 and counts["written_review_pending"] == 0 and counts["withheld_not_publishable"] == 0
+    assert {r["publication_status"] for r in sent} == {"APPROVED"}         # the registry decision (owner, 2026-10-26)
     assert {r["ledger_type"] for r in sent} == {"buy"}
     out = capsys.readouterr().out
     assert "99000001" not in out and "SYNTHETIC" not in out and "64-099" not in out   # shapes only in the public log
-    assert "publication=UNREVIEWED" in out
+    assert "publication=APPROVED" in out
 
 
 def test_customer_publication_rule_is_independent_of_collection(monkeypatch):
     reg = _reg("MI")
-    assert not SP.publishable(reg["mi_oceana_landbank"])            # customers: not published
-    assert SP.collectable(reg["mi_oceana_landbank"], "laft")         # development: collected
-    approved = dataclasses.replace(reg["mi_oceana_landbank"], publication_status="APPROVED")
+    pending = dataclasses.replace(reg["mi_oceana_landbank"], publication_status="UNREVIEWED")
+    assert not SP.publishable(pending)            # customers: not published
+    assert SP.collectable(pending, "laft")         # development: collected
+    approved = reg["mi_oceana_landbank"]           # owner decision 2026-10-26
+    assert approved.publication_status == "APPROVED" and SP.publishable(approved) and SP.collectable(approved, "laft")
     # 2026-10-12: an APPROVED publication decision without a recorded `display`
     # permission still publishes nothing; collection is unchanged.
-    assert not SP.publishable(approved) and SP.collectable(approved, "laft")
     from permission_fixtures import install, record
-    install(monkeypatch, record(source_id="mi_oceana_landbank", jurisdiction="MI", operation="display"))
-    assert SP.publishable(approved) and SP.collectable(approved, "laft")
+    install(monkeypatch, record(source_id="mi_oceana_landbank", jurisdiction="MI", operation="fetch"), base=False)
+    assert not SP.publishable(approved) and SP.collectable(approved, "laft")
 
 
 def test_one_failing_source_never_stops_the_others(tmp_path, monkeypatch):

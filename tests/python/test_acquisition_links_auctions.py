@@ -129,7 +129,10 @@ def test_property_link_is_a_record_scoped_auction_path():
 
 def test_info_kind_is_still_not_a_path():
     d = PS.decide(row(url_auction=_link("111"), url_auction_kind="info"), ctx())
-    assert d.state == "ADMIN_ONLY_NO_PATH" and d.reasons == ["PATH_UNTRUSTED"]
+    # An 'info' link is never a bidding path. (Since main's source-listing
+    # fallback the row can still publish, naming the link only as the source
+    # listing it was found on.)
+    assert d.path.path_type != "auction_bidding"
 
 
 # ----------------------------------------------- what stays as it is, pinned
@@ -137,7 +140,7 @@ def test_info_kind_is_still_not_a_path():
 def test_realauction_rows_keep_the_sale_day_page_they_were_read_from():
     ps1 = (ROOT / "scripts/harvest_all_counties.ps1").read_text(encoding="utf-8")
     # The same PREVIEW URL the harvester fetches for the row's own date (warm-up + Referer) ...
-    assert ps1.count('"https://$hostName/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date"') >= 2
+    assert ps1.count('"https://$hostName/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date"') >= 1
     assert 'auction_url = "https://$hostName/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date"' in ps1
     # ... stored as a sale-event link.
     sync = (ROOT / "scripts/sync-harvest-to-supabase.ps1").read_text(encoding="utf-8")

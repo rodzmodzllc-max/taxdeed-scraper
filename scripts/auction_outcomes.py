@@ -5,7 +5,9 @@ evidence sprint, 2026-09-30).
 WHAT THIS DOES
 
 For Florida auction events (migration 014's auction_events) whose sale date
-has passed, it reads what the approved auction source itself PUBLISHES
+has passed - and, since 2026-10-26, for UPCOMING sale days holding an item
+this run's Waiting harvest no longer read (redeemed / cancelled before the
+sale; upcoming_days_off_list) - it reads what the approved auction source itself PUBLISHES
 about each sale-day item, deterministically matches each published item to
 exactly one event, and records a result only when the source's own status
 wording is one a reviewed row of data/auction_outcome_wordings.csv maps.
@@ -97,6 +99,7 @@ CUSTOMER_STATES = (
     "no_sale", "withdrawn", "cancelled", "redeemed", "source_unavailable",
 )
 
+EVENT_OUTCOME_COLUMN = "outcome"   # auction_events.outcome (migration 014), never a properties column
 CLOSED_FEED = "closed"
 EVIDENCE_TYPE = "realauction_closed_listing"
 EVIDENCE_SCOPE = "property"        # one item of the official sale-day listing, per property
@@ -503,6 +506,48 @@ class Api:
         self._req("PATCH", f"auction_events?id=eq.{urllib.parse.quote(event_id)}", patch, prefer="return=minimal")
 
 
+HARVEST_PATH = REPO / "out" / "harvest_all.json"
+
+
+def harvested_cases(path: Path | str | None) -> dict[str, set[str]] | None:
+    """county -> normalized case numbers this run's Waiting harvest read, or
+    None when the file is missing / unreadable (then no upcoming sale day is
+    read: fail closed, zero extra requests)."""
+    if not path or not Path(path).is_file():
+        return None
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    except ValueError:
+        return None
+    rows = data if isinstance(data, list) else [data] if isinstance(data, dict) else []
+    out: dict[str, set[str]] = {}
+    for r in rows:
+        if isinstance(r, dict) and r.get("county") and (r.get("case") or r.get("case_no")):
+            out.setdefault(str(r["county"]).strip(), set()).add(norm_id(r.get("case") or r.get("case_no")))
+    return out
+
+
+def upcoming_days_off_list(events: list[dict], harvested: dict[str, set[str]] | None, today: date) -> set[tuple[str, str]]:
+    """(county, ISO date) of UPCOMING sale days (today or later) holding at
+    least one scheduled event whose case number this run's Waiting harvest
+    did not read. RealAuction moves an item redeemed or cancelled before its
+    sale to that day's "Auctions Closed or Canceled" area, so reading it is
+    how a same-day, source-worded reason reaches the event. Only such days
+    are read (a day whose every item is still waiting has nothing to learn);
+    without a readable harvest no upcoming day is read."""
+    if harvested is None:
+        return set()
+    out: set[tuple[str, str]] = set()
+    for e in events:
+        iso = str(e.get("scheduled_sale_date") or "")[:10]
+        if not iso or iso < today.isoformat() or e.get("lifecycle") not in ("scheduled", None, ""):
+            continue
+        county = str(e.get("county") or "")
+        if norm_id(e.get("case_no")) not in harvested.get(county, set()):
+            out.add((county, iso))
+    return out
+
+
 def fl_today() -> date:
     return datetime.now(timezone(timedelta(hours=-5))).date()
 
@@ -511,6 +556,11 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--days", type=int, default=21, help="sale days within this many days before today")
+    ap.add_argument("--ahead-days", type=int, default=90,
+                    help="also read UPCOMING sale days (today .. today+N) that hold an event this run's harvest did not "
+                         "read on the Waiting list (0 = past sale days only)")
+    ap.add_argument("--harvest", default=str(HARVEST_PATH),
+                    help="this run's Waiting harvest (harvest_all.json); unreadable = no upcoming day is read")
     ap.add_argument("--county", action="append", default=[])
     ap.add_argument("--report", default=str(REPORT_PATH))
     args = ap.parse_args(argv)
@@ -533,10 +583,16 @@ def main(argv: list[str] | None = None) -> int:
     wordings = load_wordings()
     today = fl_today()
     since = today - timedelta(days=args.days)
+    until = today + timedelta(days=max(0, args.ahead_days))   # exclusive; == today when --ahead-days 0
     events = api.get_all(
         "auction_events?state=eq.FL&source=eq.auction&lifecycle=neq.superseded"
-        f"&scheduled_sale_date=lt.{today.isoformat()}&scheduled_sale_date=gte.{since.isoformat()}"
+        f"&scheduled_sale_date=lt.{until.isoformat()}&scheduled_sale_date=gte.{since.isoformat()}"
         "&select=id,property_id,county,case_no,scheduled_sale_date,lifecycle,outcome,outcome_raw,event_url")
+    upcoming = upcoming_days_off_list(events, harvested_cases(args.harvest), today) if args.ahead_days > 0 else set()
+    # Upcoming events are kept only on the days that will be read, so the
+    # parcel / observation look-ups below stay proportional to the reads.
+    events = [e for e in events if str(e["scheduled_sale_date"])[:10] < today.isoformat()
+              or (e["county"], str(e["scheduled_sale_date"])[:10]) in upcoming]
     # Parcel for the agreement check comes from the property row the event
     # belongs to (the harvester's own 'Parcel ID' cell).
     parcels: dict[str, str] = {}
@@ -556,7 +612,7 @@ def main(argv: list[str] | None = None) -> int:
             last_closed[o["event_id"]] = o
     with open(HOSTS_PATH, newline="", encoding="utf-8") as fh:
         hosts = {r["County"]: r["Host"] for r in csv.DictReader(fh)}
-    days = sorted({(e["county"], str(e["scheduled_sale_date"])) for e in events if not args.county or e["county"] in args.county})
+    days = sorted({(e["county"], str(e["scheduled_sale_date"])[:10]) for e in events if not args.county or e["county"] in args.county})
     reads: list[DayRead] = []
     skipped_no_host = 0
     for county, iso in days:
@@ -578,7 +634,8 @@ def main(argv: list[str] | None = None) -> int:
         api.patch_event(event_id, patch)
     past_events = len(events)
     report = {"generated_at": observed_at, "dry_run": args.dry_run, "window": {"from": since.isoformat(), "to_before": today.isoformat()},
-              "events_in_window": past_events, "sale_days": len(days), "sale_days_without_host": skipped_no_host,
+              "events_in_window": past_events, "sale_days": len(days), "upcoming_sale_days_read": len(upcoming),
+              "sale_days_without_host": skipped_no_host,
               "sale_days_possibly_truncated": sum(1 for r in reads if r.ok and not r.complete),
               "wordings_enabled": len(wordings), **plan.stats, "by_county": plan.by_county,
               "observations_written": 0 if args.dry_run else len(plan.observations),
@@ -586,7 +643,8 @@ def main(argv: list[str] | None = None) -> int:
     out = Path(args.report)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    line = (f"auction outcomes (FL, sale days {since}..{today - timedelta(days=1)}): events {past_events}, days read "
+    line = (f"auction outcomes (FL, sale days {since}..{today - timedelta(days=1)} + {len(upcoming)} upcoming day(s) with an "
+            f"item off the Waiting list): events {past_events}, days read "
             f"{plan.stats['days_read']} ({sum(1 for r in reads if r.ok and not r.complete)} possibly truncated), "
             f"unavailable {plan.stats['days_unavailable']}, records {plan.stats['records']}, "
             f"matched {plan.stats['matched']}, unmatched {plan.stats['unmatched_records']}, verified new {plan.stats['verified_new']} "

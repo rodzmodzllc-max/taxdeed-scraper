@@ -118,9 +118,9 @@ def test_a01_escambia_account_number_maps_to_its_nine_digit_alt_key_and_nothing_
     # Other counties publish identifiers of this exact shape too (Bay, Santa
     # Rosa, Okaloosa account numbers) - none has a proven ALT_KEY rule, so
     # none is tried: the rule is county-scoped, never a shape heuristic.
-    for county in ("Bay", "Santa Rosa", "Okaloosa", "Indian River", "Hillsborough", "Citrus", "Marion"):
+    for county in ("Bay", "Santa Rosa", "Okaloosa", "Indian River", "Hillsborough", "Citrus", "Marion", "Monroe"):
         assert enrich.alt_key_candidate(county, "11-1856-000") is None, county
-    assert enrich.ALT_KEY_RULES.keys() == {"Escambia"}
+    assert enrich.ALT_KEY_RULES.keys() == {"Escambia", "Hillsborough", "Marion", "Monroe"}
 
 
 def test_a02_alt_key_is_tried_only_after_every_parcel_id_spelling_missed_and_is_county_scoped(enrich, monkeypatch):
@@ -205,7 +205,9 @@ def test_g02_an_arcgis_error_payload_is_source_unavailable_not_a_miss_and_abando
     h = Harness(enrich, monkeypatch, "Marion", rows, layer=layer)
     enrich.main()
     assert h.patches == []
-    assert len(h.lookups) == 1                      # the first answer already said the layer is broken
+    # The same question is re-asked FDOR_LAYER_ATTEMPTS times (a transient
+    # error payload, 2026-10-27), then the layer counts as broken.
+    assert len(h.lookups) == enrich.FDOR_LAYER_ATTEMPTS and len(set(h.lookups)) == 1
     out = capsys.readouterr()
     assert "source unavailable 1" in out.out and "unmatched 0" in out.out
     assert "FDOR layer unavailable (layer error 500)" in out.err and "abandoning this county's slice" in out.err

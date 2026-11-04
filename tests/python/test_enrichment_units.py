@@ -117,15 +117,44 @@ def test_naip_storage_total_is_recursive(monkeypatch):
     assert naip.storage_used_bytes() == 22
 
 
-def test_paged_reads_past_the_api_row_cap():
-    data = list(range(2500))
+def _fake_table(n):
+    """Rows with sortable string ids, and a PostgREST-like getter honouring
+    order=id.asc, id=gt./lte., and=(id.lte.), limit (capped at API_MAX_ROWS)."""
+    data = [{"id": f"{i:08d}"} for i in range(n)]
     calls = []
 
     def get(url, params):
-        calls.append((params["offset"], params["limit"]))
-        o, n = int(params["offset"]), int(params["limit"])
-        return data[o:o + min(n, EU.API_MAX_ROWS)]
-    rows = EU.get_paged(get, "u", {"offset": "100"}, 2300)
-    assert rows == data[100:2400] and calls == [("100", "1000"), ("1100", "1000"), ("2100", "300")]
+        calls.append(dict(params))
+        assert "offset" not in params, "keyset paging never sends an offset"
+        rows = data
+        for key in ("id", "and"):
+            v = params.get(key)
+            if not v:
+                continue
+            v = v.strip("()").removeprefix("id.")
+            op, val = v.split(".", 1)
+            rows = [r for r in rows if {"gt": r["id"] > val, "lte": r["id"] <= val, "lt": r["id"] < val}[op]]
+        return rows[:min(int(params["limit"]), EU.API_MAX_ROWS)]
+    return data, get, calls
+
+
+def test_paged_reads_past_the_api_row_cap_by_keyset_not_offset():
+    """2026-10-26: offset paging timed out at offset 18,802 on Detroit's rows
+    (scheduled run 376); pages are keyset by id at any depth."""
+    data, get, calls = _fake_table(2500)
+    rows = EU.get_paged(get, "u", {"offset": "100", "select": "county"}, 2300)
+    assert rows == data[:2300]
+    assert [c.get("id") for c in calls] == [None, "gt.00000999", "gt.00001999"]
+    assert all(c["order"] == "id.asc" and "id" in c["select"].split(",") for c in calls)
     calls.clear()
-    assert EU.get_paged(get, "u", {}, 9000) == data and calls[-1] == ("2000", "1000")   # a short page ends the read
+    assert EU.get_paged(get, "u", {}, 9000) == data and len(calls) == 3   # a short page ends the read
+
+
+def test_window_starts_at_the_given_id_and_wraps_to_the_beginning():
+    data, get, _ = _fake_table(50)
+    rows = EU.get_window(get, "u", {}, 20, start="00000040")
+    assert [r["id"] for r in rows] == [d["id"] for d in data[41:50] + data[0:11]]
+    assert len({r["id"] for r in rows}) == 20
+    # A backlog smaller than the window returns every row exactly once.
+    rows = EU.get_window(get, "u", {}, 100, start="00000010")
+    assert sorted(r["id"] for r in rows) == [d["id"] for d in data]

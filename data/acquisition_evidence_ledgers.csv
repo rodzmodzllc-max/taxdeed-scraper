@@ -1,0 +1,11 @@
+state,source_id,county,ledgers,basis
+TX,tx_lgbs,Galveston,AUCTIONS|AVAILABLE,the Sheriff's procedures document covers tax foreclosure sales and resales (run 36858070184)
+TX,tx_realauction,Galveston,AUCTIONS,the Sheriff's tax foreclosure sales are held online through Real Auction - the sale-calendar rows of this source (run 36858070184)
+TX,tx_lgbs,Dallas,AVAILABLE,the Property Division FAQ covers the sealed-bid resale of property struck off to Dallas County as trustee only (run 40430155571)
+TX,tx_lgbs,Tarrant,AUCTIONS,the Constable Precinct 3 page covers the monthly delinquent tax sale; it publishes no resale procedure for struck-off property (run 40430155571)
+TX,tx_lgbs,Harris,AUCTIONS|AVAILABLE,the Tax Office monthly sale offers Execution Sales and Tax Sales and Tax Resales (run 40430155571)
+TX,tx_lgbs,Jefferson,AUCTIONS|AVAILABLE,the Tax Office guidelines cover original Sheriff sales and re-sales (run 40430155571)
+TX,tx_lgbs,Orange,AVAILABLE,the Trust Property bid document covers the written-bid purchase of struck-off (trust) property only (run 40430155571)
+TX,tx_realauction,Orange,AUCTIONS,the Property Tax Sale FAQs cover the online tax sales on the county's sheriff-sale auction site (run 40430155571)
+TX,tx_lgbs,Bexar,AVAILABLE,the struck-off general information covers the private sale and the resale auction of struck-off property (run 40430155571)
+TX,tx_lgbs,Fort Bend,AUCTIONS,the Constable Precinct 2 page covers the terms of its property (tax) sales only (run 40430155571)

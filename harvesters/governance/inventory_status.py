@@ -140,21 +140,26 @@ def fl_auction_status(row: dict, *, today: date) -> StatusObservation:
     return feed_auction_status(row, today=today, feed="the county's auction feed")
 
 
-def tx_lgbs_status(row: dict) -> StatusObservation:
+def tx_lgbs_status(row: dict, today: date | None = None) -> StatusObservation:
     """A Texas LGBS row: the vendor's raw sale status is the only state it
     publishes (properties.tx_sale_status, verbatim)."""
     raw = str(row.get("tx_sale_status") or "").strip()
+    if _pipeline_status(row.get("status")) in GONE_PIPELINE_STATUSES:
+        # Off the vendor feed: whatever sale status the row last carried was
+        # read while it was still listed and is not a statement about it now
+        # (a stored "Scheduled for Auction" on a row the feed dropped is not
+        # upcoming). Kept verbatim as raw; never a result.
+        return StatusObservation("closed", "LIST_PRESENCE", raw=raw or None,
+                                 note="left the vendor feed; no status published" if not raw
+                                 else "left the vendor feed; the last sale status it carried is kept verbatim, not a result")
     if not raw:
-        ps = _pipeline_status(row.get("status"))
-        if ps in GONE_PIPELINE_STATUSES:
-            return StatusObservation("closed", "LIST_PRESENCE", note="left the vendor feed; no status published")
         return StatusObservation("unknown", "NOT_PUBLISHED", note="the vendor row carries no sale status")
     status = LGBS_STATUS_MAP.get(raw.lower())
     if status is None:
         return StatusObservation("unknown", "SOURCE_STATUS", raw=raw, note="vendor status wording outside the mapped vocabulary; kept verbatim")
     if status == "upcoming":
         sale = _date_of(row.get("sale_date"))
-        if sale is not None and sale < date.today():
+        if sale is not None and sale < (today or date.today()):
             # Vendor still says scheduled but the date passed: the feed has
             # not been re-read since; do not claim a result.
             return StatusObservation("unknown", "SOURCE_STATUS", raw=raw,
@@ -202,6 +207,9 @@ AVAILABLE_OFFERED_WORDINGS: dict[str, tuple[str, ...]] = {
     "mo_stl_lra_inventory": ("Available",),
     "mn_ramsey_tax_forfeit": ("Available for purchase",),
     "tn_shelby_landbank": ("FOR SALE",),
+    "pa_pittsburgh_city_property": ("Available for Sale",),
+    "mn_hubbard_tfl_otc": ("OTC",),
+    "mn_stpaul_hra_properties": ("5 - Available on the open market, subject to disposition policy",),
 }
 
 
@@ -252,7 +260,10 @@ def feed_auction_status(row: dict, *, today: date, feed: str) -> StatusObservati
                              note=f"sale date {sale.isoformat()} has passed; the feed publishes no result (sold / no sale / redeemed are not distinguishable)")
 
 
-ADAPTER_KINDS = frozenset({"arcgis", "tabular"})
+# tax_sale_info: Tax-Sale.info Michigan auction catalogs (2026-10-26). Same
+# semantics as the county lists - a scheduled date and presence, no result -
+# but its rows were never given a status (audit B18, 2026-10-29: 753 rows).
+ADAPTER_KINDS = frozenset({"arcgis", "tabular", "tax_sale_info"})
 
 
 def adapter_record_status(row: dict, *, today: date) -> StatusObservation | None:
@@ -299,8 +310,30 @@ def adapter_record_status(row: dict, *, today: date) -> StatusObservation | None
         return StatusObservation("active", "LIST_PRESENCE", note="on the county's current sale list; no sale date published on the list")
     if sale >= today:
         return StatusObservation("upcoming", "SCHEDULED_DATE", note=f"scheduled for {sale.isoformat()} per the county's sale list")
+    if source_id_of(row) in LISTED_AFTER_DUE_SOURCE_IDS:
+        return StatusObservation("active", "LIST_PRESENCE",
+                                 note=f"bid due date {sale.isoformat()} has passed and the county still lists the parcel "
+                                      "as available; the county moves sold parcels to its own sold table")
     return StatusObservation("unknown", "SCHEDULED_DATE",
                              note=f"sale date {sale.isoformat()} has passed; the list publishes no result")
+
+
+# Audit F38 (2026-10-29). Sources whose stored sale_date is a BID DEADLINE on
+# a standing available-parcels table, not a one-off sale day: Dane County WI
+# ("Available parcels are listed ... in chronological order by Bid Due date";
+# "Once sold, the purchased parcels are shifted to the 'Sold Parcels' tab" -
+# harvesters/otc/adapters/expansion.py). A parcel still on the available
+# table after its Bid Due date is still offered by the county - its own
+# statement, not an inference - so it reads `active`, never `unknown`.
+LISTED_AFTER_DUE_SOURCE_IDS = frozenset({"wi_dane_tax_deed_auction"})
+
+
+# Texas county-published AUCTIONS lists (scripts/harvest_tx_county_sales.py).
+TX_COUNTY_AUCTION_SOURCE_IDS = frozenset({"tx_hctax", "tx_jefferson_sheriff_sale"})
+# Texas vendor sale lists (harvesters/texas_vendors.py, 2026-10-26): a
+# scheduled date and presence, no result. Audit B38 (2026-10-29): their 427
+# active auction rows had no inventory status.
+TX_VENDOR_AUCTION_SOURCE_IDS = frozenset({"tx_pbfcm", "tx_mvba", "tx_govease"})
 
 
 def status_for_row(row: dict, *, today: date, sold_column_present: bool = False) -> StatusObservation | None:
@@ -316,9 +349,15 @@ def status_for_row(row: dict, *, today: date, sold_column_present: bool = False)
     if state == "FL" and source == "certificate":
         return fl_certificate_status(row)
     if sid == "tx_lgbs":
-        return tx_lgbs_status(row)
+        return tx_lgbs_status(row, today=today)
     if sid == "tx_realauction" and source == "auction":
         return feed_auction_status(row, today=today, feed="the county's RealAuction sale calendar")
+    if sid in TX_COUNTY_AUCTION_SOURCE_IDS and source == "auction":
+        # Texas county-published sale lists (scripts/harvest_tx_county_sales.py,
+        # 2026-10-26): a scheduled date and presence, no result.
+        return feed_auction_status(row, today=today, feed="the county's published tax-sale list")
+    if sid in TX_VENDOR_AUCTION_SOURCE_IDS and source == "auction":
+        return feed_auction_status(row, today=today, feed="the vendor's published sale list")
     if state == "AL" and source == "laft":
         prov = row.get("otc_provenance") if isinstance(row.get("otc_provenance"), dict) else {}
         return alabama_status(str(prov.get("normalized_status") or "UNKNOWN"),
@@ -332,6 +371,34 @@ def status_for_row(row: dict, *, today: date, sold_column_present: bool = False)
     if state not in ("FL", "TX", "AL", "LA"):
         return adapter_record_status(row, today=today)
     return None
+
+
+# Statuses that assert the row is on its source's list / feed NOW. Only these
+# depend on the row having actually been read recently (apply_staleness).
+CURRENT_PRESENCE_STATUSES = frozenset({"upcoming", "active", "available_otc", "certificate_listed",
+                                       "state_held", "resale_inventory"})
+
+
+def apply_staleness(obs: StatusObservation | None, row: dict, *, now) -> StatusObservation | None:
+    """A presence status for a row no successful read has observed within its
+    ledger's window (harvesters/ledgers/health.py row_observation: NEVER_READ
+    or STALE) becomes `unknown`, so the row is no longer presented as listed,
+    available or upcoming. Reader-side only: nothing is closed, a result is
+    never inferred (closed / sold / redeemed pass through unchanged), and the
+    next successful read restores the presence status. A row dict that does
+    not carry the `last_seen_at` key (the column was not read) is left alone:
+    it cannot be judged."""
+    if obs is None or obs.status not in CURRENT_PRESENCE_STATUSES or "last_seen_at" not in row:
+        return obs
+    from ..ledgers import health as LH  # noqa: PLC0415 - avoids an import cycle at module load
+    state = LH.row_observation(row, now)
+    if state not in LH.NOT_CURRENT:
+        return obs
+    seen = LH.observed_at(row)
+    why = ("never observed by a successful source read" if state == "NEVER_READ"
+           else f"not observed by a successful source read since {seen.date().isoformat()}")
+    return StatusObservation("unknown", "LIST_PRESENCE", raw=obs.raw,
+                             note=f"{state}: {why}; the last presence status ({obs.status}) is not current; not closed")
 
 
 def _date_of(value) -> date | None:

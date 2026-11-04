@@ -166,7 +166,9 @@ def test_collection_reads_the_offered_structure_status_and_keeps_it_verbatim():
 
 def test_registry_row_for_detroit_is_unchanged_by_the_collection_change():
     lots = next(r for r in REGISTRY if r["source_id"] == LOTS)
-    assert lots["publication_status"] == "UNREVIEWED"
+    # The owner's 2026-10-26 decision published the source; the subset rule is a view
+    # stage independent of the publication decision and still applies.
+    assert lots["publication_status"] == "APPROVED"
     assert "only the four lot statuses ending 'For Sale' are read" in lots["notes"]     # text left as it was (no registry change)
 
 
