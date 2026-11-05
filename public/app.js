@@ -109,9 +109,57 @@ function isDataServiceUrl(u) {
   if (!s) return false;
   return /\/arcgis\/rest\/services\//i.test(s) || /\/(Feature|Map|Image)Server(\/\d+)?\/?(\?|#|$)/i.test(s) || /\/(Feature|Map|Image)Server\/\d+\/query/i.test(s) || /arcgis\.com\/home\/item\.html/i.test(s);
 }
+// Links an office restricts in its own reply (data/office_replies.csv, entry
+// pages marked "!" in restricted_link_patterns; pinned equal by
+// tests/python/test_office_replies.py). A deeper page on such a host is never
+// offered: the link goes to the entry page the office itself sends people to.
+// 2026-10-30 Volusia County Clerk: "we do not allow direct linking ... just be
+// sure you go to the same place our own links go (i.e.
+// https://app02.clerk.org/or_td/ or https://app02.clerk.org/or_m/)".
+var OFFICE_LINK_ENTRIES = [
+  { match: "app02.clerk.org", entries: ["app02.clerk.org/or_td", "app02.clerk.org/or_m"], to: "https://app02.clerk.org/or_td/" }
+];
+function officeEntryLink(u) {
+  const s = String(u || "").trim();
+  if (!s) return s;
+  const low = s.toLowerCase();
+  const bare = low.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  for (const r of OFFICE_LINK_ENTRIES) {
+    if (low.indexOf(r.match) < 0) continue;
+    if (r.entries.indexOf(bare) >= 0) return s;
+    return r.to;
+  }
+  return s;
+}
+// Every anchor the app (or a Look module) renders passes the same rule, so no
+// surface can offer a restricted deep link.
+function guardOfficeLinks(root) {
+  if (!root || !root.querySelectorAll) return;
+  const fix = a => {
+    const h = a.getAttribute("href");
+    if (!h || !/^https?:/i.test(h)) return;
+    const to = officeEntryLink(h);
+    if (to !== h) a.setAttribute("href", to);
+  };
+  if (root.tagName === "A") fix(root);
+  root.querySelectorAll("a[href]").forEach(fix);
+}
+(function installOfficeLinkGuard() {
+  if (typeof document === "undefined" || typeof MutationObserver === "undefined") return;
+  const start = () => {
+    guardOfficeLinks(document.body);
+    new MutationObserver(ms => {
+      for (const m of ms) {
+        if (m.type === "attributes") guardOfficeLinks(m.target);
+        else m.addedNodes.forEach(n => { if (n.nodeType === 1) guardOfficeLinks(n); });
+      }
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["href"] });
+  };
+  if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
+})();
 function customerPageUrl(u) {
   const s = String(u || "").trim();
-  return s && !isDataServiceUrl(s) ? s : "";
+  return s && !isDataServiceUrl(s) ? officeEntryLink(s) : "";
 }
 // Operator diagnostics (raw pipeline codes, repository paths, migration
 // notes) belong to admin views; customers get plain language (audit F58).
@@ -3395,7 +3443,7 @@ let authMode = "signin";
 function setAuthMode(mode) {
   authMode = mode;
   const signUp = mode === "signup";
-  if (authLead) authLead.textContent = signUp ? "Create an account." : "Sign in to continue.";
+  if (authLead) authLead.textContent = signUp ? "Create an account" : "Sign in to continue";
   const btn = document.getElementById("signInBtn");
   if (btn) btn.textContent = signUp ? "Create account" : "Sign in";
   if (authModeToggle) authModeToggle.textContent = signUp ? "Already have an account? Sign in" : "Need an account? Create one";
@@ -8736,7 +8784,7 @@ function availableDecisionHtml(p) {
   // source_match, written by the lifecycle from the harvester's own read;
   // before that record exists, the identity the sync upserts by).
   const listUrl0 = customerPageUrl(p.list_url) || (p.url_auction_kind === "county" ? customerPageUrl(p.url_auction) : "") || null;
-  const docUrl0 = customerPageUrl(p.document_url) && p.document_url !== listUrl0 ? p.document_url : null;
+  const docUrl0 = customerPageUrl(p.document_url) && customerPageUrl(p.document_url) !== listUrl0 ? customerPageUrl(p.document_url) : null;
   const listing = [];
   // Audit F74: a vendor listing (Texas LGBS / PBFCM / MVBA) is named as one;
   // a Texas county's own trust / resale list is the county's.
@@ -8842,8 +8890,8 @@ function availableDecisionHtml(p) {
   const src = [];
   const link = (href, label) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(label)} →</a>`;
   src.push(esc(sourceNameFor(p) || "Source not recorded"));
-  if (customerPageUrl(p.list_url)) src.push(link(p.list_url, "Source list"));
-  if (customerPageUrl(p.document_url) && p.document_url !== p.list_url) src.push(link(p.document_url, "Source document"));
+  if (customerPageUrl(p.list_url)) src.push(link(customerPageUrl(p.list_url), "Source list"));
+  if (customerPageUrl(p.document_url) && customerPageUrl(p.document_url) !== customerPageUrl(p.list_url)) src.push(link(customerPageUrl(p.document_url), "Source document"));
   // Source documents a customer can open: the listing, the list document,
   // the county's process / evidence page, the application document.
   const docs = [];
@@ -9829,7 +9877,7 @@ function inventoryCardHtml(p) {
   if (p.escheatment_date !== undefined) inv.push(row("Escheats to county", p.escheatment_date ? `${esc(dateOnly(p.escheatment_date))}<span class="kv-sub">Deadline stated by the county list (F.S. 197.502(8))</span>` : muted("Not published by the list")));
   const listUrl = customerPageUrl(p.list_url) || (p.url_auction_kind === "county" ? customerPageUrl(p.url_auction) : "") || null;
   inv.push(row("Source list", listUrl ? link(listUrl, tx ? "Vendor list page" : "County list page") : muted(isDataServiceUrl(p.list_url) ? "No list page published - the source is a data service" : tx ? "No list URL published per property" : "No list URL published")));
-  if (customerPageUrl(p.document_url) && p.document_url !== listUrl) inv.push(row("Source document", link(p.document_url, "List document (PDF / file)")));
+  if (customerPageUrl(p.document_url) && customerPageUrl(p.document_url) !== listUrl) inv.push(row("Source document", link(customerPageUrl(p.document_url), "List document (PDF / file)")));
   if (p.list_as_of) inv.push(row("List as of", esc(dateOnly(p.list_as_of))));
   if (p.source_published_at) inv.push(row("Source document dated", esc(dateOnly(p.source_published_at))));
   inv.push(row("Published by", p.source_authority
@@ -16680,7 +16728,9 @@ function renderListHead(shown, k, tabCounts) {
   // Available (owner, 2026-11-04): the title is the ledger and state only;
   // the count sits on its own line just above the county bar (#listTotal).
   const countBelow = k === "laft";
-  t.innerHTML = `${esc(name)} in ${esc(STATE_INFO.name)}${count && !countBelow ? ` <span class="list-count" id="listCount">${esc(count)}</span>` : ""}`;
+  // The state's name and the count wrap together (2026-11-05): "Liens &
+  // Certificates in Florida" used to leave its count alone on the next line.
+  t.innerHTML = `<span class="lt-text">${esc(name)} in <span class="lt-tail">${esc(STATE_INFO.name)}${count && !countBelow ? ` <span class="list-count" id="listCount">${esc(count)}</span>` : ""}</span></span>`;
   renderListTotal(countBelow ? count : "", n);
   refreshCountyQuick();
   if (sub) {

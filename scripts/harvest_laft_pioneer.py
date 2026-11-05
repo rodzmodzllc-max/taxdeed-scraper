@@ -84,6 +84,7 @@ from pathlib import Path
 import requests
 
 import laft_status as _LS  # noqa: E402 - permission gate
+from host_limits import HostLimiter
 from laft_status import CategorizedError, StatusRecorder, describe_exception
 
 HERE = Path(__file__).resolve().parent
@@ -140,6 +141,12 @@ BID_KIND = "OPENING_BID"
 TRANSPORT_ATTEMPTS = 3
 TRANSPORT_RETRY_DELAY_SECONDS = 3
 
+# Request limits an office set in its own reply (data/office_replies.csv;
+# 2026-10-29 Citrus County Clerk: at most 2,000 requests a day, at least 60
+# seconds apart). Applied before every request, retries included; hosts with
+# no recorded limit pass straight through.
+LIMITER = HostLimiter()
+
 
 def _grid_url(base_url: str) -> str:
     return f"{base_url.rstrip('/')}/{GRID_PATH}"
@@ -182,6 +189,7 @@ def _parse_rows(payload: dict, county: str, base_url: str) -> tuple[list[dict], 
 def _get_grid(session: requests.Session, base_url: str) -> requests.Response:
     last_exc: Exception | None = None
     for attempt in range(1, TRANSPORT_ATTEMPTS + 1):
+        LIMITER.before_request(_grid_url(base_url))
         try:
             return session.get(
                 _grid_url(base_url),
