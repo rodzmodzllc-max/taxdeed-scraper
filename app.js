@@ -16678,7 +16678,7 @@ function renderListHead(shown, k, tabCounts) {
   const countBelow = k === "laft";
   // The state's name and the count wrap together (2026-11-05): "Liens &
   // Certificates in Florida" used to leave its count alone on the next line.
-  t.innerHTML = `${esc(name)} in <span class="lt-tail">${esc(STATE_INFO.name)}${count && !countBelow ? ` <span class="list-count" id="listCount">${esc(count)}</span>` : ""}</span>`;
+  t.innerHTML = `<span class="lt-text">${esc(name)} in <span class="lt-tail">${esc(STATE_INFO.name)}${count && !countBelow ? ` <span class="list-count" id="listCount">${esc(count)}</span>` : ""}</span></span>`;
   renderListTotal(countBelow ? count : "", n);
   refreshCountyQuick();
   if (sub) {
