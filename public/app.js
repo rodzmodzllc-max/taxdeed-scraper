@@ -2132,6 +2132,10 @@ function propertyVisual(p, cls, opts) {
 // record's own appraiser link, the hand-checked Florida county appraiser
 // site, then a map search of the listed address (labelled as a search - it
 // finds the address, never the parcel). Nothing when none exists.
+// Official links (county records, sale pages, process pages) carry rel="noopener"
+// only, so the destination sees this site's origin as the referrer
+// (Referrer-Policy strict-origin-when-cross-origin: origin only, never the
+// property or the user). Licence / disclaimer links keep noreferrer.
 function locationLookupLink(p) {
   const https = u => (u && /^https:\/\//i.test(String(u).trim()) ? String(u).trim() : "");
   const own = https(p.url_appraiser);
@@ -2148,7 +2152,7 @@ function locationPanelHtml(p, cls, omitCounty) {
   return `<div class="${cls} no-photo loc-panel" data-imagery="location_panel">` +
     `<span class="loc-thumb minimap minimap-county" data-county="${esc(p.county)}" data-frame="state" aria-hidden="true"></span>` +
     `<span class="loc-text"><span class="loc-main">Exact location not yet mapped</span>${where}` +
-    (link ? `<a class="loc-link" href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.label)} <span aria-hidden="true">↗</span></a>${link.note ? `<span class="loc-note">${esc(link.note)}</span>` : ""}` : "") +
+    (link ? `<a class="loc-link" href="${esc(link.url)}" target="_blank" rel="noopener">${esc(link.label)} <span aria-hidden="true">↗</span></a>${link.note ? `<span class="loc-note">${esc(link.note)}</span>` : ""}` : "") +
     `</span></div>`;
 }
 
