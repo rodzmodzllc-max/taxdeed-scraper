@@ -385,6 +385,14 @@ function auctionsHtml(rows, api) {
     </div>`;
 }
 
+// The placard's figure matches its lot tile (2026-11-05): a whole-dollar bid
+// reads "$11,000", not "$11,000.00"; a bid with cents keeps them.
+function placardBid(p, text, api) {
+  const v = Number(p && p.bid);
+  if (text && Number.isFinite(v) && v > 0 && Math.round(v * 100) % 100 === 0 && api.bidDisplayCard) return api.bidDisplayCard(p);
+  return text;
+}
+
 function placardHtml(p, idx, n, api, pf, countyInBanner) {
   const id = idOf(p);
   const flipped = S.flipped.has(id);
@@ -418,7 +426,7 @@ function placardHtml(p, idx, n, api, pf, countyInBanner) {
         <span class="ids xpt-mono-s">${pf.parcel ? api.esc(pf.parcelLabel + " " + pf.parcel) : "Parcel # not published"}${countyInBanner ? "" : " · " + api.esc(unitName(api, p.county))}</span>
         <span class="plate"><span class="plate-in">${api.propertyVisual(p, "prop-card-photo xpt-vis", countyInBanner ? { omitCounty: true } : undefined)}</span></span>
         <span class="figs">
-          <span class="figure"><span class="xpt-caps">${api.esc(pf.bidLabel)}</span>${pf.bid ? `<span class="fig-xl">${api.esc(pf.bid)}</span>` : missing("Not published", api)}</span>
+          <span class="figure"><span class="xpt-caps">${api.esc(pf.bidLabel)}</span>${pf.bid ? `<span class="fig-xl">${api.esc(placardBid(p, pf.bid, api))}</span>` : missing("Not published", api)}</span>
           <span class="figure"><span class="xpt-caps">${api.esc(pf.valueLabel || "County value")}</span>${value}<span class="ctx">county value, not a price</span></span>
         </span>
         ${foot}

@@ -599,3 +599,64 @@ def test_realauction_roster_is_the_platforms_own_texas_site_list():
     assert len(hosts) == 24
     assert hosts["Tyler"] == "tylercounty.texas.sheriffsaleauctions.com"
     assert {c for c, h in hosts.items() if h.endswith(".texas.realforeclose.com")} == {"Montgomery", "Travis"}
+
+
+# 2026-11-05: a 500-row page that keeps timing out is read again as 100-row
+# pages over the same offsets before the walk gives up (runs of Nov 3 and
+# Nov 4 lost the whole LGBS read to a brief burst of timeouts at page 5).
+def _lgbs_by_url(monkeypatch, answer):
+    seen = []
+
+    def fake(url, timeout=30):
+        seen.append(url)
+        out = answer(url)
+        if isinstance(out, Exception):
+            raise out
+        return _Resp(json.dumps(out))
+    monkeypatch.setattr(urllib.request, "urlopen", fake)
+    monkeypatch.setattr(time, "sleep", lambda *_: None)
+    st: dict = {}
+    rows = TH.harvest_lgbs(stats=st)
+    return rows, st, seen
+
+
+def _q(url):
+    import urllib.parse as up
+    q = dict(up.parse_qsl(up.urlsplit(url).query))
+    return int(q.get("offset") or 0), int(q.get("limit") or 0)
+
+
+def test_lgbs_failed_page_is_read_as_smaller_pages(monkeypatch):
+    import urllib.error
+    total = 700
+    recs = [_rec(i) for i in range(1, total + 1)]
+
+    def answer(url):
+        off, lim = _q(url)
+        if off == 500 and lim == 500:
+            return urllib.error.URLError("timed out")
+        nxt = f"http://taxsales.lgbs.com/api/property_sales/?area=TX&limit={lim}&offset={off + lim}" if off + lim < total else None
+        return {"count": total, "next": nxt, "results": recs[off:off + lim]}
+    rows, st, seen = _lgbs_by_url(monkeypatch, answer)
+    assert st["complete"] is True and st["truncated_at_page"] is None
+    assert st["pages_split"] == 1 and st["count_matches"] is True
+    assert len(rows) == total and st["raw_rows_seen"] == total
+    assert sum(1 for u in seen if _q(u) == (500, 500)) == TH.LGBS_PAGE_ATTEMPTS
+    assert [(o, l) for o, l in map(_q, seen) if l == TH.LGBS_SPLIT_SIZE] == [(500, 100), (600, 100)]
+
+
+def test_lgbs_split_piece_that_also_fails_truncates_and_closes_nothing(monkeypatch):
+    import urllib.error
+    recs = [_rec(i) for i in range(1, 801)]
+
+    def answer(url):
+        off, lim = _q(url)
+        if off == 500 and lim == 500 or (off == 600 and lim == 100):
+            return urllib.error.URLError("timed out")
+        nxt = f"https://taxsales.lgbs.com/api/property_sales/?area=TX&limit={lim}&offset={off + lim}" if off + lim < 800 else None
+        return {"count": 800, "next": nxt, "results": recs[off:off + lim]}
+    rows, st, _ = _lgbs_by_url(monkeypatch, answer)
+    assert st["complete"] is False and st["truncated_at_page"] == 2 and st["pages_split"] == 0
+    assert st["count_matches"] is False and len(rows) == 500
+    entries = TH.lgbs_county_entries(st, ["Harris"])
+    assert not any(LH.closeable(LH.Ledger.AVAILABLE, v) for v in LH.ledger_units(entries).values())

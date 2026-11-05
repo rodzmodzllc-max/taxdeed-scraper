@@ -584,7 +584,88 @@ LGBS_PAGE_SIZE = 500  # confirmed live 2026-09-09 that the API honors limit=500
 # `max_retries` uses elsewhere in this repo, stated explicitly because that
 # ambiguity has bitten this codebase before.
 LGBS_PAGE_ATTEMPTS = int(os.environ.get("LGBS_PAGE_ATTEMPTS", "4"))
-LGBS_RETRY_BACKOFF_SECONDS = float(os.environ.get("LGBS_RETRY_BACKOFF_SECONDS", "1.5"))
+# 2026-11-05: 1.5 -> 5 s base (5, 10, 20 s between attempts). The Nov 3 and
+# Nov 4 runs lost the whole walk to a ~10-second burst of timeouts at page 5
+# (offset 2000) that the same request, minutes later, answered in 2 s.
+LGBS_RETRY_BACKOFF_SECONDS = float(os.environ.get("LGBS_RETRY_BACKOFF_SECONDS", "5"))
+LGBS_TIMEOUT_SECONDS = float(os.environ.get("LGBS_TIMEOUT_SECONDS", "45"))
+# A 500-row page that still fails after its attempts is read once more as
+# 100-row pages over the same offsets, each with its own attempts. Only when
+# one of those fails too is the walk truncated (INCOMPLETE, closes nothing).
+LGBS_SPLIT_SIZE = 100
+
+
+def _lgbs_get(tls, url: str, attempts: int, page_label: str, counters: dict):
+    """One LGBS page with up to `attempts` tries; None when every try failed."""
+    import json
+    import time
+    import urllib.error
+    import urllib.parse
+    for attempt in range(1, attempts + 1):
+        try:
+            with tls.urlopen(url, timeout=LGBS_TIMEOUT_SECONDS) as resp:
+                return json.loads(resp.read())
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError) as exc:
+            if attempt == attempts:
+                print(f"harvest_lgbs: {page_label} failed after {attempts} attempts ({url}): {exc}",
+                      file=sys.stderr)
+                return None
+            backoff = LGBS_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
+            counters["retried"] = counters.get("retried", 0) + 1
+            print(f"harvest_lgbs: {page_label} attempt {attempt} failed ({exc}) - retrying in {backoff:.1f}s",
+                  file=sys.stderr)
+            time.sleep(backoff)
+    return None
+
+
+def _lgbs_with_query(url: str, **updates) -> str:
+    import json
+    import time
+    import urllib.error
+    import urllib.parse
+    parts = urllib.parse.urlsplit(url)
+    q = dict(urllib.parse.parse_qsl(parts.query, keep_blank_values=True))
+    q.update({k: str(v) for k, v in updates.items()})
+    return urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, urllib.parse.urlencode(q), parts.fragment))
+
+
+def _lgbs_split_page(tls, url: str, page_num: int, counters: dict):
+    """Read the offsets of one failed page as LGBS_SPLIT_SIZE-row pages.
+
+    Returns a payload shaped like the API's own ({count, next, results}) or
+    None when any piece fails. `next` is the page after this one, built the
+    same way the API builds it (offset + limit), and None at the end of the
+    feed, so the walk continues exactly where the full page would have."""
+    import time
+    import urllib.parse
+    q = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(url).query))
+    try:
+        limit = int(q.get("limit") or LGBS_PAGE_SIZE)
+        offset = int(q.get("offset") or 0)
+    except ValueError:
+        return None
+    results: list = []
+    counts: set = set()
+    sub = offset
+    while sub < offset + limit:
+        size = min(LGBS_SPLIT_SIZE, offset + limit - sub)
+        part = _lgbs_get(tls, _lgbs_with_query(url, limit=size, offset=sub),
+                         LGBS_PAGE_ATTEMPTS, f"page {page_num} (rows {sub}-{sub + size - 1})", counters)
+        if part is None:
+            return None
+        counts.add(part.get("count"))
+        got = part.get("results", []) or []
+        results.extend(got)
+        sub += size
+        if len(got) < size or not part.get("next"):
+            break
+        time.sleep(0.3)
+    if len(counts) != 1:
+        return None
+    count = next(iter(counts))
+    more = isinstance(count, int) and offset + limit < count and sub >= offset + limit
+    return {"count": count, "results": results,
+            "next": _lgbs_with_query(url, limit=limit, offset=offset + limit) if more else None}
 
 # Authoritative status -> ledger mapping, confirmed 2026-09-09 by
 # cross-referencing /api/sale_status/'s 8-value enum against real sampled
@@ -773,6 +854,7 @@ def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[Te
     limited = False
 
     pages_retried = 0
+    pages_split = 0
     truncated_at_page: int | None = None
     # 2026-10-26 (Texas close-out): what the feed itself says it holds. The
     # walk may close absent rows only when it read exactly that many records
@@ -803,29 +885,18 @@ def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[Te
         # records less the 2,104 Philadelphia rows the `area=TX` leak lets
         # through). Retrying is the difference between stopping at the first
         # hiccup and walking the whole feed.
-        payload = None
-        for attempt in range(1, LGBS_PAGE_ATTEMPTS + 1):
-            try:
-                with tls.urlopen(url, timeout=30) as resp:
-                    payload = json.loads(resp.read())
-                break
-            except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError) as exc:
-                if attempt == LGBS_PAGE_ATTEMPTS:
-                    print(
-                        f"harvest_lgbs: page {page_num} failed after {LGBS_PAGE_ATTEMPTS} "
-                        f"attempts ({url}): {exc} - TRUNCATING the walk here, so this "
-                        "harvest is INCOMPLETE",
-                        file=sys.stderr,
-                    )
-                    break
-                backoff = LGBS_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
-                pages_retried += 1
-                print(
-                    f"harvest_lgbs: page {page_num} attempt {attempt} failed ({exc}) - "
-                    f"retrying in {backoff:.1f}s",
-                    file=sys.stderr,
-                )
-                time.sleep(backoff)
+        counters: dict = {}
+        payload = _lgbs_get(tls, url, LGBS_PAGE_ATTEMPTS, f"page {page_num}", counters)
+        if payload is None:
+            print(f"harvest_lgbs: page {page_num} - reading the same rows as {LGBS_SPLIT_SIZE}-row pages",
+                  file=sys.stderr)
+            payload = _lgbs_split_page(tls, url, page_num, counters)
+            if payload is not None:
+                pages_split += 1
+            else:
+                print(f"harvest_lgbs: page {page_num} could not be read - TRUNCATING the walk here, "
+                      "so this harvest is INCOMPLETE", file=sys.stderr)
+        pages_retried += counters.get("retried", 0)
 
         if payload is None:
             truncated_at_page = page_num
@@ -931,6 +1002,7 @@ def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[Te
                 "rows_per_county": dict(sorted(rows_per_county.items())),
                 "pages_walked": page_num,
                 "pages_retried": pages_retried,
+                "pages_split": pages_split,
                 "truncated_at_page": truncated_at_page,
                 "raw_rows_seen": seen_raw,
                 "rows_kept": len(rows),

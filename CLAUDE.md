@@ -3931,3 +3931,16 @@ Stable facts:
 - **Static guards** (`tests/python/test_record_quality.py`): every `data-action` has a handler, and the public bundle carries no secret.
 - **Other docs:** `docs/competitive-matrix.md` (search-index only, no confirmed cells) and `docs/customer-testing-script.md` (no sessions run).
 - `sw.js` → `tdw-shell-v115`.
+
+## Polish pass + LGBS split pages (2026-11-05, PR open, no migration)
+
+- **Prose uses proportional figures.** Inter's tabular figures widen the hyphen and the digit 1 ("a-b" 73 vs 65 px,
+  "1111" 104 vs 65 px at 40px), which read as gaps ("Tax - sale", "Case K- 1"). `body` is `font-variant-numeric:normal`
+  (identity.css section 16); columns of figures keep `tabular-nums` through their own classes.
+- Desktop filters column (>=1440px): v3's `.field{flex:1 1 200px}` became a 200px HEIGHT in the column layout.
+- `#listTitle` wraps the state name and count together (`.lt-tail`); phone Home search puts its button under the
+  field; "Sort: County"; sign-in lead without a trailing period; Buyer's Guide eyebrow names the state only when a
+  county is open; Merged placard bids are whole dollars unless they have cents (`placardBid`). `sw.js` -> `tdw-shell-v164`.
+- **LGBS walk:** a page is tried 4 times (backoff 5/10/20 s, 45 s timeout), then read again as 100-row pages over the
+  same offsets (`_lgbs_split_page`); only when one of those fails is the walk truncated (INCOMPLETE, closes nothing).
+  Nov 3 and Nov 4 lost the whole read to a ~10 s burst of timeouts at page 5.
