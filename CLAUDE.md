@@ -2697,6 +2697,16 @@ Full description: `docs/source-permissions.md` "Office replies". Stable facts:
 - **Palm Beach County Clerk:** a technical answer only. There is a `FL:Palm Beach` link-only row, and court-case
   deep links are refused as customer links. Everything else is unchanged.
 - Neither reply covers RealAuction or LienHub for those counties.
+- **Second round (2026-11-05):** 49 rows. New columns `received_on`, `automated_collection`
+  (PERMITTED_WITH_LIMITS / PROHIBITED / NOT_ANSWERED), `collection_limits`, `owner_decision` (blank / PENDING);
+  `authorization_id` optional (a reply without one grants nothing). A PENDING prohibition is recorded, never backs
+  a documented record and withholds nothing (`prohibits_reuse` false) until the owner decides; it must be listed
+  under "Open owner decisions" in `docs/source-permissions.md`: RealAuction (automated collection refused, ticket
+  914220; FL deeds, realTDM, TX), the Volusia Clerk and the Indian River Clerk.
+  - Volusia: links to `app02.clerk.org` go only to the entry pages it names (`!` patterns; app.js
+    `officeEntryLink()` in `customerPageUrl()` and on every rendered anchor; `OFFICE_LINK_ENTRIES` test-pinned).
+  - Citrus Clerk: `scripts/host_limits.py` (2,000 requests a day, 60 s apart, read from the register) runs before
+    every Pioneer request. `sw.js` -> `tdw-shell-v166`.
 
 ## Where to look for more
 

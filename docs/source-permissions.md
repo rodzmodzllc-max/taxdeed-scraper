@@ -187,7 +187,7 @@ Every operation production performed on 2026-10-12 is allowed, on the basis it a
 - WI SCO V12, Jim Wells CAD, St. Louis parcels.
 - FDOR redistribution and the FDOR NAL bulk files.
 
-## Office replies (2026-11-04)
+## Office replies (2026-11-04, second round 2026-11-05)
 
 Replies from county offices are listed in `data/office_replies.csv`, each with the question it actually
 answered (`ROUTING_ONLY`, `TECHNICAL_ONLY` or `COMMERCIAL_USE`) and what it said about commercial use
@@ -212,9 +212,65 @@ The two replies on file:
 
 Neither reply covers the RealAuction auction sites (`fl_realauction`) or LienHub (`fl_lienhub_certificates`)
 for the same counties. Those are separate sources with their own terms. The original e-mails are not in this
-repository, and their received dates were not supplied, so neither is recorded. Add a new reply as a row in
-`data/office_replies.csv`, a record in `harvesters/governance/authorization.py` and the matching permission
-rows. Then run `tests/python/test_office_replies.py`.
+repository, and their received dates were not supplied, so neither is recorded.
+
+### Second round (recorded 2026-11-05)
+
+The owner's reply register (read-only review of the outreach mailbox, 2026-11-05) added the replies below. No
+person's name, e-mail address or phone number is recorded; office names, dates, request numbers and short quotes
+of policy wording are. Four columns were added to `data/office_replies.csv`:
+
+| Column | Meaning |
+|---|---|
+| `received_on` | The reply date(s), `|`-separated; blank when not supplied. |
+| `automated_collection` | `PERMITTED_WITH_LIMITS`, `PROHIBITED` or `NOT_ANSWERED`: what the reply said about automated reading, kept apart from commercial use. |
+| `collection_limits` | `host=...;max_per_day=N;min_interval_s=N` when automation is allowed under limits. `scripts/host_limits.py` applies them before every request. |
+| `owner_decision` | Blank, or `PENDING`. A prohibition is enforced on the permission records (`RESTRICTED`) unless the owner's decision on it is `PENDING`. A `PENDING` prohibition keeps the existing interim records, can never back a documented record, withholds nothing by itself (`prohibits_reuse()` is false) and must be listed below. |
+
+`authorization_id` is now optional. A reply recorded without one grants nothing, so its sources may carry no
+documented reuse record (`problems()` checks this).
+
+| Office | Source | Answered | Recorded |
+|---|---|---|---|
+| RealAuction.com (vendor), ticket 914220, 2026-10-21 | `fl_realauction`, `fl_laft_realtdm` (FL), `tx_realauction` (TX) | Automated collection refused: "will not be providing any form of written permission to use automated means for scanning or crawling our auction sites". There is no API. Display and links were not addressed. | Two rows (FL, TX): `COMMERCIAL_USE`, commercial use `NOT_ANSWERED` (the reply only addresses crawling), automated collection `PROHIBITED`, owner decision `PENDING`. Fetch / parse records are unchanged (interim). |
+| Volusia County Clerk of the Circuit Court, 2026-10-21 and 2026-10-30 | `fl_laft_pdfs` (Volusia) | The website disclaimer applies to all its data: "expressly prohibited from reproducing, publishing online, selling, reselling, or otherwise disseminating data ... except as permitted by law". Deep linking is not allowed; links must go where its own links go (`https://app02.clerk.org/or_td/` or `/or_m/`). Its bulk Official Records product excludes the Tax Deeds data. | `PROHIBITED_WITHOUT_WRITTEN_AUTHORIZATION`, owner decision `PENDING`. Deep links are refused (`restricted_link_patterns` with the two entry pages marked `!`), and every customer link to `app02.clerk.org` other than the entry pages becomes `https://app02.clerk.org/or_td/` (`app.js` `officeEntryLink()`, applied by `customerPageUrl()` and to every rendered anchor). |
+| Indian River County Clerk of Court & Comptroller, 2026-10-21 / 22 / 26 | `fl_laft_html` (Indian River) | "we do not grant permission for any commercial activities". The data can be used like any member of the public; a paid data-vendor agreement covers court and Official Records data and does not name tax-deed data. The 2026-10-26 follow-up said a data contract is not required for the Tax Deed website, and did not answer permitted uses. | `PROHIBITED_WITHOUT_WRITTEN_AUTHORIZATION`, owner decision `PENDING`. Records unchanged. |
+| Oklahoma Office of Geographic Information (Oklahoma Conservation Commission), 2026-10-14 and 2026-10-26 | none (OKMaps parcel dataset, unused) | Linking to the parcel layer on the OKMaps search page is permitted with the credit "OKMaps and iProplogic". Downloading the dataset is not allowed by its vendor agreement; a licence would come from iProplogic. | `PROHIBITED_WITHOUT_WRITTEN_AUTHORIZATION` (the dataset). The app links OKMaps nowhere today; a test requires any future `okmaps.org` link to carry the credit. |
+| Citrus County Clerk of the Circuit Court & Comptroller, JustFOIA CLKPRR-2026-684, 2026-10-29 | `fl_laft_pioneer` (Citrus) | Technical: no API or export; automation allowed at "no more than 2,000 requests per day, with at least 60 seconds between requests". Commercial use not answered. | `TECHNICAL_ONLY`, `NOT_ANSWERED`, automated collection `PERMITTED_WITH_LIMITS` with `host=search.citrusclerk.org;max_per_day=2000;min_interval_s=60`. `harvest_laft_pioneer.py` calls `host_limits.HostLimiter` before every request to that host, retries included (the per-day count is shared through `out/.harvest_cache/host_request_counts.json`). |
+| Wisconsin State Cartographer's Office (V12 statewide parcels), ticket 112196, 2026-10-26 | `wi_sco_v12_parcels` | Public domain: "There are no use restrictions"; attribution recommended, not required; no county terms. | `COMMERCIAL_USE`, `PERMITTED`, no authorization record. Permission records unchanged (`UNKNOWN`): the reply is recorded, nothing is approved on it yet. |
+| Tennessee Comptroller of the Treasury, Division of Property Assessments (GIS), 2026-11-04 | none | Shapefile data may be used "for any use case, including consumption in a commercial application/software or for historical purposes"; no retention policy; no automated or recurring downloads (requests are filled out by hand); boundaries are approximate; nine counties, Shelby among them, are not maintained by the Comptroller. | `COMMERCIAL_USE`, `PERMITTED`, no source and no permission record. |
+
+Florida DOR Property Tax Oversight and Utah UGRC replies are already recorded in `data/source_approvals.csv` and
+are not repeated here.
+
+The routing and technical answers are rows too, each `NOT_ANSWERED` with no source: the Okaloosa Tax Collector
+and Clerk, the Escambia, DeSoto, Lee, Seminole, Broward, Miami-Dade, Marion, Duval, Pasco, Liberty, Gulf, Madison,
+Lafayette, Putnam, Brevard, Orange and Franklin Clerks, Miami-Dade ITD, the Manatee, Volusia, Flagler and Taylor Tax
+Collectors, Albany WY, Wood WI, Kaufman, Tarrant, Harris, Floyd, Collin, Dallas, Angelina and Hidalgo TX, the
+Texas Comptroller, Maricopa AZ, the Minnesota Department of Revenue, Sherburne MN and Los Angeles County CA.
+Automatic acknowledgements with no substance are not recorded.
+
+### Open owner decisions
+
+Each `PENDING` row is a written prohibition the permission records do not yet enforce. The owner decides whether
+to stop the collection (records `RESTRICTED`, as for the Orange County Comptroller), seek written authorization or
+a public-records route, or keep the interim risk acceptance:
+
+- **RealAuction.com (vendor)**: automated collection refused in writing. Every RealAuction-hosted source is
+  affected: the Florida deed auctions (`harvest_all_counties.ps1`, `fl_realauction`), realTDM Lands Available
+  (`fl_laft_realtdm`), the outcome reads (`auction_outcomes.py`) and the Texas sheriff / constable sales
+  (`tx_realauction`, the Dallas sheriff site among them). Nothing was turned off; the 2026-10-26 owner decision
+  accepted this risk on interim records. A second RealAuction ticket (914757) waits for a reply naming state,
+  county and product.
+- **Volusia County Clerk of the Circuit Court**: online republication prohibited "except as permitted by law"
+  under its website disclaimer. The Volusia Lands Available PDF (`fl_laft_pdfs`) is still read; a Chapter 119
+  records request is the route the reply leaves open. Deep links are already refused.
+- **Indian River County Clerk of Court & Comptroller**: no permission for commercial activities. The Indian
+  River Lands Available page (`fl_laft_html`) is still read.
+
+Add a new reply as a row in `data/office_replies.csv`. A reply that grants something also needs a record in
+`harvesters/governance/authorization.py` and the matching permission rows. Then run
+`tests/python/test_office_replies.py`.
 
 ## FDOR and Santa Rosa
 
