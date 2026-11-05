@@ -92,11 +92,14 @@ in CLAUDE.md (dropping a table's only PERMISSIVE policy hides every row).
 1. Add a row to `data/office_replies.csv` with the question it actually
    answered (`ROUTING_ONLY` / `TECHNICAL_ONLY` / `COMMERCIAL_USE`) and the
    commercial-use answer.
-2. Add the matching record in `harvesters/governance/authorization.py` and the
-   permission rows in `data/source_permissions.csv`.
+2. A reply that grants something also needs the matching record in
+   `harvesters/governance/authorization.py` and the permission rows in
+   `data/source_permissions.csv`. A prohibition the owner has not yet decided
+   to enforce is `owner_decision=PENDING` and is listed under "Open owner
+   decisions" in `docs/source-permissions.md`.
 3. Run `python3 -m pytest -q tests/python/test_office_replies.py`.
 
-Rules and the two replies on file: `docs/source-permissions.md` "Office replies".
+Rules and the replies on file: `docs/source-permissions.md` "Office replies".
 A permission to link is never a permission to collect or reuse.
 
 ## Deploy the front end
