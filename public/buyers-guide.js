@@ -145,7 +145,7 @@ export function render(root, ctx) {
     const opts = `<option value="">Statewide</option>` + counties.map(c => `<option value="${e(c)}"${c === county ? " selected" : ""}>${e(c)} ${e(ctx.unit)}</option>`).join("");
     root.innerHTML = `<div class="bg-page">
       <header class="bg-head">
-        <p class="bg-eyebrow">Buyer's Guide · ${e(ctx.stateName)}</p>
+        <p class="bg-eyebrow">Buyer's Guide${county ? ` · ${e(ctx.stateName)}` : ""}</p>
         <h1 class="bg-title">${county ? `${e(county)} ${e(ctx.unit)}` : e(ctx.stateName)}</h1>
         <p class="bg-lede">The questions to answer before you act - each from an official source, or marked not yet verified with where to look. Not legal advice.</p>
       </header>

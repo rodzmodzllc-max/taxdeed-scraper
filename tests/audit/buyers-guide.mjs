@@ -33,7 +33,7 @@ const open = async (path) => {
 }
 {
   const { pg, errs } = await open('co.html#/guide?ledger=LIENS_CERTIFICATES');
-  const r = await pg.evaluate(() => ({ eyebrow: document.querySelector('.bg-eyebrow')?.textContent, florida: /Florida/.test(document.querySelector('.bg-page')?.textContent || '') }));
+  const r = await pg.evaluate(() => ({ eyebrow: (document.querySelector('.bg-eyebrow')?.textContent || '') + ' / ' + (document.querySelector('.bg-title')?.textContent || ''), florida: /Florida/.test(document.querySelector('.bg-page')?.textContent || '') }));
   check('guideOtherStateNamesItself', /Colorado/.test(r.eyebrow) && !r.florida, r);
   check('guideOtherStateNoErrors', errs.length === 0, errs);
   await pg.close();
