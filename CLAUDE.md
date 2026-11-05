@@ -2706,7 +2706,7 @@ Full description: `docs/source-permissions.md` "Office replies". Stable facts:
   - Volusia: links to `app02.clerk.org` go only to the entry pages it names (`!` patterns; app.js
     `officeEntryLink()` in `customerPageUrl()` and on every rendered anchor; `OFFICE_LINK_ENTRIES` test-pinned).
   - Citrus Clerk: `scripts/host_limits.py` (2,000 requests a day, 60 s apart, read from the register) runs before
-    every Pioneer request. `sw.js` -> `tdw-shell-v165` (v164 held by a parallel PR).
+    every Pioneer request. `sw.js` -> `tdw-shell-v166`.
 
 ## Where to look for more
 
@@ -3950,7 +3950,10 @@ Stable facts:
 - Desktop filters column (>=1440px): v3's `.field{flex:1 1 200px}` became a 200px HEIGHT in the column layout.
 - `#listTitle` wraps the state name and count together (`.lt-tail`); phone Home search puts its button under the
   field; "Sort: County"; sign-in lead without a trailing period; Buyer's Guide eyebrow names the state only when a
-  county is open; Merged placard bids are whole dollars unless they have cents (`placardBid`). `sw.js` -> `tdw-shell-v164`.
+  county is open; Merged placard bids are whole dollars unless they have cents (`placardBid`). `sw.js` -> `tdw-shell-v164`;
+  v165: the looks' identifier lines (`.xpt-mono-s`, `.xpm-mono-s`, `.xt-cap .v`) use proportional figures too.
+- **Dashes:** copy keeps " - " on purpose: ~1,400 occurrences include quoted source text and Python/JS-pinned labels;
+  converting them would misquote county records. The visible problem was the widened hyphen, fixed above.
 - **LGBS walk:** a page is tried 4 times (backoff 5/10/20 s, 45 s timeout), then read again as 100-row pages over the
   same offsets (`_lgbs_split_page`); only when one of those fails is the walk truncated (INCOMPLETE, closes nothing).
   Nov 3 and Nov 4 lost the whole read to a ~10 s burst of timeouts at page 5.

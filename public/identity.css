@@ -1872,3 +1872,6 @@ body:not(#_){font-variant-numeric:normal}
 }
 /* "+ Source status and coverage": a space between the sign and the words. */
 .ledger-status-fold>summary{gap:.45rem}
+/* Identifier lines in the looks (case, parcel, certificate numbers) are read,
+   not added up: proportional figures, so "Case K-1" has no gap at the hyphen. */
+html[data-experience] .xpt .xpt-mono-s:not(#_),html[data-experience] .xpm .xpm-mono-s:not(#_),.xp-terrain .xt-cap .v:not(#_){font-variant-numeric:normal}
