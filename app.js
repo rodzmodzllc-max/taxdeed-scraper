@@ -3439,7 +3439,7 @@ let authMode = "signin";
 function setAuthMode(mode) {
   authMode = mode;
   const signUp = mode === "signup";
-  if (authLead) authLead.textContent = signUp ? "Create an account." : "Sign in to continue.";
+  if (authLead) authLead.textContent = signUp ? "Create an account" : "Sign in to continue";
   const btn = document.getElementById("signInBtn");
   if (btn) btn.textContent = signUp ? "Create account" : "Sign in";
   if (authModeToggle) authModeToggle.textContent = signUp ? "Already have an account? Sign in" : "Need an account? Create one";
@@ -16724,7 +16724,9 @@ function renderListHead(shown, k, tabCounts) {
   // Available (owner, 2026-11-04): the title is the ledger and state only;
   // the count sits on its own line just above the county bar (#listTotal).
   const countBelow = k === "laft";
-  t.innerHTML = `${esc(name)} in ${esc(STATE_INFO.name)}${count && !countBelow ? ` <span class="list-count" id="listCount">${esc(count)}</span>` : ""}`;
+  // The state's name and the count wrap together (2026-11-05): "Liens &
+  // Certificates in Florida" used to leave its count alone on the next line.
+  t.innerHTML = `<span class="lt-text">${esc(name)} in <span class="lt-tail">${esc(STATE_INFO.name)}${count && !countBelow ? ` <span class="list-count" id="listCount">${esc(count)}</span>` : ""}</span></span>`;
   renderListTotal(countBelow ? count : "", n);
   refreshCountyQuick();
   if (sub) {
