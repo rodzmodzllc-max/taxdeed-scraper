@@ -31,6 +31,18 @@ closes only its own rows, the same way:
               (audit 2026-10-28 B20: 45 Bexar accounts were listed twice in
               Available). Not a result and not an absence: the county list may
               still list it. Never reactivated while the vendor row is active.
+  past sale   a stored ACTIVE auction row of a source this run read
+              (any status but FAILED / SOURCE_UNAVAILABLE for its county,
+              or a county the source no longer names at all) whose sale date
+              is more than PAST_SALE_GRACE_DAYS behind and which this run's
+              harvest does not list -> status 'closed', delisted_at = now
+              (2026-11-06). The sale day has happened; the source dropped the
+              row from its upcoming list (MVBA, PBFCM, Harris and LGBS drop a
+              county's sale after it is held, and a vendor whose index stops
+              naming the county is never read for it again, so the read-based
+              rule above never fired: 435 such rows were still 'active' on
+              2026-11-06). Never 'sold' or any result. A row the source lists
+              again - e.g. with a new sale date - is reopened below.
   reactivate  a stored row this run's harvest lists again whose status is
               'closed' (or the older 'dropped' / 'notfound') -> status
               'active', delisted_at cleared. A row with a recorded result
@@ -53,7 +65,7 @@ import os
 import sys
 import urllib.request
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -81,6 +93,10 @@ SOURCE_IDS = VENDOR_SOURCE_IDS | COUNTY_LIST_SOURCE_IDS
 DATASET = "tax_sale_listing"
 REACTIVATABLE = frozenset({"closed", "dropped", "notfound"})
 MAX_CLOSE_SHARE = 0.5
+# Days after the sale date before an unlisted auction row is closed (a
+# late-posted list may still name it the day after the sale).
+PAST_SALE_GRACE_DAYS = 1
+NO_READ = frozenset({"FAILED", "SOURCE_UNAVAILABLE"})
 CHUNK = 100
 USER_AGENT = "taxdeed-scraper texas-closeout (+https://github.com/rodzmodzllc-max/taxdeed-scraper)"
 PERMISSION_DENIED_EXIT = 3
@@ -137,6 +153,22 @@ def plan(harvest: list[dict], stored: list[dict], units: dict, permitted: set[st
     closing_ids = {c["id"] for c in closes}
     supersede = sorted(r["id"] for r in active if r["id"] not in closing_ids and held_by_vendor(r))
 
+    # Past-sale rows the source no longer lists (module docstring). Only
+    # sources this run read at all: the vendor run and the county-list run
+    # store rows of each other's sources, and neither may close those.
+    attempted = {k[0] for k in units if isinstance(k, tuple)}
+    today_d = (now or datetime.now(timezone.utc)).date()
+    cutoff = (today_d - timedelta(days=PAST_SALE_GRACE_DAYS)).isoformat()
+    taken = closing_ids | set(supersede)
+    past_sale = sorted(
+        r["id"] for r in active
+        if r["id"] not in taken
+        and r.get("source") == "auction"
+        and r.get("sale_date") and str(r["sale_date"])[:10] < cutoff
+        and r.get("harvester_source") in attempted
+        and (STATE, r.get("source"), r.get("county"), r.get("case_no")) not in listed
+        and LH.unit_status(units, r.get("harvester_source"), r.get("county")) not in NO_READ)
+
     reactivate = [r["id"] for r in stored
                   if str(r.get("status") or "").lower() in REACTIVATABLE
                   and r.get("harvester_source") in sids
@@ -145,7 +177,7 @@ def plan(harvest: list[dict], stored: list[dict], units: dict, permitted: set[st
 
     # What was kept and why (counts only).
     kept = Counter()
-    closing = {c["id"] for c in closes} | set(supersede)
+    closing = {c["id"] for c in closes} | set(supersede) | set(past_sale)
     for r in active:
         if r["id"] in closing:
             continue
@@ -155,7 +187,10 @@ def plan(harvest: list[dict], stored: list[dict], units: dict, permitted: set[st
         status = LH.unit_status(units, r.get("harvester_source"), r.get("county"))
         kept["absent, refused (large close)" if r.get("harvester_source") in refused
              else f"absent, read {status or 'NOT_RUN'}"] += 1
-    return {"close": closes, "supersede": supersede, "reactivate": sorted(reactivate), "refused_sources": refused,
+    return {"close": closes, "supersede": supersede, "past_sale": past_sale,
+            "past_sale_by_unit": dict(sorted(Counter(f"{by_id[i].get('harvester_source')}:{by_id[i].get('source')}"
+                                                      for i in past_sale).items())),
+            "reactivate": sorted(reactivate), "refused_sources": refused,
             "kept": dict(sorted(kept.items())),
             "close_by_unit": dict(sorted(Counter(f"{by_id[c['id']].get('harvester_source')}:{by_id[c['id']].get('source')}"
                                                   for c in closes).items())),
@@ -253,7 +288,8 @@ def main(argv=None) -> int:
     stored = stored_rows(base, key)
     p = plan(harvest, stored, units, permitted, max_share=None if args.allow_large_close else MAX_CLOSE_SHARE)
     print(f"TX close-out plan: close {len(p['close'])} {p['close_by_unit']}, "
-          f"superseded by a vendor row {len(p['supersede'])} {p['supersede_by_unit']}, reactivate {len(p['reactivate'])}, "
+          f"superseded by a vendor row {len(p['supersede'])} {p['supersede_by_unit']}, "
+          f"past sale, no longer listed {len(p['past_sale'])} {p['past_sale_by_unit']}, reactivate {len(p['reactivate'])}, "
           f"kept active {p['kept']}")
     for sid, n in p["refused_sources"].items():
         print(f"::warning title=texas_closeout::{sid}: {n} closes refused - more than {MAX_CLOSE_SHARE:.0%} of its active "
@@ -262,7 +298,7 @@ def main(argv=None) -> int:
         print("TX close-out: dry run - nothing written")
         return 0
     now = FP.now_iso()
-    closed = patch_ids(base, key, [c["id"] for c in p["close"]] + p["supersede"], {"status": "closed", "delisted_at": now})
+    closed = patch_ids(base, key, [c["id"] for c in p["close"]] + p["supersede"] + p["past_sale"], {"status": "closed", "delisted_at": now})
     reopened = patch_ids(base, key, p["reactivate"], {"status": "active", "delisted_at": None})
     print(f"TX close-out: closed {closed}, reactivated {reopened}")
     return 0

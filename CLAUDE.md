@@ -3686,6 +3686,11 @@ Full description: `docs/publish-all-sources.md`. Stable facts:
   a result) stored active tx_lgbs / tx_realauction rows absent from a COMPLETE / EMPTY read of their own (source,
   county), through `sync_state_inventory.plan_close()`; reopens 'closed' rows the harvest lists again (never 'sold');
   refuses a source that would lose >50% of its active, not-yet-past-sale rows in one run (`--allow-large-close`).
+- **Past-sale close (2026-11-06):** an active `auction` row of a source this run read whose sale date is more than
+  1 day past and which the harvest no longer lists is closed even on an INCOMPLETE read or a county the vendor stopped
+  naming (never when its county read FAILED / SOURCE_UNAVAILABLE); a re-listed row reopens. MVBA / PBFCM / Harris drop a
+  sale after it is held, so the read rule never fired (377 rows on 2026-11-06). The LGBS harvester now prints why its
+  walk was not verified (counts only).
 
 ## Louisiana: no sync / lifecycle rewrite loop (2026-10-26, PR open, no migration)
 
