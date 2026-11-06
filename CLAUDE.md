@@ -3957,3 +3957,16 @@ Stable facts:
 - **LGBS walk:** a page is tried 4 times (backoff 5/10/20 s, 45 s timeout), then read again as 100-row pages over the
   same offsets (`_lgbs_split_page`); only when one of those fails is the walk truncated (INCOMPLETE, closes nothing).
   Nov 3 and Nov 4 lost the whole read to a ~10 s burst of timeouts at page 5.
+
+## Public county guides (2026-11-06, PR open, no migration)
+
+- **`scripts/build_public_guides.py`** (stdlib, `--check` pinned by `tests/python/test_public_guides.py`) turns
+  `public/buyers-guide.json` into ROOT-only, signed-out, indexable pages (never mirrored from public/, like sitemap.xml):
+  `guides/index.html`, `guides/<st>/index.html` (statewide VERIFIED answers + county links),
+  `guides/<st>/<county-slug>.html` for every county with >= 1 county-level VERIFIED answer, `guides/guides.css`, and the
+  guide URLs in `sitemap.xml` between the `guides:start` / `guides:end` markers. Rebuild after every buyers-guide.json change.
+- Pages show VERIFIED answers only (answer, short quote, source title, official https link, verified date; a county answer
+  replaces the statewide one); every other question is a plain "Not yet verified" line with no URL. Never a property
+  record, parcel, owner, address, listing count or price. Script-free (JSON-LD data blocks only); URLs are extensionless
+  (Cloudflare Pages serves `x.html` at `/x`, `index.html` at the folder).
+- The signed-out landing (`public/index.html` #landing) links `/guides/`. `sw.js` -> `tdw-shell-v168`.
