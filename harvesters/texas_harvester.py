@@ -1020,6 +1020,16 @@ def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[Te
         + ("" if complete else f", truncated at page {truncated_at_page}"),
         file=sys.stderr,
     )
+    if complete and not limited and not (count_matches and not unattributed):
+        # Why the per-county entries read INCOMPLETE (lgbs_county_entries),
+        # counts only - no total had been printed before 2026-11-06.
+        print(
+            f"harvest_lgbs: walk not verified - feed total {source_count} "
+            f"({len(source_counts)} distinct total(s) across pages), {seen_raw} records read, "
+            f"{len(record_ids)} distinct ids, {records_without_id} without an id, "
+            f"{unattributed} Texas record(s) without a county or account",
+            file=sys.stderr,
+        )
     return rows
 
 

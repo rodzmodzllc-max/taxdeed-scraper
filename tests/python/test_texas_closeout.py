@@ -660,3 +660,67 @@ def test_lgbs_split_piece_that_also_fails_truncates_and_closes_nothing(monkeypat
     assert st["count_matches"] is False and len(rows) == 500
     entries = TH.lgbs_county_entries(st, ["Harris"])
     assert not any(LH.closeable(LH.Ledger.AVAILABLE, v) for v in LH.ledger_units(entries).values())
+
+
+# ---------------------------------------------------------------- past sale (2026-11-06)
+
+def failed(sid, county):
+    return {"source_id": sid, "county": county, "status": "FAILED", "row_count": 0, "transport_ok": False,
+            "error_category": "TRANSPORT_PAGE_FAILED"}
+
+
+def pplan(harvest, stored, u):
+    return TC.plan(harvest, stored, u, set(TC.SOURCE_IDS), max_share=None, now=NOW)
+
+
+def incomplete(sid, county):
+    return {"source_id": sid, "county": county, "status": "INCOMPLETE", "row_count": 1, "transport_ok": True,
+            "parse_ok": True}
+
+
+def test_past_sale_auction_row_no_longer_listed_is_closed_on_an_incomplete_read():
+    """MVBA / PBFCM / Harris drop a sale after it is held while the read itself
+    stays INCOMPLETE - the read rule never fired (435 rows on 2026-11-06)."""
+    stored = [s(1, "auction", "Hill", "M1", sid="tx_mvba", sale_date="2026-10-06"),
+              s(2, "auction", "Hill", "M2", sid="tx_mvba", sale_date="2026-11-03")]
+    p = pplan([], stored, units(incomplete("tx_mvba", "Hill")))
+    assert p["close"] == [] and p["past_sale"] == [1]
+    assert p["past_sale_by_unit"] == {"tx_mvba:auction": 1}
+
+
+def test_past_sale_row_of_a_county_the_source_stopped_naming_is_closed():
+    stored = [s(1, "auction", "Wharton", "P1", sid="tx_pbfcm", sale_date="2026-10-06")]
+    p = pplan([], stored, units(complete("tx_pbfcm", "Harris")))
+    assert p["past_sale"] == [1]
+
+
+def test_past_sale_rule_keeps_listed_failed_recent_and_unread_source_rows():
+    stored = [s(1, "auction", "Hill", "M1", sid="tx_mvba", sale_date="2026-10-06"),        # listed
+              s(2, "auction", "Bell", "M2", sid="tx_mvba", sale_date="2026-10-06"),        # read FAILED
+              s(3, "auction", "Hill", "M3", sid="tx_mvba", sale_date="2026-10-26"),        # inside the grace day
+              s(4, "auction", "Harris", "H4", sid="tx_hctax", sale_date="2026-10-06"),     # source not read this run
+              s(5, "laft", "Hill", "M5", sid="tx_mvba", sale_date="2026-10-06"),           # not an auction row
+              s(6, "auction", "Hill", "M6", sid="tx_mvba", sale_date=None),               # no sale date
+              s(7, "auction", "Hill", "M7", sid="tx_mvba", status="closed", sale_date="2026-10-06")]
+    harvest = [h("auction", "Hill", "M1", sid="tx_mvba")]
+    p = pplan(harvest, stored, units(incomplete("tx_mvba", "Hill"), failed("tx_mvba", "Bell")))
+    assert p["past_sale"] == []
+
+
+def test_past_sale_rows_are_written_closed_and_relisted_rows_reopen(monkeypatch, tmp_path, capsys):
+    harvest = tmp_path / "h.json"
+    harvest.write_text(json.dumps([h("auction", "Hill", "M9", sid="tx_mvba")]))
+    status = tmp_path / "s.json"
+    status.write_text(json.dumps({"counties": [incomplete("tx_mvba", "Hill")]}))
+    monkeypatch.setenv("SUPABASE_URL", "https://x.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "k")
+    monkeypatch.setattr(TC, "store_permitted", lambda: set(TC.SOURCE_IDS))
+    stored = [s(1, "auction", "Hill", "M1", sid="tx_mvba", sale_date="2020-01-07"),
+              s(9, "auction", "Hill", "M9", sid="tx_mvba", status="closed", sale_date="2099-01-06")]
+    monkeypatch.setattr(TC, "stored_rows", lambda b, k: stored)
+    sent = []
+    monkeypatch.setattr(TC, "_send", lambda url, body, key: sent.append((url, body)))
+    assert TC.main(["--harvest", str(harvest), "--status", str(status)]) == 0
+    assert any("id=in.(1)" in u and b["status"] == "closed" for u, b in sent)
+    assert any("id=in.(9)" in u and b["status"] == "active" for u, b in sent)
+    assert "past sale, no longer listed 1" in capsys.readouterr().out
