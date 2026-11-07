@@ -407,7 +407,29 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
         return "COMPLETE", recs, None, None, None
     if adapter.empty_statement:
         return "EMPTY", [], None, None, "empty_marker"
+    print(f"{cfg.source_id}: no table carrying the configured columns; page structure {table_header_digest(html)}")
     return "FAILED", [], "PARSE_NO_TABLE", "no table carrying the configured columns", None
+
+
+def table_header_digest(html: str, *, max_tables: int = 6, max_cells: int = 12) -> str:
+    """What tables a page carries, for a public log: the count, and each table's
+    first-row cell texts (column headings), digits masked, 40 characters each.
+    Structure only - never a data row (2026-11-07: Morgan CO's deed-auction page
+    stopped matching and the sandbox cannot read the page)."""
+    import re  # noqa: PLC0415
+    try:
+        from bs4 import BeautifulSoup  # noqa: PLC0415
+    except ImportError:
+        return "unavailable (bs4 not installed)"
+    soup = BeautifulSoup(html or "", "html.parser")
+    tables = soup.find_all("table")
+    parts = []
+    for tb in tables[:max_tables]:
+        row = tb.find("tr")
+        cells = row.find_all(["th", "td"]) if row else []
+        heads = [re.sub(r"\d", "9", " ".join(c.get_text(" ", strip=True).split()))[:40] for c in cells[:max_cells]]
+        parts.append(f"[{' | '.join(heads)}]")
+    return f"{len(tables)} table(s) " + (" ".join(parts) if parts else "(none)")
 
 
 def main(argv=None) -> int:
