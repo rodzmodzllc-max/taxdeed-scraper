@@ -114,24 +114,43 @@ class Api:
             raise
 
 
-def fetch_rows(api: Api, state: str, *, select: str = SELECT) -> list[dict]:
-    """Every laft row of the state, by keyset pages (scripts/rest_pages):
+# Ledgers (properties.source) whose rows receive their source's decision.
+# Default: AVAILABLE only. TX-07 (2026-11-08): the Texas step also passes
+# `--ledgers laft,auction` - the vendor auction sync never stamps the column,
+# so 785 active Texas auction rows carried NULL while the registry says
+# APPROVED_GRANDFATHERED (and 119 carried another source's APPROVED).
+DEFAULT_LEDGERS = ("laft",)
+PROPAGATED_LEDGERS = frozenset({"laft", "auction"})
+
+
+def parse_ledgers(value: str | None) -> tuple[str, ...]:
+    ledgers = tuple(x.strip() for x in (value or ",".join(DEFAULT_LEDGERS)).split(",") if x.strip())
+    bad = [x for x in ledgers if x not in PROPAGATED_LEDGERS]
+    if bad or not ledgers:
+        raise ValueError(f"--ledgers takes {sorted(PROPAGATED_LEDGERS)}, not {bad or value!r}")
+    return ledgers
+
+
+def fetch_rows(api: Api, state: str, *, select: str = SELECT, ledgers: tuple[str, ...] = DEFAULT_LEDGERS) -> list[dict]:
+    """Every row of these ledgers in the state, by keyset pages (scripts/rest_pages):
     an offset page sorts the whole filtered set first and crossed the
     statement timeout under parallel state jobs (2026-10-10, HTTP 500)."""
     root = api.base[: -len("/rest/v1")] if api.base.endswith("/rest/v1") else api.base
-    rows = RP.read_all(root, "properties", api._headers(), {"select": select, "state": f"eq.{state}", "source": "eq.laft"})
+    source = f"eq.{ledgers[0]}" if len(ledgers) == 1 else f"in.({','.join(ledgers)})"
+    rows = RP.read_all(root, "properties", api._headers(), {"select": select, "state": f"eq.{state}", "source": source})
     api.requests_made += max(1, (len(rows) + RP.PAGE - 1) // RP.PAGE)
     return rows
 
 
-def plan(rows: list[dict], decisions: dict[str, pub.PublicationDecision]) -> tuple[dict[str, list[str]], dict]:
+def plan(rows: list[dict], decisions: dict[str, pub.PublicationDecision], *,
+         ledgers: tuple[str, ...] = DEFAULT_LEDGERS) -> tuple[dict[str, list[str]], dict]:
     """{publication_status: [ids]} for rows whose stored value differs;
     counts of rows left alone."""
     groups: dict[str, list[str]] = {}
     counts = {"rows": len(rows), "unclassified": 0, "unchanged": 0, "changed": 0}
     for r in rows:
-        if r.get("source") not in (None, "laft"):
-            continue                                    # the AVAILABLE ledger only; other ledgers keep their own rules
+        if (r.get("source") or "laft") not in ledgers:
+            continue                                    # only the ledgers asked for; the others keep their own rules
         status = pub.row_publication(r, decisions)
         if status is None:
             counts["unclassified"] += 1
@@ -290,7 +309,10 @@ def main(argv=None) -> int:
     ap.add_argument("--rows", default=None, help="measure a harvest / rows JSON file instead of the API (no writes)")
     ap.add_argument("--report", default=str(REPORT_PATH))
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--ledgers", default=",".join(DEFAULT_LEDGERS),
+                    help="properties.source values whose rows receive the decision (laft, auction; default laft)")
     args = ap.parse_args(argv)
+    ledgers = parse_ledgers(args.ledgers)
 
     registry = csr.load_registry(args.registry)
     rule_sources = frozenset(r.source_id for r in PP.load_rules(args.rules) if r.enabled and r.purchase_url_kind in PP.PROPERTY_KINDS)
@@ -326,11 +348,15 @@ def main(argv=None) -> int:
             report["migration_022"] = "present" if have_022 else "absent - publication_status not written"
             if have_022:
                 have_023 = api.has_migration_023()
-                rows = fetch_rows(api, args.state, select=SELECT_023 if have_023 else SELECT)
+                fetched = fetch_rows(api, args.state, select=SELECT_023 if have_023 else SELECT, ledgers=ledgers)
+                # The measurement below is the AVAILABLE ledger's: other
+                # ledgers' rows only receive their decision.
+                rows = [r for r in fetched if r.get("source") in (None, "laft")]
                 if have_023:
                     report["purchase_paths"] = PE.measure(rows)
                     report["acquisition_coverage"] = acquisition_coverage_report(rows)
-                groups, counts = plan(rows, decisions)
+                groups, counts = plan(fetched, decisions, ledgers=ledgers)
+                report["ledgers"] = list(ledgers)
                 report["plan"] = {"counts": counts, "by_status": {k: len(v) for k, v in groups.items()}}
                 if args.dry_run:
                     report["mode"] = "dry-run"

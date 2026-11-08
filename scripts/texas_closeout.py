@@ -43,7 +43,9 @@ closes only its own rows, the same way:
               rule above never fired: 435 such rows were still 'active' on
               2026-11-06). Never 'sold' or any result. A row the source lists
               again - e.g. with a new sale date - is reopened below.
-  reactivate  a stored row this run's harvest lists again whose status is
+  reactivate  a stored row this run's harvest lists again under the row's
+              OWN source (TX-01: a county list never reopens a vendor's
+              closed row) whose status is
               'closed' (or the older 'dropped' / 'notfound') -> status
               'active', delisted_at cleared. A row with a recorded result
               ('sold') is never reopened by a listing.
@@ -116,6 +118,19 @@ def harvest_identities(harvest: list[dict]) -> set[tuple]:
     return out
 
 
+def listing_sources(harvest: list[dict]) -> set[tuple]:
+    """harvest_identities() with the listing source id appended:
+    (state, ledger source, county, account, harvester_source)."""
+    out = set()
+    for p in harvest:
+        if not isinstance(p, dict) or p.get("harvester_source") not in SOURCE_IDS:
+            continue
+        source, county, account = p.get("source"), p.get("county"), p.get("account_number")
+        if source and county and account:
+            out.add((STATE, source, county, account, p["harvester_source"]))
+    return out
+
+
 def plan(harvest: list[dict], stored: list[dict], units: dict, permitted: set[str],
          *, max_share: float | None = MAX_CLOSE_SHARE, now: datetime | None = None) -> dict:
     """The whole decision, as data. Pure."""
@@ -169,10 +184,14 @@ def plan(harvest: list[dict], stored: list[dict], units: dict, permitted: set[st
         and (STATE, r.get("source"), r.get("county"), r.get("case_no")) not in listed
         and LH.unit_status(units, r.get("harvester_source"), r.get("county")) not in NO_READ)
 
+    # Only the source that lists the row again reopens it (TX-01, 2026-11-08):
+    # a county list naming an account a vendor dropped never reopens the
+    # vendor's closed row (the next vendor pass closed it again, every run).
+    listed_by = listing_sources(harvest)
     reactivate = [r["id"] for r in stored
                   if str(r.get("status") or "").lower() in REACTIVATABLE
                   and r.get("harvester_source") in sids
-                  and (STATE, r.get("source"), r.get("county"), r.get("case_no")) in listed
+                  and (STATE, r.get("source"), r.get("county"), r.get("case_no"), r.get("harvester_source")) in listed_by
                   and not held_by_vendor(r)]
 
     # What was kept and why (counts only).

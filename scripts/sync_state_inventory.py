@@ -304,6 +304,21 @@ def keep_list_values_on_identity_only_row(row: dict, stored: dict | None) -> int
     return kept
 
 
+# Statuses of another source's stored row that a Texas county list may take
+# over (TX-01): the vendor dropped the row. Never a recorded result ('sold',
+# 'redeemed', ...): that row keeps its source.
+TAKEOVER_ROW_STATUSES = frozenset({"closed", "dropped", "notfound"})
+
+
+def takes_over_closed_row(prior: dict, other_active_sources: set[str], source_id: str) -> bool:
+    """True when this source may take over `prior`, another source's stored row
+    of the same identity: it is closed (not a result) and no other source holds
+    the account in an ACTIVE row under any spelling."""
+    if str((prior or {}).get("status") or "active").lower() not in TAKEOVER_ROW_STATUSES:
+        return False
+    return not (set(other_active_sources) - {source_id, ""})
+
+
 def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, str], *, observed_at: str | None = None,
          stored_provenance: dict | None = None, stored_first_seen: dict | None = None,
          stored_rows: dict | None = None, keep_other_sources: bool = False,
@@ -410,9 +425,17 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
             counts["skipped_same_account_other_spelling"] = counts.get("skipped_same_account_other_spelling", 0) + 1
             continue
         if prior is not None and prior.get("harvester_source") not in (None, reg.source_id):
-            if keep_other_sources:
+            if keep_other_sources and not takes_over_closed_row(prior, other_by_account.get(normalized_identity(row), set()),
+                                                                reg.source_id):
                 counts["skipped_row_of_other_source"] = counts.get("skipped_row_of_other_source", 0) + 1
                 continue
+            if keep_other_sources:
+                # TX-01 (2026-11-08): another source's CLOSED row of the same
+                # identity no longer holds the account - the vendor dropped
+                # it. The unique (source, county, case_no) key leaves no room
+                # for a second row, so this list's row takes the stored row
+                # over; the vendor-wins rule still holds for ACTIVE rows.
+                counts["took_over_closed_row_of_other_source"] = counts.get("took_over_closed_row_of_other_source", 0) + 1
             prior = None                        # another source's row: never a merge base
         if prior is not None:                    # a new row's own dict is sent unchanged
             prov, restore, outcome = merge_acquisition(row, prior)

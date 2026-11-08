@@ -98,6 +98,25 @@ PROPERTIES_ROWS_FILES = {
 UA = "taxdeed-scraper/1.0 (+https://github.com/rodzmodzllc-max/taxdeed-scraper)"
 HARVESTER = "tx_county_sales"
 RETRY_DELAY_S = 5
+# TX-05 (2026-11-08): Randall's page timed out on connect in 2 of 3 runs, and
+# one retry after 5 s was not enough. A dropped connection / timeout is tried
+# at most this many times, waiting RETRY_DELAY_S, then 3x, then 9x as long
+# (5 s, 15 s). Any other error - an HTTP status, a parse failure - is never
+# retried.
+FETCH_ATTEMPTS = 3
+
+
+def fetch_with_retry(fn, session, *, attempts: int = FETCH_ATTEMPTS, delay: float = RETRY_DELAY_S, sleep=None):
+    """fn(session), retried on a connection error or a timeout only."""
+    sleep = sleep or time.sleep
+    for i in range(attempts):
+        try:
+            return fn(session)
+        except (requests.ConnectionError, requests.Timeout):
+            if i == attempts - 1:
+                raise
+            sleep(delay * (3 ** i))
+    raise AssertionError("unreachable")
 
 AUCTION_DATASET = "sale_calendar"
 AVAILABLE_DATASET = "lands_available"
@@ -915,11 +934,7 @@ def main(argv=None) -> int:
             rec.failed(county, "PERMISSION_DENIED", f"{'/'.join(denied)} not permitted")
             continue
         try:
-            try:
-                rows, meta, url = fn(session)
-            except (requests.ConnectionError, requests.Timeout):
-                time.sleep(RETRY_DELAY_S)  # one polite retry of a dropped connection, nothing more
-                rows, meta, url = fn(session)
+            rows, meta, url = fetch_with_retry(fn, session)
         except Exception as exc:  # noqa: BLE001 - categorised, never a silent zero
             category, _ = describe_exception(exc)
             print(f"    ERROR ({category}): {type(exc).__name__}: {str(exc)[:160]}", flush=True)
