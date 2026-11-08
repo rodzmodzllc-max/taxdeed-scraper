@@ -3568,7 +3568,7 @@
      "eligibility_source_url": "https://www.eatoncounty.org/1530/2026-Foreclosure-Sale",
      "eligibility_verified_on": "2026-10-01",
      "meaning": "A county treasurer's sale of tax-foreclosed parcels.",
-     "note": "Eaton and Lenawee county tax / foreclosure sales. Tax-Sale.info county auction catalogs collected since 2026-10-26 (awaiting review).",
+     "note": "Eaton and Lenawee county tax / foreclosure sales and Tax-Sale.info county auction catalogs (all approved for customer publication 2026-10-26; legal review pending).",
      "office": "County Treasurer",
      "status": "TRACKED"
     },
@@ -3704,11 +3704,11 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "The Detroit Land Bank Authority and the Oceana County Land Bank publish their own inventories (collected; awaiting customer-publication review).",
+     "eligibility_basis": "The Detroit Land Bank Authority and the Oceana County Land Bank publish their own inventories (collected; approved for customer publication 2026-10-26; legal review pending).",
      "eligibility_source_url": "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0",
      "eligibility_verified_on": "2026-10-02",
      "meaning": "Land bank inventory: publicly held parcels offered under the land bank's own programs.",
-     "note": "Detroit Land Bank and Oceana County Land Bank inventories (awaiting customer-publication review). Wayne, Saginaw, Calhoun and Genesee county land banks and Tax-Sale.info surplus catalogs collected since 2026-10-26 (awaiting review).",
+     "note": "Detroit Land Bank, Oceana, Wayne, Saginaw and Calhoun county land bank inventories and Tax-Sale.info surplus catalogs (all approved for customer publication 2026-10-26; legal review pending). The Genesee County Land Bank is not collected (held: its site answers with intermittent server errors).",
      "office": "Land bank authority (Detroit, Oceana County)",
      "status": "TRACKED"
     },

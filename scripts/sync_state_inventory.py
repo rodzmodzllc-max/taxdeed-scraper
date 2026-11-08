@@ -41,6 +41,7 @@ from harvesters.governance.publication import PUBLISHABLE_STATUSES, effective_pu
 from harvesters.ledgers import ledger_for_row, ledgers_for_source_id  # noqa: E402
 from harvesters.ledgers import health as LH  # noqa: E402
 from harvesters.ledgers import records as LR  # noqa: E402
+from harvesters.governance.inventory_status import LISTED_AFTER_DUE_SOURCE_IDS  # noqa: E402
 sys.path.insert(1, str(Path(__file__).resolve().parent))
 from source_publication import collectable  # noqa: E402
 sys.path.insert(0, str(HERE))
@@ -387,6 +388,14 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
             counts["refused_ledger_contract"] = counts.get("refused_ledger_contract", 0) + 1
             continue
         row["last_seen_at"] = observed_at
+        sale_passed = past_sale_date(row, FP_ts(observed_at).date())
+        if sale_passed:
+            # Still listed, sale held, no result published: closed, never sold.
+            row["status"] = "closed"
+            row["otc_provenance"] = dict(row.get("otc_provenance") or {}, closed_past_sale=sale_passed)
+            prior_row = (stored_values or {}).get(identity(row)) or {}
+            row["delisted_at"] = prior_row.get("delisted_at") or observed_at
+            counts["closed_past_sale"] = counts.get("closed_past_sale", 0) + 1
         if str(row.get("status") or "active").lower() == "active":
             # Listed by this read, so not delisted: a re-listed row sheds the
             # delisted_at an earlier close-out wrote (2026-10-26: one active
@@ -447,6 +456,43 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
             counts["enriched_values_kept_after_alignment"] = counts.get("enriched_values_kept_after_alignment", 0) + kept
     counts["upsert"] = len(out)
     return out, counts
+
+
+# Past-sale close (MI-2, 2026-11-08). Some county layers keep publishing an
+# auction's rows after the sale is held (Lenawee MI: 35 rows of the
+# 2026-10-06 sale; Eaton MI: 2 of 2026-10-22), so the absence close-out
+# never fires and the rows stayed 'active' - server-side counts that read
+# status='active' (exports, alerts, saved-search matching, coverage) counted
+# them as live auctions. A listed auction row whose sale date is more than
+# PAST_SALE_GRACE_DAYS past, with no result published, is written 'closed'
+# - never 'sold' (a result comes only from the source's own flag / price,
+# which model.py already turns into 'closed' + result fields). The same
+# terms as scripts/texas_closeout.py's past-sale close. Not for:
+#   * LISTED_AFTER_DUE_SOURCE_IDS (Dane WI): the stored date is a bid
+#     deadline on a standing table, and a listed parcel is still offered;
+#   * Texas: its county lists are closed by texas_closeout.py, which keeps
+#     the vendor / county-list ownership rules.
+PAST_SALE_GRACE_DAYS = 1
+PAST_SALE_EXCLUDED_STATES = frozenset({"TX"})
+
+
+def past_sale_date(row: dict, today) -> str | None:
+    """The row's sale date (YYYY-MM-DD) when it is a listed, still-active
+    auction row past its sale with no result, else None. Pure."""
+    from datetime import date, timedelta  # noqa: PLC0415
+    if row.get("source") != "auction" or str(row.get("status") or "active").lower() != "active":
+        return None
+    if row.get("state") in PAST_SALE_EXCLUDED_STATES:
+        return None
+    if (row.get("source_id") or row.get("harvester_source")) in LISTED_AFTER_DUE_SOURCE_IDS:
+        return None
+    if row.get("result_amount") not in (None, "") or row.get("result_date") not in (None, ""):
+        return None
+    try:
+        sale = date.fromisoformat(str(row.get("sale_date") or "")[:10])
+    except ValueError:
+        return None                       # no (parseable) sale date: never closed on a guess
+    return sale.isoformat() if sale < today - timedelta(days=PAST_SALE_GRACE_DAYS) else None
 
 
 def FP_ts(value: str):

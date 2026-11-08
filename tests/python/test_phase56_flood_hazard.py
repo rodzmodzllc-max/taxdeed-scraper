@@ -244,9 +244,13 @@ def test_p56_23_counties_are_shuffled(flood):
     body = src[src.index("def fetch_counties_needing_flood"):src.index("def fetch_county_batch")]
     # Shuffling lives in the shared (state, county) unit helper the flood and
     # NAIP backfills both use; the helper itself is pinned to shuffle.
-    assert "EU.outstanding_units(" in body
+    # 2026-11-08 (MI-1): units are discovered by a loose index scan + one
+    # count per unit (EU.discover_units), which shuffles the same way.
+    assert "EU.discover_units(" in body
     units_src = (SCRIPT.parent / "enrichment_units.py").read_text(encoding="utf-8")
     assert "random.shuffle(units)" in units_src and "shuffle: bool = True" in units_src
+    disc = units_src[units_src.index("def discover_units"):]
+    assert "random.shuffle(found)" in disc
 
 
 def test_p56_24_only_rows_with_coordinates_are_selected(flood):

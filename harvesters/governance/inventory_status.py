@@ -302,6 +302,13 @@ def adapter_record_status(row: dict, *, today: date) -> StatusObservation | None
         if row.get("result_amount") not in (None, ""):
             return StatusObservation("sold", "SOURCE_STATUS", raw="Previous Sales: Sale Price",
                                      note="listed in the county's own past-sales table with a published sale price")
+        if prov.get("closed_past_sale"):
+            # scripts/sync_state_inventory.py past-sale close (MI-2): still
+            # on the list, but the sale date has passed and no result is
+            # published - closed by the date, never a result.
+            return StatusObservation("closed", "SCHEDULED_DATE",
+                                     note=f"sale date {str(prov['closed_past_sale'])[:10]} has passed; "
+                                          "the county's list publishes no result")
         return StatusObservation("closed", "LIST_PRESENCE", note="no longer on the county's sale list; the result is not published there")
     if prov.get("list_superseded"):
         return StatusObservation("unknown", "SCHEDULED_DATE", note=str(prov["list_superseded"])[:300])
