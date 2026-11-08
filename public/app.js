@@ -6922,7 +6922,8 @@ const SOURCE_HEALTH_LABELS = {
   PARTIAL: { label: "Partial read", cls: "warn", text: "The last attempt read only part of the source. Listings it did not see are kept; nothing was closed." },
   NEEDS_REVIEW: { label: "Needs review", cls: "warn", text: "Collected, awaiting customer-publication review of the source." },
   MANUAL: { label: "Read on request", cls: "muted", text: "This source is read only when a read is requested - it is not refreshed on a schedule." },
-  NOT_RECORDED: { label: "Not recorded", cls: "muted", text: "No read of this source has been recorded yet." }
+  NOT_RECORDED: { label: "Not recorded", cls: "muted", text: "No read of this source has been recorded yet." },
+  SUPERSEDED: { label: "List superseded", cls: "muted", text: "This list's sale is over and the county has not yet published the next sale's list. It is not read until that list is published." }
 };
 function sourceHealthState(u, opts) {
   const o = opts || {};
@@ -6930,12 +6931,15 @@ function sourceHealthState(u, opts) {
   if (!u) return { state: o.review ? "NEEDS_REVIEW" : "NOT_RECORDED", checkedZero: false };
   const status = String(u.last_attempt_status || "");
   const success = status === "COMPLETE" || status === "EMPTY";
-  const checkedZero = !!u.last_success_at && (status === "EMPTY" || (success && (u.last_success_row_count === 0 || u.last_success_row_count === "0")));
+  // A superseded list (unit_freshness.SUPERSEDED_CATEGORY) was not read: never "checked zero" (WY-1).
+  const superseded = status === "EMPTY" && String(u.last_error_category || "") === "SUPERSEDED_LIST";
+  const checkedZero = !superseded && !!u.last_success_at && (status === "EMPTY" || (success && (u.last_success_row_count === 0 || u.last_success_row_count === "0")));
   const unavailable = status === "SOURCE_UNAVAILABLE" || (status === "FAILED" && /^(TRANSPORT_|PROXY_|ACCESS_)/.test(String(u.last_error_category || "")));
   const ageH = u.last_success_at ? (now - Date.parse(u.last_success_at)) / 3600000 : null;
   let state;
   if (unavailable) state = "SOURCE_UNAVAILABLE";
   else if (status === "INCOMPLETE") state = "PARTIAL";
+  else if (superseded) state = "SUPERSEDED";
   else if (o.review) state = "NEEDS_REVIEW";
   else if (MANUAL_ONLY_SOURCE_IDS.includes(u.source_id)) state = "MANUAL";
   else if (!u.last_success_at && !status) state = "NOT_RECORDED";
@@ -6949,7 +6953,7 @@ function sourceHealthText(u, opts) {
   const h = sourceHealthState(u, opts);
   const L = SOURCE_HEALTH_LABELS[h.state];
   const bits = [L.text];
-  if (u && u.last_success_at) bits.push(`Last complete read ${relativeTime(u.last_success_at)}${u.last_success_row_count !== null && u.last_success_row_count !== undefined ? ` (${Number(u.last_success_row_count).toLocaleString("en-US")} listed)` : ""}.`);
+  if (u && u.last_success_at && h.state !== "SUPERSEDED") bits.push(`Last complete read ${relativeTime(u.last_success_at)}${u.last_success_row_count !== null && u.last_success_row_count !== undefined ? ` (${Number(u.last_success_row_count).toLocaleString("en-US")} listed)` : ""}.`);
   if (u && u.last_attempt_at && h.state === "SOURCE_UNAVAILABLE") bits.push(`Last attempt ${relativeTime(u.last_attempt_at)}.`);
   if (h.checkedZero && h.state !== "SOURCE_UNAVAILABLE") bits.push("Checked: the source listed no properties at that read.");
   return Object.assign({}, h, { label: L.label, cls: L.cls, text: bits.join(" ") });

@@ -76,6 +76,7 @@ WY_ALBANY = ArcGisLayerConfig(
     # published: rows read 'Not published', never 'Listed'.
     superseded="the county's own pages now name the next sale (August 13, 2027); this layer is the 2026 sale's 1st list and "
                "the county publishes no result for it",
+    successor_service_pattern=r"^(?P<year>20\d\d)_?TAXSALEPROP",
     notes="'2026 TAX SALE PROPERTIES 1ST LIST FROM ALBANY COUNTY, WY TREASURER'S OFFICE.' The layer's TOTAL figure "
           "carries no alias saying what it totals, so it is kept as a published amount of UNSPECIFIED kind, never "
           "called a bid. totalval (Total value) is kept as the value on file.")

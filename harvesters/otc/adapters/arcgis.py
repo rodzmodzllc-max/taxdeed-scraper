@@ -134,6 +134,14 @@ class ArcGisLayerConfig:
     # row's provenance; the inventory status is then 'unknown' (the sale is
     # over and no result is published), never 'listed'.
     superseded: str | None = None
+    # Each year's list is published as a NEW, year-named service in the same
+    # ArcGIS org (Albany WY: 2025TAXSALEPROP_1ST, 2026TAXSALEPROP_1ST, ...),
+    # so a pinned layer_url never sees the next year. When set, the runner
+    # lists the org's services (names only) and warns when a service matching
+    # this pattern (named group `year`) is later than the configured layer's
+    # year. Wiring the new layer stays a code change after its fields are
+    # checked - the warning only says it exists (WY-2, 2026-11-08).
+    successor_service_pattern: str | None = None
     # Attribute values every returned feature MUST carry (re-checked locally
     # after the server-side `where`): a feature without them means the
     # server ignored the filter, so the read is untrusted (FAILED).
