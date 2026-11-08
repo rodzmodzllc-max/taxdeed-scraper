@@ -689,8 +689,9 @@ def expansion_rows() -> list[dict]:
             doc = {"arcgis": getattr(cfg, "layer_url", ""), "sc_flc_pdf": getattr(cfg, "document_url", ""),
                    "csv": getattr(cfg, "document_url", ""), "pdf_table": getattr(cfg, "document_url", ""),
                    # The page's newest dated file as of the last live read (the harvester follows the newest on every run).
+                   # Horry SC: none - its workbook is replaced as taxes are paid, so a pinned file goes stale.
                    "latest_dated_document": (EX.PA_FAYETTE_LATEST_READ[1] if cfg is EX.PA_FAYETTE_REPOSITORY
-                                             else EX.SC_HORRY_LATEST_READ[1] if cfg is EX.SC_HORRY_TAX_SALE
+                                             else "" if cfg is EX.SC_HORRY_TAX_SALE
                                              else getattr(cfg, "document_url", "")),
                    "epropertyplus": getattr(cfg, "portal", "") + "/landmgmtpub/remote/public/property/getPublishedProperties",
                    # Each catalog's spreadsheet is /catalog/getCsv/id/<catalog id>; the id changes per sale, so
