@@ -1,0 +1,75 @@
+name: Data accuracy watchdog (daily)
+
+# Checks the data pipe every day after the harvests (12:00 UTC is the
+# certificates / laft / expansion slot; the 07:37 / 17:37 ET deeds runs are
+# off this hour). scripts/data_accuracy_watchdog.py reads every active
+# properties row (keyset pages per state) and county_source_registry, READ-ONLY,
+# and prints counts per state x ledger x source: active, not seen in 7 days,
+# missing county, past sale dates, duplicates, change vs the previous run, and
+# registry units FAILED / INCOMPLETE for 48 h or more. The run turns red only
+# on a hard break: duplicates within one source, active auctions past their
+# sale date above the threshold, or a source losing more than half its rows
+# since the previous run. Counts only - never a parcel, address or name.
+# The previous run's counts live in out/.harvest_cache (actions/cache).
+
+on:
+  schedule:
+    - cron: '41 15 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-accuracy-watchdog
+  cancel-in-progress: false
+
+jobs:
+  watchdog:
+    name: Check data accuracy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Restore the previous run's counts
+        uses: actions/cache@v4
+        with:
+          path: out/.harvest_cache
+          key: data-accuracy-${{ github.run_id }}
+          restore-keys: |
+            data-accuracy-
+
+      - name: Run the watchdog
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          mkdir -p out/public out/.harvest_cache
+          python3 scripts/data_accuracy_watchdog.py --json out/public/data-accuracy.json
+
+      - name: Prepare artifact (public evidence + encrypted raw)
+        # The report is counts only and already lives in out/public/; the
+        # evidence step is the repository's one writer of the artifact dirs
+        # (tests/python/test_artifact_privacy.py) and adds the run identity.
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job data-accuracy out/public/data-accuracy.json
+
+      - name: Upload the counts-only report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-accuracy-${{ github.run_id }}
+          path: |
+            out/public/
+            out/private/
+          if-no-files-found: warn
+          retention-days: 30
