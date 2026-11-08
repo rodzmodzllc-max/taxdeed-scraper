@@ -115,3 +115,54 @@ def get_window(get, url: str, params: dict, limit: int, *, start: str | None = N
         return first
     rest = get_paged(get, url, dict(params, id=f"lte.{start}"), limit - len(first))
     return first + rest
+
+
+def distinct_values(get, url: str, column: str, params: dict, *, cap: int = 1000) -> list[str]:
+    """Distinct non-null values of `column` under `params`, by a loose index
+    scan: one `order=<column>.asc&limit=1&<column>=gt.<last>` request per
+    value. With a partial index whose leading columns are (state, county)
+    each request is an index-only probe, whatever the size of the table.
+
+    2026-11-08 (MI flood step): discovering units by reading every matching
+    row in id order walked properties_state_id_idx and fetched a heap page
+    per row; once the matches thinned out past the first page, the next
+    page crossed the statement timeout (HTTP 500) at the same cursor every
+    run and the whole step stopped. `cap` bounds a runaway loop."""
+    out: list[str] = []
+    last = None
+    while len(out) < cap:
+        q = dict(params, select=column, order=f"{column}.asc", limit="1")
+        q[column] = f"gt.{last}" if last is not None else "not.is.null"
+        rows = get(url, q)
+        rows = rows if isinstance(rows, list) else []
+        value = rows[0].get(column) if rows and isinstance(rows[0], dict) else None
+        if value is None or value in out:   # the server's collation orders; a repeat ends it
+            break
+        out.append(value)
+        last = value
+    return out
+
+
+def discover_units(get, count, url: str, scan_params: dict, count_params: dict,
+                   states: list[str], *, warn=print, shuffle: bool = True) -> list[tuple[tuple[str, str], int]]:
+    """((state, county), outstanding) for every unit with work left, without
+    reading the population: the states (given, or found by a loose scan),
+    each state's counties by a loose scan under `scan_params` (index-only
+    filters), then one bounded count per unit under `scan_params` +
+    `count_params` (`count(url, params)` -> int). A unit whose count fails
+    is skipped with a warning - one county never stops the others."""
+    states = list(states) or distinct_values(get, url, "state", scan_params)
+    found: list[tuple[tuple[str, str], int]] = []
+    for state in states:
+        for county in distinct_values(get, url, "county", dict(scan_params, state=f"eq.{state}")):
+            unit = (state, county)
+            try:
+                n = count(url, dict(scan_params, **count_params, **unit_params(unit)))
+            except Exception as exc:  # noqa: BLE001 - reported, never fatal
+                warn(f"::warning::{label(unit)}: outstanding count failed ({type(exc).__name__}); skipped this run")
+                continue
+            if n:
+                found.append((unit, n))
+    if shuffle:
+        random.shuffle(found)
+    return found
