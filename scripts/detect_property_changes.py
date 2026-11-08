@@ -247,16 +247,19 @@ class Api:
                 return out
             offset += len(page)
 
-    def population(self, table: str, params: dict) -> list[dict]:
+    def population(self, table: str, params: dict, *, key: str = "id") -> list[dict]:
         """Every row of `table` matching `params`, by KEYSET pages
         (scripts/rest_pages: id=gt.<last>&order=id.asc, bounded retry on a
         transient 5xx). 2026-10-10, run 38070616741 (WY): the offset read of
         the state's properties hit HTTP 500 under eleven parallel state jobs,
-        so no change was recorded for that state. `params` must select `id`
-        and must not carry order / limit / offset."""
+        so no change was recorded for that state. `params` must select `key`
+        (the table's primary key) and must not carry order / limit / offset.
+        2026-11-07 (run 42364763870, LA-2): the snapshot read still paged by
+        offset and hit HTTP 500 for FL, LA and TX - it goes through here too,
+        keyed on property_id."""
         root = self.base[: -len("/rest/v1")] if self.base.endswith("/rest/v1") else self.base
         headers = {"apikey": self.key, "Authorization": f"Bearer {self.key}", "User-Agent": USER_AGENT}
-        return RP.read_all(root, table, headers, params)
+        return RP.read_all(root, table, headers, params, key=key, patient=True)
 
 
 def _cache_name(state: str, source: str | None) -> str:
@@ -327,8 +330,9 @@ def main(argv=None) -> int:
     rows = api.population("properties", params)
     ids = {str(r["id"]) for r in rows}
     if have_024:
-        stored = {s["property_id"]: s["snapshot"] for s in api.paged(f"property_change_snapshots?select=property_id,snapshot&state=eq.{state}&order=property_id.asc")
-                  if s["property_id"] in ids or not src}
+        snaps = api.population("property_change_snapshots", {"select": "property_id,snapshot", "state": f"eq.{state}"},
+                               key="property_id")
+        stored = {s["property_id"]: s["snapshot"] for s in snaps if s["property_id"] in ids or not src}
     else:
         stored = load_cache(state, src)
     baseline_exists = bool(stored)

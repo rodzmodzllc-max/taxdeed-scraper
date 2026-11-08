@@ -39,6 +39,7 @@ USER_AGENT = "taxdeed-scraper/1.0 (+https://github.com/rodzmodzllc-max/taxdeed-s
 PARSER_VERSION = "1"
 
 ADAPTERS = {"AR": AR, "AZ": AZ, "LA": LA}
+DUPLICATE_KEYS = ("duplicate_identifier_numbers", "duplicate_identifier_rows", "duplicate_identifiers_differing")
 
 
 def source_of(state: str):
@@ -166,6 +167,9 @@ def main(argv=None) -> int:
     rep = {"mode": mode, "state": state, "source_id": cfg.source_id, "rows": len(rows), "units": {oc.county: oc.status for oc in result.outcomes},
            "status_counts": counts, "requests": result.requests, "units_offered": result.units_offered,
            "unresolved_units": result.unresolved_units, "parser_fixture_validated": cfg.parser_fixture_validated,
+           # Same-number rows on the source's own list (LA-7): counts only.
+           "duplicates": {oc.county: {k: oc.report[k] for k in DUPLICATE_KEYS if k in oc.report}
+                          for oc in result.outcomes if isinstance(oc.report, dict) and any(k in oc.report for k in DUPLICATE_KEYS)},
            "note": "unit names, statuses and counts only; never a row value"}
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(json.dumps(rep, indent=2, sort_keys=True) + "\n", encoding="utf-8")

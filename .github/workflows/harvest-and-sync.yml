@@ -895,7 +895,9 @@ jobs:
   laft:
     name: Harvest Lands Available PDFs + sync
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    # 75 -> 105 (2026-11-08, LA-1): room for one Louisiana lifecycle retry
+    # (below) after a statement-timeout failure under the expansion legs' load.
+    timeout-minutes: 105
     needs: schedule_guard
     if: ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'laft' || github.event.inputs.job == '')) || (github.event.schedule == '37 11 * * *' || github.event.schedule == '37 3 * * *')) && !contains(needs.schedule_guard.outputs.covered, 'laft') }}
     env:
@@ -1212,6 +1214,7 @@ jobs:
         run: python3 scripts/sync_state_inventory.py --state LA --status out/harvest_louisiana_status.json
 
       - name: Louisiana - lifecycle (last_seen_at, gated close-out)
+        id: la_lifecycle
         # 10,334 adjudicated rows: one provenance PATCH per row takes longer than
         # the job's old 20-minute budget. Its own cap keeps it from ever starving
         # the Florida steps that run before it.
@@ -1228,18 +1231,56 @@ jobs:
         # again writes nothing (the sync and the lifecycle no longer rewrite
         # each other's otc_provenance every run).
         run: python3 scripts/laft_lifecycle.py --state LA --status out/harvest_louisiana_status.json --harvest out/harvest_louisiana.json --report out/public/laft-lifecycle-la.json
+      # The lifecycle is Louisiana's ONLY close-out (the sync runs without
+      # --close-absent). 2026-11-07 (run 42364763870) it failed on a
+      # statement-timeout HTTP 500 while the expansion matrix legs wrote, and
+      # continue-on-error left the job green: nothing closed that day. One
+      # retry after a pause (the lifecycle is idempotent: it writes only new /
+      # changed rows), then a warning annotation and a job-summary line when it
+      # still failed, so a missed close-out is never silently green.
+      - name: Retry Louisiana lifecycle (after a failed attempt)
+        id: la_lifecycle_retry
+        timeout-minutes: 30
+        if: ${{ !cancelled() && steps.la_lifecycle.outcome == 'failure' }}
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          sleep 240
+          python3 scripts/laft_lifecycle.py --state LA --status out/harvest_louisiana_status.json --harvest out/harvest_louisiana.json --report out/public/laft-lifecycle-la.json
+
+      - name: Report Louisiana lifecycle failure
+        if: ${{ !cancelled() && steps.la_lifecycle.outcome == 'failure' && steps.la_lifecycle_retry.outcome != 'success' }}
+        run: |
+          echo "::warning title=Louisiana lifecycle failed::The Louisiana lifecycle (last_seen_at and the gated close-out) failed twice. Rows that left the Parish's list were NOT closed by this run - see the 'Louisiana - lifecycle' step logs."
+          {
+            echo "## Louisiana lifecycle: FAILED"
+            echo ""
+            echo "- Harvest and sync: **succeeded** (earlier steps)"
+            echo "- Lifecycle (last_seen_at, close-out of rows no longer listed): **failed** on the first attempt and on the retry"
+          } >> "$GITHUB_STEP_SUMMARY"
       # Louisiana's 10,334 adjudicated rows had no inventory_status at all
       # (2026-10-11): the writer only ran for FL and the expansion matrix, and
       # its rule had no AVAILABLE mapping outside Florida. Same gated writer,
       # same migration-021 probe; a failed lifecycle skips it (status would
       # otherwise be derived from a pipeline status this run did not refresh).
       - name: Louisiana - inventory status (normalized lifecycle state, migration 021)
+        id: la_inventory_status
         if: always() && steps.la_sync.outcome == 'success'
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/inventory_status_writer.py --state LA --report out/public/inventory-status-la.json
+
+      - name: Report Louisiana inventory-status failure
+        # 2026-11-05 (run 42018857948) this step failed on an HTTP 500 and the
+        # job stayed green (LA-3).
+        if: ${{ !cancelled() && steps.la_inventory_status.outcome == 'failure' }}
+        run: |
+          echo "::warning title=Louisiana inventory status failed::The Louisiana inventory-status writer failed - a status change in this run was not recorded. See the 'Louisiana - inventory status' step log."
+          echo "## Louisiana inventory status: FAILED" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Louisiana - freshness and publication gate
         # No inventory-status mapping exists for an adjudicated list

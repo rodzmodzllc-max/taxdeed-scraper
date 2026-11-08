@@ -180,6 +180,11 @@ class OtcRecord:
     lot_sqft: int | None = None                     # the parcel's area in square feet, as published
     year_built: int | None = None                   # as published
     living_area: int | None = None                  # the structure's square footage, as published
+    # Value columns the source DID publish, but with a placeholder that is not
+    # a value (Louisiana's FAIR MARKET VALUE = 0 on every row, 2026-11-08,
+    # LA-5): the row sends them as NULL, so an earlier stored placeholder from
+    # the same list is cleared rather than kept (an absent key writes nothing).
+    published_not_a_value: tuple[str, ...] = ()
 
     def validate(self) -> list[str]:
         problems: list[str] = []
@@ -312,6 +317,9 @@ class OtcRecord:
             value = getattr(self, name)
             if value is not None:
                 row[name] = to_cents(value) if name in CURRENCY_VALUE_FIELDS else value
+        for name in self.published_not_a_value:
+            if getattr(self, name, None) is None:
+                row.setdefault(name, None)
         if self.issued_date is not None:
             row["issued_date"] = self.issued_date.isoformat()
         if self.published_outcome == "sold" or self.listing_closed:
