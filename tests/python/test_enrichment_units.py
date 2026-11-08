@@ -32,7 +32,13 @@ def test_state_filter_from_environment(monkeypatch):
 def test_both_backfills_use_the_shared_units():
     for name in ("enrich_flood_zone.py", "enrich_property_photos_naip.py"):
         src = (ROOT / "scripts" / name).read_text(encoding="utf-8")
-        assert "EU.outstanding_units(" in src and "EU.unit_params(unit)" in src and '"select": "state,county"' in src
+        assert "EU.unit_params(unit)" in src
+        if name == "enrich_flood_zone.py":
+            # 2026-11-08 (MI-1): flood units come from a loose index scan +
+            # one count per unit, never a read of the whole population.
+            assert "EU.discover_units(" in src
+        else:
+            assert "EU.outstanding_units(" in src and '"select": "state,county"' in src
 
 
 def _naip(monkeypatch):

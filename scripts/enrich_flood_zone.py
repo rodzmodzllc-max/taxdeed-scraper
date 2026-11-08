@@ -315,16 +315,66 @@ def fetch_counties_needing_flood():
     Randomized order, and each county gets its own capped slice per run, so a
     single large county can never consume the whole budget - the same
     anti-starvation shape the FDOR enricher and the geocoder both use.
+
+    2026-11-08: units are discovered, not read. The old read walked every
+    matching row of the state in id order (properties_state_id_idx, a heap
+    fetch per row); past Michigan's first page the matches thinned out and
+    the next page hit the statement timeout (HTTP 500) at the same cursor on
+    every run, so the MI step stopped before checking a single row (jobs
+    128072483034, 128380401219, 128462441176). Now: a loose scan of the
+    partial index properties_flood_unchecked_idx (state, county WHERE
+    flood_checked_at IS NULL) for the units, then one bounded count per
+    unit, each retried on a transient 5xx; a failed count skips that unit
+    with a ::warning, never the step.
     """
-    params = {
-        "select": "state,county",
-        "flood_checked_at": "is.null",
+    scan = {"flood_checked_at": "is.null"}
+    with_coordinates = {
         "latitude": "not.is.null",
         "longitude": "not.is.null",
-        "limit": "10000",
     }
-    params.update(EU.state_param(EU.state_filter()))
-    return EU.outstanding_units(EU.get_paged(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, 100000))
+    return EU.discover_units(_get_json_retry, _count_retry, f"{SUPABASE_URL}/rest/v1/properties",
+                             scan, with_coordinates, EU.state_filter())
+
+
+RETRY_STATUSES = frozenset({500, 502, 503, 504, 520, 521, 522, 523, 524})
+READ_ATTEMPTS = 4
+READ_BACKOFF_SECONDS = 2.0
+
+
+def _retrying(fn):
+    """Call `fn()`, retrying a transient 5xx / connection error (GET only,
+    idempotent); a 4xx or the last failure is raised unchanged."""
+    for attempt in range(1, READ_ATTEMPTS + 1):
+        try:
+            return fn()
+        except requests.HTTPError as exc:
+            code = getattr(exc.response, "status_code", None)
+            if code not in RETRY_STATUSES or attempt == READ_ATTEMPTS:
+                raise
+        except (requests.ConnectionError, requests.Timeout):
+            if attempt == READ_ATTEMPTS:
+                raise
+        time.sleep(READ_BACKOFF_SECONDS * (2 ** (attempt - 1)))
+    raise AssertionError("unreachable")
+
+
+def _get_json_retry(url, params):
+    return _retrying(lambda: _get_json(url, params))
+
+
+def _count(url, params):
+    """Exact row count for `params` (HEAD, `Prefer: count=exact`)."""
+    headers = dict(HEADERS, Prefer="count=exact")
+    resp = requests.head(url, headers=headers, params=dict(params, select="id"), timeout=60)
+    resp.raise_for_status()
+    total = (resp.headers.get("Content-Range") or "").rpartition("/")[2]
+    if not total.isdigit():
+        raise ValueError("no exact count in Content-Range")
+    return int(total)
+
+
+def _count_retry(url, params):
+    return _retrying(lambda: _count(url, params))
 
 
 def plan_slices(counties, batch_limit=None, per_county=None):
@@ -389,7 +439,15 @@ def main():
         )
         return 0
 
-    counties = fetch_counties_needing_flood()
+    try:
+        counties = fetch_counties_needing_flood()
+    except requests.RequestException as exc:
+        # Visible in the run summary: the step is continue-on-error, so a
+        # silent failure here once hid a stalled backlog for days.
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        print(f"::warning::flood unit discovery failed ({type(exc).__name__}"
+              f"{' HTTP ' + str(status) if status else ''}); nothing checked this run")
+        return 1
     print(f"{len(counties)} counties have rows with coordinates and no flood check.")
     if not counties:
         print("Nothing to check.")
