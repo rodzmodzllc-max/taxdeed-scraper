@@ -1526,7 +1526,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:FL:Escambia:73",
+   "source_id": "candidate:FL:Escambia:74",
    "source_type": "GOVERNMENT",
    "state": "FL",
    "url": "https://www.escambiaclerk.com/255/Tax-Deeds-Lands-Available"
@@ -1893,7 +1893,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:FL:Hendry:76",
+   "source_id": "candidate:FL:Hendry:77",
    "source_type": "GOVERNMENT",
    "state": "FL",
    "url": "https://library.municode.com/FL/hendry_clerk_of_courts/munidocs/munidocs?nodeId=4b2b2ea877a65"
@@ -3600,7 +3600,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:FL:Palm Beach:74",
+   "source_id": "candidate:FL:Palm Beach:75",
    "source_type": "GOVERNMENT",
    "state": "FL",
    "url": "https://www.mypalmbeachclerk.com/departments/courts/tax-deeds"
@@ -3622,7 +3622,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:FL:Palm Beach:75",
+   "source_id": "candidate:FL:Palm Beach:76",
    "source_type": "GOVERNMENT",
    "state": "FL",
    "url": "https://www.mypalmbeachclerk.com/departments/courts/tax-deeds/sale-information"
@@ -3960,7 +3960,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:FL:Putnam:77",
+   "source_id": "candidate:FL:Putnam:78",
    "source_type": "GOVERNMENT",
    "state": "FL",
    "url": "https://putnamclerk.com/county-services/property-sales/"
@@ -3982,7 +3982,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:FL:Putnam:78",
+   "source_id": "candidate:FL:Putnam:79",
    "source_type": "GOVERNMENT",
    "state": "FL",
    "url": "https://apps.putnam-fl.com/coc/taxdeeds/public/print_LAFT.php"
@@ -4004,7 +4004,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:FL:Putnam:79",
+   "source_id": "candidate:FL:Putnam:80",
    "source_type": "GOVERNMENT",
    "state": "FL",
    "url": "https://apps.putnam-fl.com/coc/taxdeeds/public/disclaimer.php"
@@ -7312,7 +7312,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:MI:Wayne:51",
+   "source_id": "candidate:MI:Wayne:52",
    "source_type": "GOVERNMENT",
    "state": "MI",
    "url": "https://buildingdetroit.org/purchase_property"
@@ -7334,7 +7334,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:MI:Wayne:52",
+   "source_id": "candidate:MI:Wayne:53",
    "source_type": "GOVERNMENT",
    "state": "MI",
    "url": "https://buildingdetroit.org/land-reuse-programs"
@@ -7450,7 +7450,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:MN:Ramsey:49",
+   "source_id": "candidate:MN:Ramsey:50",
    "source_type": "GOVERNMENT",
    "state": "MN",
    "url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list"
@@ -7472,7 +7472,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:MN:Ramsey:50",
+   "source_id": "candidate:MN:Ramsey:51",
    "source_type": "GOVERNMENT",
    "state": "MN",
    "url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/ramsey-county-tax-forfeited-land-online-sales-terms-conditions"
@@ -7817,7 +7817,7 @@
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state PA; last completeness UNKNOWN",
    "county": "Allegheny",
-   "evidence": "LIVE CAPTURE 2026-10-26 (live structure read 2026-10-26): Allegheny County - pa_pittsburgh_city_property; OWNER DECISION 2026-10-26 (collect and publish every source; legal review pending; INTERIM permission); docs/new-sources-2026-10-26.md",
+   "evidence": "LIVE CAPTURE 2026-10-26 (live structure read 2026-10-26): City of Pittsburgh - pa_pittsburgh_city_property; OWNER DECISION 2026-10-26 (collect and publish every source; legal review pending; INTERIM permission); docs/new-sources-2026-10-26.md",
    "governance": "APPROVED",
    "governance_reason": "",
    "last_checked": "2026-10-26",
@@ -7825,7 +7825,7 @@
    "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "Allegheny County",
+   "publisher": "City of Pittsburgh",
    "roles": [
     "availability",
     "identity",
@@ -7836,6 +7836,28 @@
    "source_type": "GOVERNMENT",
    "state": "PA",
    "url": "https://public-pgh.epropertyplus.com/landmgmtpub/app/base/landing"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Allegheny",
+   "evidence": "web search 2026-11-09",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "City of Pittsburgh Real Estate Division page (city-owned property sales; Request to Purchase through the online portal)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:PA:Allegheny:49",
+   "source_type": "GOVERNMENT",
+   "state": "PA",
+   "url": "https://www.pittsburghpa.gov/City-Government/Finance-Budget/Real-Estate"
   },
   {
    "access": "ACCESSIBLE",
@@ -8419,7 +8441,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TN:Shelby:53",
+   "source_id": "candidate:TN:Shelby:54",
    "source_type": "GOVERNMENT",
    "state": "TN",
    "url": "https://landbank.shelbycountytn.gov"
@@ -8745,7 +8767,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Bexar:69",
+   "source_id": "candidate:TX:Bexar:70",
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information"
@@ -9145,7 +9167,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Dallas:57",
+   "source_id": "candidate:TX:Dallas:58",
    "source_type": "DOCUMENT",
    "state": "TX",
    "url": "https://www.dallascounty.org/Assets/uploads/docs/public-works/TaxFCResaleFAQ_2024_Bids.pdf"
@@ -9213,7 +9235,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Dallas:56",
+   "source_id": "candidate:TX:Dallas:57",
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.dallascounty.org/departments/pubworks/property-division.php"
@@ -9397,7 +9419,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Fort Bend:70",
+   "source_id": "candidate:TX:Fort Bend:71",
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.fortbendcountytx.gov/government/departments/constables/constable-precinct-2/civil-and-writs-division/property-sales"
@@ -9926,7 +9948,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Harris:61",
+   "source_id": "candidate:TX:Harris:62",
    "source_type": "DOCUMENT",
    "state": "TX",
    "url": "https://www.hctax.net/About/Announcements/Tax%20Sale%20FAQs.pdf"
@@ -9948,7 +9970,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Harris:62",
+   "source_id": "candidate:TX:Harris:63",
    "source_type": "DOCUMENT",
    "state": "TX",
    "url": "https://www.hctax.net/Forms/TaxSaleBidderRegistration.pdf"
@@ -10017,7 +10039,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Harris:60",
+   "source_id": "candidate:TX:Harris:61",
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.hctax.net/Property/TaxSales"
@@ -10343,7 +10365,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Jefferson:63",
+   "source_id": "candidate:TX:Jefferson:64",
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://jeffcotax.com/property-tax/delinquent-tax-sale/"
@@ -10641,7 +10663,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Leon:54",
+   "source_id": "candidate:TX:Leon:55",
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.co.leon.tx.us/page/leon.County.Assessor.Collector"
@@ -10756,7 +10778,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Liberty:55",
+   "source_id": "candidate:TX:Liberty:56",
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.co.liberty.tx.us/page/liberty.County.Assessor.Collector"
@@ -11010,7 +11032,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Montague:72",
+   "source_id": "candidate:TX:Montague:73",
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://newtools.cira.state.tx.us/page/montague.TAC.TaxSales"
@@ -11102,7 +11124,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Montgomery:67",
+   "source_id": "candidate:TX:Montgomery:68",
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.mctx.org/departments/departments_q_-_z/tax_office/foreclosure_sales_and_resales.php"
@@ -11124,7 +11146,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Montgomery:68",
+   "source_id": "candidate:TX:Montgomery:69",
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.mctx.org/departments/departments_q_-_z/tax_office/tax_trust_property.php"
@@ -11286,7 +11308,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Orange:65",
+   "source_id": "candidate:TX:Orange:66",
    "source_type": "DOCUMENT",
    "state": "TX",
    "url": "https://www.co.orange.tx.us/media/TaxAssessorCollector/2025/TRUST_All%20forms%20combined%201.pdf"
@@ -11330,7 +11352,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Orange:64",
+   "source_id": "candidate:TX:Orange:65",
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.co.orange.tx.us/departments/TaxAssessor-Collector/PropertyTaxSales"
@@ -11352,7 +11374,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Orange:66",
+   "source_id": "candidate:TX:Orange:67",
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.co.orange.tx.us/departments/taxassessor-collector/property-tax-sale-faqs"
@@ -11723,7 +11745,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Tarrant:58",
+   "source_id": "candidate:TX:Tarrant:59",
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.tarrantcountytx.gov/en/constables/constable-3/delinquent-tax-sales.html"
@@ -11745,7 +11767,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Tarrant:59",
+   "source_id": "candidate:TX:Tarrant:60",
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.tarrantcountytx.gov/en/constables/constable-3/frequently-asked-questions.html"
@@ -11861,7 +11883,7 @@
     "acquisition",
     "discovery"
    ],
-   "source_id": "candidate:TX:Tom Green:71",
+   "source_id": "candidate:TX:Tom Green:72",
    "source_type": "GOVERNMENT",
    "state": "TX",
    "url": "https://www.tomgreencountytx.gov/page/cck.TrusteeTaxSales"
@@ -12722,15 +12744,15 @@
    "sources": 3
   },
   "PA": {
-   "APPROVED": 7,
+   "APPROVED": 8,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 0,
    "by_type": {
     "DOCUMENT": 1,
     "GIS": 1,
-    "GOVERNMENT": 5
+    "GOVERNMENT": 6
    },
-   "sources": 7
+   "sources": 8
   },
   "SC": {
    "APPROVED": 10,

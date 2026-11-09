@@ -2225,12 +2225,18 @@
    "state": "PA",
    "source_id": "pa_pittsburgh_city_property",
    "county": "Allegheny",
-   "status": "NOT_FOUND",
+   "status": "NEEDS_REVIEW",
    "basis": "search_index",
-   "reason": "No official acquisition page identified yet",
+   "reason": "Official pages identified; no capture recorded yet",
    "authority_type": "other_government",
    "authority": "City of Pittsburgh (city-owned property)",
-   "scope": "source"
+   "scope": "source",
+   "candidates": [
+    {
+     "url": "https://www.pittsburghpa.gov/City-Government/Finance-Budget/Real-Estate",
+     "doc_kind": "PROCEDURE"
+    }
+   ]
   },
   {
    "state": "SC",

@@ -200,7 +200,8 @@ def test_acquisition_unit_counts_after_the_sprint():
     # 2026-10-26: + 55 PBFCM / MVBA AVAILABLE units (owner decision) and the county-source sprint's units (FL Lake /
     # DeSoto / Wakulla / Charlotte, TX county lists), none with acquisition evidence yet.
     # + 15 new-sources sprint units (5 ePropertyPlus land banks, 8 Tax-Sale.info surplus counties, Hubbard, Saint Paul HRA).
-    assert len(ACQ["status"]) == 157 and by == {"VERIFIED": 29, "NEEDS_REVIEW": 9, "UNAVAILABLE": 6, "NOT_FOUND": 113}
+    # 2026-11-09: the City of Pittsburgh's Real Estate Division page is a candidate -> NEEDS_REVIEW (not captured yet).
+    assert len(ACQ["status"]) == 157 and by == {"VERIFIED": 29, "NEEDS_REVIEW": 10, "UNAVAILABLE": 6, "NOT_FOUND": 112}
 
 
 # ------------------------------------------------------------------ A2 county procedure rules

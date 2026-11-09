@@ -4825,7 +4825,8 @@
   {
    "call_sites": [
     "scripts/source_publication.py (collectable / publishable)",
-    "harvesters/governance/publication_state.py (display)"
+    "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
    ],
    "conditions": [],
    "dataset": "*",
@@ -4844,7 +4845,8 @@
   {
    "call_sites": [
     "scripts/source_publication.py (collectable / publishable)",
-    "harvesters/governance/publication_state.py (display)"
+    "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
    ],
    "conditions": [],
    "dataset": "*",
@@ -4863,7 +4865,8 @@
   {
    "call_sites": [
     "scripts/source_publication.py (collectable / publishable)",
-    "harvesters/governance/publication_state.py (display)"
+    "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
    ],
    "conditions": [],
    "dataset": "*",
@@ -4882,7 +4885,8 @@
   {
    "call_sites": [
     "scripts/source_publication.py (collectable / publishable)",
-    "harvesters/governance/publication_state.py (display)"
+    "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
    ],
    "conditions": [],
    "dataset": "*",
@@ -4901,7 +4905,8 @@
   {
    "call_sites": [
     "scripts/source_publication.py (collectable / publishable)",
-    "harvesters/governance/publication_state.py (display)"
+    "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
    ],
    "conditions": [],
    "dataset": "*",
@@ -4920,7 +4925,8 @@
   {
    "call_sites": [
     "scripts/source_publication.py (collectable / publishable)",
-    "harvesters/governance/publication_state.py (display)"
+    "harvesters/governance/publication_state.py (display)",
+    "harvesters/governance/discovery_guard.py (discover, by URL)"
    ],
    "conditions": [],
    "dataset": "*",
