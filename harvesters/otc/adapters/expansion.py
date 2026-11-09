@@ -91,7 +91,11 @@ SC_YORK = ArcGisLayerConfig(
     fields=ArcGisFieldMap(case_no="TAXMAPID", parcel="TAXMAPID", owner_name="Owner1", address="PropertyAddress",
                           legal_desc="LegalDescription", land_use="LandUseDesc", acreage="deededacres",
                           market="AprTotVal", land_value="AprLandVal", improvement_value="AprBldgVal",
-                          taxable_value="TaxTotVal", assessed="AsdTotVal", tax_year="TAX_YEAR", record_url="URL"),
+                          taxable_value="TaxTotVal", assessed="AsdTotVal", tax_year="TAX_YEAR", record_url="URL",
+                          # Read live 2026-11-08 (layer metadata + counts only): YearBuilt (Integer) is
+                          # filled > 0 on 338 of 853 features, FinishedSQFT (alias "Total Square Feet")
+                          # on 509. YRBUILT is empty on every feature and is never mapped.
+                          year_built="YearBuilt", living_area="FinishedSQFT"),
     list_url=_item("0bf91b9d18f14702873af5f3ad870429"), columns_verified=True, centroid=True,
     # Acquisition-path sprint (2026-10-25, read live, counts only): the layer's
     # own `URL` attribute is filled on 853 of 853 features, every one
@@ -193,8 +197,9 @@ CO_DOUGLAS_TAX_SALE_LIST = ArcGisLayerConfig(
 # public auctions of Certificates of Option for a Treasurer's Deed (Tax Deed #,
 # Auction Date, Property Tax Acct #, Tax Lien Sale Cert #, Property
 # Description and Address; 105 rows read). No explicit reuse licence: the
-# owner's 2026-09-30 approval covered the county-held certificate page only,
-# so this source is UNREVIEWED until an admin review approves it.
+# owner's 2026-09-30 approval covered the county-held certificate page only;
+# published to customers since the owner's decision of 2026-10-26
+# (OWNER_APPROVED_2026_10_26_SOURCE_IDS; legal review pending).
 CO_MORGAN_DEED_AUCTIONS = TabularConfig(
     source_id="co_morgan_treasurer_deed_auctions", state="CO", county="Morgan",
     source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=None, record_source="auction",
@@ -209,7 +214,8 @@ CO_MORGAN_DEED_AUCTIONS = TabularConfig(
 # (available: Address, Parcel Number, Bid Due, Minimum Bid, and the row's own
 # "Bid Form" link) and tblAuctionSold (the Minimum Bid cell reads
 # "$<bid> SOLD - $<price>"). No explicit reuse licence ("Copyright (c) County
-# of Dane") - UNREVIEWED until an admin review approves it.
+# of Dane") - published to customers since the owner's decision of 2026-10-26
+# (OWNER_APPROVED_2026_10_26_SOURCE_IDS; legal review pending).
 _DANE = dict(source_id="wi_dane_tax_deed_auction", state="WI", county="Dane",
              source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=None, record_source="auction",
              columns=ColumnMap(case_no=("parcel number",), parcel=("parcel number",), address=("address",),
@@ -228,7 +234,8 @@ WI_DANE_SOLD = TabularConfig(**_DANE, table_id="tblAuctionSold", amount_sold_pat
 # 2026-10-01 its only row is the county's statement "The 2026 Tax Sale is
 # scheduled for Monday, November 9, 2026." (read as the list not yet being
 # posted). Map Number is the identity (item numbers restart each year). No
-# explicit reuse licence - UNREVIEWED until an admin review approves it.
+# explicit reuse licence - published to customers since the owner's decision
+# of 2026-10-26 (OWNER_APPROVED_2026_10_26_SOURCE_IDS; legal review pending).
 SC_OCONEE = TabularConfig(
     source_id="sc_oconee_tax_sale_list", state="SC", county="Oconee",
     source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=None, record_source="auction",
@@ -654,7 +661,11 @@ MI_TSI_AUCTIONS = tuple(TSI.TaxSaleInfoConfig(
 # (personal property) is never read. The harvester follows the newest dated
 # 'real-estate-delinquent-list-<MMDDYY>' file on every run.
 SC_HORRY_DELINQUENT_PAGE = "https://www.horrycountysc.gov/departments/treasurer/delinquent-tax/"
-SC_HORRY_LATEST_READ = ("2026-10-26", "https://www.horrycountysc.gov/media/urdazygf/2026-real-estate-delinquent-list-102326.xlsx")
+# No fixed document URL is recorded for this source: the workbook is replaced
+# as taxes are paid (10-23 -> 11-03 within two weeks) and the harvester picks
+# the newest one at run time, so a pinned file name in the registry went stale
+# (data-accuracy pass 2026-11-08). The registry's canonical URL (the
+# Delinquent Tax page) is the source link.
 SC_HORRY_TAX_SALE = TabularConfig(
     source_id="sc_horry_tax_sale", state="SC", county="Horry",
     source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=None, record_source="auction",

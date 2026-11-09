@@ -89,6 +89,11 @@ class ArcGisFieldMap:
     # One Map parcel report for the row's own tax map id). Read verbatim and
     # kept only when it passes record_link_problem(); never composed.
     record_url: str | None = None
+    # Data-accuracy pass (2026-11-08): building facts the layer publishes on
+    # the row (York SC's YearBuilt / FinishedSQFT "Total Square Feet").
+    # A 0 / blank is not published; a year outside 1700-2100 is dropped.
+    year_built: str | None = None
+    living_area: str | None = None
 
     def named(self) -> dict[str, str]:
         return {k: v for k, v in vars(self).items() if v}
@@ -331,6 +336,18 @@ def _positive(value: Any) -> float | None:
     return n if n is not None and n > 0 else None
 
 
+def _whole_positive(value: Any) -> int | None:
+    """A published figure > 0 as a whole number, else None."""
+    n = _positive(value)
+    return int(round(n)) if n is not None and round(n) > 0 else None
+
+
+def _year_value(value: Any) -> int | None:
+    """A published year (1700-2100), else None (0 / blank / garbage = not published)."""
+    n = _whole_positive(value)
+    return n if n is not None and 1700 <= n <= 2100 else None
+
+
 SOLD_YES = {"Y", "YES", "TRUE", "T", "1", "SOLD"}
 
 
@@ -500,6 +517,8 @@ def parse_page(cfg: ArcGisLayerConfig, payload: Any, *, retrieved_at: datetime, 
             tax_year=_text(attrs.get(fm.tax_year)) if fm.tax_year else None,
             land_value=_positive(attrs.get(fm.land_value)) if fm.land_value else None,
             improvement_value=_positive(attrs.get(fm.improvement_value)) if fm.improvement_value else None,
+            year_built=_year_value(attrs.get(fm.year_built)) if fm.year_built else None,
+            living_area=_whole_positive(attrs.get(fm.living_area)) if fm.living_area else None,
             certificate_no=_text(attrs.get(fm.certificate_no)) if fm.certificate_no else None,
             issued_date=issued if cfg.record_source == "certificate" else None,
             sale_date=sale_date if cfg.record_source == "auction" else None,
