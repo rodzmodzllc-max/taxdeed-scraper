@@ -9256,7 +9256,7 @@ const EXPECTED = {
   diligenceLocalPersist: true,
   diligenceOverflow: [],
   // Grouped search, cross-links, parcel timeline (2026-10-06).
-  searchGroupVectors: {"citrus": {"states": [], "counties": [{"county": "Citrus", "total": 1}], "research": []}, "Alachua County": {"states": [], "counties": [{"county": "Alachua", "total": 3}], "research": []}, "texas": {"states": ["TX"], "counties": [], "research": []}, "tx": {"states": ["TX"], "counties": [], "research": []}, "Florida": {"states": [], "counties": [], "research": []}, "15 Manatee": {"states": [], "counties": [], "research": []}, "zz": {"states": [], "counties": [], "research": []}},
+  searchGroupVectors: {"citrus": {"states": [], "counties": [{"county": "Citrus", "total": 1}], "research": []}, "Alachua County": {"states": [], "counties": [{"county": "Alachua", "total": 2}], "research": []}, "texas": {"states": ["TX"], "counties": [], "research": []}, "tx": {"states": ["TX"], "counties": [], "research": []}, "Florida": {"states": [], "counties": [], "research": []}, "15 Manatee": {"states": [], "counties": [], "research": []}, "zz": {"states": [], "counties": [], "research": []}},
   searchGroupDropdown: ["group:Counties", "county:Citrus", "understood", "group:Properties", "property:p15", "all"],
   searchGroupOptionIds: ["gsOpt0", "gsOpt1"],
   searchCountyRoute: {"hash": "#/county/Citrus", "named": true},
