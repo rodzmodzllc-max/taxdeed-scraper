@@ -551,12 +551,32 @@ def plan_close(state: str, harvested: list[dict], stored: list[dict], units: dic
     return out
 
 
+def plan_stored_past_sale_close(state: str, stored: list[dict], source_ids: set[str], today) -> list[dict]:
+    """CO-5 (2026-11-08). Stored ACTIVE auction rows of this state's own
+    sources whose stored sale date is more than PAST_SALE_GRACE_DAYS past,
+    with no result -> closed. Pure. The listed rows of this run are handled
+    by plan() (closed_past_sale); this covers the rows the read did NOT list
+    - including a county whose read FAILED (Morgan CO: one 2026-10-28 row
+    frozen at its last read while every later read failed). The stored rows
+    are read AFTER this run's upsert, so a row the source re-listed with a
+    new date is judged on that new date. Closed only, never sold: a
+    re-listing writes it active again."""
+    out = []
+    for r in stored:
+        if r.get("state") != state or r.get("harvester_source") not in source_ids:
+            continue
+        sale = past_sale_date(r, today)
+        if sale:
+            out.append({"id": r["id"], "status": "closed", "delisted_at": FP.now_iso()})
+    return out
+
+
 def stored_active(base: str, key: str, state: str, source_ids: set[str]) -> list[dict]:
     """Every stored active row of these sources - keyset pages with a bounded
     retry (rest_pages): an offset read sorted the whole state per page and
     crossed the statement timeout under load (HTTP 500)."""
     return RP.read_all(base, "properties", _read_headers(key),
-                       {"select": "id,state,source,county,case_no,status,harvester_source", "state": f"eq.{state}",
+                       {"select": "id,state,source,county,case_no,status,harvester_source,sale_date,result_amount,result_date", "state": f"eq.{state}",
                         "status": "eq.active", "harvester_source": f"in.({','.join(sorted(source_ids))})"},
                        attempts=SYNC_READ_ATTEMPTS, backoff=SYNC_READ_BACKOFF)
 
@@ -806,9 +826,15 @@ def main(argv=None) -> int:
         # 'closed' by another source's read of the same county.
         source_ids = {sid for sid, r in reg.items() if r.is_production and collectable(r, _record_source(sid), "store")}
         units = units_for(Path(args.status))
-        closes = plan_close(args.state, rows, stored_active(url, key, args.state, source_ids), units, source_ids)
+        active = stored_active(url, key, args.state, source_ids)
+        closes = plan_close(args.state, rows, active, units, source_ids)
         close_rows(url, key, closes)
         print(f"{args.state}: closed {len(closes)} row(s) no longer listed by a COMPLETE / EMPTY county read")
+        closing = {c["id"] for c in closes}
+        past = [c for c in plan_stored_past_sale_close(args.state, active, source_ids, FP_ts(FP.now_iso()).date())
+                if c["id"] not in closing]
+        close_rows(url, key, past)
+        print(f"{args.state}: closed {len(past)} stored row(s) whose sale date has passed with no result (never sold)")
     return 0
 
 

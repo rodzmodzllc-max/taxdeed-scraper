@@ -36,6 +36,12 @@ RULES
     the whole list.
   * COMPLETE / EMPTY are the only successes (the same CLOSEOUT_ELIGIBLE set
     the lifecycle uses).
+  * EXCEPT a superseded list (EMPTY with empty_signal 'superseded_list'):
+    the runner made no request - the county's own pages say the list's sale
+    is over - so it is recorded as an attempt with last_error_category
+    SUPERSEDED_LIST and never advances last_success_at /
+    last_success_row_count. The status stays EMPTY so the close-out still
+    closes the finished sale's rows (WY-1, 2026-11-08).
   * An entry whose reason starts with BACKOFF_PREFIX was NOT attempted (the
     harvester held off): it is recorded as skipped and changes nothing.
   * STALE / NOT_RUN are reader-side statuses and never appear in a
@@ -75,6 +81,8 @@ SUCCESS = frozenset({"COMPLETE", "EMPTY"})
 ATTEMPT = frozenset({"COMPLETE", "EMPTY", "INCOMPLETE", "FAILED"})
 BLOCK_CATEGORIES = ("TRANSPORT_HTTP_403_BLOCKED", "PROXY_FAILURE", "PROXY_NOT_CONFIGURED", "ACCESS_DENIED")
 BACKOFF_PREFIX = "backoff hold"
+SUPERSEDED_SIGNAL = "superseded_list"        # scripts/laft_status.py EMPTY_SIGNALS
+SUPERSEDED_CATEGORY = "SUPERSEDED_LIST"      # last_error_category of a superseded (not read) list
 MIN_FAILURES = 3
 HOLD_HOURS = 48.0
 USER_AGENT = "taxdeed-scraper/1.0 (+https://github.com/rodzmodzllc-max/taxdeed-scraper; unit freshness)"
@@ -119,6 +127,7 @@ def normalize_entry(e: dict, *, default_state: str, default_source: str | None) 
     return {"state": str(e.get("state") or default_state), "source_id": source_id, "county": county, "status": status,
             "checked_at": str(e.get("checked_at") or ""), "row_count": rows,
             "error_category": e.get("error_category"), "reason": reason,
+            "empty_signal": e.get("empty_signal"),
             "skipped": reason.startswith(BACKOFF_PREFIX)}
 
 
@@ -126,7 +135,7 @@ def merge(previous: dict, entries: list[dict], *, at: str) -> tuple[dict, dict]:
     """Merge this run's entries into the persisted record. Returns
     (record, counts)."""
     record = {k: dict(v) for k, v in (previous or {}).items() if isinstance(v, dict)}
-    counts = {"units": 0, "attempted": 0, "succeeded": 0, "incomplete": 0, "failed": 0, "skipped": 0}
+    counts = {"units": 0, "attempted": 0, "succeeded": 0, "superseded": 0, "incomplete": 0, "failed": 0, "skipped": 0}
     for e in entries:
         key = unit_key(e["state"], e["source_id"], e["county"])
         cur = record.setdefault(key, {"state": e["state"], "source_id": e["source_id"], "county": e["county"],
@@ -141,7 +150,12 @@ def merge(previous: dict, entries: list[dict], *, at: str) -> tuple[dict, dict]:
         counts["attempted"] += 1
         cur["last_attempt_at"] = e["checked_at"] or at
         cur["last_attempt_status"] = e["status"]
-        if e["status"] in SUCCESS:
+        if e["status"] == "EMPTY" and e.get("empty_signal") == SUPERSEDED_SIGNAL:
+            # Not read: never a fresh verified-empty read (WY-1).
+            counts["superseded"] += 1
+            cur["consecutive_failures"] = 0
+            cur["last_error_category"] = SUPERSEDED_CATEGORY
+        elif e["status"] in SUCCESS:
             counts["succeeded"] += 1
             cur["last_success_at"] = e["checked_at"] or at
             cur["last_success_row_count"] = e["row_count"] if e["row_count"] is not None else 0
@@ -381,6 +395,13 @@ MANUAL_ONLY_SOURCES = {
 }
 
 
+def superseded(unit: dict | None) -> bool:
+    """The last attempt was a superseded list: not read, the sale is over and
+    the county's next list is not yet published (WY-1)."""
+    return bool(unit) and str(unit.get("last_attempt_status") or "") == "EMPTY" and \
+        str(unit.get("last_error_category") or "") == SUPERSEDED_CATEGORY
+
+
 def source_unavailable(unit: dict) -> bool:
     """The last attempt could not reach or was refused by the source (a
     transport / proxy / access category on a FAILED attempt, or the reader-
@@ -417,9 +438,12 @@ def unit_stale(unit: dict, *, now: datetime | None = None, stale_hours: float = 
 #   MANUAL              a manual-only source: read on request, never aged.
 #   CURRENT / RECENT / STALE  last complete read within 36 h / 7 days / older.
 #   NOT_RECORDED        no read recorded for this source.
+#   SUPERSEDED          the list's sale is over and the county has not yet
+#                       published its next list - not read, never "checked zero".
 # ``checked_zero`` marks a complete read in which the source listed nothing.
 RECENT_HOURS = 24.0 * 7
-CUSTOMER_HEALTH_STATES = ("CURRENT", "RECENT", "STALE", "SOURCE_UNAVAILABLE", "PARTIAL", "NEEDS_REVIEW", "MANUAL", "NOT_RECORDED")
+CUSTOMER_HEALTH_STATES = ("CURRENT", "RECENT", "STALE", "SOURCE_UNAVAILABLE", "PARTIAL", "NEEDS_REVIEW", "MANUAL", "NOT_RECORDED",
+                          "SUPERSEDED")
 
 
 def customer_health(unit: dict | None, *, now: datetime | None = None, review: bool = False) -> dict:
@@ -427,12 +451,15 @@ def customer_health(unit: dict | None, *, now: datetime | None = None, review: b
     if not unit:
         return {"state": "NEEDS_REVIEW" if review else "NOT_RECORDED", "checked_zero": False}
     status = str(unit.get("last_attempt_status") or "")
-    checked_zero = bool(unit.get("last_success_at")) and (
+    is_superseded = superseded(unit)
+    checked_zero = not is_superseded and bool(unit.get("last_success_at")) and (
         status == "EMPTY" or (status in SUCCESS and unit.get("last_success_row_count") in (0, "0")))
     if source_unavailable(unit):
         state = "SOURCE_UNAVAILABLE"
     elif status == "INCOMPLETE":
         state = "PARTIAL"
+    elif is_superseded:
+        state = "SUPERSEDED"
     elif review:
         state = "NEEDS_REVIEW"
     elif unit.get("source_id") in MANUAL_ONLY_SOURCES:
@@ -467,12 +494,16 @@ def public_report(record: dict, counts: dict, *, at: str, now: datetime | None =
             entry["manual_only"] = True
         entry["stale"] = False if manual else unit_stale(u, now=now)
         entry["source_unavailable"] = source_unavailable(u)
+        if superseded(u):
+            entry["superseded"] = True
         units.append(entry)
         for ledger in (u.get("ledgers") or "UNCLASSIFIED").split("|"):
             b = by_ledger.setdefault(ledger, {"units": 0, "current": 0, "stale": 0, "failing": 0, "backoff": 0, "source_unavailable": 0})
             b["units"] += 1
             if manual:
                 b["manual_only"] = b.get("manual_only", 0) + 1
+            elif superseded(u):
+                b["superseded"] = b.get("superseded", 0) + 1
             elif u.get("last_attempt_status") in SUCCESS:
                 b["current"] += 1
             else:
@@ -523,6 +554,7 @@ def main(argv=None) -> int:
     rp.write_text(json.dumps(public_report(record, counts, at=at), indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     print(f"unit freshness: {counts['units']} unit entries this run - attempted {counts['attempted']}, succeeded {counts['succeeded']}, "
+          f"superseded (not read) {counts['superseded']}, "
           f"incomplete {counts['incomplete']}, failed {counts['failed']}, skipped (back-off hold) {counts['skipped']}; "
           f"{len(record)} units on record")
     held = [u for u in record.values() if not backoff_decision(u, now=datetime.now(timezone.utc))[0]]
