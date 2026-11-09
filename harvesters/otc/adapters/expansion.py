@@ -76,6 +76,7 @@ WY_ALBANY = ArcGisLayerConfig(
     # published: rows read 'Not published', never 'Listed'.
     superseded="the county's own pages now name the next sale (August 13, 2027); this layer is the 2026 sale's 1st list and "
                "the county publishes no result for it",
+    successor_service_pattern=r"^(?P<year>20\d\d)_?TAXSALEPROP",
     notes="'2026 TAX SALE PROPERTIES 1ST LIST FROM ALBANY COUNTY, WY TREASURER'S OFFICE.' The layer's TOTAL figure "
           "carries no alias saying what it totals, so it is kept as a published amount of UNSPECIFIED kind, never "
           "called a bid. totalval (Total value) is kept as the value on file.")
@@ -693,6 +694,12 @@ CO_SAGUACHE_TAX_SALE = ArcGisLayerConfig(
                           amount="Total_Due", acreage="Deeded_Acres"),
     amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, list_url=_item("beee3cca0e0e4c2382cdcf56166531c7"),
     columns_verified=True, centroid=True,
+    # CO-1 (2026-11-08): the layer carries no date; the Treasurer's own page
+    # dates the whole list (data/buyers_guide_answers.csv CO,Saguache,AUCTIONS,
+    # schedule, VERIFIED, captured 2026-10-29). Without it all 900 rows read
+    # as upcoming auctions after the sale was held.
+    published_sale_date=("2026-11-02", "'Annual Tax Lien Auction will be held online, November 2-4, 2026' (the Saguache "
+                                       "County Treasurer/Public Trustee page, read 2026-10-29)"),
     notes="Saguache County 2026 tax lien sale list (layer '2026 Tax Sale'). Total_Due is the advertised amount; the opening "
           "bid is not stated on the layer - kept as a published amount of unspecified kind. No sale date on the layer.")
 

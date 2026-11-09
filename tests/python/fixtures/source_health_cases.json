@@ -16,6 +16,8 @@
     {"name": "review beats freshness", "unit": {"source_id": "mi_oceana_landbank", "last_attempt_status": "COMPLETE", "last_success_at": "2026-10-05T02:00:00Z", "last_success_row_count": 7}, "review": true, "state": "NEEDS_REVIEW", "checked_zero": false},
     {"name": "unavailable beats review", "unit": {"source_id": "mi_oceana_landbank", "last_attempt_status": "FAILED", "last_error_category": "ACCESS_FORBIDDEN", "last_success_at": "2026-10-05T02:00:00Z"}, "review": true, "state": "SOURCE_UNAVAILABLE", "checked_zero": false},
     {"name": "manual only", "unit": {"source_id": "tx_lgbs", "last_attempt_status": "COMPLETE", "last_success_at": "2026-09-01T12:00:00Z", "last_success_row_count": 80}, "review": false, "state": "MANUAL", "checked_zero": false},
-    {"name": "nothing recorded", "unit": {"source_id": "fl_laft_pdfs", "last_attempt_status": null, "last_success_at": null}, "review": false, "state": "NOT_RECORDED", "checked_zero": false}
+    {"name": "nothing recorded", "unit": {"source_id": "fl_laft_pdfs", "last_attempt_status": null, "last_success_at": null}, "review": false, "state": "NOT_RECORDED", "checked_zero": false},
+    {"name": "superseded list, earlier success on file", "unit": {"source_id": "wy_albany_tax_sale", "last_attempt_status": "EMPTY", "last_error_category": "SUPERSEDED_LIST", "last_success_at": "2026-10-05T02:00:00Z", "last_success_row_count": 0}, "review": false, "state": "SUPERSEDED", "checked_zero": false},
+    {"name": "superseded list, never read", "unit": {"source_id": "wy_albany_tax_sale", "last_attempt_status": "EMPTY", "last_error_category": "SUPERSEDED_LIST", "last_success_at": null}, "review": false, "state": "SUPERSEDED", "checked_zero": false}
   ]
 }

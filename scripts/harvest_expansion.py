@@ -232,6 +232,57 @@ def link_property_pages(cfg, recs, fetch_text, *, offline: bool) -> int:
     return n
 
 
+def services_root(layer_url: str) -> str | None:
+    """'https://host/<org>/arcgis/rest/services' for an ArcGIS layer URL, else None."""
+    m = re.match(r"^(https://[^?#]+?/rest/services)/", layer_url or "")
+    return m.group(1) if m else None
+
+
+def newer_services(cfg, listing: dict) -> list[str]:
+    """Service names in an ArcGIS `/rest/services?f=json` listing that match
+    cfg.successor_service_pattern for a year LATER than the configured
+    layer's own year. Names only - a services listing carries no row."""
+    pat = re.compile(cfg.successor_service_pattern, re.IGNORECASE)
+    m = re.search(r"/rest/services/(?:[^/]+/)*?([^/]+)/(?:Feature|Map)Server", cfg.layer_url or "")
+    own = pat.search(m.group(1)) if m else None
+    if not own:
+        return []
+    own_year = int(own.group("year"))
+    out = []
+    for svc in (listing or {}).get("services") or []:
+        name = str((svc or {}).get("name") or "").rsplit("/", 1)[-1]
+        hit = pat.search(name)
+        if hit and int(hit.group("year")) > own_year and name not in out:
+            out.append(name)
+    return sorted(out)
+
+
+def successor_check(cfg, fetch_json) -> list[str] | None:
+    """WY-2 (2026-11-08): a superseded, year-named list is never read again,
+    so the county's NEXT list would go unnoticed. One request for the org's
+    services listing (names only); a ::warning when a later year's service is
+    published. Never fatal; never changes the read's status. None = not
+    checked (no pattern, no transport, or the listing could not be read)."""
+    if not getattr(cfg, "successor_service_pattern", None) or fetch_json is None:
+        return None
+    root = services_root(cfg.layer_url)
+    if not root:
+        return None
+    try:
+        listing = fetch_json(f"{root}?f=json")
+    except Exception as exc:  # noqa: BLE001 - a discovery check never stops the run
+        print(f"{cfg.source_id} [{cfg.county}]: next-list check not done ({type(exc).__name__} reading the services listing)")
+        return None
+    newer = newer_services(cfg, listing)
+    if newer:
+        print(f"::warning title=harvest_{cfg.state.lower()}::{cfg.source_id} [{cfg.county}]: the county's ArcGIS org now "
+              f"publishes a later list service: {', '.join(newer)} - wire it in harvesters/otc/adapters/expansion.py "
+              f"after checking its fields (this source is superseded and is not read)")
+    else:
+        print(f"{cfg.source_id} [{cfg.county}]: next-list check - no later list service published yet")
+    return newer
+
+
 def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None = None, fetch_bytes=None, post_text=None):
     """-> (status, records, category, detail, empty_signal)."""
     cfg = src.config
@@ -509,6 +560,8 @@ def main(argv=None) -> int:
                   f"an identifier already read from the same source (count only; row count is the distinct listings)")
         if invalid and status == "COMPLETE":
             status = "INCOMPLETE"
+        if empty == "superseded_list" and not fixtures:
+            successor_check(cfg, fetch_json)
         per_county[cfg.county].append((cfg, status, len(valid), cat, detail, empty, src.url))
         records += valid
         shapes = dict(Counter(shape(r.case_no) for r in valid).most_common(4))
