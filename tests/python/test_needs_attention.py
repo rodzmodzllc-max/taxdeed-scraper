@@ -59,6 +59,7 @@ def test_main_probes_the_column_and_sends_the_category(tmp_path, monkeypatch):
                    "--registry", str(registry)]) == 0
     assert sent == [({"state": "FL", "source_id": "fl_laft_pdfs", "county": "Hendry"},
                      {"last_attempt_at": sent[0][1]["last_attempt_at"], "last_attempt_status": "FAILED", "consecutive_failures": 1,
+                      "completeness_status": "FAILED",
                       "last_error_category": "TRANSPORT_HTTP_404"})]
 
 
