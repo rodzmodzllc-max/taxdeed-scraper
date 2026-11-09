@@ -175,6 +175,25 @@ html[data-look="merged"] #pageDashboard details.home-ops{background:var(--paper-
 /* ---------- Shell: header, phone bar, List toolbar ---------- */
 html[data-shell="v3"] .hdr-nav{position:relative}
 html[data-shell="v3"] .hdr-guide:not(#_){white-space:nowrap}
+/* One ink line for the lit entry (.hdr-ink), so the per-item underline goes. */
+@media (min-width:1024px){
+  html[data-shell="v3"] .hdr-nav .nav-item.on::after{display:none!important}
+  html[data-shell="v3"] .hdr-ink{height:3px;bottom:0}
+}
+/* The Guide entry costs width: the brand's subtitle and the Look label give
+   it back until the header has room for all of them. */
+@media (min-width:1024px) and (max-width:1599.98px){
+  html[data-shell="v3"] .hdr-brand-sub:not(#_){display:none!important}
+  html[data-shell="v3"] .topbar .global-search:not(#_){min-width:140px}
+  html[data-shell="v3"] .look-btn .look-label:not(#_){display:none}
+}
+@media (min-width:1024px) and (max-width:1279.98px){
+  html[data-shell="v3"] .hdr-nav .nav-item:not(#_){padding:0 .45rem!important}
+  /* No room for a sixth entry here: the Guide stays in the account menu's Go to group. */
+  html[data-shell="v3"] .hdr-nav .hdr-guide:not(#_){display:none!important}
+  html[data-shell="v3"] .look-btn .look-name:not(#_){display:none}
+  html[data-shell="v3"] .look-btn:not(#_){width:44px;padding:0;justify-content:center}
+}
 /* Below 768px: the wordmark shows, the Look choice lives in the account menu. */
 .account-look{display:none}
 @media (max-width:767.98px){
@@ -210,7 +229,8 @@ html[data-shell="v3"] #quickControls.qc-v3:not(#_){background:transparent!import
   background:linear-gradient(90deg,var(--sage,#4E6B54) var(--p,0%),var(--rule) var(--p,0%))}
 .cty-steps,.acq-steps,.cty-step-name,.cty-step-state{overflow-wrap:anywhere;min-width:0}
 @media (max-width:767.98px){ .cty-steps:not(#_){grid-template-columns:repeat(2,minmax(0,1fr))} .cty-step:nth-child(2n){border-right:0} .cty-kv:not(#_){grid-template-columns:1fr} }
-.cty,.cty-index{max-width:100%;overflow-wrap:anywhere}
+.cty,.cty-index{max-width:100%}
+.cty-table th{overflow-wrap:normal;word-break:normal;hyphens:none}
 
 /* ---------- State picker / coverage explorer ---------- */
 .state-row-none.no-listings{color:var(--ink-soft);font-size:.78rem}
@@ -223,4 +243,5 @@ html[data-shell="v3"] #quickControls.qc-v3:not(#_){background:transparent!import
 
 /* ---------- Watchlist and My Research pages ---------- */
 .wl-count-pill,.rs-count-pill{display:inline-block;margin-left:.5rem;padding:.05rem .6rem;border-radius:999px;border:1px solid var(--rule);font:500 .8rem var(--font-sans);color:var(--ink-soft);vertical-align:middle}
-#pageWatchlist .bid-list-items:not(#_),#pageWatchlist .wl-list:not(#_){display:flex!important;flex-direction:column!important;grid-template-columns:none!important}
+#pageWatchlist #bidListRows:not(#_){display:flex!important;flex-direction:column!important;grid-template-columns:none!important;gap:.9rem;max-width:860px}
+#pageWatchlist .watchlist-head .cty-head{margin-top:.4rem}

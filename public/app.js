@@ -8217,14 +8217,14 @@ async function renderResearchPage() {
     .concat(RESEARCH.lists.map(l => `<button type="button" class="research-tab${lid === l.id ? " on" : ""}" data-action="researchlist" data-list="${esc(l.id)}">${esc(l.name)} <b>${RESEARCH.items.filter(i => i.list_id === l.id).length}</b></button>`)).join("");
   const cur = RESEARCH.lists.find(l => l.id === lid);
   sec.innerHTML = `<div class="research">
-    <header class="cty-head"><p class="cty-kicker">${esc(STATE_META[PAGE_STATE] ? STATE_META[PAGE_STATE].name : PAGE_STATE)} · My Research</p><h2 class="cty-title">My Research</h2>
+    <header class="cty-head"><p class="cty-kicker">${esc(STATE_META[PAGE_STATE] ? STATE_META[PAGE_STATE].name : PAGE_STATE)}</p><h2 class="cty-title">My Research <span class="rs-count-pill" aria-label="${RESEARCH.items.length} saved">${RESEARCH.items.length}</span></h2>
       <p class="cty-lede">The properties you are working, in your own lists, with your own research state beside each property's official status.</p></header>
     ${researchStorageNoteHtml()}
     <div class="research-tabs" role="tablist">${listTabs}</div>
     <div class="research-tools">
       <input type="text" id="researchNewListName" maxlength="80" placeholder="New list name" aria-label="New research list name"><button type="button" class="detail-btn" data-action="researchcreate">Create list</button>
       ${cur ? `<button type="button" class="link-btn" data-action="researchrename" data-list="${esc(cur.id)}">Rename list</button><button type="button" class="link-btn" data-action="researchdelete" data-list="${esc(cur.id)}">Delete list</button>` : ""}
-      <label class="research-filter"><span>Research state</span><select id="researchStateFilter"><option value="all">All (${inList.length})</option>${RESEARCH_STATES.map(s => `<option value="${s}"${fs === s ? " selected" : ""}>${esc(RESEARCH_STATE_LABELS[s])} (${byState[s] || 0})</option>`).join("")}</select></label>
+      <label class="research-filter"${RESEARCH.lists.length ? "" : " hidden"}><span>Research state</span><select id="researchStateFilter"><option value="all">All (${inList.length})</option>${RESEARCH_STATES.map(s => `<option value="${s}"${fs === s ? " selected" : ""}>${esc(RESEARCH_STATE_LABELS[s])} (${byState[s] || 0})</option>`).join("")}</select></label>
     </div>
     ${RESEARCH.items.length ? researchPipelineHtml(inList, byState, fs) : ""}
     ${shown.length ? `<div class="cty-table-wrap"><table class="cty-table research-table"><thead><tr class="rs-groups"><th colspan="7" scope="colgroup">From the records</th><th colspan="4" scope="colgroup" class="rs-yours rs-first">Your workflow</th></tr><tr><th>Property</th><th>${esc(UNIT_WORD)}</th><th>Ledger</th><th>Official status</th><th>Upcoming</th><th>Acquisition path</th><th>Due diligence</th><th class="rs-yours rs-first">Your research state</th><th class="rs-yours">Saved</th><th class="rs-yours">Your note</th><th class="rs-yours"></th></tr></thead><tbody>${shown.map(researchRowHtml).join("")}</tbody></table></div>`
@@ -11163,18 +11163,19 @@ function renderBidListModal() {
     ? ""
     : elsewhere || known.length
       ? `<div class="empty-state">No watchlist items currently listed in ${esc(STATE_INFO.name)}.</div>`
-      : `<div class="empty-state">Your watchlist is empty. Click ⚐ on any property to save it here — up to ${BID_LIST_MAX}.</div>`;
+      : `<div class="empty-state">Your watchlist is empty. Use Watchlist on any property to save it here - up to ${BID_LIST_MAX}.</div>`;
   const pendingHtml = pendingRows.length ? `
     <div class="bidlist-pending">
-      <div class="bidlist-pending-head">⏳ Waiting for a slot (${pendingRows.length}) - added automatically, oldest first, as you remove items above</div>
+      <div class="bidlist-pending-head">Waiting for a slot (${pendingRows.length}) - added automatically, oldest first, as you remove items above</div>
       ${pendingRows.map(p => `<div class="bidlist-pending-row"><span>${shortPropLabel(p)}</span><button class="reset-btn" data-action="bidlist" data-pid="${p.id}" type="button">Cancel</button></div>`).join("")}
     </div>` : "";
   const backName = WATCHLIST_FROM === "dashboard" ? "Home" : WATCHLIST_FROM === "map" ? "Map" : WATCHLIST_FROM === "research" ? "My Research" : WATCHLIST_FROM === "county" ? "County Intelligence" : "the list";
   inner.innerHTML = `
     <div class="watchlist-head">
       <button class="link-btn watchlist-back" data-action="closebidlist" type="button">&larr; Back to ${esc(backName)}</button>
-      <h1 class="detail-address watchlist-title" id="watchlistTitle">⚑ My Watchlist <span class="watchlist-count">(${countLabel})</span></h1>
-      <p class="mega-sub watchlist-sub">The short list you're actively tracking in ${esc(STATE_INFO.name)} — separate from ♡ Favorites, capped at ${BID_LIST_MAX} to keep it focused.</p>
+      <header class="cty-head"><p class="cty-kicker">${esc(STATE_INFO.name)}</p>
+      <h1 class="cty-title watchlist-title" id="watchlistTitle">My Watchlist <span class="watchlist-count wl-count-pill" aria-label="${BIDLIST.size} of ${BID_LIST_MAX} saved">${countLabel}</span></h1>
+      <p class="cty-lede watchlist-sub">The short list you're actively tracking in ${esc(STATE_INFO.name)} - separate from Favorites, capped at ${BID_LIST_MAX} to keep it focused.</p></header>
     </div>
     <div class="bidlist-changes" id="bidListChanges">${watchChangesHtml(WATCH_CHANGES)}${watchedServerChangesHtml()}</div>
     ${researchQueueHtml(rows)}

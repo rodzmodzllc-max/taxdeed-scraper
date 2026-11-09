@@ -146,6 +146,11 @@ async function newPage(opts) {
 async function clickLedger(pg, key) {
   const rail = pg.locator(`.nav-ledger[data-nav-ledger="${key}"]`);
   if (await rail.first().isVisible().catch(() => false)) return rail.first().click();
+  // Below 1024px the phone bar is the ledger switch and #ledgerTabs is hidden
+  // (html.has-bottombar, 2026-11-09). A tap on the bar's entry for the ledger
+  // already open keeps the reader's place, exactly as the tab did.
+  const bar = pg.locator(`#navBottom .nav-bottom-ledger[data-nav-ledger="${key}"]`);
+  if (await bar.first().isVisible().catch(() => false)) return bar.first().click();
   return pg.click(`.ledger-tab[data-ledger="${key}"]`);
 }
 // Header revision (2026-10-25): Export and Table live inside Filters; the
