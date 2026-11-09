@@ -277,7 +277,8 @@ WI = _expansion("WI", "Wisconsin",
 # review pending (docs/publish-all-sources.md). Mississippi was evaluated
 # and deferred (no deterministic public source of record).
 def _available_expansion(code: str, name: str, source_of_record: str, coverage: str, identifier: str, semantics: str,
-                         purchase: str, amount: str, **evidence: str) -> StateConfig:
+                         purchase: str, amount: str, units: tuple[str, ...] = (PublishingUnit.COUNTY.value,),
+                         **evidence: str) -> StateConfig:
     EXPANSION_EVIDENCE[code] = {
         "source_of_record_identified": source_of_record,
         "live_source_verified": "read by the AVAILABLE-five evidence passes (capture_state_sources.py --available-five / -2 / "
@@ -296,7 +297,7 @@ def _available_expansion(code: str, name: str, source_of_record: str, coverage: 
                                           "collection; merging the PR is the decision",
     }
     EXPANSION_EVIDENCE[code].update(evidence)
-    return _register(StateConfig(code=code, name=name, publishing_units=(PublishingUnit.COUNTY.value,),
+    return _register(StateConfig(code=code, name=name, publishing_units=units,
                                  production_inventory_types=frozenset({"", "POST_SALE"}), lifecycle_inventory_type=None,
                                  production=True, activation=ALL_REQUIREMENTS))
 
@@ -324,7 +325,9 @@ PA = _available_expansion(
     "PARCEL (shape 99-99-9999 with optional -9999 segments)",
     "repository of unsold properties, bids opened monthly; a row with 'Bid Received' is pending and not read as offered",
     "sealed bid to the Tax Claim Bureau; no form URL verified",
-    "'Min. Bid' -> OPENING_BID")
+    "'Min. Bid' -> OPENING_BID",
+    # The City of Pittsburgh publishes its own city-owned property portal (2026-10-26): a municipal publisher.
+    units=(PublishingUnit.COUNTY.value, PublishingUnit.MUNICIPALITY.value))
 MN = _available_expansion(
     "MN", "Minnesota",
     "Ramsey County Tax Forfeited Land public layer (maps.co.ramsey.mn.us)",

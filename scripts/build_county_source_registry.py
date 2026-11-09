@@ -655,6 +655,14 @@ LA_EBR = dict(
 # 2026-09-30 knowing no explicit reuse licence is published - the
 # restriction column says so on every row.
 
+# Expansion sources whose publisher is not the county they sit in: (publishing_unit, publishing_unit_name).
+# Every other expansion row is published by its county (or an independent city named "<X> City").
+EXPANSION_PUBLISHERS: dict[str, tuple[str, str]] = {
+    # The City of Pittsburgh's own ePropertyPlus portal (public-pgh), not Allegheny County.
+    "pa_pittsburgh_city_property": ("MUNICIPALITY", "City of Pittsburgh"),
+}
+
+
 def expansion_rows() -> list[dict]:
     from harvesters.governance.states import EXPANSION_EVIDENCE
     from harvesters.otc.adapters import expansion as EX
@@ -703,7 +711,8 @@ def expansion_rows() -> list[dict]:
                            "pdf_table": ("HTTP_GET_PDF", "PDF"), "csv": ("HTTP_GET_HTML", "CSV"),
                            "latest_dated_document": ("HTTP_GET_HTML", "XLSX"),
                            "xlsx_flc_lists": ("HTTP_GET_HTML", "XLSX")}.get(src.kind, ("HTTP_GET_HTML", "HTML_TABLE"))
-            unit_name = cfg.county if cfg.county.endswith(" City") else f"{cfg.county} County"
+            unit_kind, unit_name = EXPANSION_PUBLISHERS.get(
+                cfg.source_id, ("COUNTY", cfg.county if cfg.county.endswith(" City") else f"{cfg.county} County"))
             purchase = getattr(cfg, "purchase_url", None) or getattr(cfg, "application_url", None) or ""
             pkind = getattr(cfg, "purchase_url_kind", None) or getattr(cfg, "application_kind", None)
             rows.append(_row(
@@ -721,7 +730,7 @@ def expansion_rows() -> list[dict]:
                                  f"{EX.PA_FAYETTE_LATEST_READ[1].rsplit('/', 1)[-1]} (XLSX, sheets Active + Completed; only Active read); "
                                  if latest else "")
                               + f"{decision}; docs/{'new-sources-2026-10-26' if nsrc else 'tennessee-survey' if tn else 'available-expansion-2026-10' if five else 'available-inventory' if available else 'five-state-enrichment' if new else 'six-state-expansion'}.md"),
-                notes=cfg.notes, publishing_unit="COUNTY", publishing_unit_name=unit_name,
+                notes=cfg.notes, publishing_unit=unit_kind, publishing_unit_name=unit_name,
                 amount_kind=cfg.amount_kind.value, update_frequency="not published by the source (read on each run)",
                 source_terminology=ev["inventory_semantics_established"] if not new else {
                     "auction": "parcels on the county's published tax / tax-deed sale list (AUCTIONS)",
