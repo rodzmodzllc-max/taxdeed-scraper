@@ -126,9 +126,9 @@ details.bg-q[open]>summary::after{content:"–"}
 .bg-q[hidden],.bg-step[hidden],.bg-todo[hidden],.bg-empty[hidden]{display:none}
 
 /* ---- Merged look: card surfaces */
-html[data-experience="merged"] .bg-hero,html[data-experience="merged"] .bg-step,html[data-experience="merged"] .bg-callout{border-radius:14px}
-html[data-experience="merged"] .bg-step{box-shadow:0 1px 2px rgba(20,28,24,.05),0 8px 24px -12px rgba(20,28,24,.18)}
-@media (min-width:1280px){html[data-experience="merged"] .bg-rail ol{background:var(--bg-card);border:1px solid var(--bg-line);border-radius:14px;padding:.4rem;
+html[data-look="merged"] .bg-hero,html[data-look="merged"] .bg-step,html[data-look="merged"] .bg-callout{border-radius:14px}
+html[data-look="merged"] .bg-step{box-shadow:0 1px 2px rgba(20,28,24,.05),0 8px 24px -12px rgba(20,28,24,.18)}
+@media (min-width:1280px){html[data-look="merged"] .bg-rail ol{background:var(--bg-card);border:1px solid var(--bg-line);border-radius:14px;padding:.4rem;
   box-shadow:0 1px 2px rgba(20,28,24,.05),0 8px 24px -12px rgba(20,28,24,.18)}}
 
 /* ---- motion (only when the reader allows it) */
