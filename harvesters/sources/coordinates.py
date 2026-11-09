@@ -199,11 +199,20 @@ def address_agrees(input_address: str, matched_address: str) -> bool:
     return bool(words_in) and words_in[0] in words_m
 
 
-def geocode_provenance_entry(matched_identifier: str, recorded_at: str | None = None) -> dict:
-    """The field_provenance entry a Census geocode writes for latitude / longitude."""
+def geocode_provenance_entry(matched_identifier: str, recorded_at: str | None = None, *,
+                             address_checked: bool = True) -> dict:
+    """The field_provenance entry a Census geocode writes for latitude / longitude.
+
+    `address_checked=False` is the unscoped run (scripts/geocode_properties.py
+    without GEOCODE_SOURCE_ID): the Census match agrees with the row on state
+    and county only, and the entry says exactly that (WI-6, 2026-11-09: the
+    unscoped run wrote coordinates with no entry at all, so customers read
+    the origin as unrecorded)."""
+    agrees = "state, county and house number agree" if address_checked else \
+        "state and county agree (house number not checked)"
     entry = {"source": "census_geocoder", "method": "DETERMINISTIC_GEOCODE", "geometry": "POINT",
-             "match": ADDRESS_MATCH_KIND, "evidence": "US Census Bureau Geocoder one-line address match; state, county "
-             "and house number agree with the row - an address location, not a parcel location"}
+             "match": ADDRESS_MATCH_KIND, "evidence": f"US Census Bureau Geocoder one-line address match; {agrees} "
+             "with the row - an address location, not a parcel location"}
     if matched_identifier:
         entry["matched_identifier"] = matched_identifier
     if recorded_at:

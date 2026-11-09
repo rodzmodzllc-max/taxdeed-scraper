@@ -55,16 +55,79 @@ def shape(v: str) -> str:
     return re.sub(r"[A-Za-z]", "A", re.sub(r"\d", "9", (v or "").strip()))
 
 
-def dedupe(records):
-    """-> (records with one entry per (county, record_source, case_no), dropped count)."""
-    seen, out = set(), []
+def dedupe(records, *, latest_sale: bool = False):
+    """-> (records with one entry per (county, record_source, case_no), dropped count).
+
+    Across tables (the default) the FIRST listing wins: SOURCES orders a
+    county's current list before its previous-sales list. Within ONE table
+    (`latest_sale=True`) a parcel listed twice keeps the repeat with the
+    LATEST sale_date (WI-2, 2026-11-09: Dane WI lists its offerings in date
+    order, so the first row of a re-offered parcel was the older 2026-06-02
+    offering, with its older Minimum Bid, instead of the 2026-10-06 one). A
+    repeat without a later date never displaces the kept row, so identical
+    repeats (Morgan CO, audit B39) keep the first listing as before. The kept
+    record stays at the position of the parcel's first listing."""
+    index, out = {}, []
     for r in records:
         key = (r.county, r.record_source, r.case_no)
-        if key in seen:
+        if key not in index:
+            index[key] = len(out)
+            out.append(r)
             continue
-        seen.add(key)
-        out.append(r)
+        if latest_sale:
+            kept = out[index[key]]
+            if r.sale_date is not None and (kept.sale_date is None or r.sale_date > kept.sale_date):
+                out[index[key]] = r
     return out, len(records) - len(out)
+
+
+# WI-4 (2026-11-09): one status entry per (source, county), and
+# laft_status.StatusRecorder._add replaces an earlier entry for the same
+# pair. A source read from several tables (Dane WI's current table + its sold
+# table, Green WI's current list + its previous sales) recorded only the LAST
+# table: Dane's unit said 135 rows (the sold table) instead of 151, and Green's
+# current list's EMPTY was replaced by the previous-sales COMPLETE 9. The
+# tables of one unit are now one verdict: the worst read decides the status
+# (FAILED > INCOMPLETE > COMPLETE > EMPTY - one failed table never lets a
+# complete one close rows), and the row count is the unit's distinct listings
+# after the cross-table de-dup.
+_UNIT_RANK = {"FAILED": 3, "INCOMPLETE": 2, "COMPLETE": 1, "EMPTY": 0}
+
+
+def _unit_status(res) -> str:
+    st = res[1]
+    if st in ("FAILED", "INCOMPLETE"):
+        return st
+    return "COMPLETE" if res[2] else "EMPTY"
+
+
+def combine_unit_results(results, unit_rows=None, county=None):
+    """[(cfg, status, rows, cat, detail, empty, url)] of one county -> one
+    tuple per source_id, in first-read order. `unit_rows` maps
+    (county, source_id) -> distinct records kept for that unit (the row
+    count recorded for a COMPLETE / INCOMPLETE unit)."""
+    by_sid: dict = {}
+    for res in results:
+        by_sid.setdefault(res[0].source_id, []).append(res)
+    out = []
+    for sid, group in by_sid.items():
+        if len(group) == 1:
+            res = group[0]
+            if unit_rows is not None and _unit_status(res) in ("COMPLETE", "INCOMPLETE"):
+                res = (res[0], res[1], unit_rows.get((county, sid), res[2]), *res[3:])
+            out.append(res)
+            continue
+        worst = max(group, key=lambda g: _UNIT_RANK[_unit_status(g)])
+        status = _unit_status(worst)
+        total = sum(g[2] for g in group)
+        if unit_rows is not None:
+            total = unit_rows.get((county, sid), 0)
+        if status in ("COMPLETE", "EMPTY"):
+            status = "COMPLETE" if total else "EMPTY"
+        details = "; ".join(dict.fromkeys(g[4] for g in group if g[4])) or None
+        empty = next((g[5] for g in group if g[5]), None)
+        out.append((group[0][0], status, total, worst[3], details, empty, group[0][6]))
+    return out
 
 
 def attach_purchase_paths(state: str, rows: list[dict], *, harvest_date: str, registry_path: Path = REGISTRY,
@@ -554,7 +617,7 @@ def main(argv=None) -> int:
         # recorded 105 - the registry's last row count overstated the source 15x.
         # A source's repeats of its own identity are one listing: counted and
         # reported here, never in the row count.
-        valid, repeats = dedupe(valid)
+        valid, repeats = dedupe(valid, latest_sale=True)
         if repeats:
             print(f"::warning title=harvest_{st.lower()}::{cfg.source_id} [{cfg.county}]: {repeats} repeat listing(s) of "
                   f"an identifier already read from the same source (count only; row count is the distinct listings)")
@@ -582,8 +645,9 @@ def main(argv=None) -> int:
     # county entry said FAILED, so the sync skipped every lot row and 30,758
     # rows kept their 2026-10-06 last read. Each source's own read now
     # decides what of THAT source is written or closed.
+    unit_rows = Counter((r.county, r.source_id) for r in records)
     for county, results in per_county.items():
-        for cfg, status, rows, cat, detail, empty, url in results:
+        for cfg, status, rows, cat, detail, empty, url in combine_unit_results(results, unit_rows, county):
             sid = cfg.source_id
             if status == "FAILED":
                 cat = cat if cat in ERROR_CATEGORIES else "UNKNOWN"
