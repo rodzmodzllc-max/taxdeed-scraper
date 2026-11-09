@@ -408,6 +408,12 @@ function futureDate(days) {
 // fresh last_seen_at (the county's latest read) while p9, same county and
 // future-dated, was never read - so p9 is "not on the county's current sale
 // list". Off by default so every other pin is unchanged.
+// ?closedrows=p3,p15 (2026-11-09 count accuracy): those rows closed an hour
+// ago - still loaded (the gone-grace window), never counted by a total.
+(new URLSearchParams(location.search).get("closedrows") || "").split(",").filter(Boolean).forEach(id => {
+  const r = FIXTURE_PROPERTIES.find(x => x.id === id);
+  if (r) { r.status = "closed"; r.gone_since = new Date(Date.now() - 3600 * 1000).toISOString(); }
+});
 if (new URLSearchParams(location.search).get("offlist") === "1") {
   const p8 = FIXTURE_PROPERTIES.find(r => r.id === "p8");
   if (p8) p8.last_seen_at = new Date(Date.now() - 3600 * 1000).toISOString();

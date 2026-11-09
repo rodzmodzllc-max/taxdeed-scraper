@@ -7992,7 +7992,7 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v170"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v171"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -9256,7 +9256,7 @@ const EXPECTED = {
   diligenceLocalPersist: true,
   diligenceOverflow: [],
   // Grouped search, cross-links, parcel timeline (2026-10-06).
-  searchGroupVectors: {"citrus": {"states": [], "counties": [{"county": "Citrus", "total": 1}], "research": []}, "Alachua County": {"states": [], "counties": [{"county": "Alachua", "total": 3}], "research": []}, "texas": {"states": ["TX"], "counties": [], "research": []}, "tx": {"states": ["TX"], "counties": [], "research": []}, "Florida": {"states": [], "counties": [], "research": []}, "15 Manatee": {"states": [], "counties": [], "research": []}, "zz": {"states": [], "counties": [], "research": []}},
+  searchGroupVectors: {"citrus": {"states": [], "counties": [{"county": "Citrus", "total": 1}], "research": []}, "Alachua County": {"states": [], "counties": [{"county": "Alachua", "total": 2}], "research": []}, "texas": {"states": ["TX"], "counties": [], "research": []}, "tx": {"states": ["TX"], "counties": [], "research": []}, "Florida": {"states": [], "counties": [], "research": []}, "15 Manatee": {"states": [], "counties": [], "research": []}, "zz": {"states": [], "counties": [], "research": []}},
   searchGroupDropdown: ["group:Counties", "county:Citrus", "understood", "group:Properties", "property:p15", "all"],
   searchGroupOptionIds: ["gsOpt0", "gsOpt1"],
   searchCountyRoute: {"hash": "#/county/Citrus", "named": true},

@@ -244,7 +244,7 @@ def test_app_zero_cases_mirror_the_engine_and_a_failed_read_never_prints_a_bare_
     assert re.findall(r"^  ([A-Z_]+): \{", block, re.M) == list(SV.ZERO_CASES)
     assert "Last known" in APP[APP.index("function ledgerStatusHtml"):APP.index("function ledgerStatusHtml") + 4000]
     fn = APP[APP.index("function ledgerZeroState("):APP.index("function ledgerNoun(")]
-    order = [fn.index(x) for x in ('if (loadFailed) zeroCase = "SOURCE_FAILURE"', 'eligibility === "NOT_OFFERED"', 'count > 0 || !settled',
+    order = [fn.index(x) for x in ('if (loadFailed) zeroCase = "SOURCE_FAILURE"', 'eligibility === "NOT_OFFERED"', 'count > 0 || hiddenByYou > 0 || !settled',
                                    'unhealthy && !readOk) zeroCase = "SOURCE_FAILURE"', '!tracked) zeroCase = "NOT_IMPLEMENTED"', 'zeroCase = "SOURCE_RESTRICTED"',
                                    'zeroCase = "NOT_VERIFIED"', 'zeroCase = "COUNTY_DEPENDENT"', 'zeroCase = "NO_CURRENT_INVENTORY"')]
     assert order == sorted(order)                       # the documented precedence

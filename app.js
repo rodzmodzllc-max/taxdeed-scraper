@@ -1646,6 +1646,31 @@ let SHELL_UI = { gsTimer: null, gsActive: -1, gsMatches: [], picker: null };
 function countsToward(p) {
   return !HIDDEN.has(p.id) && !goneExpired(p) && !isPastDue(p) && isCurrentListing(p);
 }
+// An administrator sees the Available records their source has not confirmed
+// (labelled on the card), but those rows are withheld from every customer, so
+// the admin's ledger totals leave them out: an admin's headline number is the
+// customer number minus only the admin's own hidden rows (2026-11-09: one
+// Escambia row the source has not confirmed since 2026-10-01 made the admin
+// read 199 against every tester's 198). Shown, listed and mapped as before.
+function adminOnlyUnconfirmed(p) {
+  return !!IS_ADMIN && !!unconfirmedAvailable(p) && p.publication_status !== "BLOCKED";
+}
+// The rows a ledger total counts: countsToward() minus the admin-only rows above.
+function countsInTotals(p) {
+  return countsToward(p) && !adminOnlyUnconfirmed(p);
+}
+// Unconfirmed Available rows this admin sees but no total counts.
+function adminUnconfirmedCount(kind) {
+  if (!IS_ADMIN || kind !== "laft") return 0;
+  let n = 0;
+  for (const p of (ALL || [])) if (p.source === kind && regionOf(p) === PAGE_STATE && countsToward(p) && adminOnlyUnconfirmed(p)) n++;
+  return n;
+}
+function adminUnconfirmedLineHtml(kind) {
+  const n = adminUnconfirmedCount(kind);
+  if (!n) return "";
+  return `<p class="ledger-withheld ledger-unconfirmed-admin" id="ledgerUnconfirmedAdmin" data-unconfirmed-admin="${n}">${n.toLocaleString("en-US")} not confirmed by the source - shown to you, withheld from customers and not counted here.</p>`;
+}
 // Rows of one ledger in this state that would count but that THIS account
 // hid (the `hidden` table is private to each user). Counts leave them out,
 // so the ledger says how many - an account that hid rows otherwise sees a
@@ -4727,7 +4752,12 @@ function ledgerZeroState(kind) {
   const led = ledgerEligibility(kind);
   const eligibility = led && led.eligibility ? led.eligibility : "NOT_VERIFIED";
   const tracked = !!led && led.status === "TRACKED";
-  const count = ALL.filter(p => p.source === kind).length;
+  // Current listings only (2026-11-09): closed rows in their grace window,
+  // past sales and this viewer's hidden rows are loaded but never counted, so
+  // the strip and the State rules page read the List's own total.
+  const count = ALL.filter(p => p.source === kind && countsInTotals(p)).length;
+  const hiddenByYou = hiddenByYouCount(kind);
+  const adminUnconfirmed = adminUnconfirmedCount(kind);
   const withheld = (WITHHELD && WITHHELD[kind]) || 0;
   const pending = (REVIEW_PENDING_SHOWN && REVIEW_PENDING_SHOWN[kind]) || 0;
   const loadFailed = !!PROPERTIES_LOADED && (LEDGER_LOAD[kind] === "error" || LOAD_ISSUES.some(i => LEDGER_FOR_TYPE[i.ledgerType] === kind));
@@ -4753,9 +4783,10 @@ function ledgerZeroState(kind) {
   let zeroCase = null;
   if (loadFailed) zeroCase = "SOURCE_FAILURE";
   else if (eligibility === "NOT_OFFERED") zeroCase = "NOT_OFFERED";
-  else if (count > 0 || !settled) zeroCase = null;
+  // A ledger whose current rows this viewer hid is not empty: no zero case.
+  else if (count > 0 || hiddenByYou > 0 || !settled) zeroCase = null;
   else if (healths.length && unhealthy && !readOk) zeroCase = "SOURCE_FAILURE";
-  else if (kind === "laft" && UNCONFIRMED_WITHHELD.total) zeroCase = "SOURCE_FAILURE";
+  else if (kind === "laft" && (UNCONFIRMED_WITHHELD.total || adminUnconfirmed)) zeroCase = "SOURCE_FAILURE";
   else if (!tracked) zeroCase = "NOT_IMPLEMENTED";
   else if (withheld || pending || eligibility === "SOURCE_RESTRICTED" || pubSourceOnly) zeroCase = "SOURCE_RESTRICTED";
   else if (pubWithheld) zeroCase = "WITHHELD";
@@ -4793,8 +4824,10 @@ function ledgerStatusHtml(kind, shown, opts) {
   // a filtered view, a load still running, or a failed load.
   const ok = z.settled && !z.loadFailed;
   // The ledger total as the header tab counts it (current listings).
-  const ledgerTotal = ok ? ALL.filter(p => p.source === kind && !isPastDue(p) && !HIDDEN.has(p.id) && !goneExpired(p) && isCurrentListing(p)).length : null;
-  const countIsTitle = !o.compact && ok && Array.isArray(shown) && (shown.length === z.count || shown.length === ledgerTotal);
+  const ledgerTotal = ok ? ALL.filter(p => p.source === kind && countsInTotals(p)).length : null;
+  // The List title counts the shown rows minus the admin-only unconfirmed ones.
+  const shownCounted = Array.isArray(shown) ? shown.filter(p => !adminOnlyUnconfirmed(p)).length : null;
+  const countIsTitle = !o.compact && ok && Array.isArray(shown) && (shownCounted === z.count || shownCounted === ledgerTotal);
   const units = z.units;
   const freshness = units === null ? "Read health not recorded on this deployment"
     : !units.length ? "No source read recorded for this ledger"
@@ -7058,7 +7091,8 @@ function countyDossierHtml(c, st) {
   const scope = viewerScope();
   const seeAll = scope === "all" || scope === "preview";
   const I = COUNTY_INTEL_LABELS[c.intel] || COUNTY_INTEL_LABELS.NOT_YET_RESEARCHED;
-  const rows = ALL.filter(p => p.county === c.county && regionOf(p) === st && !HIDDEN.has(p.id) && !goneExpired(p));
+  // The county's figure is the List's own rule (countsToward), 2026-11-09.
+  const rows = ALL.filter(p => p.county === c.county && regionOf(p) === st && countsInTotals(p));
   const ledgerHtml = DOSSIER_LEDGERS.map(([name, key]) => {
     const l = c.ledgers[name] || { coverage: "NO_SOURCE_BACKED_INVENTORY", sources: [] };
     const C = COUNTY_COVERAGE_LABELS[l.coverage] || COUNTY_COVERAGE_LABELS.NO_SOURCE_BACKED_INVENTORY;
@@ -7177,7 +7211,7 @@ function countyRowsFor(county, st) {
   // `all` keeps past sales: outcome evidence for a county comes from them.
   // `live` is what the displayed counts use - the countsToward rule (not past-due).
   const all = ALL.filter(p => p.county === county && regionOf(p) === st && !HIDDEN.has(p.id));
-  return { all, live: all.filter(p => countsToward(p) && !isGone(p)) };
+  return { all, live: all.filter(p => countsInTotals(p)) };
 }
 function countyUnitFor(st, county, sid) {
   if (!Array.isArray(UNIT_FRESHNESS)) return null;
@@ -8020,7 +8054,7 @@ function rulesLedgerBlockHtml(doc, entry, k, county, rules) {
     <p class="rules-basis"><b>Why this classification:</b> ${esc(l.eligibility_basis || "Not recorded.")}</p>
     <p class="rule-meta">${l.eligibility_source_url ? `<span><a href="${esc(l.eligibility_source_url)}" target="_blank" rel="noopener">Official reference →</a></span>` : ""}${l.eligibility_verified_on ? `<span>Verified ${esc(fmtDate(l.eligibility_verified_on))}</span>` : `<span>Not verified - check the official source</span>`}</p>
     <h4 class="rules-kind-head">${esc(UNIT_WORD)} coverage</h4>${covHtml}${countyLine}
-    <h4 class="rules-kind-head">Current inventory</h4>${ledgerStatusHtml(key, ALL.filter(p => p.source === key), { compact: true })}
+    <h4 class="rules-kind-head">Current inventory</h4>${ledgerStatusHtml(key, ALL.filter(p => p.source === key && countsInTotals(p)), { compact: true })}
     ${mine.length ? `<h4 class="rules-kind-head">Rules for this ledger</h4>${rulesKindGroupsHtml(doc, mine)}` : `<p class="muted">No rule specific to this ledger is recorded yet.</p>`}
   </section>`;
 }
@@ -11693,6 +11727,14 @@ function scrollStripTo(btn) {
   if (br.left >= sr.left && br.right <= sr.right) return;
   strip.scrollLeft += (br.left + br.width / 2) - (sr.left + sr.width / 2);
 }
+// What a ledger total leaves out for THIS viewer, named where the number is.
+function tabCountNote(kind) {
+  const bits = [];
+  const h = hiddenByYouCount(kind), u = adminUnconfirmedCount(kind);
+  if (h) bits.push(`${h.toLocaleString("en-US")} hidden by you`);
+  if (u) bits.push(`${u.toLocaleString("en-US")} not confirmed by the source (withheld from customers)`);
+  return bits.length ? `Not counted: ${bits.join(" · ")}` : "";
+}
 function renderLedgerCounts(scrollActive) {
   const tabCounts = { auction: 0, laft: 0, certificate: 0 };
   const activeLedger = state.ledger;
@@ -11702,7 +11744,7 @@ function renderLedgerCounts(scrollActive) {
     // state-scoped get_properties() RPC below), so no region check is
     // needed here the way there used to be when ALL held every state's rows
     // at once.
-    if (isPastDue(p) || HIDDEN.has(p.id) || goneExpired(p) || !isCurrentListing(p)) return;
+    if (!countsInTotals(p)) return;
     tabCounts[p.source]++;
   });
   // No cross-state counts here: the state is the page (the header's
@@ -11724,7 +11766,11 @@ function renderLedgerCounts(scrollActive) {
     // tap while scrolled down a phone page jumped the page.
     if (active && scrollActive) scrollStripTo(btn);
     const countEl = document.getElementById("tabCount" + src[0].toUpperCase() + src.slice(1));
-    if (countEl) countEl.textContent = ledgerCountText(src, tabCounts[src] || 0, false);
+    if (countEl) {
+      countEl.textContent = ledgerCountText(src, tabCounts[src] || 0, false);
+      const note = tabCountNote(src);
+      if (note) countEl.title = note; else countEl.removeAttribute("title");
+    }
   });
   // Unified navigation (2026-09-30): the List entry carries every ledger's
   // count together - the same three numbers the ledger selector shows.
@@ -11737,7 +11783,11 @@ function renderLedgerCounts(scrollActive) {
   // count - the same number as its tab.
   LEDGER_ORDER.forEach(k => {
     const el = document.getElementById("navCount" + k[0].toUpperCase() + k.slice(1));
-    if (el) el.textContent = ledgerCountText(k, tabCounts[k] || 0, true);
+    if (el) {
+      el.textContent = ledgerCountText(k, tabCounts[k] || 0, true);
+      const note = tabCountNote(k);
+      if (note) el.title = note; else el.removeAttribute("title");
+    }
     // Phone ledger bar (2026-10-29): the same number, under the same rule
     // ("…" while the ledger is still loading). Its full name and count are
     // also its accessible name.
@@ -11825,8 +11875,24 @@ function render() {
   const hiddenListBtn = document.getElementById("hiddenListBtn");
   if (hiddenListBtn) hiddenListBtn.hidden = HIDDEN.size === 0;
 
+  // The badge counts every row this account hid - every ledger and state,
+  // closed rows included - which is what the list behind it holds; the
+  // ledgers' own "N hidden by you" lines count only the rows a total leaves
+  // out, so the badge says which it is (2026-11-09).
   const hiddenCount = document.getElementById("hiddenCount");
   if (hiddenCount) hiddenCount.textContent = HIDDEN.size;
+  if (hiddenListBtn) {
+    const cur = LEDGER_ORDER.reduce((n, k) => n + hiddenByYouCount(k), 0);
+    hiddenListBtn.dataset.hiddenAll = String(HIDDEN.size);
+    hiddenListBtn.dataset.hiddenCurrent = String(cur);
+    hiddenListBtn.title = `${HIDDEN.size.toLocaleString("en-US")} hidden in all ledgers and states, closed records included; ${cur.toLocaleString("en-US")} of them are current listings in ${STATE_INFO.name} left out of its counts`;
+    let scope = document.getElementById("hiddenScope");
+    if (!scope && hiddenCount) {
+      scope = document.createElement("span"); scope.id = "hiddenScope"; scope.className = "hidden-scope";
+      hiddenCount.insertAdjacentElement("afterend", scope);
+    }
+    if (scope) scope.textContent = " (all ledgers, incl. closed)";
+  }
 
   // Stash + dispatch for anything else on this page that wants to know the
   // list just redrew (currently nothing does directly - explore.js moved to
@@ -12249,6 +12315,7 @@ function section(container, title, sub, rows, kind) {
       ${REVIEW_PENDING_SHOWN[kind] && !IS_ADMIN ? `<p class="ledger-review-pending" id="ledgerReviewPending">${REVIEW_PENDING_SHOWN[kind]} record${REVIEW_PENDING_SHOWN[kind] === 1 ? "" : "s"} from sources awaiting customer-publication review ${REVIEW_PENDING_SHOWN[kind] === 1 ? "is" : "are"} ${esc(reviewViewerReason())}, each labelled "Source review". Customers in published mode do not see ${REVIEW_PENDING_SHOWN[kind] === 1 ? "it" : "them"}.</p>` : ""}
       ${IS_ADMIN ? adminWithheldLineHtml(kind) : ""}
       ${hiddenByYouLineHtml(kind)}
+      ${adminUnconfirmedLineHtml(kind)}
       ${kind === "laft" && DETROIT_SUMMARY.collected && (IS_ADMIN || viewerScope() === "preview") ? `<p class="ledger-detroit-subset" id="ledgerDetroitSubset">Detroit Land Bank: ${DETROIT_SUMMARY.collected.toLocaleString("en-US")} collected · ${DETROIT_SUMMARY.structure.toLocaleString("en-US")} with a verified structure in the source's own status · ${DETROIT_SUMMARY.subset.toLocaleString("en-US")} in the customer subset (deterministic ~50%). ${IS_ADMIN ? "You see every collected record; those outside the subset are labelled and stay collected." : "Only the customer subset is shown here."} The subset still passes the publication gate: source review is separate.</p>` : ""}
       ${state.statusView === "archive" ? `<p class="ledger-mode-note" id="archiveModeNote">📁 Past auctions only — sale date already gone. <button class="ledger-mode-exit" id="exitArchiveBtn" type="button">Back to current listings</button></p>` : ""}
     </div>`;
@@ -14911,7 +14978,9 @@ function computeMapRows() {
 // the select never offers a county the map would then show empty. A county
 // that drops out when the ledger changes falls back to "All Counties".
 function mapCountyCandidates() {
-  return ALL.filter(p => !isPastDue(p) && !HIDDEN.has(p.id) && !goneExpired(p) && regionOf(p) === PAGE_STATE
+  // The Map's own rows (computeMapRows) use countsToward(): the select's
+  // counts follow the same rule, so a closed row never adds to a county.
+  return ALL.filter(p => countsToward(p) && regionOf(p) === PAGE_STATE
     && (mapFilter.ledger === "all" || p.source === mapFilter.ledger));
 }
 function buildMapCountySelect() {
@@ -16165,10 +16234,11 @@ function syncLedgerNavNames() {
 }
 syncLedgerNavNames();
 
-// Rows counted as "in" a ledger anywhere in the shell: the same exclusions
-// the ledger tabs use (past-due auctions, hidden rows, expired gone rows).
+// Rows counted as "in" a ledger anywhere in the shell: exactly the rows the
+// ledger tabs count (countsInTotals, 2026-11-09 - the shell used its own copy,
+// which still counted auctions off the county's current sale list).
 function shellActiveRows(k) {
-  return ALL.filter(p => p.source === k && !isPastDue(p) && !HIDDEN.has(p.id) && !goneExpired(p) && !isGone(p));
+  return ALL.filter(p => p.source === k && countsInTotals(p));
 }
 function goToLedger(k) {
   showPage("list");
@@ -16332,7 +16402,7 @@ function gsCountyMatches(q) {
     seen.add(c);
     const r = gsRankName(c, qn);
     if (r < 0) continue;
-    const rows = ALL.filter(p => p.county === c && !HIDDEN.has(p.id) && !goneExpired(p));
+    const rows = ALL.filter(p => p.county === c && countsInTotals(p));
     const by = {};
     rows.forEach(p => { by[p.source] = (by[p.source] || 0) + 1; });
     out.push({ county: c, rank: r, total: rows.length, by });
@@ -16746,7 +16816,9 @@ function renderListHead(shown, k, tabCounts) {
   // or when filters narrow the ledger.
   const name = ledgerNavName(k);
   const total = (tabCounts && tabCounts[k]) || 0;
-  const n = shown.length;
+  // Admin-only unconfirmed Available rows are listed but not counted (their
+  // own line says so), so the title reads the customer number.
+  const n = shown.filter(p => !adminOnlyUnconfirmed(p)).length;
   // A ledger whose read failed with nothing loaded shows no number at all -
   // the status strip says "Count unavailable - load failed" (audit F30).
   const count = !PROPERTIES_LOADED ? "" : !ledgerSettled(k) ? `${n.toLocaleString("en-US")}…` : (LEDGER_LOAD[k] === "error" && !n ? "" : n.toLocaleString("en-US"));
