@@ -54,8 +54,9 @@ _STATUS_WORDS = re.compile(r"\b(PULLED|CANCELL?ED|CANCEL|WITHDRAWN|WITHDRAWAL|SO
                            r"PAID\s+IN\s+FULL|BANKRUPTCY|STAYED)\b", re.I)
 _MONEY = re.compile(r"\$\s*([0-9][0-9,]*(?:\.\d{1,2})?)")
 _ACCOUNT_LABEL = re.compile(
-    r"(?:CAD\s+)?(?:\bAccount|\bAcct\.?|\bGeographic\s+ID|\bProp(?:erty)?\s+ID|\bParcel\s+(?:ID|No\.?|Number|#)|\bGEO)\s*(?:No\.?|Number|#|ID)?\s*[:#]?\s*"
+    r"(?:CAD\s+)?(?:\bAccount|\bAcct\.?|\bPID|\bGeographic\s+ID|\bProp(?:erty)?\s+ID|\bParcel\s+(?:ID|No\.?|Number|#)|\bGEO\b)\s*(?:No\.?|Number|#|ID)?\s*[:#]?\s*"
     r"([A-Z0-9][A-Z0-9\-\./]{2,40})", re.I)
+_TRAILING_R_ACCOUNT = re.compile(r"(?:[,;]\s*|\s)(R\d{4,8})\s*(?:\([^()]*\))?\s*$")
 _CAUSE_LABEL = re.compile(r"\b(?:Cause|Suit|Case)\s*(?:No\.?|Number|#)\s*[:#]?\s*([A-Z0-9][A-Z0-9,\-\./]{2,30})", re.I)
 _VALUE_LABEL = re.compile(r"(?:Adjudged|Appraised|Market)\s+(?:Aggregate\s+)?Value[^$\d]{0,30}\$?\s*([0-9][0-9,]*(?:\.\d{1,2})?)", re.I)
 _ADDRESS_LABEL = re.compile(r"(?:Approximate\s+)?(?:Property\s+)?Address(?:\s+per\s+CAD)?\s*:\s*([^\n;]{4,120})", re.I)
@@ -309,14 +310,32 @@ def _extract_row(cells: list, colmap: dict[int, set[str]]) -> tuple[SaleTableRow
     account = None
     for t in cols("account"):
         if len(t) > 80:
+            # A long account cell is a description the header drew over -
+            # unless its first line is one identifier on its own and the rest
+            # a note under it ('12.3456.78.90123' / '**Note** ...', Willis ISD).
+            head_line = t.split("\n", 1)[0].strip()
+            if len(head_line.split()) == 1 and _looks_like_id(head_line):
+                account = head_line.rstrip("-.,;:")
+                break
             continue
         # "Parcel Number & Cause Number" columns: the first id is the parcel.
         account = first_id(t)
         if account:
             break
     if account is None:
-        m = _ACCOUNT_LABEL.search(joined.replace("\n", " "))
-        if m and _looks_like_id(m.group(1)):
+        # The first label that carries an identifier: an earlier word that
+        # only looks like a label ('Georgetown' before 'Account #R123456',
+        # Williamson's sale list) must not hide the real one.
+        for m in _ACCOUNT_LABEL.finditer(joined.replace("\n", " ")):
+            if _looks_like_id(m.group(1)):
+                account = m.group(1)
+                break
+    if account is None and legal:
+        # A description that ends in the appraisal district's real-property
+        # account, unlabelled ('..., Volume 123 and Page 456, R12345'), with
+        # at most a parenthetical note after it (Trinity County's sale list).
+        m = _TRAILING_R_ACCOUNT.search(_flat(legal))
+        if m:
             account = m.group(1)
     if account is not None:
         # "R08335/460520000002003", "12805/ R12805": the first form is the identity.
@@ -436,20 +455,33 @@ def read_pdf(data: bytes, max_pages: int = 80) -> TableReadResult:
     tables: list[list[list]] = []
     chars = 0
     text_parts: list[str] = []
+    plain_parts: list[str] = []
     layout_parts: list[str] = []
     with pdfplumber.open(io.BytesIO(data)) as pdf:
         for n, page in enumerate(pdf.pages[:max_pages]):
             chars += len(page.chars)
+            plain = page.extract_text() or ""
+            plain_parts.append(plain)
             if n < 2:
-                text_parts.append(page.extract_text() or "")
+                text_parts.append(plain)
             tables.extend(page.extract_tables())
             layout_parts.append(page.extract_text(layout=True) or "")
     res = read_tables(tables)
+    if not res.rows and chars and _LOT_LIST_HEADER.search("\n".join(plain_parts)):
+        # The header sits in the page text, above header-less tables.
+        lot_res = read_lot_list(tables)
+        if lot_res.rows or lot_res.skipped_status or lot_res.skipped_no_account:
+            lot_res.tables_seen = res.tables_seen
+            res = lot_res
     if not res.rows and chars:
         # No ruled table: the 'CASE # / JUDGMENT AMOUNT / VALUE AT TIME OF
         # JUDGMENT / ACCOUNT #' resale layout is plain positioned text.
         text_res = read_case_layout("\n".join(layout_parts))
-        if text_res.rows or text_res.skipped_status:
+        if not (text_res.rows or text_res.skipped_status or text_res.skipped_no_account):
+            # Nor that: the 'Cause #: / Tax ID: / Property Description:'
+            # labelled-entry list (PBFCM's City of Cleveland resale list).
+            text_res = read_label_layout("\n".join(plain_parts))
+        if text_res.rows or text_res.skipped_status or text_res.skipped_no_account:
             text_res.tables_seen = res.tables_seen
             res = text_res
     res.chars = chars
@@ -508,6 +540,103 @@ def read_case_layout(text: str) -> TableReadResult:
                 break
         res.rows.append(SaleTableRow(account=acct.group(1), cause=cause, legal=legal, address=address,
                                      min_bid=min_bid, value=value))
+    return res
+
+
+_LOT_LIST_HEADER = re.compile(r"^\s*Subdivision\s+Name\s+Section\s+Blk\s+Lots\s+PID\s*#\s+Value\s+Court\s+Cost\s+Suit\s*#\s*$",
+                              re.I | re.M)
+
+
+def read_lot_list(tables: list[list[list]]) -> TableReadResult:
+    """The trust-land lot list whose header is page text, not a table row:
+    'Subdivision Name | Section | Blk | Lots | PID# | Value | Court Cost |
+    Suit #' (MVBA's Bandera County trust list, read 2026-11-09). The PID#
+    is the appraisal district's property id (the account); the description
+    is the list's own subdivision / section / block / lots, nothing added;
+    'Value' is the list's value; the list publishes no price (min_bid None).
+    A row naming two PIDs ('123456 and 123457') is one package for two
+    properties: counted as unread, never split or stored under one id."""
+    res = TableReadResult()
+    for table in tables:
+        res.tables_seen += 1
+        if not table or len(table[0]) != 8:
+            continue
+        res.tables_used += 1
+        for row in table:
+            cells = [_flat(c) for c in row]
+            if not any(cells) or _LOT_LIST_HEADER.search(" ".join(cells)):
+                continue
+            if _STATUS_WORDS.search(" ".join(cells)):
+                res.skipped_status += 1
+                continue
+            subdivision, section, block, lots, pid, value, _cost, suit = cells
+            if len(pid.split()) != 1 or not _looks_like_id(pid):
+                if pid or _MONEY.search(value):
+                    res.skipped_no_account += 1
+                continue
+            legal = ", ".join(x for x in (subdivision, section and f"Section {section}", block and f"Blk {block}",
+                                          lots and (lots if re.match(r"[A-Za-z]", lots) else f"Lots {lots}"))
+                               if x) or None
+            res.rows.append(SaleTableRow(account=pid, cause=suit if re.search(r"\d", suit) else None, legal=legal,
+                                         address=None, min_bid=None, value=money(value)))
+    return res
+
+
+_LABEL_START = re.compile(r"^\s*Cause\s*#\s*:\s*(\S.*)?$", re.I)
+_LABEL_FIELD = re.compile(r"^\s*(Tax\s*ID|Account(?:\s*(?:No\.?|Number|#))?|Address|Property\s+Description|"
+                          r"\d{4}\s+Value|Struck-?Off\s+amount|Minimum\s+Bid|Judgment|Sale)\s*:\s*(.*)$", re.I)
+
+
+def read_label_layout(text: str) -> TableReadResult:
+    """The labelled-entry list: one property per block of 'Label: value'
+    lines, each block opening with 'Cause #:' - 'Cause #: / Judgment: /
+    Sale: / Struck-Off amount: / Tax ID: / Address: / Property
+    Description: (several lines) / 2026 Value:' (PBFCM's City of Cleveland
+    resale list, read 2026-11-09). The account is the 'Tax ID' (its first
+    form when it carries two, 'R08335/4605...'-style, as the table reader
+    does); the struck-off amount - which the list itself says 'was the
+    minimum bid at the initial tax sale' - is the list's figure, as the
+    'MINIMUM BID AT ORIGINAL TAX SALE' column is in the table layout; the
+    value is the dated value line. A block without a Tax ID is counted as
+    unread, never stored. A block the list marks sold / pulled is skipped."""
+    res = TableReadResult()
+    lines = (text or "").split("\n")
+    starts = [i for i, line in enumerate(lines) if _LABEL_START.match(line)]
+    if not starts:
+        return res
+    res.tables_used = 1
+    for k, i in enumerate(starts):
+        end = starts[k + 1] if k + 1 < len(starts) else len(lines)
+        block = lines[i:end]
+        fields: dict[str, str] = {}
+        current = None
+        for line in block[1:]:
+            fm = _LABEL_FIELD.match(line)
+            if fm:
+                key = re.sub(r"\s+", " ", fm.group(1)).strip().lower()
+                key = "value" if re.fullmatch(r"\d{4} value", key) else key
+                current = key
+                fields[current] = fm.group(2).strip()
+                if key == "value":
+                    current = None   # the block's last field; what follows is the list's own notes
+            elif current == "property description" and line.strip():
+                fields[current] += " " + line.strip()
+            else:
+                current = None
+        if _STATUS_WORDS.search(" ".join(fields.get(k, "") for k in ("judgment", "sale", "struck-off amount"))):
+            res.skipped_status += 1
+            continue
+        tax_id = fields.get("tax id") or next((v for k2, v in fields.items() if k2.startswith("account")), "")
+        account = (tax_id.split()[0] if tax_id.split() else "").split("/")[0].rstrip("-.,;:")
+        if not account or not _looks_like_id(account):
+            res.skipped_no_account += 1
+            continue
+        cause = first_cause(_LABEL_START.match(block[0]).group(1) or "")
+        amount = fields.get("struck-off amount") or fields.get("minimum bid")
+        res.rows.append(SaleTableRow(
+            account=account, cause=cause, legal=_flat(fields.get("property description")) or None,
+            address=_flat(fields.get("address")) or None, min_bid=money(amount),
+            value=money(fields.get("value"))))
     return res
 
 
