@@ -1825,6 +1825,64 @@ function showErrorToast(msg) {
   clearTimeout(errToastTimer);
   errToastTimer = setTimeout(hideErrorToast, 5000);
 }
+// One toast for everything (2026-11-09): showToast(msg, {tone, action}) -
+// tone "ok" / "bad" / "info", an optional action button ({label, run}) such
+// as Undo. Function declarations (hoisted): write actions can fire before the
+// script reaches this point.
+function showToast(msg, opts) {
+  const o = opts || {};
+  let host = document.getElementById("tdwToastHost");
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "tdwToastHost"; host.className = "tdw-toast-host";
+    host.setAttribute("aria-live", "polite");
+    document.body.appendChild(host);
+  }
+  const t = document.createElement("div");
+  t.className = "tdw-toast";
+  t.dataset.tone = o.tone || "info";
+  if (o.tone === "bad") t.setAttribute("role", "alert"); else t.setAttribute("role", "status");
+  const m = document.createElement("span");
+  m.className = "tdw-toast-msg"; m.textContent = msg;
+  t.appendChild(m);
+  let timer = null;
+  const close = () => { clearTimeout(timer); t.remove(); };
+  if (o.action && o.action.label) {
+    const a = document.createElement("button");
+    a.type = "button"; a.className = "tdw-toast-action"; a.textContent = o.action.label;
+    a.addEventListener("click", () => { close(); try { o.action.run(); } catch { /* the action reports its own errors */ } });
+    t.appendChild(a);
+  }
+  const x = document.createElement("button");
+  x.type = "button"; x.className = "tdw-toast-x"; x.setAttribute("aria-label", "Dismiss"); x.textContent = "×";
+  x.addEventListener("click", close);
+  t.appendChild(x);
+  host.appendChild(t);
+  while (host.children.length > 3) host.firstChild.remove();
+  timer = setTimeout(close, o.action ? 8000 : 4000);
+  return t;
+}
+// A branded confirm dialog in place of window.confirm(): resolves true on the
+// confirm button, false on Cancel / Escape / a click outside.
+function tdwConfirm(opts) {
+  const o = typeof opts === "string" ? { message: opts } : (opts || {});
+  return new Promise(resolve => {
+    const prev = document.activeElement;
+    const wrap = document.createElement("div");
+    wrap.className = "tdw-confirm";
+    wrap.innerHTML = `<div class="tdw-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="tdwConfirmTitle" aria-describedby="tdwConfirmMsg">
+      <h2 id="tdwConfirmTitle">${esc(o.title || "Are you sure?")}</h2><p id="tdwConfirmMsg">${esc(o.message || "")}</p>
+      <div class="tdw-confirm-actions"><button type="button" class="tdw-confirm-cancel">${esc(o.cancel || "Cancel")}</button><button type="button" class="tdw-confirm-ok${o.danger ? " danger" : ""}">${esc(o.ok || "Confirm")}</button></div></div>`;
+    document.body.appendChild(wrap);
+    const done = v => { document.removeEventListener("keydown", onKey, true); wrap.remove(); try { if (prev && prev.focus) prev.focus(); } catch { /* gone */ } resolve(v); };
+    const onKey = e => { if (e.key === "Escape") { e.stopPropagation(); done(false); } };
+    document.addEventListener("keydown", onKey, true);
+    wrap.addEventListener("click", e => { if (e.target === wrap) done(false); });
+    wrap.querySelector(".tdw-confirm-cancel").addEventListener("click", () => done(false));
+    wrap.querySelector(".tdw-confirm-ok").addEventListener("click", () => done(true));
+    wrap.querySelector(".tdw-confirm-cancel").focus();
+  });
+}
 function hideErrorToast() {
   const el = document.getElementById("errToast");
   if (el) el.classList.remove("show");
@@ -11376,7 +11434,10 @@ document.addEventListener("click", async e => {
       const sel = panel.querySelector(".research-list-pick");
       listId = sel ? sel.value : null;
     }
-    if (listId) await saveToResearch(p, listId);
+    if (listId && await saveToResearch(p, listId)) {
+      const l = RESEARCH.lists.find(x => x.id === listId);
+      showToast(`Saved to ${l ? `"${l.name}"` : "your research"}.`, { tone: "ok" });
+    }
     hydrateResearchPanels(p.id);
     hydrateDiligence(p.id);
     return;
@@ -11419,8 +11480,10 @@ document.addEventListener("click", async e => {
   }
   if (action === "researchdelete") {
     const l = RESEARCH.lists.find(x => x.id === btn.dataset.list);
-    if (l && window.confirm(`Delete "${l.name}" and remove its ${RESEARCH.items.filter(i => i.list_id === l.id).length} saved propert${RESEARCH.items.filter(i => i.list_id === l.id).length === 1 ? "y" : "ies"} from your research? The properties themselves are not affected.`)) {
+    const nItems = l ? RESEARCH.items.filter(i => i.list_id === l.id).length : 0;
+    if (l && await tdwConfirm({ title: `Delete "${l.name}"?`, message: `This removes the list and its ${nItems} saved propert${nItems === 1 ? "y" : "ies"} from your research. The properties themselves are not affected.`, ok: "Delete list", danger: true })) {
       await deleteResearchList(l.id); RESEARCH_PAGE.listId = "all"; renderResearchPage();
+      showToast(`Deleted "${l.name}".`, { tone: "ok" });
     }
     return;
   }
@@ -11517,12 +11580,22 @@ document.addEventListener("click", async e => {
     // the hidden-count panel), so a mis-click meant re-finding the property
     // in the full ledger to bring it back. A confirm() dialog is the cheapest
     // fix that actually stops the accidental click before it does anything.
+    // 2026-11-09: no confirm dialog - the property is hidden at once and the
+    // toast offers Undo (the same delete the hidden-properties panel's
+    // Restore runs), so a mis-tap costs one tap to reverse.
     const hiddenProp = ALL.find(x => x.id === pid);
-    const label = hiddenProp && hiddenProp.address ? `"${hiddenProp.address}"` : "this property";
-    if (!window.confirm(`Hide ${label}? It'll disappear from every view here. You can bring it back later from the hidden-properties panel.`)) return;
+    const label = hiddenProp && realAddress(hiddenProp) ? `"${realAddress(hiddenProp)}"` : "Property";
     btn.disabled = true;
     const { error } = await sb.from("hidden").insert({ user_id: ME.id, property_id: pid });
-    if (!error) { HIDDEN.add(pid); render(); closeDetail(); refreshHiddenModal(); if (typeof refreshDetailPanel === "function") refreshDetailPanel(pid); } else { btn.disabled = false; showErrorToast("Couldn't hide: " + error.message); }
+    if (!error) {
+      HIDDEN.add(pid); render(); closeDetail(); refreshHiddenModal(); if (typeof refreshDetailPanel === "function") refreshDetailPanel(pid);
+      showToast(`${label} hidden.`, { tone: "ok", action: { label: "Undo", run: async () => {
+        const r = await sb.from("hidden").delete().eq("user_id", ME.id).eq("property_id", pid);
+        if (r.error) { showErrorToast("Couldn't restore: " + r.error.message); return; }
+        HIDDEN.delete(pid); render(); refreshHiddenModal();
+        showToast("Restored.", { tone: "ok" });
+      } } });
+    } else { btn.disabled = false; showErrorToast("Couldn't hide: " + error.message); }
   } else if (action === "restore") {
     if (!ME || !pid) return;
     btn.disabled = true;
@@ -11559,7 +11632,7 @@ document.addEventListener("click", async e => {
         // idea whether it worked - surface those.
         if (/full|limit/i.test(error.message || "")) BID_LIST_PENDING.push(pid);
         else showErrorToast("Couldn't add to watchlist: " + error.message);
-      } else { BIDLIST.add(pid); BIDLIST_ORDER.push(pid); track("property_watched", { property_id: pid }); }
+      } else { BIDLIST.add(pid); BIDLIST_ORDER.push(pid); track("property_watched", { property_id: pid }); showToast(`Added to your watchlist (${BIDLIST.size}/${BID_LIST_MAX}).`, { tone: "ok" }); }
     }
     // In place (audit F47); a full render only when membership filters the list.
     if (state.watchStatus !== "any") render();
@@ -14789,10 +14862,22 @@ function showPage(name) {
   // on it returns there.
   if (name === "watchlist") { ensureWatchlistSection(); try { if (shellPage !== "watchlist") WATCHLIST_FROM = shellPage; } catch { WATCHLIST_FROM = "list"; } }
 
+  let changed = true;
+  try { changed = shellPage !== name; } catch { changed = true; }
   Object.entries(SHELL_PAGES).forEach(([key, id]) => {
     const el = document.getElementById(id);
     if (el) el.hidden = key !== name;
   });
+  // A short fade on a real page change only; the toggle above stays
+  // synchronous (callers read the page right after showPage()).
+  const shown = document.getElementById(SHELL_PAGES[name]);
+  if (shown && changed) {
+    let motion = false;
+    try { motion = window.matchMedia("(prefers-reduced-motion: no-preference)").matches; } catch { motion = false; }
+    if (motion) { shown.classList.remove("page-enter"); void shown.offsetWidth; shown.classList.add("page-enter"); shown.addEventListener("animationend", () => shown.classList.remove("page-enter"), { once: true }); }
+  }
+  const guideNav = document.getElementById("hdrGuideBtn");
+  if (guideNav) { guideNav.classList.toggle("on", name === "guide"); if (name === "guide") guideNav.setAttribute("aria-current", "page"); else guideNav.removeAttribute("aria-current"); }
   if (name === "map" && shellPage !== "map") track("map_used", { action: "opened" });
   shellPage = name;
   syncLedgerNav(name);
@@ -16741,7 +16826,7 @@ function renderHomeDesk() {
         if (k) used.add(k);
         return `<button type="button" class="desk-county county-chip" data-action="countyintel" data-county="${esc(c)}"${L ? ` title="${esc(L.label)}: ${esc(L.text)}"` : ""}>${L ? `<span class="county-dot ${esc(L.cls)}" data-intel="${esc(k)}" aria-hidden="true"></span>` : ""}<b>${esc(c)}</b><span class="n">${n.toLocaleString("en-US")}</span>${L ? `<span class="sr-only"> - ${esc(L.label)}</span>` : ""}</button>`;
       }).join("");
-      const legend = used.size ? `<p class="county-legend" aria-label="County status legend">${Object.keys(COUNTY_INTEL_LABELS).filter(k => used.has(k)).map(k => `<span><span class="county-dot ${esc(COUNTY_INTEL_LABELS[k].cls)}" aria-hidden="true"></span>${esc(COUNTY_INTEL_LABELS[k].label)}</span>`).join("")}</p>` : "";
+      const legend = used.size ? `<p class="county-legend" aria-label="County status legend">${Object.keys(COUNTY_INTEL_LABELS).filter(k => used.has(k)).map(k => `<span><span class="county-dot ${esc(COUNTY_INTEL_LABELS[k].cls)}" data-intel="${esc(k)}" aria-hidden="true"></span>${esc(COUNTY_INTEL_LABELS[k].label)}</span>`).join("")}</p>` : "";
       countyHost.innerHTML = `<section class="home-desk-block" id="homeCountyIntel">${homeDeskHead(`${unitWordFor(2).replace(/^\w/, c => c.toUpperCase())}`, "Records on file", `<button type="button" class="link-btn desk-all" id="homeAllCounties">All ${esc(unitWordFor(2))} &rarr;</button>`)}
         <div class="desk-counties">${chips || `<p class="home-desk-empty">No ${esc(unitWordFor(1))} has records on file yet.</p>`}</div>${legend}</section>`;
     }
@@ -17688,6 +17773,20 @@ function installLookSwitch() {
   });
   document.addEventListener("click", e => { if (!wrap.contains(e.target)) close(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !menu.hidden) { close(); btn.focus(); } });
+  // Below 768px the header keeps the wordmark; the Look choice moves into
+  // the account menu (home.css hides .look-switch there and shows this group).
+  const acct = document.getElementById("accountMenu");
+  if (acct && !document.getElementById("lookMenuInAccount")) {
+    const g = document.createElement("div");
+    g.id = "lookMenuInAccount"; g.className = "account-look";
+    g.innerHTML = `<p class="account-goto-head account-group-head">Look</p>` + Object.keys(EXPERIENCES).map(k => `<button class="account-item" type="button" role="menuitemradio" aria-checked="false" data-acct-look="${k}">${EXPERIENCES[k]}</button>`).join("");
+    const edit = acct.querySelector(".account-group-head") || document.getElementById("editProfileBtn");
+    if (edit) edit.before(g); else acct.appendChild(g);
+    const syncAcct = () => { const cur = document.documentElement.dataset.look || "classic"; g.querySelectorAll("[data-acct-look]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.acctLook === cur))); };
+    g.addEventListener("click", e => { const b = e.target.closest("[data-acct-look]"); if (!b) return; applyExperience(b.dataset.acctLook, true); syncAcct(); });
+    if (window.MutationObserver) new MutationObserver(syncAcct).observe(document.documentElement, { attributes: true, attributeFilter: ["data-look"] });
+    syncAcct();
+  }
 }
 installLookSwitch();
 applyExperience(currentExperience(), false);
@@ -17727,7 +17826,59 @@ function installShellV3() {
   });
   const mapBtn = document.querySelector('#navRail .nav-item[data-page="map"]');
   if (mapBtn) nav.appendChild(mapBtn);
+  // Buyer's Guide after Map (2026-11-09), lit on #/guide by showPage().
+  if (!document.getElementById("hdrGuideBtn")) {
+    const g = document.createElement("button");
+    g.type = "button"; g.className = "nav-item hdr-guide"; g.id = "hdrGuideBtn"; g.textContent = "Guide";
+    g.title = "Buyer's Guide";
+    g.addEventListener("click", () => openGuidePage(null, null));
+    nav.appendChild(g);
+  }
+  // One ink line under the lit entry, in that ledger's colour.
+  const ink = document.createElement("span");
+  ink.className = "hdr-ink"; ink.setAttribute("aria-hidden", "true");
+  nav.appendChild(ink);
+  const placeInk = () => {
+    const on = nav.querySelector(".nav-item.on, .nav-item[aria-current='page']");
+    if (!on || !on.offsetWidth) { ink.style.width = "0px"; return; }
+    const k = on.dataset.navLedger;
+    ink.style.setProperty("--hdr-ink", k ? `var(--c-${k}, var(--forest))` : "var(--forest, #1F3A2E)");
+    ink.style.left = on.offsetLeft + "px"; ink.style.width = on.offsetWidth + "px";
+  };
+  if (window.MutationObserver) new MutationObserver(placeInk).observe(nav, { subtree: true, attributes: true, attributeFilter: ["class", "aria-current"] });
+  window.addEventListener("resize", placeInk);
   home.after(nav);
+  setTimeout(placeInk, 0);
+  const gsi = document.getElementById("globalSearchInput");
+  if (gsi) gsi.placeholder = "Search address, parcel or county";
+  // Account menu: Go to / Account / Help groups; Sign out after a divider,
+  // Delete my account apart as a danger row.
+  const acct = document.getElementById("accountMenu");
+  if (acct && !acct.querySelector(".account-group-head")) {
+    const headEl = txt => { const h = document.createElement("p"); h.className = "account-goto-head account-group-head"; h.textContent = txt; return h; };
+    const div = () => { const d = document.createElement("hr"); d.className = "account-divider"; d.setAttribute("role", "separator"); return d; };
+    const edit = document.getElementById("editProfileBtn");
+    if (edit) edit.before(headEl("Account"));
+    const support = document.getElementById("supportBtnMenu");
+    const terms = document.getElementById("termsBtnMenu");
+    if (support) { support.before(headEl("Help")); if (terms) support.after(terms); }
+    const out = document.getElementById("signOutBtn");
+    const del = document.getElementById("deleteAccountBtn");
+    if (out) { out.before(div()); out.classList.remove("danger"); }
+    if (del) { (out || acct.lastChild).after(del); del.before(div()); del.classList.add("account-danger"); }
+  }
+  // Skip link: straight to the listings, never through the hash router.
+  const skip = document.getElementById("skipToListings");
+  if (skip && !skip.dataset.bound) {
+    skip.dataset.bound = "1";
+    skip.addEventListener("click", e => {
+      e.preventDefault();
+      let onList = false; try { onList = shellPage === "list"; } catch { onList = false; }
+      if (!onList) showPage("list");
+      const main = document.getElementById("main");
+      if (main) { if (!main.hasAttribute("tabindex")) main.setAttribute("tabindex", "-1"); main.focus({ preventScroll: false }); }
+    });
+  }
   // Phone: search behind a button so the field does not take a row.
   const btns = topbar.querySelector(".header-btns");
   const gs = document.getElementById("globalSearch");
@@ -17806,6 +17957,9 @@ function installBottomBarV3() {
   const bar = document.getElementById("navBottom");
   if (!bar || bar.dataset.bar === "v3") return;
   bar.dataset.bar = "v3";
+  // The bar is the phone's ledger switch, so the List's own ledger tabs are
+  // a second copy there: has-bottombar hides #ledgerTabs below 1024px.
+  document.documentElement.classList.add("has-bottombar");
   bar.setAttribute("aria-label", "Ledgers and map");
   bar.querySelectorAll('.nav-bottom-item[data-page="dashboard"], .nav-bottom-item[data-page="list"], .nav-bottom-item[data-page="watchlist"]').forEach(b => b.remove());
   const mapBtn = bar.querySelector('.nav-bottom-item[data-page="map"]');
@@ -17909,6 +18063,10 @@ function installListToolbarV3() {
   }
   const expand = document.getElementById("expandAllBtn");
   if (expand) expand.hidden = true;
+  qc.classList.add("qc-v3");
+  // The count is not repeated in the toolbar: the List title (and, on
+  // Available, the line above the county bar) already carries it once.
+
   // Plain section names.
   const rename = { "Bid / listed amount": "Price", "Sort & Display": "Then sort by", "Quick Toggles": "Show only", "Advanced Filters": "More filters" };
   panel.querySelectorAll(".filters-section-title").forEach(t => { const n = rename[t.textContent.trim()]; if (n) t.textContent = n; });

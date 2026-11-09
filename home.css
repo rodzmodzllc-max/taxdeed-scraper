@@ -28,14 +28,14 @@
 .home-ledger-card.is-untracked:not(#_){border-top-style:dashed!important}
 @media (max-width:639.98px){
   #pageDashboard .home-ledgers:not(#_){display:flex!important;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
-    margin:0 -16px 1.4rem!important;padding:0 16px .2rem;gap:.6rem!important;border:0!important;scrollbar-width:none}
+    margin:0 0 1.4rem!important;padding:0 0 .2rem;gap:.6rem!important;border:0!important;scrollbar-width:none;max-width:100%}
   #pageDashboard .home-ledgers::-webkit-scrollbar{display:none}
   #pageDashboard .home-ledger-card:not(#_){flex:0 0 78%;scroll-snap-align:start;border-left:0!important;border:1px solid var(--rule)!important;border-top:4px solid var(--lc,var(--rule-strong))!important}
 }
 
 /* ---------- Desk: Next up / County chips ---------- */
 #pageDashboard .home-desk:not(#_){display:block;margin:0 0 1.8rem}
-.home-desk-col.home-next{display:grid!important;gap:1.2rem 2.2rem}
+.home-desk-col.home-next{display:grid!important;gap:1.2rem 2.2rem;align-items:start}
 @media (min-width:1024px){ .home-desk-col.home-next{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)} .home-next > .home-section-title{grid-column:1 / -1} }
 .home-next > .home-section-title{border-bottom:0!important;padding:0!important}
 /* Heads: a real heading, larger than its small uppercase "All ... ->" link. */
@@ -61,6 +61,8 @@
 .county-dot{display:inline-block;width:.55rem;height:.55rem;border-radius:50%;background:var(--ink-soft);flex:0 0 auto}
 .county-dot.ok{background:var(--ok,#3F6B45)} .county-dot.warn{background:var(--warn,#8A5A12)} .county-dot.bad{background:var(--bad,#9E2B25)}
 .county-dot.muted{background:transparent;border:1px solid var(--ink-soft)}
+.county-dot[data-intel="SOURCE_BACKED"]{background:transparent;border:2px solid var(--ok,#3F6B45)}
+.county-dot[data-intel="NEEDS_REVIEW"]{background:transparent;border:2px solid var(--warn,#8A5A12)}
 .county-legend{display:flex;flex-wrap:wrap;gap:.3rem 1rem;margin:.2rem 0 0;font-size:.72rem;color:var(--ink-soft)}
 .county-legend > span{display:inline-flex;align-items:center;gap:.35rem}
 
@@ -169,3 +171,24 @@ html[data-look="merged"] #pageDashboard details.home-ops{background:var(--paper-
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]) .tdw-confirm-card,:root:not([data-theme="light"]) .home-county-desk .desk-county:not(#_){background:#1B2520}
 }
+
+/* ---------- Shell: header, phone bar, List toolbar ---------- */
+html[data-shell="v3"] .hdr-nav{position:relative}
+html[data-shell="v3"] .hdr-guide:not(#_){white-space:nowrap}
+/* Below 768px: the wordmark shows, the Look choice lives in the account menu. */
+.account-look{display:none}
+@media (max-width:767.98px){
+  html[data-shell="v3"] .look-switch:not(#_){display:none!important}
+  .account-look:not(#_){display:block;border-bottom:1px solid var(--rule);padding:.2rem 0 .3rem;margin-bottom:.2rem}
+  html[data-shell="v3"] .hdr-brand .brand-name:not(#_){display:block!important;font-size:1rem!important;letter-spacing:.14em!important}
+  html[data-shell="v3"] .hdr-brand .hdr-brand-sub{display:none!important}
+}
+.account-look [aria-checked="true"]::after{content:" \2713";color:var(--forest,#1F3A2E);font-weight:700}
+/* The phone bar is the ledger switch: the List's own tabs would repeat it. */
+@media (max-width:1023.98px){
+  html.has-bottombar #ledgerTabs:not(#_){display:none!important}
+  #navBottom .nb-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+}
+/* The List toolbar: one unframed row. */
+html[data-shell="v3"] #quickControls.qc-v3:not(#_){background:transparent!important;border:0!important;box-shadow:none!important;padding-left:0;padding-right:0}
+@media (min-width:1440px){ html[data-shell="v3"] #quickControls .filters-toggle:not(#_){display:none!important} }
