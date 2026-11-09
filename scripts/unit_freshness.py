@@ -172,6 +172,18 @@ def merge(previous: dict, entries: list[dict], *, at: str) -> tuple[dict, dict]:
     return record, counts
 
 
+def prune(record: dict, entries: list[dict], registry: dict[str, dict]) -> tuple[dict, list[str]]:
+    """Drop persisted units that no registry row names and this run did not
+    emit (MN-D4, 2026-11-09: a bare-county unit from before a county had two
+    sources stayed on record for good). A unit this run read is always kept,
+    and nothing is pruned when the registry could not be read."""
+    if not registry:
+        return record, []
+    emitted = {unit_key(e["state"], e["source_id"], e["county"]) for e in entries}
+    dropped = sorted(k for k in record if k not in registry and k not in emitted)
+    return {k: v for k, v in record.items() if k not in dropped}, dropped
+
+
 def backoff_decision(unit: dict | None, *, now: datetime | None = None, min_failures: int = MIN_FAILURES,
                      hold_hours: float = HOLD_HOURS) -> tuple[bool, str]:
     """(attempt, reason). Attempt unless the unit has failed MIN_FAILURES
@@ -545,6 +557,7 @@ def main(argv=None) -> int:
             if n:
                 entries.append(n)
     record, counts = merge(load_persisted(args.persist), entries, at=at)
+    record, dropped = prune(record, entries, registry_units(args.registry))
 
     pp = Path(args.persist)
     pp.parent.mkdir(parents=True, exist_ok=True)
@@ -557,6 +570,8 @@ def main(argv=None) -> int:
           f"superseded (not read) {counts['superseded']}, "
           f"incomplete {counts['incomplete']}, failed {counts['failed']}, skipped (back-off hold) {counts['skipped']}; "
           f"{len(record)} units on record")
+    if dropped:
+        print(f"  pruned {len(dropped)} persisted unit(s) no registry row names and no source emitted this run")
     held = [u for u in record.values() if not backoff_decision(u, now=datetime.now(timezone.utc))[0]]
     if held:
         print("  held (blocked-source back-off): " + ", ".join(f"{u['state']}/{u['county']} ({u['source_id']})" for u in held))
