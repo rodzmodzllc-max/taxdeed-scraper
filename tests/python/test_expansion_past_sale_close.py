@@ -80,3 +80,31 @@ def test_inventory_status_names_the_date_never_a_result():
     obs = IS.status_for_row(dict(sent[0], harvester_source="mi_lenawee_tax_sale"), today=TODAY)
     assert (obs.status, obs.basis) == ("closed", "SCHEDULED_DATE")
     assert "2026-10-06" in obs.note and "no result" in obs.note
+
+
+def _undated(n="9"):
+    row = _adapter_row(None, n)
+    row.pop("sale_date")
+    return row
+
+
+def test_a_layer_without_a_date_attribute_is_judged_on_the_stored_sale_date():
+    """2026-11-09: Lenawee / Eaton MI publish no date attribute, so the
+    harvested row carries no sale_date - the stored one decides."""
+    key = SY.identity(_undated())
+    stored = {key: {"sale_date": "2026-10-06", "status": "active"}}
+    sent, counts = _plan([_undated()], stored_values=stored)
+    assert counts["closed_past_sale"] == 1
+    row = sent[0]
+    assert row["status"] == "closed" and "sale_date" not in row
+    assert row["otc_provenance"]["closed_past_sale"] == "2026-10-06"
+    assert row.get("result_amount") is None and row["delisted_at"] == OBS
+    # A date the read itself publishes wins over the stored one.
+    sent, counts = _plan([_adapter_row("2026-12-01", "9")], stored_values=stored)
+    assert "closed_past_sale" not in counts and sent[0]["status"] == "active"
+    # A stored published result is never turned into a date close.
+    sent, counts = _plan([_undated()], stored_values={key: {"sale_date": "2026-10-06", "result_amount": 500}})
+    assert "closed_past_sale" not in counts
+    # No stored date and none published: never closed on a guess.
+    sent, counts = _plan([_undated()], stored_values={key: {"status": "active"}})
+    assert "closed_past_sale" not in counts and sent[0]["status"] == "active"

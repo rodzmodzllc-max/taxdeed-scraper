@@ -403,12 +403,12 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
             counts["refused_ledger_contract"] = counts.get("refused_ledger_contract", 0) + 1
             continue
         row["last_seen_at"] = observed_at
-        sale_passed = past_sale_date(row, FP_ts(observed_at).date())
+        prior_row = (stored_values or {}).get(identity(row)) or {}
+        sale_passed = past_sale_date(with_stored_sale_facts(row, prior_row), FP_ts(observed_at).date())
         if sale_passed:
             # Still listed, sale held, no result published: closed, never sold.
             row["status"] = "closed"
             row["otc_provenance"] = dict(row.get("otc_provenance") or {}, closed_past_sale=sale_passed)
-            prior_row = (stored_values or {}).get(identity(row)) or {}
             row["delisted_at"] = prior_row.get("delisted_at") or observed_at
             counts["closed_past_sale"] = counts.get("closed_past_sale", 0) + 1
         if str(row.get("status") or "active").lower() == "active":
@@ -497,6 +497,23 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
 #     the vendor / county-list ownership rules.
 PAST_SALE_GRACE_DAYS = 1
 PAST_SALE_EXCLUDED_STATES = frozenset({"TX"})
+
+
+def with_stored_sale_facts(row: dict, stored: dict | None) -> dict:
+    """The row as past_sale_date() should judge it: a sale date / result the
+    read leaves blank comes from the stored row (2026-11-09: the Lenawee and
+    Eaton MI layers publish no date attribute - the stored 2026-10-06 /
+    2026-10-22 dates are kept by per-source key alignment - so the listed
+    past-sale close never fired, and the stored-row close below would have
+    closed them after every upsert re-opened them). A date the read itself
+    publishes always wins. Pure; the returned dict is only read."""
+    if not stored:
+        return row
+    out = dict(row)
+    for col in ("sale_date", "result_amount", "result_date"):
+        if FP.is_blank(out.get(col)) and not FP.is_blank(stored.get(col)):
+            out[col] = stored[col]
+    return out
 
 
 def past_sale_date(row: dict, today) -> str | None:
