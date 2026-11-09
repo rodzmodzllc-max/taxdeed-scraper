@@ -192,3 +192,35 @@ html[data-shell="v3"] .hdr-guide:not(#_){white-space:nowrap}
 /* The List toolbar: one unframed row. */
 html[data-shell="v3"] #quickControls.qc-v3:not(#_){background:transparent!important;border:0!important;box-shadow:none!important;padding-left:0;padding-right:0}
 @media (min-width:1440px){ html[data-shell="v3"] #quickControls .filters-toggle:not(#_){display:none!important} }
+
+/* ---------- County index and county page ---------- */
+.cty-status-chip{display:inline-block;font-size:.7rem;font-weight:600;padding:.08rem .5rem;border:1px solid var(--rule);border-radius:999px;color:var(--ink-soft);white-space:nowrap}
+.cty-status-chip[data-reached="ACQUISITION_PATH_VERIFIED"],.cty-status-chip[data-reached="FULLY_RESEARCHED"]{border-color:var(--ok,#3F6B45);color:var(--ok,#3F6B45)}
+.cty-status-chip[data-reached="SOURCE_VERIFIED"]{border-color:var(--sage,#4E6B54);color:var(--ink)}
+.cty-status-chip.warn{border-color:var(--warn,#8A5A12);color:var(--warn,#8A5A12)}
+.cty-row-counts .is-zero:not(#_){color:var(--ink-soft)!important;opacity:.55}
+.cty-seg{display:inline-flex;border:1px solid var(--rule);border-radius:999px;overflow:hidden}
+.cty-seg button{min-height:36px;padding:.3rem .9rem;border:0;background:transparent;color:var(--ink);font:500 .8rem var(--font-sans);cursor:pointer}
+.cty-seg button[aria-pressed="true"]{background:var(--forest,#1F3A2E);color:#F8F8F5;cursor:default}
+.cty-seg button + button{border-left:1px solid var(--rule)}
+.cty-index-tools{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem}
+.cty-src-name small,.cty-table small.cty-src-more{display:inline;font-size:.76rem;color:var(--ink-soft)}
+.cty-src:not(#_){padding:.4rem 0}
+.cty-bar{display:inline-block;vertical-align:middle;width:5rem;height:.4rem;margin-right:.55rem;border-radius:999px;
+  background:linear-gradient(90deg,var(--sage,#4E6B54) var(--p,0%),var(--rule) var(--p,0%))}
+.cty-steps,.acq-steps,.cty-step-name,.cty-step-state{overflow-wrap:anywhere;min-width:0}
+@media (max-width:767.98px){ .cty-steps:not(#_){grid-template-columns:repeat(2,minmax(0,1fr))} .cty-step:nth-child(2n){border-right:0} .cty-kv:not(#_){grid-template-columns:1fr} }
+.cty,.cty-index{max-width:100%;overflow-wrap:anywhere}
+
+/* ---------- State picker / coverage explorer ---------- */
+.state-row-none.no-listings{color:var(--ink-soft);font-size:.78rem}
+.cov-stack{display:flex;height:.55rem;border-radius:999px;overflow:hidden;background:var(--rule);margin:.4rem 0 .2rem}
+.cov-stack > span{display:block;height:100%}
+.cov-stack > [data-k="sourced"]{background:var(--forest,#1F3A2E)} .cov-stack > [data-k="partial"]{background:var(--sage,#4E6B54)}
+.cov-stack > [data-k="research"]{background:var(--warn,#8A5A12)}
+.cov-stack-legend{display:flex;flex-wrap:wrap;gap:.2rem .9rem;font-size:.72rem;color:var(--ink-soft);margin:0 0 .5rem}
+.cov-stack-legend i{display:inline-block;width:.6rem;height:.6rem;border-radius:2px;margin-right:.3rem;vertical-align:-1px}
+
+/* ---------- Watchlist and My Research pages ---------- */
+.wl-count-pill,.rs-count-pill{display:inline-block;margin-left:.5rem;padding:.05rem .6rem;border-radius:999px;border:1px solid var(--rule);font:500 .8rem var(--font-sans);color:var(--ink-soft);vertical-align:middle}
+#pageWatchlist .bid-list-items:not(#_),#pageWatchlist .wl-list:not(#_){display:flex!important;flex-direction:column!important;grid-template-columns:none!important}

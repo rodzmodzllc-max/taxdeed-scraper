@@ -7332,17 +7332,20 @@ function countyLadderHtml(rs) {
     <p class="cty-note">Each step is a statement about the records this app holds for the county - not a rating of the county or of any property in it.</p>
   </div>`;
 }
+// A source name's short head, with anything after it (a field inventory, a
+// platform in brackets) kept in <small> - folded, never dropped.
+function countySourceNameHtml(name) {
+  const n = String(name || "");
+  const m = n.match(/^(.{6,}?)(\s+\(.+\)|\s+[-–—]\s+.+|:\s+.+)$/);
+  return m ? `${esc(m[1])} <small class="cty-src-more">${esc(m[2].replace(/^\s*[-–—:]\s*/, "").trim())}</small>` : esc(n);
+}
 function countySourceLineHtml(x, seeAll) {
-  const review = !x.customer_approved;
   const name = dossierSourceName(x);
-  const link = x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(name)} →</a>` : esc(name);
-  const pub = x.publisher && SOURCE_AUTHORITY_LABELS[x.publisher] ? `Published by ${SOURCE_AUTHORITY_LABELS[x.publisher]}` : "Publisher not recorded";
-  const status = x.customer_approved ? "Approved for customer publication" : "Awaiting publication review";
-  const read = x.unit && x.unit.last_success_at ? `Last complete read ${relativeTime(x.unit.last_success_at)}` : "No complete read recorded";
+  const label = countySourceNameHtml(name);
+  const link = x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener" title="${esc(name)}">${label} →</a>` : label;
+  void seeAll;
   return `<li class="cty-src" data-source="${esc(x.source_id)}" data-ledger="${esc(x.ledger)}">
-    <div class="cty-src-name">${link}${x.production ? "" : ' <span class="muted">(research page - not harvested)</span>'}</div>
-    <div class="cty-src-meta">${esc(pub)} · ${esc(status)}${x.production ? ` · ${esc(read)}` : ""}</div>
-    ${x.production ? `<div class="cty-src-health">${sourceHealthChipHtml(x.unit, { review })}</div>` : ""}
+    <span class="cty-src-name">${link}${x.production ? "" : ' <span class="muted">(research page - not harvested)</span>'}</span>
   </li>`;
 }
 function countyMoneyRange(rows) {
@@ -7413,7 +7416,7 @@ function countyAvailableHtml(c, st, sources, rows, seeAll) {
   return `<section class="cty-section" data-county-section="available"><h3><span class="cty-dot" data-ledger="laft"></span>${esc(ledgerNavName("laft"))} <span class="cty-q">${esc(LEDGERS.laft.question || "")}</span></h3>
     ${countyKv([["On file now", `<b>${nAll.toLocaleString("en-US")}</b>${LEDGER_LOAD.laft === "loading" || LEDGER_LOAD.laft === "partial" ? ' <span class="muted">(still loading)</span>' : ""}`]].concat(amountRows))}
     ${countyRecordsHtml(live.slice().sort((a, b) => String(a.case_no || "").localeCompare(String(b.case_no || ""))), "laft", "Properties on file")}
-    ${srcs.length ? `<ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : `<p class="muted">No Available source is recorded for this ${esc(UNIT_WORD.toLowerCase())}. That is not a statement that nothing can be acquired here.</p>`}
+    ${srcs.length ? `<h4>Sources</h4><ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul><p class="cty-sub">Publisher, publication status, last read and health: see Source truth below.</p>` : `<p class="muted">No Available source is recorded for this ${esc(UNIT_WORD.toLowerCase())}. That is not a statement that nothing can be acquired here.</p>`}
     ${unitHtml}
     ${nAll ? `<div class="cty-actions"><button type="button" class="link-btn" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="laft">Open in the List (${nAll.toLocaleString("en-US")}) →</button> <button type="button" class="link-btn" data-action="countymap" data-county="${esc(c.county)}" data-ledger="laft">Show on the Map →</button></div>` : ""}
   </section>`;
@@ -7469,7 +7472,7 @@ function countyAuctionsHtml(c, st, sources, rows, seeAll) {
     ${dates ? `<h4>Sale calendar</h4><ul class="cty-sales">${dates}</ul>` : ""}
     ${countyRecordsHtml(upcoming, "auction", "Upcoming sales on file")}
     <h4>Historical results</h4>${outcomeHtml}
-    ${srcs.length ? `<ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : `<p class="muted">No auction source is recorded for this ${esc(UNIT_WORD.toLowerCase())}.</p>`}
+    ${srcs.length ? `<h4>Sources</h4><ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : `<p class="muted">No auction source is recorded for this ${esc(UNIT_WORD.toLowerCase())}.</p>`}
     ${live.length ? `<div class="cty-actions"><button type="button" class="link-btn" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="auction">Open in the List (${live.length.toLocaleString("en-US")}) →</button></div>` : ""}
   </section>`;
 }
@@ -7490,7 +7493,7 @@ function countyLiensHtml(c, st, sources, rows, seeAll) {
   return `<section class="cty-section" data-county-section="liens"><h3><span class="cty-dot" data-ledger="certificate"></span>${esc(ledgerNavName("certificate"))} <span class="cty-q">${esc(LEDGERS.certificate.question || "")}</span></h3>
     ${countyKv(kv)}
     ${countyRecordsHtml(live.slice().sort((a, b) => String(a.expiration_date || "9").localeCompare(String(b.expiration_date || "9"))), "certificate", "Certificates on file")}
-    ${srcs.length ? `<ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : ""}
+    ${srcs.length ? `<h4>Sources</h4><ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : ""}
     ${live.length ? `<div class="cty-actions"><button type="button" class="link-btn" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="certificate">Open in the List (${live.length.toLocaleString("en-US")}) →</button></div>` : ""}
   </section>`;
 }
@@ -7501,7 +7504,7 @@ function countyPropertyIntelHtml(rows) {
   const cnt = fn => r.filter(fn).length;
   const coord = r.map(p => coordinateProvenance(p));
   const fp = p => p.field_provenance && typeof p.field_provenance === "object" ? p.field_provenance : {};
-  const line = (k, n, note) => [k, `<b>${n.toLocaleString("en-US")}</b> of ${N.toLocaleString("en-US")}${note ? ` <span class="kv-sub">${esc(note)}</span>` : ""}`, `data-count="${n}"`];
+  const line = (k, n, note) => [k, `<span class="cty-bar" style="--p:${Math.round((n / N) * 100)}%" aria-hidden="true"></span><b>${n.toLocaleString("en-US")}</b> of ${N.toLocaleString("en-US")}${note ? ` <span class="kv-sub">${esc(note)}</span>` : ""}`, `data-count="${n}"`];
   return `<section class="cty-section" data-county-section="property"><h3>Property intelligence</h3>
     ${countyKv([
       line("Parcel / account identifier", cnt(hasParcel)),
@@ -7524,7 +7527,7 @@ function countyTruthHtml(c, st, sources, seeAll) {
   const hidden = sources.filter(x => !(seeAll || x.customer_approved || x.fromRows)).length;
   const rowsHtml = shown.map(x => {
     const h = sourceHealthText(x.unit, { review: !x.customer_approved });
-    return `<tr data-source="${esc(x.source_id)}"><td>${esc(ledgerNavName(x.ledger))}</td><td>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(dossierSourceName(x))} →</a>` : esc(dossierSourceName(x))}</td>
+    return `<tr data-source="${esc(x.source_id)}"><td>${esc(ledgerNavName(x.ledger))}</td><td>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${countySourceNameHtml(dossierSourceName(x))} →</a>` : countySourceNameHtml(dossierSourceName(x))}</td>
       <td>${esc(x.publisher && SOURCE_AUTHORITY_LABELS[x.publisher] ? SOURCE_AUTHORITY_LABELS[x.publisher] : "Not recorded")}</td>
       <td>${esc(x.customer_approved ? "Approved" : (SOURCE_REVIEW_LABELS[x.publication] || "Awaiting review"))}</td>
       <td>${x.production ? (x.unit && x.unit.last_success_at ? esc(relativeTime(x.unit.last_success_at)) : '<span class="muted">Not recorded</span>') : '<span class="muted">Not harvested</span>'}</td>
@@ -7584,7 +7587,6 @@ function countyPageHtml(c, st) {
   return `<article class="cty" data-county="${esc(c.county)}" data-state="${esc(st)}">
     <nav class="cty-crumbs" aria-label="Breadcrumb"><button type="button" class="link-btn" data-action="countyindex">County Intelligence</button> / <span>${esc(stName)}</span></nav>
     <header class="cty-head">
-      <p class="cty-kicker">${esc(stName)} · County Intelligence</p>
       <h2 class="cty-title">${esc(unitLabelOf(c.county))}</h2>
       <p class="cty-lede">What this app knows before you buy tax-sale or government-held property here - and what it does not. <button type="button" class="link-btn" data-action="buyersguide" data-county="${esc(c.county)}">Buyer's guide for ${esc(unitLabelOf(c.county))} →</button></p>
       <div class="cty-ledger-strip">${["laft", "auction", "certificate"].map(k => `<button type="button" class="cty-ledger-count" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="${k}" ${counts[k] ? "" : "disabled"}><span class="cty-dot" data-ledger="${k}"></span>${esc(ledgerNavName(k))} <b>${counts[k].toLocaleString("en-US")}</b></button>`).join("")}</div>
@@ -7623,8 +7625,8 @@ function countyIndexHtml(doc, st) {
     return `<li class="cty-row" data-county-row="${esc(name)}" data-reached="${esc(rs.reached || "NONE")}">
       <button type="button" class="cty-row-btn" data-action="countypage" data-county="${esc(name)}">
         <span class="cty-row-name">${esc(name)}</span>
-        <span class="cty-row-status">${esc(countyResearchLabel(rs.reached))}${unavailable ? ' · <span class="warn">source unavailable</span>' : ""}</span>
-        <span class="cty-row-counts"><span data-ledger="laft">${n("laft")}</span><span data-ledger="auction">${n("auction")}</span><span data-ledger="certificate">${n("certificate")}</span></span>
+        <span class="cty-row-status"><span class="cty-status-chip" data-reached="${esc(rs.reached || "NONE")}">${esc(countyResearchLabel(rs.reached))}</span>${unavailable ? ' <span class="cty-status-chip warn">Source unavailable</span>' : ""}</span>
+        <span class="cty-row-counts">${["laft", "auction", "certificate"].map(k => `<span data-ledger="${k}" class="${n(k) ? "" : "is-zero"}" aria-label="${n(k)} ${esc(ledgerNavName(k))}">${n(k)}</span>`).join("")}</span>
         <span class="cty-row-next">${next ? `Next sale ${esc(fmtDate(next))}` : ""}</span>
       </button></li>`;
   }).join("");
@@ -7634,7 +7636,7 @@ function countyIndexHtml(doc, st) {
       <p class="cty-lede">Research a ${esc(UNIT_WORD.toLowerCase())} before you buy: its Available inventory and acquisition process, its auctions and their results, its liens and certificates, and what is still unknown.</p></header>
     <div class="cty-index-tools">
       <input type="search" id="countyIndexSearch" placeholder="Find a ${esc(UNIT_WORD.toLowerCase())}" aria-label="Find a ${esc(UNIT_WORD.toLowerCase())}" value="${esc(COUNTY_PAGE.filter)}">
-      <button type="button" class="link-btn" data-action="countyshowall">${COUNTY_PAGE.showAll ? `Only ${UNIT_WORD.toLowerCase()} records on file` : `Show every ${UNIT_WORD.toLowerCase()}${total ? ` (${total})` : ""}`}</button>
+      <div class="cty-seg" role="group" aria-label="Which ${esc(unitWordFor(2))}"><button type="button" aria-pressed="${COUNTY_PAGE.showAll ? "false" : "true"}"${COUNTY_PAGE.showAll ? ' data-action="countyshowall"' : ""}>On file (${recorded.size})</button><button type="button" aria-pressed="${COUNTY_PAGE.showAll ? "true" : "false"}"${COUNTY_PAGE.showAll ? "" : ' data-action="countyshowall"'}>All${total ? ` ${total}` : ""}</button></div>
       <button type="button" class="link-btn" data-action="countystates">Other states & coverage →</button>
     </div>
     <div class="cty-index-legend"><span>${esc(UNIT_WORD)}</span><span>Research status</span><span class="cty-row-counts"><span data-ledger="laft">${esc(ledgerNavName("laft"))}</span><span data-ledger="auction">${esc(ledgerNavName("auction"))}</span><span data-ledger="certificate">${esc(ledgerNavName("certificate"))}</span></span><span>Upcoming</span></div>
@@ -17141,7 +17143,9 @@ function statePickerRowHtml(st) {
   const meta = STATE_META[st];
   const here = st === PAGE_STATE;
   const cache = SHELL_UI.picker || {};
-  const badges = LEDGER_ORDER.map(k => {
+  // The header's own ledger order: Available, Auctions, Liens (2026-11-09).
+  const ORDER = ["laft", "auction", "certificate"];
+  const badges = ORDER.map(k => {
     if (here) {
       const n = shellActiveRows(k).length;
       if (!n) return "";
@@ -17154,12 +17158,12 @@ function statePickerRowHtml(st) {
   }).join("");
   // "None" only when every ledger was actually checked and has no row - a
   // probe that failed or is still running never reads as "nothing here".
-  const vals = here ? LEDGER_ORDER.map(k => shellActiveRows(k).length > 0) : LEDGER_ORDER.map(k => (cache[st] ? cache[st][k] : undefined));
+  const vals = here ? ORDER.map(k => shellActiveRows(k).length > 0) : ORDER.map(k => (cache[st] ? cache[st][k] : undefined));
   const none = vals.every(v => v === false);
   const failed = !here && vals.some(v => v === null) && !vals.some(v => v === true);
   return `<div class="state-row${here ? " current" : ""}" data-state-row="${esc(st)}" data-name="${esc(meta.name.toLowerCase())}">
     <a class="state-row-name" href="${esc(stateLedgerHref(st, null))}"${here ? ' aria-current="page"' : ""}>${esc(meta.name)}<span class="state-row-code">${esc(st)}</span>${here ? '<span class="state-row-here">Current</span>' : ""}</a>
-    <span class="state-row-ledgers">${badges}${none ? `<span class="state-row-none">No properties currently available for this state.</span>` : ""}${failed ? `<span class="state-row-none">Couldn't check this state right now - open it to see what it has.</span>` : ""}</span>
+    <span class="state-row-ledgers">${badges}${none ? `<span class="state-row-none no-listings" title="Every ledger was checked; none has a current listing for this state.">No listings now</span>` : ""}${failed ? `<span class="state-row-none">Couldn't check this state right now - open it to see what it has.</span>` : ""}</span>
   </div>`;
 }
 function hasAvailable(st) {
@@ -17183,6 +17187,8 @@ function coverageExplorerHtml(q) {
   const order = ["VERIFIED", "PARTIALLY_VERIFIED", "SOURCE_BACKED", "NEEDS_REVIEW", "SOURCE_UNAVAILABLE", "NOT_YET_RESEARCHED"];
   const shown = listed.filter(c => !q || c.county.toLowerCase().includes(q)).sort((a, b) => order.indexOf(a.intel) - order.indexOf(b.intel) || a.county.localeCompare(b.county));
   return `<div class="coverage-explorer" id="coverageExplorer"><h3 class="state-group-head">Coverage in ${esc(STATE_INFO.name)}</h3>
+    ${(() => { const tot = order.reduce((n, k) => n + (counts[k] || 0), 0); if (!tot) return ""; const col = k => ({ ok: "var(--ok,#3F6B45)", warn: "var(--warn,#8A5A12)", bad: "var(--bad,#9E2B25)", muted: "var(--rule)" })[(COUNTY_INTEL_LABELS[k] || {}).cls] || "var(--rule)";
+      return `<div class="cov-stack" role="img" aria-label="${esc(order.filter(k => counts[k]).map(k => `${counts[k]} ${(COUNTY_INTEL_LABELS[k] || {}).label || k}`).join(", "))}">${order.filter(k => counts[k]).map(k => `<span data-intel="${k}" style="width:${(counts[k] / tot * 100).toFixed(2)}%;background:${col(k)}${k === "SOURCE_BACKED" ? ";opacity:.6" : ""}"></span>`).join("")}</div>`; })()}
     <div class="cov-summary">${order.filter(k => counts[k]).map(k => `<span class="cov-count" data-intel="${k}">${countyIntelChipHtml(k)} <b>${counts[k]}</b></span>`).join("")}</div>
     <ul class="cov-list">${shown.map(c => `<li><button type="button" class="link-btn" data-action="countyintel" data-county="${esc(c.county)}">${esc(c.county)}</button> ${countyIntelChipHtml(c.intel)}</li>`).join("")}</ul>
     ${unlisted ? `<p class="muted cov-note">${unlisted} other ${esc(UNIT_WORD.toLowerCase())}${unlisted === 1 ? " is" : "s are"} not yet researched - no source is recorded there yet, which is not a statement that nothing is for sale.</p>` : ""}

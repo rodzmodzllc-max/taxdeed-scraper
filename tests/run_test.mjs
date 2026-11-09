@@ -2221,7 +2221,7 @@ await evPage3.close();
 // --- Dashboard: dataset health (five stub rows, one per derived state)
 // and the watchlist change signals (first visit in a fresh browser). ---
 const dashPage = await newPage({ viewport: { width: 1200, height: 900 } });
-await dashPage.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+await dashPage.goto(BASE_URL + '?profile=admin#/auctions', { waitUntil: 'networkidle' });
 await dashPage.waitForTimeout(500);
 await dashPage.click('#hdrHomeBtn');
 await dashPage.waitForTimeout(200);
@@ -2325,7 +2325,7 @@ results.relatedOpenLandsOnAuctionRow = ((await dashPage.locator(`${detailScope} 
 results.auctionDetailRelated = await dashPage.locator(`${detailScope} .related-record`).evaluateAll(els => els.map(e => e.dataset.source + ':' + e.dataset.pid));
 await dashPage.close();
 const noHealthPage = await newPage({ viewport: { width: 1200, height: 900 } });
-await noHealthPage.goto(BASE_URL + '?health=none' + '#/auctions', { waitUntil: 'networkidle' });
+await noHealthPage.goto(BASE_URL + '?health=none&profile=admin' + '#/auctions', { waitUntil: 'networkidle' });
 await noHealthPage.waitForTimeout(500);
 await noHealthPage.click('#hdrHomeBtn');
 await noHealthPage.waitForTimeout(200);
@@ -2333,7 +2333,7 @@ results.dashHealthMissingTable = ((await noHealthPage.locator('#dashSourceRows')
 results.dashHealthMissingTableNoBadges = await noHealthPage.locator('#dashSourceRows .health-badge').count();
 await noHealthPage.close();
 const noRegPage = await newPage({ viewport: { width: 1200, height: 900 } });
-await noRegPage.goto(BASE_URL + '?registry=none' + '#/auctions', { waitUntil: 'networkidle' });
+await noRegPage.goto(BASE_URL + '?registry=none&profile=admin' + '#/auctions', { waitUntil: 'networkidle' });
 await noRegPage.waitForTimeout(500);
 await noRegPage.click('#hdrHomeBtn');
 await noRegPage.waitForTimeout(200);
@@ -4431,7 +4431,7 @@ await navMap.close();
     const sp = await newPage({ viewport: { width: 1280, height: 900 } });
     await sp.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
     await sp.waitForTimeout(300);
-    await sp.click('#homeStatesCard'); // Remediation: the header States button is gone; the Home states card opens the same sheet
+    await sp.click('#homeAllStates'); // Remediation: the header States button is gone; the Home states card opens the same sheet
     await sp.waitForSelector('#coverageExplorer .cov-list li', { timeout: 5000 });
     results.coverageExplorer = await sp.evaluate(() => {
       const ex = document.getElementById('coverageExplorer');
@@ -5926,7 +5926,7 @@ await navMap.close();
     results.rdHome = {
       title: await txt(pg, '.home-title'),
       cards: await pg.locator('#homeLedgers [data-home-ledger]').evaluateAll(els => els.map(e => e.dataset.homeLedger + ':' + e.querySelector('.home-ledger-count').textContent)),
-      statesCard: await pg.locator('#homeStatesCard').count(),
+      statesCard: await pg.locator('#homeAllStates').count(),
       recentHasFirstSeen: await pg.locator('#homeRecent .home-recent-when').evaluateAll(els => els.length > 0 && els.every(e => /^First observed /.test(e.textContent))),
       noScoreWords: await pg.locator('#homeHero, #homeLedgers, #homeRecentSection').evaluateAll(els => els.every(e => !/\b(score|ranking|recommend|AI)\b/i.test(e.textContent)))
     };
@@ -6022,10 +6022,10 @@ await navMap.close();
     // there and an admin does).
     const picker = async (qs) => {
       const p2 = await open(qs, '#/dashboard');
-      await p2.click('#homeStatesCard');
+      await p2.click('#homeAllStates');
       await p2.waitForFunction(() => !document.querySelector('#statePickerBody .ledger-badge.pending'), null, { timeout: 8000 }).catch(() => {});
       const rows = await p2.locator('#statePickerBody .state-row').evaluateAll(els => els.map(e => e.dataset.stateRow + '=' +
-        Array.from(e.querySelectorAll('.ledger-badge')).map(b => b.dataset.ledger).join('|') + (e.querySelector('.state-row-none') ? '!' + (e.querySelector('.state-row-none').textContent.startsWith('No properties') ? 'none' : 'unchecked') : '')));
+        Array.from(e.querySelectorAll('.ledger-badge')).map(b => b.dataset.ledger).join('|') + (e.querySelector('.state-row-none') ? '!' + (e.querySelector('.state-row-none').textContent.startsWith('No listings') ? 'none' : 'unchecked') : '')));
       const groups = await p2.locator('#statePickerBody .state-group-head').allTextContents();
       return { p2, rows, groups };
     };
@@ -6362,7 +6362,7 @@ await navList.close();
 // that ledger), attention / recent / verified-path panels - counts only,
 // "Not tracked" where the data holds none.
 const navDash = await newPage({ viewport: { width: 1200, height: 900 } });
-await navDash.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+await navDash.goto(BASE_URL + '?profile=admin#/dashboard', { waitUntil: 'networkidle' });
 await navDash.waitForTimeout(500);
 results.navDashDeepVisible = await navDash.locator('#pageDashboard').evaluate(el => !el.hidden);
 // Remediation (2026-10-10): one place for the ledger totals - the Home
@@ -6595,7 +6595,7 @@ results.monNoneRuns = await monNone.locator('#dashRunsUnavailable').count();
 await monNone.close();
 // 11. Dashboard: latest change-detection run per source.
 const monDash = await newPage({ viewport: { width: 1200, height: 900 } });
-await monDash.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+await monDash.goto(BASE_URL + '?profile=admin#/dashboard', { waitUntil: 'networkidle' });
 await monDash.waitForTimeout(700);
 results.monDashRuns = await monDash.locator('#dashRunRows .run-row').evaluateAll(els => els.map(e => e.dataset.source + ':' + Array.from(e.querySelectorAll('.dash-row-vals span')).map(x => x.textContent.trim()).join(' / ')));
 await monDash.close();
