@@ -242,6 +242,7 @@ const SHELL = [
   "/styles.css",
   "/explore.css",
   "/identity.css",
+  "/home.css",
   "/app.js",
   "/boot.js",
   "/supabase-loader.js",
