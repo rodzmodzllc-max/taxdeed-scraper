@@ -252,7 +252,11 @@ def _clean_text(s: str | None, limit: int = 2000) -> str | None:
     return s[:limit] or None
 
 
-_REDIRECT_NOTICE = re.compile(r"texascg|govease|for information on tax foreclosed|now being conducted exclusively", re.I)
+# A notice that sends the reader elsewhere for the list itself: another
+# firm's site, GovEase, or the county tax office ('See www.<county>tax.com
+# for complete listing', PBFCM's Potter County sale notice, 2026-11-09).
+_REDIRECT_NOTICE = re.compile(r"texascg|govease|for information on tax foreclosed|now being conducted exclusively|"
+                              r"see\s+\S+\s+for\s+(?:the\s+)?complete\s+listing", re.I)
 
 
 def document_status(res: "TABLES.TableReadResult") -> tuple[str, str]:
