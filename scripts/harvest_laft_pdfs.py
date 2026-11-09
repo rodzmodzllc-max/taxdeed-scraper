@@ -39,6 +39,7 @@ sync-laft-to-supabase.ps1, not the other two sync scripts).
 from __future__ import annotations
 
 import csv
+from collections import Counter
 import io
 import json
 import re
@@ -50,7 +51,8 @@ import requests
 
 from harvest_cache import PARSER_VERSION, conditional_get, load_cache, record_cache_stats, save_cache
 import laft_status as _LS  # noqa: E402 - permission gate
-from laft_status import StatusRecorder, amount_kind_for_header, describe_exception, extract_list_as_of, record_identifiers_plausible
+from laft_status import (StatusRecorder, amount_kind_for_header, describe_exception, extract_list_as_of,
+                         record_identifiers_plausible, record_rejection_reason)
 
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_pdf_sources.csv"
@@ -423,8 +425,7 @@ def _rows_from_table(table: list, county: str, source_url: str, rejected: list |
             # property (Volusia "IDNUMBER", Pasco's whole-page run - see
             # laft_status.plausible_identifier). Dropped whole, counted.
             if not record_identifiers_plausible(record):
-                if rejected is not None:
-                    rejected.append(1)
+                _reject(rejected, record)
                 continue
             rows.append(finalize_record(record))
     return rows
@@ -469,6 +470,24 @@ def extract_label_value_rows(full_text: str, county: str, source_url: str, rejec
     return records
 
 
+class RejectLog(list):
+    """The identifier gate's rejections: one entry per dropped row (as
+    before) plus `reasons`, a count per reason code (laft_status.
+    record_rejection_reason) - never a value."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.reasons: Counter = Counter()
+
+
+def _reject(rejected: list | None, record: dict) -> None:
+    if rejected is None:
+        return
+    rejected.append(1)
+    if isinstance(rejected, RejectLog):
+        rejected.reasons[record_rejection_reason(record) or "unknown"] += 1
+
+
 def _keep_label_record(current: dict | None, records: list[dict], rejected: list | None) -> None:
     if not current or not (current.get("case_no") or current.get("parcel")):
         return
@@ -478,8 +497,7 @@ def _keep_label_record(current: dict | None, records: list[dict], rejected: list
     # Same identifier gate as _rows_from_table: a "Parcel ID" label whose
     # value ran on to the end of the page (Pasco, 2026-09) is not a parcel.
     if not record_identifiers_plausible(current):
-        if rejected is not None:
-            rejected.append(1)
+        _reject(rejected, current)
         return
     records.append(finalize_record(current))
 
@@ -502,7 +520,7 @@ def extract_rows_with_outcome(pdf_bytes: bytes, county: str, source_url: str) ->
     an INCOMPLETE observation - the list may well be empty, but this parser
     did not confirm it."""
     outcome = {"empty_marker": False, "table_seen": False, "rows": 0, "rejected": 0, "list_as_of": None}
-    rejected: list = []
+    rejected: list = RejectLog()
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         full_text = "\n".join(p.extract_text() or "" for p in pdf.pages)
         # The list's own as-of date, when the document states one (see
@@ -579,6 +597,7 @@ def extract_rows_with_outcome(pdf_bytes: bytes, county: str, source_url: str) ->
         rows = deduped
     outcome["rows"] = len(rows)
     outcome["rejected"] = len(rejected)
+    outcome["rejected_reasons"] = dict(sorted(rejected.reasons.items()))
     if not rows and not rejected and county in HEADER_ONLY_EMPTY_COUNTIES and header_only_list(full_text):
         outcome["empty_table"] = True
     return rows, outcome
@@ -803,7 +822,9 @@ def main() -> int:
                 rows, outcome = extract_rows_with_outcome(content, county, url_used)
                 doc_kw["list_as_of"] = outcome.get("list_as_of") or extract_list_as_of(None, url_used)
                 if outcome.get("rejected"):
-                    print(f"      {outcome['rejected']} row(s) rejected by the identifier gate (not a parcel/case number)", flush=True)
+                    why = ", ".join(f"{k} {v}" for k, v in (outcome.get("rejected_reasons") or {}).items())
+                    print(f"      {outcome['rejected']} row(s) rejected by the identifier gate (not a parcel/case number)"
+                          + (f": {why}" if why else ""), flush=True)
                 if rows:
                     print(f"      {len(rows)} properties", flush=True)
                     recorder.complete(county, len(rows), **status_kw, **doc_kw)

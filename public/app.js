@@ -1646,6 +1646,25 @@ let SHELL_UI = { gsTimer: null, gsActive: -1, gsMatches: [], picker: null };
 function countsToward(p) {
   return !HIDDEN.has(p.id) && !goneExpired(p) && !isPastDue(p) && isCurrentListing(p);
 }
+// Rows of one ledger in this state that would count but that THIS account
+// hid (the `hidden` table is private to each user). Counts leave them out,
+// so the ledger says how many - an account that hid rows otherwise sees a
+// smaller ledger than everyone else and nothing says why (2026-11-07: one
+// account saw 177 FL Available rows, every other account 198).
+function hiddenByYouCount(kind) {
+  if (!HIDDEN || !HIDDEN.size) return 0;
+  let n = 0;
+  for (const p of (ALL || [])) {
+    if (p.source !== kind || !HIDDEN.has(p.id) || regionOf(p) !== PAGE_STATE) continue;
+    if (!goneExpired(p) && !isPastDue(p) && isCurrentListing(p)) n++;
+  }
+  return n;
+}
+function hiddenByYouLineHtml(kind) {
+  const n = hiddenByYouCount(kind);
+  if (!n) return "";
+  return `<p class="ledger-withheld ledger-hidden-by-you" id="ledgerHiddenByYou" data-hidden-ledger="${esc(kind)}">${n.toLocaleString("en-US")} hidden by you - not counted here. <button type="button" class="link-btn" data-action="openhidden">View &amp; restore</button></p>`;
+}
 // A listing that is still on its source's current list: not marked gone, and
 // (auctions) not missing from the county's latest sale-list read. Counts,
 // tabs and the default List view use only these (2026-10-25).
@@ -11317,6 +11336,7 @@ document.addEventListener("click", async e => {
   const pid = btn.dataset.pid;
 
   if (action === "retryload") { retryPropertyLoad(); return; }
+  if (action === "openhidden") { openHiddenModal(); return; }
   if (action === "countyintel") {
     // From the state picker: the picker's own history entry must be gone
     // before the dossier pushes its own, or the two backs race and the
@@ -12228,6 +12248,7 @@ function section(container, title, sub, rows, kind) {
       ${shown.length ? `<details class="ledger-status-fold"><summary>Source status and coverage</summary>${ledgerStatusHtml(kind, shown)}</details>` : ledgerStatusHtml(kind, shown)}
       ${REVIEW_PENDING_SHOWN[kind] && !IS_ADMIN ? `<p class="ledger-review-pending" id="ledgerReviewPending">${REVIEW_PENDING_SHOWN[kind]} record${REVIEW_PENDING_SHOWN[kind] === 1 ? "" : "s"} from sources awaiting customer-publication review ${REVIEW_PENDING_SHOWN[kind] === 1 ? "is" : "are"} ${esc(reviewViewerReason())}, each labelled "Source review". Customers in published mode do not see ${REVIEW_PENDING_SHOWN[kind] === 1 ? "it" : "them"}.</p>` : ""}
       ${IS_ADMIN ? adminWithheldLineHtml(kind) : ""}
+      ${hiddenByYouLineHtml(kind)}
       ${kind === "laft" && DETROIT_SUMMARY.collected && (IS_ADMIN || viewerScope() === "preview") ? `<p class="ledger-detroit-subset" id="ledgerDetroitSubset">Detroit Land Bank: ${DETROIT_SUMMARY.collected.toLocaleString("en-US")} collected · ${DETROIT_SUMMARY.structure.toLocaleString("en-US")} with a verified structure in the source's own status · ${DETROIT_SUMMARY.subset.toLocaleString("en-US")} in the customer subset (deterministic ~50%). ${IS_ADMIN ? "You see every collected record; those outside the subset are labelled and stay collected." : "Only the customer subset is shown here."} The subset still passes the publication gate: source review is separate.</p>` : ""}
       ${state.statusView === "archive" ? `<p class="ledger-mode-note" id="archiveModeNote">📁 Past auctions only — sale date already gone. <button class="ledger-mode-exit" id="exitArchiveBtn" type="button">Back to current listings</button></p>` : ""}
     </div>`;
@@ -16550,7 +16571,7 @@ function homeLedgerCardHtml(k) {
   return `<button type="button" class="home-ledger-card${k === "laft" ? " primary" : ""}" data-ledger="${esc(k)}" data-home-ledger="${esc(k)}">
     <span class="home-ledger-kicker">${esc(ledgerNavName(k).toUpperCase())}</span>
     <span class="home-ledger-count" id="homeCount_${esc(k)}">${PROPERTIES_LOADED ? ledgerCountText(k, n, true) : "—"}</span>
-    <span class="home-ledger-unit">${esc(unit)}${PROPERTIES_LOADED && n ? ` across ${counties} ${esc(unitWordFor(counties))}` : ""}${WITHHELD[k] ? ` · <span class="home-ledger-withheld" data-withheld="${esc(k)}">${WITHHELD[k]} withheld</span>` : ""}${k === "laft" && GATE_WITHHELD.total ? ` · <span class="home-ledger-withheld" data-gate-withheld="laft">${GATE_WITHHELD.total} pending verification</span>` : ""}${publicationWithheld(k) && publicationWithheld(k).total ? ` · <span class="home-ledger-withheld" data-pub-withheld="${esc(k)}">${publicationWithheld(k).total.toLocaleString("en-US")} withheld pending verification</span>` : ""}</span>
+    <span class="home-ledger-unit">${esc(unit)}${PROPERTIES_LOADED && n ? ` across ${counties} ${esc(unitWordFor(counties))}` : ""}${WITHHELD[k] ? ` · <span class="home-ledger-withheld" data-withheld="${esc(k)}">${WITHHELD[k]} withheld</span>` : ""}${PROPERTIES_LOADED && hiddenByYouCount(k) ? ` · <span class="home-ledger-hidden" data-hidden-ledger="${esc(k)}">${hiddenByYouCount(k).toLocaleString("en-US")} hidden by you</span>` : ""}${k === "laft" && GATE_WITHHELD.total ? ` · <span class="home-ledger-withheld" data-gate-withheld="laft">${GATE_WITHHELD.total} pending verification</span>` : ""}${publicationWithheld(k) && publicationWithheld(k).total ? ` · <span class="home-ledger-withheld" data-pub-withheld="${esc(k)}">${publicationWithheld(k).total.toLocaleString("en-US")} withheld pending verification</span>` : ""}</span>
     <span class="home-ledger-blurb">${esc(fin && !n ? `None listed for ${STATE_INFO.name} right now.` : !fin && PROPERTIES_LOADED ? "Loading…" : (cfg.sub || ""))}</span>
     <span class="home-ledger-go">${k === "laft" ? "Explore" : "Open"} &rarr;</span>
   </button>`;

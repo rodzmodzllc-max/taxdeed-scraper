@@ -210,6 +210,34 @@ def plausible_identifier(value, *, kind: str = "parcel") -> bool:
     return len(text) <= (CASE_MAX_LEN if kind == "case_no" else IDENT_MAX_LEN)
 
 
+def identifier_rejection_reason(value, *, kind: str = "parcel") -> str | None:
+    """Why `plausible_identifier(value, kind=kind)` is False, as a short code
+    (counts-only logging): 'blank', 'line_break', 'no_digit', 'too_long'.
+    None when the value passes."""
+    if plausible_identifier(value, kind=kind):
+        return None
+    text = "" if value is None else re.sub(r"[ \t]+", " ", str(value)).strip()
+    if not text:
+        return "blank"
+    if "\n" in text or "\r" in text:
+        return "line_break"
+    if not _HAS_DIGIT.search(text):
+        return "no_digit"
+    return "too_long"
+
+
+def record_rejection_reason(record: dict) -> str | None:
+    """'<field>_<reason>' for the first identifier that fails the gate
+    (parcel first), None when the record passes. Never the value."""
+    for field, kind in (("parcel", "parcel"), ("case_no", "case_no")):
+        v = record.get(field)
+        if v is not None and str(v).strip():
+            why = identifier_rejection_reason(v, kind=kind)
+            if why:
+                return f"{field}_{why}"
+    return None
+
+
 def record_identifiers_plausible(record: dict) -> bool:
     """True when every identifier the record carries passes the gate (a
     record with neither is the caller's problem, not this gate's)."""
