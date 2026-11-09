@@ -193,9 +193,10 @@ def test_p68_03d_context_rows_are_fetched_before_bare_rows(harness):
     first, second = harness.fetch_params
     assert first["and"] == '(address.not.is.null,or(address.like."*,*",address.match."[0-9]{5}"))'
     assert second["and"] == '(address.not.is.null,address.not.like."*,*",address.not.match."[0-9]{5}")'
-    # Both tiers select the state so build_query never has to assume one.
-    assert first["select"] == "id,address,county,state"
-    assert second["select"] == "id,address,county,state"
+    # Both tiers select the state so build_query never has to assume one, and the
+    # stored field_provenance so every write merges its coordinate entries (WI-6).
+    assert first["select"] == "id,address,county,state,field_provenance"
+    assert second["select"] == "id,address,county,state,field_provenance"
 
 
 # ===========================================================================
@@ -227,7 +228,18 @@ def test_p68_04b_bare_street_match_written_only_when_county_verifies(harness):
     }
     geo.main()
     assert [u for u, _ in harness.patches] == ["https://example.test/rest/v1/properties?id=eq.ok&latitude=is.null"]
-    assert harness.patches[0][1] == {"latitude": 25.8153, "longitude": -80.3247}
+    body = harness.patches[0][1]
+    assert (body["latitude"], body["longitude"]) == (25.8153, -80.3247)
+    _assert_unscoped_geocode_provenance(body)
+
+
+def _assert_unscoped_geocode_provenance(body):
+    # WI-6 (2026-11-09): an unscoped write records its origin too, and says the
+    # house number was not checked (a scoped run checks it).
+    for col in ("latitude", "longitude"):
+        e = body["field_provenance"][col]
+        assert e["source"] == "census_geocoder" and e["method"] == "DETERMINISTIC_GEOCODE"
+        assert "house number not checked" in e["evidence"]
 
 
 def test_p68_04c_first_verifying_candidate_wins_when_census_returns_several(harness):
@@ -239,7 +251,10 @@ def test_p68_04c_first_verifying_candidate_wins_when_census_returns_several(harn
         census_match(26.62, -81.87, "FL", "Lee"),            # verified
     ]}
     geo.main()
-    assert harness.patches == [("https://example.test/rest/v1/properties?id=eq.multi&latitude=is.null", {"latitude": 26.62, "longitude": -81.87})]
+    (url, body), = harness.patches
+    assert url == "https://example.test/rest/v1/properties?id=eq.multi&latitude=is.null"
+    assert (body["latitude"], body["longitude"]) == (26.62, -81.87)
+    _assert_unscoped_geocode_provenance(body)
 
 
 def test_p68_04d_verify_match_normalises_county_spellings(geo):
@@ -273,7 +288,10 @@ def test_p68_05b_patch_body_only_ever_carries_coordinates(harness):
     harness.census = {"4418 FIR ST, TX": [census_match(27.77, -97.53, "TX", "Nueces")]}
     geo.main()
     (_, body), = harness.patches
-    assert set(body) == {"latitude", "longitude"}
+    # Coordinates plus the provenance entries that say how they were
+    # obtained (WI-6) - never state, county or any identity column.
+    assert set(body) == {"latitude", "longitude", "field_provenance"}
+    assert set(body["field_provenance"]) == {"latitude", "longitude"}
     assert "state" not in body and "county" not in body
 
 
