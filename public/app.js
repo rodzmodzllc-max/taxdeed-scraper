@@ -17882,8 +17882,10 @@ function installShellV3() {
       e.preventDefault();
       let onList = false; try { onList = shellPage === "list"; } catch { onList = false; }
       if (!onList) showPage("list");
-      const main = document.getElementById("main");
-      if (main) { if (!main.hasAttribute("tabindex")) main.setAttribute("tabindex", "-1"); main.focus({ preventScroll: false }); }
+      // The listings' own heading: #main is display:none under the Merged
+      // look (its stage draws the rows), and a hidden element takes no focus.
+      const target = document.getElementById("listTitle") || document.getElementById("main");
+      if (target) { if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1"); target.focus({ preventScroll: false }); }
     });
   }
   // Phone: search behind a button so the field does not take a row.
