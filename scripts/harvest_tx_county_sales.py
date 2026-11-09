@@ -234,17 +234,21 @@ def harvest_harris(session) -> tuple[list[dict], dict, str]:
 
 # ---------------------------------------------------------------- Bexar (tx_bexar_resale)
 
-_SUIT = r"\d{1,4}-?TA[A-Za-z0-9]-[0-9OolI]{4,6}"
-_ACCT = r"[\dlIO]{5}-\d{2,3}-\d{4}"
+# The text layer reads a '1' as 'l' / 'I' / '!' and a '0' as 'O' / 'o' in
+# some rows (run 2026-11-07: three rows carried a '!' in the suit or the
+# account and were rejected, making every read INCOMPLETE); _ocr_digits()
+# restores the digits.
+_SUIT = r"[\d!]{1,4}-?TA[A-Za-z0-9!]-[0-9OolI!]{4,6}"
+_ACCT = r"[\dlIO!]{5}-[\d!]{2,3}-[\d!]{4}"
 BEXAR_ROW = re.compile(
     rf"^(?P<addr>.*?)\s*(?P<suit>{_SUIT})\s+(?P<acct>{_ACCT})\s+\$\s?(?P<amt>[\d,]+\.\d{{2}})\s*$")
 # The "MULTIPLE ACCOUNTS" page: one property (one suit, one amount) spread
 # over several account lines between ruled separators.
-BEXAR_SUIT_LIKE = re.compile(r"\d{1,4}-?TA[A-Za-z0-9]-")
+BEXAR_SUIT_LIKE = re.compile(r"[\d!]{1,4}-?TA[A-Za-z0-9!]-")
 
 
 def _ocr_digits(s: str) -> str:
-    return s.replace("O", "0").replace("o", "0").replace("l", "1").replace("I", "1")
+    return s.replace("O", "0").replace("o", "0").replace("l", "1").replace("I", "1").replace("!", "1")
 
 
 _DIRECTIONAL = re.compile(r"^(?:N|S|E|W|NE|NW|SE|SW)\.?$", re.I)
@@ -264,6 +268,9 @@ def bexar_address(cell: str | None) -> str | None:
     s = _clean(cell or "")
     if not s:
         return None
+    # The text layer reads '1' / 'l' as '!' in some rows (run 2026-11-07): a
+    # '!' next to a digit is a '1', any other '!' an 'l'.
+    s = re.sub(r"(?<=\d)!|!(?=\d)", "1", s).replace("!", "l")
     # Re-space what the text layer ran together: 'AmandaSt.' -> 'Amanda St.',
     # 'CommerceE.' -> 'Commerce E.', 'Goodrich211' -> 'Goodrich 211'. 'Mc'
     # prefixes ('McKay') stay whole.
