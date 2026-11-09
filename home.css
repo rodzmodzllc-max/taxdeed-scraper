@@ -10,6 +10,12 @@
   padding:.6rem 1rem;border-radius:var(--radius,3px);font:600 .9rem var(--font-sans);text-decoration:none}
 .skip-link:focus,.skip-link:focus-visible{top:.75rem;outline:2px solid var(--sage-light,#A9BFA9);outline-offset:2px}
 
+/* ---------- Phone gutter: one 16px gutter for every Home block ---------- */
+@media (max-width:767.98px){
+  #pageDashboard:not(#_){padding-left:16px;padding-right:16px;box-sizing:border-box}
+  #pageDashboard .home-section:not(#_),#pageDashboard .home-ledgers:not(#_),#pageDashboard .home-hero:not(#_){margin-left:0!important;margin-right:0!important}
+}
+
 /* ---------- Hero (compact) ---------- */
 #pageDashboard .home-hero:not(#_){padding:1.1rem .2rem 1rem!important;margin:0 0 1rem!important}
 @media (min-width:1024px){ #pageDashboard .home-hero:not(#_){padding:1.6rem 0 1.2rem!important} }
