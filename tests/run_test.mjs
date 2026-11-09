@@ -8001,7 +8001,7 @@ const EXPECTED = {
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
-  brandTxContext: { title: "OTC Catalog — Struck-Off Inventory · TAXACQ — Texas", ledgerTab: "laft", hash: "#/lands" },
+  brandTxContext: { title: "Available — Struck-off property · TAXACQ — Texas", ledgerTab: "laft", hash: "#/lands" },
   brandStateSwitch: { file: "wy.html", hash: "#/lands", state: "WY" },
   brandEmptyState: { says: true, neverUnsupported: true, stillListed: true, selected: "WI" },
 
