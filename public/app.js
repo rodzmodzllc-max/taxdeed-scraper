@@ -69,7 +69,7 @@ const STATE_META = {
   OK: { name: "Oklahoma", page: "ok.html", basemap: "ok-counties.svg", cities: "ok-cities.json", zips: "ok-zips.json" },
   PA: { name: "Pennsylvania", page: "pa.html", basemap: "pa-counties.svg", cities: "pa-cities.json", zips: "pa-zips.json" },
   MN: { name: "Minnesota", page: "mn.html", basemap: "mn-counties.svg", cities: "mn-cities.json", zips: "mn-zips.json" },
-  // 2026-10-08 (Tennessee): the Shelby County Land Bank, collected for admin use (UNREVIEWED).
+  // 2026-10-08 (Tennessee): the Shelby County Land Bank (UNREVIEWED then; APPROVED for customer publication 2026-10-26, legal review pending).
   TN: { name: "Tennessee", page: "tn.html", basemap: "tn-counties.svg", cities: "tn-cities.json", zips: "tn-zips.json" }
 };
 // Unified navigation (2026-09-30): the states a person can switch between are
@@ -9678,6 +9678,27 @@ const PURCHASE_URL_KIND_LABELS = {
   purchase_instructions: "Purchase instructions", offer_form: "Offer form", bid_form: "Bid form",
   application_form: "Application form", online_purchase: "Buy online"
 };
+// The customer label of a purchase link. An online_purchase page is called
+// "Buy online" only when it is a checkout: a source whose terms are an offer /
+// proposal / bid / quote (available_financial_terms.csv basis), or whose own
+// action is an application (the adapter's purchase_action_label) or needs a
+// portal account (purchase_account_required), is an online APPLICATION
+// (TN-2, 2026-11-09: the Shelby Land Bank's 'Apply For this Property').
+function purchaseKindLabel(p) {
+  const kind = p && p.purchase_url_kind;
+  if (kind !== "online_purchase") return PURCHASE_URL_KIND_LABELS[kind];
+  const prov = (p && p.otc_provenance) || {};
+  const terms = termsFor(p);
+  const offer = !!(terms && ["OFFER_NEGOTIATED", "PROPOSAL", "BID_SUBMISSION", "QUOTED_ON_REQUEST"].includes(terms.basis));
+  const account = prov.purchase_account_required === true;
+  const applies = /^\s*apply\b/i.test(String(prov.purchase_action_label || ""));
+  if (!offer && !account && !applies) return PURCHASE_URL_KIND_LABELS.online_purchase;
+  const notes = [];
+  if (offer) notes.push("an offer, not a checkout");
+  if (account) notes.push("portal account required");
+  return "Apply online" + (notes.length ? ` (${notes.join("; ")})` : "");
+}
+window.__tdwPurchaseKindLabel = p => purchaseKindLabel(p);
 // Normalized lifecycle status (migration 021 / harvesters/governance/
 // inventory_status.py LABELS - a Python test keeps the keys in step).
 // sold / redeemed / withdrawn / cancelled / struck_off are only ever
@@ -9857,9 +9878,9 @@ function purchasePathOf(p) {
   // contract above; records.py AvailableRecord.purchase_link).
   if (p.source === "laft" && ledgerRecordView(p).purchase_link === "No online purchase link on file") return { kind: "none" };
   const sourceLevel = p.purchase_path_scope === "source" || isDocumentUrl(p.purchase_url);
-  if (PROPERTY_PURCHASE_KINDS.includes(p.purchase_url_kind) && !sourceLevel) return { kind: "property", url: p.purchase_url, label: PURCHASE_URL_KIND_LABELS[p.purchase_url_kind] };
-  if (PROPERTY_PURCHASE_KINDS.includes(p.purchase_url_kind)) return { kind: "instructions", url: p.purchase_url, label: PURCHASE_URL_KIND_LABELS[p.purchase_url_kind] };
-  if (INSTRUCTION_PURCHASE_KINDS.includes(p.purchase_url_kind)) return { kind: "instructions", url: p.purchase_url, label: PURCHASE_URL_KIND_LABELS[p.purchase_url_kind] };
+  if (PROPERTY_PURCHASE_KINDS.includes(p.purchase_url_kind) && !sourceLevel) return { kind: "property", url: p.purchase_url, label: purchaseKindLabel(p) };
+  if (PROPERTY_PURCHASE_KINDS.includes(p.purchase_url_kind)) return { kind: "instructions", url: p.purchase_url, label: purchaseKindLabel(p) };
+  if (INSTRUCTION_PURCHASE_KINDS.includes(p.purchase_url_kind)) return { kind: "instructions", url: p.purchase_url, label: purchaseKindLabel(p) };
   // A URL with no recognised kind (a row written before the vocabulary
   // existed) is shown only as instructions, never as a property action.
   return { kind: "instructions", url: p.purchase_url, label: "Purchase link" };

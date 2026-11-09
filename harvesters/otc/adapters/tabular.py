@@ -182,7 +182,7 @@ def attach_property_pages(records: list[OtcRecord], cfg: TabularConfig, listed: 
         if not url:
             continue
         r.purchase_url, r.purchase_url_kind = url, page.kind
-        r.provenance["purchase_url_basis"] = page.basis()
+        r.provenance.update(page.provenance())
         if cfg.property_page_listed_url:
             r.provenance["purchase_url_listed_in"] = cfg.property_page_listed_url
         n += 1

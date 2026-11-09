@@ -8698,7 +8698,7 @@
     "AVAILABLE": {
      "acquisition": {
       "by_status": {
-       "NOT_FOUND": 1,
+       "NEEDS_REVIEW": 1,
        "VERIFIED": 1
       },
       "units": 2,
@@ -8864,7 +8864,7 @@
         "implemented": true,
         "last_checked": "2026-10-26",
         "publication_status": "APPROVED",
-        "publishing_unit_name": "Allegheny County",
+        "publishing_unit_name": "City of Pittsburgh",
         "restrictions": "Owner approved customer publication 2026-10-26; legal review pending. The source publishes no explicit reuse licence; this is the owner's internal risk acceptance, not the source's permission. Show only what the source publishes; no inferred results.",
         "source_id": "pa_pittsburgh_city_property",
         "update_frequency": "not published by the source (read on each run)",
