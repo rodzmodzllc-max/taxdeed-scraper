@@ -519,7 +519,7 @@ TN_SHELBY_LANDBANK = EppConfig(
     property_page=PropertyPage(
         template="https://public-sctn.epropertyplus.com/property/{id}",
         kind=PurchaseUrlKind.ONLINE_PURCHASE, id_pattern=r"[A-Z0-9]{14}", verified_on="2026-10-25",
-        action_label="Apply For this Property",
+        action_label="Apply For this Property", account_required=True,
         pattern_source="the portal's own code routes a property's details to `/property/${parcelNumber}` "
                        "(the parcelNumber field of getPublishedProperties) and serves that route without a login",
         verification="rendered anonymously in a headless browser for 3 offered parcels sampled from getPublishedProperties "

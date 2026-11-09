@@ -7905,7 +7905,7 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "Ramsey County's tax-forfeited land layer marks parcels 'Available for purchase' (collected; awaiting review). No statute has been read.",
+     "eligibility_basis": "Ramsey County's tax-forfeited land layer marks parcels 'Available for purchase' (collected; approved for customer publication 2026-10-26; legal review pending). No statute has been read.",
      "eligibility_verified_on": "2026-10-04",
      "fields": {
       "amount": {
@@ -8481,7 +8481,7 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "Oklahoma County Treasurer's county-owned property list (collected; awaiting review); the list's own purchase statement is a verified procedure. No statute has been read.",
+     "eligibility_basis": "Oklahoma County Treasurer's county-owned property list (collected; approved for customer publication 2026-10-26; legal review pending); the list's own purchase statement is a verified procedure. No statute has been read.",
      "eligibility_verified_on": "2026-10-04",
      "fields": {
       "amount": {
@@ -8737,7 +8737,7 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "Fayette County Tax Claim Bureau's repository list (collected; awaiting review); the Bureau's sealed-bid procedure is verified. The Real Estate Tax Sale Law has not been read.",
+     "eligibility_basis": "Fayette County Tax Claim Bureau's repository list (collected; approved for customer publication 2026-10-26; legal review pending); the Bureau's sealed-bid procedure is verified. The Real Estate Tax Sale Law has not been read.",
      "eligibility_verified_on": "2026-10-04",
      "fields": {
       "amount": {
@@ -9491,7 +9491,7 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "The Shelby County Land Bank's own portal lists county-owned parcels marked FOR SALE (collected; awaiting review); its offer packet has not been read. No statute has been read.",
+     "eligibility_basis": "The Shelby County Land Bank's own portal lists county-owned parcels marked FOR SALE (collected; approved for customer publication 2026-10-26; legal review pending); its offer packet has not been read. No statute has been read.",
      "eligibility_verified_on": "2026-10-08",
      "fields": {
       "amount": {
