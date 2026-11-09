@@ -453,6 +453,21 @@ def mvba_item_row(item: dict, *, auction: dict) -> tuple[dict | None, str]:
                 auction_url=url, auction_url_kind="property" if url else None), "row"
 
 
+def non_json_category(body: bytes) -> str:
+    """What a JSON endpoint answered instead of JSON (TX-03, 2026-11-08):
+    an empty body is a transport failure (no answer at all - every run since
+    2026-11-06 from /api/auctions), an HTML page is a page served in place of
+    the API (a moved endpoint or a block page: the title is printed, the
+    cause is not guessed); anything else is malformed JSON. None of them is
+    ever read as an empty list."""
+    stripped = (body or b"").strip()
+    if not stripped:
+        return "TRANSPORT_EMPTY_BODY"
+    if stripped[:1] == b"<":
+        return "NON_JSON_HTML"
+    return "BAD_JSON"
+
+
 def harvest_mvba_online(fetcher: PoliteFetcher, book: UnitBook) -> tuple[list[dict], dict]:
     """The firm's own online sales (mvbataxsales.com, AuctionMethod JSON):
     /api/auctions lists the open auctions, /api/getitems with auction_id
@@ -472,7 +487,7 @@ def harvest_mvba_online(fetcher: PoliteFetcher, book: UnitBook) -> tuple[list[di
                                {"filters[page]": "1", "past_sales": "false"}, accept="application/json", headers=xhr)
         listing = json.loads(body)
     except (FetchError, ValueError) as exc:
-        info["error"] = getattr(exc, "category", "BAD_JSON")
+        info["error"] = getattr(exc, "category", None) or non_json_category(body)
         # What came back instead of JSON, value-free: its size and page title.
         title = re.search(rb"<title[^>]*>(.*?)</title>", body[:20000], re.I | re.S)
         info["non_json"] = {"bytes": len(body), "html": body.lstrip()[:1] == b"<",

@@ -1272,7 +1272,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           python3 scripts/apply_acquisition_paths.py --state TX --ledgers laft,auction --report out/public/acquisition-apply-tx.json
-          python3 scripts/publication_gate.py --state TX --report out/public/publication-gate-tx.json
+          python3 scripts/publication_gate.py --state TX --ledgers laft,auction --report out/public/publication-gate-tx.json
           python3 scripts/publication_state_writer.py --state TX || true
 
       - name: Change detection - deterministic property changes and customer alerts
