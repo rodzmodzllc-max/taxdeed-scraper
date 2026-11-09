@@ -133,6 +133,51 @@ def unchanged(row: dict, stored: dict | None, ignore=IGNORE, ignore_paths=VOLATI
     return True
 
 
+def changed_columns(row: dict, stored: dict | None, ignore=IGNORE, ignore_paths=VOLATILE_PATHS) -> list[str]:
+    """The NAMES of what makes `row` differ from `stored`, by the same rules as
+    unchanged(): a plain column by its name, a jsonb column by "column.key"
+    for each top-level key that differs (MO-1, 2026-11-09: ~68 Kansas City
+    Land Bank rows were 'changed' on every read while change detection saw
+    nothing - the sync now prints which columns, so the volatile one can be
+    named). Names only, never a value. [] for a new row (stored None)."""
+    if stored is None:
+        return []
+    out: list[str] = []
+    for k, v in row.items():
+        if k in ignore:
+            continue
+        if k not in stored:
+            out.append(f"{k} (not stored)")
+            continue
+        if k == "field_provenance":
+            a, b = strip_recorded(v), strip_recorded(stored.get(k))
+        else:
+            a, b = strip_paths(k, v, ignore_paths), strip_paths(k, stored.get(k), ignore_paths)
+        if same(a, b):
+            continue
+        if isinstance(a, dict) and isinstance(b, dict):
+            keys = sorted(set(a) | set(b), key=str)
+            out.extend(f"{k}.{kk}" for kk in keys if kk not in a or kk not in b or not same(a[kk], b[kk]))
+        else:
+            out.append(k)
+    return out
+
+
+def changed_column_counts(rows: list[dict], stored_by_key: dict, key, group=None) -> dict:
+    """{group: {column name: rows}} over the rows needs_write() calls
+    'changed'. `group(row)` names the group (default: one group "")."""
+    out: dict = {}
+    for r in rows:
+        stored = stored_by_key.get(key(r))
+        if stored is None or unchanged(r, stored):
+            continue
+        g = group(r) if group else ""
+        bucket = out.setdefault(g, {})
+        for name in changed_columns(r, stored):
+            bucket[name] = bucket.get(name, 0) + 1
+    return out
+
+
 def fresh(last_seen, now: datetime | None = None, hours: float = FRESH_HOURS) -> bool:
     t = _ts(last_seen) if isinstance(last_seen, str) else last_seen
     if t is None:

@@ -346,7 +346,8 @@ def test_f01_merge_never_advances_success_on_failure_counts_streaks_and_ignores_
     rec2, _ = U.merge({}, [n(_e("FAILED", county="Pasco", error_category="TRANSPORT_HTTP_5XX")), n(_e("COMPLETE", county="Nowhere", row_count=1))], at="t")
     patches = U.registry_patches(rec2, units)
     assert len(patches) == 1 and patches[0][0] == {"state": "FL", "source_id": "fl_laft_pdfs", "county": "Pasco"}
-    assert patches[0][1] == {"last_attempt_at": "2026-09-30T10:00:00+00:00", "last_attempt_status": "FAILED", "consecutive_failures": 1}
+    assert patches[0][1] == {"last_attempt_at": "2026-09-30T10:00:00+00:00", "last_attempt_status": "FAILED", "consecutive_failures": 1,
+                             "completeness_status": "FAILED"}
     report = U.public_report(rec2, {}, at="t")
     assert set(report["units"][0]) == {"state", "source_id", "county", "last_attempt_at", "last_attempt_status", "last_success_at",
                                        "last_success_row_count", "consecutive_failures", "last_error_category", "ledgers",

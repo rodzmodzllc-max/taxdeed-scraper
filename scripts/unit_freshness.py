@@ -21,7 +21,11 @@ record and writes three things:
   public.county_source_registry            last_attempt_at / last_attempt_status
                                            / last_success_at /
                                            last_success_row_count /
-                                           consecutive_failures - ONLY when
+                                           consecutive_failures /
+                                           completeness_status (the last
+                                           read's verdict; never
+                                           last_checked, the source's
+                                           verification date) - ONLY when
                                            migration 021's columns exist
                                            (probed) and credentials are set;
                                            the registry's approved-read
@@ -282,6 +286,18 @@ def registry_insert_row(csv_row: dict, body: dict) -> dict:
     return row
 
 
+def completeness_of(unit: dict) -> str | None:
+    """The registry completeness_status a unit's last attempt supports:
+    COMPLETE / EMPTY / INCOMPLETE / FAILED, or None (no attempt recorded, or
+    a superseded list - EMPTY without a read - which must not claim one)."""
+    status = str(unit.get("last_attempt_status") or "").upper()
+    if status not in ATTEMPT:
+        return None
+    if status == "EMPTY" and unit.get("last_error_category") == SUPERSEDED_CATEGORY:
+        return None
+    return status
+
+
 def registry_patches(record: dict, units: dict[str, dict], *, error_category: bool = False) -> list[tuple[dict, dict]]:
     """[(match, body)] for every unit the registry knows. `error_category`:
     the registry has migration 022's last_error_category column (main()
@@ -297,6 +313,16 @@ def registry_patches(record: dict, units: dict[str, dict], *, error_category: bo
         # never overwrite the registry's stored last_success_at.
         body = {c: u.get(c) for c in REGISTRY_COLUMNS if u.get(c) is not None}
         body["consecutive_failures"] = int(u.get("consecutive_failures") or 0)
+        # completeness_status: the last read's own verdict (OK-1, 2026-11-09).
+        # sync_registry_to_supabase.py sets it on INSERT only and nothing else
+        # wrote it, so it kept the CSV's build-time value (UNKNOWN on 221
+        # rows with a recorded read). A superseded list was not read, so it
+        # leaves the stored value alone. last_checked is NOT touched: it is
+        # the date the source itself was verified (purchase_path_engine reads
+        # it as the purchase page's observed_on), never a read date.
+        cstat = completeness_of(u)
+        if cstat:
+            body["completeness_status"] = cstat
         # Migration 022 adds last_error_category to the registry; PostgREST
         # ignores nothing - an unknown column fails the PATCH - so it is sent
         # only when the caller says the column exists (see main()).

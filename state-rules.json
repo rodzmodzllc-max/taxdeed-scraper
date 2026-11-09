@@ -3934,7 +3934,7 @@
    ],
    "county_rules": [
     {
-     "changed_on": "2026-10-10",
+     "changed_on": "2026-11-09",
      "county": "St. Louis City",
      "depends_on": "Shown on the State rules page; no computation depends on it",
      "implementation_status": "DISPLAY_ONLY",
@@ -3946,11 +3946,11 @@
      "source_title": "City of St. Louis open data: LRA inventory",
      "source_url": "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=30",
      "state": "MO",
-     "statement": "The St. Louis Land Reutilization Authority's inventory publishes no price and no application process; the LRA's process has not been captured.",
-     "status": "NOT_VERIFIED",
+     "statement": "Superseded 2026-10-26: the LRA's purchase process was captured and is recorded as the verified acquisition_procedure_available rule for St. Louis City (the LRA's Offer to Purchase page). This row no longer states an open question.",
+     "status": "NOT_APPLICABLE",
      "test_ref": "tests/python/test_state_rules.py",
      "topic": "acquisition_process",
-     "version": "1"
+     "version": "2"
     },
     {
      "changed_on": "2026-10-26",
@@ -3974,7 +3974,18 @@
      "version": "1"
     }
    ],
-   "history": [],
+   "history": [
+    {
+     "affects": "State rules page (St. Louis City)",
+     "change": "Retired: the LRA's Offer to Purchase process was verified on 2026-10-26 (acquisition_procedure_available, data/purchase_path_evidence_expansion.csv), so the 'process not captured' statement no longer held",
+     "changed_on": "2026-11-09",
+     "county": "St. Louis City",
+     "prior_statement": "The St. Louis Land Reutilization Authority's inventory publishes no price and no application process; the LRA's process has not been captured.",
+     "prior_status": "NOT_VERIFIED",
+     "topic": "acquisition_process",
+     "version": "1"
+    }
+   ],
    "ledgers": {
     "AUCTIONS": {
      "coverage": [],
@@ -4011,11 +4022,11 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "The St. Louis Land Reutilization Authority publishes its inventory as City open data (collected; approved for customer publication 2026-10-26; legal review pending). Its purchase process is unresolved and no statute has been read.",
+     "eligibility_basis": "The St. Louis Land Reutilization Authority publishes its inventory as City open data, and its purchase process (an Offer to Purchase submitted in person by appointment) is a verified procedure (2026-10-26). The Kansas City Land Bank publishes its inventory on its own ePropertyPlus portal. No Missouri statute has been read.",
      "eligibility_source_url": "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=30",
      "eligibility_verified_on": "2026-10-04",
-     "meaning": "Land Reutilization Authority inventory: parcels held by the City of St. Louis's LRA, offered under its own process (not yet verified).",
-     "note": "St. Louis Land Reutilization Authority inventory and the Kansas City Land Bank inventory, collected since 2026-10-26 (both approved for customer publication 2026-10-26; legal review pending).",
+     "meaning": "Land Reutilization Authority inventory: parcels held by the City of St. Louis's LRA, offered under its own Offer to Purchase process; Kansas City Land Bank inventory: parcels the Land Bank offers by application.",
+     "note": "St. Louis Land Reutilization Authority inventory and Kansas City Land Bank inventory (collected since 2026-10-26). Both sources are approved for customer publication by the owner's decision of 2026-10-26 (legal review pending).",
      "office": "Land Reutilization Authority (City of St. Louis)",
      "status": "TRACKED"
     },
@@ -7962,7 +7973,7 @@
     },
     {
      "check": "rule_history",
-     "detail": "every rule is at version 1",
+     "detail": "1 rule(s) with a recorded prior version",
      "state": "MO",
      "status": "PASS"
     },

@@ -8199,7 +8199,7 @@
       }
      ],
      "eligibility": "COUNTY_DEPENDENT",
-     "eligibility_basis": "The St. Louis Land Reutilization Authority publishes its inventory as City open data (collected; approved for customer publication 2026-10-26; legal review pending). Its purchase process is unresolved and no statute has been read.",
+     "eligibility_basis": "The St. Louis Land Reutilization Authority publishes its inventory as City open data, and its purchase process (an Offer to Purchase submitted in person by appointment) is a verified procedure (2026-10-26). The Kansas City Land Bank publishes its inventory on its own ePropertyPlus portal. No Missouri statute has been read.",
      "eligibility_verified_on": "2026-10-04",
      "fields": {
       "amount": {
@@ -8293,7 +8293,8 @@
      },
      "rules": {
       "by_status": {
-       "NOT_VERIFIED": 2,
+       "NOT_APPLICABLE": 1,
+       "NOT_VERIFIED": 1,
        "VERIFIED": 1
       },
       "count": 3,
