@@ -628,7 +628,11 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/unit_freshness.py --status out/harvest_all_status.json:fl_deeds --state FL
+        # The registry's source ids (fl_realauction; Okaloosa is Bid4Assets),
+        # so the PATCH matches the registry rows - and inserts them from the CSV
+        # when the table lacks them. 'fl_deeds' matched no registry row
+        # (2026-11-07: "0 unit row(s) patched, 0 missing row(s) inserted").
+        run: python3 scripts/unit_freshness.py --status out/harvest_all_status.json:fl_realauction --county-source Okaloosa=fl_bid4assets_okaloosa --state FL
 
       - name: Backfill geocoding (US Census Bureau Geocoder)
         # Enrichment is independent of every other enrichment step: one
@@ -686,6 +690,10 @@ jobs:
           # Stop the FEMA lookups cleanly at 12 minutes (the step's own
           # timeout is 15), printing the summary and the failure causes.
           FLOOD_TIME_BUDGET_SECONDS: '720'
+          # Florida only: without a state the keyset scan walked every state's
+          # rows and hit the statement timeout (HTTP 500 on every run,
+          # 2026-11-07). The expansion / Texas flood steps scope their own.
+          ENRICH_STATE: FL
         run: python3 scripts/enrich_flood_zone.py
 
       # NAIP aerial imagery: USDA/USGS, public domain, no API key, no

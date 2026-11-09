@@ -171,11 +171,16 @@ def _parse_results_with_outcome(html: str) -> tuple[list[dict], dict]:
     ]
 
     out: list[dict] = []
+    skipped = 0
     for row in rows[1:]:
         cells = row.find_all("td")
         if not cells or len(cells) != len(field_names):
             # Pagination/footer rows (e.g. a lone page-number cell) won't
             # match the header's column count - skip rather than misalign.
+            # Counted (main() logs it) so a paginated grid or a layout
+            # change can never silently drop properties.
+            if cells:
+                skipped += 1
             continue
         record = {
             field_names[i]: cells[i].get_text(strip=True)
@@ -190,8 +195,49 @@ def _parse_results_with_outcome(html: str) -> tuple[list[dict], dict]:
                 record["bid_kind"] = BID_KIND
             out.append(record)
 
+    outcome["skipped_rows"] = skipped
+    out, outcome["shared_case"] = disambiguate_shared_cases(out)
     outcome["rows"] = len(out)
     return out, outcome
+
+
+def disambiguate_shared_cases(rows: list[dict]) -> tuple[list[dict], dict]:
+    """The grid can list one case number on more than one row. The sync
+    keys on (county, case_no) and keeps the LAST row of a key, so before
+    this two of St. Lucie's five rows never reached the database
+    (2026-11-06/07). Per shared case:
+      * rows with the same parcel are one property listed twice: the last
+        row is kept (what the sync kept), the others dropped and counted;
+      * rows with different parcels are different properties: the last
+        row keeps the plain case number (the identity already stored), each
+        earlier parcel gets '<case>/<parcel>' so it is no longer dropped.
+    Returns (rows, counts); counts carry numbers only, never a value."""
+    groups: dict[str, list[int]] = {}
+    for i, r in enumerate(rows):
+        if r.get("case_no"):
+            groups.setdefault(r["case_no"], []).append(i)
+    counts = {"cases": 0, "rows": 0, "distinct_parcels": 0, "distinct_certificates": 0,
+              "duplicate_rows_dropped": 0, "rows_renamed": 0}
+    drop: set[int] = set()
+    for case, idx in groups.items():
+        if len(idx) < 2:
+            continue
+        counts["cases"] += 1
+        counts["rows"] += len(idx)
+        counts["distinct_parcels"] += len({rows[i].get("parcel") for i in idx})
+        counts["distinct_certificates"] += len({rows[i].get("certificate_no") for i in idx})
+        last_parcel = rows[idx[-1]].get("parcel")
+        seen_parcels = {last_parcel}
+        for i in reversed(idx[:-1]):
+            parcel = rows[i].get("parcel")
+            if parcel in seen_parcels or not parcel:
+                drop.add(i)
+                counts["duplicate_rows_dropped"] += 1
+                continue
+            seen_parcels.add(parcel)
+            rows[i] = {**rows[i], "case_no": f"{case}/{parcel}"}
+            counts["rows_renamed"] += 1
+    return [r for i, r in enumerate(rows) if i not in drop], counts
 
 
 def record_outcome(recorder: StatusRecorder, rows: list[dict], outcome: dict) -> None:
@@ -214,6 +260,7 @@ def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     recorder = StatusRecorder("fl_laft_stlucie", source_class="GOVERNMENT_PLATFORM")
     print(f"[1/1] {COUNTY}", flush=True)
+    outcome: dict = {}
     try:
         rows, outcome = harvest_with_outcome()
         record_outcome(recorder, rows, outcome)
@@ -227,7 +274,14 @@ def main() -> int:
 
     if rows:
         print(f"    {len(rows)} properties", flush=True)
-    else:
+    shared = (outcome or {}).get("shared_case") or {}
+    if shared.get("cases"):
+        print(f"    {shared['cases']} case number(s) on {shared['rows']} rows: {shared['distinct_parcels']} distinct parcel(s), "
+              f"{shared['distinct_certificates']} distinct certificate(s); {shared['duplicate_rows_dropped']} repeated row(s) dropped, "
+              f"{shared['rows_renamed']} row(s) given a case/parcel identity", flush=True)
+    if (outcome or {}).get("skipped_rows"):
+        print(f"    {outcome['skipped_rows']} grid row(s) skipped: cell count differs from the header (pager or layout change)", flush=True)
+    if not rows:
         print("    no properties currently listed", flush=True)
 
     with open(OUT_JSON, "w", encoding="utf-8") as f:

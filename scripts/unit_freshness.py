@@ -494,6 +494,9 @@ def main(argv=None) -> int:
     ap.add_argument("--status", action="append", default=[], metavar="PATH[:SOURCE_ID]",
                     help="a harvester status file; ':SOURCE_ID' names the source for files whose entries carry none (deeds, certificates)")
     ap.add_argument("--state", default="FL", help="default state for entries that carry none")
+    ap.add_argument("--county-source", action="append", default=[], metavar="COUNTY=SOURCE_ID",
+                    help="the source id for one county's source-less entries when it differs from the file's ':SOURCE_ID' "
+                         "(the deeds status file also holds Okaloosa's Bid4Assets entry)")
     ap.add_argument("--persist", default=str(PERSIST_PATH))
     ap.add_argument("--report", default=str(REPORT_PATH))
     ap.add_argument("--registry", default=str(REGISTRY_PATH))
@@ -501,11 +504,13 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     at = now_iso()
+    county_source = dict(c.partition("=")[::2] for c in args.county_source)
     entries: list[dict] = []
     for spec in args.status:
         path, _, default_source = spec.partition(":")
         for e in read_status(Path(path)):
-            n = normalize_entry(e, default_state=args.state, default_source=default_source or None)
+            override = county_source.get(str(e.get("county") or "").strip()) if default_source else None
+            n = normalize_entry(e, default_state=args.state, default_source=override or default_source or None)
             if n:
                 entries.append(n)
     record, counts = merge(load_persisted(args.persist), entries, at=at)

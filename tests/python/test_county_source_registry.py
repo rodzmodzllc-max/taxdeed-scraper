@@ -188,6 +188,12 @@ MOVED_SINCE_017 = {
         "https://library.municode.com/FL/hendry_clerk_of_courts/munidocs/munidocs?nodeId=4b2b2ea877a65",
         "https://mcclibraryfunctions.azurewebsites.us/api/munidocDownload/31143/8216f21582c5d/pdf",
     ),
+    # 2026-11-08: the date-versioned list moved to 20261028 (the old one 404s;
+    # the harvester's successor discovery read the new one on 2026-11-07).
+    ("Pasco", "fl_laft_pdfs"): (
+        "https://www.pascoclerk.com/202/Purchasing-Property-off-the-Lists-of-Lan",
+        "https://app.pascoclerk.com/public_records/tax-deeds/List%20of%20Lands%20Available%20for%20Taxes%2020260706.pdf",
+    ),
 }
 
 

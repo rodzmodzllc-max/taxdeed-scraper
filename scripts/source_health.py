@@ -59,23 +59,29 @@ def read_json(path: str | None):
         return None
 
 
+COMPLETE_READS = frozenset({"COMPLETE", "EMPTY"})
+
+
 def units_from_status(status) -> tuple[list[str], list[str]]:
     """(complete_units, incomplete_units) from either status-file shape:
     a LIST of {county, status, rowCount, reason} (FL deeds/certificates) or
     a DICT {"sources": {name: {"complete": bool, ...}}} (Texas)."""
+    # EMPTY is a complete read that found nothing (laft_status: explicit
+    # empty signal) - never an incomplete unit (2026-11-07: 25 EMPTY FL LAFT
+    # counties were reported as INCOMPLETE).
     complete, incomplete = [], []
     if isinstance(status, list):
         for u in status:
             if not isinstance(u, dict):
                 continue
             name = str(u.get("county") or u.get("source") or u.get("name") or "?")
-            (complete if str(u.get("status", "")).upper() == "COMPLETE" else incomplete).append(name)
+            (complete if str(u.get("status", "")).upper() in COMPLETE_READS else incomplete).append(name)
     elif isinstance(status, dict):
         sources = status.get("sources") if isinstance(status.get("sources"), dict) else status
         for name, u in sources.items():
             if not isinstance(u, dict):
                 continue
-            if u.get("complete") is True or str(u.get("status", "")).upper() == "COMPLETE":
+            if u.get("complete") is True or str(u.get("status", "")).upper() in COMPLETE_READS:
                 complete.append(str(name))
             elif u.get("complete") is False or str(u.get("status", "")).upper() == "INCOMPLETE":
                 incomplete.append(str(name))

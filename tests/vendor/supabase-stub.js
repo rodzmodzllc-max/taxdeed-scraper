@@ -896,7 +896,9 @@ class MockQuery {
       }
       else if (this.table === "notes") result.data = [];
       else if (this.table === "favorites") result.data = [];
-      else if (this.table === "hidden") result.data = [];
+      // ?hiddenrows=p3,p15 (2026-11-08): this account hid those rows - the
+      // ledger and Home must say "N hidden by you".
+      else if (this.table === "hidden") result.data = (new URLSearchParams(location.search).get("hiddenrows") || "").split(",").filter(Boolean).map(id => ({ property_id: id }));
       else if (this.table === "county_calendar") result.data = CALENDAR_ROWS;
     }
     // ?tabledelay=auction_events:3000 (2026-10-05): that table answers late -
