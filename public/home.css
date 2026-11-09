@@ -197,6 +197,8 @@ html[data-shell="v3"] .hdr-guide:not(#_){white-space:nowrap}
 }
 /* Below 768px: the wordmark shows, the Look choice lives in the account menu. */
 .account-look{display:none}
+/* The grouped menu is taller than a phone screen: it scrolls inside itself. */
+.account-menu:not(#_){max-height:calc(100vh - 84px);max-height:calc(100dvh - 84px);overflow-y:auto;overscroll-behavior:contain}
 @media (max-width:767.98px){
   html[data-shell="v3"] .look-switch:not(#_){display:none!important}
   .account-look:not(#_){display:block;border-bottom:1px solid var(--rule);padding:.2rem 0 .3rem;margin-bottom:.2rem}
