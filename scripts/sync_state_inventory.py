@@ -785,6 +785,18 @@ def _post_chunk(base: str, key: str, chunk: list[dict]) -> None:
     RP.send_idempotent(make, timeout=120, retry_statuses=RP.RETRY_STATUSES - {500})
 
 
+def changed_columns_lines(state: str, diag: dict, limit: int = 12) -> list[str]:
+    """One log line per source: which columns made its stored rows 'changed'
+    (names and row counts only, most frequent first) - MO-1's diagnostic."""
+    lines = []
+    for sid in sorted(diag):
+        cols = sorted(diag[sid].items(), key=lambda kv: (-kv[1], kv[0]))
+        shown = ", ".join(f"{name}={n}" for name, n in cols[:limit])
+        more = f" (+{len(cols) - limit} more)" if len(cols) > limit else ""
+        lines.append(f"{state} changed columns [{sid or 'unknown'}]: {shown}{more}")
+    return lines
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--state", required=True)
@@ -823,8 +835,11 @@ def main(argv=None) -> int:
         # 2026-10-27: a row due only its re-stamp is not re-upserted whole;
         # its id goes to the paced last_seen_at PATCH below (write_diff).
         observed_at = next((r["last_seen_at"] for r in to_send if r.get("last_seen_at")), None)
+        diag = WD.changed_column_counts(to_send, stored_full, identity, group=lambda r: r.get("harvester_source") or "")
         to_send, restamp_ids, diff = WD.split_restamps(to_send, stored_full, identity)
         print(f"{args.state} write plan: " + ", ".join(f"{k}={v}" for k, v in diff.items()))
+        for line in changed_columns_lines(args.state, diag):
+            print(line)
     else:
         restamp_ids, observed_at = [], None
     if args.dry_run or not (to_send or restamp_ids or args.close_absent):

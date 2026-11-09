@@ -272,10 +272,17 @@ def acquisition_coverage_report(rows: list[dict]) -> dict:
     separately (purchase_path_engine.acquisition_gaps / acquisition_state).
     Publication is the source decision (publication_status) only; a row
     without an acquisition path is published inventory awaiting enrichment,
-    never a publication failure. Counts only."""
+    never a publication failure. Counts only.
+
+    `with_direct_acquisition_url` counts every path that carries a URL of a
+    URL type (a per-property page AND a county-level form / instructions
+    page); MO-5 (2026-11-09): the log called all of them "direct URL", so St.
+    Louis's 989 county-level application_download rows read as per-property
+    links. `with_property_url` counts only property-scope URLs, and
+    `by_path_type` breaks every path down as "<purchase_path_type>/<scope>"."""
     out = {"verified_inventory": 0, "published": 0, "with_acquisition_path": 0, "without_acquisition_path": 0,
-           "with_direct_acquisition_url": 0, "official_source_only": 0, "partial_process": 0, "not_yet_verified": 0,
-           "missing": {}, "without_path_by_county": {}}
+           "with_direct_acquisition_url": 0, "with_property_url": 0, "official_source_only": 0, "partial_process": 0,
+           "not_yet_verified": 0, "by_path_type": {}, "missing": {}, "without_path_by_county": {}}
     for r in rows:
         if r.get("source") != "laft" or str(r.get("status") or "active").lower() not in ("active", "available", ""):
             continue
@@ -289,6 +296,11 @@ def acquisition_coverage_report(rows: list[dict]) -> dict:
                 out["partial_process"] += 1
             if r.get("purchase_url") and r.get("purchase_path_type") in PE.URL_TYPES:
                 out["with_direct_acquisition_url"] += 1
+                if r.get("purchase_path_scope") == "property":
+                    out["with_property_url"] += 1
+        if r.get("purchase_path_type"):
+            t = f"{r.get('purchase_path_type')}/{r.get('purchase_path_scope') or '?'}"
+            out["by_path_type"][t] = out["by_path_type"].get(t, 0) + 1
         else:
             out["without_acquisition_path"] += 1
             out["not_yet_verified"] += 1
@@ -380,14 +392,16 @@ def main(argv=None) -> int:
         if ac:
             print(f"  AVAILABLE inventory (published under the source rules - acquisition path is enrichment): "
                   f"{ac['verified_inventory']} verified, {ac['published']} published; acquisition path: {ac['with_acquisition_path']} with "
-                  f"({ac['with_direct_acquisition_url']} direct URL, {ac['partial_process']} partial process), {ac['without_acquisition_path']} not yet verified "
-                  f"({ac['official_source_only']} with the official source link only)")
+                  f"({ac['with_direct_acquisition_url']} with an acquisition URL - {ac['with_property_url']} per-property, "
+                  f"{ac['with_direct_acquisition_url'] - ac['with_property_url']} county-level; {ac['partial_process']} partial process), "
+                  f"{ac['without_acquisition_path']} not yet verified ({ac['official_source_only']} with the official source link only); "
+                  f"by path type/scope {dict(sorted(ac['by_path_type'].items()))}")
             for k, v in sorted(ac["without_path_by_county"].items()):
                 print(f"    acquisition path not yet verified - {k}: {v}")
         pp = report.get("purchase_paths")
         if pp:
             print(f"  acquisition (rows {pp['rows']}): {pp['with_source_listing']} with a source listing / document ({pp['pct_with_source_listing']}%), "
-                  f"{pp['with_source_match']} property-to-source matched, {pp['with_acquisition_path']} with a verified acquisition path "
+                  f"{pp['with_source_match']} with a recorded property-to-source match (otc_provenance.source_match), {pp['with_acquisition_path']} with a verified acquisition path "
                   f"({pp['pct_with_acquisition_path']}%) of which {pp['with_complete_record']} carry a complete record ({pp['pct_with_complete_record']}%), "
                   f"{pp['acquisition_unverified']} unverified; by mode {pp['by_mode']}; "
                   f"{pp['with_direct_document']} direct document, {pp['with_source_date']} source date, {pp['with_last_verified']} last verified")
