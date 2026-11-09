@@ -693,6 +693,12 @@ CO_SAGUACHE_TAX_SALE = ArcGisLayerConfig(
                           amount="Total_Due", acreage="Deeded_Acres"),
     amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, list_url=_item("beee3cca0e0e4c2382cdcf56166531c7"),
     columns_verified=True, centroid=True,
+    # CO-1 (2026-11-08): the layer carries no date; the Treasurer's own page
+    # dates the whole list (data/buyers_guide_answers.csv CO,Saguache,AUCTIONS,
+    # schedule, VERIFIED, captured 2026-10-29). Without it all 900 rows read
+    # as upcoming auctions after the sale was held.
+    published_sale_date=("2026-11-02", "'Annual Tax Lien Auction will be held online, November 2-4, 2026' (the Saguache "
+                                       "County Treasurer/Public Trustee page, read 2026-10-29)"),
     notes="Saguache County 2026 tax lien sale list (layer '2026 Tax Sale'). Total_Due is the advertised amount; the opening "
           "bid is not stated on the layer - kept as a published amount of unspecified kind. No sale date on the layer.")
 

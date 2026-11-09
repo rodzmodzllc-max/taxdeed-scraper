@@ -134,6 +134,16 @@ class ArcGisLayerConfig:
     # ("past_cycle"), never stale rows presented as upcoming.
     cycle_field: str | None = None
     cycles: tuple[tuple[str, str], ...] = ()
+    # CO-1 (2026-11-08). The sale date the county publishes for this WHOLE
+    # list on its own page, when the layer carries neither a date nor a
+    # cycle attribute (Saguache CO's '2026 Tax Sale' snapshot):
+    # (ISO date, where it is stated, quoted). Mirrors
+    # TabularConfig.published_sale_date, with one difference: once the read is
+    # more than tabular.PUBLISHED_SALE_DATE_GRACE days past that date the
+    # layer is a PAST list - its rows are counted in `skipped_cycle` and not
+    # read (EMPTY "past_cycle"), never left undated and shown as upcoming.
+    # A later sale on the same layer needs its own dated config.
+    published_sale_date: tuple[str, str] | None = None
     # The county has since published a LATER sale for this list (Albany WY:
     # the 2026 list after the page moved on to the 2027 sale). Kept on every
     # row's provenance; the inventory status is then 'unknown' (the sale is
@@ -163,6 +173,15 @@ class ArcGisLayerConfig:
         problems = states.state_problems(self.state)
         if problems:
             raise ValueError("; ".join(problems))
+        if self.published_sale_date is not None:
+            if self.cycle_field:
+                raise ValueError(f"{self.source_id}: published_sale_date and cycle_field are exclusive - one date mechanism per layer")
+            if self.record_source != "auction":
+                raise ValueError(f"{self.source_id}: published_sale_date dates auction rows only")
+            from datetime import date as _d  # noqa: PLC0415
+            _d.fromisoformat(self.published_sale_date[0])
+            if not str(self.published_sale_date[1]).strip():
+                raise ValueError(f"{self.source_id}: published_sale_date needs the county's own wording")
         if (self.county is None) == (self.county_field is None):
             raise ValueError("exactly one of county / county_field is required")
         if not self.fields.case_no:
@@ -226,6 +245,11 @@ class ArcGisResult:
 def _cycle_dates(cfg) -> dict:
     from datetime import date as _d  # noqa: PLC0415
     return {str(k): _d.fromisoformat(v) for k, v in cfg.cycles}
+
+
+def _published_sale_date(cfg, retrieved_at):
+    from .tabular import published_sale_date  # noqa: PLC0415 - one grace rule for both adapters
+    return published_sale_date(cfg, retrieved_at)
 
 
 def _out_fields(cfg: ArcGisLayerConfig) -> list[str]:
@@ -461,6 +485,11 @@ def parse_page(cfg: ArcGisLayerConfig, payload: Any, *, retrieved_at: datetime, 
             if sale_date is None:
                 skipped_cycle += 1
                 continue
+        elif cfg.published_sale_date and cfg.record_source == "auction":
+            sale_date = _published_sale_date(cfg, retrieved_at)
+            if sale_date is None:
+                skipped_cycle += 1            # the list's published sale is long over: a past list
+                continue
         if amount is not None and kind is AmountKind.NOT_PUBLISHED:
             # A configured layer that names an amount attribute must say
             # what it is; an unlabelled figure is not silently kept.
@@ -476,8 +505,10 @@ def parse_page(cfg: ArcGisLayerConfig, payload: Any, *, retrieved_at: datetime, 
             "attributes": present,
             "amount": (f"attribute {fm.amount!r} = {kind.value}" if amount is not None else "no amount attribute value"),
         }
-        if sale_date is not None:
+        if sale_date is not None and cfg.cycle_field:
             prov["sale_date"] = f"the county's published sale date for {cfg.cycle_field} {attrs.get(cfg.cycle_field)}"
+        elif sale_date is not None:
+            prov["sale_date"] = f"the county's published sale date: {cfg.published_sale_date[1]}"
         if cfg.superseded:
             prov["list_superseded"] = cfg.superseded
         record_url = None
