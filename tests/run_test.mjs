@@ -7523,10 +7523,13 @@ await big.press('#globalSearchInput', 'Enter');
     await pg.waitForTimeout(150);
     const question = await inView('.ib.open > .ib-pop');
     await pg.keyboard.press('Escape');
-    await pg.click('#lookBtn');
+    // Below 768px the Look choice lives in the account menu (2026-11-09);
+    // wider, it is the header's own Look menu. Either must open on screen.
+    const lookInHeader = await pg.locator('#lookBtn').isVisible();
+    await pg.click(lookInHeader ? '#lookBtn' : '#accountBtn');
     await pg.waitForTimeout(150);
-    const look = await inView('#lookMenu');
-    await pg.click('#lookBtn');
+    const look = await inView(lookInHeader ? '#lookMenu' : '#lookMenuInAccount');
+    await pg.click(lookInHeader ? '#lookBtn' : '#accountBtn');
     await pg.evaluate(() => { location.hash = '#/lands'; });
     await pg.waitForTimeout(700);
     const pb = pg.locator('#main .card-price-info .ib-btn').first();
