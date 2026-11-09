@@ -32,6 +32,7 @@ name never reaches a public log).
 from __future__ import annotations
 
 import json
+import random
 import socket
 import time
 import urllib.error
@@ -44,10 +45,32 @@ ATTEMPTS = 4                    # 1 + 3 retries
 BACKOFF_SECONDS = 2.0           # 2 s, 4 s, 8 s
 RETRY_STATUSES = frozenset({500, 502, 503, 504, 520, 521, 522, 523, 524})
 
+# The patient profile (2026-11-08, LA-1 / LA-3): the Louisiana lifecycle and
+# inventory-status reads run while the ten expansion matrix legs write, and a
+# statement-timeout 500 outlasted the default 2 + 4 + 8 s (run 42364763870,
+# 2026-11-07; run 42018857948, 2026-11-05). Seven attempts, 5 s doubling to a
+# 60 s cap, each wait jittered by up to +50 % so parallel readers do not retry
+# in step: ~3.5 minutes of waiting at most before the error is raised.
+PATIENT_ATTEMPTS = 7
+PATIENT_BACKOFF_SECONDS = 5.0
+PATIENT_MAX_WAIT_SECONDS = 60.0
+PATIENT_JITTER = 0.5
+
+
+def wait_seconds(attempt: int, backoff: float, *, max_wait: float | None = None, jitter: float = 0.0,
+                 rand: Callable[[], float] = random.random) -> float:
+    """The wait after failed `attempt` (1-based): `backoff * 2**(attempt-1)`,
+    capped at `max_wait`, then stretched by up to `jitter` (a fraction)."""
+    base = backoff * (2 ** (attempt - 1))
+    if max_wait is not None:
+        base = min(base, max_wait)
+    return base * (1 + jitter * rand()) if jitter else base
+
 
 def get_json(url: str, headers: dict, *, timeout: float = 120, attempts: int = ATTEMPTS,
              backoff: float = BACKOFF_SECONDS, sleep: Callable[[float], None] = time.sleep,
-             opener: Callable = urllib.request.urlopen):
+             opener: Callable = urllib.request.urlopen, max_wait: float | None = None,
+             jitter: float = 0.0, rand: Callable[[], float] = random.random):
     """GET `url` and decode its JSON body, retrying only transient failures.
 
     A non-transient HTTP error (a 4xx) is raised at once, unchanged - callers
@@ -65,8 +88,18 @@ def get_json(url: str, headers: dict, *, timeout: float = 120, attempts: int = A
         except (urllib.error.URLError, TimeoutError, socket.timeout, ConnectionError):
             if attempt == attempts:
                 raise
-        sleep(backoff * (2 ** (attempt - 1)))
+        sleep(wait_seconds(attempt, backoff, max_wait=max_wait, jitter=jitter, rand=rand))
     raise AssertionError("unreachable")
+
+
+def get_json_patient(url: str, headers: dict, *, timeout: float = 120, sleep: Callable[[float], None] = time.sleep,
+                     opener: Callable | None = None, rand: Callable[[], float] = random.random):
+    """`get_json` with the patient profile: for reads that run next to the
+    expansion legs' writes (a GET only - idempotent). `opener` defaults to
+    urllib.request.urlopen looked up at call time (tests patch it)."""
+    opener = opener or (lambda req, timeout: urllib.request.urlopen(req, timeout=timeout))
+    return get_json(url, headers, timeout=timeout, attempts=PATIENT_ATTEMPTS, backoff=PATIENT_BACKOFF_SECONDS,
+                    sleep=sleep, opener=opener, max_wait=PATIENT_MAX_WAIT_SECONDS, jitter=PATIENT_JITTER, rand=rand)
 
 
 WRITE_ATTEMPTS = 4              # 1 + 3 retries
@@ -100,35 +133,42 @@ def send_idempotent(make_request: Callable[[], urllib.request.Request], *, timeo
     raise AssertionError("unreachable")
 
 
-def keyset_query(params: dict, after, page: int = PAGE) -> str:
+def keyset_query(params: dict, after, page: int = PAGE, *, key: str = "id") -> str:
     """The query string for one keyset page. `params` must not carry its own
-    order / limit / offset / id filter - paging owns those."""
-    clash = {"order", "limit", "offset", "id"} & set(params)
+    order / limit / offset / `key` filter - paging owns those. `key` is a
+    unique, indexed column (the primary key: `id`, or `property_id` for
+    property_change_snapshots)."""
+    clash = {"order", "limit", "offset", key} & set(params)
     if clash:
         raise ValueError(f"keyset paging owns {sorted(clash)}")
     q = dict(params)
-    q["order"] = "id.asc"
+    q["order"] = f"{key}.asc"
     q["limit"] = str(page)
     if after is not None:
-        q["id"] = f"gt.{after}"
+        q[key] = f"gt.{after}"
     return urllib.parse.urlencode(q, safe="(),.*:")
 
 
 def read_all(base_url: str, table: str, headers: dict, params: dict, *, page: int = PAGE,
              fetch: Callable[[str], list] | None = None, attempts: int = ATTEMPTS,
-             backoff: float = BACKOFF_SECONDS) -> list[dict]:
-    """Every row of `table` matching `params`, by keyset pages. `params`
-    must select `id` (or `*`, which includes it). A short page ends the read."""
-    cols = [c.strip() for c in str(params.get("select", "id")).split(",")]
-    if "id" not in cols and "*" not in cols:
-        raise ValueError("keyset paging needs `id` in select")
+             backoff: float = BACKOFF_SECONDS, key: str = "id", patient: bool = False) -> list[dict]:
+    """Every row of `table` matching `params`, by keyset pages on `key`.
+    `params` must select `key` (or `*`, which includes it). A short page ends
+    the read. `patient` uses the patient retry profile (get_json_patient)."""
+    cols = [c.strip() for c in str(params.get("select", key)).split(",")]
+    if key not in cols and "*" not in cols:
+        raise ValueError(f"keyset paging needs `{key}` in select")
     url = f"{base_url.rstrip('/')}/rest/v1/{table}"
-    fetch = fetch or (lambda qs: get_json(f"{url}?{qs}", headers, attempts=attempts, backoff=backoff))
+    if fetch is None:
+        if patient:
+            fetch = lambda qs: get_json_patient(f"{url}?{qs}", headers)  # noqa: E731
+        else:
+            fetch = lambda qs: get_json(f"{url}?{qs}", headers, attempts=attempts, backoff=backoff)  # noqa: E731
     rows: list[dict] = []
     after = None
     while True:
-        chunk = fetch(keyset_query(params, after, page)) or []
+        chunk = fetch(keyset_query(params, after, page, key=key)) or []
         rows.extend(chunk)
         if len(chunk) < page:
             return rows
-        after = chunk[-1]["id"]
+        after = chunk[-1][key]

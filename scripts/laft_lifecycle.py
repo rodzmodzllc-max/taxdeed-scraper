@@ -831,7 +831,10 @@ class Api:
     def get(self, query: str) -> list[dict]:
         # Bounded retry on a transient 5xx / timeout (rest_pages): a GET is
         # idempotent, and one loaded-database 500 used to stop the lifecycle.
-        rows = RP.get_json(f"{self.base}?{query}", self._headers(), timeout=60)
+        # The patient profile (longer, jittered waits): the Louisiana run of
+        # 2026-11-07 used up the default retry on the identity read while the
+        # expansion legs wrote, and Louisiana closed nothing that day (LA-1).
+        rows = RP.get_json_patient(f"{self.base}?{query}", self._headers(), timeout=60)
         self.requests_made += 1
         return rows
 

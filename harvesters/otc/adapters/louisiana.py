@@ -260,6 +260,20 @@ def _num(value) -> float | None:
     return float(cleaned)
 
 
+def _value(value) -> float | None:
+    """A tax-roll VALUE column: as `_num`, except that a published 0 is not a
+    value (2026-11-08, LA-5). The Parish's adjudicated-parcel list publishes
+    FAIR MARKET VALUE as 0 on every row (4,527 of 4,527 read 2026-11-07, and
+    the Tax Parcel layer has no row above 0), so a stored 0 was a placeholder.
+    Same rule as the parcel factory's `_coerce`, which never stores a 0."""
+    n = _num(value)
+    return None if n == 0 else n
+
+
+def _published_zero(value) -> bool:
+    return _num(value) == 0
+
+
 def _text(value) -> str | None:
     t = re.sub(r"\s+", " ", str(value or "")).strip()
     return t or None
@@ -298,7 +312,8 @@ def parse_csv(cfg: LouisianaSourceConfig, text: str, *, retrieved_at: datetime, 
     cols = cfg.columns
     outcome = {"header_table_found": False, "data_rows": 0, "empty_marker": False, "rejected_identifier": 0, "missing_columns": [],
                "unmapped_columns": [], "geolocation_parsed": 0, "superseded_tax_year_rows": 0, "other_status_rows": 0,
-               "not_on_latest_tax_year": 0}
+               "not_on_latest_tax_year": 0, "market_published_as_zero": 0, "duplicate_identifier_numbers": 0,
+               "duplicate_identifier_rows": 0, "duplicate_identifiers_differing": 0}
     if not rows:
         return [], outcome
     header = [_norm(c) for c in rows[0]]
@@ -331,7 +346,10 @@ def parse_csv(cfg: LouisianaSourceConfig, text: str, *, retrieved_at: datetime, 
         geo = parse_geolocation(cell(r, cols.geolocation))
         if geo:
             outcome["geolocation_parsed"] += 1
-        assessed, market = _num(cell(r, cols.assessed)), _num(cell(r, cols.market))
+        assessed, market = _num(cell(r, cols.assessed)), _value(cell(r, cols.market))
+        market_zero = _published_zero(cell(r, cols.market))
+        if market_zero:
+            outcome["market_published_as_zero"] += 1
         prov = {
             "adapter": "louisiana",
             "publishing_unit": cfg.publishing_unit,
@@ -342,7 +360,9 @@ def parse_csv(cfg: LouisianaSourceConfig, text: str, *, retrieved_at: datetime, 
             "owner_name": (f"{cols.owner} - the name on the tax roll for {cols.tax_year}" if cols.tax_year
                            else f"{cols.owner} - the name on the dataset's row") + ", as published; not asserted to be the current owner",
             "assessed": f"{cols.assessed} column (tax roll)" if assessed is not None else "not published on the row",
-            "market": f"{cols.market} column (tax roll)" if market is not None else "not published on the row",
+            "market": (f"{cols.market} column (tax roll)" if market is not None
+                       else f"{cols.market} published as 0 - not a value, not stored" if market_zero
+                       else "not published on the row"),
             "coordinates": (f"{cols.geolocation} column, parsed from its published shape" if geo
                             else f"{cols.geolocation} absent or in an unparsed shape" if cols.geolocation
                             else "no point column in this dataset (its geometry is a polygon)"),
@@ -363,15 +383,41 @@ def parse_csv(cfg: LouisianaSourceConfig, text: str, *, retrieved_at: datetime, 
             amount=None, amount_kind=AmountKind.NOT_PUBLISHED, list_url=cfg.list_url, document_url=cfg.document_url,
             purchase_url=None, purchase_url_kind=None, provenance=prov,
             list_as_of=list_as_of, source_published_at=rows_updated_at,
+            published_not_a_value=("market",) if market_zero else (),
         ))
     # One row per PROPERTY NUMBER per TAX YEAR in the dataset: keep the
     # latest tax year's row (deterministic: ties keep the first seen).
     latest: dict[str, OtcRecord] = {}
+    ties: dict[str, list[OtcRecord]] = {}
     for rec in out:
         cur = latest.get(rec.case_no)
         if cur is None or _year(rec.tax_year) > _year(cur.tax_year):
             latest[rec.case_no] = rec
-    outcome["superseded_tax_year_rows"] = len(out) - len(latest)
+            ties[rec.case_no] = [rec]
+        elif _year(rec.tax_year) == _year(cur.tax_year):
+            ties[rec.case_no].append(rec)
+    # The same number listed more than once for the SAME tax year (LA-7,
+    # 2026-11-08: 4,527 rows for 4,520 numbers on the Parish's list). Counted,
+    # and the kept record is marked AMBIGUOUS when the duplicate rows differ in
+    # any published value (which row is right cannot be told). Counts only.
+    dup_numbers = dup_rows = differing = 0
+    for number, group in ties.items():
+        if len(group) < 2:
+            continue
+        dup_numbers += 1
+        dup_rows += len(group) - 1
+        if len({_published_values(g) for g in group}) > 1:
+            differing += 1
+            latest[number].provenance["duplicate_rows"] = (
+                f"AMBIGUOUS: the source lists this number {len(group)} times for the same tax year with different values; "
+                "the first row is kept, and which row is right is not established")
+        else:
+            latest[number].provenance["duplicate_rows"] = (
+                f"the source lists this number {len(group)} times with identical values; one row kept")
+    outcome["duplicate_identifier_numbers"] = dup_numbers
+    outcome["duplicate_identifier_rows"] = dup_rows
+    outcome["duplicate_identifiers_differing"] = differing
+    outcome["superseded_tax_year_rows"] = len(out) - len(latest) - dup_rows
     # Counts only, nothing dropped: property numbers whose newest row is older
     # than the dataset's newest TAX YEAR (not among the latest roll's
     # adjudicated rows). Reported so a dated list's staleness is measurable.
@@ -379,6 +425,12 @@ def parse_csv(cfg: LouisianaSourceConfig, text: str, *, retrieved_at: datetime, 
     if newest > 0:
         outcome["not_on_latest_tax_year"] = sum(1 for r in latest.values() if 0 < _year(r.tax_year) < newest)
     return list(latest.values()), outcome
+
+
+def _published_values(rec: OtcRecord) -> tuple:
+    """The published values two rows of one number are compared on."""
+    return (rec.address, rec.legal_desc, rec.owner_name, rec.assessed, rec.market, rec.tax_year, rec.latitude, rec.longitude,
+            rec.provenance.get("status"))
 
 
 def classify_outcome(cfg: LouisianaSourceConfig, records: list[OtcRecord], outcome: dict, *, url: str | None = None) -> CountyOutcome:

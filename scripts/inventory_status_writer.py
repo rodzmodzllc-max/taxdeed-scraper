@@ -214,18 +214,22 @@ class Api:
         return h
 
     def get(self, table: str, query: str) -> list[dict]:
-        req = urllib.request.Request(f"{self.base}/{table}?{query}", headers=self._headers())
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            self.requests_made += 1
-            return json.loads(resp.read().decode())
+        # Patient retry on a transient 5xx / timeout (rest_pages; a 4xx - the
+        # migration probes' 400 - is raised at once). 2026-11-05 the LA run
+        # stopped on one statement-timeout 500 under the expansion legs' load.
+        rows = RP.get_json_patient(f"{self.base}/{table}?{query}", self._headers(), timeout=60)
+        self.requests_made += 1
+        return rows
 
     def patch(self, table: str, query: str, body: dict) -> None:
         if self.dry_run:
             return
-        req = urllib.request.Request(f"{self.base}/{table}?{query}", data=json.dumps(body, default=str).encode(), method="PATCH",
-                                     headers=self._headers({"Prefer": "return=minimal"}))
-        with urllib.request.urlopen(req, timeout=60):
-            self.requests_made += 1
+        data = json.dumps(body, default=str).encode()
+        # A PATCH by an id filter setting fixed values is idempotent: retried
+        # on a transient 5xx like the reads.
+        RP.send_idempotent(lambda: urllib.request.Request(f"{self.base}/{table}?{query}", data=data, method="PATCH",
+                                                          headers=self._headers({"Prefer": "return=minimal"})), timeout=60)
+        self.requests_made += 1
 
     def insert(self, table: str, rows: list[dict]) -> None:
         if self.dry_run or not rows:
@@ -277,7 +281,7 @@ def fetch_rows(api: Api, state: str, *, with_results: bool = False) -> list[dict
     # sorts the state's whole set before skipping (Michigan: 30,801 rows) and
     # crossed the statement timeout under parallel state jobs (2026-10-10).
     root = api.base[: -len("/rest/v1")] if api.base.endswith("/rest/v1") else api.base
-    rows = RP.read_all(root, "properties", api._headers(), {"select": select, "state": f"eq.{state}"})
+    rows = RP.read_all(root, "properties", api._headers(), {"select": select, "state": f"eq.{state}"}, patient=True)
     api.requests_made += max(1, (len(rows) + RP.PAGE - 1) // RP.PAGE)
     return rows
 
