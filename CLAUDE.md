@@ -3975,3 +3975,19 @@ Stable facts:
   record, parcel, owner, address, listing count or price. Script-free (JSON-LD data blocks only); URLs are extensionless
   (Cloudflare Pages serves `x.html` at `/x`, `index.html` at the folder).
 - The signed-out landing (`public/index.html` #landing) links `/guides/`. `sw.js` -> `tdw-shell-v168`.
+
+## One count rule: countsInTotals (2026-11-09, PR open, migration 039 NOT applied)
+
+- **Every ledger total is `countsInTotals(p)`** (app.js) = `countsToward(p)` minus `adminOnlyUnconfirmed(p)`: the
+  header / phone-bar ledger counts, the List title, the ledger status strip, the State rules page, county dossiers,
+  county search results, Home / state-picker shell counts (`shellActiveRows`) and County Intelligence. The Map
+  county select uses `countsToward` (the Map's own rows). Closed rows in their grace window, past sales and the
+  viewer's hidden rows are loaded but never counted.
+- **Admins see unconfirmed Available rows but do not count them** (`#ledgerUnconfirmedAdmin`, "N not confirmed by
+  the source - shown to you, withheld from customers and not counted here"), so an admin's number is the customer
+  number minus only the admin's own hidden rows. A ledger total's tooltip names what it leaves out (`tabCountNote`).
+- The hidden badge (`#hiddenListBtn`) counts every hidden row, every ledger and state, closed included, and says so.
+- Global search property results (`gsMatches`) still keep past / closed records findable by case number on purpose.
+- `count_properties()` is a raw row count for paging (every status) - migration 039 only comments it as such.
+- Stub knob `?closedrows=<id>,<id>` (closed an hour ago); audit file `tests/audit/fl-count-accuracy.mjs`.
+  `sw.js` -> `tdw-shell-v171`.
