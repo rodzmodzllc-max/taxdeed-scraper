@@ -63,7 +63,8 @@ TABLE = "county_source_registry"
 USER_AGENT = "taxdeed-scraper/1.0 (registry sync)"
 
 # Columns this script keeps in step with the CSV on existing rows.
-# Set on INSERT only: owned afterwards by another writer (see the docstring).
+# Set on INSERT only: owned afterwards by another writer (see the docstring;
+# completeness_status by unit_freshness.registry_patches, from each read).
 INSERT_ONLY = ("completeness_status", "publication_status", "restrictions")
 IDENTITY = ("state", "county", "source_id")
 # Columns this script keeps in step with the CSV on existing rows: every table
