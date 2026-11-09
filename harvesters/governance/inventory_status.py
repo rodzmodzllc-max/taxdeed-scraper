@@ -266,6 +266,25 @@ def feed_auction_status(row: dict, *, today: date, feed: str) -> StatusObservati
 ADAPTER_KINDS = frozenset({"arcgis", "tabular", "tax_sale_info"})
 
 
+# The sold-flag wordings the shared adapters build (MN-D2): arcgis.py
+# `_sold()` writes "<the layer's sold_flag attribute>: <value>" with a value
+# in its SOLD_YES set; tabular.py writes "SOLD" for its 'SOLD - <price>' cell.
+# A test pins SOLD_FLAG_VALUES to arcgis.SOLD_YES.
+SOLD_FLAG_VALUES = frozenset({"Y", "YES", "TRUE", "T", "1", "SOLD"})
+
+
+def is_published_sold_flag(raw: str | None) -> bool:
+    """True only for a wording an adapter derived from the source's own sold
+    flag; a status column's own word ('Open', 'Available') is never one."""
+    text = str(raw or "").strip()
+    if not text:
+        return False
+    if text.upper() == "SOLD":
+        return True
+    label, sep, value = text.rpartition(":")
+    return bool(sep and label.strip() and value.strip().upper() in SOLD_FLAG_VALUES)
+
+
 def adapter_record_status(row: dict, *, today: date) -> StatusObservation | None:
     """An AUCTIONS or LIENS & CERTIFICATES row written by the shared OTC
     adapters (harvesters/otc/adapters/arcgis.py / tabular.py - the
@@ -295,9 +314,16 @@ def adapter_record_status(row: dict, *, today: date) -> StatusObservation | None
                                  note="on the county's list of certificates purchasable from the Treasurer at the last read")
     if source != "auction":
         return None
+    # The source's own wording the sync stored (model.py writes the status
+    # column verbatim on auction rows - Wright MN's 'Open'). Every branch
+    # below carries it, so the writer sees the row unchanged and never takes
+    # turns with the sync clearing it (MN-D1, 2026-11-09).
+    raw = str(row.get("inventory_status_raw") or "").strip() or None
     if gone:
-        raw = str(row.get("inventory_status_raw") or "").strip()
-        if raw:
+        # 'sold' only from a SOLD-FLAG wording the adapters build (MN-D2):
+        # arcgis.py's "<sold_flag>: <yes>" or tabular.py's "SOLD" - never
+        # from a status column's availability word such as 'Open'.
+        if raw and is_published_sold_flag(raw):
             return StatusObservation("sold", "SOURCE_STATUS", raw=raw, note="the source's own sold flag on its sale list")
         if row.get("result_amount") not in (None, ""):
             return StatusObservation("sold", "SOURCE_STATUS", raw="Previous Sales: Sale Price",
@@ -306,22 +332,22 @@ def adapter_record_status(row: dict, *, today: date) -> StatusObservation | None
             # scripts/sync_state_inventory.py past-sale close (MI-2): still
             # on the list, but the sale date has passed and no result is
             # published - closed by the date, never a result.
-            return StatusObservation("closed", "SCHEDULED_DATE",
+            return StatusObservation("closed", "SCHEDULED_DATE", raw=raw,
                                      note=f"sale date {str(prov['closed_past_sale'])[:10]} has passed; "
                                           "the county's list publishes no result")
-        return StatusObservation("closed", "LIST_PRESENCE", note="no longer on the county's sale list; the result is not published there")
+        return StatusObservation("closed", "LIST_PRESENCE", raw=raw, note="no longer on the county's sale list; the result is not published there")
     if prov.get("list_superseded"):
-        return StatusObservation("unknown", "SCHEDULED_DATE", note=str(prov["list_superseded"])[:300])
+        return StatusObservation("unknown", "SCHEDULED_DATE", raw=raw, note=str(prov["list_superseded"])[:300])
     sale = _date_of(row.get("sale_date"))
     if sale is None:
-        return StatusObservation("active", "LIST_PRESENCE", note="on the county's current sale list; no sale date published on the list")
+        return StatusObservation("active", "LIST_PRESENCE", raw=raw, note="on the county's current sale list; no sale date published on the list")
     if sale >= today:
-        return StatusObservation("upcoming", "SCHEDULED_DATE", note=f"scheduled for {sale.isoformat()} per the county's sale list")
+        return StatusObservation("upcoming", "SCHEDULED_DATE", raw=raw, note=f"scheduled for {sale.isoformat()} per the county's sale list")
     if source_id_of(row) in LISTED_AFTER_DUE_SOURCE_IDS:
-        return StatusObservation("active", "LIST_PRESENCE",
+        return StatusObservation("active", "LIST_PRESENCE", raw=raw,
                                  note=f"bid due date {sale.isoformat()} has passed and the county still lists the parcel "
                                       "as available; the county moves sold parcels to its own sold table")
-    return StatusObservation("unknown", "SCHEDULED_DATE",
+    return StatusObservation("unknown", "SCHEDULED_DATE", raw=raw,
                              note=f"sale date {sale.isoformat()} has passed; the list publishes no result")
 
 
