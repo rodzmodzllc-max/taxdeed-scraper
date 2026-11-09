@@ -208,6 +208,9 @@ html[data-shell="v3"] .hdr-guide:not(#_){white-space:nowrap}
 @media (max-width:767.98px){
   html[data-shell="v3"] .look-switch:not(#_){display:none!important}
   .account-look:not(#_){display:block;border-bottom:1px solid var(--rule);padding:.2rem 0 .3rem;margin-bottom:.2rem}
+}
+/* The wordmark fits beside the controls from 410px; narrower, the TA mark alone (identity.css). */
+@media (min-width:410px) and (max-width:767.98px){
   html[data-shell="v3"] .hdr-brand .brand-name:not(#_){display:block!important;font-size:1rem!important;letter-spacing:.14em!important}
   html[data-shell="v3"] .hdr-brand .hdr-brand-sub{display:none!important}
 }

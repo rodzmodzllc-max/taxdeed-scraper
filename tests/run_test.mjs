@@ -2254,7 +2254,15 @@ results.dashUnitEmptyGroups = await dashPage.locator('#dashUnitRows .unit-empty'
 results.dashLedgerPanelRemoved = (await dashPage.locator('#dashLedgerRows').count()) === 0;
 // Remediation (2026-10-10): the ledger totals - and the withheld count - are
 // shown once, on the Home ledger cards; the operating view's tiles are gone.
-results.dashWithheldShownOnce = ((await dashPage.locator('#homeLedgers').textContent()) || '').includes('1 withheld') && (await dashPage.locator('#dashStats').count()) === 0;
+// dashPage reads the operating view, which is admin-only (2026-11-09); the
+// withheld count is a customer's figure, read on a customer page.
+{
+  const custHome = await newPage({ viewport: { width: 1200, height: 900 } });
+  await custHome.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+  await custHome.waitForTimeout(500);
+  results.dashWithheldShownOnce = ((await custHome.locator('#homeLedgers').textContent()) || '').includes('1 withheld') && (await custHome.locator('#dashStats').count()) === 0;
+  await custHome.close();
+}
 results.dashUnitBayUnavailable = await dashPage.locator('#dashUnitRows .unit-row[data-county="Bay"]').getAttribute('data-unavailable');
 // Unified navigation (2026-09-30): exactly four destinations - Dashboard,
 // List, Map, Watchlist - in the rail and the bottom bar, no per-ledger
@@ -8396,11 +8404,11 @@ const EXPECTED = {
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
   rdCardAcq: [],  // the acquisition badge left the card face; the path is on the property page
-  rdPicker: {"rows": ["CO=certificate", "FL=auction|laft|certificate", "LA=laft", "MI=auction", "MN=!none", "MO=!none", "OK=!none", "PA=!none", "SC=auction", "TN=!none", "TX=auction|laft", "WI=!none", "WY=auction"], "groups": ["States with Available properties", "Other states", "Coverage in Florida"], "visible": true, "coHref": "co.html#/certificates", "flCounts": ["Auctions 9", "Available 2", "Liens & Certificates 1"]},
+  rdPicker: {"rows": ["CO=certificate", "FL=laft|auction|certificate", "LA=laft", "MI=auction", "MN=!none", "MO=!none", "OK=!none", "PA=!none", "SC=auction", "TN=!none", "TX=laft|auction", "WI=!none", "WY=auction"], "groups": ["States with Available properties", "Other states", "Coverage in Florida"], "visible": true, "coHref": "co.html#/certificates", "flCounts": ["Available 2", "Auctions 9", "Liens & Certificates 1"]},
   rdPickerSearch: ["WY"],
   rdPickerEscape: true,
-  rdPickerAdminMI: "MI=auction|laft",
-  rdPickerProbeFail: "WY=auction|laft|certificate!unchecked",
+  rdPickerAdminMI: "MI=laft|auction",
+  rdPickerProbeFail: "WY=laft|auction|certificate!unchecked",
   rdPhoneBottom: ["Available2", "Auctions9", "Liens1", "Map"],
   rdPhoneAccount: true,
   rdPhoneSearchVisible: false,   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
@@ -8553,14 +8561,14 @@ const EXPECTED = {
   navListRouteVisible: true,
   navListRouteHash: "#/lands",
   navDashDeepVisible: true,
-  navDashTiles: ['laft:2', 'auction:9', 'certificate:1'],
+  navDashTiles: ['laft:3', 'auction:9', 'certificate:1'],   // read as an admin (operating view is admin-only since 2026-11-09): the source-review row p13 counts
   navDashNoTiles: true,
   navDashNoValueTile: true,
   // Fixture p15 was last read 2026-09-20: from 2026-10-05 on it is permanently
   // outside the 14-day window, so it is not "read recently" and counts as stale.
-  navDashAttention: ['soon:4 properties · 4 sale dates', 'watched-gone:None', 'stale:2 of 2', 'sources:1 unavailable at the last read · 1 update unsuccessful; retry pending'],
+  navDashAttention: ['soon:4 properties · 4 sale dates', 'watched-gone:None', 'stale:3 of 3 · 1 never read by a lifecycle run', 'sources:1 unavailable at the last read · 1 update unsuccessful; retry pending'],
   navDashRecentPanelRemoved: true,
-  navDashPaths: ["verified:2 of 2", "phone_mail:1", "county_instructions:1", "unverified:0"],   // the Florida fixture rows both carry a verified path
+  navDashPaths: ["verified:2 of 3", "phone_mail:1", "county_instructions:1", "unverified:1"],   // admin view: p13 has no verified path   // the Florida fixture rows both carry a verified path
   navDashNoScoreWords: true,
   navDashSubtitle: 'What needs attention, verified acquisition paths, source freshness and your watchlist - counts over the records loaded for this state.',
   navDashTileOpensList: true,
