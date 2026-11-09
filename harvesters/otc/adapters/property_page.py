@@ -41,6 +41,7 @@ class PropertyPage:
     verification: str             # how it was verified (value-free)
     pattern_source: str           # where the SOURCE publishes the pattern
     action_label: str = ""        # the source's own button text on the page
+    account_required: bool = False  # the source's action needs an account on its portal (never a checkout)
 
     def __post_init__(self) -> None:
         if not self.template.startswith("https://") or self.template.count("{id}") != 1:
@@ -57,6 +58,18 @@ class PropertyPage:
         if not ident or not re.fullmatch(self.id_pattern, ident):
             return None
         return self.template.replace("{id}", quote(ident, safe=""))
+
+    def provenance(self) -> dict:
+        """The otc_provenance keys a record carrying this page gets: the basis,
+        the source's own action wording and whether that action needs an account
+        (the customer label is built from these - an application on a portal is
+        never called "Buy online")."""
+        out = {"purchase_url_basis": self.basis()}
+        if self.action_label:
+            out["purchase_action_label"] = self.action_label
+        if self.account_required:
+            out["purchase_account_required"] = True
+        return out
 
     def basis(self) -> str:
         """The purchase_url_basis text the purchase-path engine reads (its

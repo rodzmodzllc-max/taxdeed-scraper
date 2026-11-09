@@ -305,7 +305,7 @@ def parse_rows(cfg: EppConfig, rows: list[dict], *, retrieved_at: datetime) -> t
         page = cfg.property_page.url_for(pid) if cfg.property_page else None
         if page:
             purchase_url, purchase_kind = page, cfg.property_page.kind
-            prov["purchase_url_basis"] = cfg.property_page.basis()
+            prov.update(cfg.property_page.provenance())
         if cfg.county_field:
             prov["county_rule"] = f"field {cfg.county_field!r} in {sorted(cfg.county_values)} (rows of another county are counted, never re-labelled)"
         as_of = list_date(row.get(cfg.list_as_of_field)) if cfg.list_as_of_field else None
