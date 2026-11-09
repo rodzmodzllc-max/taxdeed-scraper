@@ -127,12 +127,12 @@ DRY_RUN = os.environ.get("GEOCODE_DRY_RUN", "").strip().lower() in ("1", "true",
 # street address but no coordinates). A scoped run is STRICT:
 #   - the Census match must also agree on the house number and street word
 #     (harvesters/sources/coordinates.address_agrees), never only on county;
-#   - each write carries field_provenance latitude / longitude entries
-#     (source census_geocoder, method DETERMINISTIC_GEOCODE - an address
-#     location, never presented as a parcel location), merged into the
-#     stored provenance;
+#   - each write's field_provenance latitude / longitude entries (source
+#     census_geocoder, method DETERMINISTIC_GEOCODE - an address location,
+#     never presented as a parcel location) say the house number agrees;
 #   - the log prints counts only (job logs are public; no address is printed).
-# Unscoped runs keep their historic behaviour.
+# Unscoped runs keep their historic matching; since 2026-11-09 (WI-6) they
+# also write merged provenance entries, saying the house number was not checked.
 SCOPE_SOURCE_ID = os.environ.get("GEOCODE_SOURCE_ID", "").strip()
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
 from harvesters.sources import coordinates as COORD  # noqa: E402
@@ -217,7 +217,7 @@ def _fetch(limit, address_conditions, after=None):
         # spend this run's geocoding budget either.
         "status": "in.(active,available,scheduled)",
         "delisted_at": "is.null",
-        "select": "id,address,county,state" + (",field_provenance" if SCOPE_SOURCE_ID else ""),
+        "select": "id,address,county,state,field_provenance",
         "limit": str(limit),
         "or": NO_ADDRESS_GEOCODE_FILTER,
     }
@@ -415,7 +415,7 @@ def _rowlog(msg, **kw):
 
 
 def patch_property(property_id, latitude, longitude, provenance=None):
-    """Writes ONLY latitude/longitude (plus, on a scoped run, the merged
+    """Writes ONLY latitude/longitude (plus the merged
     field_provenance that records how they were obtained). State, county and
     every other column stay exactly as the harvester left them - this step
     supplements a missing coordinate, it never rewrites identity."""
@@ -504,12 +504,15 @@ def main():
             tally[0] += 1
             _rowlog(f"  [{i}/{len(rows)}] verified ({county} County, {state}): {query} -> {result['matched_address']}")
             if not DRY_RUN:
-                prov = None
-                if SCOPE_SOURCE_ID:
-                    prov = dict(row.get("field_provenance") or {}) if isinstance(row.get("field_provenance"), dict) else {}
-                    entry = COORD.geocode_provenance_entry("census_matched_address")
-                    prov["latitude"] = dict(entry)
-                    prov["longitude"] = dict(entry)
+                # Every write records how the point was obtained (WI-6,
+                # 2026-11-09): an unscoped run used to write coordinates with
+                # no field_provenance entry. The entry is merged into the
+                # stored provenance read with the row; an unscoped entry says
+                # the house number was not checked.
+                prov = dict(row.get("field_provenance") or {}) if isinstance(row.get("field_provenance"), dict) else {}
+                entry = COORD.geocode_provenance_entry("census_matched_address", address_checked=bool(SCOPE_SOURCE_ID))
+                prov["latitude"] = dict(entry)
+                prov["longitude"] = dict(entry)
                 try:
                     patch_property(row["id"], result["latitude"], result["longitude"], prov)
                 except requests.RequestException as e:

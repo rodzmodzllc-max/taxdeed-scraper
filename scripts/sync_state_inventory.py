@@ -175,6 +175,40 @@ def merge_acquisition(row: dict, stored: dict | None) -> tuple[dict, dict, str]:
     return merged, restore, "acquisition_preserved"
 
 
+# WI-3 (2026-11-09): a row-level path (purchase_path_engine.from_row_link)
+# carries the harvest date as purchase_path_observed_on when the source's
+# basis names no verified date, so an unchanged Dane WI path was rewritten
+# every calendar day and every rewrite was an acquisition_evidence_changed
+# event for watchers (detect_property_changes.py). When this read states the
+# SAME path as the stored row (type, scope, URL, URL kind and evidence text),
+# nothing about the path changed: the stored observation date is kept. A
+# different path, or a stored row without a date, takes this read's date.
+PATH_IDENTITY = ("purchase_path_type", "purchase_path_scope", "purchase_url", "purchase_url_kind", "purchase_path_evidence")
+
+
+def keep_stored_path_date(row: dict, stored: dict | None) -> bool:
+    """Keep the stored purchase_path_observed_on for an unchanged path (column
+    and the otc_provenance copy). -> True when the stored date was kept."""
+    if not stored or not row.get("purchase_path_type") or "purchase_path_observed_on" not in row:
+        return False
+    old = stored.get("purchase_path_observed_on")
+    if FP.is_blank(old) or old == row.get("purchase_path_observed_on"):
+        return False
+    if any(row.get(k) != stored.get(k) for k in PATH_IDENTITY if k in row):
+        return False
+    row["purchase_path_observed_on"] = old
+    prov = row.get("otc_provenance")
+    if isinstance(prov, dict):
+        prov = dict(prov)
+        if "purchase_path_observed_on" in prov:
+            prov["purchase_path_observed_on"] = old
+        acq = prov.get("acquisition")
+        if isinstance(acq, dict) and "observed_on" in acq:
+            prov["acquisition"] = dict(acq, observed_on=old)
+        row["otc_provenance"] = prov
+    return True
+
+
 def _record_source(source_id: str) -> str:
     """The properties.source a configured adapter source writes ('laft' /
     'auction' / 'certificate'); '' for a source no adapter configures."""
@@ -453,6 +487,8 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
             if outcome != "no_acquisition":
                 # Reported only when it happens (counts only, never a value).
                 counts[outcome] = counts.get(outcome, 0) + 1
+            if keep_stored_path_date(row, prior):
+                counts["path_date_kept_unchanged_path"] = counts.get("path_date_kept_unchanged_path", 0) + 1
         keys.setdefault(reg.source_id, set()).update(row)
         out.append(row)
     # A source whose rows do not state their own acquisition path (Louisiana:
