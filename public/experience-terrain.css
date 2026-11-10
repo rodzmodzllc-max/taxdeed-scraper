@@ -468,3 +468,15 @@ html[data-experience="terrain"] .county-now .cnb-list{border-radius:0 0 14px 14p
   .xp-terrain .xt-amt-note[open] p{animation:xtRise 220ms var(--ease-out) both}
   .xp-terrain .xt-amt-note .xt-amt-why::after{transition:transform 180ms var(--ease-std)}
 }
+
+/* Dark theme (2026-11-10): the Merged Available sheet stays a light survey
+   sheet in both themes, so the app's own markup drawn on it (the imagery
+   ladder's location panel, the county bar) keeps its light-theme colours
+   instead of the dark theme's light-on-dark ones, which read light-on-light. */
+:root[data-theme="dark"] .xp-terrain .loc-panel .loc-main{color:#202925}
+:root[data-theme="dark"] .xp-terrain .loc-panel .loc-link{color:#8A3F1E}
+:root[data-theme="dark"][data-experience="terrain"] .county-now{background:rgba(253,253,251,.96);border-color:#D8DED6;color:#202925}
+/* AA (2026-11-10): a done waypoint's number was paper on the pale sage glow
+   (2:1); it reads deep sage on soft sage now (6:1), still quieter than an
+   active step. */
+.xp-terrain .xt-trail .wp.done .wp-n{background:var(--sage-soft);color:var(--sage-deep);box-shadow:0 0 0 3px var(--sage-wash),inset 0 0 0 1.5px var(--sage-glow)}

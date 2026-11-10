@@ -270,5 +270,5 @@ html[data-experience="merged"] .xpm .fslip .fb:focus-visible,html[data-experienc
      rows read as scattered paper); the lifted one still rises. */
   html[data-experience="merged"] .xpm .fan-stage{--fan-r:0deg}
   html[data-experience="merged"] .xpm .tray-acts{flex-wrap:wrap}
-  html[data-experience="merged"] .xpm .tray-acts .xpm-cta{flex:1 1 150px}
+  html[data-experience="merged"] .xpm .tray-acts .xpm-cta{flex:1 1 120px}
 }

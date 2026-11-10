@@ -518,3 +518,10 @@ html[data-experience="tactile"] .xpt .xpt-deck-ctl .xpt-round:not(:disabled):hov
   html[data-experience="tactile"] .xpt .xpt-mini{transition:transform 260ms var(--spring-soft),box-shadow 180ms var(--ease-std),background-color 180ms var(--ease-std)}
   html[data-experience="tactile"] .xpt .xpt-deck-ctl .xpt-round > span{transition:transform 80ms var(--ease-std),background-color 160ms var(--ease-std),border-color 160ms var(--ease-std)}
 }
+/* AA (2026-11-10): lot-tile numbers at 22px are body-size text, so they use
+   the deeper rust (5.5:1 on paper) rather than the bright one (3.9:1). In the
+   dark theme the deck stays paper, so the app's location panel drawn on a
+   placard keeps its light-theme colours. */
+html[data-experience="tactile"] .xpt .numeral-s{color:var(--rust)}
+:root[data-theme="dark"] .xpt .loc-panel .loc-main{color:#202925}
+:root[data-theme="dark"] .xpt .loc-panel .loc-link{color:#8A3F1E}
