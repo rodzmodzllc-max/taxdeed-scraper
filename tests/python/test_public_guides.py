@@ -106,7 +106,8 @@ def test_only_verified_answers_carry_links_and_no_property_data():
         text = p.read_text(encoding="utf-8")
         n_answers = text.count('<article class="g-answer">')
         assert text.count("Source: <a href=\"https://") == n_answers, p
-        assert n_answers == text.count("· verified 20"), p
+        # 2026-11-09: the read date is "Checked Nov 2, 2026" in a <time datetime> (was "verified 2026-11-02")
+        assert n_answers == len(re.findall(r'Checked <time datetime="20\d\d-\d\d-\d\d">[A-Z][a-z]{2} \d{1,2}, 20\d\d</time>', text)), p
         open_list = re.findall(r'<ul class="g-open">(.*?)</ul>', text, re.S)
         assert all("href" not in block for block in open_list), p
         assert not re.search(r"parcel id|owner name|min_bid|case_no", text, re.I), p
@@ -140,3 +141,55 @@ def test_sitemap_lists_every_guide_and_nothing_noindexes_them():
 def test_landing_links_the_guides():
     for f in (REPO / "public/index.html", REPO / "index.html"):
         assert '<a href="/guides/">Free county guides</a>' in f.read_text(encoding="utf-8")
+
+
+def _ledgers_in(text):
+    return re.findall(r'<section class="g-ledger" data-ledger="([A-Z_]+)"', text)
+
+
+def test_journey_toc_quotes_and_cta_placement():
+    doc = json.loads((REPO / "public/buyers-guide.json").read_text(encoding="utf-8"))
+    order = doc["journey"]["ledger_order"]
+    labels = [s["label"] for s in doc["journey"]["steps"]]
+    for p in pages():
+        if p == GUIDES / "index.html":
+            continue
+        text = p.read_text(encoding="utf-8")
+        found = _ledgers_in(text)
+        assert found == [L for L in order if L in found], (p, found)          # Available, Auctions, Liens
+        if not found:
+            continue
+        # "On this page" lists every ledger shown, with its answered count, and links to it
+        toc = re.search(r'<nav class="g-toc" aria-label="On this page">(.*?)</nav>', text, re.S)
+        assert toc and re.findall(r'href="#l-([a-z_]+)"', toc.group(1)) == [L.lower() for L in found], p
+        assert len(re.findall(r"\d+ of \d+ answered", toc.group(1))) == len(found), p
+        # journey steps in order, numbered from 1 within each ledger
+        for sec in re.findall(r'<section class="g-ledger".*?</section>', text, re.S):
+            steps = re.findall(r'<h3 class="g-step">Step (\d+) · (\w+)', sec)
+            assert [int(n) for n, _ in steps] == list(range(1, len(steps) + 1)), p
+            assert [l for _, l in steps] == [l for l in labels + ["More"] if l in [x for _, x in steps]], p
+        # quotes only behind <details>, never italic markup
+        assert text.count('<blockquote class="g-quote') == text.count('<summary>Official wording</summary>'), p
+        assert "<em>" not in text and "<i>" not in text
+        # the call to action follows the first ledger
+        first_end = text.index("</section>", text.index('<section class="g-ledger"'))
+        assert text.index('<section class="g-cta"') > first_end, p
+        if len(found) > 1:
+            assert text.index('<section class="g-cta"') < text.index('<section class="g-ledger"', first_end), p
+
+
+def test_statewide_chip_only_on_county_pages():
+    for p in pages():
+        text = p.read_text(encoding="utf-8")
+        if p.name == "index.html":
+            assert '<span class="g-scope">Statewide</span>' not in text, p
+    alachua = (GUIDES / "fl/alachua.html").read_text(encoding="utf-8")
+    assert '<span class="g-scope">Statewide</span>' in alachua
+
+
+def test_not_yet_verified_lines_and_links_are_kept():
+    doc = json.loads((REPO / "public/buyers-guide.json").read_text(encoding="utf-8"))
+    text = (GUIDES / "fl/leon.html").read_text(encoding="utf-8")
+    n_q = sum(len(doc["questions"][L]) for L in _ledgers_in(text))
+    assert text.count('<article class="g-answer">') + text.count("<li>") - text.count('<li><a') >= n_q
+    assert "Not yet verified" in text or "could not be read" in text

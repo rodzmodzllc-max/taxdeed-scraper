@@ -63,7 +63,73 @@ def test_contract_shape():
 def test_researched_answer_is_not_verified_without_a_capture():
     a = ans()
     e = G.published(a, {}, "where")
-    assert e["status"] == "NOT_VERIFIED" and "answer" not in e and a.source_url in e["where_to_look"]
+    # 2026-11-09: the official page is a link, never text inside where_to_look; why it is unconfirmed is the note
+    assert e["status"] == "NOT_VERIFIED" and "answer" not in e and a.source_url not in e["where_to_look"]
+    assert e["links"] == [{"title": "197.552", "url": a.source_url}] and "capture run" in e["note"]
+    assert e["where_to_look"] == "See 197.552."
+
+
+@pytest.mark.parametrize("text,where,links,note", [
+    ("Tax Deeds | Clay County Clerk of Court: https://clayclerk.com/tax-deeds/",
+     "See Tax Deeds | Clay County Clerk of Court.", ["https://clayclerk.com/tax-deeds/"], None),
+    ("Bay County Tax Collector - https://baycountyfltax.gov/ (page blocked from the research network (HTTP 403 Cloudflare challenge))",
+     "See Bay County Tax Collector.", ["https://baycountyfltax.gov/"], "HTTP 403"),
+    ("State Land Bank - https://www.michigan.gov/x (michigan.gov answered 403 to the capture runner; the Land Bank Fast "
+     "Track Act does not state this - each land bank sets its own terms)",
+     "See State Land Bank. The Land Bank Fast Track Act does not state this - each land bank sets its own terms.",
+     ["https://www.michigan.gov/x"], "capture runner"),
+    ("Hubbard - https://www.hubbardcounty.gov/tfl (names the links but no form; the FAQ at "
+     "https://www.hubbardcounty.gov/tax_forfeited_faq names none either)",
+     "See Hubbard. The page names the links but no form. The FAQ names none either.",
+     ["https://www.hubbardcounty.gov/tfl", "https://www.hubbardcounty.gov/tax_forfeited_faq"], None),
+    ("Option Auctions - https://m.gov/a and the Key Packet - https://m.gov/b.pdf (page blocked from the research network (HTTP 403))",
+     "See Option Auctions and the Key Packet.", ["https://m.gov/a", "https://m.gov/b.pdf"], "HTTP 403"),
+    ("Statute - https://s.gov/x (statute gives buyers no due-diligence instruction; see county rows)",
+     "See Statute. The statute gives buyers no due-diligence instruction. See county answers.", ["https://s.gov/x"], None),
+    ("The county office's tax sale page.", "The county office's tax sale page.", [], None),
+])
+def test_customer_where_splits_researcher_text(text, where, links, note):
+    w = G.customer_where(text)
+    assert w["where_to_look"] == where and [x["url"] for x in w["links"]] == links
+    assert (note in w["note"]) if note else "note" not in w
+    assert not G.CUSTOMER_FORBIDDEN.search(w["where_to_look"] + " ".join(x["title"] for x in w["links"]))
+
+
+def test_published_guide_has_no_operator_wording_in_unanswered_rows():
+    g = json.loads((REPO / "public" / "buyers-guide.json").read_text())
+    rows = [a for st in g["states"].values()
+            for b in list(st["ledgers"].values()) + [x for c in st["counties"].values() for x in c.values()]
+            for a in b["answers"] if a["status"] != "VERIFIED"]
+    assert rows
+    for a in rows:
+        text = a["where_to_look"] + " " + " ".join(x["title"] for x in a.get("links", []))
+        assert not G.CUSTOMER_FORBIDDEN.search(text), a
+        assert all(x["url"].startswith("https://") for x in a.get("links", [])), a
+
+
+def test_journey_covers_every_question_and_orders_the_ledgers():
+    g = json.loads((REPO / "public" / "buyers-guide.json").read_text())
+    j = g["journey"]
+    assert [s["label"] for s in j["steps"]] == ["Find", "Check", "Buy", "After", "Risks"]
+    assert j["ledger_order"] == ["AVAILABLE", "AUCTIONS", "LIENS_CERTIFICATES"]
+    steps = {s["id"] for s in j["steps"]}
+    for led, qs in g["questions"].items():
+        assert {q["id"] for q in qs} == set(j["map"][led]), led
+        assert set(j["map"][led].values()) <= steps
+
+
+def test_a_question_with_no_step_is_refused():
+    qs = G.load_questions() + [G.Question("AUCTIONS", "brand_new", 999, "Risks", "beginner", "New?", "The county.")]
+    assert any("brand_new has no journey step" in p for p in G.problems([], qs, []))
+
+
+def test_js_default_journey_equals_the_json_journey():
+    import re as _re
+    js = (REPO / "public" / "buyers-guide.js").read_text()
+    m = _re.search(r"const DEFAULT_JOURNEY = (\{.*?\});\n", js, _re.S)
+    assert m, "DEFAULT_JOURNEY not found"
+    g = json.loads((REPO / "public" / "buyers-guide.json").read_text())
+    assert json.loads(m.group(1)) == g["journey"]
 
 
 def test_found_capture_publishes_the_answer_with_the_capture_date():

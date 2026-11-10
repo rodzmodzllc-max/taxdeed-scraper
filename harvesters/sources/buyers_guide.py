@@ -40,6 +40,38 @@ STATUSES = {
     "SOURCE_RESTRICTED": "The official page could not be read (blocked, login or script-only) - check it directly.",
 }
 READ_STATUSES = ("VERIFIED", "PARTIALLY_VERIFIED")
+# The buyer's journey the guide is read in (in-app and public pages): five steps, every question of every ledger
+# in exactly one of them (problems() refuses a question with no step), ledgers shown Available, Auctions, Liens.
+JOURNEY_STEPS = (
+    {"id": "find", "label": "Find", "title": "Find the sale or list"},
+    {"id": "check", "label": "Check", "title": "Check before you commit"},
+    {"id": "buy", "label": "Buy", "title": "How to buy"},
+    {"id": "after", "label": "After", "title": "After you buy"},
+    {"id": "risks", "label": "Risks", "title": "Risks to weigh"},
+)
+JOURNEY_MAP = {
+    "AVAILABLE": {"office": "find", "what_is_list": "find", "timeline": "find",
+                  "price": "check", "inspect": "check", "due_diligence": "check",
+                  "how_to_buy": "buy", "application": "buy", "pay": "buy", "extra_costs": "buy",
+                  "what_you_get": "after", "refunds": "after",
+                  "liens_survive": "risks", "title": "risks"},
+    "AUCTIONS": {"office": "find", "how_it_works": "find", "schedule": "find", "where_when": "find",
+                 "opening_bid": "check", "due_diligence": "check", "occupied": "check",
+                 "register": "buy", "deposit": "buy", "pay_after_win": "buy", "extra_costs": "buy",
+                 "what_you_get": "after", "redemption_after_sale": "after", "unsold": "after", "surplus": "after",
+                 "liens_survive": "risks", "title": "risks"},
+    "LIENS_CERTIFICATES": {"office": "find", "what_is_it": "find",
+                           "interest_return": "check", "redemption_period": "check", "due_diligence": "check",
+                           "how_to_buy": "buy", "assignment": "buy", "costs": "buy",
+                           "if_not_redeemed": "after", "expiry": "after",
+                           "risks": "risks"},
+}
+LEDGER_ORDER = ("AVAILABLE", "AUCTIONS", "LIENS_CERTIFICATES")
+
+
+def journey() -> dict:
+    return {"steps": [dict(s) for s in JOURNEY_STEPS], "ledger_order": list(LEDGER_ORDER),
+            "map": {led: dict(JOURNEY_MAP[led]) for led in LEDGER_ORDER}}
 ANSWER_COLUMNS = ("state", "county", "ledger", "question", "status", "answer", "quote", "source_url", "source_title",
                   "citation", "office", "verified_on", "where_to_look", "note")
 CAPTURE_COLUMNS = ("answer_key", "quote_sha256", "source_url", "result", "http_status", "run_id", "captured_on")
@@ -176,6 +208,8 @@ def problems(answers: list[Answer] | None = None, questions: list[Question] | No
             bad.append(f"questions: duplicate {q.ledger}/{q.id}")
         seen_q.add((q.ledger, q.id))
         qids.setdefault(q.ledger, set()).add(q.id)
+        if JOURNEY_MAP.get(q.ledger, {}).get(q.id) not in {st["id"] for st in JOURNEY_STEPS}:
+            bad.append(f"questions: {q.ledger}/{q.id} has no journey step (JOURNEY_MAP)")
     keys: dict[str, int] = {}
     for a in answers:
         where = f"answers line {a.line} ({a.state}/{a.county or '-'}/{a.ledger}/{a.question})"
@@ -234,6 +268,103 @@ def _state_meta() -> dict[str, tuple[str, str]]:
     return out
 
 
+# --- customer wording ---------------------------------------------------------
+# A researcher's where_to_look reads "Title - https://... (remark; remark)". The
+# customer sees one plain sentence, the official link(s) and nothing about how a
+# page was fetched: clauses about capture runs, the research network, HTTP codes,
+# CDNs or old URLs go to the unrendered note (kept, never dropped).
+_URL = re.compile(r"https?://[^\s,;()]*[^\s,;().]")
+_DIAGNOSTIC = re.compile(
+    r"capture|runner|research network|this network|\bHTTP\b|\b(?:403|404|502|503|523)\b|CloudFront|Cloudflare|"
+    r"Akamai|\bTLS\b|proxy|fetch tool|GitHub|search snippet|not read|script-rendered|old URL|older host|former |"
+    r"https?:", re.I)
+CUSTOMER_FORBIDDEN = re.compile(r"capture|runner|HTTP \d{3}|CloudFront|https?:", re.I)
+_LEAD_VERB = re.compile(r"^(names|links|lists|offers|says|states|gives)\b")
+_ROW_WORDS = ((re.compile(r"\bcounty rows?\b"), "county answers"), (re.compile(r"\bparish rows?\b"), "parish answer"),
+              (re.compile(r"\bthe ([A-Z][A-Za-z]+(?: [A-Z][A-Za-z]+)*) row\b"), r"the \1 answer"))
+_AT_URL = re.compile(r"\s+at (https://[^\s,;()]*[^\s,;().])")
+_AND_LINK = re.compile(r"^(?:and|or|,)\s+(.+?)\s*[-–:]\s*(https://[^\s,;()]*[^\s,;().])")
+DEFAULT_WHERE ="Ask the office that runs the sale."
+
+
+def _sentence(c: str) -> str:
+    c = c.strip().rstrip(".").strip()
+    for rx, rep in _ROW_WORDS:
+        c = rx.sub(rep, c)
+    if _LEAD_VERB.match(c):
+        c = "the page " + c
+    elif re.match(r"^(page|statute)\b", c):
+        c = "the " + c
+    return c[:1].upper() + c[1:] + "."
+
+
+def customer_where(text: str, title: str = "", url: str = "", why: str = "") -> dict:
+    """{"where_to_look": sentence, "links": [{"title", "url"}], "note"?: diagnostics} for one unanswered row.
+    The sentence never carries a URL or a capture / network diagnostic; every https link of the text that is
+    not part of a diagnostic is kept as a link, and the diagnostics are kept in the note."""
+    text = (text or "").strip()
+    links: list[dict] = []
+    notes: list[str] = []
+
+    def add_link(u: str, t: str) -> None:
+        if u.startswith("https://") and all(x["url"] != u for x in links):
+            links.append({"title": (t or "Official page").strip(), "url": u})
+
+    m = _URL.search(text)
+    head, rest = "", text
+    if m:
+        head = re.sub(r"\s*[-–:]\s*$", "", text[:m.start()].strip()).strip()
+        rest = text[m.end():].strip()
+        add_link(m.group(0), head or title)
+        more = _AND_LINK.match(rest)
+        while more:                                   # "Title - URL and Title 2 - URL2 (remark)"
+            add_link(more.group(2), more.group(1))
+            head = f"{head} and {more.group(1).strip()}"
+            rest = rest[more.end():].strip()
+            more = _AND_LINK.match(rest)
+        if rest.startswith("(") and rest.rstrip(".").endswith(")"):
+            rest = rest.rstrip(".")[1:-1]
+        rest = rest.strip(" .")
+        head = head or title or "the official page"
+    keep: list[str] = []
+    for c in [x for x in re.split(r"\s*;\s*", rest) if x.strip()]:
+        plain = _AT_URL.sub("", c)
+        if _DIAGNOSTIC.search(plain):
+            notes.append(c.strip())
+            continue
+        for u in _AT_URL.findall(c):
+            add_link(u, "Official page")
+        keep.append(plain)
+    if url:
+        add_link(url, title)
+    if why:
+        notes.append(why)
+    if m:
+        sentence = f"See {head}." + "".join(" " + _sentence(c) for c in keep)
+    elif keep:
+        sentence = " ".join(_sentence(c) for c in keep)
+    else:
+        sentence = f"See {title}." if title else DEFAULT_WHERE
+    sentence = re.sub(r"\s+", " ", sentence).strip()
+    if CUSTOMER_FORBIDDEN.search(sentence):          # never let a diagnostic through - fall back to the link title
+        notes.append(sentence)
+        sentence = f"See {links[0]['title']}." if links and not CUSTOMER_FORBIDDEN.search(links[0]["title"]) \
+            else DEFAULT_WHERE
+    out = {"where_to_look": sentence, "links": links}
+    if notes:
+        out["note"] = "; ".join(notes)
+    return out
+
+
+def _with_where(base: dict, w: dict) -> dict:
+    out = {**base, "where_to_look": w["where_to_look"]}
+    if w["links"]:
+        out["links"] = w["links"]
+    if w.get("note"):
+        out["note"] = "; ".join(x for x in (base.get("note"), w["note"]) if x)
+    return out
+
+
 def published(a: Answer, caps: dict, qdefault: str) -> dict:
     """The ANSWER object of the contract for one researched row."""
     base = {"q": a.question}
@@ -250,10 +381,15 @@ def published(a: Answer, caps: dict, qdefault: str) -> dict:
                "NOT_FOUND": "the capture run did not find the quoted words on the page"}.get(cap["result"] if cap else "",
                                                                                             "not yet confirmed by a capture run")
         status = "SOURCE_RESTRICTED" if cap and cap["result"] == "BLOCKED" else "NOT_VERIFIED"
-        return {**base, "status": status, "source_url": a.source_url,
-                "where_to_look": f"{a.source_title or 'Official page'} - {a.source_url} ({why})."}
-    where = a.where_to_look or (f"{a.source_title or 'Official page'} - {a.source_url}" if a.source_url else qdefault)
-    out = {**base, "status": a.status, "where_to_look": where}
+        w = customer_where("", a.source_title or "the official page", a.source_url, why)
+        return _with_where({**base, "status": status, "source_url": a.source_url}, w)
+    if a.where_to_look:
+        w = customer_where(a.where_to_look, a.source_title, a.source_url)
+    elif a.source_url:
+        w = customer_where("", a.source_title or "the official page", a.source_url)
+    else:
+        w = customer_where(qdefault)
+    out = _with_where({**base, "status": a.status}, w)
     if a.source_url:
         out["source_url"] = a.source_url
     return out
@@ -312,6 +448,7 @@ def build(answers: list[Answer] | None = None, questions: list[Question] | None 
                       for led in LEDGERS},
         "states": states,
         "counts": counts,
+        "journey": journey(),
     }
 
 
