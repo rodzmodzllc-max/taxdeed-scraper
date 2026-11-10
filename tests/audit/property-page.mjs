@@ -136,23 +136,32 @@ for (const [lg, hash] of RECORDS) {
   await full.close();
 
   // ---- Section numbers: one counter over what is on screen ----
-  // Pseudo-element content is not readable as text, so the rule is checked
-  // structurally: exactly the visible first-screen section heads and the
-  // index block titles increment the counter (each once), the head inside a
-  // block is not rendered, and nothing inside the page resets the counter.
+  // The rendered numbers are read from the layout tree (CDP DOMSnapshot: the
+  // generated text of every ::before), so a counter that restarts - every
+  // section "01", as the side panel's style containment once caused - fails.
+  // Structurally: exactly the visible first-screen section heads and index
+  // block titles count, and the head inside a block is not rendered.
   const nums = await clean.evaluate(new Function(`
     const h = ${HOST};
     const incs = el => /(^| )dsec( |$)/.test(getComputedStyle(el, '::before').counterIncrement || '');
     const rendered = el => el.getClientRects().length > 0;
-    const all = [...h.querySelectorAll('*')].filter(el => incs(el));
-    const visible = all.filter(rendered);
+    const visible = [...h.querySelectorAll('*')].filter(el => incs(el) && rendered(el));
     const expected = [...h.querySelectorAll('.detail-section > .detail-section-head, details.detail-fold > summary .detail-more-title')].filter(rendered);
     const innerHeads = [...h.querySelectorAll('details.detail-fold > .detail-section > .detail-section-head')];
-    const resets = [...h.querySelectorAll('*')].filter(el => /(^| )dsec( |$)/.test(getComputedStyle(el).counterReset || ''));
     return { visible: visible.length, expected: expected.length, same: visible.every((el, i) => el === expected[i]),
-      innerHidden: innerHeads.every(el => getComputedStyle(el).display === 'none'), resets: resets.length,
-      hostReset: /(^| )dsec( |$)/.test(getComputedStyle(h).counterReset || '') };`));
-  check(`${lg}-section-numbers-count-only-what-is-on-screen`, nums.visible >= 3 && nums.visible === nums.expected && nums.same && nums.innerHidden && nums.resets === 0 && nums.hostReset, nums);
+      innerHidden: innerHeads.every(el => getComputedStyle(el).display === 'none') };`));
+  const cdp = await clean.context().newCDPSession(clean);
+  const snap = await cdp.send('DOMSnapshot.captureSnapshot', { computedStyles: [] });
+  const d0 = snap.documents[0], S = snap.strings, ptd = d0.nodes.pseudoType || { index: [], value: [] };
+  const pseudo = new Map((ptd.index || []).map((ix, k) => [ix, S[ptd.value[k]]]));
+  const numbers = [];
+  d0.layout.nodeIndex.forEach((ni, k) => {
+    const t = d0.layout.text[k];
+    const isBefore = pseudo.get(ni) === 'before' || pseudo.get(d0.nodes.parentIndex[ni]) === 'before';
+    if (t >= 0 && isBefore && /^[0-9][0-9]$/.test(S[t])) numbers.push(parseInt(S[t], 10));
+  });
+  check(`${lg}-section-numbers-count-only-what-is-on-screen`, nums.visible >= 3 && nums.visible === nums.expected && nums.same && nums.innerHidden, nums);
+  check(`${lg}-section-numbers-consecutive`, numbers.length === nums.visible && numbers.every((n, i) => n === i + 1), numbers);
 
   // ---- Contents jump opens its block and shows it ----
   const target = lg === 'lien' ? 'truth' : 'risk';

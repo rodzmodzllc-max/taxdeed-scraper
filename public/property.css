@@ -110,7 +110,14 @@
 .detail-fold:has(> .detail-section[hidden]){display:none}
 
 /* -- Section numbers: count only what is on screen ------------------------- */
-#detailModalInner,#detailPanel{counter-reset:dsec}
+/* #detailPanel is a size container (identity.css: container-type:inline-size),
+   which implies style containment - a counter-reset on the container itself
+   did not reach the sections inside, so every section read "01". The counter
+   is started on the page's first row instead; its following siblings (every
+   section) inherit it. */
+#detailModalInner,#detailPanel{counter-reset:none}
+#detailModalInner > .detail-topbar,#detailPanel > .detail-topbar,
+#detailModalInner > .detail-crumbs,#detailPanel > .detail-crumbs{counter-reset:dsec}
 #detailModalInner .detail-fold > .detail-fold-summary .detail-more-title::before,
 #detailPanel .detail-fold > .detail-fold-summary .detail-more-title::before{
   counter-increment:dsec;content:counter(dsec,decimal-leading-zero);display:inline-block;min-width:1.7em;margin-right:.45rem;

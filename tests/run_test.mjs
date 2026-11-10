@@ -7454,9 +7454,10 @@ await big.press('#globalSearchInput', 'Enter');
 }
 
 
-// Research group (free tier, 2026-10-25): the property page's research
-// sections sit in ONE "Research" disclosure that starts closed, below How to
-// acquire, and a section-nav jump into it opens it. Nothing is removed.
+// Research index (2026-11-10, replaces the one "Research" group of
+// 2026-10-25): every research section below How to acquire is its own closed
+// block (details.detail-fold) inside div.detail-index, with a one-line
+// summary; a section-nav jump opens the block it lands in. Nothing is removed.
 {
   for (const [tag, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { width: 1280, height: 900 }]]) {
     const pg = await newPage({ viewport: vp });
@@ -7466,11 +7467,12 @@ await big.press('#globalSearchInput', 'Enter');
     await pg.waitForTimeout(600);
     results['researchGroup_' + tag] = await pg.evaluate(() => {
       const host = document.querySelector('#detailModal:not([hidden]) #detailModalInner') || document.getElementById('detailPanel');
-      const g = host && host.querySelector('details.detail-research');
+      const g = host && host.querySelector('.detail-index');
       if (!g) return null;
+      const folds = [...g.querySelectorAll(':scope > details.detail-fold')];
       const inside = [...g.querySelectorAll('[data-section]')].map(x => x.dataset.section);
       const acquire = host.querySelector('[data-section="acquire"]');
-      return { closed: !g.open, title: g.querySelector('.detail-more-title').textContent,
+      return { closed: folds.length > 0 && folds.every(d => !d.open), title: g.querySelector('.detail-index-title').textContent,
         acquireOutside: !!acquire && !g.contains(acquire) && !!(acquire.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING),
         moneyOutside: !g.contains(host.querySelector('[data-section="money"]')),
         holds: ['risk', 'map', 'truth', 'sources', 'provenance'].every(id => inside.includes(id)) };
@@ -7479,7 +7481,7 @@ await big.press('#globalSearchInput', 'Enter');
       const host = document.querySelector('#detailModal:not([hidden]) #detailModalInner') || document.getElementById('detailPanel');
       const b = host && host.querySelector('.detail-nav button[data-target="risk"]');
       if (!b) return null; b.click();
-      return host.querySelector('details.detail-research').open;
+      return host.querySelector('[data-section="risk"]').closest('details.detail-fold').open;
     });
     results['researchGroupJumpOpens_' + tag] = jumped;
     await pg.close();
@@ -7834,8 +7836,8 @@ const EXPECTED = {
   mergedLookPerLedger: {"lands": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}, "auctions": {"look": "merged", "drawn": "tactile", "stage": "tactile", "button": "Merged", "mainHidden": true}, "certificates": {"look": "merged", "drawn": "merged", "stage": "merged", "button": "Merged", "mainHidden": true}, "landsAgain": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}},
   saleStrip_phone: {"head": {"strip": true, "first": true, "inFold": false, "calendarFold": false, "days": 9, "chips": 9, "selected": 1, "scrolls": "auto"}, "pickedSecond": true, "jumped": true, "question": true, "look": true, "price": {"insideCard": true, "insideScreen": true, "inFlow": true}, "noOverflow": true},
   saleStrip_desktop: {"head": {"strip": true, "first": true, "inFold": false, "calendarFold": false, "days": 9, "chips": 9, "selected": 1, "scrolls": "auto"}, "pickedSecond": true, "jumped": true, "question": true, "look": true, "price": {"insideCard": true, "insideScreen": true, "inFlow": true}, "noOverflow": true},
-  researchGroup_phone: { closed: true, title: "Research", acquireOutside: true, moneyOutside: true, holds: true },
-  researchGroup_desktop: { closed: true, title: "Research", acquireOutside: true, moneyOutside: true, holds: true },
+  researchGroup_phone: { closed: true, title: "Research index", acquireOutside: true, moneyOutside: true, holds: true },
+  researchGroup_desktop: { closed: true, title: "Research index", acquireOutside: true, moneyOutside: true, holds: true },
   researchGroupJumpOpens_phone: true,
   researchGroupJumpOpens_desktop: true,
   // Parcel boundaries (2026-10-20, migration 034): fixture geometry only.

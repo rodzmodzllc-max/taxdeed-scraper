@@ -182,12 +182,12 @@ for (const [id, want] of [['r-marion', 'NO SITUS'], ['r-marion-sec', 'SEC 30 TW'
 for (const [label, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { width: 1400, height: 900 }]]) {
   const pg = await open('index.html', '#/lands/p3', vp, null);
   const host = await hostSel(pg);
-  const before = await pg.evaluate(h => { const d = document.querySelector(h + ' details.detail-research'); d.open = true; const sc = document.querySelector(h); sc.scrollTop = 300; return sc.scrollTop; }, host);
+  const before = await pg.evaluate(h => { const d = document.querySelector(h + ' details.detail-fold[data-fold="risk"]'); d.open = true; const sc = document.querySelector(h); sc.scrollTop = 300; return sc.scrollTop; }, host);
   await pg.waitForTimeout(200);
   // Clicked in place (a locator click would first scroll the button into view, moving the panel's own scroll).
   await pg.evaluate(h => document.querySelector(h + ' [data-action="bidlist"]').click(), host);
   await pg.waitForTimeout(900);
-  const st = await pg.evaluate(h => ({ open: !!(document.querySelector(h + ' details.detail-research') || {}).open, top: document.querySelector(h).scrollTop, watched: !!document.querySelector(h + ' [data-action="bidlist"].on, ' + h + ' [data-action="bidlist"][aria-pressed="true"]') }), host);
+  const st = await pg.evaluate(h => ({ open: !!(document.querySelector(h + ' details.detail-fold[data-fold="risk"]') || {}).open, top: document.querySelector(h).scrollTop, watched: !!document.querySelector(h + ' [data-action="bidlist"].on, ' + h + ' [data-action="bidlist"][aria-pressed="true"]') }), host);
   check('f92ResearchStaysOpen_' + label, st.open === true, st);
   if (before > 0) check('f92ScrollKept_' + label, st.top > 0, { before, st }); else console.log('SKIP f92ScrollKept_' + label + ' (surface is not its own scroll box)');
   await pg.context().close();
