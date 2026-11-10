@@ -83,16 +83,22 @@
      Touch screens never get it (no sticky hover after a tap). */
   @media (hover:hover) and (pointer:fine){
     .prop-card,
+    .cert-card,
     .home-ledger-card{
       transition:background-color var(--dur-quick,160ms) var(--ease-std,cubic-bezier(.2,0,0,1)),
         transform var(--dur-quick,160ms) var(--ease-out,cubic-bezier(0,0,.2,1)),
         box-shadow var(--dur-quick,160ms) var(--ease-out,cubic-bezier(0,0,.2,1)),
         border-color var(--dur-quick,160ms) var(--ease-std,cubic-bezier(.2,0,0,1));
     }
+    /* identity.css pins the editorial rows flat with transform:none!important
+       / box-shadow:none!important; :hover outranks that rule on specificity,
+       so the lift applies only while the pointer is on the row. */
     .prop-card:hover,
-    .home-ledger-card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(32,41,37,.10)}
+    .cert-card:hover,
+    .home-ledger-card:hover{transform:translateY(-2px)!important;box-shadow:0 6px 18px rgba(32,41,37,.10)!important}
     .prop-card:active,
-    .home-ledger-card:active{transform:translateY(0);transition-duration:var(--dur-press,90ms)}
+    .cert-card:active,
+    .home-ledger-card:active{transform:translateY(0)!important;transition-duration:var(--dur-press,90ms)}
   }
 
   /* ---- 7. Accordions: content fade, and height on open -------------------
