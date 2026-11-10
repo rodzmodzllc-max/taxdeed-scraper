@@ -12845,15 +12845,12 @@ function applyLedgerChrome() {
   }
   buildSourceFilterOptions();
 
-  // The CSV export is the same file either way - only the label changes, so
-  // it reads as "the thing this ledger's desk actually wants" rather than a
-  // generic download button repeated three times.
+  // One label for every ledger (2026-11-10, UI audit): the export is the
+  // list on screen in every ledger, so the button says exactly that. The
+  // per-ledger names ("Auction Sheet", "OTC List") read as different files.
+  // The arrow is decorative; the accessible name is "Export list (CSV)".
   const exportBtn = document.getElementById("exportCsvBtn");
-  if (exportBtn) {
-    exportBtn.textContent = key === "auction" ? "⬇ Export to Auction Sheet"
-      : key === "certificate" ? "⬇ Export Certificates (CSV)"
-      : "⬇ Export OTC List (CSV)";
-  }
+  if (exportBtn) exportBtn.innerHTML = '<span aria-hidden="true">⬇</span> Export list (CSV)';
 }
 
 function setLedger(key, opts) {
@@ -15410,6 +15407,9 @@ function selectProperty(p) {
   document.querySelectorAll("#main .prop-card[data-pid]").forEach(c => {
     c.classList.toggle("selected", String(c.dataset.pid) === String(p.id));
   });
+  // The looks (experience-*.js) draw their own cards; they follow the
+  // selection through this event and experienceApi().selectedId().
+  try { document.dispatchEvent(new CustomEvent("tdw:propertyselected", { detail: { pid: String(p.id) } })); } catch { /* old browser */ }
 }
 
 // Same defensive no-op pattern as refreshOpenDetail() for the modal: called
@@ -17226,7 +17226,14 @@ function experienceApi() {
     unitWord: () => UNIT_WORD,
     // The unit's display name: an independent city is never "<city> County" (audit F35).
     unitLabel: c => unitLabelOf(c),
-    ledgerTitle: k => (ledgerCopy(k) || {}).title || k
+    ledgerTitle: k => (ledgerCopy(k) || {}).title || k,
+    // Selection contract (2026-11-10): a look marks the record open in the
+    // desktop side panel without reaching into app.js. selectedId() reads the
+    // current selection; selectProperty(p) opens one in the panel (openDetail
+    // already picks the panel or the modal by width). Every selection also
+    // dispatches "tdw:propertyselected" { pid } on document.
+    selectProperty,
+    selectedId: () => (selectedPid == null ? null : String(selectedPid))
   };
   return XP_API;
 }
