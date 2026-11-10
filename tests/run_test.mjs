@@ -146,6 +146,11 @@ async function newPage(opts) {
 async function clickLedger(pg, key) {
   const rail = pg.locator(`.nav-ledger[data-nav-ledger="${key}"]`);
   if (await rail.first().isVisible().catch(() => false)) return rail.first().click();
+  // Below 1024px the phone bar is the ledger switch and #ledgerTabs is hidden
+  // (html.has-bottombar, 2026-11-09). A tap on the bar's entry for the ledger
+  // already open keeps the reader's place, exactly as the tab did.
+  const bar = pg.locator(`#navBottom .nav-bottom-ledger[data-nav-ledger="${key}"]`);
+  if (await bar.first().isVisible().catch(() => false)) return bar.first().click();
   return pg.click(`.ledger-tab[data-ledger="${key}"]`);
 }
 // Header revision (2026-10-25): Export and Table live inside Filters; the
@@ -2221,7 +2226,7 @@ await evPage3.close();
 // --- Dashboard: dataset health (five stub rows, one per derived state)
 // and the watchlist change signals (first visit in a fresh browser). ---
 const dashPage = await newPage({ viewport: { width: 1200, height: 900 } });
-await dashPage.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+await dashPage.goto(BASE_URL + '?profile=admin#/auctions', { waitUntil: 'networkidle' });
 await dashPage.waitForTimeout(500);
 await dashPage.click('#hdrHomeBtn');
 await dashPage.waitForTimeout(200);
@@ -2249,7 +2254,15 @@ results.dashUnitEmptyGroups = await dashPage.locator('#dashUnitRows .unit-empty'
 results.dashLedgerPanelRemoved = (await dashPage.locator('#dashLedgerRows').count()) === 0;
 // Remediation (2026-10-10): the ledger totals - and the withheld count - are
 // shown once, on the Home ledger cards; the operating view's tiles are gone.
-results.dashWithheldShownOnce = ((await dashPage.locator('#homeLedgers').textContent()) || '').includes('1 withheld') && (await dashPage.locator('#dashStats').count()) === 0;
+// dashPage reads the operating view, which is admin-only (2026-11-09); the
+// withheld count is a customer's figure, read on a customer page.
+{
+  const custHome = await newPage({ viewport: { width: 1200, height: 900 } });
+  await custHome.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+  await custHome.waitForTimeout(500);
+  results.dashWithheldShownOnce = ((await custHome.locator('#homeLedgers').textContent()) || '').includes('1 withheld') && (await custHome.locator('#dashStats').count()) === 0;
+  await custHome.close();
+}
 results.dashUnitBayUnavailable = await dashPage.locator('#dashUnitRows .unit-row[data-county="Bay"]').getAttribute('data-unavailable');
 // Unified navigation (2026-09-30): exactly four destinations - Dashboard,
 // List, Map, Watchlist - in the rail and the bottom bar, no per-ledger
@@ -2325,7 +2338,7 @@ results.relatedOpenLandsOnAuctionRow = ((await dashPage.locator(`${detailScope} 
 results.auctionDetailRelated = await dashPage.locator(`${detailScope} .related-record`).evaluateAll(els => els.map(e => e.dataset.source + ':' + e.dataset.pid));
 await dashPage.close();
 const noHealthPage = await newPage({ viewport: { width: 1200, height: 900 } });
-await noHealthPage.goto(BASE_URL + '?health=none' + '#/auctions', { waitUntil: 'networkidle' });
+await noHealthPage.goto(BASE_URL + '?health=none&profile=admin' + '#/auctions', { waitUntil: 'networkidle' });
 await noHealthPage.waitForTimeout(500);
 await noHealthPage.click('#hdrHomeBtn');
 await noHealthPage.waitForTimeout(200);
@@ -2333,7 +2346,7 @@ results.dashHealthMissingTable = ((await noHealthPage.locator('#dashSourceRows')
 results.dashHealthMissingTableNoBadges = await noHealthPage.locator('#dashSourceRows .health-badge').count();
 await noHealthPage.close();
 const noRegPage = await newPage({ viewport: { width: 1200, height: 900 } });
-await noRegPage.goto(BASE_URL + '?registry=none' + '#/auctions', { waitUntil: 'networkidle' });
+await noRegPage.goto(BASE_URL + '?registry=none&profile=admin' + '#/auctions', { waitUntil: 'networkidle' });
 await noRegPage.waitForTimeout(500);
 await noRegPage.click('#hdrHomeBtn');
 await noRegPage.waitForTimeout(200);
@@ -4431,7 +4444,7 @@ await navMap.close();
     const sp = await newPage({ viewport: { width: 1280, height: 900 } });
     await sp.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
     await sp.waitForTimeout(300);
-    await sp.click('#homeStatesCard'); // Remediation: the header States button is gone; the Home states card opens the same sheet
+    await sp.click('#homeAllStates'); // Remediation: the header States button is gone; the Home states card opens the same sheet
     await sp.waitForSelector('#coverageExplorer .cov-list li', { timeout: 5000 });
     results.coverageExplorer = await sp.evaluate(() => {
       const ex = document.getElementById('coverageExplorer');
@@ -5926,7 +5939,7 @@ await navMap.close();
     results.rdHome = {
       title: await txt(pg, '.home-title'),
       cards: await pg.locator('#homeLedgers [data-home-ledger]').evaluateAll(els => els.map(e => e.dataset.homeLedger + ':' + e.querySelector('.home-ledger-count').textContent)),
-      statesCard: await pg.locator('#homeStatesCard').count(),
+      statesCard: await pg.locator('#homeAllStates').count(),
       recentHasFirstSeen: await pg.locator('#homeRecent .home-recent-when').evaluateAll(els => els.length > 0 && els.every(e => /^First observed /.test(e.textContent))),
       noScoreWords: await pg.locator('#homeHero, #homeLedgers, #homeRecentSection').evaluateAll(els => els.every(e => !/\b(score|ranking|recommend|AI)\b/i.test(e.textContent)))
     };
@@ -6022,10 +6035,10 @@ await navMap.close();
     // there and an admin does).
     const picker = async (qs) => {
       const p2 = await open(qs, '#/dashboard');
-      await p2.click('#homeStatesCard');
+      await p2.click('#homeAllStates');
       await p2.waitForFunction(() => !document.querySelector('#statePickerBody .ledger-badge.pending'), null, { timeout: 8000 }).catch(() => {});
       const rows = await p2.locator('#statePickerBody .state-row').evaluateAll(els => els.map(e => e.dataset.stateRow + '=' +
-        Array.from(e.querySelectorAll('.ledger-badge')).map(b => b.dataset.ledger).join('|') + (e.querySelector('.state-row-none') ? '!' + (e.querySelector('.state-row-none').textContent.startsWith('No properties') ? 'none' : 'unchecked') : '')));
+        Array.from(e.querySelectorAll('.ledger-badge')).map(b => b.dataset.ledger).join('|') + (e.querySelector('.state-row-none') ? '!' + (e.querySelector('.state-row-none').textContent.startsWith('No listings') ? 'none' : 'unchecked') : '')));
       const groups = await p2.locator('#statePickerBody .state-group-head').allTextContents();
       return { p2, rows, groups };
     };
@@ -6362,7 +6375,7 @@ await navList.close();
 // that ledger), attention / recent / verified-path panels - counts only,
 // "Not tracked" where the data holds none.
 const navDash = await newPage({ viewport: { width: 1200, height: 900 } });
-await navDash.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+await navDash.goto(BASE_URL + '?profile=admin#/dashboard', { waitUntil: 'networkidle' });
 await navDash.waitForTimeout(500);
 results.navDashDeepVisible = await navDash.locator('#pageDashboard').evaluate(el => !el.hidden);
 // Remediation (2026-10-10): one place for the ledger totals - the Home
@@ -6595,7 +6608,7 @@ results.monNoneRuns = await monNone.locator('#dashRunsUnavailable').count();
 await monNone.close();
 // 11. Dashboard: latest change-detection run per source.
 const monDash = await newPage({ viewport: { width: 1200, height: 900 } });
-await monDash.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+await monDash.goto(BASE_URL + '?profile=admin#/dashboard', { waitUntil: 'networkidle' });
 await monDash.waitForTimeout(700);
 results.monDashRuns = await monDash.locator('#dashRunRows .run-row').evaluateAll(els => els.map(e => e.dataset.source + ':' + Array.from(e.querySelectorAll('.dash-row-vals span')).map(x => x.textContent.trim()).join(' / ')));
 await monDash.close();
@@ -7518,10 +7531,13 @@ await big.press('#globalSearchInput', 'Enter');
     await pg.waitForTimeout(150);
     const question = await inView('.ib.open > .ib-pop');
     await pg.keyboard.press('Escape');
-    await pg.click('#lookBtn');
+    // Below 768px the Look choice lives in the account menu (2026-11-09);
+    // wider, it is the header's own Look menu. Either must open on screen.
+    const lookInHeader = await pg.locator('#lookBtn').isVisible();
+    await pg.click(lookInHeader ? '#lookBtn' : '#accountBtn');
     await pg.waitForTimeout(150);
-    const look = await inView('#lookMenu');
-    await pg.click('#lookBtn');
+    const look = await inView(lookInHeader ? '#lookMenu' : '#lookMenuInAccount');
+    await pg.click(lookInHeader ? '#lookBtn' : '#accountBtn');
     await pg.evaluate(() => { location.hash = '#/lands'; });
     await pg.waitForTimeout(700);
     const pb = pg.locator('#main .card-price-info .ib-btn').first();
@@ -7996,7 +8012,7 @@ const EXPECTED = {
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
-  brandTxContext: { title: "OTC Catalog — Struck-Off Inventory · TAXACQ — Texas", ledgerTab: "laft", hash: "#/lands" },
+  brandTxContext: { title: "Available — Struck-off property · TAXACQ — Texas", ledgerTab: "laft", hash: "#/lands" },
   brandStateSwitch: { file: "wy.html", hash: "#/lands", state: "WY" },
   brandEmptyState: { says: true, neverUnsupported: true, stillListed: true, selected: "WI" },
 
@@ -8388,11 +8404,11 @@ const EXPECTED = {
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
   rdCardAcq: [],  // the acquisition badge left the card face; the path is on the property page
-  rdPicker: {"rows": ["CO=certificate", "FL=auction|laft|certificate", "LA=laft", "MI=auction", "MN=!none", "MO=!none", "OK=!none", "PA=!none", "SC=auction", "TN=!none", "TX=auction|laft", "WI=!none", "WY=auction"], "groups": ["States with Available properties", "Other states", "Coverage in Florida"], "visible": true, "coHref": "co.html#/certificates", "flCounts": ["Auctions 9", "Available 2", "Liens & Certificates 1"]},
+  rdPicker: {"rows": ["CO=certificate", "FL=laft|auction|certificate", "LA=laft", "MI=auction", "MN=!none", "MO=!none", "OK=!none", "PA=!none", "SC=auction", "TN=!none", "TX=laft|auction", "WI=!none", "WY=auction"], "groups": ["States with Available properties", "Other states", "Coverage in Florida"], "visible": true, "coHref": "co.html#/certificates", "flCounts": ["Available 2", "Auctions 9", "Liens & Certificates 1"]},
   rdPickerSearch: ["WY"],
   rdPickerEscape: true,
-  rdPickerAdminMI: "MI=auction|laft",
-  rdPickerProbeFail: "WY=auction|laft|certificate!unchecked",
+  rdPickerAdminMI: "MI=laft|auction",
+  rdPickerProbeFail: "WY=laft|auction|certificate!unchecked",
   rdPhoneBottom: ["Available2", "Auctions9", "Liens1", "Map"],
   rdPhoneAccount: true,
   rdPhoneSearchVisible: false,   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
@@ -8545,14 +8561,14 @@ const EXPECTED = {
   navListRouteVisible: true,
   navListRouteHash: "#/lands",
   navDashDeepVisible: true,
-  navDashTiles: ['laft:2', 'auction:9', 'certificate:1'],
+  navDashTiles: ['laft:3', 'auction:9', 'certificate:1'],   // read as an admin (operating view is admin-only since 2026-11-09): the source-review row p13 counts
   navDashNoTiles: true,
   navDashNoValueTile: true,
   // Fixture p15 was last read 2026-09-20: from 2026-10-05 on it is permanently
   // outside the 14-day window, so it is not "read recently" and counts as stale.
-  navDashAttention: ['soon:4 properties · 4 sale dates', 'watched-gone:None', 'stale:2 of 2', 'sources:1 unavailable at the last read · 1 update unsuccessful; retry pending'],
+  navDashAttention: ['soon:4 properties · 4 sale dates', 'watched-gone:None', 'stale:3 of 3 · 1 never read by a lifecycle run', 'sources:1 unavailable at the last read · 1 update unsuccessful; retry pending'],
   navDashRecentPanelRemoved: true,
-  navDashPaths: ["verified:2 of 2", "phone_mail:1", "county_instructions:1", "unverified:0"],   // the Florida fixture rows both carry a verified path
+  navDashPaths: ["verified:2 of 3", "phone_mail:1", "county_instructions:1", "unverified:1"],   // admin view: p13 has no verified path   // the Florida fixture rows both carry a verified path
   navDashNoScoreWords: true,
   navDashSubtitle: 'What needs attention, verified acquisition paths, source freshness and your watchlist - counts over the records loaded for this state.',
   navDashTileOpensList: true,

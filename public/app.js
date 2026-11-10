@@ -1257,11 +1257,17 @@ const LEDGERS = {
     title: "Auctions",
     nav: "Auctions",
     sub: "Property in a county tax deed sale: scheduled sales as last harvested from the county's auction site.",
+    // Home ledger strip (2026-11-09): one short line, never clamped mid-word.
+    // homeLine is state-neutral (expansion states inherit it); homeLineFL is
+    // Florida's own wording.
+    homeLine: "Scheduled tax sales, open to bidding.",
+    homeLineFL: "County tax deed sales with a scheduled date - you bid.",
     how: "You bid against other buyers on the county's own auction site. The figure shown is the opening bid, not the final price.",
     empty: "No auctions match. Auctions appear here once a county schedules a sale date - try clearing filters, or check Lands Available for property that failed to sell at auction.",
     tx: {
-      title: "Event Terminal — Sheriff/Constable Sales",
+      title: "Auctions — Sheriff/Constable sales",
       sub: "Open to competitive bidding at a county Sheriff's or Constable's sale.",
+      homeLine: "Sheriff's and Constable's sales, open to bidding.",
       // Audit F72 (2026-11-03): rows come from several vendor listings (LGBS,
       // PBFCM, MVBA, GovEase), county RealAuction sheriff-sale sites and
       // county tax-office lists (Harris, Jefferson) - the ledger names no
@@ -1274,6 +1280,7 @@ const LEDGERS = {
     },
     la: {
       sub: "No Louisiana auction source is tracked.",
+      homeLine: "No Louisiana auction source is tracked.",
       how: "Louisiana tax sales are not harvested by this app.",
       empty: "No Louisiana auctions are tracked. Louisiana coverage is one parish's adjudicated-property list (see Available)."
     }
@@ -1284,11 +1291,14 @@ const LEDGERS = {
     title: "Available",
     nav: "Available",
     question: "What can I acquire now?",
+    homeLine: "Property offered outside an auction, as each source lists it.",
+    homeLineFL: "Lands Available for Taxes - bought over the counter, no bidding.",
     sub: "Property purchasable after a sale: Florida's Lands Available for Taxes list. Failed to sell at auction; bought over the counter from the Clerk - no bidding, no sale date. The listed opening bid is not the price to buy now: the Clerk adds later years' taxes, interest and fees.",
     how: "No auction and no competition - first come, first served from the clerk. The figure shown is the opening bid, not the price: statute adds interest, later years' taxes, documentary stamps and recording fees, and the clerk's statement gives the amount due.",
     empty: "No Lands Available listings match. This list is small by nature - a county only adds a parcel here after it fails to sell at auction, and it leaves again as soon as someone buys it.",
     tx: {
-      title: "OTC Catalog — Struck-Off Inventory",
+      title: "Available — Struck-off property",
+      homeLine: "Struck off at a sale and held by the taxing unit.",
       sub: "Failed to sell at auction; the taxing unit now holds it. Whether and how the unit resells it is set per taxing unit (Tex. Tax Code 34.05 - not verified against the statute's text): a struck-off listing is not automatically for sale, and not at a fixed price. Whether, and how long, the former owner can still redeem is Texas law that TAXACQ has not verified - see State rules.",
       // Audit F72: rows come from vendor listings (LGBS, PBFCM, MVBA) and the
       // counties' own trust / resale lists (Bexar, Montgomery, Orange,
@@ -1302,6 +1312,7 @@ const LEDGERS = {
     // Parish's own rows-updated date, never as available now.
     la: {
       title: "Available — Adjudicated Property",
+      homeLine: "Adjudicated property on the Parish's dated list.",
       sub: "Property adjudicated to East Baton Rouge Parish after no one bought it at the tax sale, from the Parish's open-data list. Each row shows the date the Parish last updated the list - it is not a statement that the property is available now.",
       how: "The list publishes no price. Under the Parish's process you make an offer (the price is negotiated) and pay the Parish's advanced costs separately - see each property's acquisition section. Confirm the property's current status with the Parish before acting.",
       empty: "No adjudicated properties match. Louisiana coverage is one parish (East Baton Rouge)."
@@ -1313,12 +1324,15 @@ const LEDGERS = {
     title: "Liens & Certificates",
     nav: "Liens & Certificates",
     question: "What tax lien or certificate am I buying?",
+    homeLine: "Tax liens and certificates - a claim on the property, not the land.",
+    homeLineFL: "County-held tax certificates, bought by assignment - a lien, not the land.",
     sub: "The lien instrument itself, never the land: county-held tax certificates available for purchase by assignment - a debt secured by the property, not the property.",
     how: "You are buying the lien, not the land. It earns interest until the owner redeems it; only if nobody redeems can you apply for a deed.",
     empty: "No certificates match. Certificates are county-held liens - the list moves as owners redeem them.",
     tx: {
       title: "Redeemable Tax Deeds",
       nav: "Redeemable Deeds",
+      homeLine: "Deeds still open to the former owner's redemption.",
       question: "What redeemable deed am I looking at?",
       sub: "A deed you already own, still subject to the former owner's right to redeem it for a premium under Texas law (Tex. Tax Code §34.21 - not verified against the statute's text here).",
       how: "Not a lien purchase - you own the deed. Not verified against the statute's text: the former owner can redeem within 180 days (25% flat premium) or 2 years for homestead/agricultural/mineral property (25% year 1, 50% year 2), on the aggregate cost, not the bid alone. General summary for orientation only - this app does not track redemption status or deadlines; confirm terms with a Texas attorney.",
@@ -1327,6 +1341,7 @@ const LEDGERS = {
     },
     la: {
       sub: "No Louisiana lien or certificate source is tracked.",
+      homeLine: "No Louisiana lien or certificate source is tracked.",
       how: "Louisiana tax-sale certificates are not harvested by this app.",
       empty: "No Louisiana liens or certificates are tracked."
     }
@@ -1809,6 +1824,64 @@ function showErrorToast(msg) {
   el.classList.add("show");
   clearTimeout(errToastTimer);
   errToastTimer = setTimeout(hideErrorToast, 5000);
+}
+// One toast for everything (2026-11-09): showToast(msg, {tone, action}) -
+// tone "ok" / "bad" / "info", an optional action button ({label, run}) such
+// as Undo. Function declarations (hoisted): write actions can fire before the
+// script reaches this point.
+function showToast(msg, opts) {
+  const o = opts || {};
+  let host = document.getElementById("tdwToastHost");
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "tdwToastHost"; host.className = "tdw-toast-host";
+    host.setAttribute("aria-live", "polite");
+    document.body.appendChild(host);
+  }
+  const t = document.createElement("div");
+  t.className = "tdw-toast";
+  t.dataset.tone = o.tone || "info";
+  if (o.tone === "bad") t.setAttribute("role", "alert"); else t.setAttribute("role", "status");
+  const m = document.createElement("span");
+  m.className = "tdw-toast-msg"; m.textContent = msg;
+  t.appendChild(m);
+  let timer = null;
+  const close = () => { clearTimeout(timer); t.remove(); };
+  if (o.action && o.action.label) {
+    const a = document.createElement("button");
+    a.type = "button"; a.className = "tdw-toast-action"; a.textContent = o.action.label;
+    a.addEventListener("click", () => { close(); try { o.action.run(); } catch { /* the action reports its own errors */ } });
+    t.appendChild(a);
+  }
+  const x = document.createElement("button");
+  x.type = "button"; x.className = "tdw-toast-x"; x.setAttribute("aria-label", "Dismiss"); x.textContent = "×";
+  x.addEventListener("click", close);
+  t.appendChild(x);
+  host.appendChild(t);
+  while (host.children.length > 3) host.firstChild.remove();
+  timer = setTimeout(close, o.action ? 8000 : 4000);
+  return t;
+}
+// A branded confirm dialog in place of window.confirm(): resolves true on the
+// confirm button, false on Cancel / Escape / a click outside.
+function tdwConfirm(opts) {
+  const o = typeof opts === "string" ? { message: opts } : (opts || {});
+  return new Promise(resolve => {
+    const prev = document.activeElement;
+    const wrap = document.createElement("div");
+    wrap.className = "tdw-confirm";
+    wrap.innerHTML = `<div class="tdw-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="tdwConfirmTitle" aria-describedby="tdwConfirmMsg">
+      <h2 id="tdwConfirmTitle">${esc(o.title || "Are you sure?")}</h2><p id="tdwConfirmMsg">${esc(o.message || "")}</p>
+      <div class="tdw-confirm-actions"><button type="button" class="tdw-confirm-cancel">${esc(o.cancel || "Cancel")}</button><button type="button" class="tdw-confirm-ok${o.danger ? " danger" : ""}">${esc(o.ok || "Confirm")}</button></div></div>`;
+    document.body.appendChild(wrap);
+    const done = v => { document.removeEventListener("keydown", onKey, true); wrap.remove(); try { if (prev && prev.focus) prev.focus(); } catch { /* gone */ } resolve(v); };
+    const onKey = e => { if (e.key === "Escape") { e.stopPropagation(); done(false); } };
+    document.addEventListener("keydown", onKey, true);
+    wrap.addEventListener("click", e => { if (e.target === wrap) done(false); });
+    wrap.querySelector(".tdw-confirm-cancel").addEventListener("click", () => done(false));
+    wrap.querySelector(".tdw-confirm-ok").addEventListener("click", () => done(true));
+    wrap.querySelector(".tdw-confirm-cancel").focus();
+  });
 }
 function hideErrorToast() {
   const el = document.getElementById("errToast");
@@ -7259,17 +7332,20 @@ function countyLadderHtml(rs) {
     <p class="cty-note">Each step is a statement about the records this app holds for the county - not a rating of the county or of any property in it.</p>
   </div>`;
 }
+// A source name's short head, with anything after it (a field inventory, a
+// platform in brackets) kept in <small> - folded, never dropped.
+function countySourceNameHtml(name) {
+  const n = String(name || "");
+  const m = n.match(/^(.{6,}?)(\s+\(.+\)|\s+[-–—]\s+.+|:\s+.+)$/);
+  return m ? `${esc(m[1])} <small class="cty-src-more">${esc(m[2].replace(/^\s*[-–—:]\s*/, "").trim())}</small>` : esc(n);
+}
 function countySourceLineHtml(x, seeAll) {
-  const review = !x.customer_approved;
   const name = dossierSourceName(x);
-  const link = x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(name)} →</a>` : esc(name);
-  const pub = x.publisher && SOURCE_AUTHORITY_LABELS[x.publisher] ? `Published by ${SOURCE_AUTHORITY_LABELS[x.publisher]}` : "Publisher not recorded";
-  const status = x.customer_approved ? "Approved for customer publication" : "Awaiting publication review";
-  const read = x.unit && x.unit.last_success_at ? `Last complete read ${relativeTime(x.unit.last_success_at)}` : "No complete read recorded";
+  const label = countySourceNameHtml(name);
+  const link = x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener" title="${esc(name)}">${label} →</a>` : label;
+  void seeAll;
   return `<li class="cty-src" data-source="${esc(x.source_id)}" data-ledger="${esc(x.ledger)}">
-    <div class="cty-src-name">${link}${x.production ? "" : ' <span class="muted">(research page - not harvested)</span>'}</div>
-    <div class="cty-src-meta">${esc(pub)} · ${esc(status)}${x.production ? ` · ${esc(read)}` : ""}</div>
-    ${x.production ? `<div class="cty-src-health">${sourceHealthChipHtml(x.unit, { review })}</div>` : ""}
+    <span class="cty-src-name">${link}${x.production ? "" : ' <span class="muted">(research page - not harvested)</span>'}</span>
   </li>`;
 }
 function countyMoneyRange(rows) {
@@ -7340,7 +7416,7 @@ function countyAvailableHtml(c, st, sources, rows, seeAll) {
   return `<section class="cty-section" data-county-section="available"><h3><span class="cty-dot" data-ledger="laft"></span>${esc(ledgerNavName("laft"))} <span class="cty-q">${esc(LEDGERS.laft.question || "")}</span></h3>
     ${countyKv([["On file now", `<b>${nAll.toLocaleString("en-US")}</b>${LEDGER_LOAD.laft === "loading" || LEDGER_LOAD.laft === "partial" ? ' <span class="muted">(still loading)</span>' : ""}`]].concat(amountRows))}
     ${countyRecordsHtml(live.slice().sort((a, b) => String(a.case_no || "").localeCompare(String(b.case_no || ""))), "laft", "Properties on file")}
-    ${srcs.length ? `<ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : `<p class="muted">No Available source is recorded for this ${esc(UNIT_WORD.toLowerCase())}. That is not a statement that nothing can be acquired here.</p>`}
+    ${srcs.length ? `<h4>Sources</h4><ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul><p class="cty-sub">Publisher, publication status, last read and health: see Source truth below.</p>` : `<p class="muted">No Available source is recorded for this ${esc(UNIT_WORD.toLowerCase())}. That is not a statement that nothing can be acquired here.</p>`}
     ${unitHtml}
     ${nAll ? `<div class="cty-actions"><button type="button" class="link-btn" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="laft">Open in the List (${nAll.toLocaleString("en-US")}) →</button> <button type="button" class="link-btn" data-action="countymap" data-county="${esc(c.county)}" data-ledger="laft">Show on the Map →</button></div>` : ""}
   </section>`;
@@ -7396,7 +7472,7 @@ function countyAuctionsHtml(c, st, sources, rows, seeAll) {
     ${dates ? `<h4>Sale calendar</h4><ul class="cty-sales">${dates}</ul>` : ""}
     ${countyRecordsHtml(upcoming, "auction", "Upcoming sales on file")}
     <h4>Historical results</h4>${outcomeHtml}
-    ${srcs.length ? `<ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : `<p class="muted">No auction source is recorded for this ${esc(UNIT_WORD.toLowerCase())}.</p>`}
+    ${srcs.length ? `<h4>Sources</h4><ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : `<p class="muted">No auction source is recorded for this ${esc(UNIT_WORD.toLowerCase())}.</p>`}
     ${live.length ? `<div class="cty-actions"><button type="button" class="link-btn" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="auction">Open in the List (${live.length.toLocaleString("en-US")}) →</button></div>` : ""}
   </section>`;
 }
@@ -7417,7 +7493,7 @@ function countyLiensHtml(c, st, sources, rows, seeAll) {
   return `<section class="cty-section" data-county-section="liens"><h3><span class="cty-dot" data-ledger="certificate"></span>${esc(ledgerNavName("certificate"))} <span class="cty-q">${esc(LEDGERS.certificate.question || "")}</span></h3>
     ${countyKv(kv)}
     ${countyRecordsHtml(live.slice().sort((a, b) => String(a.expiration_date || "9").localeCompare(String(b.expiration_date || "9"))), "certificate", "Certificates on file")}
-    ${srcs.length ? `<ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : ""}
+    ${srcs.length ? `<h4>Sources</h4><ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : ""}
     ${live.length ? `<div class="cty-actions"><button type="button" class="link-btn" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="certificate">Open in the List (${live.length.toLocaleString("en-US")}) →</button></div>` : ""}
   </section>`;
 }
@@ -7428,7 +7504,7 @@ function countyPropertyIntelHtml(rows) {
   const cnt = fn => r.filter(fn).length;
   const coord = r.map(p => coordinateProvenance(p));
   const fp = p => p.field_provenance && typeof p.field_provenance === "object" ? p.field_provenance : {};
-  const line = (k, n, note) => [k, `<b>${n.toLocaleString("en-US")}</b> of ${N.toLocaleString("en-US")}${note ? ` <span class="kv-sub">${esc(note)}</span>` : ""}`, `data-count="${n}"`];
+  const line = (k, n, note) => [k, `<span class="cty-bar" style="--p:${Math.round((n / N) * 100)}%" aria-hidden="true"></span><b>${n.toLocaleString("en-US")}</b> of ${N.toLocaleString("en-US")}${note ? ` <span class="kv-sub">${esc(note)}</span>` : ""}`, `data-count="${n}"`];
   return `<section class="cty-section" data-county-section="property"><h3>Property intelligence</h3>
     ${countyKv([
       line("Parcel / account identifier", cnt(hasParcel)),
@@ -7451,7 +7527,7 @@ function countyTruthHtml(c, st, sources, seeAll) {
   const hidden = sources.filter(x => !(seeAll || x.customer_approved || x.fromRows)).length;
   const rowsHtml = shown.map(x => {
     const h = sourceHealthText(x.unit, { review: !x.customer_approved });
-    return `<tr data-source="${esc(x.source_id)}"><td>${esc(ledgerNavName(x.ledger))}</td><td>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(dossierSourceName(x))} →</a>` : esc(dossierSourceName(x))}</td>
+    return `<tr data-source="${esc(x.source_id)}"><td>${esc(ledgerNavName(x.ledger))}</td><td>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${countySourceNameHtml(dossierSourceName(x))} →</a>` : countySourceNameHtml(dossierSourceName(x))}</td>
       <td>${esc(x.publisher && SOURCE_AUTHORITY_LABELS[x.publisher] ? SOURCE_AUTHORITY_LABELS[x.publisher] : "Not recorded")}</td>
       <td>${esc(x.customer_approved ? "Approved" : (SOURCE_REVIEW_LABELS[x.publication] || "Awaiting review"))}</td>
       <td>${x.production ? (x.unit && x.unit.last_success_at ? esc(relativeTime(x.unit.last_success_at)) : '<span class="muted">Not recorded</span>') : '<span class="muted">Not harvested</span>'}</td>
@@ -7511,7 +7587,6 @@ function countyPageHtml(c, st) {
   return `<article class="cty" data-county="${esc(c.county)}" data-state="${esc(st)}">
     <nav class="cty-crumbs" aria-label="Breadcrumb"><button type="button" class="link-btn" data-action="countyindex">County Intelligence</button> / <span>${esc(stName)}</span></nav>
     <header class="cty-head">
-      <p class="cty-kicker">${esc(stName)} · County Intelligence</p>
       <h2 class="cty-title">${esc(unitLabelOf(c.county))}</h2>
       <p class="cty-lede">What this app knows before you buy tax-sale or government-held property here - and what it does not. <button type="button" class="link-btn" data-action="buyersguide" data-county="${esc(c.county)}">Buyer's guide for ${esc(unitLabelOf(c.county))} →</button></p>
       <div class="cty-ledger-strip">${["laft", "auction", "certificate"].map(k => `<button type="button" class="cty-ledger-count" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="${k}" ${counts[k] ? "" : "disabled"}><span class="cty-dot" data-ledger="${k}"></span>${esc(ledgerNavName(k))} <b>${counts[k].toLocaleString("en-US")}</b></button>`).join("")}</div>
@@ -7550,8 +7625,8 @@ function countyIndexHtml(doc, st) {
     return `<li class="cty-row" data-county-row="${esc(name)}" data-reached="${esc(rs.reached || "NONE")}">
       <button type="button" class="cty-row-btn" data-action="countypage" data-county="${esc(name)}">
         <span class="cty-row-name">${esc(name)}</span>
-        <span class="cty-row-status">${esc(countyResearchLabel(rs.reached))}${unavailable ? ' · <span class="warn">source unavailable</span>' : ""}</span>
-        <span class="cty-row-counts"><span data-ledger="laft">${n("laft")}</span><span data-ledger="auction">${n("auction")}</span><span data-ledger="certificate">${n("certificate")}</span></span>
+        <span class="cty-row-status"><span class="cty-status-chip" data-reached="${esc(rs.reached || "NONE")}">${esc(countyResearchLabel(rs.reached))}</span>${unavailable ? ' <span class="cty-status-chip warn">Source unavailable</span>' : ""}</span>
+        <span class="cty-row-counts">${["laft", "auction", "certificate"].map(k => `<span data-ledger="${k}" class="${n(k) ? "" : "is-zero"}" aria-label="${n(k)} ${esc(ledgerNavName(k))}">${n(k)}</span>`).join("")}</span>
         <span class="cty-row-next">${next ? `Next sale ${esc(fmtDate(next))}` : ""}</span>
       </button></li>`;
   }).join("");
@@ -7561,7 +7636,7 @@ function countyIndexHtml(doc, st) {
       <p class="cty-lede">Research a ${esc(UNIT_WORD.toLowerCase())} before you buy: its Available inventory and acquisition process, its auctions and their results, its liens and certificates, and what is still unknown.</p></header>
     <div class="cty-index-tools">
       <input type="search" id="countyIndexSearch" placeholder="Find a ${esc(UNIT_WORD.toLowerCase())}" aria-label="Find a ${esc(UNIT_WORD.toLowerCase())}" value="${esc(COUNTY_PAGE.filter)}">
-      <button type="button" class="link-btn" data-action="countyshowall">${COUNTY_PAGE.showAll ? `Only ${UNIT_WORD.toLowerCase()} records on file` : `Show every ${UNIT_WORD.toLowerCase()}${total ? ` (${total})` : ""}`}</button>
+      <div class="cty-seg" role="group" aria-label="Which ${esc(unitWordFor(2))}"><button type="button" aria-pressed="${COUNTY_PAGE.showAll ? "false" : "true"}"${COUNTY_PAGE.showAll ? ' data-action="countyshowall"' : ""}>On file (${recorded.size})</button><button type="button" aria-pressed="${COUNTY_PAGE.showAll ? "true" : "false"}"${COUNTY_PAGE.showAll ? "" : ' data-action="countyshowall"'}>All${total ? ` ${total}` : ""}</button></div>
       <button type="button" class="link-btn" data-action="countystates">Other states & coverage →</button>
     </div>
     <div class="cty-index-legend"><span>${esc(UNIT_WORD)}</span><span>Research status</span><span class="cty-row-counts"><span data-ledger="laft">${esc(ledgerNavName("laft"))}</span><span data-ledger="auction">${esc(ledgerNavName("auction"))}</span><span data-ledger="certificate">${esc(ledgerNavName("certificate"))}</span></span><span>Upcoming</span></div>
@@ -8142,14 +8217,14 @@ async function renderResearchPage() {
     .concat(RESEARCH.lists.map(l => `<button type="button" class="research-tab${lid === l.id ? " on" : ""}" data-action="researchlist" data-list="${esc(l.id)}">${esc(l.name)} <b>${RESEARCH.items.filter(i => i.list_id === l.id).length}</b></button>`)).join("");
   const cur = RESEARCH.lists.find(l => l.id === lid);
   sec.innerHTML = `<div class="research">
-    <header class="cty-head"><p class="cty-kicker">${esc(STATE_META[PAGE_STATE] ? STATE_META[PAGE_STATE].name : PAGE_STATE)} · My Research</p><h2 class="cty-title">My Research</h2>
+    <header class="cty-head"><p class="cty-kicker">${esc(STATE_META[PAGE_STATE] ? STATE_META[PAGE_STATE].name : PAGE_STATE)}</p><h2 class="cty-title">My Research <span class="rs-count-pill" aria-label="${RESEARCH.items.length} saved">${RESEARCH.items.length}</span></h2>
       <p class="cty-lede">The properties you are working, in your own lists, with your own research state beside each property's official status.</p></header>
     ${researchStorageNoteHtml()}
     <div class="research-tabs" role="tablist">${listTabs}</div>
     <div class="research-tools">
       <input type="text" id="researchNewListName" maxlength="80" placeholder="New list name" aria-label="New research list name"><button type="button" class="detail-btn" data-action="researchcreate">Create list</button>
       ${cur ? `<button type="button" class="link-btn" data-action="researchrename" data-list="${esc(cur.id)}">Rename list</button><button type="button" class="link-btn" data-action="researchdelete" data-list="${esc(cur.id)}">Delete list</button>` : ""}
-      <label class="research-filter"><span>Research state</span><select id="researchStateFilter"><option value="all">All (${inList.length})</option>${RESEARCH_STATES.map(s => `<option value="${s}"${fs === s ? " selected" : ""}>${esc(RESEARCH_STATE_LABELS[s])} (${byState[s] || 0})</option>`).join("")}</select></label>
+      <label class="research-filter"${RESEARCH.lists.length ? "" : " hidden"}><span>Research state</span><select id="researchStateFilter"><option value="all">All (${inList.length})</option>${RESEARCH_STATES.map(s => `<option value="${s}"${fs === s ? " selected" : ""}>${esc(RESEARCH_STATE_LABELS[s])} (${byState[s] || 0})</option>`).join("")}</select></label>
     </div>
     ${RESEARCH.items.length ? researchPipelineHtml(inList, byState, fs) : ""}
     ${shown.length ? `<div class="cty-table-wrap"><table class="cty-table research-table"><thead><tr class="rs-groups"><th colspan="7" scope="colgroup">From the records</th><th colspan="4" scope="colgroup" class="rs-yours rs-first">Your workflow</th></tr><tr><th>Property</th><th>${esc(UNIT_WORD)}</th><th>Ledger</th><th>Official status</th><th>Upcoming</th><th>Acquisition path</th><th>Due diligence</th><th class="rs-yours rs-first">Your research state</th><th class="rs-yours">Saved</th><th class="rs-yours">Your note</th><th class="rs-yours"></th></tr></thead><tbody>${shown.map(researchRowHtml).join("")}</tbody></table></div>`
@@ -11109,18 +11184,19 @@ function renderBidListModal() {
     ? ""
     : elsewhere || known.length
       ? `<div class="empty-state">No watchlist items currently listed in ${esc(STATE_INFO.name)}.</div>`
-      : `<div class="empty-state">Your watchlist is empty. Click ⚐ on any property to save it here — up to ${BID_LIST_MAX}.</div>`;
+      : `<div class="empty-state">Your watchlist is empty. Use Watchlist on any property to save it here - up to ${BID_LIST_MAX}.</div>`;
   const pendingHtml = pendingRows.length ? `
     <div class="bidlist-pending">
-      <div class="bidlist-pending-head">⏳ Waiting for a slot (${pendingRows.length}) - added automatically, oldest first, as you remove items above</div>
+      <div class="bidlist-pending-head">Waiting for a slot (${pendingRows.length}) - added automatically, oldest first, as you remove items above</div>
       ${pendingRows.map(p => `<div class="bidlist-pending-row"><span>${shortPropLabel(p)}</span><button class="reset-btn" data-action="bidlist" data-pid="${p.id}" type="button">Cancel</button></div>`).join("")}
     </div>` : "";
   const backName = WATCHLIST_FROM === "dashboard" ? "Home" : WATCHLIST_FROM === "map" ? "Map" : WATCHLIST_FROM === "research" ? "My Research" : WATCHLIST_FROM === "county" ? "County Intelligence" : "the list";
   inner.innerHTML = `
     <div class="watchlist-head">
       <button class="link-btn watchlist-back" data-action="closebidlist" type="button">&larr; Back to ${esc(backName)}</button>
-      <h1 class="detail-address watchlist-title" id="watchlistTitle">⚑ My Watchlist <span class="watchlist-count">(${countLabel})</span></h1>
-      <p class="mega-sub watchlist-sub">The short list you're actively tracking in ${esc(STATE_INFO.name)} — separate from ♡ Favorites, capped at ${BID_LIST_MAX} to keep it focused.</p>
+      <header class="cty-head"><p class="cty-kicker">${esc(STATE_INFO.name)}</p>
+      <h1 class="cty-title watchlist-title" id="watchlistTitle">My Watchlist <span class="watchlist-count wl-count-pill" aria-label="${BIDLIST.size} of ${BID_LIST_MAX} saved">${countLabel}</span></h1>
+      <p class="cty-lede watchlist-sub">The short list you're actively tracking in ${esc(STATE_INFO.name)} - separate from Favorites, capped at ${BID_LIST_MAX} to keep it focused.</p></header>
     </div>
     <div class="bidlist-changes" id="bidListChanges">${watchChangesHtml(WATCH_CHANGES)}${watchedServerChangesHtml()}</div>
     ${researchQueueHtml(rows)}
@@ -11382,7 +11458,10 @@ document.addEventListener("click", async e => {
       const sel = panel.querySelector(".research-list-pick");
       listId = sel ? sel.value : null;
     }
-    if (listId) await saveToResearch(p, listId);
+    if (listId && await saveToResearch(p, listId)) {
+      const l = RESEARCH.lists.find(x => x.id === listId);
+      showToast(`Saved to ${l ? `"${l.name}"` : "your research"}.`, { tone: "ok" });
+    }
     hydrateResearchPanels(p.id);
     hydrateDiligence(p.id);
     return;
@@ -11425,8 +11504,10 @@ document.addEventListener("click", async e => {
   }
   if (action === "researchdelete") {
     const l = RESEARCH.lists.find(x => x.id === btn.dataset.list);
-    if (l && window.confirm(`Delete "${l.name}" and remove its ${RESEARCH.items.filter(i => i.list_id === l.id).length} saved propert${RESEARCH.items.filter(i => i.list_id === l.id).length === 1 ? "y" : "ies"} from your research? The properties themselves are not affected.`)) {
+    const nItems = l ? RESEARCH.items.filter(i => i.list_id === l.id).length : 0;
+    if (l && await tdwConfirm({ title: `Delete "${l.name}"?`, message: `This removes the list and its ${nItems} saved propert${nItems === 1 ? "y" : "ies"} from your research. The properties themselves are not affected.`, ok: "Delete list", danger: true })) {
       await deleteResearchList(l.id); RESEARCH_PAGE.listId = "all"; renderResearchPage();
+      showToast(`Deleted "${l.name}".`, { tone: "ok" });
     }
     return;
   }
@@ -11523,12 +11604,22 @@ document.addEventListener("click", async e => {
     // the hidden-count panel), so a mis-click meant re-finding the property
     // in the full ledger to bring it back. A confirm() dialog is the cheapest
     // fix that actually stops the accidental click before it does anything.
+    // 2026-11-09: no confirm dialog - the property is hidden at once and the
+    // toast offers Undo (the same delete the hidden-properties panel's
+    // Restore runs), so a mis-tap costs one tap to reverse.
     const hiddenProp = ALL.find(x => x.id === pid);
-    const label = hiddenProp && hiddenProp.address ? `"${hiddenProp.address}"` : "this property";
-    if (!window.confirm(`Hide ${label}? It'll disappear from every view here. You can bring it back later from the hidden-properties panel.`)) return;
+    const label = hiddenProp && realAddress(hiddenProp) ? `"${realAddress(hiddenProp)}"` : "Property";
     btn.disabled = true;
     const { error } = await sb.from("hidden").insert({ user_id: ME.id, property_id: pid });
-    if (!error) { HIDDEN.add(pid); render(); closeDetail(); refreshHiddenModal(); if (typeof refreshDetailPanel === "function") refreshDetailPanel(pid); } else { btn.disabled = false; showErrorToast("Couldn't hide: " + error.message); }
+    if (!error) {
+      HIDDEN.add(pid); render(); closeDetail(); refreshHiddenModal(); if (typeof refreshDetailPanel === "function") refreshDetailPanel(pid);
+      showToast(`${label} hidden.`, { tone: "ok", action: { label: "Undo", run: async () => {
+        const r = await sb.from("hidden").delete().eq("user_id", ME.id).eq("property_id", pid);
+        if (r.error) { showErrorToast("Couldn't restore: " + r.error.message); return; }
+        HIDDEN.delete(pid); render(); refreshHiddenModal();
+        showToast("Restored.", { tone: "ok" });
+      } } });
+    } else { btn.disabled = false; showErrorToast("Couldn't hide: " + error.message); }
   } else if (action === "restore") {
     if (!ME || !pid) return;
     btn.disabled = true;
@@ -11565,7 +11656,7 @@ document.addEventListener("click", async e => {
         // idea whether it worked - surface those.
         if (/full|limit/i.test(error.message || "")) BID_LIST_PENDING.push(pid);
         else showErrorToast("Couldn't add to watchlist: " + error.message);
-      } else { BIDLIST.add(pid); BIDLIST_ORDER.push(pid); track("property_watched", { property_id: pid }); }
+      } else { BIDLIST.add(pid); BIDLIST_ORDER.push(pid); track("property_watched", { property_id: pid }); showToast(`Added to your watchlist (${BIDLIST.size}/${BID_LIST_MAX}).`, { tone: "ok" }); }
     }
     // In place (audit F47); a full render only when membership filters the list.
     if (state.watchStatus !== "any") render();
@@ -14795,10 +14886,22 @@ function showPage(name) {
   // on it returns there.
   if (name === "watchlist") { ensureWatchlistSection(); try { if (shellPage !== "watchlist") WATCHLIST_FROM = shellPage; } catch { WATCHLIST_FROM = "list"; } }
 
+  let changed = true;
+  try { changed = shellPage !== name; } catch { changed = true; }
   Object.entries(SHELL_PAGES).forEach(([key, id]) => {
     const el = document.getElementById(id);
     if (el) el.hidden = key !== name;
   });
+  // A short fade on a real page change only; the toggle above stays
+  // synchronous (callers read the page right after showPage()).
+  const shown = document.getElementById(SHELL_PAGES[name]);
+  if (shown && changed) {
+    let motion = false;
+    try { motion = window.matchMedia("(prefers-reduced-motion: no-preference)").matches; } catch { motion = false; }
+    if (motion) { shown.classList.remove("page-enter"); void shown.offsetWidth; shown.classList.add("page-enter"); shown.addEventListener("animationend", () => shown.classList.remove("page-enter"), { once: true }); }
+  }
+  const guideNav = document.getElementById("hdrGuideBtn");
+  if (guideNav) { guideNav.classList.toggle("on", name === "guide"); if (name === "guide") guideNav.setAttribute("aria-current", "page"); else guideNav.removeAttribute("aria-current"); }
   if (name === "map" && shellPage !== "map") track("map_used", { action: "opened" });
   shellPage = name;
   syncLedgerNav(name);
@@ -15170,8 +15273,32 @@ function dashRow(icon, name, vals, attrs) {
 // now - admin.html, "Collected inventory by source" (remediation,
 // 2026-10-10). The customer page carries no operator diagnostics.
 
+// Home declutter (2026-11-09): the operating view below is an operator
+// diagnostic. Customers never get it - renderDashboard() builds none of its
+// rows for them and #homeOps stays hidden; administrators see it folded in a
+// <details> with a link to the admin area's freshness card.
+function homeOpsShell() {
+  const ops = document.getElementById("homeOps");
+  if (!ops) return null;
+  if (!IS_ADMIN) { ops.hidden = true; return null; }
+  ops.hidden = false;
+  let det = ops.querySelector("details.home-ops");
+  if (!det) {
+    det = document.createElement("details");
+    det.className = "home-ops";
+    det.innerHTML = `<summary><span class="home-ops-title">Operating view</span><span class="home-ops-sub">Administrators only · attention items, verified paths, source freshness</span></summary>`;
+    while (ops.firstChild) det.appendChild(ops.firstChild);
+    det.insertAdjacentHTML("beforeend", `<p class="home-ops-foot"><a class="link-btn" href="admin.html#freshness">Open in Admin &rarr;</a></p>`);
+    ops.appendChild(det);
+  }
+  return det;
+}
 function renderDashboard() {
   renderHome();
+  // Watchlist changes are the customer's own (Home's Saved section).
+  const watchEl0 = document.getElementById("dashWatchChanges");
+  if (watchEl0) watchEl0.innerHTML = watchChangesHtml(WATCH_CHANGES);
+  if (!homeOpsShell()) return; // a customer, or no operating-view markup
   const attEl0 = document.getElementById("dashAttentionRows");
   if (!attEl0) return; // dashboard markup not present (older fixture, etc.)
   const countyEl = document.getElementById("dashCountyRows");
@@ -15273,8 +15400,6 @@ function renderDashboard() {
   const unitEl = document.getElementById("dashUnitRows");
   if (unitEl) unitEl.innerHTML = unitFreshnessRowsHtml(UNIT_FRESHNESS, PAGE_STATE);
   renderRunRows();
-  const watchEl = document.getElementById("dashWatchChanges");
-  if (watchEl) watchEl.innerHTML = watchChangesHtml(WATCH_CHANGES);
 
   const navTotal = document.getElementById("navStatTotal");
   const navActive = document.getElementById("navStatActive");
@@ -15959,7 +16084,7 @@ function observationRunsHtml(runs) {
   runs.forEach(r => { const k = `${r.source_id}|${r.ledger || ""}`; if (!latest.has(k)) latest.set(k, r); });
   if (!latest.size) return `<div class="dash-empty">No change-detection run has been recorded for ${esc(STATE_INFO.name || PAGE_STATE)} yet.</div>`;
   return Array.from(latest.values()).map(r => `<div class="dash-row run-row" data-source="${esc(r.source_id)}">
-    <div class="dash-row-name">${esc(ledgerCopy(r.ledger || "").title || r.ledger || "")} · ${esc(r.source_id)}<span class="dash-row-sub">last run ${esc(relativeTime(r.run_at))}</span></div>
+    <div class="dash-row-name">${esc(ledgerCopy(r.ledger || "").title || r.ledger || "")} · ${esc(sourceNameFor({ source_id: r.source_id }) || r.source_id)}${IS_ADMIN ? ` <code class="run-source-id">${esc(r.source_id)}</code>` : ""}<span class="dash-row-sub">last run ${esc(relativeTime(r.run_at))}</span></div>
     <div class="dash-row-vals"><span><b>${r.rows_observed}</b> observed</span><span><b>${r.rows_added}</b> new</span><span><b>${r.rows_changed}</b> changed</span><span><b>${r.rows_closed}</b> no longer listed</span>${r.rows_reactivated ? `<span><b>${r.rows_reactivated}</b> listed again</span>` : ""}</div>
   </div>`).join("") + `<p class="watch-changes-note">"No longer listed" means the row left the source list. It is never a sale or a result.</p>`;
 }
@@ -16581,7 +16706,17 @@ function applyNaturalQuery(nq) {
 })();
 
 // ---- Home ----
-function homeLedgerCardHtml(k) {
+// Home declutter (2026-11-09). First-paint motion (a staggered rise and a
+// count-up) is emitted exactly once, on the first render with loaded rows -
+// scheduleLedgerUpdate()'s later re-renders never replay it. The count-up is
+// CSS only (home.css): the element's text is always the real figure.
+var HOME_FIRST_PAINT_DONE = false;
+var HOME_FIRST_PAINT = false;
+function homeLedgerLine(k) {
+  const cfg = ledgerCopy(k);
+  return (PAGE_STATE === "FL" && cfg.homeLineFL) || cfg.homeLine || cfg.sub || "";
+}
+function homeLedgerCardHtml(k, i) {
   const rows = shellActiveRows(k);
   const cfg = ledgerCopy(k);
   const counties = new Set(rows.map(p => p.county)).size;
@@ -16589,11 +16724,26 @@ function homeLedgerCardHtml(k) {
   const fin = PROPERTIES_LOADED && ledgerSettled(k);
   const unit = k === "certificate" && PAGE_STATE !== "FL" ? (n === 1 ? "record" : "records")
     : ({ laft: n === 1 ? "property" : "properties", auction: n === 1 ? "upcoming sale" : "upcoming sales", certificate: n === 1 ? "certificate" : "certificates" })[k];
-  return `<button type="button" class="home-ledger-card${k === "laft" ? " primary" : ""}" data-ledger="${esc(k)}" data-home-ledger="${esc(k)}">
+  // A zero is never ambiguous: the ledger's zero case names why it is zero;
+  // "None listed" only when the last successful read listed nothing.
+  const zero = fin && !n ? (ledgerZeroState(k) || {}).zeroCase : null;
+  const zc = zero ? (ZERO_CASE_COPY[zero] || ZERO_CASE_COPY.NOT_VERIFIED) : null;
+  const zeroLabel = zero === "NO_CURRENT_INVENTORY" ? "None listed" : zc ? zc.label : "";
+  // Withheld counts are provenance: kept visible, in soft ink (never the
+  // Auctions colour), with the reason in the title.
+  const extra = []
+    .concat(WITHHELD[k] ? [`<span class="home-ledger-withheld" data-withheld="${esc(k)}" title="Withheld: the source is not approved for customer publication">${WITHHELD[k]} withheld</span>`] : [])
+    .concat(PROPERTIES_LOADED && hiddenByYouCount(k) ? [`<span class="home-ledger-hidden" data-hidden-ledger="${esc(k)}">${hiddenByYouCount(k).toLocaleString("en-US")} hidden by you</span>`] : [])
+    .concat(k === "laft" && GATE_WITHHELD.total ? [`<span class="home-ledger-withheld" data-gate-withheld="laft" title="Withheld until the county's acquisition process is verified">${GATE_WITHHELD.total} pending verification</span>`] : [])
+    .concat(publicationWithheld(k) && publicationWithheld(k).total ? [`<span class="home-ledger-withheld" data-pub-withheld="${esc(k)}" title="${esc(publicationWithheldText(k) || "Withheld from customers until each record passes the publication gate")}">${publicationWithheld(k).total.toLocaleString("en-US")} withheld pending verification</span>`] : []);
+  const countText = PROPERTIES_LOADED ? ledgerCountText(k, n, true) : "—";
+  const countUp = HOME_FIRST_PAINT && fin && n > 0 && n < 100000;
+  const cls = "home-ledger-card" + (k === "laft" ? " primary" : "") + (zero === "NOT_IMPLEMENTED" ? " is-untracked" : "") + (zero ? " is-zero" : "") + (HOME_FIRST_PAINT ? " rise" : "");
+  return `<button type="button" class="${cls}" data-ledger="${esc(k)}" data-home-ledger="${esc(k)}"${zero ? ` data-zero-case="${esc(zero)}"` : ""} style="--i:${Number(i) || 0}">
     <span class="home-ledger-kicker">${esc(ledgerNavName(k).toUpperCase())}</span>
-    <span class="home-ledger-count" id="homeCount_${esc(k)}">${PROPERTIES_LOADED ? ledgerCountText(k, n, true) : "—"}</span>
-    <span class="home-ledger-unit">${esc(unit)}${PROPERTIES_LOADED && n ? ` across ${counties} ${esc(unitWordFor(counties))}` : ""}${WITHHELD[k] ? ` · <span class="home-ledger-withheld" data-withheld="${esc(k)}">${WITHHELD[k]} withheld</span>` : ""}${PROPERTIES_LOADED && hiddenByYouCount(k) ? ` · <span class="home-ledger-hidden" data-hidden-ledger="${esc(k)}">${hiddenByYouCount(k).toLocaleString("en-US")} hidden by you</span>` : ""}${k === "laft" && GATE_WITHHELD.total ? ` · <span class="home-ledger-withheld" data-gate-withheld="laft">${GATE_WITHHELD.total} pending verification</span>` : ""}${publicationWithheld(k) && publicationWithheld(k).total ? ` · <span class="home-ledger-withheld" data-pub-withheld="${esc(k)}">${publicationWithheld(k).total.toLocaleString("en-US")} withheld pending verification</span>` : ""}</span>
-    <span class="home-ledger-blurb">${esc(fin && !n ? `None listed for ${STATE_INFO.name} right now.` : !fin && PROPERTIES_LOADED ? "Loading…" : (cfg.sub || ""))}</span>
+    <span class="home-ledger-count${countUp ? " countup" : ""}" id="homeCount_${esc(k)}"${countUp ? ` style="--to:${n}"` : ""}>${countText}</span>
+    <span class="home-ledger-unit">${zero ? `<span class="home-ledger-zero" title="${esc(zc.text)}">${esc(zeroLabel)}</span>` : `${esc(unit)}${PROPERTIES_LOADED && n ? ` across ${counties} ${esc(unitWordFor(counties))}` : ""}`}${extra.length ? " · " + extra.join(" · ") : ""}</span>
+    <span class="home-ledger-blurb">${esc(!fin && PROPERTIES_LOADED ? "Loading…" : zero ? zc.text : homeLedgerLine(k))}</span>
     <span class="home-ledger-go">${k === "laft" ? "Explore" : "Open"} &rarr;</span>
   </button>`;
 }
@@ -16638,67 +16788,118 @@ function homeDeskRowHtml(p) {
   const street = realAddress(p);
   const amt = amountShort(p);
   const a = p.source === "laft" ? acquisitionOf(p) : null;
-  const seen = p.last_seen_at ? `last read ${dateOnly(p.last_seen_at)}` : "read date not recorded";
   // Audit F27: the row carries the same phase as the List kicker, so a dated
   // Parish list or a Texas future-sale row never reads as available now.
   const phase = p.source === "laft" ? kickerParts(p).phase : "";
-  return `<button type="button" class="desk-row" data-ledger="${esc(p.source)}" data-home-pid="${esc(String(p.id))}">
+  const src = sourceNameFor(p) || "Source not recorded";
+  const acq = a ? (a.verified ? (a.short || a.label) : "Not yet verified") : "";
+  return `<button type="button" class="desk-row" data-ledger="${esc(p.source)}" data-home-pid="${esc(String(p.id))}" title="Source: ${esc(src)}">
     <span class="desk-kicker">${esc(STATE_INFO.name)} · ${esc(unitLabelOf(p.county || ""))}${phase ? ` · <span class="desk-phase">${esc(phase)}</span>` : ""}</span>
     <span class="desk-title">${street ? esc(street) : lotTitle(p)}</span>
     <span class="desk-sub">${hasParcel(p) ? `Parcel ${esc(parcelOf(p))}` : "Parcel # not published"}</span>
     <span class="desk-money"><b class="${amt.state === "not_published" || amt.state === "official_expired" ? "unpublished" : ""}">${esc(amt.text)}</b><span>${esc(amt.label)}</span></span>
-    <span class="desk-meta">${a ? `<span>Acquisition <b>${esc(a.verified ? a.short || a.label : "Not yet verified")}</b></span>` : ""}<span>Source <b>${esc(sourceNameFor(p) || "not recorded")}</b></span><span>${esc(seen)}</span></span>
+    <span class="desk-meta">${a ? `<span class="desk-acq${a.verified ? " is-verified" : ""}" data-acq-verified="${a.verified ? "1" : "0"}"><span class="sr-only">Acquisition: </span>${esc(acq)}</span>` : ""}<span class="desk-read">${p.last_seen_at ? `Read ${esc(dateOnly(p.last_seen_at))}` : "Read date not recorded"}</span><span class="sr-only">Source: ${esc(src)}</span></span>
   </button>`;
 }
+function homeDeskHead(title, sub, more, id) {
+  return `<div class="home-desk-head"><h2${id ? ` id="${esc(id)}"` : ""}>${esc(title)}</h2>${sub ? `<span class="home-desk-sub">${sub}</span>` : ""}${more || ""}</div>`;
+}
+function homeLiveRows() {
+  return ALL.filter(p => !HIDDEN.has(p.id) && !goneExpired(p) && !isGone(p) && !isPastDue(p));
+}
+// Home, after the hero and the ledger strip: Next up (Available, then the
+// upcoming auctions), the customer's Saved work, Recent and - last - the
+// county chips. Every line is a loaded row or a count over loaded rows;
+// nothing is ranked or scored.
 function renderHomeDesk() {
   const host = document.getElementById("homeDesk");
+  const countyHost = document.getElementById("homeCountyDesk");
+  renderHomeSaved();
   if (!host) return;
-  if (!PROPERTIES_LOADED) { host.innerHTML = ""; return; }
-  const live = ALL.filter(p => !HIDDEN.has(p.id) && !goneExpired(p) && !isGone(p) && !isPastDue(p));
-  const avail = sortRows(live.filter(p => p.source === "laft")).slice(0, 6);
+  if (!PROPERTIES_LOADED) { host.innerHTML = ""; if (countyHost) countyHost.innerHTML = ""; return; }
+  const live = homeLiveRows();
+  const noRows = !ALL.length && LEDGER_ORDER.every(k => ledgerSettled(k));
+  const availAll = live.filter(p => p.source === "laft");
+  const avail = sortRows(availAll).slice(0, 4);
   const availLoading = !ledgerSettled("laft");
   const sales = upcomingAuctionRows(live.filter(p => p.source === "auction"));
-  const counties = new Map();
-  live.forEach(p => { if (p.county) counties.set(p.county, (counties.get(p.county) || 0) + 1); });
-  const topCounties = Array.from(counties.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 6);
-  const intelOf = c => COUNTY_INTEL ? countyIntelFor(COUNTY_INTEL, PAGE_STATE, c).intel : null;
-  const head = (title, sub, more) => `<div class="home-desk-head"><h2>${esc(title)}</h2>${sub ? `<span class="home-desk-sub">${sub}</span>` : ""}${more || ""}</div>`;
+  const soon = live.filter(p => p.source === "auction" && p.sale_date && !offCurrentSaleList(p) && daysUntil(p) !== null && daysUntil(p) >= 0 && daysUntil(p) <= 7).length;
   // Audit F27: the block is headed by the ledger's own name ("Available",
-  // Texas "OTC Catalog — Struck-Off Inventory", Louisiana's dated list) -
+  // Texas "Available — Struck-off property", Louisiana's dated list) -
   // never "Available now", which a dated or future-sale row cannot claim.
-  const availHtml = `<section class="home-desk-block" id="homeAvailableNow" data-ledger="laft">${head(ledgerCopy("laft").title || "Available", esc(`${STATE_INFO.name} · ${ledgerCountText("laft", live.filter(p => p.source === "laft").length, true)} listed`), `<button type="button" class="link-btn" data-home-ledger="laft">All Available &rarr;</button>`)}
+  const availHtml = `<section class="home-desk-block" id="homeAvailableNow" data-ledger="laft">${homeDeskHead(ledgerCopy("laft").title || "Available", esc(`${ledgerCountText("laft", availAll.length, true)} listed`), `<button type="button" class="link-btn desk-all" data-home-ledger="laft">All Available &rarr;</button>`)}
     ${avail.length ? avail.map(homeDeskRowHtml).join("") : `<p class="home-desk-empty">${esc(availLoading ? "Loading Available…" : `No Available properties are listed for ${STATE_INFO.name} right now.`)}</p>`}</section>`;
   const word = (ledgerCopy("auction").nav || "Auction").replace(/s$/, "");
-  const salesHtml = `<section class="home-desk-block" id="homeUpcomingSales" data-ledger="auction">${head("Upcoming auctions", "", `<button type="button" class="link-btn" data-home-ledger="auction">All auctions &rarr;</button>`)}
+  const soonChip = soon ? `<span class="desk-soon-chip" data-soon="${soon}">${soon.toLocaleString("en-US")} in the next 7 days</span>` : "";
+  const salesHtml = noRows ? "" : `<section class="home-desk-block" id="homeUpcomingSales" data-ledger="auction">${homeDeskHead("Upcoming auctions", soonChip, `<button type="button" class="link-btn desk-all" data-home-ledger="auction">All auctions &rarr;</button>`)}
     ${sales.length ? sales.map(e => { const d = new Date(e.date + "T12:00:00"); return `<button type="button" class="desk-event" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction" data-date="${esc(String(e.date).slice(0, 10))}"><span class="desk-date"><b>${isNaN(d) ? "" : d.getDate()}</b><span>${isNaN(d) ? "" : esc(d.toLocaleString("en-US", { month: "short" }).toUpperCase())}</span></span><span class="desk-event-where">${esc(unitLabelOf(e.county))} · ${esc(PAGE_STATE)}</span><span class="desk-event-what">${esc(word)} sale</span><span class="desk-event-n">${e.count} propert${e.count === 1 ? "y" : "ies"}</span></button>`; }).join("")
       : `<p class="home-desk-empty">${esc(ledgerSettled("auction") ? `No upcoming sale dates are listed for ${STATE_INFO.name}.` : "Loading auctions…")}</p>`}</section>`;
-  const countyHtml = `<section class="home-desk-block" id="homeCountyIntel">${head("County intelligence", "", `<button type="button" class="link-btn" id="homeAllCounties">All counties &rarr;</button>`)}
-    <div class="desk-counties">${topCounties.length ? topCounties.map(([c, n]) => { const k = intelOf(c); return `<button type="button" class="desk-county" data-action="countyintel" data-county="${esc(c)}"><b>${esc(c)}</b>${k ? countyIntelChipHtml(k) : ""}<span class="n">${n.toLocaleString("en-US")} on file</span></button>`; }).join("") : `<p class="home-desk-empty">No county has records on file yet.</p>`}</div></section>`;
-  const savedHtml = `<section class="home-desk-block" id="homeSaved">${head("Saved", "")}
-    <div class="desk-saved"><button type="button" id="homeSavedProps" data-guide="watchlist"><b>${BIDLIST.size}</b><span>Saved propert${BIDLIST.size === 1 ? "y" : "ies"} (watchlist)</span></button><button type="button" id="homeSavedSearches" data-guide="searches"><b>${(MONITOR.savedSearches || []).filter(x => !x.state || x.state === PAGE_STATE).length}</b><span>Saved searches</span></button><button type="button" id="homeResearch" data-action="researchhome"><b>${RESEARCH && RESEARCH.items ? RESEARCH.items.length : 0}</b><span>In my research</span></button></div></section>`;
-  host.innerHTML = `<div class="home-desk-col">${availHtml}${salesHtml}</div><div class="home-desk-col">${countyHtml}${savedHtml}</div>`;
+  host.innerHTML = `<div class="home-desk-col home-next">${homeDeskHead("Next up", "", "", "homeNextHead").replace("home-desk-head", "home-desk-head home-section-title")}${availHtml}${salesHtml}</div>`;
+  if (countyHost) {
+    if (noRows) { countyHost.innerHTML = ""; countyHost.hidden = true; }
+    else {
+      countyHost.hidden = false;
+      const counties = new Map();
+      live.forEach(p => { if (p.county) counties.set(p.county, (counties.get(p.county) || 0) + 1); });
+      const top = Array.from(counties.entries()).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).slice(0, 12);
+      const intelOf = c => COUNTY_INTEL ? countyIntelFor(COUNTY_INTEL, PAGE_STATE, c).intel : null;
+      const used = new Set();
+      const chips = top.map(([c, n]) => {
+        const k = intelOf(c);
+        const L = k ? (COUNTY_INTEL_LABELS[k] || COUNTY_INTEL_LABELS.NOT_YET_RESEARCHED) : null;
+        if (k) used.add(k);
+        return `<button type="button" class="desk-county county-chip" data-action="countyintel" data-county="${esc(c)}"${L ? ` title="${esc(L.label)}: ${esc(L.text)}"` : ""}>${L ? `<span class="county-dot ${esc(L.cls)}" data-intel="${esc(k)}" aria-hidden="true"></span>` : ""}<b>${esc(c)}</b><span class="n">${n.toLocaleString("en-US")}</span>${L ? `<span class="sr-only"> - ${esc(L.label)}</span>` : ""}</button>`;
+      }).join("");
+      const legend = used.size ? `<p class="county-legend" aria-label="County status legend">${Object.keys(COUNTY_INTEL_LABELS).filter(k => used.has(k)).map(k => `<span><span class="county-dot ${esc(COUNTY_INTEL_LABELS[k].cls)}" data-intel="${esc(k)}" aria-hidden="true"></span>${esc(COUNTY_INTEL_LABELS[k].label)}</span>`).join("")}</p>` : "";
+      countyHost.innerHTML = `<section class="home-desk-block" id="homeCountyIntel">${homeDeskHead(`${unitWordFor(2).replace(/^\w/, c => c.toUpperCase())}`, "Records on file", `<button type="button" class="link-btn desk-all" id="homeAllCounties">All ${esc(unitWordFor(2))} &rarr;</button>`)}
+        <div class="desk-counties">${chips || `<p class="home-desk-empty">No ${esc(unitWordFor(1))} has records on file yet.</p>`}</div>${legend}</section>`;
+    }
+  }
   if (!COUNTY_INTEL) loadCountyIntel().then(d => { if (d) renderHomeDesk(); });
+}
+// Saved: the customer's own work. When nothing is saved yet, one line with
+// the two ways in instead of three zeros.
+function renderHomeSaved() {
+  const body = document.getElementById("homeSavedBody");
+  const changes = document.getElementById("dashWatchChanges");
+  if (!body) return;
+  const nWatch = BIDLIST.size;
+  const nSearch = (MONITOR.savedSearches || []).filter(x => !x.state || x.state === PAGE_STATE).length;
+  const nResearch = RESEARCH && RESEARCH.items ? RESEARCH.items.length : 0;
+  const empty = !nWatch && !nSearch && !nResearch;
+  body.innerHTML = empty
+    ? `<p class="home-saved-empty">Nothing saved yet. <button type="button" class="btn-ghost" id="homeSavedProps" data-guide="watchlist">Watchlist</button> <button type="button" class="btn-ghost" id="homeSavedSearches" data-guide="searches">Saved searches</button></p>`
+    : `<div class="desk-saved"><button type="button" id="homeSavedProps" data-guide="watchlist"><b>${nWatch}</b><span>Your watchlist</span></button><button type="button" id="homeSavedSearches" data-guide="searches"><b>${nSearch}</b><span>Saved searches</span></button><button type="button" id="homeResearch" data-action="researchhome"><b>${nResearch}</b><span>In my research</span></button></div>`;
+  if (changes) changes.hidden = empty;
 }
 function renderHome() {
   const ledgersEl = document.getElementById("homeLedgers");
   if (!ledgersEl) return;
+  // First paint with loaded rows only (see HOME_FIRST_PAINT_DONE above).
+  HOME_FIRST_PAINT = false;
+  if (PROPERTIES_LOADED && !HOME_FIRST_PAINT_DONE) {
+    HOME_FIRST_PAINT_DONE = true;
+    try { HOME_FIRST_PAINT = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: no-preference)").matches); } catch { HOME_FIRST_PAINT = false; }
+  }
   const order = ["laft", "auction", "certificate"];
-  ledgersEl.innerHTML = order.map(homeLedgerCardHtml).join("") + `
-    <button type="button" class="home-ledger-card home-states-card" id="homeStatesCard" aria-haspopup="dialog" aria-controls="statePicker">
-      <span class="home-ledger-kicker">BROWSE BY STATE</span>
-      <span class="home-ledger-count">${STATE_CODES.length}</span>
-      <span class="home-ledger-unit">states covered</span>
-      <span class="home-ledger-blurb">Find properties in your target area.</span>
-      <span class="home-ledger-go">View States &rarr;</span>
-    </button>`;
+  ledgersEl.innerHTML = order.map((k, i) => homeLedgerCardHtml(k, i)).join("");
+  HOME_FIRST_PAINT = false;
+  // The count-up draws an unformatted counter over the real text; once it
+  // ends, drop it so the formatted count ("30,801") is what stays on screen.
+  ledgersEl.querySelectorAll(".home-ledger-count.countup").forEach(el => {
+    el.addEventListener("animationend", () => { el.classList.remove("countup"); el.style.removeProperty("--to"); }, { once: true });
+  });
   const scope = document.getElementById("homeScope");
-  if (scope) scope.innerHTML = `Searching <b>${esc(STATE_INFO.name)}</b> · <button type="button" class="link-btn" id="homeChangeState">Change state</button>`;
+  if (scope) scope.innerHTML = `Searching <b>${esc(STATE_INFO.name)}</b> · <button type="button" class="link-btn" id="homeChangeState">Change state</button> · <button type="button" class="link-btn" id="homeAllStates" aria-haspopup="dialog" aria-controls="statePicker">All ${STATE_CODES.length} states</button>`;
   const hs = document.getElementById("homeSearchInput");
   if (hs && PAGE_STATE !== "FL") {
     const county = topCountyName();
     hs.placeholder = `Search address, parcel, county, APN or case number${county ? ` - e.g. ${unitLabelOf(county)}` : ""}`;
   }
   renderHomeDesk();
+  const recentSec = document.getElementById("homeRecentSection");
+  const noRows = PROPERTIES_LOADED && !ALL.length && LEDGER_ORDER.every(k => ledgerSettled(k));
+  if (recentSec) recentSec.hidden = noRows;
   const recentEl = document.getElementById("homeRecent");
   if (recentEl) {
     if (!PROPERTIES_LOADED) {
@@ -16727,7 +16928,8 @@ function renderHome() {
     // The header's state dropdown is the one state control: "Change state"
     // focuses it; the states card and "All counties" open the coverage sheet.
     if (e.target.closest("#homeChangeState")) { const sel = document.getElementById("stateSelect"); if (sel) sel.focus(); return; }
-    if (e.target.closest("#homeStatesCard") || e.target.closest("#homeAllCounties")) { openStatePicker(e.target.closest("button")); return; }
+    if (e.target.closest("#homeAllStates")) { openStatePicker(e.target.closest("button")); return; }
+    if (e.target.closest("#homeAllCounties")) { openCountyIndex(); return; }
     if (e.target.closest("#homeRecentAll")) goToLedger(landingLedger(ALL, state.ledger));
     const guide = e.target.closest("[data-guide]");
     if (guide) {
@@ -16968,7 +17170,9 @@ function statePickerRowHtml(st) {
   const meta = STATE_META[st];
   const here = st === PAGE_STATE;
   const cache = SHELL_UI.picker || {};
-  const badges = LEDGER_ORDER.map(k => {
+  // The header's own ledger order: Available, Auctions, Liens (2026-11-09).
+  const ORDER = ["laft", "auction", "certificate"];
+  const badges = ORDER.map(k => {
     if (here) {
       const n = shellActiveRows(k).length;
       if (!n) return "";
@@ -16981,12 +17185,12 @@ function statePickerRowHtml(st) {
   }).join("");
   // "None" only when every ledger was actually checked and has no row - a
   // probe that failed or is still running never reads as "nothing here".
-  const vals = here ? LEDGER_ORDER.map(k => shellActiveRows(k).length > 0) : LEDGER_ORDER.map(k => (cache[st] ? cache[st][k] : undefined));
+  const vals = here ? ORDER.map(k => shellActiveRows(k).length > 0) : ORDER.map(k => (cache[st] ? cache[st][k] : undefined));
   const none = vals.every(v => v === false);
   const failed = !here && vals.some(v => v === null) && !vals.some(v => v === true);
   return `<div class="state-row${here ? " current" : ""}" data-state-row="${esc(st)}" data-name="${esc(meta.name.toLowerCase())}">
     <a class="state-row-name" href="${esc(stateLedgerHref(st, null))}"${here ? ' aria-current="page"' : ""}>${esc(meta.name)}<span class="state-row-code">${esc(st)}</span>${here ? '<span class="state-row-here">Current</span>' : ""}</a>
-    <span class="state-row-ledgers">${badges}${none ? `<span class="state-row-none">No properties currently available for this state.</span>` : ""}${failed ? `<span class="state-row-none">Couldn't check this state right now - open it to see what it has.</span>` : ""}</span>
+    <span class="state-row-ledgers">${badges}${none ? `<span class="state-row-none no-listings" title="Every ledger was checked; none has a current listing for this state.">No listings now</span>` : ""}${failed ? `<span class="state-row-none">Couldn't check this state right now - open it to see what it has.</span>` : ""}</span>
   </div>`;
 }
 function hasAvailable(st) {
@@ -17010,6 +17214,8 @@ function coverageExplorerHtml(q) {
   const order = ["VERIFIED", "PARTIALLY_VERIFIED", "SOURCE_BACKED", "NEEDS_REVIEW", "SOURCE_UNAVAILABLE", "NOT_YET_RESEARCHED"];
   const shown = listed.filter(c => !q || c.county.toLowerCase().includes(q)).sort((a, b) => order.indexOf(a.intel) - order.indexOf(b.intel) || a.county.localeCompare(b.county));
   return `<div class="coverage-explorer" id="coverageExplorer"><h3 class="state-group-head">Coverage in ${esc(STATE_INFO.name)}</h3>
+    ${(() => { const tot = order.reduce((n, k) => n + (counts[k] || 0), 0); if (!tot) return ""; const col = k => ({ ok: "var(--ok,#3F6B45)", warn: "var(--warn,#8A5A12)", bad: "var(--bad,#9E2B25)", muted: "var(--rule)" })[(COUNTY_INTEL_LABELS[k] || {}).cls] || "var(--rule)";
+      return `<div class="cov-stack" role="img" aria-label="${esc(order.filter(k => counts[k]).map(k => `${counts[k]} ${(COUNTY_INTEL_LABELS[k] || {}).label || k}`).join(", "))}">${order.filter(k => counts[k]).map(k => `<span data-intel="${k}" style="width:${(counts[k] / tot * 100).toFixed(2)}%;background:${col(k)}${k === "SOURCE_BACKED" ? ";opacity:.6" : ""}"></span>`).join("")}</div>`; })()}
     <div class="cov-summary">${order.filter(k => counts[k]).map(k => `<span class="cov-count" data-intel="${k}">${countyIntelChipHtml(k)} <b>${counts[k]}</b></span>`).join("")}</div>
     <ul class="cov-list">${shown.map(c => `<li><button type="button" class="link-btn" data-action="countyintel" data-county="${esc(c.county)}">${esc(c.county)}</button> ${countyIntelChipHtml(c.intel)}</li>`).join("")}</ul>
     ${unlisted ? `<p class="muted cov-note">${unlisted} other ${esc(UNIT_WORD.toLowerCase())}${unlisted === 1 ? " is" : "s are"} not yet researched - no source is recorded there yet, which is not a statement that nothing is for sale.</p>` : ""}
@@ -17600,6 +17806,20 @@ function installLookSwitch() {
   });
   document.addEventListener("click", e => { if (!wrap.contains(e.target)) close(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !menu.hidden) { close(); btn.focus(); } });
+  // Below 768px the header keeps the wordmark; the Look choice moves into
+  // the account menu (home.css hides .look-switch there and shows this group).
+  const acct = document.getElementById("accountMenu");
+  if (acct && !document.getElementById("lookMenuInAccount")) {
+    const g = document.createElement("div");
+    g.id = "lookMenuInAccount"; g.className = "account-look";
+    g.innerHTML = `<p class="account-goto-head account-group-head">Look</p>` + Object.keys(EXPERIENCES).map(k => `<button class="account-item" type="button" role="menuitemradio" aria-checked="false" data-acct-look="${k}">${EXPERIENCES[k]}</button>`).join("");
+    const edit = acct.querySelector(".account-group-head") || document.getElementById("editProfileBtn");
+    if (edit) edit.before(g); else acct.appendChild(g);
+    const syncAcct = () => { const cur = document.documentElement.dataset.look || "classic"; g.querySelectorAll("[data-acct-look]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.acctLook === cur))); };
+    g.addEventListener("click", e => { const b = e.target.closest("[data-acct-look]"); if (!b) return; applyExperience(b.dataset.acctLook, true); syncAcct(); });
+    if (window.MutationObserver) new MutationObserver(syncAcct).observe(document.documentElement, { attributes: true, attributeFilter: ["data-look"] });
+    syncAcct();
+  }
 }
 installLookSwitch();
 applyExperience(currentExperience(), false);
@@ -17639,7 +17859,61 @@ function installShellV3() {
   });
   const mapBtn = document.querySelector('#navRail .nav-item[data-page="map"]');
   if (mapBtn) nav.appendChild(mapBtn);
+  // Buyer's Guide after Map (2026-11-09), lit on #/guide by showPage().
+  if (!document.getElementById("hdrGuideBtn")) {
+    const g = document.createElement("button");
+    g.type = "button"; g.className = "nav-item hdr-guide"; g.id = "hdrGuideBtn"; g.textContent = "Guide";
+    g.title = "Buyer's Guide";
+    g.addEventListener("click", () => openGuidePage(null, null));
+    nav.appendChild(g);
+  }
+  // One ink line under the lit entry, in that ledger's colour.
+  const ink = document.createElement("span");
+  ink.className = "hdr-ink"; ink.setAttribute("aria-hidden", "true");
+  nav.appendChild(ink);
+  const placeInk = () => {
+    const on = nav.querySelector(".nav-item.on, .nav-item[aria-current='page']");
+    if (!on || !on.offsetWidth) { ink.style.width = "0px"; return; }
+    const k = on.dataset.navLedger;
+    ink.style.setProperty("--hdr-ink", k ? `var(--c-${k}, var(--forest))` : "var(--forest, #1F3A2E)");
+    ink.style.left = on.offsetLeft + "px"; ink.style.width = on.offsetWidth + "px";
+  };
+  if (window.MutationObserver) new MutationObserver(placeInk).observe(nav, { subtree: true, attributes: true, attributeFilter: ["class", "aria-current"] });
+  window.addEventListener("resize", placeInk);
   home.after(nav);
+  setTimeout(placeInk, 0);
+  const gsi = document.getElementById("globalSearchInput");
+  if (gsi) gsi.placeholder = "Search address, parcel or county";
+  // Account menu: Go to / Account / Help groups; Sign out after a divider,
+  // Delete my account apart as a danger row.
+  const acct = document.getElementById("accountMenu");
+  if (acct && !acct.querySelector(".account-group-head")) {
+    const headEl = txt => { const h = document.createElement("p"); h.className = "account-goto-head account-group-head"; h.textContent = txt; return h; };
+    const div = () => { const d = document.createElement("hr"); d.className = "account-divider"; d.setAttribute("role", "separator"); return d; };
+    const edit = document.getElementById("editProfileBtn");
+    if (edit) edit.before(headEl("Account"));
+    const support = document.getElementById("supportBtnMenu");
+    const terms = document.getElementById("termsBtnMenu");
+    if (support) { support.before(headEl("Help")); if (terms) support.after(terms); }
+    const out = document.getElementById("signOutBtn");
+    const del = document.getElementById("deleteAccountBtn");
+    if (out) { out.before(div()); out.classList.remove("danger"); }
+    if (del) { (out || acct.lastChild).after(del); del.before(div()); del.classList.add("account-danger"); }
+  }
+  // Skip link: straight to the listings, never through the hash router.
+  const skip = document.getElementById("skipToListings");
+  if (skip && !skip.dataset.bound) {
+    skip.dataset.bound = "1";
+    skip.addEventListener("click", e => {
+      e.preventDefault();
+      let onList = false; try { onList = shellPage === "list"; } catch { onList = false; }
+      if (!onList) showPage("list");
+      // The listings' own heading: #main is display:none under the Merged
+      // look (its stage draws the rows), and a hidden element takes no focus.
+      const target = document.getElementById("listTitle") || document.getElementById("main");
+      if (target) { if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1"); target.focus({ preventScroll: false }); }
+    });
+  }
   // Phone: search behind a button so the field does not take a row.
   const btns = topbar.querySelector(".header-btns");
   const gs = document.getElementById("globalSearch");
@@ -17718,6 +17992,9 @@ function installBottomBarV3() {
   const bar = document.getElementById("navBottom");
   if (!bar || bar.dataset.bar === "v3") return;
   bar.dataset.bar = "v3";
+  // The bar is the phone's ledger switch, so the List's own ledger tabs are
+  // a second copy there: has-bottombar hides #ledgerTabs below 1024px.
+  document.documentElement.classList.add("has-bottombar");
   bar.setAttribute("aria-label", "Ledgers and map");
   bar.querySelectorAll('.nav-bottom-item[data-page="dashboard"], .nav-bottom-item[data-page="list"], .nav-bottom-item[data-page="watchlist"]').forEach(b => b.remove());
   const mapBtn = bar.querySelector('.nav-bottom-item[data-page="map"]');
@@ -17821,6 +18098,10 @@ function installListToolbarV3() {
   }
   const expand = document.getElementById("expandAllBtn");
   if (expand) expand.hidden = true;
+  qc.classList.add("qc-v3");
+  // The count is not repeated in the toolbar: the List title (and, on
+  // Available, the line above the county bar) already carries it once.
+
   // Plain section names.
   const rename = { "Bid / listed amount": "Price", "Sort & Display": "Then sort by", "Quick Toggles": "Show only", "Advanced Filters": "More filters" };
   panel.querySelectorAll(".filters-section-title").forEach(t => { const n = rename[t.textContent.trim()]; if (n) t.textContent = n; });
