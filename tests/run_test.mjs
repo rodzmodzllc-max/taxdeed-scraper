@@ -7467,9 +7467,10 @@ await big.press('#globalSearchInput', 'Enter');
 }
 
 
-// Research group (free tier, 2026-10-25): the property page's research
-// sections sit in ONE "Research" disclosure that starts closed, below How to
-// acquire, and a section-nav jump into it opens it. Nothing is removed.
+// Research index (2026-11-10, replaces the one "Research" group of
+// 2026-10-25): every research section below How to acquire is its own closed
+// block (details.detail-fold) inside div.detail-index, with a one-line
+// summary; a section-nav jump opens the block it lands in. Nothing is removed.
 {
   for (const [tag, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { width: 1280, height: 900 }]]) {
     const pg = await newPage({ viewport: vp });
@@ -7479,11 +7480,12 @@ await big.press('#globalSearchInput', 'Enter');
     await pg.waitForTimeout(600);
     results['researchGroup_' + tag] = await pg.evaluate(() => {
       const host = document.querySelector('#detailModal:not([hidden]) #detailModalInner') || document.getElementById('detailPanel');
-      const g = host && host.querySelector('details.detail-research');
+      const g = host && host.querySelector('.detail-index');
       if (!g) return null;
+      const folds = [...g.querySelectorAll(':scope > details.detail-fold')];
       const inside = [...g.querySelectorAll('[data-section]')].map(x => x.dataset.section);
       const acquire = host.querySelector('[data-section="acquire"]');
-      return { closed: !g.open, title: g.querySelector('.detail-more-title').textContent,
+      return { closed: folds.length > 0 && folds.every(d => !d.open), title: g.querySelector('.detail-index-title').textContent,
         acquireOutside: !!acquire && !g.contains(acquire) && !!(acquire.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING),
         moneyOutside: !g.contains(host.querySelector('[data-section="money"]')),
         holds: ['risk', 'map', 'truth', 'sources', 'provenance'].every(id => inside.includes(id)) };
@@ -7492,7 +7494,7 @@ await big.press('#globalSearchInput', 'Enter');
       const host = document.querySelector('#detailModal:not([hidden]) #detailModalInner') || document.getElementById('detailPanel');
       const b = host && host.querySelector('.detail-nav button[data-target="risk"]');
       if (!b) return null; b.click();
-      return host.querySelector('details.detail-research').open;
+      return host.querySelector('[data-section="risk"]').closest('details.detail-fold').open;
     });
     results['researchGroupJumpOpens_' + tag] = jumped;
     await pg.close();
@@ -7850,8 +7852,8 @@ const EXPECTED = {
   mergedLookPerLedger: {"lands": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}, "auctions": {"look": "merged", "drawn": "tactile", "stage": "tactile", "button": "Merged", "mainHidden": true}, "certificates": {"look": "merged", "drawn": "merged", "stage": "merged", "button": "Merged", "mainHidden": true}, "landsAgain": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}},
   saleStrip_phone: {"head": {"strip": true, "first": true, "inFold": false, "calendarFold": false, "days": 9, "chips": 9, "selected": 1, "scrolls": "auto"}, "pickedSecond": true, "jumped": true, "question": true, "look": true, "price": {"insideCard": true, "insideScreen": true, "inFlow": true}, "noOverflow": true},
   saleStrip_desktop: {"head": {"strip": true, "first": true, "inFold": false, "calendarFold": false, "days": 9, "chips": 9, "selected": 1, "scrolls": "auto"}, "pickedSecond": true, "jumped": true, "question": true, "look": true, "price": {"insideCard": true, "insideScreen": true, "inFlow": true}, "noOverflow": true},
-  researchGroup_phone: { closed: true, title: "Research", acquireOutside: true, moneyOutside: true, holds: true },
-  researchGroup_desktop: { closed: true, title: "Research", acquireOutside: true, moneyOutside: true, holds: true },
+  researchGroup_phone: { closed: true, title: "Research index", acquireOutside: true, moneyOutside: true, holds: true },
+  researchGroup_desktop: { closed: true, title: "Research index", acquireOutside: true, moneyOutside: true, holds: true },
   researchGroupJumpOpens_phone: true,
   researchGroupJumpOpens_desktop: true,
   // Parcel boundaries (2026-10-20, migration 034): fixture geometry only.
@@ -7931,7 +7933,7 @@ const EXPECTED = {
   acqP3CostText: "How the price is set Opening / minimum amount - the items below are added on top Source wording Opening bid $2,000.00 Not the price to buy now: the county's total adds omitted taxes, accrued interest and deed fees. Request the current Lands Available statement from the clerk. Added on top Interest accrued on the listed figure since it was set Not on file Taxes that came due after the listed figure was set (omitted / subsequent years' taxes) Not on file Documentary stamp tax on the deed Not on file Recording fees Not on file Already inside the opening bid (F.S. 197.502(6)) and never added again: the outstanding tax certificates, the delinquent, omitted and current taxes then due, interest, and the costs and fees as of when the opening bid was set - plus half the assessed value on homestead property. Known tax obligation Not on file Which later tax years are owed, and how much, is printed on the official statement - this app holds no tax-bill amount (assessed / taxable values are property values, not taxes owed). Known amount Cannot be calculated None of the items added on top has an amount on file - the listed figure alone is not the amount due. Official total due Not on file The clerk's Lands Available statement - request it from the clerk; it is valid only until the date printed on it.",
   acqP3Forms: ["Current official statement of the amount due Request from the office The clerk's Lands Available statement - request it from the clerk; it is valid only until the date printed on it. Request it via e-mail taxdeeds@bayclerk.example.gov."],
   acqP3NeverPurchasePrice: true,
-  laSevenQuestions: {"order": ["What is this?", "What does the source say I need to pay?", "How do I acquire it?", "What form do I need?", "Where do I submit it?", "Who do I contact?", "What is the official source?"], "pay": true, "form": true, "formMarked": true, "submitByMail": true, "contactPhone": true, "official": true, "noBuyNow": true},
+  laSevenQuestions: {"order": ["How do I acquire it?", "Who do I contact?", "What does the source say I need to pay?", "What is this?", "What form do I need?", "Where do I submit it?", "What is the official source?"], "pay": true, "form": true, "formMarked": true, "submitByMail": true, "contactPhone": true, "official": true, "noBuyNow": true},
   savedAcquisition: {"shown": true, "method": true, "amount": true, "formLink": true, "listing": true, "oneList": true},
   savedReopen: {"open": true, "hash": true, "atAcquire": true},
   laStrippedAcquisition: {"multiStep": true, "office": true, "confirmFirst": true, "requestForm": true, "evidenceLink": true, "notPending": true, "noBuyNow": true, "noUndefined": true},
@@ -8061,9 +8063,9 @@ const EXPECTED = {
   acqP16SourceHref: 'https://taxsales.lgbs.com/',
   acqP16NoCta: 1,
   acqP16PendingNotError: true,
-  acqP3Heads: ["What is this?", "What does the source say I need to pay?", "How do I acquire it?", "What form do I need?", "Where do I submit it?", "Who do I contact?", "What is the official source?"],
+  acqP3Heads: ["How do I acquire it?", "Who do I contact?", "What does the source say I need to pay?", "What is this?", "What form do I need?", "Where do I submit it?", "What is the official source?"],   // 2026-11-10: how + contact lead the first screen
   acqP3Cta: 'Contact county to purchase | mailto:taxdeeds@bayclerk.example.gov',
-  acqP3Labels: ["Method", "Instructions", "Applies to", "By e-mail", "Handled by", "Phone", "Official source", "Official availability listing", "Last verified", "Acquisition authority", "Online purchase", "Listing last read"],
+  acqP3Labels: ["Method", "Instructions", "Applies to", "Handled by", "Phone", "By e-mail", "Official source", "Official availability listing", "Last verified", "Acquisition authority", "Online purchase", "Listing last read"],
   acqP3Availability: 'View official availability → | https://x/list.pdf',
   acqP3FirstSection: 'acquire',
   acqP3NoScoreWords: true,
@@ -8753,16 +8755,16 @@ const EXPECTED = {
   // accrued-interest/TDA-eligibility tips.
   infoTipCount: 7,
   junkLandRowHiddenOnAuction: true,
-  exportBtnLabelAuction: '⬇ Export to Auction Sheet',
+  exportBtnLabelAuction: '⬇ Export list (CSV)',   // one label for every ledger (2026-11-10)
   spreadBarPresentP1: 0,  // the equity spread bar left the card face (2026-10-11)
-  exportBtnLabelCertificate: '⬇ Export Certificates (CSV)',
+  exportBtnLabelCertificate: '⬇ Export list (CSV)',   // one label for every ledger (2026-11-10)
   csvCertAccruedPlausible: true,
   csvCertTdaDate: '2025-06-01',
   certDetailHasAccrued: true,
   certDetailHasTotalReturn: true,
   certDetailTdaEligibleNow: true,
   certDetailYieldInfoTips: 2,
-  exportBtnLabelLaft: '⬇ Export OTC List (CSV)',
+  exportBtnLabelLaft: '⬇ Export list (CSV)',   // one label for every ledger (2026-11-10)
   laftPurchasePriceLabel: 'Opening bid',   // 2026-10-05: an opening bid is never called the purchase price
   laftCtaText: "How to acquire →",   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
   bidListChipTextInitial: '0/10',
@@ -9333,7 +9335,7 @@ const EXPECTED = {
   // Audit F32 (2026-11-02): a row whose own typed path is verified while the county-level gate is not names the two scopes apart.
   gateTruthRow: {"cls": "metadata_gap", "verdict": "Missing record metadata", "subs": ["The record was not read from its source in the last 14 days · No acquisition-evidence status exists for this source and county", "This record's own path is verified; the county-level process the gate checks is not yet.", "Gate not enforced on this deployment: shown for information."]},
   refineLedgerQuestions: {"laft": "About this list", "auction": "About this list", "certificate": "About this list"}, // 2026-10-27: one fact one place
-  refineDossier: {"status": ["Ledger", "Status", "Last read", "Your research (your label, not an official status)"], "lastRead": "Sep 20, 2026", "order": ["dossier-status", "acquire", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},
+  refineDossier: {"status": ["Ledger", "Status", "Last read", "Your research (your label, not an official status)"], "lastRead": "Sep 20, 2026", "order": ["acquire", "dossier-status", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},
   refineViewports: [],
   // Available price honesty (2026-10-05).
   priceWording: {"openingBid": {"label": "Opening bid", "partial": true, "note": "Not the full price: the source publishes this as a starting amount. Ask the county for the current total.", "total": null, "expired": null, "gap": "Current purchase total not on file - the listed figure is the opening bid only"}, "fixed": {"label": "Purchase price", "partial": false, "note": "As the source publishes it - confirm the amount due before paying.", "total": null, "expired": null, "gap": null}, "expiredStatement": {"label": "Total due", "partial": true, "note": "Last clerk statement $27,689.42, valid through Aug 31, 2026 - that date has passed. Request an updated statement from the clerk.", "total": 27689.42, "expired": true, "gap": "County purchase statement has expired - request an updated total"}, "currentStatement": {"label": "Total due from purchaser", "partial": true, "note": "Clerk statement, valid if received by Dec 31, 2099.", "total": 27689.42, "expired": false, "gap": null}}

@@ -69,6 +69,8 @@ DEPLOYED_BUNDLE_FILES = (
     "buyers-guide.css",
     # 2026-11-09 Home, shell chrome and the secondary pages (loaded on every page).
     "home.css",
+    # 2026-11-10 property page layout (first screen, research index).
+    "property.css",
     # 2026-10-03 boot resilience: startup watchdog + supabase-js loader and
     # its same-origin fallback copy.
     "boot.js",

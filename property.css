@@ -1,0 +1,152 @@
+/* ==========================================================================
+   property.css - the full property page (modal on phones and on pages with
+   no side panel, the side panel on the List at desktop widths).
+   Loaded after identity.css (2026-11-10, UI audit, package P6).
+
+   Layout:
+     1. First screen - header.detail-first: picture, county / ledger kicker,
+        title, the one key figure with its label, the stamp + status + the
+        Favorite / Watchlist buttons. Then the sticky section index
+        (.detail-nav, "Contents" on a phone) and How to acquire.
+     2. Status band and the decision blocks.
+     3. The research index - div.detail-index of details.detail-fold
+        blocks, each with a one-line summary (app.js detailFoldIndex).
+   Section numbers come from one CSS counter that only counts what is on
+   screen: a first-screen section's own head, and each index block's
+   summary (the section head inside a block is hidden, so it is never
+   counted twice; a block whose section is [hidden] is not shown at all).
+   Merged-look variants are scoped to html[data-experience="merged"].
+   ========================================================================== */
+
+/* The modal body is a flex column with a max-height: no block on the page may
+   be squeezed to fit (a row with an explicit min-height would otherwise
+   shrink to it and the next block would draw over it). */
+#detailModalInner > *{flex-shrink:0}
+
+/* -- Top bar: breadcrumb left, the testers' tier switch right ------------ */
+.detail-topbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.25rem .6rem;margin:0 3.1rem .35rem 0;min-height:44px}
+.detail-panel .detail-topbar{margin-right:0}
+.detail-topbar .detail-crumbs{margin:0!important;min-width:0}
+.detail-topbar .tier-switch:not(#_){margin:0;padding:0;border:0;background:none;gap:.15rem;flex-wrap:nowrap}
+.detail-topbar .tier-switch-label{font-size:.6rem;margin-right:.2rem}
+.detail-topbar .tier-btn:not(#_){min-height:26px;padding:.1rem .45rem;font-size:.66rem;line-height:1.1;border-radius:3px}
+.detail-topbar .tier-switch-note{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* -- First screen ----------------------------------------------------------- */
+.detail-first{display:block;margin:.1rem 0 .4rem;clear:both}
+.detail-first .detail-hero-photo{margin:0 0 .6rem!important}
+.detail-first .detail-hero-photo.has-photo,
+.detail-first .detail-hero-photo.naip-live{max-height:220px}
+.detail-first .detail-hero-photo.minimap{max-height:150px}
+.detail-id{min-width:0}
+.detail-id .prop-county-tag{font-size:.66rem!important;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--lc,var(--copper))!important;margin:0}
+.detail-id .detail-address{margin:.15rem 0 .25rem!important;font-size:1.75rem!important;overflow-wrap:anywhere}
+.detail-keyfig{display:flex;flex-wrap:wrap;align-items:baseline;gap:.1rem .55rem;margin:.1rem 0 .35rem}
+.detail-keyfig-label{font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
+.detail-keyfig-val{font-family:var(--font-display);font-size:1.35rem;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+.detail-keyfig-val.muted{font-family:var(--font-sans);font-size:.9rem;font-weight:600;color:var(--ink-soft)}
+.detail-keyfig-note{flex-basis:100%;font-size:.72rem;color:var(--ink-soft)}
+.detail-id .prop-top-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem .5rem;margin:.1rem 0 0!important}
+.detail-keyfig .pc-stamp{position:static;margin:0 0 0 .2rem;align-self:center;transform:none}
+.detail-id .prop-top-actions .icon-btn{min-height:36px;font-size:.86rem;padding:.2rem .45rem}
+.detail-id .prop-top-actions .pill{margin:0}
+/* How to acquire right under the index row: no extra gap above it. */
+.detail-nav + .acquire-card,.detail-nav + .source-review-banner + .acquire-card,.detail-nav + .detail-cta{margin-top:.35rem!important}
+
+/* Desktop side panel (a ~400px column at 1280px+): a short picture band
+   across the column, so the title, the figure and How to acquire all fit the
+   first screen at 1440x900. */
+@media (min-width:1280px){
+  .detail-panel .detail-first .detail-hero-photo.has-photo,
+  .detail-panel .detail-first .detail-hero-photo.naip-live{aspect-ratio:auto;height:128px;max-height:128px}
+  .detail-panel .detail-first .detail-hero-photo.minimap{height:112px;max-height:112px;width:100%;aspect-ratio:auto}
+  .detail-panel .detail-first .loc-panel{padding:.45rem .7rem!important}
+  .detail-panel .detail-first .loc-panel .loc-thumb{flex-basis:64px;width:64px;height:64px}
+  .detail-panel .detail-id .detail-address{font-size:1.5rem!important}
+}
+
+/* -- Section index: sticky under the close button, one scrolling row ---- */
+.detail-nav{position:sticky;top:-1rem;z-index:3}
+.detail-nav-label{flex:0 0 auto;align-self:center;font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);padding:0 .35rem 0 .1rem}
+@media (min-width:769px){ .detail-nav-label{display:none} }
+/* Phone: the section index comes back as a compact "Contents" scroller
+   (identity.css hid it on phones in 2026-10-22, when the page was one long
+   scroll; with the research index the jump is the fast way in). */
+@media (max-width:768px){
+  .detail-nav:not(#_){display:flex;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;
+    gap:.1rem;margin:.2rem -.2rem .5rem;padding:.25rem .2rem;top:-1rem;box-shadow:0 6px 10px -10px rgba(32,41,37,.5)}
+  .detail-nav button:not(#_){min-height:36px;padding:.25rem .55rem;font-size:.62rem!important;white-space:nowrap}
+  .detail-first .detail-hero-photo{max-height:200px}
+  .detail-id .detail-address{font-size:1.55rem!important}
+}
+/* A jump lands the section below the sticky index, its block header in view. */
+#detailModalInner [data-section],#detailPanel [data-section]{scroll-margin-top:4.5rem}
+.detail-fold > .detail-section{scroll-margin-top:7.5rem}
+
+/* -- How to acquire: the steps and the contact lead (app.js puts them first) */
+.acquire-card .acq-q[data-acq-q="3"] .acq-cta-row{margin-top:.2rem}
+
+/* -- The research index ----------------------------------------------------- */
+.detail-index{margin:1.1rem 0 .6rem;border-top:2px solid var(--rule,#D8DED6)}
+.detail-index-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:.1rem .6rem;padding:.75rem 0 .35rem}
+.detail-index-title{font-family:var(--font-display);font-size:1.05rem;font-weight:500;color:var(--ink)}
+.detail-index-sub{font-size:.76rem;color:var(--ink-soft)}
+.detail-fold{margin:0!important;border-top:1px solid var(--rule,#D8DED6)}
+.detail-fold:last-child{border-bottom:1px solid var(--rule,#D8DED6)}
+.detail-fold > .detail-fold-summary{display:grid!important;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"t s" "l s";align-items:center;gap:.05rem .8rem;min-height:52px;padding:.5rem 0!important}
+.detail-fold > .detail-fold-summary::after{grid-area:s;align-self:center;margin-left:0!important;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase}
+.detail-fold-summary .detail-more-title{grid-area:t;font-family:var(--font-display);font-size:.98rem;font-weight:500;letter-spacing:0;color:var(--ink)}
+.detail-fold-line{grid-area:l;font-weight:400;font-size:.76rem;line-height:1.35;letter-spacing:0;color:var(--ink-soft);overflow-wrap:anywhere}
+.detail-fold-summary:hover .detail-more-title{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
+.detail-fold > .detail-fold-summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.detail-fold[open] > .detail-fold-summary{border-bottom:1px dashed var(--rule,#D8DED6)}
+.detail-fold > .detail-section{margin:.5rem 0 .8rem!important}
+.detail-fold > .lien-banner{margin:.6rem 0 .2rem!important}
+.detail-fold > .copy-row,.detail-fold > .detail-legal{margin:.6rem 0}
+/* The block header carries the section's title, so the head inside is not
+   repeated (and not counted). */
+.detail-fold > .detail-section > .detail-section-head{display:none!important}
+/* A block whose section is hidden (nothing to show yet) is not listed. */
+.detail-fold:has(> .detail-section[hidden]){display:none}
+
+/* -- Section numbers: count only what is on screen ------------------------- */
+/* #detailPanel is a size container (identity.css: container-type:inline-size),
+   which implies style containment - a counter-reset on the container itself
+   did not reach the sections inside, so every section read "01". The counter
+   is started on the page's first row instead; its following siblings (every
+   section) inherit it. */
+#detailModalInner,#detailPanel{counter-reset:none}
+#detailModalInner > .detail-topbar,#detailPanel > .detail-topbar,
+#detailModalInner > .detail-crumbs,#detailPanel > .detail-crumbs{counter-reset:dsec}
+#detailModalInner .detail-fold > .detail-fold-summary .detail-more-title::before,
+#detailPanel .detail-fold > .detail-fold-summary .detail-more-title::before{
+  counter-increment:dsec;content:counter(dsec,decimal-leading-zero);display:inline-block;min-width:1.7em;margin-right:.45rem;
+  font-family:var(--font-mono);font-weight:500;font-size:.85em;letter-spacing:0;color:var(--ink-soft)}
+
+/* -- GIS card: the live mini-map's Tilt button (hydrateGisLive) ----------- */
+.detail-map-embed[data-gis-live]{position:relative}
+.gis-tilt-btn{position:absolute;left:.5rem;top:.5rem;z-index:2;min-height:36px;padding:.25rem .7rem;border:1px solid var(--rule-strong,#1F3A2E);border-radius:3px;
+  background:var(--paper-white,#fff);color:var(--ink);font:600 .74rem var(--font-sans);letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+.gis-tilt-btn[aria-pressed="true"]{background:var(--forest,#1F3A2E);color:#fff}
+.gis-tilt-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* -- Calls to action under the first screen -------------------------------- */
+.detail-first ~ .detail-cta{margin:.3rem 0 .6rem}
+
+/* -- Merged look ----------------------------------------------------------- */
+html[data-experience="merged"] .detail-first .detail-hero-photo{border-radius:var(--radius,6px)}
+html[data-experience="merged"] .detail-keyfig-val{color:var(--forest,#1F3A2E)}
+html[data-experience="merged"] .detail-index{border-top-color:var(--forest,#1F3A2E)}
+html[data-experience="merged"] .detail-fold-summary .detail-more-title::before{color:var(--sage-brand,#4C685A)}
+
+/* -- Dark theme ------------------------------------------------------------- */
+:root[data-theme="dark"] .detail-keyfig-val{color:var(--ink)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .detail-keyfig-val{color:var(--ink)}
+}
+
+/* -- Motion: only when the reader allows it -------------------------------- */
+@media (prefers-reduced-motion:no-preference){
+  .detail-fold[open] > :not(summary){animation:detailFoldIn .18s ease-out}
+  @keyframes detailFoldIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+}

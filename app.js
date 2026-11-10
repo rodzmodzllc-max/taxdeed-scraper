@@ -327,9 +327,11 @@ const STATUS_PILL_LABEL = { active: "Listed", available: "Listed", closed: "Left
 function cssEscape(v) { return (window.CSS && CSS.escape) ? CSS.escape(v) : String(v).replace(/["\\]/g, "\\$&"); }
 function statusPillHtml(p) {
   const raw = String(p.status || "").toLowerCase();
-  const label = STATUS_PILL_LABEL[raw] || raw || "Unknown";
-  const tip = isGone(p) ? GONE_STATUS_CAVEAT : "On the source's list as of the last sync";
-  return `<span class="pill ${esc(raw)}" title="${esc(tip)}">${esc(label)}</span>`;
+  // No status on the row is said as that, not as "Unknown" (2026-11-10), and
+  // its tooltip no longer claims the record is on the source's list.
+  const label = STATUS_PILL_LABEL[raw] || raw || "Status not recorded";
+  const tip = isGone(p) ? GONE_STATUS_CAVEAT : raw ? "On the source's list as of the last sync" : "The source row carries no listing status";
+  return `<span class="pill ${esc(raw || "unrecorded")}" title="${esc(tip)}">${esc(label)}</span>`;
 }
 
 const TYPE_ORDER = ["House", "Condo", "Townhome", "Mobile/Manuf.", "Vacant Lot", "Commercial", "Unknown"];
@@ -8851,12 +8853,14 @@ function acquireBlockHtml(p) {
   if (a.mode !== "online") srcRows.push(["Online purchase", esc("No online purchase link on file")]);
   if (p.last_seen_at) srcRows.push(["Listing last read", esc(dateOnly(p.last_seen_at))]);
   return detailSectionHtml("How to acquire", `${acquireChecklistHtml(p)}<div class="acq-block" data-acq-state="${state}">
-    ${q(1, "What is this?", whatHtml)}
-    ${q(2, "What does the source say I need to pay?", payHtml)}
+    ${/* First screen (2026-11-10): how to acquire it and whom to contact lead;
+        the questions keep their numbers (data-acq-q) and their answers. */ ""}
     ${q(3, "How do I acquire it?", howHtml)}
+    ${q(6, "Who do I contact?", contactHtml)}
+    ${q(2, "What does the source say I need to pay?", payHtml)}
+    ${q(1, "What is this?", whatHtml)}
     ${q(4, "What form do I need?", formHtml)}
     ${q(5, "Where do I submit it?", submitHtml)}
-    ${q(6, "Who do I contact?", contactHtml)}
     ${q(7, "What is the official source?", dl(srcRows))}
   </div>`, "acquire-card", "acquire");
 }
@@ -9181,7 +9185,9 @@ function detailNavHtml(bodyHtml) {
   const ids = [];
   bodyHtml.replace(/data-section="([a-z]+)"/g, (m, id) => { if (DETAIL_NAV_LABELS[id] && !ids.includes(id)) ids.push(id); return m; });
   if (ids.length < 2) return "";
-  return `<nav class="detail-nav" aria-label="Sections">${ids.map(id => `<button type="button" data-action="jump" data-target="${id}">${DETAIL_NAV_LABELS[id]}</button>`).join("")}</nav>`;
+  // "Contents" names the row on a phone, where it is a sticky horizontal
+  // scroller (property.css); desktop hides the word.
+  return `<nav class="detail-nav" aria-label="Contents"><span class="detail-nav-label" aria-hidden="true">Contents</span>${ids.map(id => `<button type="button" data-action="jump" data-target="${id}">${DETAIL_NAV_LABELS[id]}</button>`).join("")}</nav>`;
 }
 // Always rendered for a deed/LAFT property (never for a certificate) - the
 // point is to make the absence of this data visible and honest, not to
@@ -10058,12 +10064,66 @@ function gisLocationCardHtml(p) {
     ? `<div class="kv-row" data-coord-method="NONE"><span class="kv-label">Coordinate source</span><span class="kv-val muted">No authoritative coordinates available</span></div>`
     : `<div class="kv-row" data-coord-method="${esc(cp.method)}"><span class="kv-label">Coordinate source</span><span class="kv-val">${esc(cp.label)}${cp.authoritative ? "" : `<span class="kv-sub">Not an authoritative parcel location</span>`}</span></div>
     <div class="kv-row"><span class="kv-label">Location type</span><span class="kv-val">${esc(cp.geometry_label)}${cp.geometry === "PARCEL_CENTROID" ? `<span class="kv-sub">The centre of the parcel polygon - not a building or the buildable area</span>` : ""}</span></div>`;
-  const embed = hasCoords ? `<div class="detail-map-embed"><iframe src="${esc(osmEmbedUrl(p.latitude, p.longitude))}" loading="lazy" title="Property location map" referrerpolicy="no-referrer-when-downgrade"></iframe></div>` : "";
+  // The embed is also the mount point of the live mini-map (hydrateGisLive):
+  // when map-3d.js, a MapTiler key and these coordinates all exist, the
+  // interactive map with the parcel outline replaces it in place; otherwise
+  // (or on any failure) this embed stays exactly as it is.
+  const embed = hasCoords ? `<div class="detail-map-embed" data-gis-live="${esc(String(p.id))}"><iframe src="${esc(osmEmbedUrl(p.latitude, p.longitude))}" loading="lazy" title="Property location map" referrerpolicy="no-referrer-when-downgrade"></iframe></div>` : "";
   // Phase 66: one step from the full page to the app's own Map page, zoomed
   // to this county with this property selected (its pin, when it has one;
   // its strip card and preview either way) - see showOnMap().
   const mapBtn = `<button class="show-on-map-btn" type="button" data-action="showonmap" data-pid="${p.id}">${svgIcon("map")}${hasCoords ? "Show pin on the Map page" : "Show county on the Map page"}</button>`;
   return detailSectionHtml("GIS & Location", `<div class="kv-list">${kv}${coordRows}</div>${embed}${mapBtn}`, "", "map");
+}
+// The GIS card's live mini-map (2026-11-10). Only when the record has
+// coordinates and config.js names a MapTiler key does anything load: then
+// map-3d.js (lazy import; package P5) draws an interactive satellite map at
+// the record's own point, with the parcel outline when one was published for
+// it (the same fetch the picture's outline uses, boundaryFor). A "Tilt"
+// button pitches the camera. It mounts when the GIS block is first opened -
+// never for a block nobody opens - and any failure (no module, no key, a
+// style that does not load) leaves the card's existing embed untouched. No
+// stored screenshot, never a blank box.
+function gisLiveConfigured(p) {
+  const c = window.TDW_CONFIG || {};
+  const key = typeof c.maptilerKey === "string" ? c.maptilerKey.trim() : "";
+  return !!key && !!p && hasNum(p.latitude) && hasNum(p.longitude);
+}
+var GIS_LIVE = null;   // the one live mini-map; a new one releases the last (WebGL contexts are scarce)
+function hydrateGisLive(root, p) {
+  const el = root && root.querySelector(`[data-gis-live="${cssEscape(String(p.id))}"]`);
+  if (!el || el.dataset.gisLiveState || !gisLiveConfigured(p)) return;
+  const fold = el.closest("details");
+  const go = () => {
+    if (el.dataset.gisLiveState) return;
+    el.dataset.gisLiveState = "loading";
+    import("./map-3d.js").then(m => (m && typeof m.mountGisMap === "function")
+      ? m.mountGisMap(el, { lat: Number(p.latitude), lng: Number(p.longitude), propertyId: p.id, row: p, ledger: p.source, boundaryFetcher: (pid, row) => boundaryFor(pid, row) })
+      : { status: "error" })
+      .then(res => {
+        el.dataset.gisLiveState = res && res.status ? res.status : "error";
+        if (!res || res.status !== "ready" || !res.map) return;
+        if (GIS_LIVE && GIS_LIVE !== res) { try { GIS_LIVE.destroy(); } catch { /* already gone */ } }
+        GIS_LIVE = res;
+        const reduce = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: no-preference)").matches);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "gis-tilt-btn";
+        btn.setAttribute("aria-pressed", "false");
+        btn.textContent = "Tilt";
+        btn.title = "Tilt the camera to see the terrain - the parcel outline itself stays flat";
+        btn.addEventListener("click", () => {
+          const on = btn.getAttribute("aria-pressed") !== "true";
+          btn.setAttribute("aria-pressed", String(on));
+          btn.textContent = on ? "Flat" : "Tilt";
+          try { res.map.easeTo({ pitch: on ? 55 : 0, duration: reduce ? 0 : 700 }); } catch { /* map gone */ }
+        });
+        el.appendChild(btn);
+      })
+      .catch(() => { el.dataset.gisLiveState = "error"; });
+  };
+  if (!fold || fold.open) { go(); return; }
+  fold.addEventListener("toggle", function once() { if (fold.open) { fold.removeEventListener("toggle", once); go(); } });
 }
 // Kept as the exact original .detail-provenance markup/text (two plain
 // <span>s: "Data source: X" and lastSyncedText()'s own wording) inside the
@@ -10824,23 +10884,39 @@ function detailHtml(p) {
     if (regionOf(p) === "FL") stats.push(["TDA Eligibility", tdaEligibleText(p)]);
   }
 
+  // Property page layout (2026-11-10, UI audit): the first screen of every
+  // record is the picture, the title, the ledger + status stamp, the one key
+  // figure with its label and how to acquire it - then the status band and
+  // the decision blocks. Everything a researcher digs into follows as an
+  // INDEX of collapsible blocks, one per section, each with a one-line
+  // summary in its header (detailFoldIndex). Nothing is removed: every block
+  // keeps its full content in the DOM, and a section-nav jump opens it.
+  const stamp = cardStamp(p);
+  const firstHtml = `<header class="detail-first${isCert ? " no-hero" : ""}" data-first-screen="1">
+      ${isCert ? "" : propertyVisual(p, "detail-hero-photo")}
+      <div class="detail-id">
+        <div class="prop-county-tag">${esc(unitLabelOf(p.county))}, ${esc(regionOf(p))}${isCert ? " · Certificate" : (p.source === "laft" ? (isDatedList(p) ? " · Adjudicated (dated list)" : regionOf(p) === "TX" ? " · Struck-off inventory" : regionOf(p) === "FL" ? " · Lands Available" : " · " + esc(availableProgram(p))) : " · Auction")}</div>
+        <h2 class="detail-address">${title}</h2>
+        ${detailKeyFigureHtml(p, stamp ? cardStampHtml(stamp) : "")}
+        <div class="prop-top-actions">
+          ${/* a row with no listing status gets no pill here: the status band and
+              the certificate status lines below say what the source lists */ ""}
+          ${String(p.status || "").trim() ? statusPillHtml(p) : ""}
+          <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button">${fav ? "♥ Favorited" : "♡ Favorite"}</button>
+          ${bidListBtnHtml(p, false)}
+        </div>
+      </div>
+    </header>`;
   const html = `
     <button class="detail-close" data-action="closedetail" type="button" aria-label="Close">✕</button>
-    ${detailCrumbsHtml(p)}
-    ${tierSwitchHtml("pro")}
-    <div class="prop-county-tag">${esc(unitLabelOf(p.county))}, ${esc(regionOf(p))}${isCert ? " · Certificate" : (p.source === "laft" ? (isDatedList(p) ? " · Adjudicated (dated list)" : regionOf(p) === "TX" ? " · Struck-off inventory" : regionOf(p) === "FL" ? " · Lands Available" : " · " + esc(availableProgram(p))) : " · Auction")}</div>
-    <h2 class="detail-address">${title}</h2>
-    <div class="prop-top-actions" style="margin:.2rem 0 .5rem">
-      <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button">${fav ? "♥ Favorited" : "♡ Favorite"}</button>
-      ${bidListBtnHtml(p, false)}
-      ${statusPillHtml(p)}
-    </div>
+    <div class="detail-topbar">${detailCrumbsHtml(p)}${tierSwitchHtml("pro")}</div>
+    ${firstHtml}
     <!--NAV-->
+    ${isCert ? `
+    ${auctionLinkHtml(p, "detail-cta")}
     ${detailStatusHtml(p)}
     ${sourceLineHtml(p)}
     ${whySeeingHtml(p)}
-    ${regionOf(p) === "TX" && classificationBadgeHtml(p) ? `<div class="prop-classification-line" style="margin:.2rem 0 .5rem">${classificationBadgeHtml(p)}</div>` : ""}
-    ${isCert ? `
     ${certStatusLinesHtml(p)}
     ${certificateDecisionHtml(p)}
     <div class="detail-grid">
@@ -10853,10 +10929,14 @@ function detailHtml(p) {
     ${parcelTimelineHtml(p)}
     ${sourceTruthHtml(p)}
     ${monitorSectionHtml(p)}` : `
-    ${propertyVisual(p, "detail-hero-photo")}
     ${sourceReviewBannerHtml(p)}
     ${acquireBlockHtml(p)}
     ${financialPositionHtml(p)}
+    ${p.source === "auction" ? auctionLinkHtml(p, "detail-cta") : ""}
+    ${detailStatusHtml(p)}
+    ${sourceLineHtml(p)}
+    ${whySeeingHtml(p)}
+    ${regionOf(p) === "TX" && classificationBadgeHtml(p) ? `<div class="prop-classification-line" style="margin:.2rem 0 .5rem">${classificationBadgeHtml(p)}</div>` : ""}
     ${availableDecisionHtml(p)}
     ${auctionDecisionHtml(p)}
     <!--RESEARCH-->
@@ -10903,22 +10983,160 @@ function detailHtml(p) {
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
     </div>${recordOriginsHtml(p)}` : provenanceCardHtml(p)}
     <!--/RESEARCH-->
-    ${auctionLinkHtml(p, "detail-cta")}
+    ${p.source === "laft" ? auctionLinkHtml(p, "detail-cta") : ""}
     ${noteHtml(p)}`;
   // Phase 66: the section nav is built from the sections that actually
   // rendered above (see detailNavHtml), so it is spliced in afterwards.
-  // Free tier (2026-10-25, the owner's tiers): the first screen is what a
-  // new investor acts on - the picture, how to acquire it, the money and the
-  // decision. Everything a researcher digs into (flood, liens, owner, values,
-  // property facts, history, location, sources, provenance, due diligence)
-  // is grouped in ONE "Research" section, closed until opened. Nothing is
-  // removed or hidden from anyone: it is one tap away, and a section-nav
-  // jump into it opens it.
-  const grouped = html.replace("<!--RESEARCH-->", `<details class="detail-more detail-research" data-research-group="1"><summary class="detail-more-summary"><span class="detail-more-title">Research</span><span class="detail-more-sub">Flood, liens, owner, values, property facts, history, location and sources</span></summary>`)
-    .replace("<!--/RESEARCH-->", "</details>");
+  // The research tail is one index (div.detail-index); proCleanupHtml puts
+  // the Open questions box at its start and detailFoldIndex turns every
+  // section in it into its own collapsible block with a one-line summary.
+  const grouped = html.replace("<!--RESEARCH-->", `<div class="detail-index" data-detail-index="1"><div class="detail-index-head"><span class="detail-index-title">Research index</span><span class="detail-index-sub">Each block opens in place; its line says what it holds</span></div>`)
+    .replace("<!--/RESEARCH-->", "</div>");
   // Full record cleanup (2026-10-27): unanswered rows move to one Open questions box.
-  const cleaned = proCleanupHtml(grouped);
+  const cleaned = detailFoldIndex(proCleanupHtml(grouped), p, links.length);
   return cleaned.replace("<!--NAV-->", detailNavHtml(cleaned));
+}
+// The one figure a buyer reads first, with its label (2026-11-10): the same
+// label every other surface uses for this record - an Available amount by its
+// kind (amountInfo), an auction bid by its source's word (auctionBidLabel), a
+// certificate's face amount named as not a property price. A missing figure
+// stays "Not published"; nothing is computed here.
+function detailKeyFigureHtml(p, stampHtml) {
+  let label, value, note = "";
+  if (p.source === "certificate") {
+    label = "Certificate amount";
+    value = hasPublishedBid(p) ? fmtMoney(p.bid) : null;
+    note = "Not a property price";
+  } else if (p.source === "laft") {
+    const i = amountInfo(p);
+    label = i.label || "Amount";
+    value = i.value !== null && i.value !== undefined ? fmtMoney(i.value) : null;
+    if (value === null && i.display && i.display !== "Not published") { value = i.display; note = ""; }
+  } else {
+    label = auctionBidLabel(p, true);
+    value = hasPublishedBid(p) ? fmtMoney(p.bid) : null;
+  }
+  return `<p class="detail-keyfig"${value === null ? ' data-missing="1"' : ""}><span class="detail-keyfig-label">${esc(label)}</span><span class="detail-keyfig-val${value === null ? " muted" : ""}">${esc(value === null ? "Not published" : value)}</span>${stampHtml || ""}${note ? `<span class="detail-keyfig-note">${esc(note)}</span>` : ""}</p>`;
+}
+// The research index (2026-11-10): every section inside div.detail-index -
+// and the Open questions box in front of it - becomes its own
+// <details class="detail-more detail-fold"> whose summary carries the
+// section's title and ONE line saying what it holds, from the record only.
+// The section itself moves inside unchanged (its data-section anchor too), so
+// the section nav, the "jump" action (which opens the closest
+// details.detail-more) and every reader of the section keep working. The
+// manual lien notes travel with Risk & Legal; the legal description and the
+// owner / parcel copy buttons form one "Owner, parcel & legal description"
+// block. Runs on the cleaned page, so a section the cleanup removed never
+// leaves an empty block behind.
+function detailFoldIndex(html, p, linkCount) {
+  if (!html.includes('class="detail-index"')) return html;
+  const tpl = document.createElement("template");
+  tpl.innerHTML = html;
+  const idx = tpl.content.querySelector(".detail-index");
+  if (!idx) return html;
+  const head = idx.querySelector(".detail-index-head");
+  const oq = tpl.content.querySelector(".open-q-card");
+  if (oq && !idx.contains(oq)) idx.insertBefore(oq, head ? head.nextSibling : idx.firstChild);
+  const mk = (key, title, line, nodes, before) => {
+    const d = document.createElement("details");
+    d.className = "detail-more detail-fold";
+    d.dataset.fold = key;
+    d.innerHTML = `<summary class="detail-more-summary detail-fold-summary"><span class="detail-more-title">${esc(title)}</span><span class="detail-fold-line">${esc(line)}</span></summary>`;
+    idx.insertBefore(d, before);
+    nodes.forEach(n => d.appendChild(n));
+    return d;
+  };
+  let pending = [];
+  let ident = null;
+  Array.from(idx.children).forEach(el => {
+    if (el === head) return;
+    if (el.classList.contains("lien-banner")) { pending.push(el); return; }
+    if (el.classList.contains("detail-legal") || el.classList.contains("copy-row")) {
+      if (ident) ident.appendChild(el);
+      else ident = mk("parcel", "Owner, parcel & legal description", detailFoldLine("parcel", p, el), [el], el);
+      return;
+    }
+    if (el.classList.contains("detail-provenance") || el.classList.contains("record-origins")) {
+      const prev = idx.querySelector('details[data-fold="provenance"]');
+      if (prev) prev.appendChild(el);
+      else mk("provenance", "Data Quality & Provenance", lastSyncedText(p), [el], el);
+      return;
+    }
+    if (!el.classList.contains("detail-section") || !el.dataset.section) return;
+    const key = el.dataset.section;
+    const h = el.querySelector(":scope > .detail-section-head");
+    const title = h ? h.textContent.replace(/\s*·\s*\d+\s*$/, "").trim() : (DETAIL_NAV_LABELS[key] || key);
+    const nodes = pending.concat([el]);
+    mk(key, title, detailFoldLine(key, p, el, linkCount), nodes, pending[0] || el);
+    pending = [];
+  });
+  return tpl.innerHTML;
+}
+// One line per index block, from the record or the block's own content -
+// never a score. A fact the record does not carry is named as missing.
+function detailFoldLine(key, p, el, linkCount) {
+  const q = sel => el && el.querySelectorAll ? el.querySelectorAll(sel).length : 0;
+  const money = v => hasValueNum(v) ? fmtShort(v) : null;
+  switch (key) {
+    case "questions": { const n = q(".open-q li"); return `${n} question${n === 1 ? "" : "s"} nothing on file answers yet, each with where to look`; }
+    case "inventory": return INVENTORY_TYPE_LABELS[p.inventory_type] ? `${INVENTORY_TYPE_LABELS[p.inventory_type]}${p.certificate_no ? ` · certificate ${p.certificate_no}` : ""}` : "Inventory type not classified by the source";
+    case "financial": {
+      const bits = [];
+      if (money(p.market)) bits.push(`${valueLabel(p)} ${money(p.market)}`);
+      if (money(p.assessed)) bits.push(`${assessedSourceLabel(p)} ${money(p.assessed)}`);
+      if (hasNum(p.taxable_value)) bits.push(`Taxable ${fmtShort(p.taxable_value)}`);
+      return bits.length ? bits.join(" · ") : "No county value on file";
+    }
+    case "property": {
+      const bits = [];
+      if (hasNum(p.year_built)) bits.push(`Built ${p.year_built}`);
+      if (hasNum(p.living_area)) bits.push(fmtSqft(p.living_area));
+      if (hasNum(p.lot_sqft)) bits.push(`Lot ${lotSize(p)}`);
+      else if (hasNum(p.acreage)) bits.push(`${Number(p.acreage).toFixed(2)} ac`);
+      return bits.length ? bits.join(" · ") : "Property facts on the tax roll";
+    }
+    case "history": return lastSaleText(p) ? `Last sale ${lastSaleText(p)}` : (isGone(p) ? outcomeText(p) : "Sale history");
+    case "risk": return `Flood: ${floodShort(p).text.replace(/^Not/, "not")} · liens, judgments and code cases not tracked${regionOf(p) === "FL" ? ` · lien notes: ${LIEN_LABEL[p.lien_level] || "not reviewed"}` : ""}`;
+    case "map": {
+      if (!(hasNum(p.latitude) && hasNum(p.longitude))) return "Not yet geocoded - county view on the Map page";
+      const cp = coordinateProvenance(p);
+      return `${Number(p.latitude).toFixed(4)}, ${Number(p.longitude).toFixed(4)} · ${cp.method === "NONE" ? "coordinate source not recorded" : cp.label}`;
+    }
+    case "research": {
+      researchStateObj();
+      const items = RESEARCH.loaded ? researchSavedFor(p.id) : [];
+      return items.length ? `${RESEARCH_STATE_LABELS[items[0].research_state] || items[0].research_state} · ${items.map(i => researchListName(i.list_id)).join(", ")}` : "Not saved to a research list yet";
+    }
+    case "diligence": {
+      const c = diligenceCounts(diligenceFor(p));
+      const n = c.VERIFIED + c.NOT_VERIFIED + c.NOT_PUBLISHED + c.SOURCE_UNAVAILABLE;
+      return `${c.VERIFIED} of ${n} items verified by the records`;
+    }
+    case "related": { const n = relatedRecordsFor(p).length; return n ? `${n} record${n === 1 ? "" : "s"} for the same parcel in other ledgers` : "No record of the same parcel in another ledger"; }
+    case "timeline": { const n = q("li"); return n ? `${n} dated fact${n === 1 ? "" : "s"} for this parcel` : "Dated facts for this parcel"; }
+    case "events": return "Sale events observed on the source";
+    case "monitor": return "What changed on this record since you saved it";
+    case "truth": {
+      const name = sourceNameFor(p) || harvesterSourceLabel(p) || "Source not named";
+      return `${name}${p.last_seen_at ? `, read ${dateOnly(p.last_seen_at)}` : ", last read not recorded"}`;
+    }
+    case "documents": { const n = q("a[href]"); return n ? `${n} official link${n === 1 ? "" : "s"} and document${n === 1 ? "" : "s"}` : "No document on file"; }
+    case "sources": return linkCount ? `${linkCount} reference link${linkCount === 1 ? "" : "s"} · report a source problem` : "No reference links harvested yet · report a source problem";
+    case "provenance": return lastSyncedText(p);
+    case "parcel": {
+      const bits = [];
+      if (p.source !== "certificate") bits.push(p.owner_name ? `Owner ${p.owner_name}` : "Owner not published");
+      const id = parcelOf(p) || p.case_no;
+      bits.push(id ? `${p.source === "certificate" ? "Account" : "Parcel"} ${id}` : "Parcel not published");
+      if (p.legal_desc) bits.push("legal description");
+      return bits.join(" · ");
+    }
+    default: {
+      const h = el && el.querySelector && el.querySelector(":scope > .detail-section-head");
+      return h ? h.textContent.trim() : "";
+    }
+  }
 }
 
 // The detail modal and the hidden-properties modal are fixed-position
@@ -10998,6 +11216,7 @@ function openDetail(p) {
   if (p.source !== "certificate") hydrateEventHistory(inner, p);
   if (p.source === "laft") hydrateInventoryHistory(inner, p);
   hydrateChangeHistory(inner, p);
+  hydrateGisLive(inner, p);
   researchAfterOpen(p);
   if (wasHidden) track("property_viewed", { property_id: p.id, ledger: p.source });
   observeAcquisitionSection(inner, p);
@@ -12936,15 +13155,12 @@ function applyLedgerChrome() {
   }
   buildSourceFilterOptions();
 
-  // The CSV export is the same file either way - only the label changes, so
-  // it reads as "the thing this ledger's desk actually wants" rather than a
-  // generic download button repeated three times.
+  // One label for every ledger (2026-11-10, UI audit): the export is the
+  // list on screen in every ledger, so the button says exactly that. The
+  // per-ledger names ("Auction Sheet", "OTC List") read as different files.
+  // The arrow is decorative; the accessible name is "Export list (CSV)".
   const exportBtn = document.getElementById("exportCsvBtn");
-  if (exportBtn) {
-    exportBtn.textContent = key === "auction" ? "⬇ Export to Auction Sheet"
-      : key === "certificate" ? "⬇ Export Certificates (CSV)"
-      : "⬇ Export OTC List (CSV)";
-  }
+  if (exportBtn) exportBtn.innerHTML = '<span aria-hidden="true">⬇</span> Export list (CSV)';
 }
 
 function setLedger(key, opts) {
@@ -15524,6 +15740,7 @@ function selectProperty(p) {
   if (p.source !== "certificate") hydrateEventHistory(panel, p);
   if (p.source === "laft") hydrateInventoryHistory(panel, p);
   hydrateChangeHistory(panel, p);
+  hydrateGisLive(panel, p);
   researchAfterOpen(p);
   observeAcquisitionSection(panel, p);
   document.querySelectorAll(".data-table tbody tr[data-pid]").forEach(tr => {
@@ -15535,6 +15752,9 @@ function selectProperty(p) {
   document.querySelectorAll("#main .prop-card[data-pid]").forEach(c => {
     c.classList.toggle("selected", String(c.dataset.pid) === String(p.id));
   });
+  // The looks (experience-*.js) draw their own cards; they follow the
+  // selection through this event and experienceApi().selectedId().
+  try { document.dispatchEvent(new CustomEvent("tdw:propertyselected", { detail: { pid: String(p.id) } })); } catch { /* old browser */ }
 }
 
 // Same defensive no-op pattern as refreshOpenDetail() for the modal: called
@@ -17432,7 +17652,14 @@ function experienceApi() {
     unitWord: () => UNIT_WORD,
     // The unit's display name: an independent city is never "<city> County" (audit F35).
     unitLabel: c => unitLabelOf(c),
-    ledgerTitle: k => (ledgerCopy(k) || {}).title || k
+    ledgerTitle: k => (ledgerCopy(k) || {}).title || k,
+    // Selection contract (2026-11-10): a look marks the record open in the
+    // desktop side panel without reaching into app.js. selectedId() reads the
+    // current selection; selectProperty(p) opens one in the panel (openDetail
+    // already picks the panel or the modal by width). Every selection also
+    // dispatches "tdw:propertyselected" { pid } on document.
+    selectProperty,
+    selectedId: () => (selectedPid == null ? null : String(selectedPid))
   };
   return XP_API;
 }
@@ -18170,7 +18397,9 @@ function pageTier() {
 }
 function tierSwitchHtml(tier) {
   if (!canSwitchTier()) return "";
-  return `<div class="tier-switch" role="group" aria-label="Page view"><span class="tier-switch-label">View</span>${PAGE_TIERS.map(t =>
+  // Testers only, kept compact (2026-11-10): one small row beside the
+  // breadcrumb; the note is still in the DOM (screen readers, tooltip).
+  return `<div class="tier-switch" role="group" aria-label="Page view (testing - accounts carry no tier yet)" title="Testing - accounts carry no tier yet"><span class="tier-switch-label">View</span>${PAGE_TIERS.map(t =>
     `<button type="button" class="tier-btn${t === tier ? " on" : ""}" data-tier-set="${t}" aria-pressed="${t === tier}">${esc(PAGE_TIER_LABELS[t])}</button>`).join("")}<span class="tier-switch-note">testing - accounts carry no tier yet</span></div>`;
 }
 function tierLandUse(p) {
@@ -18721,8 +18950,10 @@ function proCleanupHtml(html) {
   proCleanupInto(tpl.content, questions);
   let out = tpl.innerHTML;
   const box = openQuestionsHtml(questions);
-  // Placed after the answers a buyer acts on and before the research group.
-  if (box) out = out.includes('<details class="detail-more detail-research"') ? out.replace('<details class="detail-more detail-research"', box + '<details class="detail-more detail-research"') : out + box;
+  // Placed after the answers a buyer acts on, at the head of the research
+  // index (detailFoldIndex moves it inside as the index's first block).
+  const at = '<div class="detail-index"';
+  if (box) out = out.includes(at) ? out.replace(at, box + at) : out + box;
   return out;
 }
 window.__tdwOpenQuestions = () => Array.from(document.querySelectorAll('#detailModalInner .open-q li, #detailPanel .open-q li')).map(li => li.querySelector("b").textContent);
