@@ -99,6 +99,9 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
   check(`amountCaveatOpens_${vp.width}`, opened, opened);
   const order = await pg.evaluate(() => { const c = document.querySelector('#xpStage .xt-acard'); const t = c.querySelector('.xt-lot-t').getBoundingClientRect().top, k = c.querySelector('.xt-lot-k').getBoundingClientRect().top, f = c.querySelector('.xt-fig-main').getBoundingClientRect().top; return { t, k, f }; });
   check(`cardLeadsWithAddress_${vp.width}`, order.t < order.k && order.k < order.f, order);
+  // The record's own status stamp (app.js cardStamp, as on the Classic card).
+  const stamp = await pg.evaluate(() => { const s = document.querySelector('#xpStage .xt-acard .xt-stamp'); return s ? s.textContent.trim() : null; });
+  check(`cardStampFromRecord_${vp.width}`, /^(Verified path|Path not yet verified|Dated list|No longer listed)$/.test(stamp || ''), stamp);
   await pg.close();
 }
 

@@ -480,3 +480,8 @@ html[data-experience="terrain"] .county-now .cnb-list{border-radius:0 0 14px 14p
    (2:1); it reads deep sage on soft sage now (6:1), still quieter than an
    active step. */
 .xp-terrain .xt-trail .wp.done .wp-n{background:var(--sage-soft);color:var(--sage-deep);box-shadow:0 0 0 3px var(--sage-wash),inset 0 0 0 1.5px var(--sage-glow)}
+/* The card's status stamp, under its identifiers (2026-11-10). */
+.xp-terrain .xt-acard .xt-stamp{position:static;align-self:flex-start;margin-top:8px;display:inline-flex;align-items:center;max-width:calc(100% - 20px);padding:3px 8px 2px;border:1.5px solid currentColor;border-radius:4px;background:rgba(253,253,251,.94);font:700 10px/13px var(--font-sans);letter-spacing:.09em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transform:rotate(-2deg);transform-origin:left center}
+.xp-terrain .xt-acard .xt-stamp.k-verified{color:#2F5E39}
+.xp-terrain .xt-acard .xt-stamp.k-muted{color:#56695E;border-style:dashed;font-weight:600}
+.xp-terrain .xt-acard .xt-stamp.k-closed{color:#574F46;border-style:dashed}

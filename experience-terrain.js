@@ -499,6 +499,7 @@ function availableCard(p, api, i, headTrail) {
       <div class="xt-lot-k">${api.cardKickerHtml(p, LIST_CTX)}</div>
       <h4 class="xt-lot-t">${titleHtml(p, api)}</h4>
       <div class="xt-ids">${idRow(p, api)}</div>
+      ${cardStampHtml(p, api)}
       <div class="xt-figs">
         <div class="xt-fig xt-fig-main"><span class="xt-lbl">${api.esc(amt.label)}</span><span class="xt-num${amt.state === "not_published" ? " np" : ""}">${api.esc(amt.text)}</span></div>
         <div class="xt-fig"><span class="xt-lbl">${api.esc(pf.valueLabel || "County value")}</span><span class="xt-num xt-num-s${pf.value ? "" : " np"}">${api.esc(pf.value || "Not published")}</span></div>
@@ -508,6 +509,19 @@ function availableCard(p, api, i, headTrail) {
       <div class="xt-actions">${openBtn(p, api, "xt-btn-primary xt-sage")}${watchBtn(p, api)}</div>
     </div>
   </article>`;
+}
+
+// The card's one status stamp, from the record's own data (api.cardStamp,
+// the same decision the Classic card stamps with): Verified path / Dated
+// list / Path not yet verified / No longer listed. Shown under the card's
+// identifiers, so the two looks never disagree (2026-11-10).
+const STAMP_KIND = { "stamp-verified": "verified", "stamp-closed": "closed", "stamp-muted": "muted", "stamp-sold": "closed", "stamp-redeemed": "closed", "stamp-soon": "muted", "stamp-date": "muted" };
+function cardStampHtml(p, api) {
+  if (typeof api.cardStamp !== "function") return "";
+  let st = null;
+  try { st = api.cardStamp(p); } catch { st = null; }
+  if (!st || !st.label) return "";
+  return `<span class="xt-stamp k-${STAMP_KIND[st.cls] || "muted"}" data-stamp="${api.esc(st.key || "")}"${st.title ? ` title="${api.esc(st.title)}"` : ""}>${api.esc(st.label)}</span>`;
 }
 
 // The figure's caveat (amountInfo().note, e.g. "Not the price to buy now:
