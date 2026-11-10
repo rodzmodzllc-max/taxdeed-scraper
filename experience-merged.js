@@ -60,6 +60,7 @@ function apiOf(detail) {
 // ---------------------------------------------------------------- lifecycle
 
 function deactivate() {
+  removePanel();
   const stage = stageEl();
   if (stage && stage.dataset.xp === NAME) { stage.innerHTML = ""; delete stage.dataset.xp; }
   if (document.documentElement.dataset.experienceReady === NAME) delete document.documentElement.dataset.experienceReady;
@@ -83,6 +84,7 @@ function draw(detail) {
     // inventory, failed read); the stage stays empty and #main shows.
     if (stage.dataset.xp === NAME) { stage.innerHTML = ""; delete stage.dataset.xp; }
     if (document.documentElement.dataset.experienceReady === NAME) delete document.documentElement.dataset.experienceReady;
+    removePanel();
     return;
   }
   // The entrance plays once per ledger: never again while a big state
@@ -114,6 +116,7 @@ function draw(detail) {
     const el = stage.querySelector(`[data-k="${keyEsc(focusKey)}"]`);
     if (el) { try { el.focus({ preventScroll: true }); } catch {} }
   }
+  fillPanelSoon();
 }
 
 function redraw() { if (S.last) draw(S.last); }
@@ -242,8 +245,9 @@ function liensHtml(rows, api) {
   const sorts = [["year", "By tax year"], ["county", "By " + api.unitWord().toLowerCase()]];
   return `<div class="xpm-lienhead">
       ${keys.length > 1 ? `<p class="xpm-line"><span class="xpm-mono">${n(keys.length)}</span> bundles</p>` : ""}
-      <div class="xpm-sorts" role="group" aria-label="Bundle the slips">
-        ${sorts.map(s => `<button type="button" class="sort${by === s[0] ? " on" : ""}" data-xa="bundleby" data-by="${s[0]}" data-k="by-${s[0]}" aria-pressed="${by === s[0]}"><span class="xpm-chip">${api.esc(s[1])}</span></button>`).join("")}
+      <div class="xpm-sorts" role="group" aria-labelledby="xpmGroupLbl">
+        <span class="xpm-caps xpm-sorts-k" id="xpmGroupLbl">Group slips</span>
+        <span class="xpm-seg">${sorts.map(s => `<button type="button" class="sort${by === s[0] ? " on" : ""}" data-xa="bundleby" data-by="${s[0]}" data-k="by-${s[0]}" aria-pressed="${by === s[0]}"><span class="xpm-chip">${api.esc(s[1])}</span></button>`).join("")}</span>
       </div>
     </div>
     <section class="xpm-shelf" aria-label="Certificate bundles">${bundles}</section>
@@ -390,6 +394,7 @@ function liftInPlace(pid) {
   S.trayShown = pid;
   try { api.hydrateVisuals(tray); } catch {}
   watchStamps(stage);
+  fillPanelSoon();
 }
 
 // Keep the bundle the reader tapped where it was on screen (audit F9):
@@ -481,3 +486,70 @@ window.addEventListener("tdw:rendered", e => draw(e.detail));
 window.addEventListener("tdw:experience", () => { if (isActive()) { S.ledger = null; if (window.__tdwLastRender) draw(window.__tdwLastRender); } else deactivate(); });
 if (isActive() && window.__tdwLastRender) draw(window.__tdwLastRender);
 else if (!isActive()) deactivate();
+
+
+// ------------------------------------------------------- desktop side panel
+// Merged look, wide List (2026-11-10): while no certificate is selected the
+// panel beside the stage carries a summary of the certificates in view (how
+// many, the tax years and counties the records publish) and opens the
+// lifted slip's full record. Chosen over auto-selecting a certificate,
+// which would record a property view nobody made and rewrite the address
+// bar. The panel stays app.js's: selecting a record replaces this, clearing
+// it brings the empty state back and this fills it again.
+// var, not let: draw() runs from the wiring above before this line is reached.
+var PANEL_MO = null, PANEL_T = 0;
+function fillPanelSoon() {
+  if (PANEL_T) return;
+  PANEL_T = setTimeout(() => { PANEL_T = 0; fillPanel(); }, 0);
+}
+function removePanel() {
+  const panel = document.getElementById("detailPanel");
+  const own = panel && panel.querySelector(`:scope > .xp-panelsum[data-xp="${NAME}"]`);
+  if (own) own.remove();
+}
+function fillPanel() {
+  const panel = document.getElementById("detailPanel");
+  if (!panel) return;
+  if (!PANEL_MO && typeof MutationObserver === "function") {
+    PANEL_MO = new MutationObserver(() => { if (isActive()) fillPanelSoon(); });
+    PANEL_MO.observe(panel, { childList: true });
+  }
+  const empty = panel.querySelector(":scope > .detail-panel-empty");
+  const api = apiOf(S.last);
+  const rows = S.last && Array.isArray(S.last.rows) ? S.last.rows : [];
+  if (!isActive() || !S.last || S.last.ledger !== "certificate" || !empty || !api || !rows.length || document.documentElement.dataset.experienceReady !== NAME) { removePanel(); return; }
+  const html = liensPanelHtml(rows, api);
+  const old = panel.querySelector(":scope > .xp-panelsum");
+  if (old && old.dataset.xp === NAME && old.__html === html) return;
+  const box = document.createElement("section");
+  box.className = "xp-panelsum";
+  box.dataset.xp = NAME;
+  box.setAttribute("aria-label", "Summary of the certificates in this list");
+  box.innerHTML = html;
+  box.__html = html;
+  if (old) old.replaceWith(box); else panel.insertBefore(box, empty);
+}
+function liensPanelHtml(rows, api) {
+  const esc = api.esc;
+  const years = Array.from(new Set(rows.map(p => (p.tax_year ? String(p.tax_year) : "")).filter(Boolean))).sort();
+  const noYear = rows.filter(p => !p.tax_year).length;
+  const counties = new Set(rows.map(p => p.county).filter(Boolean)).size;
+  const yearsTxt = !years.length ? "Not published" : years.length <= 3 ? years.join(", ") : `${years[0]} to ${years[years.length - 1]} (${years.length} years)`;
+  const lifted = rowById(S.slip) || rows[0];
+  const unitL = String(api.unitWord() || "County").toLowerCase();
+  return `<p class="xps-k">In this list</p>
+    <h3 class="xps-t"><span class="xps-n">${n(rows.length)}</span> ${rows.length === 1 ? "certificate" : "certificates"} · <span class="xps-n">${n(counties)}</span> ${counties === 1 ? unitL : unitPlural(api)}</h3>
+    <dl class="xps-facts">
+      <div><dt>Tax years</dt><dd>${esc(yearsTxt)}${noYear ? `<span class="xps-sub">${n(noYear)} with no tax year published</span>` : ""}</dd></div>
+      <div><dt>Grouped by</dt><dd>${S.bundleBy === "county" ? esc(api.unitWord()) : "Tax year"}</dd></div>
+    </dl>
+    <p class="xps-how"><span class="xps-k">What a certificate is</span><span class="xps-sub">A lien on the property, not the land. Redeemed, assigned or expired shows only when the source says so.</span></p>
+    <button type="button" class="xps-open" data-xps-open="${esc(idOf(lifted))}">Open the lifted certificate<span class="xps-open-t">Cert ${esc(certNo(lifted) || "number not published")} · ${esc(whereText(lifted, api))}</span></button>
+    <p class="xps-hint">Or pick any slip to see its full record here.</p>`;
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest('#detailPanel .xp-panelsum[data-xp="' + NAME + '"] [data-xps-open]');
+  if (!b || !isActive()) return;
+  const p = rowById(String(b.dataset.xpsOpen)), api = apiOf(S.last);
+  if (p && api) api.openDetail(p);
+});

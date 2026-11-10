@@ -452,3 +452,69 @@ html[data-experience-ready="tactile"][data-ledger="certificate"] #sortBy{display
 html[data-experience="tactile"] .xpt .xpt-deck{touch-action:pan-y;-webkit-user-select:none;user-select:none}
 html[data-experience="tactile"] .xpt .xpt-deck .xpt-placard.dragging{transition:none!important;animation:none!important;cursor:grabbing}
 html[data-experience="tactile"] .xpt .xpt-deck .xpt-placard.dragging .face{pointer-events:none}
+
+/* ==================== Merged: side panel summary (2026-11-10) ====================
+   While no property is selected on a wide List, the panel beside the stage
+   carries a summary of the rows in view (experience-*.js fillPanel). The same
+   block sits in each Merged module's sheet, since only the module drawing the
+   current ledger is sure to be loaded. Colours are the app's tokens, so it
+   follows light and dark like the rest of the panel. */
+#detailPanel .xp-panelsum{display:flex;flex-direction:column;gap:12px;padding:20px 20px 4px;text-align:left;color:var(--ink,#202925);--xps-acc:#A4512A;--xps-acc-d:#D08A63}
+#detailPanel .xp-panelsum[data-xp="terrain"]{--xps-acc:#4E6B54;--xps-acc-d:#86A68B}
+#detailPanel .xp-panelsum[data-xp="merged"]{--xps-acc:#6B4A6E;--xps-acc-d:#B392B6}
+#detailPanel .xp-panelsum + .detail-panel-empty{display:none}
+#detailPanel .xp-panelsum .xps-k{display:block;margin:0;font:600 10.5px/14px var(--font-sans);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft,#56695E)}
+#detailPanel .xp-panelsum .xps-t{margin:0;font:400 19px/25px var(--font-display);color:var(--ink,#202925);letter-spacing:0;text-transform:none}
+#detailPanel .xp-panelsum .xps-t .xpt-mono,#detailPanel .xp-panelsum .xps-t .xpm-mono,#detailPanel .xp-panelsum .xps-t .xps-n{font-family:var(--font-sans);font-weight:500;font-variant-numeric:tabular-nums}
+#detailPanel .xp-panelsum .xps-facts{margin:0;display:flex;flex-direction:column;border-top:1px solid var(--card-line,#D8DED6)}
+#detailPanel .xp-panelsum .xps-facts > div{display:grid;grid-template-columns:minmax(0,40%) minmax(0,1fr);gap:12px;padding:9px 0;border-bottom:1px solid var(--card-line,#D8DED6);font-size:13.5px;line-height:19px}
+#detailPanel .xp-panelsum dt{color:var(--ink-soft,#56695E);margin:0}
+#detailPanel .xp-panelsum dd{margin:0;color:var(--ink,#202925);font-weight:500;overflow-wrap:anywhere}
+#detailPanel .xp-panelsum .xps-sub{display:block;font-weight:400;font-size:12.5px;color:var(--ink-soft,#56695E)}
+#detailPanel .xp-panelsum .xps-how{margin:0;display:flex;flex-direction:column;gap:4px}
+#detailPanel .xp-panelsum .xps-ways{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+#detailPanel .xp-panelsum .xps-ways li{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;line-height:19px;color:var(--ink,#202925)}
+#detailPanel .xp-panelsum .xps-ways li .xps-sub{display:inline;white-space:nowrap}
+#detailPanel .xp-panelsum .xps-ways li.unv{font-style:italic;color:var(--ink-soft,#56695E)}
+#detailPanel .xp-panelsum .xps-link{align-self:flex-start;font-weight:600;font-size:13.5px;color:var(--ink,#202925);text-decoration:underline;text-underline-offset:3px;min-height:32px;display:inline-flex;align-items:center}
+#detailPanel .xp-panelsum .xps-open{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:52px;margin:4px 0 0;padding:10px 16px;border:0;border-radius:12px;background:var(--xps-acc);color:#FDFDFB;font:600 14px/18px var(--font-sans);text-align:left;cursor:pointer}
+#detailPanel .xp-panelsum .xps-open-t{display:block;max-width:100%;font-weight:400;font-size:12.5px;line-height:17px;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#detailPanel .xp-panelsum .xps-open:hover{filter:brightness(.92)}
+#detailPanel .xp-panelsum .xps-open:focus-visible,#detailPanel .xp-panelsum .xps-link:focus-visible{outline:2px solid var(--ink,#202925);outline-offset:3px}
+#detailPanel .xp-panelsum .xps-hint{margin:0 0 14px;font-size:12.5px;line-height:17px;color:var(--ink-soft,#56695E)}
+:root[data-theme="dark"] #detailPanel .xp-panelsum .xps-open{background:var(--xps-acc-d);color:#141C18}
+@media (prefers-reduced-motion:no-preference){
+  #detailPanel .xp-panelsum{animation:xps-in 280ms cubic-bezier(.05,.7,.1,1) both}
+  @keyframes xps-in{from{opacity:0;transform:translateY(6px)}}
+}
+
+/* ==================== Merged Auctions polish (2026-11-10) ====================
+   The deck and the sale-day strip are kept; only their finish changes.
+   - The placard's map plate takes the room left under the figures, so the
+     card has no dead band at its foot and every placard frames its map
+     the same way (one plate, one inset, one radius).
+   - Placard type: a slightly larger title, figures on one baseline.
+   - Visible keyboard focus on the placard, the deck controls, lot tiles and
+     sale days; the lot tile on top of the deck reads as selected.
+   - Day badges and the tile numbers sit on the same tabular figures. */
+html[data-experience="tactile"] .xpt .xpt-placard .face.front .plate{flex:1 1 124px;height:auto;min-height:124px;max-height:236px}
+html[data-experience="tactile"] .xpt .plate{padding:4px;border-radius:12px;background:#FDFDFB;border-color:#D8DED6;box-shadow:inset 0 1px 3px rgba(32,41,37,.08),0 1px 0 #fff}
+html[data-experience="tactile"] .xpt .plate-in{border-radius:9px;box-shadow:inset 0 0 0 1px rgba(32,41,37,.06)}
+html[data-experience="tactile"] .xpt .ctitle{font-size:21px;line-height:26px;letter-spacing:-.005em}
+html[data-experience="tactile"] .xpt .figs{align-items:end;padding-top:10px;border-top:1px dashed #E6DFD2}
+html[data-experience="tactile"] .xpt .figure .fig-m{line-height:26px}
+html[data-experience="tactile"] .xpt .fig-xl{line-height:28px}
+html[data-experience="tactile"] .xpt .xpt-day .dc,html[data-experience="tactile"] .xpt .xpt-pager,html[data-experience="tactile"] .xpt .numeral-s{font-variant-numeric:tabular-nums}
+html[data-experience="tactile"] .xpt .xpt-pager{min-width:96px}
+html[data-experience="tactile"] .xpt .xpt-placard .face.front:focus-visible{outline:3px solid #1F3A2E;outline-offset:4px;border-radius:18px}
+html[data-experience="tactile"] .xpt .xpt-placard .back-head:focus-visible{outline:2.5px solid #1F3A2E;outline-offset:2px;border-radius:10px}
+html[data-experience="tactile"] .xpt .xpt-round:focus-visible{outline:none}
+html[data-experience="tactile"] .xpt .xpt-round:focus-visible > span{outline:2.5px solid #1F3A2E;outline-offset:2px}
+html[data-experience="tactile"] .xpt .xpt-mini:focus-visible,html[data-experience="tactile"] .xpt .xpt-day:focus-visible{outline:2.5px solid #1F3A2E;outline-offset:3px}
+html[data-experience="tactile"] .xpt .xpt-mini.on{background-color:#FBF1EA}
+html[data-experience="tactile"] .xpt .xpt-mini.on .numeral-s{color:#7E3B1C}
+html[data-experience="tactile"] .xpt .xpt-deck-ctl .xpt-round:not(:disabled):hover > span{background:#FBF1EA;border-color:#E9B595}
+@media (prefers-reduced-motion:no-preference){
+  html[data-experience="tactile"] .xpt .xpt-mini{transition:transform 260ms var(--spring-soft),box-shadow 180ms var(--ease-std),background-color 180ms var(--ease-std)}
+  html[data-experience="tactile"] .xpt .xpt-deck-ctl .xpt-round > span{transition:transform 80ms var(--ease-std),background-color 160ms var(--ease-std),border-color 160ms var(--ease-std)}
+}

@@ -370,3 +370,101 @@ html[data-experience="terrain"] #xpStage[hidden]{display:none}
    instead of dropping below it (auto-placement put the stage in row 1). */
 @media (min-width:1024px){html[data-experience="terrain"] .auctions-body>#xpStage{grid-column:1;grid-row:2;min-width:0}}
 @media (min-width:1440px){html[data-experience="terrain"] .auctions-body>#xpStage{grid-column:2;grid-row:1}}
+
+/* ==================== Merged: side panel summary (2026-11-10) ====================
+   While no property is selected on a wide List, the panel beside the stage
+   carries a summary of the rows in view (experience-*.js fillPanel). The same
+   block sits in each Merged module's sheet, since only the module drawing the
+   current ledger is sure to be loaded. Colours are the app's tokens, so it
+   follows light and dark like the rest of the panel. */
+#detailPanel .xp-panelsum{display:flex;flex-direction:column;gap:12px;padding:20px 20px 4px;text-align:left;color:var(--ink,#202925);--xps-acc:#A4512A;--xps-acc-d:#D08A63}
+#detailPanel .xp-panelsum[data-xp="terrain"]{--xps-acc:#4E6B54;--xps-acc-d:#86A68B}
+#detailPanel .xp-panelsum[data-xp="merged"]{--xps-acc:#6B4A6E;--xps-acc-d:#B392B6}
+#detailPanel .xp-panelsum + .detail-panel-empty{display:none}
+#detailPanel .xp-panelsum .xps-k{display:block;margin:0;font:600 10.5px/14px var(--font-sans);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft,#56695E)}
+#detailPanel .xp-panelsum .xps-t{margin:0;font:400 19px/25px var(--font-display);color:var(--ink,#202925);letter-spacing:0;text-transform:none}
+#detailPanel .xp-panelsum .xps-t .xpt-mono,#detailPanel .xp-panelsum .xps-t .xpm-mono,#detailPanel .xp-panelsum .xps-t .xps-n{font-family:var(--font-sans);font-weight:500;font-variant-numeric:tabular-nums}
+#detailPanel .xp-panelsum .xps-facts{margin:0;display:flex;flex-direction:column;border-top:1px solid var(--card-line,#D8DED6)}
+#detailPanel .xp-panelsum .xps-facts > div{display:grid;grid-template-columns:minmax(0,40%) minmax(0,1fr);gap:12px;padding:9px 0;border-bottom:1px solid var(--card-line,#D8DED6);font-size:13.5px;line-height:19px}
+#detailPanel .xp-panelsum dt{color:var(--ink-soft,#56695E);margin:0}
+#detailPanel .xp-panelsum dd{margin:0;color:var(--ink,#202925);font-weight:500;overflow-wrap:anywhere}
+#detailPanel .xp-panelsum .xps-sub{display:block;font-weight:400;font-size:12.5px;color:var(--ink-soft,#56695E)}
+#detailPanel .xp-panelsum .xps-how{margin:0;display:flex;flex-direction:column;gap:4px}
+#detailPanel .xp-panelsum .xps-ways{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+#detailPanel .xp-panelsum .xps-ways li{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;line-height:19px;color:var(--ink,#202925)}
+#detailPanel .xp-panelsum .xps-ways li .xps-sub{display:inline;white-space:nowrap}
+#detailPanel .xp-panelsum .xps-ways li.unv{font-style:italic;color:var(--ink-soft,#56695E)}
+#detailPanel .xp-panelsum .xps-link{align-self:flex-start;font-weight:600;font-size:13.5px;color:var(--ink,#202925);text-decoration:underline;text-underline-offset:3px;min-height:32px;display:inline-flex;align-items:center}
+#detailPanel .xp-panelsum .xps-open{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:52px;margin:4px 0 0;padding:10px 16px;border:0;border-radius:12px;background:var(--xps-acc);color:#FDFDFB;font:600 14px/18px var(--font-sans);text-align:left;cursor:pointer}
+#detailPanel .xp-panelsum .xps-open-t{display:block;max-width:100%;font-weight:400;font-size:12.5px;line-height:17px;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#detailPanel .xp-panelsum .xps-open:hover{filter:brightness(.92)}
+#detailPanel .xp-panelsum .xps-open:focus-visible,#detailPanel .xp-panelsum .xps-link:focus-visible{outline:2px solid var(--ink,#202925);outline-offset:3px}
+#detailPanel .xp-panelsum .xps-hint{margin:0 0 14px;font-size:12.5px;line-height:17px;color:var(--ink-soft,#56695E)}
+:root[data-theme="dark"] #detailPanel .xp-panelsum .xps-open{background:var(--xps-acc-d);color:#141C18}
+@media (prefers-reduced-motion:no-preference){
+  #detailPanel .xp-panelsum{animation:xps-in 280ms cubic-bezier(.05,.7,.1,1) both}
+  @keyframes xps-in{from{opacity:0;transform:translateY(6px)}}
+}
+
+/* ==================== Merged Available polish (2026-11-10) ====================
+   1. The shared county bar (app.js installCountyNowBar) reads as a light,
+      one-line picker on this sheet instead of a heavy dark band, so more
+      properties sit above the fold. Same element, same controls, same
+      sticky place; its ‹ › and the middle stay 44px targets.
+   2. County heads are slimmer.
+   3. Card hierarchy: address, then the ledger stamp line, then ONE figure
+      (the amount under its own label) with the county value as a quieter
+      second line, then how to acquire. The figure's caveat is folded behind
+      a small disclosure (amountNoteHtml), never removed.
+   4. On a wide stage two or three cards share the view. */
+html[data-experience="terrain"] .county-now{background:rgba(253,253,251,.96);color:#202925;border:1px solid #D8DED6;border-radius:14px;box-shadow:0 10px 22px -18px rgba(32,41,37,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);margin:0 0 .6rem}
+html[data-experience="terrain"] .county-now .cnb-row{min-height:44px;align-items:center}
+html[data-experience="terrain"] .county-now .cnb-step{min-width:44px;min-height:44px;font-size:1.25rem;color:#3E5743;border-radius:12px}
+html[data-experience="terrain"] .county-now .cnb-mid{min-height:44px;flex-direction:row;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:2px 12px;padding:.25rem .35rem}
+html[data-experience="terrain"] .county-now .cnb-eyebrow{color:#4C685A;font-size:.66rem;order:2}
+html[data-experience="terrain"] .county-now .cnb-name-row{order:1;gap:.5rem}
+html[data-experience="terrain"] .county-now .cnb-name{font-size:1rem;font-weight:500;color:#202925}
+html[data-experience="terrain"] .county-now .cnb-count{color:#4C685A;opacity:1;font-size:.78rem}
+html[data-experience="terrain"] .county-now button:hover{background:#F1F6F0}
+html[data-experience="terrain"] .county-now button:focus-visible{outline:2px solid #3E5743;outline-offset:-2px}
+html[data-experience="terrain"] .county-now .cnb-list{border-radius:0 0 14px 14px}
+
+.xp-terrain .xt-story-head{padding:12px 16px 10px;border-radius:18px}
+.xp-terrain .xt-story-t{font:500 20px/24px var(--font-display);min-height:0;margin-top:2px;padding-right:62px}
+.xp-terrain .xt-locator{width:48px;height:48px;top:6px;right:12px}
+.xp-terrain .xt-story-head:not(:has(.xt-story-trail)){min-height:60px;display:flex;align-items:center}
+.xp-terrain .xt-rail{padding-top:10px}
+
+.xp-terrain .xt-acard-body{gap:0}
+.xp-terrain .xt-acard .xt-lot-t{order:-1;margin-top:0;font:500 19px/24px var(--font-display)}
+.xp-terrain .xt-acard .xt-lot-k{margin-top:4px}
+.xp-terrain .xt-acard .xt-ids{margin-top:2px}
+.xp-terrain .xt-acard .xt-figs{display:flex;flex-direction:column;gap:2px;margin-top:12px}
+.xp-terrain .xt-acard .xt-fig{padding:0;border:0;background:none;box-shadow:none;border-radius:0}
+.xp-terrain .xt-acard .xt-fig-main .xt-num{font-size:26px;line-height:30px;color:#3E5743;margin-top:2px}
+.xp-terrain .xt-acard .xt-fig-main .xt-num.np{font-size:14px;line-height:20px;color:var(--gray)}
+.xp-terrain .xt-acard .xt-fig:not(.xt-fig-main){display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;padding-top:6px;margin-top:4px;border-top:1px dashed #D8DED6}
+.xp-terrain .xt-acard .xt-fig:not(.xt-fig-main) .xt-lbl{letter-spacing:.06em}
+.xp-terrain .xt-acard .xt-fig:not(.xt-fig-main) .xt-num{display:inline;margin:0;font-size:14px;line-height:18px;color:var(--ink)}
+.xp-terrain .xt-amt-note{margin-top:6px;font-size:12px;line-height:16px;color:var(--gray)}
+.xp-terrain .xt-amt-note summary{display:inline-flex;align-items:center;gap:8px;min-height:32px;cursor:pointer;list-style:none;color:#574F46;font-weight:600}
+.xp-terrain .xt-amt-note summary::-webkit-details-marker{display:none}
+.xp-terrain .xt-amt-note .xt-amt-why{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:999px;border:1px solid #D8DED6;background:#FDFDFB;color:#3E5743;font-size:11px;font-weight:600}
+.xp-terrain .xt-amt-note .xt-amt-why::after{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-2px) rotate(45deg)}
+.xp-terrain .xt-amt-note[open] .xt-amt-why::after{transform:translateY(1px) rotate(-135deg)}
+.xp-terrain .xt-amt-note p{margin:4px 0 0;padding:8px 10px;border-radius:10px;background:#F1F6F0;color:#3D4A42}
+.xp-terrain .xt-amt-note summary:focus-visible{outline:2px solid #3E5743;outline-offset:2px;border-radius:6px}
+.xp-terrain .xt-acard .xt-trail{margin-top:10px}
+.xp-terrain .xt-acard:focus-within{box-shadow:inset 0 1px 0 #fff,0 0 0 2px #9DBFA0,var(--sh)}
+.xp-terrain .xt-btn:focus-visible,.xp-terrain .xt-rail-more:focus-visible{outline:2.5px solid #3E5743;outline-offset:2px}
+@container xt (min-width:660px){
+  .xp-terrain .xt-acard{flex:0 0 min(340px,calc(50% - 6px))}
+  .xp-terrain .xt-acard-vis .xt-visual{aspect-ratio:16 / 9}
+}
+@container xt (min-width:1040px){
+  .xp-terrain .xt-acard{flex:0 0 min(340px,calc(33.333% - 8px))}
+}
+@media (prefers-reduced-motion:no-preference){
+  .xp-terrain .xt-amt-note[open] p{animation:xtRise 220ms var(--ease-out) both}
+  .xp-terrain .xt-amt-note .xt-amt-why::after{transition:transform 180ms var(--ease-std)}
+}

@@ -197,3 +197,78 @@ html[data-experience="merged"] .xpm.xpm-enter .xpm-line,html[data-experience="me
   html[data-experience="merged"] .xpm .xpm-stamp.pending{opacity:1}
   html[data-experience="merged"] .xpm .pile:active .pile-top{transform:none!important}
 }
+
+/* ==================== Merged: side panel summary (2026-11-10) ====================
+   While no property is selected on a wide List, the panel beside the stage
+   carries a summary of the rows in view (experience-*.js fillPanel). The same
+   block sits in each Merged module's sheet, since only the module drawing the
+   current ledger is sure to be loaded. Colours are the app's tokens, so it
+   follows light and dark like the rest of the panel. */
+#detailPanel .xp-panelsum{display:flex;flex-direction:column;gap:12px;padding:20px 20px 4px;text-align:left;color:var(--ink,#202925);--xps-acc:#A4512A;--xps-acc-d:#D08A63}
+#detailPanel .xp-panelsum[data-xp="terrain"]{--xps-acc:#4E6B54;--xps-acc-d:#86A68B}
+#detailPanel .xp-panelsum[data-xp="merged"]{--xps-acc:#6B4A6E;--xps-acc-d:#B392B6}
+#detailPanel .xp-panelsum + .detail-panel-empty{display:none}
+#detailPanel .xp-panelsum .xps-k{display:block;margin:0;font:600 10.5px/14px var(--font-sans);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft,#56695E)}
+#detailPanel .xp-panelsum .xps-t{margin:0;font:400 19px/25px var(--font-display);color:var(--ink,#202925);letter-spacing:0;text-transform:none}
+#detailPanel .xp-panelsum .xps-t .xpt-mono,#detailPanel .xp-panelsum .xps-t .xpm-mono,#detailPanel .xp-panelsum .xps-t .xps-n{font-family:var(--font-sans);font-weight:500;font-variant-numeric:tabular-nums}
+#detailPanel .xp-panelsum .xps-facts{margin:0;display:flex;flex-direction:column;border-top:1px solid var(--card-line,#D8DED6)}
+#detailPanel .xp-panelsum .xps-facts > div{display:grid;grid-template-columns:minmax(0,40%) minmax(0,1fr);gap:12px;padding:9px 0;border-bottom:1px solid var(--card-line,#D8DED6);font-size:13.5px;line-height:19px}
+#detailPanel .xp-panelsum dt{color:var(--ink-soft,#56695E);margin:0}
+#detailPanel .xp-panelsum dd{margin:0;color:var(--ink,#202925);font-weight:500;overflow-wrap:anywhere}
+#detailPanel .xp-panelsum .xps-sub{display:block;font-weight:400;font-size:12.5px;color:var(--ink-soft,#56695E)}
+#detailPanel .xp-panelsum .xps-how{margin:0;display:flex;flex-direction:column;gap:4px}
+#detailPanel .xp-panelsum .xps-ways{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+#detailPanel .xp-panelsum .xps-ways li{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;line-height:19px;color:var(--ink,#202925)}
+#detailPanel .xp-panelsum .xps-ways li .xps-sub{display:inline;white-space:nowrap}
+#detailPanel .xp-panelsum .xps-ways li.unv{font-style:italic;color:var(--ink-soft,#56695E)}
+#detailPanel .xp-panelsum .xps-link{align-self:flex-start;font-weight:600;font-size:13.5px;color:var(--ink,#202925);text-decoration:underline;text-underline-offset:3px;min-height:32px;display:inline-flex;align-items:center}
+#detailPanel .xp-panelsum .xps-open{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:52px;margin:4px 0 0;padding:10px 16px;border:0;border-radius:12px;background:var(--xps-acc);color:#FDFDFB;font:600 14px/18px var(--font-sans);text-align:left;cursor:pointer}
+#detailPanel .xp-panelsum .xps-open-t{display:block;max-width:100%;font-weight:400;font-size:12.5px;line-height:17px;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#detailPanel .xp-panelsum .xps-open:hover{filter:brightness(.92)}
+#detailPanel .xp-panelsum .xps-open:focus-visible,#detailPanel .xp-panelsum .xps-link:focus-visible{outline:2px solid var(--ink,#202925);outline-offset:3px}
+#detailPanel .xp-panelsum .xps-hint{margin:0 0 14px;font-size:12.5px;line-height:17px;color:var(--ink-soft,#56695E)}
+:root[data-theme="dark"] #detailPanel .xp-panelsum .xps-open{background:var(--xps-acc-d);color:#141C18}
+@media (prefers-reduced-motion:no-preference){
+  #detailPanel .xp-panelsum{animation:xps-in 280ms cubic-bezier(.05,.7,.1,1) both}
+  @keyframes xps-in{from{opacity:0;transform:translateY(6px)}}
+}
+
+/* ==================== Liens on a wide stage (2026-11-10) ====================
+   The grouping toggle is a named two-way control, and from a 640px stage the
+   fanned bundle uses the stage's width: its slips wrap into a grid (still a
+   scroll-snap row, which never overflows once wrapped) with the lifted slip's
+   tray beside them, top-aligned, instead of one small slip centred over an
+   empty field and a tray below it. */
+html[data-experience="merged"] .xpm .xpm-sorts{align-items:center;gap:10px;flex-wrap:wrap}
+html[data-experience="merged"] .xpm .xpm-sorts-k{color:var(--gray)}
+html[data-experience="merged"] .xpm .xpm-seg{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:999px;background:#EEF1EC;border:1px solid var(--hair);box-shadow:inset 0 1px 3px rgba(32,41,37,.08)}
+html[data-experience="merged"] .xpm .xpm-seg .sort{height:44px;padding:0;border-radius:999px}
+html[data-experience="merged"] .xpm .xpm-seg .sort .xpm-chip{height:38px;padding:0 16px;border:0;background:transparent;box-shadow:none;color:var(--gray-2);font-weight:600;font-size:12.5px}
+html[data-experience="merged"] .xpm .xpm-seg .sort.on .xpm-chip{background:var(--paper);color:#4A2F4D;box-shadow:0 1px 2px rgba(32,41,37,.12),inset 0 0 0 1.5px #B996B8}
+html[data-experience="merged"] .xpm .xpm-seg .sort:focus-visible{outline:none}
+html[data-experience="merged"] .xpm .xpm-seg .sort:focus-visible .xpm-chip{outline:2px solid var(--plum);outline-offset:2px}
+html[data-experience="merged"] .xpm .fslip .fb:focus-visible,html[data-experience="merged"] .xpm .fslip .fs:focus-visible,html[data-experience="merged"] .xpm .pile:focus-visible{outline:2.5px solid var(--plum-deep);outline-offset:3px}
+@media (prefers-reduced-motion:no-preference){
+  html[data-experience="merged"] .xpm .xpm-seg .sort .xpm-chip{transition:background-color 160ms var(--ease-std),box-shadow 160ms var(--ease-std),color 160ms var(--ease-std)}
+}
+@container xpm (min-width:640px){
+  html[data-experience="merged"] .xpm .xpm-bundle.fanned .fan-wrap{margin:0;display:grid;grid-template-columns:fit-content(62%) minmax(270px,1fr);grid-template-areas:"stage tray" "pager tray" "back tray";grid-template-rows:auto auto 1fr;column-gap:22px;align-items:start}
+  html[data-experience="merged"] .xpm .fan-stage{grid-area:stage;flex-wrap:wrap;justify-content:flex-start;align-items:flex-start;gap:36px 18px;padding:40px 6px 8px 4px}
+  html[data-experience="merged"] .xpm .fslip{flex:0 0 168px;width:168px;height:238px;scroll-snap-align:start}
+  html[data-experience="merged"] .xpm .slip-county{font-size:18px;line-height:22px}
+  html[data-experience="merged"] .xpm .fslip .f{font-size:15.5px;line-height:20px}
+  html[data-experience="merged"] .xpm .fan-pager{grid-area:pager;justify-content:flex-start;padding:4px 0 0}
+  html[data-experience="merged"] .xpm .tray{grid-area:tray;max-width:none;margin:22px 0 0;position:sticky;top:84px}
+  html[data-experience="merged"] .xpm .fold-back{grid-area:back;justify-content:flex-start;width:auto;padding:0 4px}
+}
+@container xpm (min-width:1100px){
+  html[data-experience="merged"] .xpm .xpm-bundle.fanned .fan-wrap{grid-template-columns:fit-content(66%) minmax(300px,1fr)}
+}
+@container xpm (min-width:640px){html[data-experience="merged"] .xpm .tray{max-width:460px}}
+@container xpm (min-width:640px){
+  /* In the wrapped grid the slips sit straight (an alternating tilt across
+     rows read as scattered paper); the lifted one still rises. */
+  html[data-experience="merged"] .xpm .fan-stage{--fan-r:0deg}
+  html[data-experience="merged"] .xpm .tray-acts{flex-wrap:wrap}
+  html[data-experience="merged"] .xpm .tray-acts .xpm-cta{flex:1 1 150px}
+}
