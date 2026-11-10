@@ -186,16 +186,11 @@ const FAKE_GL = () => {
   class Marker { constructor(o) { this.el = o.element; } setLngLat(ll) { this.ll = ll; return this; } addTo(m) { this.el.style.position = 'absolute'; this.el.style.left = '400px'; this.el.style.top = '300px'; m.c.appendChild(this.el); return this; } remove() { this.el.remove(); } }
   class NavigationControl {}
   window.maplibregl = { Map, Marker, NavigationControl };
-  // app.js's boundary reader, as the Map page would get it.
-  window.__tdwBoundaryFor = async (pid, row) => {
-    const cx = row.longitude, cy = row.latitude, h = 0.0004;
-    return { status: 'available', boundary: { polygons: [[[[cx - h, cy - h], [cx + h, cy - h], [cx + h, cy + h], [cx - h, cy + h], [cx - h, cy - h]]]],
-      bbox: { minX: cx - h, minY: cy - h, maxX: cx + h, maxY: cy + h },
-      attribution: { credit: 'FIXTURE credit', changeNotice: 'FIXTURE change', licenseName: 'CC BY 4.0', licenseUrl: 'https://creativecommons.org/licenses/by/4.0/', metadataUrl: '', disclaimer: '', disclaimerUrl: '', lastRefreshedAt: '', expectedCadence: '' } } };
-  };
+  // The outline comes from app.js's own boundary reader (renderMapPage's
+  // payload carries boundaryFor), answered by the stub's ?boundary=ok fixture.
 };
 {
-  const { pg, errs, third } = await page({ keys: { maptiler: 'FAKEKEY' }, init: FAKE_GL });
+  const { pg, errs, third } = await page({ keys: { maptiler: 'FAKEKEY' }, init: FAKE_GL, query: 'boundary=ok' });
   await pg.evaluate(() => { try { sessionStorage.removeItem('tdw_map_depth_v1'); } catch {} });
   // A customer opens MapTiler first when it is configured; click to be sure.
   await pg.click('#mapStyleMaptiler');
@@ -219,8 +214,8 @@ const FAKE_GL = () => {
   const p5 = await pg.evaluate(() => { const r = window.__tdwMapLastRender.rows.find(x => x.id === 'p5'); return [r.longitude, r.latitude]; });
   check('selectionFramedOnParcel', sel.last && Math.abs(sel.last.center[0] - p5[0]) < 1e-6 && Math.abs(sel.last.center[1] - p5[1]) < 1e-6 && sel.last.zoom > 15 && sel.last.zoom <= 19, { last: sel.last, p5 });
   check('selectionPaddingAvoidsCard', sel.last && sel.last.padding && sel.last.padding.left > 300, sel.last && sel.last.padding);
-  check('outlineCreditShown', /Parcel outline: FIXTURE credit/.test(await pg.locator('#mapParcelCredit').textContent()), null);
-  check('outlineCreditKeepsLicenceAndChanges', await pg.evaluate(() => { const d = document.getElementById('mapParcelCredit'); return !!d.querySelector('a[href="https://creativecommons.org/licenses/by/4.0/"]') && /Changes: FIXTURE change/.test(d.textContent); }), null);
+  check('outlineCreditShown', /Parcel outline: FIXTURE Utah Geospatial Resource Center/.test(await pg.locator('#mapParcelCredit').textContent()), null);
+  check('outlineCreditKeepsLicenceAndChanges', await pg.evaluate(() => { const d = document.getElementById('mapParcelCredit'); return !!d.querySelector('a[href="https://creativecommons.org/licenses/by/4.0/"]') && /Changes: FIXTURE: boundaries reprojected and simplified/.test(d.textContent); }), null);
   // 3D toggle: terrain + the style's buildings; never the parcel.
   await pg.click('#mapDepthBtn');
   await pg.waitForTimeout(300);

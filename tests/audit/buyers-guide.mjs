@@ -161,7 +161,10 @@ const OPERATOR = /capture run|runner|HTTP \d{3}|CloudFront|Cloudflare|research n
 { // reduced motion: no transitions or animations
   const { pg } = await open('index.html#/guide?ledger=AUCTIONS', { width: 1440, height: 900 }, { reducedMotion: 'reduce' });
   const r = await pg.evaluate(() => ({ t: getComputedStyle(document.querySelector('.bg-seg-thumb')).transitionDuration, a: getComputedStyle(document.querySelector('.bg-meter-bar>span')).animationName }));
-  check('guideReducedMotion', r.t === '0s' && r.a === 'none', r);
+  // The app-wide reduced-motion rule (identity.css, motion system 2026-11-10) sets every
+  // transition to .01ms so transitionend still fires; anything at or under that is instant.
+  const instant = d => d.split(',').every(x => { x = x.trim(); const v = parseFloat(x); return x.endsWith('ms') ? v <= 0.01 : v <= 0.00001; });
+  check('guideReducedMotion', instant(r.t) && r.a === 'none', r);
   await pg.close();
 }
 {

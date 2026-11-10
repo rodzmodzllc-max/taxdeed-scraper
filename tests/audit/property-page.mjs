@@ -59,7 +59,12 @@ for (const look of ['merged', 'classic']) {
         surface: h.id,
         hero: !!h.querySelector('.detail-first .detail-hero-photo') ? inView(h.querySelector('.detail-first .detail-hero-photo')) : null,
         title: inView(h.querySelector('.detail-first .detail-address')),
-        stamp: inView(h.querySelector('.detail-first .pc-stamp, .detail-first .pill')),
+        // The record's status on the first screen: its stamp or pill, or - for a
+        // record with neither (an active certificate with no recorded status,
+        // which deliberately gets no pill) - the status band's Status cell.
+        stamp: h.querySelector('.detail-first .pc-stamp, .detail-first .pill')
+          ? inView(h.querySelector('.detail-first .pc-stamp, .detail-first .pill'))
+          : inView(h.querySelector('.dossier-status')) && [...h.querySelectorAll('.dossier-status > div')].some(d => (d.querySelector('dt') || {}).textContent === 'Status' && d.querySelector('dd').textContent.trim().length > 0),
         figure: inView(h.querySelector('.detail-first .detail-keyfig')),
         figureLabel: (h.querySelector('.detail-keyfig-label') || {}).textContent || '',
         howSteps: how ? inView(how) : null,
