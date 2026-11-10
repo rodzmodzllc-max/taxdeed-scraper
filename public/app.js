@@ -16863,6 +16863,11 @@ function renderHome() {
   const order = ["laft", "auction", "certificate"];
   ledgersEl.innerHTML = order.map((k, i) => homeLedgerCardHtml(k, i)).join("");
   HOME_FIRST_PAINT = false;
+  // The count-up draws an unformatted counter over the real text; once it
+  // ends, drop it so the formatted count ("30,801") is what stays on screen.
+  ledgersEl.querySelectorAll(".home-ledger-count.countup").forEach(el => {
+    el.addEventListener("animationend", () => { el.classList.remove("countup"); el.style.removeProperty("--to"); }, { once: true });
+  });
   const scope = document.getElementById("homeScope");
   if (scope) scope.innerHTML = `Searching <b>${esc(STATE_INFO.name)}</b> · <button type="button" class="link-btn" id="homeChangeState">Change state</button> · <button type="button" class="link-btn" id="homeAllStates" aria-haspopup="dialog" aria-controls="statePicker">All ${STATE_CODES.length} states</button>`;
   const hs = document.getElementById("homeSearchInput");
