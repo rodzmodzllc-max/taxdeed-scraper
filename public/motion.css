@@ -100,9 +100,11 @@
     .cert-card:hover{transform:translateY(-2px)!important;box-shadow:0 6px 18px rgba(32,41,37,.10)!important}
     .prop-card:active,
     .cert-card:active{transform:translateY(0)!important;transition-duration:var(--dur-press,90ms)}
-    /* Home's ledger cards are not pinned flat, so no !important: the Merged
-       look's own hover shadow (home.css) keeps winning on specificity. */
-    .home-ledger-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(32,41,37,.10)}
+    /* Home's ledger cards: the lift's shadow only outside the Merged look,
+       which designs its own hover shadow (home.css); the !important beats
+       identity.css's flat pin here too. */
+    .home-ledger-card:hover{transform:translateY(-2px)}
+    html:not([data-look="merged"]) .home-ledger-card:hover{box-shadow:0 6px 18px rgba(32,41,37,.10)!important}
     .home-ledger-card:active{transform:translateY(0);transition-duration:var(--dur-press,90ms)}
   }
 

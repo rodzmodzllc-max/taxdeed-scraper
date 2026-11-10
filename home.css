@@ -139,10 +139,10 @@ html.has-bottombar .tdw-toast-host{bottom:calc(76px + env(safe-area-inset-bottom
   @keyframes tdwPageIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
   .home-ledger-card.rise{animation:tdwRise .5s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0) * 70ms)}
   @keyframes tdwRise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-  @property --n{syntax:'<integer>';inherits:false;initial-value:0}
-  .home-ledger-count.countup{position:relative;color:transparent!important;animation:tdwCount .8s cubic-bezier(.2,.7,.2,1) both;counter-reset:n var(--n)}
+  @property --home-n{syntax:'<integer>';inherits:false;initial-value:0}
+  .home-ledger-count.countup{position:relative;color:transparent!important;animation:tdwCount .8s cubic-bezier(.2,.7,.2,1) both;counter-reset:n var(--home-n)}
   .home-ledger-count.countup::after{content:counter(n);position:absolute;left:0;top:0;color:var(--ink)}
-  @keyframes tdwCount{from{--n:0}to{--n:var(--to)}}
+  @keyframes tdwCount{from{--home-n:0}to{--home-n:var(--to)}}
   .tdw-toast{animation:tdwToastIn .2s ease-out both}
   @keyframes tdwToastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   .hdr-ink{transition:left .25s ease,width .25s ease,background-color .25s}
@@ -162,8 +162,8 @@ html[data-look="merged"] #pageDashboard .home-search-btn:hover:not(#_){backgroun
 html[data-look="merged"] #pageDashboard .home-search-icon{z-index:1;color:var(--warm-gray,#56695E)}
 html[data-look="merged"] #pageDashboard .home-ledgers:not(#_){gap:.9rem!important;border:0!important}
 html[data-look="merged"] #pageDashboard .home-ledger-card:not(#_){background:var(--paper-white,#FDFDFB)!important;border:1px solid var(--rule)!important;
-  border-top:4px solid var(--lc,var(--rule-strong))!important;border-radius:var(--radius,3px)!important;padding:1rem 1.1rem 1rem!important;box-shadow:0 10px 22px -20px rgba(31,58,46,.6)}
-html[data-look="merged"] #pageDashboard .home-ledger-card:hover:not(#_){box-shadow:0 14px 26px -18px rgba(31,58,46,.6)}
+  border-top:4px solid var(--lc,var(--rule-strong))!important;border-radius:var(--radius,3px)!important;padding:1rem 1.1rem 1rem!important;box-shadow:0 10px 22px -20px rgba(31,58,46,.6)!important}
+html[data-look="merged"] #pageDashboard .home-ledger-card:hover:not(#_){box-shadow:0 14px 26px -18px rgba(31,58,46,.6)!important}
 html[data-look="merged"] #pageDashboard .home-ledger-count:not(#_){font-family:var(--font-display)!important;font-weight:300!important;font-size:3.2rem!important;line-height:1.05;letter-spacing:-.02em}
 @media (max-width:639.98px){ html[data-look="merged"] #pageDashboard .home-ledger-count:not(#_){font-size:2.6rem!important} }
 html[data-look="merged"] #pageDashboard .home-desk-block:not(#_),html[data-look="merged"] #pageDashboard .home-section:not(#_){background:var(--paper-white,#FDFDFB);
@@ -175,9 +175,8 @@ html[data-look="merged"] #pageDashboard details.home-ops{background:var(--paper-
 /* ---------- Dark theme ---------- */
 :root[data-theme="dark"] .county-dot.muted{border-color:#A9BFA9}
 :root[data-theme="dark"] .tdw-confirm-card,:root[data-theme="dark"] .home-county-desk .desk-county:not(#_){background:#1B2520}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) .tdw-confirm-card,:root:not([data-theme="light"]) .home-county-desk .desk-county:not(#_){background:#1B2520}
-}
+/* Light is the product: an OS dark preference alone never repaints these
+   (identity.css); only an explicit data-theme="dark" does. */
 
 /* ---------- Shell: header, phone bar, List toolbar ---------- */
 html[data-shell="v3"] .hdr-nav{position:relative}
@@ -205,6 +204,9 @@ html[data-shell="v3"] .hdr-guide:not(#_){white-space:nowrap}
 .account-look{display:none}
 /* The grouped menu is taller than a phone screen: it scrolls inside itself. */
 .account-menu:not(#_){max-height:calc(100vh - 84px);max-height:calc(100dvh - 84px);overflow-y:auto;overscroll-behavior:contain}
+/* With the phone ledger bar on screen the menu stops above it, so the last
+   rows (Sign out, Delete my account) scroll clear of the bar. */
+@media (max-width:1023.98px){ html.has-bottombar .account-menu:not(#_){max-height:calc(100vh - 84px - 72px - env(safe-area-inset-bottom,0px));max-height:calc(100dvh - 84px - 72px - env(safe-area-inset-bottom,0px))} }
 @media (max-width:767.98px){
   html[data-shell="v3"] .look-switch:not(#_){display:none!important}
   .account-look:not(#_){display:block;border-bottom:1px solid var(--rule);padding:.2rem 0 .3rem;margin-bottom:.2rem}

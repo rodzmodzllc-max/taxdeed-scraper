@@ -162,8 +162,8 @@ html[data-look="merged"] #pageDashboard .home-search-btn:hover:not(#_){backgroun
 html[data-look="merged"] #pageDashboard .home-search-icon{z-index:1;color:var(--warm-gray,#56695E)}
 html[data-look="merged"] #pageDashboard .home-ledgers:not(#_){gap:.9rem!important;border:0!important}
 html[data-look="merged"] #pageDashboard .home-ledger-card:not(#_){background:var(--paper-white,#FDFDFB)!important;border:1px solid var(--rule)!important;
-  border-top:4px solid var(--lc,var(--rule-strong))!important;border-radius:var(--radius,3px)!important;padding:1rem 1.1rem 1rem!important;box-shadow:0 10px 22px -20px rgba(31,58,46,.6)}
-html[data-look="merged"] #pageDashboard .home-ledger-card:hover:not(#_){box-shadow:0 14px 26px -18px rgba(31,58,46,.6)}
+  border-top:4px solid var(--lc,var(--rule-strong))!important;border-radius:var(--radius,3px)!important;padding:1rem 1.1rem 1rem!important;box-shadow:0 10px 22px -20px rgba(31,58,46,.6)!important}
+html[data-look="merged"] #pageDashboard .home-ledger-card:hover:not(#_){box-shadow:0 14px 26px -18px rgba(31,58,46,.6)!important}
 html[data-look="merged"] #pageDashboard .home-ledger-count:not(#_){font-family:var(--font-display)!important;font-weight:300!important;font-size:3.2rem!important;line-height:1.05;letter-spacing:-.02em}
 @media (max-width:639.98px){ html[data-look="merged"] #pageDashboard .home-ledger-count:not(#_){font-size:2.6rem!important} }
 html[data-look="merged"] #pageDashboard .home-desk-block:not(#_),html[data-look="merged"] #pageDashboard .home-section:not(#_){background:var(--paper-white,#FDFDFB);

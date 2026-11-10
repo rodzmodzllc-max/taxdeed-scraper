@@ -28,10 +28,10 @@
 
 /* ---- controls */
 .bg-controls{display:flex;flex-wrap:wrap;gap:.6rem .8rem;align-items:center;margin:0 0 .4rem}
-.bg-seg{position:relative;display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));flex:1 1 540px;max-width:600px;
+.bg-seg{position:relative;display:grid;grid-template-columns:repeat(var(--bg-n,3),minmax(0,1fr));flex:1 1 540px;max-width:600px;
   background:var(--bg-card);border:1px solid var(--bg-line);border-radius:999px;padding:3px;min-height:46px}
-.bg-seg-thumb{position:absolute;top:3px;bottom:3px;left:3px;width:calc((100% - 6px) / var(--n,3));border-radius:999px;background:var(--lc);
-  transform:translateX(calc(var(--i,0) * 100%))}
+.bg-seg-thumb{position:absolute;top:3px;bottom:3px;left:3px;width:calc((100% - 6px) / var(--bg-n,3));border-radius:999px;background:var(--lc);
+  transform:translateX(calc(var(--bg-i,0) * 100%))}
 .bg-tab{position:relative;z-index:1;min-height:40px;min-width:0;padding:0 .7rem;border:0;background:none;border-radius:999px;cursor:pointer;
   font-family:var(--font-display);font-weight:500;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--bg-ink);white-space:nowrap}
 .bg-tab.on{color:#FDFDFB}
@@ -41,6 +41,8 @@
 .bg-county-l{font-family:var(--font-display);font-weight:500;letter-spacing:.06em;text-transform:uppercase;font-size:.72rem}
 .bg-county select,.bg-search,.bg-callout select{min-height:44px;border:1px solid var(--bg-line);border-radius:999px;background:var(--bg-card);color:var(--bg-ink);padding:0 2rem 0 .9rem;font:inherit;font-size:.92rem}
 .bg-search-wrap{flex:1 1 220px;min-width:0}
+.bg-search::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+.bg-count.bg-sr{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .bg-search{width:100%;padding:0 1rem;border-color:color-mix(in srgb,var(--sage,#4E6B54) 45%,var(--bg-line))}
 .bg-count{margin:.2rem 0 1rem;font-size:.85rem;color:var(--bg-soft);min-height:1.3em}
 

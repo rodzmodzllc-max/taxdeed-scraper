@@ -1848,7 +1848,25 @@ function showToast(msg, opts) {
   m.className = "tdw-toast-msg"; m.textContent = msg;
   t.appendChild(m);
   let timer = null;
-  const close = () => { clearTimeout(timer); t.remove(); };
+  const wait = o.action ? 8000 : 4000;
+  // Leaving slides out (motion.css .leaving); with reduced motion, or no
+  // animation at all, the toast goes at once.
+  const close = () => {
+    clearTimeout(timer);
+    if (!t.isConnected || t.classList.contains("leaving")) return;
+    t.classList.add("leaving");
+    const anims = t.getAnimations ? t.getAnimations() : [];
+    if (!anims.length || matchMedia("(prefers-reduced-motion: reduce)").matches) { t.remove(); return; }
+    t.addEventListener("animationend", () => t.remove(), { once: true });
+    setTimeout(() => t.remove(), 600);
+  };
+  // The timer pauses while the pointer or keyboard focus is on the toast, so
+  // its Undo stays reachable (WCAG 2.2.1).
+  const arm = () => { clearTimeout(timer); timer = setTimeout(close, wait); };
+  const hold = () => clearTimeout(timer);
+  t.addEventListener("mouseenter", hold); t.addEventListener("focusin", hold);
+  t.addEventListener("mouseleave", () => { if (!t.contains(document.activeElement)) arm(); });
+  t.addEventListener("focusout", e => { if (!t.contains(e.relatedTarget)) arm(); });
   if (o.action && o.action.label) {
     const a = document.createElement("button");
     a.type = "button"; a.className = "tdw-toast-action"; a.textContent = o.action.label;
@@ -1861,7 +1879,7 @@ function showToast(msg, opts) {
   t.appendChild(x);
   host.appendChild(t);
   while (host.children.length > 3) host.firstChild.remove();
-  timer = setTimeout(close, o.action ? 8000 : 4000);
+  arm();
   return t;
 }
 // A branded confirm dialog in place of window.confirm(): resolves true on the
@@ -1877,7 +1895,16 @@ function tdwConfirm(opts) {
       <div class="tdw-confirm-actions"><button type="button" class="tdw-confirm-cancel">${esc(o.cancel || "Cancel")}</button><button type="button" class="tdw-confirm-ok${o.danger ? " danger" : ""}">${esc(o.ok || "Confirm")}</button></div></div>`;
     document.body.appendChild(wrap);
     const done = v => { document.removeEventListener("keydown", onKey, true); wrap.remove(); try { if (prev && prev.focus) prev.focus(); } catch { /* gone */ } resolve(v); };
-    const onKey = e => { if (e.key === "Escape") { e.stopPropagation(); done(false); } };
+    const onKey = e => {
+      if (e.key === "Escape") { e.stopPropagation(); done(false); return; }
+      if (e.key === "Tab") {
+        // Focus stays inside the dialog: Tab cycles Cancel <-> Confirm.
+        const btns = [wrap.querySelector(".tdw-confirm-cancel"), wrap.querySelector(".tdw-confirm-ok")];
+        const i = btns.indexOf(document.activeElement);
+        e.preventDefault();
+        btns[(i < 0 ? 0 : i + (e.shiftKey ? btns.length - 1 : 1)) % btns.length].focus();
+      }
+    };
     document.addEventListener("keydown", onKey, true);
     wrap.addEventListener("click", e => { if (e.target === wrap) done(false); });
     wrap.querySelector(".tdw-confirm-cancel").addEventListener("click", () => done(false));
@@ -10103,6 +10130,8 @@ function hydrateGisLive(root, p) {
       .then(res => {
         el.dataset.gisLiveState = res && res.status ? res.status : "error";
         if (!res || res.status !== "ready" || !res.map) return;
+        // The page was closed or rebuilt while the map loaded: release it.
+        if (!el.isConnected) { try { res.destroy && res.destroy(); } catch { /* gone */ } return; }
         if (GIS_LIVE && GIS_LIVE !== res) { try { GIS_LIVE.destroy(); } catch { /* already gone */ } }
         GIS_LIVE = res;
         const reduce = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: no-preference)").matches);
@@ -10593,6 +10622,7 @@ async function hydrateEventHistory(container, p) {
     const msg = String(ev.error.message || "");
     const missing = ev.error.code === "PGRST205" || ev.error.code === "42P01" || /could not find the table|does not exist/i.test(msg);
     slot.innerHTML = `<p class="event-note">${missing ? "Sale event history is not available yet." : "Couldn't load sale event history: " + esc(msg)}</p>`;
+    setFoldLine(slot, "events", missing ? "Sale event history not available yet" : "Sale event history could not be loaded");
     return;
   }
   const events = ev.data || [];
@@ -10604,6 +10634,7 @@ async function hydrateEventHistory(container, p) {
   // The modal may have been re-rendered or closed meanwhile.
   if (!document.contains(slot)) return;
   slot.innerHTML = eventHistoryHtml(events, observations);
+  setFoldLine(slot, "events", events.length ? `${events.length} sale event${events.length === 1 ? "" : "s"} observed on the source` : "No sale event observed yet");
 }
 
 // "Source truth" (2026-10-05): one panel, every ledger, answering where this
@@ -11075,6 +11106,12 @@ function detailFoldIndex(html, p, linkCount) {
 }
 // One line per index block, from the record or the block's own content -
 // never a score. A fact the record does not carry is named as missing.
+// Rewrites a folded block's one-line summary once its content has loaded.
+function setFoldLine(slot, key, text) {
+  const d = slot && slot.closest && slot.closest(`details[data-fold="${key}"]`);
+  const line = d && d.querySelector(":scope > summary .detail-fold-line");
+  if (line) line.textContent = text;
+}
 function detailFoldLine(key, p, el, linkCount) {
   const q = sel => el && el.querySelectorAll ? el.querySelectorAll(sel).length : 0;
   const money = v => hasValueNum(v) ? fmtShort(v) : null;
@@ -11115,8 +11152,10 @@ function detailFoldLine(key, p, el, linkCount) {
     }
     case "related": { const n = relatedRecordsFor(p).length; return n ? `${n} record${n === 1 ? "" : "s"} for the same parcel in other ledgers` : "No record of the same parcel in another ledger"; }
     case "timeline": { const n = q("li"); return n ? `${n} dated fact${n === 1 ? "" : "s"} for this parcel` : "Dated facts for this parcel"; }
-    case "events": return "Sale events observed on the source";
-    case "monitor": return "What changed on this record since you saved it";
+    // Both blocks load their content after the page opens; the line says so
+    // until setFoldLine() replaces it with what was actually found.
+    case "events": return "Loading observed sale events…";
+    case "monitor": return `${BIDLIST.has(p.id) ? "On your watchlist" : FAVS.has(p.id) ? "In your favorites" : "Not watched"} · loading change history…`;
     case "truth": {
       const name = sourceNameFor(p) || harvesterSourceLabel(p) || "Source not named";
       return `${name}${p.last_seen_at ? `, read ${dateOnly(p.last_seen_at)}` : ", last read not recorded"}`;
@@ -11279,10 +11318,14 @@ function ensureFullProvenance(p) {
   PROVENANCE_PENDING.set(p.id, req);
   return req;
 }
+function releaseGisLive() {
+  if (GIS_LIVE) { try { GIS_LIVE.destroy(); } catch { /* already gone */ } GIS_LIVE = null; }
+}
 function closeDetail() {
   const modal = document.getElementById("detailModal");
   if (!modal) return;
   modal.hidden = true;
+  releaseGisLive();
   popBackLayer("detail");
   syncBodyScrollLock();
   restoreModalFocus();
@@ -16162,6 +16205,7 @@ async function hydrateChangeHistory(container, p) {
   if (!slot) return;
   if (MONITOR.tables.property_change_events === false) {
     slot.innerHTML = `<span class="muted">Server change history is not available yet.</span>`;
+    setFoldLine(slot, "monitor", `${BIDLIST.has(p.id) ? "On your watchlist" : "Not watched"} · change history not available yet`);
     return;
   }
   const res = await sb.from("property_change_events").select("*").eq("property_id", p.id).order("observed_at", { ascending: false }).limit(50);
@@ -16169,10 +16213,13 @@ async function hydrateChangeHistory(container, p) {
   if (res.error) {
     if (isMissingTable(res.error)) MONITOR.tables.property_change_events = false;
     slot.innerHTML = `<span class="muted">${isMissingTable(res.error) ? "Server change history is not available yet." : "Couldn't load change history: " + esc(res.error.message || "")}</span>`;
+    setFoldLine(slot, "monitor", `${BIDLIST.has(p.id) ? "On your watchlist" : "Not watched"} · change history ${isMissingTable(res.error) ? "not available yet" : "could not be loaded"}`);
     return;
   }
   MONITOR.tables.property_change_events = true;
   slot.innerHTML = changeHistoryListHtml(res.data || []);
+  const nCh = (res.data || []).length;
+  setFoldLine(slot, "monitor", `${BIDLIST.has(p.id) ? "On your watchlist" : "Not watched"} · ${nCh ? `${nCh} change${nCh === 1 ? "" : "s"} detected` : "no change detected yet"}`);
 }
 // Server-detected changes on watched properties, for the Watchlist modal.
 function watchedServerChangesHtml() {
@@ -16959,7 +17006,10 @@ function homeLedgerCardHtml(k, i) {
     .concat(PROPERTIES_LOADED && hiddenByYouCount(k) ? [`<span class="home-ledger-hidden" data-hidden-ledger="${esc(k)}">${hiddenByYouCount(k).toLocaleString("en-US")} hidden by you</span>`] : [])
     .concat(k === "laft" && GATE_WITHHELD.total ? [`<span class="home-ledger-withheld" data-gate-withheld="laft" title="Withheld until the county's acquisition process is verified">${GATE_WITHHELD.total} pending verification</span>`] : [])
     .concat(publicationWithheld(k) && publicationWithheld(k).total ? [`<span class="home-ledger-withheld" data-pub-withheld="${esc(k)}" title="${esc(publicationWithheldText(k) || "Withheld from customers until each record passes the publication gate")}">${publicationWithheld(k).total.toLocaleString("en-US")} withheld pending verification</span>`] : []);
-  const countText = PROPERTIES_LOADED ? ledgerCountText(k, n, true) : "—";
+  // A ledger with no source, a restricted source or unverified rules has no
+  // count to show: a big "0" beside "No source implemented" reads as a count.
+  const noCount = zero === "NOT_IMPLEMENTED" || zero === "SOURCE_RESTRICTED" || zero === "NOT_VERIFIED";
+  const countText = PROPERTIES_LOADED && !noCount ? ledgerCountText(k, n, true) : "—";
   const countUp = HOME_FIRST_PAINT && fin && n > 0 && n < 100000;
   const cls = "home-ledger-card" + (k === "laft" ? " primary" : "") + (zero === "NOT_IMPLEMENTED" ? " is-untracked" : "") + (zero ? " is-zero" : "") + (HOME_FIRST_PAINT ? " rise" : "");
   return `<button type="button" class="${cls}" data-ledger="${esc(k)}" data-home-ledger="${esc(k)}"${zero ? ` data-zero-case="${esc(zero)}"` : ""} style="--i:${Number(i) || 0}">
@@ -18117,7 +18167,10 @@ function installShellV3() {
   // Account menu: Go to / Account / Help groups; Sign out after a divider,
   // Delete my account apart as a danger row.
   const acct = document.getElementById("accountMenu");
-  if (acct && !acct.querySelector(".account-group-head")) {
+  // Marked by its own flag: the Look group (installLookSwitch) may already
+  // have added an .account-group-head, which must not skip this grouping.
+  if (acct && !acct.dataset.grouped) {
+    acct.dataset.grouped = "1";
     const headEl = txt => { const h = document.createElement("p"); h.className = "account-goto-head account-group-head"; h.textContent = txt; return h; };
     const div = () => { const d = document.createElement("hr"); d.className = "account-divider"; d.setAttribute("role", "separator"); return d; };
     const edit = document.getElementById("editProfileBtn");

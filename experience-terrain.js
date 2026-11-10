@@ -818,6 +818,9 @@ function fillPanel() {
   const html = availablePanelHtml(rows, api);
   const old = panel.querySelector(":scope > .xp-panelsum");
   if (old && old.dataset.xp === NAME && old.__html === html) return;
+  // This module's own box is updated in place: replacing it would replay its
+  // entrance animation on every deck step or slip lift.
+  if (old && old.dataset.xp === NAME) { old.innerHTML = html; old.__html = html; return; }
   const box = document.createElement("section");
   box.className = "xp-panelsum";
   box.dataset.xp = NAME;

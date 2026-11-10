@@ -153,3 +153,16 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", show);
   else show();
 })();
+
+// Accordion motion (motion.css section 7) runs only for a <details> the
+// person opens: a click on its summary (Enter / Space on a focused summary
+// is a click too) marks it .dd-anim just before it opens. A details that a
+// redraw inserts already open is never marked, so it never animates.
+(function () {
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    var s = t && t.closest ? t.closest("summary") : null;
+    var d = s && s.parentElement;
+    if (d && d.tagName === "DETAILS" && d.firstElementChild === s && !d.open) d.classList.add("dd-anim");
+  }, true);
+})();

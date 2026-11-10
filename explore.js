@@ -1485,14 +1485,35 @@ function streetViewAllowed(p) {
   const k = (window.TDW_CONFIG || {}).googleMapsApiKey;
   return window.__tdwIsAdmin === true && typeof k === "string" && k.trim() !== "" && !!p && hasPin(p);
 }
-function closeStreetView() {
+let svOpener = null;
+// restoreFocus: the panel's own close button or Escape hands focus back to
+// what opened it (the peek card's Street View button), never to <body>.
+function closeStreetView(restoreFocus) {
   const panel = $("mapStreetView");
   if (svHandle) { try { svHandle.destroy(); } catch { /* gone */ } svHandle = null; }
+  const hadFocus = panel && panel.contains(document.activeElement);
   if (panel) panel.remove();
+  const opener = svOpener;
+  svOpener = null;
+  if ((restoreFocus || hadFocus) && opener && opener.isConnected) { try { opener.focus({ preventScroll: true }); } catch { /* gone */ } }
+}
+// Phone: the stage runs under the fixed ledger bar, so the panel is bounded
+// by the stage's visible bottom (the same measure liftPeekAboveBar() uses).
+function fitStreetView(panel) {
+  const stage = stageEl();
+  if (!panel || !stage) return;
+  if (!isPhone()) { panel.style.removeProperty("max-height"); return; }
+  const s = stage.getBoundingClientRect();
+  const bottom = Math.min(s.bottom, window.innerHeight - navBottomHeight());
+  const top = panel.getBoundingClientRect().top || s.top;
+  const h = Math.floor(bottom - top - 8);
+  if (h > 0) panel.style.maxHeight = h + "px";
 }
 async function openStreetView(p) {
   if (!streetViewAllowed(p)) return;
+  const opener = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.querySelector("#explorePreview .mp-sv");
   closeStreetView();
+  svOpener = opener;
   const stage = stageEl();
   if (!stage) return;
   const panel = document.createElement("div");
@@ -1505,9 +1526,10 @@ async function openStreetView(p) {
     `<div class="map-sv-pano"><p class="map-sv-msg">Loading Street View…</p></div>` +
     `<p class="map-sv-note">Google's imagery of the street near the recorded point. It does not show the parcel's boundary, its current condition or who owns it.</p>`;
   stage.appendChild(panel);
+  fitStreetView(panel);
   const pid = p.id;
-  panel.querySelector(".map-sv-close").addEventListener("click", () => closeStreetView());
-  panel.addEventListener("keydown", e => { if (e.key === "Escape") { e.stopPropagation(); closeStreetView(); } });
+  panel.querySelector(".map-sv-close").addEventListener("click", () => closeStreetView(true));
+  panel.addEventListener("keydown", e => { if (e.key === "Escape") { e.stopPropagation(); closeStreetView(true); } });
   panel.querySelector(".map-sv-close").focus({ preventScroll: true });
   let res;
   try {
