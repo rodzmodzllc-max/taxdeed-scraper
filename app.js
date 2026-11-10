@@ -18175,9 +18175,19 @@ function installShellV3() {
     const div = () => { const d = document.createElement("hr"); d.className = "account-divider"; d.setAttribute("role", "separator"); return d; };
     const edit = document.getElementById("editProfileBtn");
     if (edit) edit.before(headEl("Account"));
+    // Help: How to read this data, Contact support, Terms. The admin-only
+    // entries stay at the end of the Account group, before the Help heading.
+    const help = document.getElementById("helpBtnMenu");
     const support = document.getElementById("supportBtnMenu");
     const terms = document.getElementById("termsBtnMenu");
-    if (support) { support.before(headEl("Help")); if (terms) support.after(terms); }
+    const first = help || support || terms;
+    if (first) {
+      const h = headEl("Help");
+      first.before(h);
+      ["adminAreaLink", "governanceMenuItem"].forEach(id => { const el = document.getElementById(id); if (el) h.before(el); });
+      let at = first;
+      [support, terms].forEach(el => { if (el && el !== first) { at.after(el); at = el; } });
+    }
     const out = document.getElementById("signOutBtn");
     const del = document.getElementById("deleteAccountBtn");
     if (out) { out.before(div()); out.classList.remove("danger"); }

@@ -3133,7 +3133,7 @@ await adminPub.click('#accountBtn'); await adminPub.waitForTimeout(200);
 results.govMenu = {
   itemVisible: await adminPub.locator('#governanceMenuItem').isVisible(),
   itemText: ((await adminPub.locator('#governanceMenuItem').textContent()) || '').trim(),
-  // the item sits in the existing account menu, after "Admin area", before Terms / Sign out
+  // the item sits in the existing account menu, after "Admin area", before the Help group / Sign out
   order: await adminPub.locator('#accountMenu .account-item:not([hidden])').evaluateAll(els => els.map(e => e.id).filter(Boolean))
 };
 await adminPub.click('#governanceMenuItem'); await adminPub.waitForTimeout(700);
@@ -9045,7 +9045,7 @@ const EXPECTED = {
   availCsvP15Path: true,
   govStatePages: Object.fromEntries(['mi', 'wy', 'sc', 'co', 'wi'].map(f => [f, { admView: true, admHash: '#/governance', onWorkspace: false, userView: false, userItem: false, userHashRewritten: true }])),
   govWorkspace: { inlinePanelVisible: false, panelInsideView: true, panelOnWorkspace: false, approvalsVisible: true, approvalRows: true },
-  govMenu: {"itemVisible": true, "itemText": "Source Publication Governance", "order": ["editProfileBtn", "changePasswordBtn", "billingBtnMenu", "themeBtn", "alertsMenuItem", "supportBtnMenu", "adminAreaLink", "governanceMenuItem", "termsBtnMenu", "signOutBtn", "deleteAccountBtn"]},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
+  govMenu: {"itemVisible": true, "itemText": "Source Publication Governance", "order": ["editProfileBtn", "changePasswordBtn", "billingBtnMenu", "themeBtn", "alertsMenuItem", "adminAreaLink", "governanceMenuItem", "supportBtnMenu", "termsBtnMenu", "signOutBtn", "deleteAccountBtn"]},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md); 2026-11-10: Account / Help groups (admin entries close the Account group, Terms joins Help)
   govOpened: { viewVisible: true, hash: '#/governance', menuClosed: true, title: 'Source Publication Governance' },
   govClosedByBack: { hidden: true, hash: '#/auctions' },
   govAdminRoute: { visible: true, rows: 5, hash: '#/governance' },
