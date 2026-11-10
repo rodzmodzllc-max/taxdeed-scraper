@@ -253,6 +253,7 @@ const SHELL = [
   "/experience-terrain.js", "/experience-terrain.css",
   "/experience-merged.js", "/experience-merged.css",
   "/buyers-guide.js", "/buyers-guide.css",
+  "/property.css",
   "/config.js",
   "/fl-counties.svg",
   "/fl-cities.json",

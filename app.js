@@ -10854,12 +10854,12 @@ function detailHtml(p) {
     ${monitorSectionHtml(p)}` : `
     ${sourceReviewBannerHtml(p)}
     ${acquireBlockHtml(p)}
+    ${financialPositionHtml(p)}
     ${p.source === "auction" ? auctionLinkHtml(p, "detail-cta") : ""}
     ${detailStatusHtml(p)}
     ${sourceLineHtml(p)}
     ${whySeeingHtml(p)}
     ${regionOf(p) === "TX" && classificationBadgeHtml(p) ? `<div class="prop-classification-line" style="margin:.2rem 0 .5rem">${classificationBadgeHtml(p)}</div>` : ""}
-    ${financialPositionHtml(p)}
     ${availableDecisionHtml(p)}
     ${auctionDecisionHtml(p)}
     <!--RESEARCH-->
