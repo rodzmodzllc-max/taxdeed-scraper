@@ -1136,3 +1136,92 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
   #homeChangeState, .home-guide-step .link-btn, [data-section="acquire"] a, .acq-form a { display: inline-flex; align-items: center; }
   .map-ledger-pills button, .map-watch-pill { padding-top: .5rem; padding-bottom: .5rem; }
 }
+
+/* ==========================================================================
+   Map page: 3D parcel view, admin Street View, polish (2026-11-10)
+   ========================================================================== */
+/* Pin touch target: a transparent circle behind each outline-map pin's head
+   (explore.js makePin) - 44px on screen whatever the zoom. */
+.map-pin .pin-hit{fill:transparent;stroke:none;pointer-events:all}
+
+/* Legend dots match the bubbles actually drawn (identity.css colours the
+   bubbles charcoal for All ledgers, sage / rust / plum per ledger). The
+   legend sits in the side panel, a sibling of the stage, so it keys off the
+   workspace that holds both. */
+#mapWorkspace .map-legend-dot{background:var(--charcoal,var(--accent));border:1.5px solid var(--paper-white,#fff);
+  box-shadow:0 0 0 1px var(--card-line)}
+#mapWorkspace:has(#exploreMapCanvas[data-ledger="laft"]) .map-legend-dot{background:var(--sage,#4E6B54)}
+#mapWorkspace:has(#exploreMapCanvas[data-ledger="auction"]) .map-legend-dot{background:var(--rust,#A4512A)}
+#mapWorkspace:has(#exploreMapCanvas[data-ledger="certificate"]) .map-legend-dot{background:var(--plum,#6B4A6E)}
+.map-side .explore-map-legend{gap:.4rem .75rem;padding:.15rem 0 .1rem}
+.map-side .map-legend-label{flex:1 1 100%;font-size:.68rem;font-weight:600;color:var(--ink-soft)}
+
+/* Satellite bubbles: the same ledger colours as the outline map's bubbles. */
+.satellite-map-canvas .sat-county-bubble{background:var(--charcoal,var(--accent))}
+.satellite-map-canvas[data-ledger="laft"] .sat-county-bubble{background:var(--sage,#4E6B54)}
+.satellite-map-canvas[data-ledger="auction"] .sat-county-bubble{background:var(--rust,#A4512A)}
+.satellite-map-canvas[data-ledger="certificate"] .sat-county-bubble{background:var(--plum,#6B4A6E)}
+
+/* Side panel density: a touch more air between the rail, legend and note. */
+.map-side-body{gap:.75rem}
+.map-side .explore-map-note{font-size:.7rem;line-height:1.5;color:var(--ink-soft);margin:0}
+
+/* Peek card spacing (desktop): a calmer body, facts on one baseline. */
+@media (min-width:1024px){
+  .explore-preview.mp .mp-body{padding:.75rem .9rem .85rem;gap:.4rem}
+  .explore-preview.mp .mp-locator{height:84px;padding:.45rem .9rem}
+  .explore-preview.mp .mp-locator .minimap{flex-basis:68px;width:68px;height:68px}
+  .explore-preview.mp .mp-facts{gap:.6rem;margin-top:.3rem;padding-top:.5rem;border-top:1px solid var(--card-line)}
+  .explore-preview.mp .mp-actions{margin-top:.45rem}
+}
+
+/* Admin-only Street View button in the peek card (explore.js). */
+.explore-preview .mp-actions:has(.mp-sv){flex-wrap:wrap}
+.explore-preview .mp-sv{flex:1 1 100%;min-height:36px;padding:0 .65rem;border:1px solid var(--card-line);
+  border-radius:4px;background:var(--card);color:var(--ink);font:inherit;font-size:.74rem;font-weight:700;
+  cursor:pointer;white-space:nowrap}
+.explore-preview .mp-sv:hover{border-color:var(--accent);color:var(--accent)}
+.explore-preview .mp-sv:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+@media (max-width:1023px){ .explore-preview.mp .mp-sv{min-height:44px;padding:0 .5rem;font-size:.7rem} }
+
+/* The Street View panel over the stage. */
+.map-sv{position:absolute;z-index:9;inset:.75rem .75rem auto auto;width:min(520px,calc(100% - 1.5rem));
+  height:min(360px,calc(100% - 1.5rem));display:flex;flex-direction:column;background:var(--card);
+  border:1px solid var(--card-line);border-radius:8px;box-shadow:0 12px 32px rgba(15,23,42,.28);overflow:hidden}
+.map-sv-head{display:flex;align-items:center;gap:.5rem;padding:.35rem .4rem .35rem .75rem;border-bottom:1px solid var(--card-line)}
+.map-sv-head b{font-size:.78rem}
+.map-sv-head span{flex:1;min-width:0;font-size:.7rem;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.map-sv-close{width:44px;height:44px;border:none;background:none;font-size:1rem;cursor:pointer;color:var(--ink)}
+.map-sv-pano{position:relative;flex:1;min-height:0;background:var(--paper)}
+.map-sv-msg{margin:0;padding:1rem;font-size:.8rem;color:var(--ink-soft)}
+.map-sv-note{margin:0;padding:.35rem .75rem .45rem;font-size:.64rem;line-height:1.4;color:var(--ink-soft);border-top:1px solid var(--card-line)}
+@media (max-width:1023px){ .map-sv{inset:.5rem .5rem auto .5rem;width:auto;height:min(380px,calc(100% - 1rem))} }
+
+/* 3D toggle (MapTiler only, satellite-map.js): under the imagery toggle. */
+.map-depth-toggle{position:absolute;top:3rem;right:.6rem;z-index:4;display:flex;flex-direction:column;align-items:flex-end;gap:.3rem}
+.map-depth-toggle[hidden]{display:none}
+.map-depth-toggle button{font-family:inherit;font-size:.7rem;font-weight:800;letter-spacing:.04em;min-width:44px;min-height:36px;
+  padding:.3rem .65rem;background:var(--card);color:var(--ink-soft);border:1px solid var(--card-line);border-radius:3px;
+  box-shadow:var(--shadow);cursor:pointer}
+.map-depth-toggle button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.map-depth-toggle button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.map-depth-caption{font-size:.62rem;font-weight:600;color:var(--ink);background:color-mix(in srgb,var(--card) 90%,transparent);
+  border:1px solid var(--card-line);border-radius:3px;padding:.15rem .4rem;white-space:nowrap}
+.map-depth-caption[hidden]{display:none}
+@media (max-width:1023px){ .map-depth-toggle button{min-height:44px} }
+
+/* The parcel outline's credit whenever a basemap draws it: one line, the
+   full credit (licence, change notice, freshness, disclaimer, metadata) one
+   tap away. Top-left, under the "All counties" button. */
+.map-parcel-credit{position:absolute;top:3rem;left:.6rem;z-index:4;max-width:min(360px,calc(100% - 6rem));
+  background:color-mix(in srgb,var(--card) 92%,transparent);border:1px solid var(--card-line);border-radius:3px;
+  font-size:.64rem;line-height:1.4;color:var(--ink)}
+.map-parcel-credit summary{cursor:pointer;padding:.25rem .5rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:24px}
+.map-parcel-credit .pb-credit{margin:0;padding:.3rem .5rem .45rem;border-top:1px solid var(--card-line);font-size:.64rem}
+
+/* The property page's live mini-map (map-3d.js mountGisMap). */
+.m3d-gis{position:relative}
+.m3d-gis-canvas{position:relative;width:100%;height:260px;border-radius:6px;overflow:hidden;background:var(--paper)}
+.m3d-gis .m3d-credit{margin:.35rem 0 0;font-size:.66rem;line-height:1.45;color:var(--ink-soft)}
+.m3d-pin{pointer-events:none}
+@media (max-width:640px){ .m3d-gis-canvas{height:220px} }

@@ -56,6 +56,9 @@ DEPLOYED_BUNDLE_FILES = (
     "app.js",
     # 2026-10-20 parcel boundaries from the approved parcel-geometry sources.
     "parcel-boundary.js",
+    # 2026-11-10 shared MapLibre / Google loaders, the 3D parcel camera, the
+    # property mini-map and admin Street View (lazy-imported, no <script> tag).
+    "map-3d.js",
     # 2026-10-25 look switch: the two trial List experiences (app.js loads
     # them only when picked).
     "experience-tactile.css",
