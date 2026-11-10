@@ -1848,7 +1848,25 @@ function showToast(msg, opts) {
   m.className = "tdw-toast-msg"; m.textContent = msg;
   t.appendChild(m);
   let timer = null;
-  const close = () => { clearTimeout(timer); t.remove(); };
+  const wait = o.action ? 8000 : 4000;
+  // Leaving slides out (motion.css .leaving); with reduced motion, or no
+  // animation at all, the toast goes at once.
+  const close = () => {
+    clearTimeout(timer);
+    if (!t.isConnected || t.classList.contains("leaving")) return;
+    t.classList.add("leaving");
+    const anims = t.getAnimations ? t.getAnimations() : [];
+    if (!anims.length || matchMedia("(prefers-reduced-motion: reduce)").matches) { t.remove(); return; }
+    t.addEventListener("animationend", () => t.remove(), { once: true });
+    setTimeout(() => t.remove(), 600);
+  };
+  // The timer pauses while the pointer or keyboard focus is on the toast, so
+  // its Undo stays reachable (WCAG 2.2.1).
+  const arm = () => { clearTimeout(timer); timer = setTimeout(close, wait); };
+  const hold = () => clearTimeout(timer);
+  t.addEventListener("mouseenter", hold); t.addEventListener("focusin", hold);
+  t.addEventListener("mouseleave", () => { if (!t.contains(document.activeElement)) arm(); });
+  t.addEventListener("focusout", e => { if (!t.contains(e.relatedTarget)) arm(); });
   if (o.action && o.action.label) {
     const a = document.createElement("button");
     a.type = "button"; a.className = "tdw-toast-action"; a.textContent = o.action.label;
@@ -1861,7 +1879,7 @@ function showToast(msg, opts) {
   t.appendChild(x);
   host.appendChild(t);
   while (host.children.length > 3) host.firstChild.remove();
-  timer = setTimeout(close, o.action ? 8000 : 4000);
+  arm();
   return t;
 }
 // A branded confirm dialog in place of window.confirm(): resolves true on the
@@ -1877,7 +1895,16 @@ function tdwConfirm(opts) {
       <div class="tdw-confirm-actions"><button type="button" class="tdw-confirm-cancel">${esc(o.cancel || "Cancel")}</button><button type="button" class="tdw-confirm-ok${o.danger ? " danger" : ""}">${esc(o.ok || "Confirm")}</button></div></div>`;
     document.body.appendChild(wrap);
     const done = v => { document.removeEventListener("keydown", onKey, true); wrap.remove(); try { if (prev && prev.focus) prev.focus(); } catch { /* gone */ } resolve(v); };
-    const onKey = e => { if (e.key === "Escape") { e.stopPropagation(); done(false); } };
+    const onKey = e => {
+      if (e.key === "Escape") { e.stopPropagation(); done(false); return; }
+      if (e.key === "Tab") {
+        // Focus stays inside the dialog: Tab cycles Cancel <-> Confirm.
+        const btns = [wrap.querySelector(".tdw-confirm-cancel"), wrap.querySelector(".tdw-confirm-ok")];
+        const i = btns.indexOf(document.activeElement);
+        e.preventDefault();
+        btns[(i < 0 ? 0 : i + (e.shiftKey ? btns.length - 1 : 1)) % btns.length].focus();
+      }
+    };
     document.addEventListener("keydown", onKey, true);
     wrap.addEventListener("click", e => { if (e.target === wrap) done(false); });
     wrap.querySelector(".tdw-confirm-cancel").addEventListener("click", () => done(false));

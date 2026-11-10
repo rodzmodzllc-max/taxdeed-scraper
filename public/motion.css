@@ -71,6 +71,9 @@
     animation:tdw-toast-in var(--dur-menu,200ms) var(--ease-out,cubic-bezier(0,0,.2,1)) backwards;
   }
   @keyframes tdw-toast-in{from{opacity:0;transform:translateY(12px)}}
+  /* Leaving: showToast() adds .leaving and removes the toast when this ends. */
+  .tdw-toast.leaving{animation:tdw-toast-out var(--dur-quick,160ms) var(--ease-std,cubic-bezier(.2,0,0,1)) forwards}
+  @keyframes tdw-toast-out{to{opacity:0;transform:translateY(8px)}}
 
   /* ---- 5. Skeleton shimmer ------------------------------------------------
      The loading placeholders (.skel, styles.css) shimmer on their own loop;
@@ -94,29 +97,33 @@
        / box-shadow:none!important; :hover outranks that rule on specificity,
        so the lift applies only while the pointer is on the row. */
     .prop-card:hover,
-    .cert-card:hover,
-    .home-ledger-card:hover{transform:translateY(-2px)!important;box-shadow:0 6px 18px rgba(32,41,37,.10)!important}
+    .cert-card:hover{transform:translateY(-2px)!important;box-shadow:0 6px 18px rgba(32,41,37,.10)!important}
     .prop-card:active,
-    .cert-card:active,
-    .home-ledger-card:active{transform:translateY(0)!important;transition-duration:var(--dur-press,90ms)}
+    .cert-card:active{transform:translateY(0)!important;transition-duration:var(--dur-press,90ms)}
+    /* Home's ledger cards are not pinned flat, so no !important: the Merged
+       look's own hover shadow (home.css) keeps winning on specificity. */
+    .home-ledger-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(32,41,37,.10)}
+    .home-ledger-card:active{transform:translateY(0);transition-duration:var(--dur-press,90ms)}
   }
 
   /* ---- 7. Accordions: content fade, and height on open -------------------
-     Opening a <details> fades its content in. Where the browser can animate
-     to height:auto (::details-content + interpolate-size), the content also
-     grows on open; closing stays instant. The property page's research group
-     is left out of the height animation: its section nav opens it and then
-     scrolls to a section inside it, which needs the final height at once. */
-  details[open] > :not(summary){
+     Only a <details> the person opens animates: a click on its summary marks
+     it .dd-anim (boot.js). A details that render() inserts already open never
+     moves, so redrawing the list (sort, filter, county) neither fades the
+     cards nor collapses the open county groups and drags the scroll position.
+     :where() keeps the fade at zero specificity, so a component's own
+     animation always wins. The research group and the filter dropdown keep
+     their final height at once (the section nav scrolls into the group). */
+  :where(details.dd-anim[open]) > :where(:not(summary)){
     animation:tdw-fade-in var(--dur-menu,200ms) var(--ease-std,cubic-bezier(.2,0,0,1)) backwards;
   }
   @supports (interpolate-size:allow-keywords) and selector(::details-content){
-    details:not(.detail-research):not(.filter-dropdown){interpolate-size:allow-keywords}
-    details:not(.detail-research):not(.filter-dropdown)[open]::details-content{
+    details.dd-anim:not(.detail-research):not(.filter-dropdown):not(.county-group){interpolate-size:allow-keywords}
+    details.dd-anim:not(.detail-research):not(.filter-dropdown):not(.county-group)[open]::details-content{
       transition:block-size var(--dur-menu,200ms) var(--ease-out,cubic-bezier(0,0,.2,1));
     }
     @starting-style{
-      details:not(.detail-research):not(.filter-dropdown)[open]::details-content{block-size:0;overflow:clip}
+      details.dd-anim:not(.detail-research):not(.filter-dropdown):not(.county-group)[open]::details-content{block-size:0;overflow:clip}
     }
   }
 

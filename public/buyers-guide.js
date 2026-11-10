@@ -229,7 +229,7 @@ function ledgerTabsHtml(order, ledger, ctx) {
   const e = ctx.esc;
   const idx = order.indexOf(ledger);
   const from = UI.lastLedger && order.includes(UI.lastLedger) ? order.indexOf(UI.lastLedger) : idx;
-  return `<div class="bg-seg" role="group" aria-label="Ledger" style="--n:${order.length};--i:${from}" data-bg-to="${idx}">
+  return `<div class="bg-seg" role="group" aria-label="Ledger" style="--bg-n:${order.length};--bg-i:${from}" data-bg-to="${idx}">
     <span class="bg-seg-thumb" aria-hidden="true"></span>
     ${order.map(k => `<button type="button" class="bg-tab${k === ledger ? " on" : ""}" data-bg-ledger="${k}" data-tab-ledger="${k}" aria-pressed="${k === ledger}" aria-label="${e(LEDGER_NAMES[k])}"><span class="bg-tab-long">${e(LEDGER_NAMES[k])}</span><span class="bg-tab-short" aria-hidden="true">${e(LEDGER_SHORT[k])}</span></button>`).join("")}
   </div>`;
@@ -362,6 +362,9 @@ function wire(root, ctx, s) {
     if (empty) { empty.hidden = !t || n > 0; const q = empty.querySelector(".bg-empty-q"); if (q) q.textContent = `“${search.value.trim()}”`; }
     count.textContent = t ? (n ? `${n} ${n === 1 ? "question matches" : "questions match"} “${search.value.trim()}”.` : `No question matches “${search.value.trim()}”. Press Escape to clear.`)
       : `${s.total} questions in ${s.stepsN} steps.`;
+    // The empty box below says the same sentence on screen; the status line
+    // stays for the screen-reader announcement only, so it is not read twice.
+    count.classList.toggle("bg-sr", !!(empty && !empty.hidden));
   };
   search.value = UI.search || "";
   search.addEventListener("input", apply);
@@ -374,8 +377,8 @@ function wire(root, ctx, s) {
   const seg = root.querySelector(".bg-seg");
   if (seg) {
     const to = seg.dataset.bgTo;
-    if (reduceMotion()) seg.style.setProperty("--i", to);
-    else requestAnimationFrame(() => requestAnimationFrame(() => seg.style.setProperty("--i", to)));
+    if (reduceMotion()) seg.style.setProperty("--bg-i", to);
+    else requestAnimationFrame(() => requestAnimationFrame(() => seg.style.setProperty("--bg-i", to)));
   }
   // Focus returns to the control that caused the re-render.
   if (UI.trigger) {
