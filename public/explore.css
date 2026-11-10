@@ -1176,7 +1176,8 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
 }
 
 /* Admin-only Street View button in the peek card (explore.js). */
-.explore-preview .mp-sv{flex:0 0 auto;min-height:40px;padding:0 .65rem;border:1px solid var(--card-line);
+.explore-preview .mp-actions:has(.mp-sv){flex-wrap:wrap}
+.explore-preview .mp-sv{flex:1 1 100%;min-height:36px;padding:0 .65rem;border:1px solid var(--card-line);
   border-radius:4px;background:var(--card);color:var(--ink);font:inherit;font-size:.74rem;font-weight:700;
   cursor:pointer;white-space:nowrap}
 .explore-preview .mp-sv:hover{border-color:var(--accent);color:var(--accent)}
@@ -1194,7 +1195,7 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
 .map-sv-pano{position:relative;flex:1;min-height:0;background:var(--paper)}
 .map-sv-msg{margin:0;padding:1rem;font-size:.8rem;color:var(--ink-soft)}
 .map-sv-note{margin:0;padding:.35rem .75rem .45rem;font-size:.64rem;line-height:1.4;color:var(--ink-soft);border-top:1px solid var(--card-line)}
-@media (max-width:1023px){ .map-sv{inset:.5rem;width:auto;height:auto} }
+@media (max-width:1023px){ .map-sv{inset:.5rem .5rem auto .5rem;width:auto;height:min(380px,calc(100% - 1rem))} }
 
 /* 3D toggle (MapTiler only, satellite-map.js): under the imagery toggle. */
 .map-depth-toggle{position:absolute;top:3rem;right:.6rem;z-index:4;display:flex;flex-direction:column;align-items:flex-end;gap:.3rem}
@@ -1205,7 +1206,7 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
 .map-depth-toggle button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 .map-depth-toggle button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .map-depth-caption{font-size:.62rem;font-weight:600;color:var(--ink);background:color-mix(in srgb,var(--card) 90%,transparent);
-  border:1px solid var(--card-line);border-radius:3px;padding:.15rem .4rem;max-width:200px;text-align:right}
+  border:1px solid var(--card-line);border-radius:3px;padding:.15rem .4rem;white-space:nowrap}
 .map-depth-caption[hidden]{display:none}
 @media (max-width:1023px){ .map-depth-toggle button{min-height:44px} }
 
