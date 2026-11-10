@@ -153,12 +153,20 @@
 # coordinates (harvesters/imagery). Like the map providers, the request tells
 # USGS which coordinates are being viewed; unlike them it needs no key and
 # sets no cookie. TDW_CONFIG.naipLiveImagery === false switches it off.
+#
+# 2026-11-10 added https://*.ggpht.com and https://*.googleusercontent.com to
+# img-src ONLY: the panorama tiles and thumbnails of Google Street View, which
+# the Map page opens for ADMINS (map-3d.js mountStreetView; customers never
+# get the button). Everything else Street View loads is already covered by the
+# Google hosts above. The 3D view (MapTiler terrain-rgb-v2 + the style's own
+# buildings) needs nothing new: its tiles come from api.maptiler.com
+# (img-src / connect-src) and MapLibre's workers from blob: (worker-src).
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: geolocation=(), microphone=(), camera=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://esm.sh 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com *.google.com blob: https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com *.google.com https://api.maptiler.com https://*.supabase.co https://imagery.nationalmap.gov; connect-src 'self' https://*.supabase.co https://esm.sh https://*.googleapis.com *.google.com https://*.gstatic.com https://api.maptiler.com; frame-src https://www.openstreetmap.org; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://esm.sh 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com *.google.com blob: https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com *.google.com https://api.maptiler.com https://*.supabase.co https://imagery.nationalmap.gov https://*.ggpht.com https://*.googleusercontent.com; connect-src 'self' https://*.supabase.co https://esm.sh https://*.googleapis.com *.google.com https://*.gstatic.com https://api.maptiler.com; frame-src https://www.openstreetmap.org; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
 
 # Shell files (2026-10-24). Cloudflare Pages' default for static assets is a
 # four-hour max-age, so after a deploy a returning browser kept serving the old

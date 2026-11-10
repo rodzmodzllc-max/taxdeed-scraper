@@ -233,7 +233,7 @@ for (const slug of ['auctions', 'lands']) {
 {
   const pg = await open('index.html#/dashboard');
   await pg.evaluate(() => { window.__stubProbeLog = []; });
-  const card = pg.locator('#homeStatesCard');
+  const card = pg.locator('#homeAllStates');
   if (await card.count()) { await card.click(); await pg.waitForTimeout(1500); }
   const log = await pg.evaluate(() => window.__stubProbeLog || []);
   const auc = log.filter(l => l.filters.some(f => f[0] === 'source' && f[1] === 'auction'));

@@ -150,6 +150,7 @@ const PAGE_STATE = (() => {
 let rows = [];
 let ledger = "all";
 let openDetail = null;
+let lastRender = null;   // the latest tdw:maprendered payload
 
 let activeStyle = "outline"; // "outline" | "google" | "maptiler" - which canvas shows
 
@@ -232,6 +233,7 @@ function setStyle(style) {
     renderMaptiler({ move: true });
   }
   syncImageryToggle();
+  renderParcelCredit(drawnParcel.boundary && (style === "maptiler" || style === "google") ? drawnParcel.boundary : null);
 }
 
 function setupMessage(canvasId, html) {
@@ -425,36 +427,11 @@ const googleState = {
   lastZoomedCounty: null
 };
 
-// Google's own official dynamic-library-loader bootstrap (see
-// https://developers.google.com/maps/documentation/javascript/load-maps-js-api),
-// reproduced verbatim from Google's docs and installed inline here instead of
-// as a separate <script> tag in index.html/tx.html - identical behavior:
-// after this runs once, google.maps.importLibrary(...) is defined and the
-// rest of this section uses it to pull in the "maps" and "marker" libraries
-// on demand, only when a key is configured and the user has clicked Google.
-function installGoogleMapsBootstrap(apiKey) {
-  if (window.google && window.google.maps && window.google.maps.importLibrary) return;
-  (g => {
-    let h, a, k;
-    const p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__";
-    const m = document, b = window;
-    b[c] = b[c] || {};
-    const d = b[c].maps || (b[c].maps = {});
-    const r = new Set(), e = new URLSearchParams();
-    const u = () => h || (h = new Promise(async (f, n) => {
-      a = m.createElement("script");
-      e.set("libraries", [...r] + "");
-      for (k in g) e.set(k.replace(/[A-Z]/g, t => "_" + t[0].toLowerCase()), g[k]);
-      e.set("callback", c + ".maps." + q);
-      a.src = `https://maps.${c}apis.com/maps/api/js?` + e;
-      d[q] = f;
-      a.onerror = () => { h = null; n(new Error(p + " could not load.")); };
-      a.nonce = m.querySelector("script[nonce]")?.nonce || "";
-      m.head.append(a);
-    }));
-    d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n));
-  })({ key: apiKey, v: "weekly" });
-}
+// Google's official loader bootstrap now lives in map-3d.js (loadGoogleMaps),
+// shared with the admin Street View panel; map-3d.js is imported lazily,
+// only once a key is configured and the user has clicked Google.
+let m3dPromise = null;
+function m3d() { return m3dPromise || (m3dPromise = import("./map-3d.js").then(m => (M3 = m))); }
 
 async function ensureGoogleMap() {
   if (googleState.loadState === "ready" || googleState.loadState === "loading") return;
@@ -473,7 +450,7 @@ async function ensureGoogleMap() {
   googleState.loadState = "loading";
   setupMessage(GOOGLE_CANVAS_ID, `<b>Loading Google satellite map…</b>`);
   try {
-    installGoogleMapsBootstrap(key);
+    (await m3d()).loadGoogleMaps(key);
     const { Map } = await google.maps.importLibrary("maps");
     ({ AdvancedMarkerElement: googleState.AdvancedMarkerElement } = await google.maps.importLibrary("marker"));
     const canvas = $(GOOGLE_CANVAS_ID);
@@ -494,6 +471,7 @@ async function ensureGoogleMap() {
     // a tap within 400ms of a marker tap is not "empty map".
     googleState.map.addListener("click", () => { if (Date.now() - lastPinTapAt >= 400) backgroundTap(); });
     googleState.loadState = "ready";
+    drawParcelOnMaps();
     if (imagery !== "satellite") googleState.map.setMapTypeId("roadmap");
     syncImageryToggle();
     renderGoogle({ move: true });
@@ -625,11 +603,9 @@ function drawGoogleZoomed() {
 // MAPTILER PROVIDER
 // ============================================================================
 // MapLibre GL JS - an open-source, API-compatible fork of Mapbox GL JS (see
-// this file's header, Phase 60). Loaded from a CDN rather than a provider's
-// own host, since MapTiler doesn't host the library itself the way Mapbox
-// does at api.mapbox.com; unpkg mirrors the published npm package verbatim.
-const MAPLIBRE_GL_VERSION = "4.7.1"; // bump alongside a check of
-  // https://www.npmjs.com/package/maplibre-gl for a newer stable
+// this file's header, Phase 60), loaded from unpkg by map-3d.js's
+// loadMapLibre() (the one loader, shared with the property page's mini-map;
+// version pinned there as MAPLIBRE_GL_VERSION).
 
 const maptilerState = {
   gl: null,          // the maplibregl module, once loaded
@@ -638,24 +614,6 @@ const maptilerState = {
   markers: [],
   lastZoomedCounty: null
 };
-
-function loadMapLibreGl() {
-  if (window.maplibregl) return Promise.resolve(window.maplibregl);
-  if (loadMapLibreGl._p) return loadMapLibreGl._p;
-  loadMapLibreGl._p = new Promise((resolve, reject) => {
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = `https://unpkg.com/maplibre-gl@${MAPLIBRE_GL_VERSION}/dist/maplibre-gl.css`;
-    document.head.appendChild(link);
-
-    const script = document.createElement("script");
-    script.src = `https://unpkg.com/maplibre-gl@${MAPLIBRE_GL_VERSION}/dist/maplibre-gl.js`;
-    script.onload = () => resolve(window.maplibregl);
-    script.onerror = () => reject(new Error("MapLibre GL JS failed to load"));
-    document.head.appendChild(script);
-  });
-  return loadMapLibreGl._p;
-}
 
 async function ensureMaptilerMap() {
   if (maptilerState.loadState === "ready" || maptilerState.loadState === "loading") return;
@@ -674,7 +632,7 @@ async function ensureMaptilerMap() {
   maptilerState.loadState = "loading";
   setupMessage(MAPTILER_CANVAS_ID, `<b>Loading MapTiler satellite map…</b>`);
   try {
-    maptilerState.gl = await loadMapLibreGl();
+    maptilerState.gl = await (await m3d()).loadMapLibre();
     const canvas = $(MAPTILER_CANVAS_ID);
     canvas.innerHTML = "";
     const view = STATEWIDE_VIEW[PAGE_STATE];
@@ -698,8 +656,12 @@ async function ensureMaptilerMap() {
       if (Date.now() - lastPinTapAt < 400) return;
       backgroundTap();
     });
+    // A style swap (Satellite / Streets) drops every GL layer: the parcel
+    // outline and the 3D depth are added back once the new style is in.
+    maptilerState.map.on("style.load", () => { if (maptilerState.loadState === "ready") restoreMaptilerOverlays(); });
     maptilerState.map.on("load", () => {
       maptilerState.loadState = "ready";
+      restoreMaptilerOverlays();
       syncImageryToggle();
       renderMaptiler({ move: true });
     });
@@ -746,7 +708,7 @@ async function renderMaptiler(opts) {
     if (center && newCounty && !selHere) {
       // padding 0: an earlier selection's card padding persists on a
       // MapLibre camera and would offset the county view.
-      map.flyTo({ center: [center.lng, center.lat], zoom: 10, padding: ZERO_PAD, essential: true });
+      map.flyTo({ center: [center.lng, center.lat], zoom: 10, pitch: 0, bearing: 0, padding: ZERO_PAD, essential: true });
     }
     maptilerState.lastZoomedCounty = selectedCounty;
     maptilerState.zoomList = list;
@@ -761,7 +723,10 @@ async function renderMaptiler(opts) {
     const v = STATEWIDE_VIEW[PAGE_STATE];
     const c = map.getCenter();
     if (Math.abs(c.lng - v.center[0]) > 4 || Math.abs(c.lat - v.center[1]) > 4) {
-      map.jumpTo({ center: v.center, zoom: v.zoom, padding: ZERO_PAD });
+      map.jumpTo({ center: v.center, zoom: v.zoom, pitch: 0, bearing: 0, padding: ZERO_PAD });
+    } else if (map.getPitch && (map.getPitch() || map.getBearing())) {
+      // The statewide view stays flat (2026-11-10).
+      map.easeTo({ pitch: 0, bearing: 0, padding: ZERO_PAD, duration: reducedMotion() ? 0 : 500 });
     }
   }
 
@@ -887,30 +852,218 @@ function moveToSelection(provider, focus) {
       setTimeout(go, 700);
     }
   } else if (provider === "maptiler" && maptilerState.map && maptilerState.loadState === "ready") {
-    const map = maptilerState.map;
-    const z = map.getZoom();
-    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion:reduce)").matches;
-    const cam = { center: [selection.lng, selection.lat], zoom: selectionZoom(z, focus), padding: inset, essential: true };
-    // Only when asked: an explicit `duration: undefined` would replace
-    // MapLibre's own default rather than fall back to it.
-    if (reduce) cam.duration = 0;
-    map.easeTo(cam);
+    maptilerFrame(parcelFor(selection.pid), focus);
   }
 }
 
 window.addEventListener("tdw:mapselection", e => {
   const d = e.detail || {};
+  const prevPid = selection.pid;
   selection = { pid: d.pid == null ? null : String(d.pid), lat: d.lat, lng: d.lng, inset: d.inset || null };
   // A property inside a cluster must become its own pin: redraw the zoomed view.
   if (googleState.zoomList && activeStyle === "google") drawGoogleZoomed();
   if (maptilerState.zoomList && activeStyle === "maptiler") drawMaptilerZoomed();
   markSelection("google");
   markSelection("maptiler");
-  if (selection.pid != null) moveToSelection(activeStyle, !!d.focus);
+  if (selection.pid !== prevPid) clearParcel();
+  if (selection.pid == null) { flattenMaptiler(); return; }
+  // MapTiler moves once the outline is known (framed on it); Google and the
+  // outline map move at once, as before.
+  if (activeStyle !== "maptiler") moveToSelection(activeStyle, !!d.focus);
+  loadParcel(selection.pid, !!d.focus);
 });
 if (window.__tdwMapSelection) {
   const d = window.__tdwMapSelection;
   selection = { pid: d.pid == null ? null : String(d.pid), lat: d.lat, lng: d.lng, inset: d.inset || null };
+}
+
+// ============================================================================
+// PARCEL OUTLINE + 3D CAMERA (2026-11-10)
+// ============================================================================
+// When a property is selected, its parcel outline - only one the server
+// returned through get_property_boundary and parcel-boundary.js validated -
+// is drawn on MapTiler as flat GL fill / halo / line layers (map-3d.js) and
+// on Google as a Data-layer outline. On MapTiler the camera then eases to a
+// 55 degree pitch, bearing -18, framed on the parcel's bounding box in the
+// part of the stage the peek card leaves clear; without an outline it tilts
+// over the point at the usual selection zoom. Clearing the selection removes
+// the outline and eases back to flat. The statewide view is always flat.
+// The parcel itself is never extruded: no source publishes its height.
+//
+// The outline comes from app.js's own boundary reader (the same cache and
+// retry rules the cards and the peek picture use): the tdw:maprendered
+// payload's `boundaryFor`, else window.__tdwBoundaryFor. Without either,
+// nothing is fetched and only the camera tilt happens.
+// ============================================================================
+let M3 = null;                 // map-3d.js, once imported
+const parcelCache = new Map(); // pid -> validated boundary | null (none / refused)
+let parcelGen = 0;
+let drawnParcel = { pid: null, boundary: null, ledger: null };
+function reducedMotion() { return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion:reduce)").matches); }
+function rowById(pid) { return rows.find(p => String(p.id) === String(pid)) || null; }
+function boundaryFetcher() {
+  if (lastRender && typeof lastRender.boundaryFor === "function") return lastRender.boundaryFor;
+  return typeof window.__tdwBoundaryFor === "function" ? window.__tdwBoundaryFor : null;
+}
+function parcelFor(pid) {
+  return pid != null && drawnParcel.pid === String(pid) ? drawnParcel.boundary : null;
+}
+function clearParcel() {
+  parcelGen++;
+  drawnParcel = { pid: null, boundary: null, ledger: null };
+  if (maptilerState.map && M3) M3.removeParcelLayers(maptilerState.map);
+  if (googleState.map && googleState.map.data) googleState.map.data.forEach(f => googleState.map.data.remove(f));
+  renderParcelCredit(null);
+}
+async function loadParcel(pid, focus) {
+  const gen = ++parcelGen;
+  const row = rowById(pid);
+  const fetcher = boundaryFetcher();
+  let boundary = parcelCache.has(pid) ? parcelCache.get(pid) : undefined;
+  if (boundary === undefined && fetcher && row) {
+    let res = null;
+    try { res = await fetcher(pid, row); } catch { res = null; }
+    boundary = res && res.status === "available" && res.boundary ? res.boundary : null;
+    // A read error is not kept, so a later selection asks again.
+    if (!res || res.status !== "error") parcelCache.set(pid, boundary);
+  }
+  if (gen !== parcelGen || selection.pid !== pid) return;
+  drawnParcel = { pid, boundary: boundary || null, ledger: row ? row.source : null };
+  drawParcelOnMaps();
+  if (activeStyle === "maptiler") moveToSelection("maptiler", focus);
+}
+function drawParcelOnMaps() {
+  const b = drawnParcel.boundary;
+  if (maptilerState.map && maptilerState.loadState === "ready" && M3) {
+    if (b) M3.addParcelLayers(maptilerState.map, b, { ledger: drawnParcel.ledger });
+    else M3.removeParcelLayers(maptilerState.map);
+  }
+  if (googleState.map && googleState.map.data && googleState.loadState === "ready") {
+    const data = googleState.map.data;
+    data.forEach(f => data.remove(f));
+    if (b && M3) {
+      const color = M3.ledgerColor(drawnParcel.ledger);
+      data.addGeoJson(M3.boundaryFeatureCollection(b, drawnParcel.ledger));
+      data.setStyle({ fillColor: color, fillOpacity: M3.PARCEL_FILL_OPACITY, strokeColor: color, strokeWeight: 2.5, clickable: false });
+    }
+  }
+  renderParcelCredit(b && (activeStyle === "maptiler" || activeStyle === "google") ? b : null);
+}
+// The outline's credit (source, licence, change notice, freshness,
+// disclaimer, metadata) whenever a basemap draws it: one line on the stage,
+// the full credit one tap away - the same pattern as the List cards.
+function renderParcelCredit(b) {
+  const stage = document.querySelector("#mapStage .explore-map-stage");
+  let el = $("mapParcelCredit");
+  const html = b && M3 ? M3.boundaryCreditHtml(b.attribution) : "";
+  if (!html) { if (el) el.remove(); return; }
+  if (!el && stage) {
+    el = document.createElement("details");
+    el.id = "mapParcelCredit";
+    el.className = "map-parcel-credit";
+    stage.appendChild(el);
+  }
+  if (!el) return;
+  el.innerHTML = `<summary>Parcel outline: ${String(b.attribution.credit).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]))}</summary>${html}`;
+}
+function maptilerFrame(boundary, focus) {
+  const map = maptilerState.map;
+  if (!map || !M3 || selection.pid == null || selection.lat == null || selection.lng == null) return;
+  const inset = Object.assign({}, ZERO_PAD, selection.inset || {});
+  const c = map.getContainer ? map.getContainer() : null;
+  // The stage's top overlays (Satellite/Streets, 3D, the parcel credit) cover
+  // the band above the peek sheet on a phone: frame the parcel below them.
+  if (c && c.getBoundingClientRect) {
+    const top = c.getBoundingClientRect().top;
+    let low = 0;
+    ["mapImageryToggle", "mapDepthToggle", "mapParcelCredit"].forEach(id => {
+      const el = $(id);
+      if (!el || el.hidden || !el.offsetParent) return;
+      const r = el.getBoundingClientRect();
+      if (r.height) low = Math.max(low, r.bottom - top + 8);
+    });
+    if (low > (inset.top || 0)) inset.top = Math.round(low);
+  }
+  let cam;
+  if (boundary && boundary.bbox) {
+    cam = M3.cameraForBbox(boundary.bbox, { width: (c && c.clientWidth) || 800, height: (c && c.clientHeight) || 600, padding: inset });
+  } else {
+    cam = { center: [selection.lng, selection.lat], zoom: selectionZoom(map.getZoom(), focus), pitch: M3.SELECT_PITCH, bearing: M3.SELECT_BEARING, padding: inset };
+  }
+  cam.essential = true;
+  // Only when asked: an explicit `duration: undefined` would replace
+  // MapLibre's own default rather than fall back to it.
+  if (reducedMotion()) cam.duration = 0;
+  map.easeTo(cam);
+}
+function flattenMaptiler() {
+  const map = maptilerState.map;
+  if (!map || maptilerState.loadState !== "ready" || !map.getPitch) return;
+  if (!map.getPitch() && !map.getBearing()) return;
+  const cam = { pitch: 0, bearing: 0, padding: ZERO_PAD, essential: true };
+  if (reducedMotion()) cam.duration = 0;
+  map.easeTo(cam);
+}
+
+// ---------------------------------------------------------------------------
+// 3D toggle (MapTiler only): MapTiler terrain plus an extrusion of the style's
+// own building layer where it has one. The parcel stays flat. The choice is
+// kept for the session.
+// ---------------------------------------------------------------------------
+const DEPTH_KEY = "tdw_map_depth_v1";
+let depthOn = (() => { try { return sessionStorage.getItem(DEPTH_KEY) === "1"; } catch { return false; } })();
+let depthResult = { terrain: false, buildings: false };
+function ensureDepthToggle() {
+  let wrap = $("mapDepthToggle");
+  if (wrap) return wrap;
+  const stage = document.querySelector("#mapStage .explore-map-stage");
+  if (!stage) return null;
+  wrap = document.createElement("div");
+  wrap.id = "mapDepthToggle";
+  wrap.className = "map-depth-toggle";
+  wrap.hidden = true;
+  wrap.innerHTML = '<button type="button" id="mapDepthBtn" aria-pressed="false" title="Show terrain and buildings in 3D">3D</button>' +
+    '<span class="map-depth-caption" id="mapDepthCaption" hidden></span>';
+  stage.appendChild(wrap);
+  wrap.querySelector("button").addEventListener("click", () => setDepth(!depthOn));
+  syncDepthToggle();
+  return wrap;
+}
+function syncDepthToggle() {
+  const wrap = $("mapDepthToggle");
+  if (!wrap) return;
+  wrap.hidden = !(activeStyle === "maptiler" && maptilerState.loadState === "ready");
+  const btn = $("mapDepthBtn"), cap = $("mapDepthCaption");
+  if (btn) { btn.setAttribute("aria-pressed", depthOn ? "true" : "false"); btn.classList.toggle("on", depthOn); }
+  const text = depthOn && M3 ? M3.depthCaption(depthResult) : "";
+  if (cap) { cap.textContent = text; cap.hidden = !text; }
+  // Below 1024px the caption is hidden (explore.css) to free the band above
+  // the peek sheet; its text rides on the button instead.
+  if (btn) {
+    btn.title = text || "Show terrain and buildings in 3D";
+    if (text) btn.setAttribute("aria-describedby", "mapDepthCaption"); else btn.removeAttribute("aria-describedby");
+  }
+}
+function setDepth(on) {
+  depthOn = !!on;
+  try { sessionStorage.setItem(DEPTH_KEY, depthOn ? "1" : "0"); } catch { /* private mode: this page only */ }
+  const map = maptilerState.map;
+  if (map && M3 && maptilerState.loadState === "ready") {
+    depthResult = M3.applyDepth(map, depthOn, { key: maptilerKey() });
+    // A zoomed-in county gets a gentle tilt so the relief reads; the
+    // statewide view stays flat.
+    if (depthOn && maptilerState.zoomList && !map.getPitch()) map.easeTo({ pitch: 45, duration: reducedMotion() ? 0 : 600, essential: true });
+    else if (!depthOn && selection.pid == null) flattenMaptiler();
+  }
+  syncDepthToggle();
+}
+async function restoreMaptilerOverlays() {
+  if (!M3) { try { M3 = await m3d(); } catch { return; } }
+  const map = maptilerState.map;
+  if (!map) return;
+  depthResult = depthOn ? M3.applyDepth(map, true, { key: maptilerKey() }) : { terrain: false, buildings: false };
+  drawParcelOnMaps();
+  syncDepthToggle();
 }
 
 // ---------------------------------------------------------------------------
@@ -925,7 +1078,7 @@ if (window.__tdwMapSelection) {
 let imagery = "satellite";
 function maptilerStyleUrl() {
   const key = maptilerKey();
-  return `https://api.maptiler.com/maps/${imagery === "satellite" ? "hybrid" : "streets-v2"}/style.json?key=${key}`;
+  return `https://api.maptiler.com/maps/${imagery === "satellite" ? "hybrid" : "streets-v2"}/style.json?key=${encodeURIComponent(key)}`;
 }
 function syncImageryToggle() {
   const wrap = $("mapImageryToggle");
@@ -933,6 +1086,7 @@ function syncImageryToggle() {
   const provider = activeStyle === "google" ? googleState : activeStyle === "maptiler" ? maptilerState : null;
   wrap.hidden = !(provider && provider.loadState === "ready");
   wrap.querySelectorAll("[data-imagery]").forEach(b => b.classList.toggle("on", b.dataset.imagery === imagery));
+  syncDepthToggle();
 }
 function setImagery(next) {
   if (next === imagery) return;
@@ -956,6 +1110,7 @@ function absorb(detail) {
   rows = Array.isArray(d.rows) ? d.rows : [];
   ledger = d.ledger || ledger;
   openDetail = d.openDetail || openDetail;
+  lastRender = d;
   renderGoogle();
   renderMaptiler();
 }
@@ -965,3 +1120,4 @@ if (window.__tdwMapLastRender) absorb(window.__tdwMapLastRender);
 
 bindStyleToggle();
 bindImageryToggle();
+ensureDepthToggle();

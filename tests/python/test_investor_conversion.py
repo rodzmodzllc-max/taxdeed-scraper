@@ -33,8 +33,10 @@ def test_every_visible_available_source_has_source_backed_financial_terms():
 
 def test_how_to_acquire_answers_the_seven_questions_in_order():
     block = _fn("acquireBlockHtml")
-    qs = ["What is this?", "What does the source say I need to pay?", "How do I acquire it?", "What form do I need?",
-          "Where do I submit it?", "Who do I contact?", "What is the official source?"]
+    # 2026-11-10 (UI audit): how to acquire it and whom to contact lead the
+    # page's first screen; the questions keep their numbers (data-acq-q).
+    qs = ["How do I acquire it?", "Who do I contact?", "What does the source say I need to pay?", "What is this?",
+          "What form do I need?", "Where do I submit it?", "What is the official source?"]
     pos = [block.index(f'"{q}"') for q in qs]
     assert pos == sorted(pos)
     assert 'detailSectionHtml("How to acquire"' in block
@@ -80,4 +82,4 @@ def test_saved_property_reuses_the_existing_watchlist():
 
 
 def test_service_worker_cache_bumped():
-    assert 'const CACHE = "tdw-shell-v171"' in SW
+    assert 'const CACHE = "tdw-shell-v172"' in SW

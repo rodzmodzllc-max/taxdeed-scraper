@@ -1,0 +1,158 @@
+/* motion.css (2026-11-10) - the app-wide motion system, loaded LAST on every page.
+
+   One token set (identity.css :root): --dur-press 90ms, --dur-quick 160ms,
+   --dur-menu 200ms, --dur-page 280ms, --dur-hero 520ms, --ease-std, --ease-out,
+   --ease-in, --spring-soft. Every rule below reads them; the fallbacks keep a
+   page that does not load identity.css (admin.html) on the same numbers.
+
+   Rules of this sheet:
+   - Every motion rule sits inside @media (prefers-reduced-motion:no-preference);
+     the global reduce rule in identity.css finishes anything else at once.
+   - Enter motion only. Pages, menus and modals open by dropping their [hidden]
+     attribute, so a keyframe animation runs when they appear; closing stays
+     instant, so nothing lingers on screen or delays a test or a tap.
+   - Nothing waits longer than --dur-page, nothing blocks a click
+     (no pointer-events changes), and only transform / opacity / colour /
+     shadow move, so the layout never shifts (no CLS).
+   - The Merged / Tactile / Terrain decks (experience-*.css) own their own
+     transforms; nothing here selects their elements. */
+
+@media (prefers-reduced-motion:no-preference){
+
+  /* ---- 1. Page enter: fade + 8px rise ------------------------------------
+     A .page section shown by showPage() (its [hidden] removed, or marked
+     .page-enter) fades in. fill-mode backwards: once finished the page holds
+     no transform at all, so fixed / sticky descendants are unaffected. */
+  .page:not([hidden]),
+  .page.page-enter{
+    animation:tdw-page-enter var(--dur-page,280ms) var(--ease-out,cubic-bezier(0,0,.2,1)) backwards;
+  }
+  @keyframes tdw-page-enter{from{opacity:0;transform:translateY(8px)}}
+
+  /* ---- 2. Menus: scale-fade from their trigger ---------------------------
+     The account badge and the Look button both sit at the right edge, and
+     their menus hang below them, so the origin is the top right corner. */
+  .account-menu:not([hidden]),
+  .look-menu:not([hidden]){
+    transform-origin:top right;
+    animation:tdw-menu-in var(--dur-menu,200ms) var(--ease-out,cubic-bezier(0,0,.2,1)) backwards;
+  }
+  @keyframes tdw-menu-in{from{opacity:0;transform:translateY(-4px) scale(.96)}}
+
+  /* ---- 3. Modals: backdrop fade + panel rise ----------------------------- */
+  .detail-modal:not([hidden]){
+    animation:tdw-backdrop-in var(--dur-menu,200ms) var(--ease-std,cubic-bezier(.2,0,0,1)) backwards;
+  }
+  @keyframes tdw-backdrop-in{from{background-color:transparent}}
+  .detail-modal:not([hidden]) > .detail-modal-inner{
+    animation:tdw-panel-rise var(--dur-page,280ms) var(--ease-out,cubic-bezier(0,0,.2,1)) backwards;
+  }
+  @keyframes tdw-panel-rise{from{opacity:0;transform:translateY(12px)}}
+  /* Phone: the modal is a bottom sheet (styles.css aligns it to the bottom
+     edge below 640px), so it slides up from that edge. */
+  @media (max-width:639.98px){
+    .detail-modal:not([hidden]) > .detail-modal-inner{animation-name:tdw-sheet-up}
+  }
+  @keyframes tdw-sheet-up{from{transform:translateY(100%)}}
+  /* Desktop auction drawer: the panel is pinned to the right edge
+     (styles.css [data-ledger="auction"] .detail-modal), so it slides in from it. */
+  @media (min-width:1024px){
+    [data-ledger="auction"] .detail-modal:not([hidden]) > .detail-modal-inner{animation-name:tdw-drawer-in}
+  }
+  @keyframes tdw-drawer-in{from{opacity:0;transform:translateX(32px)}}
+
+  /* ---- 4. Toasts: slide in from the bottom edge --------------------------
+     .err-toast already moves both ways with its .show class (styles.css,
+     now on the tokens); a toast element that appears by insertion gets the
+     same entrance. */
+  .err-toast{transition-timing-function:var(--spring-soft,cubic-bezier(.34,1.36,.64,1)),var(--spring-soft,cubic-bezier(.34,1.36,.64,1))}
+  .tdw-toast:not([hidden]),
+  .toast:not([hidden]){
+    animation:tdw-toast-in var(--dur-menu,200ms) var(--ease-out,cubic-bezier(0,0,.2,1)) backwards;
+  }
+  @keyframes tdw-toast-in{from{opacity:0;transform:translateY(12px)}}
+  /* Leaving: showToast() adds .leaving and removes the toast when this ends. */
+  .tdw-toast.leaving{animation:tdw-toast-out var(--dur-quick,160ms) var(--ease-std,cubic-bezier(.2,0,0,1)) forwards}
+  @keyframes tdw-toast-out{to{opacity:0;transform:translateY(8px)}}
+
+  /* ---- 5. Skeleton shimmer ------------------------------------------------
+     The loading placeholders (.skel, styles.css) shimmer on their own loop;
+     here they ease in, so a fast load never flashes a grey block. */
+  .skeleton-group{animation:tdw-fade-in var(--dur-quick,160ms) var(--ease-std,cubic-bezier(.2,0,0,1)) backwards}
+  @keyframes tdw-fade-in{from{opacity:0}}
+
+  /* ---- 6. Card hover lift: fine pointers only ----------------------------
+     2px and a soft shadow on the Classic list cards and Home's ledger cards.
+     Touch screens never get it (no sticky hover after a tap). */
+  @media (hover:hover) and (pointer:fine){
+    .prop-card,
+    .cert-card,
+    .home-ledger-card{
+      transition:background-color var(--dur-quick,160ms) var(--ease-std,cubic-bezier(.2,0,0,1)),
+        transform var(--dur-quick,160ms) var(--ease-out,cubic-bezier(0,0,.2,1)),
+        box-shadow var(--dur-quick,160ms) var(--ease-out,cubic-bezier(0,0,.2,1)),
+        border-color var(--dur-quick,160ms) var(--ease-std,cubic-bezier(.2,0,0,1));
+    }
+    /* identity.css pins the editorial rows flat with transform:none!important
+       / box-shadow:none!important; :hover outranks that rule on specificity,
+       so the lift applies only while the pointer is on the row. */
+    .prop-card:hover,
+    .cert-card:hover{transform:translateY(-2px)!important;box-shadow:0 6px 18px rgba(32,41,37,.10)!important}
+    .prop-card:active,
+    .cert-card:active{transform:translateY(0)!important;transition-duration:var(--dur-press,90ms)}
+    /* Home's ledger cards: the lift's shadow only outside the Merged look,
+       which designs its own hover shadow (home.css); the !important beats
+       identity.css's flat pin here too. */
+    .home-ledger-card:hover{transform:translateY(-2px)}
+    html:not([data-look="merged"]) .home-ledger-card:hover{box-shadow:0 6px 18px rgba(32,41,37,.10)!important}
+    .home-ledger-card:active{transform:translateY(0);transition-duration:var(--dur-press,90ms)}
+  }
+
+  /* ---- 7. Accordions: content fade, and height on open -------------------
+     Only a <details> the person opens animates: a click on its summary marks
+     it .dd-anim (boot.js). A details that render() inserts already open never
+     moves, so redrawing the list (sort, filter, county) neither fades the
+     cards nor collapses the open county groups and drags the scroll position.
+     :where() keeps the fade at zero specificity, so a component's own
+     animation always wins. The research group and the filter dropdown keep
+     their final height at once (the section nav scrolls into the group). */
+  :where(details.dd-anim[open]) > :where(:not(summary)){
+    animation:tdw-fade-in var(--dur-menu,200ms) var(--ease-std,cubic-bezier(.2,0,0,1)) backwards;
+  }
+  @supports (interpolate-size:allow-keywords) and selector(::details-content){
+    details.dd-anim:not(.detail-research):not(.filter-dropdown):not(.county-group){interpolate-size:allow-keywords}
+    details.dd-anim:not(.detail-research):not(.filter-dropdown):not(.county-group)[open]::details-content{
+      transition:block-size var(--dur-menu,200ms) var(--ease-out,cubic-bezier(0,0,.2,1));
+    }
+    @starting-style{
+      details.dd-anim:not(.detail-research):not(.filter-dropdown):not(.county-group)[open]::details-content{block-size:0;overflow:clip}
+    }
+  }
+
+  /* ---- 8. Filter panel: slide down when it opens --------------------------
+     Phone / tablet open the panel in place (.open); desktop keeps it as a
+     standing column, which only fades in with its page. */
+  @media (max-width:1279.98px){
+    .filters-panel.open{
+      animation:tdw-panel-down var(--dur-menu,200ms) var(--ease-out,cubic-bezier(0,0,.2,1)) backwards;
+    }
+  }
+  @keyframes tdw-panel-down{from{opacity:0;transform:translateY(-6px)}}
+
+  /* ---- 9. Focus ring: the outline settles in -----------------------------
+     :where() keeps this at zero specificity, so any element's own animation
+     wins over it. */
+  :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{
+    animation:tdw-focus-in var(--dur-quick,160ms) var(--ease-out,cubic-bezier(0,0,.2,1));
+  }
+  @keyframes tdw-focus-in{from{outline-offset:5px;outline-color:transparent}}
+
+  /* ---- 10. Press feedback --------------------------------------------------
+     Primary buttons give back a 1px press, --dur-press. */
+  :where(.detail-btn,.account-item,.look-btn,.reset-btn){
+    transition:background-color var(--dur-quick,160ms) var(--ease-std,cubic-bezier(.2,0,0,1)),
+      color var(--dur-quick,160ms) var(--ease-std,cubic-bezier(.2,0,0,1)),
+      transform var(--dur-press,90ms) var(--ease-std,cubic-bezier(.2,0,0,1));
+  }
+  :where(.detail-btn,.reset-btn):active{transform:translateY(1px)}
+}

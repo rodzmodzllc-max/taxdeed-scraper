@@ -57,9 +57,22 @@ exists the page falls back to `public/state-rules.json` (verified rules and coun
   "citation": "F.S. 197.542(2)",          // optional
   "office": "Clerk of the Circuit Court", // optional: who handles it
   "verified_on": "2026-10-30",           // VERIFIED / PARTIALLY_VERIFIED only; the date the page was read
-  "where_to_look": "who / which page answers it, for NOT_VERIFIED"
+  "where_to_look": "one plain customer sentence, for NOT_VERIFIED / SOURCE_RESTRICTED",
+  "links": [{"title": "Leon County Clerk - Lands Available", "url": "https://..."}],  // unanswered rows: official pages
+  "note": "researcher / capture diagnostics - never rendered"
 }
 ```
+
+Unanswered rows (2026-11-09): `customer_where()` in `harvesters/sources/buyers_guide.py` splits a researcher's
+`Title - https://... (remark; remark)` into `where_to_look` (a sentence with no URL and no capture / network
+wording - `CUSTOMER_FORBIDDEN`), `links` (every https page, in order) and `note` (capture runs, the research
+network, HTTP codes, CDNs, old URLs). The note is kept, never dropped, and never shown.
+
+`journey` (top level): `{"steps": [{"id","label","title"} x5: Find, Check, Buy, After, Risks], "ledger_order":
+["AVAILABLE","AUCTIONS","LIENS_CERTIFICATES"], "map": {LEDGER: {question id: step id}}}`. Every question of every
+ledger has a step (`problems()` refuses one without); `public/buyers-guide.js` `DEFAULT_JOURNEY` is pinned equal.
+The front end shows four statuses with one vocabulary: Answered (VERIFIED), Partly answered, Not yet confirmed
+(NOT_VERIFIED), Official page blocked (SOURCE_RESTRICTED). The hero meter is a count of answered questions.
 
 Rules the front end relies on:
 - A county answer replaces the statewide answer for the same question in that county only; a question with

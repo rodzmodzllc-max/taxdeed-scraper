@@ -33,6 +33,13 @@ filter-bar classes above, which only win if it comes second. -->
 <!-- identity.css (2026-10-05): the TAXACQ design language - loaded last so it re-skins the
 existing markup; no id, class or data attribute changes meaning in it. -->
 <link rel="stylesheet" href="identity.css">
+<!-- home.css (2026-11-09): Home, shell chrome and the secondary pages
+     (counties, watchlist, research), toasts and the confirm dialog. -->
+<link rel="stylesheet" href="home.css">
+<!-- property.css (2026-11-10): the property page - first screen and research index. -->
+<link rel="stylesheet" href="property.css">
+<!-- motion.css (2026-11-10): app-wide motion, every rule behind prefers-reduced-motion: no-preference; loaded last. -->
+<link rel="stylesheet" href="motion.css">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#F8F8F5">
 <!-- ?v=2 cache-busts the re-logo'd icon files - see sw.js's comment on
@@ -47,6 +54,7 @@ existing markup; no id, class or data attribute changes meaning in it. -->
 <script src="boot.js"></script>
 </head>
 <body data-state="OK">
+<a class="skip-link" id="skipToListings" href="#main">Skip to listings</a>
 
 <!-- ============ sign in ============ -->
 <div id="authGate" hidden>
@@ -267,10 +275,23 @@ renderHome() in app.js. The operating view below it is unchanged. -->
      sales, county intelligence and the customer's saved work, each a ruled
      list built from loaded rows by renderHomeDesk() in app.js. -->
 <div class="home-desk" id="homeDesk"></div>
+<!-- Saved (2026-11-09): the customer's own saved work - counts, then the
+changes to watched properties since this browser last loaded the app
+(watchChanges() in app.js, per browser, no notifications). -->
+<section class="home-section home-saved" id="homeSaved" aria-labelledby="homeSavedHead">
+<div class="home-section-head"><h2 id="homeSavedHead">Saved</h2></div>
+<div id="homeSavedBody"></div>
+<div class="home-watch-changes" id="dashWatchChanges"></div>
+</section>
 <div class="home-section" id="homeRecentSection">
-<div class="home-section-head"><h2>Recent changes · newly observed</h2><button type="button" class="link-btn" id="homeRecentAll">View all &rarr;</button></div>
+<div class="home-section-head"><h2>Recent changes · newly observed</h2><button type="button" class="link-btn" id="homeRecentAll">Open list &rarr;</button></div>
 <div class="home-recent" id="homeRecent"></div>
 </div>
+<!-- County chips last (renderHomeDesk()), then the operating view - an
+operator diagnostic shown to administrators only, folded, with a link to
+admin.html#freshness. Customers never see it (2026-11-09). -->
+<div class="home-desk home-county-desk" id="homeCountyDesk"></div>
+<div class="home-ops" id="homeOps" hidden>
 <div class="dash-head dash-head-row">
 <div>
 <h2 class="dash-title">Operating view</h2>
@@ -304,13 +325,6 @@ written by scripts/unit_freshness.py): last read / last complete read per
 county. Not recorded yet = said so; never shown as current. -->
 <div id="dashUnitRows"></div>
 </div>
-<!-- Changes to watchlist / favorite rows since this browser last loaded
-the app - computed from the rows the app already has against a snapshot
-in localStorage. Per browser, no notifications - see watchChanges() in
-app.js and docs/production-configuration.md section 7. -->
-<div class="dash-panel">
-<div class="dash-panel-head">Watchlist changes</div>
-<div id="dashWatchChanges"></div>
 </div>
 </div>
 </section>

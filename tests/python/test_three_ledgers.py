@@ -442,7 +442,8 @@ def test_x01_fl_and_tx_behaviour_is_unchanged():
     assert 'const LEDGER_ORDER = ["auction", "laft", "certificate"];' in app
     assert re.search(r'auction: \{\s*slug: "auctions"', app) and re.search(r'laft: \{\s*slug: "lands"', app) and re.search(r'certificate: \{\s*slug: "certificates"', app)
     assert 'title: "Auctions",' in app and 'title: "Available",' in app and 'title: "Liens & Certificates",' in app
-    assert 'title: "OTC Catalog — Struck-Off Inventory"' in app and 'title: "Redeemable Tax Deeds"' in app
+    # 2026-11-09: the Texas titles name the ledger first (Auctions / Available), then the sale kind.
+    assert 'title: "Available — Struck-off property"' in app and 'title: "Auctions — Sheriff/Constable sales"' in app and 'title: "Redeemable Tax Deeds"' in app
     # Alabama / Arkansas: one AVAILABLE-ledger candidate each, registered, never runnable, not activated.
     for code, sid in (("AL", "al_ador_state_land"), ("AR", "ar_cosl_post_auction")):
         rows = [r for r in ROWS if r.state == code]

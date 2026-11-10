@@ -9,6 +9,7 @@ a{color:var(--forest)}
 a:focus-visible{outline:2px solid var(--forest);outline-offset:2px}
 .g-top{background:var(--forest);color:var(--ivory)}
 .g-top-inner,.g-main,.g-foot-inner{max-width:880px;margin:0 auto;padding:0 16px}
+@media (min-width:1100px){.g-main.g-has-toc{max-width:1160px}}
 .g-top-inner{display:flex;align-items:center;justify-content:space-between;gap:1rem;min-height:56px;flex-wrap:wrap}
 .g-brand{font-family:Montserrat,sans-serif;font-weight:500;letter-spacing:.18em;color:var(--ivory);text-decoration:none}
 .g-brand small{display:block;font-size:.62rem;letter-spacing:.14em;font-weight:400;text-transform:uppercase;opacity:.8}
@@ -22,16 +23,44 @@ h1{font-weight:300;font-size:clamp(1.6rem,4.5vw,2.3rem);margin:0 0 .6rem}
 h2{font-weight:400;font-size:1.35rem;margin:2.2rem 0 .4rem;padding-top:1rem;border-top:1px solid var(--mist)}
 h3{font-weight:500;font-size:1.02rem;margin:1.4rem 0 .3rem;color:var(--ink)}
 .g-lead{color:var(--ink-soft);font-size:1.05rem;max-width:70ch}
-.g-ledger{border-left:4px solid var(--lc,var(--forest));padding-left:1rem}
+.g-layout{display:block}
+.g-toc{border:1px solid var(--mist);border-radius:6px;background:var(--white);padding:.7rem 1rem;margin:0 0 1.4rem}
+.g-toc-h{margin:0 0 .3rem;font-family:Montserrat,sans-serif;font-weight:500;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft)}
+.g-toc ol{list-style:none;margin:0;padding:0}
+.g-toc li{border-top:1px solid var(--mist)}
+.g-toc li:first-child{border-top:0}
+.g-toc a{display:flex;flex-wrap:wrap;align-items:center;column-gap:.8rem;min-height:44px;padding:.35rem 0;text-decoration:none;color:var(--ink);font-weight:500;line-height:1.3}
+.g-toc a::before{content:"";flex:0 0 .55rem;height:.55rem;border-radius:50%;background:var(--lc,var(--forest))}
+.g-toc a[data-ledger="AUCTIONS"]{--lc:var(--rust)}
+.g-toc a[data-ledger="AVAILABLE"]{--lc:var(--sage)}
+.g-toc a[data-ledger="LIENS_CERTIFICATES"]{--lc:var(--plum)}
+.g-toc-name{flex:1 1 auto}
+.g-toc-n{flex-basis:100%;padding-left:1.35rem;font-size:.8rem;color:var(--ink-soft);font-weight:400}
+.g-meta time{white-space:nowrap}
+@media (min-width:1100px){
+.g-layout{display:grid;grid-template-columns:220px minmax(0,1fr);column-gap:2.4rem;align-items:start}
+.g-content{display:contents}
+.g-content>*{grid-column:2}
+.g-content>.g-toc{grid-column:1;grid-row:1 / span 200;align-self:start;position:sticky;top:1rem;margin:0}
+}
+.g-ledger{border-left:4px solid var(--lc,var(--forest));padding-left:1rem;scroll-margin-top:1rem}
 .g-ledger[data-ledger="AUCTIONS"]{--lc:var(--rust)}
 .g-ledger[data-ledger="AVAILABLE"]{--lc:var(--sage)}
 .g-ledger[data-ledger="LIENS_CERTIFICATES"]{--lc:var(--plum)}
-.g-ledger>h2{color:var(--lc);border-top:0;padding-top:0}
+.g-ledger>h2{color:var(--lc);border-top:0;padding-top:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:.2rem .8rem}
+.g-ledger>h2 .g-count{font-family:Inter,system-ui,sans-serif;font-size:.85rem;font-weight:400;color:var(--ink-soft)}
+.g-step{display:flex;align-items:baseline;gap:.5rem;margin:1.8rem 0 .4rem;font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;
+color:var(--lc);font-weight:500}
+.g-step span{font-size:1.02rem;letter-spacing:0;text-transform:none;color:var(--ink)}
+h4{font-family:Montserrat,sans-serif;font-weight:500;font-size:1rem;line-height:1.3;margin:0 0 .3rem;color:var(--ink)}
 .g-summary{color:var(--ink-soft);margin:0 0 .6rem}
 .g-answer{background:var(--white);border:1px solid var(--mist);border-radius:6px;padding:.8rem 1rem;margin:.7rem 0}
-.g-answer h3{margin-top:0}
+.g-answer h4{margin-top:0}
 .g-answer p{margin:.3rem 0}
-.g-quote{margin:.5rem 0;padding:.1rem 0 .1rem .8rem;border-left:2px solid var(--mist);color:var(--ink-soft);font-size:.92rem}
+.g-src{margin:.4rem 0}
+.g-src>summary{cursor:pointer;font-size:.82rem;font-weight:600;color:var(--forest);min-height:32px;display:inline-flex;align-items:center}
+.g-quote{margin:.3rem 0 .5rem;padding:.1rem 0 .1rem .8rem;border-left:2px solid var(--mist);color:var(--ink-soft);font-size:.92rem;font-style:normal}
+.g-quote.g-caps{font-variant-caps:all-small-caps;letter-spacing:.02em}
 .g-meta{font-size:.82rem;color:var(--ink-soft)}
 .g-scope{display:inline-block;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--mist);
 padding:.05rem .45rem;border-radius:3px;margin-left:.3rem;vertical-align:middle;color:var(--ink-soft)}

@@ -51,27 +51,38 @@
     var box = document.createElement("div");
     box.id = "bootFailure";
     box.setAttribute("role", "alert");
-    box.style.cssText = "max-width:34rem;margin:12vh auto 0;padding:1.5rem;border-radius:12px;" +
-      "background:#fff;color:#1b2333;font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;" +
-      "box-shadow:0 10px 30px rgba(0,0,0,.35)";
+    // Brand (2026-11-09): ivory card, mist border, forest top edge and button,
+    // the TA mark. Inline styles only - a failed boot may have no stylesheet.
+    box.style.cssText = "max-width:34rem;width:calc(100% - 32px);box-sizing:border-box;margin:12vh auto 0;padding:1.5rem 1.5rem 1.2rem;border-radius:4px;" +
+      "background:#F8F8F5;color:#202925;border:1px solid #D8DED6;border-top:4px solid #1F3A2E;" +
+      "font:15px/1.5 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;box-shadow:0 18px 40px -26px rgba(20,28,24,.55)";
+    var mark = document.createElement("div");
+    mark.className = "boot-mark";
+    mark.setAttribute("aria-hidden", "true");
+    mark.textContent = "TA";
+    mark.style.cssText = "display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;margin:0 0 .9rem;" +
+      "background:#1F3A2E;color:#F8F8F5;border-radius:3px;font:300 17px/1 Montserrat,'Helvetica Neue',Arial,sans-serif;letter-spacing:.06em;" +
+      "box-shadow:inset 0 -3px 0 #A9BFA9";
+    box.appendChild(mark);
     var h = document.createElement("h2");
     h.textContent = "The app didn't finish loading";
-    h.style.cssText = "margin:0 0 .5rem;font-size:1.2rem";
+    h.style.cssText = "margin:0 0 .5rem;font:500 1.25rem/1.25 Montserrat,'Helvetica Neue',Arial,sans-serif;color:#202925";
     var p = document.createElement("p");
     p.textContent = "Something stopped it before the sign-in screen appeared. Reloading usually fixes it; " +
       "if not, reset the app's saved files and reload.";
-    p.style.margin = "0 0 1rem";
+    p.style.cssText = "margin:0 0 1rem;color:#56695E";
     box.appendChild(h);
     box.appendChild(p);
     var btns = document.createElement("div");
     btns.style.cssText = "display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem";
-    [["bootReload", "Reload", reload], ["bootReset", "Reset app cache and reload", resetAndReload]].forEach(function (b) {
+    [["bootReload", "Reload", reload], ["bootReset", "Reset app cache and reload", resetAndReload]].forEach(function (b, i) {
       var btn = document.createElement("button");
       btn.id = b[0];
       btn.type = "button";
       btn.textContent = b[1];
-      btn.style.cssText = "padding:.55rem .9rem;border-radius:8px;border:1px solid #b9c2d3;background:#f3f5f9;" +
-        "color:#1b2333;font:inherit;cursor:pointer;min-height:40px";
+      btn.style.cssText = "padding:.55rem 1.1rem;border-radius:999px;cursor:pointer;min-height:44px;" +
+        "font:500 13px/1 Montserrat,'Helvetica Neue',Arial,sans-serif;letter-spacing:.1em;text-transform:uppercase;" +
+        (i === 0 ? "background:#1F3A2E;color:#F8F8F5;border:1px solid #1F3A2E" : "background:transparent;color:#202925;border:1px solid #D8DED6");
       btn.addEventListener("click", b[2]);
       btns.appendChild(btn);
     });
@@ -79,9 +90,10 @@
     var d = document.createElement("details");
     var s = document.createElement("summary");
     s.textContent = "Technical details";
+    s.style.cssText = "cursor:pointer;color:#56695E;font-size:13px";
     var pre = document.createElement("pre");
     pre.id = "bootErrors";
-    pre.style.cssText = "white-space:pre-wrap;font-size:12px;background:#f3f5f9;padding:.6rem;border-radius:6px;margin:.5rem 0 0";
+    pre.style.cssText = "white-space:pre-wrap;font-size:12px;background:#EEF1EC;color:#202925;border:1px solid #D8DED6;padding:.6rem;border-radius:3px;margin:.5rem 0 0";
     pre.textContent = (errors.length ? errors.join("\n") : "No error was reported - the startup script never ran or is still waiting on the network.") +
       "\n" + navigator.userAgent;
     d.appendChild(s);
@@ -140,4 +152,17 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", show);
   else show();
+})();
+
+// Accordion motion (motion.css section 7) runs only for a <details> the
+// person opens: a click on its summary (Enter / Space on a focused summary
+// is a click too) marks it .dd-anim just before it opens. A details that a
+// redraw inserts already open is never marked, so it never animates.
+(function () {
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    var s = t && t.closest ? t.closest("summary") : null;
+    var d = s && s.parentElement;
+    if (d && d.tagName === "DETAILS" && d.firstElementChild === s && !d.open) d.classList.add("dd-anim");
+  }, true);
 })();

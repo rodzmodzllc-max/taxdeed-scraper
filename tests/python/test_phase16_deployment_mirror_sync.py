@@ -56,6 +56,9 @@ DEPLOYED_BUNDLE_FILES = (
     "app.js",
     # 2026-10-20 parcel boundaries from the approved parcel-geometry sources.
     "parcel-boundary.js",
+    # 2026-11-10 shared MapLibre / Google loaders, the 3D parcel camera, the
+    # property mini-map and admin Street View (lazy-imported, no <script> tag).
+    "map-3d.js",
     # 2026-10-25 look switch: the two trial List experiences (app.js loads
     # them only when picked).
     "experience-tactile.css",
@@ -67,6 +70,10 @@ DEPLOYED_BUNDLE_FILES = (
     # 2026-10-29 Buyer's Guide page module (loaded by app.js on #/guide).
     "buyers-guide.js",
     "buyers-guide.css",
+    # 2026-11-09 Home, shell chrome and the secondary pages (loaded on every page).
+    "home.css",
+    # 2026-11-10 property page layout (first screen, research index).
+    "property.css",
     # 2026-10-03 boot resilience: startup watchdog + supabase-js loader and
     # its same-origin fallback copy.
     "boot.js",
@@ -85,6 +92,7 @@ DEPLOYED_BUNDLE_FILES = (
     "buyers-guide.json",          # 2026-10-29 Buyer's Guide (scripts/build_buyers_guide.py)
     "state-rules.json",           # 2026-10-10 state rules page (scripts/build_state_rules.py)
     "identity.css",               # 2026-10-05 identity design language (TAXACQ)
+    "motion.css",                 # 2026-11-10 app-wide motion system (loaded last)
     "acquisition-evidence.json",
     "explore.css",
     "explore.js",

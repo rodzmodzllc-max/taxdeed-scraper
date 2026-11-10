@@ -146,6 +146,11 @@ async function newPage(opts) {
 async function clickLedger(pg, key) {
   const rail = pg.locator(`.nav-ledger[data-nav-ledger="${key}"]`);
   if (await rail.first().isVisible().catch(() => false)) return rail.first().click();
+  // Below 1024px the phone bar is the ledger switch and #ledgerTabs is hidden
+  // (html.has-bottombar, 2026-11-09). A tap on the bar's entry for the ledger
+  // already open keeps the reader's place, exactly as the tab did.
+  const bar = pg.locator(`#navBottom .nav-bottom-ledger[data-nav-ledger="${key}"]`);
+  if (await bar.first().isVisible().catch(() => false)) return bar.first().click();
   return pg.click(`.ledger-tab[data-ledger="${key}"]`);
 }
 // Header revision (2026-10-25): Export and Table live inside Filters; the
@@ -2221,7 +2226,7 @@ await evPage3.close();
 // --- Dashboard: dataset health (five stub rows, one per derived state)
 // and the watchlist change signals (first visit in a fresh browser). ---
 const dashPage = await newPage({ viewport: { width: 1200, height: 900 } });
-await dashPage.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+await dashPage.goto(BASE_URL + '?profile=admin#/auctions', { waitUntil: 'networkidle' });
 await dashPage.waitForTimeout(500);
 await dashPage.click('#hdrHomeBtn');
 await dashPage.waitForTimeout(200);
@@ -2249,7 +2254,15 @@ results.dashUnitEmptyGroups = await dashPage.locator('#dashUnitRows .unit-empty'
 results.dashLedgerPanelRemoved = (await dashPage.locator('#dashLedgerRows').count()) === 0;
 // Remediation (2026-10-10): the ledger totals - and the withheld count - are
 // shown once, on the Home ledger cards; the operating view's tiles are gone.
-results.dashWithheldShownOnce = ((await dashPage.locator('#homeLedgers').textContent()) || '').includes('1 withheld') && (await dashPage.locator('#dashStats').count()) === 0;
+// dashPage reads the operating view, which is admin-only (2026-11-09); the
+// withheld count is a customer's figure, read on a customer page.
+{
+  const custHome = await newPage({ viewport: { width: 1200, height: 900 } });
+  await custHome.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+  await custHome.waitForTimeout(500);
+  results.dashWithheldShownOnce = ((await custHome.locator('#homeLedgers').textContent()) || '').includes('1 withheld') && (await custHome.locator('#dashStats').count()) === 0;
+  await custHome.close();
+}
 results.dashUnitBayUnavailable = await dashPage.locator('#dashUnitRows .unit-row[data-county="Bay"]').getAttribute('data-unavailable');
 // Unified navigation (2026-09-30): exactly four destinations - Dashboard,
 // List, Map, Watchlist - in the rail and the bottom bar, no per-ledger
@@ -2325,7 +2338,7 @@ results.relatedOpenLandsOnAuctionRow = ((await dashPage.locator(`${detailScope} 
 results.auctionDetailRelated = await dashPage.locator(`${detailScope} .related-record`).evaluateAll(els => els.map(e => e.dataset.source + ':' + e.dataset.pid));
 await dashPage.close();
 const noHealthPage = await newPage({ viewport: { width: 1200, height: 900 } });
-await noHealthPage.goto(BASE_URL + '?health=none' + '#/auctions', { waitUntil: 'networkidle' });
+await noHealthPage.goto(BASE_URL + '?health=none&profile=admin' + '#/auctions', { waitUntil: 'networkidle' });
 await noHealthPage.waitForTimeout(500);
 await noHealthPage.click('#hdrHomeBtn');
 await noHealthPage.waitForTimeout(200);
@@ -2333,7 +2346,7 @@ results.dashHealthMissingTable = ((await noHealthPage.locator('#dashSourceRows')
 results.dashHealthMissingTableNoBadges = await noHealthPage.locator('#dashSourceRows .health-badge').count();
 await noHealthPage.close();
 const noRegPage = await newPage({ viewport: { width: 1200, height: 900 } });
-await noRegPage.goto(BASE_URL + '?registry=none' + '#/auctions', { waitUntil: 'networkidle' });
+await noRegPage.goto(BASE_URL + '?registry=none&profile=admin' + '#/auctions', { waitUntil: 'networkidle' });
 await noRegPage.waitForTimeout(500);
 await noRegPage.click('#hdrHomeBtn');
 await noRegPage.waitForTimeout(200);
@@ -3120,7 +3133,7 @@ await adminPub.click('#accountBtn'); await adminPub.waitForTimeout(200);
 results.govMenu = {
   itemVisible: await adminPub.locator('#governanceMenuItem').isVisible(),
   itemText: ((await adminPub.locator('#governanceMenuItem').textContent()) || '').trim(),
-  // the item sits in the existing account menu, after "Admin area", before Terms / Sign out
+  // the item sits in the existing account menu, after "Admin area", before the Help group / Sign out
   order: await adminPub.locator('#accountMenu .account-item:not([hidden])').evaluateAll(els => els.map(e => e.id).filter(Boolean))
 };
 await adminPub.click('#governanceMenuItem'); await adminPub.waitForTimeout(700);
@@ -4431,7 +4444,7 @@ await navMap.close();
     const sp = await newPage({ viewport: { width: 1280, height: 900 } });
     await sp.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
     await sp.waitForTimeout(300);
-    await sp.click('#homeStatesCard'); // Remediation: the header States button is gone; the Home states card opens the same sheet
+    await sp.click('#homeAllStates'); // Remediation: the header States button is gone; the Home states card opens the same sheet
     await sp.waitForSelector('#coverageExplorer .cov-list li', { timeout: 5000 });
     results.coverageExplorer = await sp.evaluate(() => {
       const ex = document.getElementById('coverageExplorer');
@@ -5926,7 +5939,7 @@ await navMap.close();
     results.rdHome = {
       title: await txt(pg, '.home-title'),
       cards: await pg.locator('#homeLedgers [data-home-ledger]').evaluateAll(els => els.map(e => e.dataset.homeLedger + ':' + e.querySelector('.home-ledger-count').textContent)),
-      statesCard: await pg.locator('#homeStatesCard').count(),
+      statesCard: await pg.locator('#homeAllStates').count(),
       recentHasFirstSeen: await pg.locator('#homeRecent .home-recent-when').evaluateAll(els => els.length > 0 && els.every(e => /^First observed /.test(e.textContent))),
       noScoreWords: await pg.locator('#homeHero, #homeLedgers, #homeRecentSection').evaluateAll(els => els.every(e => !/\b(score|ranking|recommend|AI)\b/i.test(e.textContent)))
     };
@@ -6022,10 +6035,10 @@ await navMap.close();
     // there and an admin does).
     const picker = async (qs) => {
       const p2 = await open(qs, '#/dashboard');
-      await p2.click('#homeStatesCard');
+      await p2.click('#homeAllStates');
       await p2.waitForFunction(() => !document.querySelector('#statePickerBody .ledger-badge.pending'), null, { timeout: 8000 }).catch(() => {});
       const rows = await p2.locator('#statePickerBody .state-row').evaluateAll(els => els.map(e => e.dataset.stateRow + '=' +
-        Array.from(e.querySelectorAll('.ledger-badge')).map(b => b.dataset.ledger).join('|') + (e.querySelector('.state-row-none') ? '!' + (e.querySelector('.state-row-none').textContent.startsWith('No properties') ? 'none' : 'unchecked') : '')));
+        Array.from(e.querySelectorAll('.ledger-badge')).map(b => b.dataset.ledger).join('|') + (e.querySelector('.state-row-none') ? '!' + (e.querySelector('.state-row-none').textContent.startsWith('No listings') ? 'none' : 'unchecked') : '')));
       const groups = await p2.locator('#statePickerBody .state-group-head').allTextContents();
       return { p2, rows, groups };
     };
@@ -6362,7 +6375,7 @@ await navList.close();
 // that ledger), attention / recent / verified-path panels - counts only,
 // "Not tracked" where the data holds none.
 const navDash = await newPage({ viewport: { width: 1200, height: 900 } });
-await navDash.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+await navDash.goto(BASE_URL + '?profile=admin#/dashboard', { waitUntil: 'networkidle' });
 await navDash.waitForTimeout(500);
 results.navDashDeepVisible = await navDash.locator('#pageDashboard').evaluate(el => !el.hidden);
 // Remediation (2026-10-10): one place for the ledger totals - the Home
@@ -6595,7 +6608,7 @@ results.monNoneRuns = await monNone.locator('#dashRunsUnavailable').count();
 await monNone.close();
 // 11. Dashboard: latest change-detection run per source.
 const monDash = await newPage({ viewport: { width: 1200, height: 900 } });
-await monDash.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+await monDash.goto(BASE_URL + '?profile=admin#/dashboard', { waitUntil: 'networkidle' });
 await monDash.waitForTimeout(700);
 results.monDashRuns = await monDash.locator('#dashRunRows .run-row').evaluateAll(els => els.map(e => e.dataset.source + ':' + Array.from(e.querySelectorAll('.dash-row-vals span')).map(x => x.textContent.trim()).join(' / ')));
 await monDash.close();
@@ -7454,9 +7467,10 @@ await big.press('#globalSearchInput', 'Enter');
 }
 
 
-// Research group (free tier, 2026-10-25): the property page's research
-// sections sit in ONE "Research" disclosure that starts closed, below How to
-// acquire, and a section-nav jump into it opens it. Nothing is removed.
+// Research index (2026-11-10, replaces the one "Research" group of
+// 2026-10-25): every research section below How to acquire is its own closed
+// block (details.detail-fold) inside div.detail-index, with a one-line
+// summary; a section-nav jump opens the block it lands in. Nothing is removed.
 {
   for (const [tag, vp] of [['phone', { width: 390, height: 844 }], ['desktop', { width: 1280, height: 900 }]]) {
     const pg = await newPage({ viewport: vp });
@@ -7466,11 +7480,12 @@ await big.press('#globalSearchInput', 'Enter');
     await pg.waitForTimeout(600);
     results['researchGroup_' + tag] = await pg.evaluate(() => {
       const host = document.querySelector('#detailModal:not([hidden]) #detailModalInner') || document.getElementById('detailPanel');
-      const g = host && host.querySelector('details.detail-research');
+      const g = host && host.querySelector('.detail-index');
       if (!g) return null;
+      const folds = [...g.querySelectorAll(':scope > details.detail-fold')];
       const inside = [...g.querySelectorAll('[data-section]')].map(x => x.dataset.section);
       const acquire = host.querySelector('[data-section="acquire"]');
-      return { closed: !g.open, title: g.querySelector('.detail-more-title').textContent,
+      return { closed: folds.length > 0 && folds.every(d => !d.open), title: g.querySelector('.detail-index-title').textContent,
         acquireOutside: !!acquire && !g.contains(acquire) && !!(acquire.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING),
         moneyOutside: !g.contains(host.querySelector('[data-section="money"]')),
         holds: ['risk', 'map', 'truth', 'sources', 'provenance'].every(id => inside.includes(id)) };
@@ -7479,7 +7494,7 @@ await big.press('#globalSearchInput', 'Enter');
       const host = document.querySelector('#detailModal:not([hidden]) #detailModalInner') || document.getElementById('detailPanel');
       const b = host && host.querySelector('.detail-nav button[data-target="risk"]');
       if (!b) return null; b.click();
-      return host.querySelector('details.detail-research').open;
+      return host.querySelector('[data-section="risk"]').closest('details.detail-fold').open;
     });
     results['researchGroupJumpOpens_' + tag] = jumped;
     await pg.close();
@@ -7518,10 +7533,13 @@ await big.press('#globalSearchInput', 'Enter');
     await pg.waitForTimeout(150);
     const question = await inView('.ib.open > .ib-pop');
     await pg.keyboard.press('Escape');
-    await pg.click('#lookBtn');
+    // Below 768px the Look choice lives in the account menu (2026-11-09);
+    // wider, it is the header's own Look menu. Either must open on screen.
+    const lookInHeader = await pg.locator('#lookBtn').isVisible();
+    await pg.click(lookInHeader ? '#lookBtn' : '#accountBtn');
     await pg.waitForTimeout(150);
-    const look = await inView('#lookMenu');
-    await pg.click('#lookBtn');
+    const look = await inView(lookInHeader ? '#lookMenu' : '#lookMenuInAccount');
+    await pg.click(lookInHeader ? '#lookBtn' : '#accountBtn');
     await pg.evaluate(() => { location.hash = '#/lands'; });
     await pg.waitForTimeout(700);
     const pb = pg.locator('#main .card-price-info .ib-btn').first();
@@ -7834,8 +7852,8 @@ const EXPECTED = {
   mergedLookPerLedger: {"lands": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}, "auctions": {"look": "merged", "drawn": "tactile", "stage": "tactile", "button": "Merged", "mainHidden": true}, "certificates": {"look": "merged", "drawn": "merged", "stage": "merged", "button": "Merged", "mainHidden": true}, "landsAgain": {"look": "merged", "drawn": "terrain", "stage": "terrain", "button": "Merged", "mainHidden": true}},
   saleStrip_phone: {"head": {"strip": true, "first": true, "inFold": false, "calendarFold": false, "days": 9, "chips": 9, "selected": 1, "scrolls": "auto"}, "pickedSecond": true, "jumped": true, "question": true, "look": true, "price": {"insideCard": true, "insideScreen": true, "inFlow": true}, "noOverflow": true},
   saleStrip_desktop: {"head": {"strip": true, "first": true, "inFold": false, "calendarFold": false, "days": 9, "chips": 9, "selected": 1, "scrolls": "auto"}, "pickedSecond": true, "jumped": true, "question": true, "look": true, "price": {"insideCard": true, "insideScreen": true, "inFlow": true}, "noOverflow": true},
-  researchGroup_phone: { closed: true, title: "Research", acquireOutside: true, moneyOutside: true, holds: true },
-  researchGroup_desktop: { closed: true, title: "Research", acquireOutside: true, moneyOutside: true, holds: true },
+  researchGroup_phone: { closed: true, title: "Research index", acquireOutside: true, moneyOutside: true, holds: true },
+  researchGroup_desktop: { closed: true, title: "Research index", acquireOutside: true, moneyOutside: true, holds: true },
   researchGroupJumpOpens_phone: true,
   researchGroupJumpOpens_desktop: true,
   // Parcel boundaries (2026-10-20, migration 034): fixture geometry only.
@@ -7915,7 +7933,7 @@ const EXPECTED = {
   acqP3CostText: "How the price is set Opening / minimum amount - the items below are added on top Source wording Opening bid $2,000.00 Not the price to buy now: the county's total adds omitted taxes, accrued interest and deed fees. Request the current Lands Available statement from the clerk. Added on top Interest accrued on the listed figure since it was set Not on file Taxes that came due after the listed figure was set (omitted / subsequent years' taxes) Not on file Documentary stamp tax on the deed Not on file Recording fees Not on file Already inside the opening bid (F.S. 197.502(6)) and never added again: the outstanding tax certificates, the delinquent, omitted and current taxes then due, interest, and the costs and fees as of when the opening bid was set - plus half the assessed value on homestead property. Known tax obligation Not on file Which later tax years are owed, and how much, is printed on the official statement - this app holds no tax-bill amount (assessed / taxable values are property values, not taxes owed). Known amount Cannot be calculated None of the items added on top has an amount on file - the listed figure alone is not the amount due. Official total due Not on file The clerk's Lands Available statement - request it from the clerk; it is valid only until the date printed on it.",
   acqP3Forms: ["Current official statement of the amount due Request from the office The clerk's Lands Available statement - request it from the clerk; it is valid only until the date printed on it. Request it via e-mail taxdeeds@bayclerk.example.gov."],
   acqP3NeverPurchasePrice: true,
-  laSevenQuestions: {"order": ["What is this?", "What does the source say I need to pay?", "How do I acquire it?", "What form do I need?", "Where do I submit it?", "Who do I contact?", "What is the official source?"], "pay": true, "form": true, "formMarked": true, "submitByMail": true, "contactPhone": true, "official": true, "noBuyNow": true},
+  laSevenQuestions: {"order": ["How do I acquire it?", "Who do I contact?", "What does the source say I need to pay?", "What is this?", "What form do I need?", "Where do I submit it?", "What is the official source?"], "pay": true, "form": true, "formMarked": true, "submitByMail": true, "contactPhone": true, "official": true, "noBuyNow": true},
   savedAcquisition: {"shown": true, "method": true, "amount": true, "formLink": true, "listing": true, "oneList": true},
   savedReopen: {"open": true, "hash": true, "atAcquire": true},
   laStrippedAcquisition: {"multiStep": true, "office": true, "confirmFirst": true, "requestForm": true, "evidenceLink": true, "notPending": true, "noBuyNow": true, "noUndefined": true},
@@ -7992,11 +8010,11 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v171"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v172"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
-  brandTxContext: { title: "OTC Catalog — Struck-Off Inventory · TAXACQ — Texas", ledgerTab: "laft", hash: "#/lands" },
+  brandTxContext: { title: "Available — Struck-off property · TAXACQ — Texas", ledgerTab: "laft", hash: "#/lands" },
   brandStateSwitch: { file: "wy.html", hash: "#/lands", state: "WY" },
   brandEmptyState: { says: true, neverUnsupported: true, stillListed: true, selected: "WI" },
 
@@ -8045,9 +8063,9 @@ const EXPECTED = {
   acqP16SourceHref: 'https://taxsales.lgbs.com/',
   acqP16NoCta: 1,
   acqP16PendingNotError: true,
-  acqP3Heads: ["What is this?", "What does the source say I need to pay?", "How do I acquire it?", "What form do I need?", "Where do I submit it?", "Who do I contact?", "What is the official source?"],
+  acqP3Heads: ["How do I acquire it?", "Who do I contact?", "What does the source say I need to pay?", "What is this?", "What form do I need?", "Where do I submit it?", "What is the official source?"],   // 2026-11-10: how + contact lead the first screen
   acqP3Cta: 'Contact county to purchase | mailto:taxdeeds@bayclerk.example.gov',
-  acqP3Labels: ["Method", "Instructions", "Applies to", "By e-mail", "Handled by", "Phone", "Official source", "Official availability listing", "Last verified", "Acquisition authority", "Online purchase", "Listing last read"],
+  acqP3Labels: ["Method", "Instructions", "Applies to", "Handled by", "Phone", "By e-mail", "Official source", "Official availability listing", "Last verified", "Acquisition authority", "Online purchase", "Listing last read"],
   acqP3Availability: 'View official availability → | https://x/list.pdf',
   acqP3FirstSection: 'acquire',
   acqP3NoScoreWords: true,
@@ -8388,11 +8406,11 @@ const EXPECTED = {
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
   rdCardAcq: [],  // the acquisition badge left the card face; the path is on the property page
-  rdPicker: {"rows": ["CO=certificate", "FL=auction|laft|certificate", "LA=laft", "MI=auction", "MN=!none", "MO=!none", "OK=!none", "PA=!none", "SC=auction", "TN=!none", "TX=auction|laft", "WI=!none", "WY=auction"], "groups": ["States with Available properties", "Other states", "Coverage in Florida"], "visible": true, "coHref": "co.html#/certificates", "flCounts": ["Auctions 9", "Available 2", "Liens & Certificates 1"]},
+  rdPicker: {"rows": ["CO=certificate", "FL=laft|auction|certificate", "LA=laft", "MI=auction", "MN=!none", "MO=!none", "OK=!none", "PA=!none", "SC=auction", "TN=!none", "TX=laft|auction", "WI=!none", "WY=auction"], "groups": ["States with Available properties", "Other states", "Coverage in Florida"], "visible": true, "coHref": "co.html#/certificates", "flCounts": ["Available 2", "Auctions 9", "Liens & Certificates 1"]},
   rdPickerSearch: ["WY"],
   rdPickerEscape: true,
-  rdPickerAdminMI: "MI=auction|laft",
-  rdPickerProbeFail: "WY=auction|laft|certificate!unchecked",
+  rdPickerAdminMI: "MI=laft|auction",
+  rdPickerProbeFail: "WY=laft|auction|certificate!unchecked",
   rdPhoneBottom: ["Available2", "Auctions9", "Liens1", "Map"],
   rdPhoneAccount: true,
   rdPhoneSearchVisible: false,   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
@@ -8545,14 +8563,14 @@ const EXPECTED = {
   navListRouteVisible: true,
   navListRouteHash: "#/lands",
   navDashDeepVisible: true,
-  navDashTiles: ['laft:2', 'auction:9', 'certificate:1'],
+  navDashTiles: ['laft:3', 'auction:9', 'certificate:1'],   // read as an admin (operating view is admin-only since 2026-11-09): the source-review row p13 counts
   navDashNoTiles: true,
   navDashNoValueTile: true,
   // Fixture p15 was last read 2026-09-20: from 2026-10-05 on it is permanently
   // outside the 14-day window, so it is not "read recently" and counts as stale.
-  navDashAttention: ['soon:4 properties · 4 sale dates', 'watched-gone:None', 'stale:2 of 2', 'sources:1 unavailable at the last read · 1 update unsuccessful; retry pending'],
+  navDashAttention: ['soon:4 properties · 4 sale dates', 'watched-gone:None', 'stale:3 of 3 · 1 never read by a lifecycle run', 'sources:1 unavailable at the last read · 1 update unsuccessful; retry pending'],
   navDashRecentPanelRemoved: true,
-  navDashPaths: ["verified:2 of 2", "phone_mail:1", "county_instructions:1", "unverified:0"],   // the Florida fixture rows both carry a verified path
+  navDashPaths: ["verified:2 of 3", "phone_mail:1", "county_instructions:1", "unverified:1"],   // admin view: p13 has no verified path   // the Florida fixture rows both carry a verified path
   navDashNoScoreWords: true,
   navDashSubtitle: 'What needs attention, verified acquisition paths, source freshness and your watchlist - counts over the records loaded for this state.',
   navDashTileOpensList: true,
@@ -8737,16 +8755,16 @@ const EXPECTED = {
   // accrued-interest/TDA-eligibility tips.
   infoTipCount: 7,
   junkLandRowHiddenOnAuction: true,
-  exportBtnLabelAuction: '⬇ Export to Auction Sheet',
+  exportBtnLabelAuction: '⬇ Export list (CSV)',   // one label for every ledger (2026-11-10)
   spreadBarPresentP1: 0,  // the equity spread bar left the card face (2026-10-11)
-  exportBtnLabelCertificate: '⬇ Export Certificates (CSV)',
+  exportBtnLabelCertificate: '⬇ Export list (CSV)',   // one label for every ledger (2026-11-10)
   csvCertAccruedPlausible: true,
   csvCertTdaDate: '2025-06-01',
   certDetailHasAccrued: true,
   certDetailHasTotalReturn: true,
   certDetailTdaEligibleNow: true,
   certDetailYieldInfoTips: 2,
-  exportBtnLabelLaft: '⬇ Export OTC List (CSV)',
+  exportBtnLabelLaft: '⬇ Export list (CSV)',   // one label for every ledger (2026-11-10)
   laftPurchasePriceLabel: 'Opening bid',   // 2026-10-05: an opening bid is never called the purchase price
   laftCtaText: "How to acquire →",   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
   bidListChipTextInitial: '0/10',
@@ -9027,7 +9045,7 @@ const EXPECTED = {
   availCsvP15Path: true,
   govStatePages: Object.fromEntries(['mi', 'wy', 'sc', 'co', 'wi'].map(f => [f, { admView: true, admHash: '#/governance', onWorkspace: false, userView: false, userItem: false, userHashRewritten: true }])),
   govWorkspace: { inlinePanelVisible: false, panelInsideView: true, panelOnWorkspace: false, approvalsVisible: true, approvalRows: true },
-  govMenu: {"itemVisible": true, "itemText": "Source Publication Governance", "order": ["editProfileBtn", "changePasswordBtn", "billingBtnMenu", "themeBtn", "alertsMenuItem", "supportBtnMenu", "adminAreaLink", "governanceMenuItem", "termsBtnMenu", "signOutBtn", "deleteAccountBtn"]},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
+  govMenu: {"itemVisible": true, "itemText": "Source Publication Governance", "order": ["editProfileBtn", "changePasswordBtn", "billingBtnMenu", "themeBtn", "alertsMenuItem", "adminAreaLink", "governanceMenuItem", "supportBtnMenu", "termsBtnMenu", "signOutBtn", "deleteAccountBtn"]},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md); 2026-11-10: Account / Help groups (admin entries close the Account group, Terms joins Help)
   govOpened: { viewVisible: true, hash: '#/governance', menuClosed: true, title: 'Source Publication Governance' },
   govClosedByBack: { hidden: true, hash: '#/auctions' },
   govAdminRoute: { visible: true, rows: 5, hash: '#/governance' },
@@ -9317,7 +9335,7 @@ const EXPECTED = {
   // Audit F32 (2026-11-02): a row whose own typed path is verified while the county-level gate is not names the two scopes apart.
   gateTruthRow: {"cls": "metadata_gap", "verdict": "Missing record metadata", "subs": ["The record was not read from its source in the last 14 days · No acquisition-evidence status exists for this source and county", "This record's own path is verified; the county-level process the gate checks is not yet.", "Gate not enforced on this deployment: shown for information."]},
   refineLedgerQuestions: {"laft": "About this list", "auction": "About this list", "certificate": "About this list"}, // 2026-10-27: one fact one place
-  refineDossier: {"status": ["Ledger", "Status", "Last read", "Your research (your label, not an official status)"], "lastRead": "Sep 20, 2026", "order": ["dossier-status", "acquire", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},
+  refineDossier: {"status": ["Ledger", "Status", "Last read", "Your research (your label, not an official status)"], "lastRead": "Sep 20, 2026", "order": ["acquire", "dossier-status", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},
   refineViewports: [],
   // Available price honesty (2026-10-05).
   priceWording: {"openingBid": {"label": "Opening bid", "partial": true, "note": "Not the full price: the source publishes this as a starting amount. Ask the county for the current total.", "total": null, "expired": null, "gap": "Current purchase total not on file - the listed figure is the opening bid only"}, "fixed": {"label": "Purchase price", "partial": false, "note": "As the source publishes it - confirm the amount due before paying.", "total": null, "expired": null, "gap": null}, "expiredStatement": {"label": "Total due", "partial": true, "note": "Last clerk statement $27,689.42, valid through Aug 31, 2026 - that date has passed. Request an updated statement from the clerk.", "total": 27689.42, "expired": true, "gap": "County purchase statement has expired - request an updated total"}, "currentStatement": {"label": "Total due from purchaser", "partial": true, "note": "Clerk statement, valid if received by Dec 31, 2099.", "total": 27689.42, "expired": false, "gap": null}}

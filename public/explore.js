@@ -922,6 +922,15 @@ function makePin(p, x, y, r) {
   path.setAttribute("d",
     `M ${x} ${y} l ${-r * 0.72} ${-r * 1.25} a ${r} ${r} 0 1 1 ${r * 1.44} 0 Z`);
   g.appendChild(path);
+  // Touch target (2026-11-10): the teardrop is ~14px across. A transparent
+  // circle behind its head gives every pin a 44px target on screen (r is
+  // 7 screen px in SVG units, so 22 px = r * 22 / 7). Not a path, so the
+  // `.map-pin path` geometry the peek card keeps clear is unchanged.
+  const hit = document.createElementNS(NS, "circle");
+  hit.setAttribute("cx", x); hit.setAttribute("cy", y - r * 1.25);
+  hit.setAttribute("r", r * 22 / 7);
+  hit.setAttribute("class", "pin-hit");
+  g.insertBefore(hit, path);
   const dot = document.createElementNS(NS, "circle");
   dot.setAttribute("cx", x); dot.setAttribute("cy", y - r * 1.25);
   dot.setAttribute("r", r * 0.32);
@@ -1241,6 +1250,7 @@ function previewEl() {
     card.addEventListener("click", e => {
       if (swallowClick) { swallowClick = false; e.preventDefault(); e.stopPropagation(); return; }
       if (e.target.closest("[data-act='close']")) { showPreview(null); return; }
+      if (e.target.closest("[data-act='streetview']")) { if (activeProp) openStreetView(activeProp); return; }
       const step = e.target.closest("[data-act='prev'],[data-act='next']");
       if (step) { stepPreview(step.dataset.act === "next" ? 1 : -1, e.detail === 0); return; }
       if (e.target.closest("a")) return;
@@ -1396,6 +1406,7 @@ function renderPeek(card, p) {
         <div class="mp-actions">
           <button class="preview-open" type="button" data-act="open">Open property <span aria-hidden="true">→</span></button>
           <span class="mp-watch">${typeof watchBtn === "function" ? watchBtn(p) : ""}</span>
+          ${streetViewAllowed(p) ? '<button class="mp-sv" type="button" data-act="streetview" title="Google Street View near this point (admins only)">Street View</button>' : ""}
         </div>
       </div>
     </article>`;
@@ -1461,8 +1472,82 @@ function watchPeekViewport() {
   window.addEventListener("resize", onPeekViewportMove);
 }
 
+// ---------------------------------------------------------------------------
+// Google Street View, ADMINS ONLY (2026-11-10). The button is drawn only for
+// an admin (window.__tdwIsAdmin === true, set by app.js once it knows the
+// account), only with a googleMapsApiKey, and only for a row with its own
+// coordinates. The panorama opens over the map stage; map-3d.js loads Google
+// only on that click. Customers never see the button and never cause a
+// request to Google from it.
+// ---------------------------------------------------------------------------
+let svHandle = null;
+function streetViewAllowed(p) {
+  const k = (window.TDW_CONFIG || {}).googleMapsApiKey;
+  return window.__tdwIsAdmin === true && typeof k === "string" && k.trim() !== "" && !!p && hasPin(p);
+}
+let svOpener = null;
+// restoreFocus: the panel's own close button or Escape hands focus back to
+// what opened it (the peek card's Street View button), never to <body>.
+function closeStreetView(restoreFocus) {
+  const panel = $("mapStreetView");
+  if (svHandle) { try { svHandle.destroy(); } catch { /* gone */ } svHandle = null; }
+  const hadFocus = panel && panel.contains(document.activeElement);
+  if (panel) panel.remove();
+  const opener = svOpener;
+  svOpener = null;
+  if ((restoreFocus || hadFocus) && opener && opener.isConnected) { try { opener.focus({ preventScroll: true }); } catch { /* gone */ } }
+}
+// Phone: the stage runs under the fixed ledger bar, so the panel is bounded
+// by the stage's visible bottom (the same measure liftPeekAboveBar() uses).
+function fitStreetView(panel) {
+  const stage = stageEl();
+  if (!panel || !stage) return;
+  if (!isPhone()) { panel.style.removeProperty("max-height"); return; }
+  const s = stage.getBoundingClientRect();
+  const bottom = Math.min(s.bottom, window.innerHeight - navBottomHeight());
+  const top = panel.getBoundingClientRect().top || s.top;
+  const h = Math.floor(bottom - top - 8);
+  if (h > 0) panel.style.maxHeight = h + "px";
+}
+async function openStreetView(p) {
+  if (!streetViewAllowed(p)) return;
+  const opener = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.querySelector("#explorePreview .mp-sv");
+  closeStreetView();
+  svOpener = opener;
+  const stage = stageEl();
+  if (!stage) return;
+  const panel = document.createElement("div");
+  panel.id = "mapStreetView";
+  panel.className = "map-sv";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "Street View near " + pinLabel(p));
+  panel.innerHTML = `<div class="map-sv-head"><b>Street View</b><span>Google · near ${escHtml(pinLabel(p))}</span>` +
+    `<button type="button" class="map-sv-close" aria-label="Close Street View">✕</button></div>` +
+    `<div class="map-sv-pano"><p class="map-sv-msg">Loading Street View…</p></div>` +
+    `<p class="map-sv-note">Google's imagery of the street near the recorded point. It does not show the parcel's boundary, its current condition or who owns it.</p>`;
+  stage.appendChild(panel);
+  fitStreetView(panel);
+  const pid = p.id;
+  panel.querySelector(".map-sv-close").addEventListener("click", () => closeStreetView(true));
+  panel.addEventListener("keydown", e => { if (e.key === "Escape") { e.stopPropagation(); closeStreetView(true); } });
+  panel.querySelector(".map-sv-close").focus({ preventScroll: true });
+  let res;
+  try {
+    const m = await import("./map-3d.js");
+    res = await m.mountStreetView(panel.querySelector(".map-sv-pano"), { lat: p.latitude, lng: p.longitude });
+  } catch { res = { status: "error" }; }
+  if (!panel.isConnected || !activeProp || activeProp.id !== pid) { if (res && res.destroy) res.destroy(); return; }
+  svHandle = res;
+  const msg = { no_imagery: "Google has no Street View imagery within 50 m of this point.",
+    error: "Street View could not load. Check your connection and try again.",
+    unconfigured: "Street View needs a Google Maps key in config.js.",
+    not_admin: "Street View is available to administrators only." }[res && res.status];
+  if (msg) panel.querySelector(".map-sv-pano").innerHTML = `<p class="map-sv-msg">${escHtml(msg)}</p>`;
+}
+
 function showPreview(p, opts) {
   const prev = activeProp;
+  if (!p || !prev || prev.id !== p.id) closeStreetView();
   activeProp = p;
   const card = previewEl();
   if (!card) return;
