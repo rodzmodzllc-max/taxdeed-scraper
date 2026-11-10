@@ -791,6 +791,8 @@ if (active() && window.__tdwLastRender) draw(window.__tdwLastRender);
 // first property, which would record a property view nobody made and
 // rewrite the address bar. The panel stays app.js's: selecting a property
 // replaces this, clearing it brings the empty state back and this refills.
+// The total in view is the List title's number alone; the summary names
+// only what the title does not (counties, sale days, ways in).
 // var, not let: draw() runs from the wiring above before this line is reached.
 var PANEL_MO = null, PANEL_T = 0;
 function fillPanelSoon() {
@@ -852,7 +854,7 @@ function availablePanelHtml(rows, api) {
   const t = api.realAddress(first) ? esc(api.realAddress(first)) : api.lotTitle(first);
   const where = api.unitLabel ? api.unitLabel(first.county) : first.county + " " + unit;
   return `<p class="xps-k">In this list</p>
-    <h3 class="xps-t"><span class="xps-n">${n(rows.length)}</span> ${rows.length === 1 ? "property" : "properties"} · <span class="xps-n">${n(counties)}</span> ${counties === 1 ? unitL : plural}</h3>
+    <h3 class="xps-t">Across ${n(counties)} ${counties === 1 ? unitL : plural}</h3>
     <div class="xps-how"><span class="xps-k">How to acquire here</span><ul class="xps-ways">${list.join("")}</ul></div>
     <button type="button" class="xps-open" data-xps-open="${esc(String(first.id))}">Open the first property<span class="xps-open-t">${t} · ${esc(where)}</span></button>
     <p class="xps-hint">Or pick any property to see its full page here.</p>`;

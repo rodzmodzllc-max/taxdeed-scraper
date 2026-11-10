@@ -1067,6 +1067,8 @@ function unitName(api, c) { return api.unitLabel ? api.unitLabel(c) : (/\bcity$/
 // made and rewrite the address bar. The panel stays app.js's: selecting a
 // property replaces this, clearing the panel brings its empty state back
 // and this fills it again (a MutationObserver watches for that).
+// The total in view is the List title's number alone; the summary names
+// only what the title does not (counties, sale days, ways in).
 // var, not let: draw() runs from the wiring above before this line is reached.
 var PANEL_MO = null, PANEL_T = 0;
 function fillPanelSoon() {
@@ -1116,10 +1118,10 @@ function auctionPanelHtml(rows, api) {
   const unit = String(api.unitWord() || "County").toLowerCase();
   const plural = unitPlural(api);
   return `<p class="xps-k">In this list</p>
-    <h3 class="xps-t"><span class="xpt-mono">${rows.length}</span> ${rows.length === 1 ? "lot" : "lots"} · <span class="xpt-mono">${groups.length}</span> sale ${groups.length === 1 ? "day" : "days"} · <span class="xpt-mono">${counties}</span> ${counties === 1 ? unit : plural}</h3>
+    <h3 class="xps-t">${groups.length} sale ${groups.length === 1 ? "day" : "days"} across ${counties} ${counties === 1 ? unit : plural}</h3>
     <dl class="xps-facts">
       <div><dt>Sale day on the deck</dt><dd>${g.day ? esc(api.fmtDateLong(g.day)) : "Sale date not scheduled"}<span class="xps-sub">${esc(countdown(days))}</span></dd></div>
-      <div><dt>Lots that day</dt><dd>${lots.length}${dayCounties.length === 1 ? ` · ${esc(unitName(api, dayCounties[0]))}` : ""}</dd></div>
+      <div><dt>Lots that day</dt><dd>${lots.length} ${lots.length === 1 ? "lot" : "lots"}${dayCounties.length === 1 ? ` · ${esc(unitName(api, dayCounties[0]))}` : ""}</dd></div>
       <div><dt>Sale process</dt><dd>${esc(proc)}</dd></div>
     </dl>
     ${link ? `<p class="xps-how"><span class="xps-k">Where bidding happens</span>${link}</p>` : ""}

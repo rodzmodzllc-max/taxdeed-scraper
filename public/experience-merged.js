@@ -496,6 +496,8 @@ else if (!isActive()) deactivate();
 // which would record a property view nobody made and rewrite the address
 // bar. The panel stays app.js's: selecting a record replaces this, clearing
 // it brings the empty state back and this fills it again.
+// The total in view is the List title's number alone; the summary names
+// only what the title does not (counties, sale days, ways in).
 // var, not let: draw() runs from the wiring above before this line is reached.
 var PANEL_MO = null, PANEL_T = 0;
 function fillPanelSoon() {
@@ -538,7 +540,7 @@ function liensPanelHtml(rows, api) {
   const lifted = rowById(S.slip) || rows[0];
   const unitL = String(api.unitWord() || "County").toLowerCase();
   return `<p class="xps-k">In this list</p>
-    <h3 class="xps-t"><span class="xps-n">${n(rows.length)}</span> ${rows.length === 1 ? "certificate" : "certificates"} · <span class="xps-n">${n(counties)}</span> ${counties === 1 ? unitL : unitPlural(api)}</h3>
+    <h3 class="xps-t">Across ${n(counties)} ${counties === 1 ? unitL : unitPlural(api)}</h3>
     <dl class="xps-facts">
       <div><dt>Tax years</dt><dd>${esc(yearsTxt)}${noYear ? `<span class="xps-sub">${n(noYear)} with no tax year published</span>` : ""}</dd></div>
       <div><dt>Grouped by</dt><dd>${S.bundleBy === "county" ? esc(api.unitWord()) : "Tax year"}</dd></div>
