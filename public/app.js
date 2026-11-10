@@ -9989,12 +9989,66 @@ function gisLocationCardHtml(p) {
     ? `<div class="kv-row" data-coord-method="NONE"><span class="kv-label">Coordinate source</span><span class="kv-val muted">No authoritative coordinates available</span></div>`
     : `<div class="kv-row" data-coord-method="${esc(cp.method)}"><span class="kv-label">Coordinate source</span><span class="kv-val">${esc(cp.label)}${cp.authoritative ? "" : `<span class="kv-sub">Not an authoritative parcel location</span>`}</span></div>
     <div class="kv-row"><span class="kv-label">Location type</span><span class="kv-val">${esc(cp.geometry_label)}${cp.geometry === "PARCEL_CENTROID" ? `<span class="kv-sub">The centre of the parcel polygon - not a building or the buildable area</span>` : ""}</span></div>`;
-  const embed = hasCoords ? `<div class="detail-map-embed"><iframe src="${esc(osmEmbedUrl(p.latitude, p.longitude))}" loading="lazy" title="Property location map" referrerpolicy="no-referrer-when-downgrade"></iframe></div>` : "";
+  // The embed is also the mount point of the live mini-map (hydrateGisLive):
+  // when map-3d.js, a MapTiler key and these coordinates all exist, the
+  // interactive map with the parcel outline replaces it in place; otherwise
+  // (or on any failure) this embed stays exactly as it is.
+  const embed = hasCoords ? `<div class="detail-map-embed" data-gis-live="${esc(String(p.id))}"><iframe src="${esc(osmEmbedUrl(p.latitude, p.longitude))}" loading="lazy" title="Property location map" referrerpolicy="no-referrer-when-downgrade"></iframe></div>` : "";
   // Phase 66: one step from the full page to the app's own Map page, zoomed
   // to this county with this property selected (its pin, when it has one;
   // its strip card and preview either way) - see showOnMap().
   const mapBtn = `<button class="show-on-map-btn" type="button" data-action="showonmap" data-pid="${p.id}">${svgIcon("map")}${hasCoords ? "Show pin on the Map page" : "Show county on the Map page"}</button>`;
   return detailSectionHtml("GIS & Location", `<div class="kv-list">${kv}${coordRows}</div>${embed}${mapBtn}`, "", "map");
+}
+// The GIS card's live mini-map (2026-11-10). Only when the record has
+// coordinates and config.js names a MapTiler key does anything load: then
+// map-3d.js (lazy import; package P5) draws an interactive satellite map at
+// the record's own point, with the parcel outline when one was published for
+// it (the same fetch the picture's outline uses, boundaryFor). A "Tilt"
+// button pitches the camera. It mounts when the GIS block is first opened -
+// never for a block nobody opens - and any failure (no module, no key, a
+// style that does not load) leaves the card's existing embed untouched. No
+// stored screenshot, never a blank box.
+function gisLiveConfigured(p) {
+  const c = window.TDW_CONFIG || {};
+  const key = typeof c.maptilerKey === "string" ? c.maptilerKey.trim() : "";
+  return !!key && !!p && hasNum(p.latitude) && hasNum(p.longitude);
+}
+var GIS_LIVE = null;   // the one live mini-map; a new one releases the last (WebGL contexts are scarce)
+function hydrateGisLive(root, p) {
+  const el = root && root.querySelector(`[data-gis-live="${cssEscape(String(p.id))}"]`);
+  if (!el || el.dataset.gisLiveState || !gisLiveConfigured(p)) return;
+  const fold = el.closest("details");
+  const go = () => {
+    if (el.dataset.gisLiveState) return;
+    el.dataset.gisLiveState = "loading";
+    import("./map-3d.js").then(m => (m && typeof m.mountGisMap === "function")
+      ? m.mountGisMap(el, { lat: Number(p.latitude), lng: Number(p.longitude), propertyId: p.id, row: p, ledger: p.source, boundaryFetcher: (pid, row) => boundaryFor(pid, row) })
+      : { status: "error" })
+      .then(res => {
+        el.dataset.gisLiveState = res && res.status ? res.status : "error";
+        if (!res || res.status !== "ready" || !res.map) return;
+        if (GIS_LIVE && GIS_LIVE !== res) { try { GIS_LIVE.destroy(); } catch { /* already gone */ } }
+        GIS_LIVE = res;
+        const reduce = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: no-preference)").matches);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "gis-tilt-btn";
+        btn.setAttribute("aria-pressed", "false");
+        btn.textContent = "Tilt";
+        btn.title = "Tilt the camera to see the terrain - the parcel outline itself stays flat";
+        btn.addEventListener("click", () => {
+          const on = btn.getAttribute("aria-pressed") !== "true";
+          btn.setAttribute("aria-pressed", String(on));
+          btn.textContent = on ? "Flat" : "Tilt";
+          try { res.map.easeTo({ pitch: on ? 55 : 0, duration: reduce ? 0 : 700 }); } catch { /* map gone */ }
+        });
+        el.appendChild(btn);
+      })
+      .catch(() => { el.dataset.gisLiveState = "error"; });
+  };
+  if (!fold || fold.open) { go(); return; }
+  fold.addEventListener("toggle", function once() { if (fold.open) { fold.removeEventListener("toggle", once); go(); } });
 }
 // Kept as the exact original .detail-provenance markup/text (two plain
 // <span>s: "Data source: X" and lastSyncedText()'s own wording) inside the
@@ -11085,6 +11139,7 @@ function openDetail(p) {
   if (p.source !== "certificate") hydrateEventHistory(inner, p);
   if (p.source === "laft") hydrateInventoryHistory(inner, p);
   hydrateChangeHistory(inner, p);
+  hydrateGisLive(inner, p);
   researchAfterOpen(p);
   if (wasHidden) track("property_viewed", { property_id: p.id, ledger: p.source });
   observeAcquisitionSection(inner, p);
@@ -15558,6 +15613,7 @@ function selectProperty(p) {
   if (p.source !== "certificate") hydrateEventHistory(panel, p);
   if (p.source === "laft") hydrateInventoryHistory(panel, p);
   hydrateChangeHistory(panel, p);
+  hydrateGisLive(panel, p);
   researchAfterOpen(p);
   observeAcquisitionSection(panel, p);
   document.querySelectorAll(".data-table tbody tr[data-pid]").forEach(tr => {

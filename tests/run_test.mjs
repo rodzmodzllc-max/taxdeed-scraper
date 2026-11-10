@@ -8737,16 +8737,16 @@ const EXPECTED = {
   // accrued-interest/TDA-eligibility tips.
   infoTipCount: 7,
   junkLandRowHiddenOnAuction: true,
-  exportBtnLabelAuction: '⬇ Export list (CSV)'   // one label for every ledger (2026-11-10),
+  exportBtnLabelAuction: '⬇ Export list (CSV)',   // one label for every ledger (2026-11-10)
   spreadBarPresentP1: 0,  // the equity spread bar left the card face (2026-10-11)
-  exportBtnLabelCertificate: '⬇ Export list (CSV)'   // one label for every ledger (2026-11-10),
+  exportBtnLabelCertificate: '⬇ Export list (CSV)',   // one label for every ledger (2026-11-10)
   csvCertAccruedPlausible: true,
   csvCertTdaDate: '2025-06-01',
   certDetailHasAccrued: true,
   certDetailHasTotalReturn: true,
   certDetailTdaEligibleNow: true,
   certDetailYieldInfoTips: 2,
-  exportBtnLabelLaft: '⬇ Export list (CSV)'   // one label for every ledger (2026-11-10),
+  exportBtnLabelLaft: '⬇ Export list (CSV)',   // one label for every ledger (2026-11-10)
   laftPurchasePriceLabel: 'Opening bid',   // 2026-10-05: an opening bid is never called the purchase price
   laftCtaText: "How to acquire →",   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
   bidListChipTextInitial: '0/10',
