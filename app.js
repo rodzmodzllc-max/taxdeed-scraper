@@ -15337,7 +15337,10 @@ function renderMapPage() {
   // from the same helpers the List cards use (cardStamp, bidListBtnHtml), so
   // the map never words a status or a watch state on its own.
   const rendered = { rows, ledger: mapFilter.ledger, openDetail, previewFacts, propertyVisual, hydrateVisuals, amountShort,
-    cardStamp, watchBtn: p => bidListBtnHtml(p, "card"), isWatched: id => BIDLIST.has(id), unitWord: UNIT_WORD, unitLabel: unitLabelOf };
+    cardStamp, watchBtn: p => bidListBtnHtml(p, "card"), isWatched: id => BIDLIST.has(id), unitWord: UNIT_WORD, unitLabel: unitLabelOf,
+    // 2026-11-10 (3D / GIS map): satellite-map.js reads the validated parcel
+    // boundary through this, so a selected property shows its outline.
+    boundaryFor };
   window.__tdwMapLastRender = rendered;
   window.dispatchEvent(new CustomEvent("tdw:maprendered", { detail: rendered }));
 }
