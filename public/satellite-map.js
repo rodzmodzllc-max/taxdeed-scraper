@@ -971,6 +971,19 @@ function maptilerFrame(boundary, focus) {
   if (!map || !M3 || selection.pid == null || selection.lat == null || selection.lng == null) return;
   const inset = Object.assign({}, ZERO_PAD, selection.inset || {});
   const c = map.getContainer ? map.getContainer() : null;
+  // The stage's top overlays (Satellite/Streets, 3D, the parcel credit) cover
+  // the band above the peek sheet on a phone: frame the parcel below them.
+  if (c && c.getBoundingClientRect) {
+    const top = c.getBoundingClientRect().top;
+    let low = 0;
+    ["mapImageryToggle", "mapDepthToggle", "mapParcelCredit"].forEach(id => {
+      const el = $(id);
+      if (!el || el.hidden || !el.offsetParent) return;
+      const r = el.getBoundingClientRect();
+      if (r.height) low = Math.max(low, r.bottom - top + 8);
+    });
+    if (low > (inset.top || 0)) inset.top = Math.round(low);
+  }
   let cam;
   if (boundary && boundary.bbox) {
     cam = M3.cameraForBbox(boundary.bbox, { width: (c && c.clientWidth) || 800, height: (c && c.clientHeight) || 600, padding: inset });
@@ -1024,6 +1037,12 @@ function syncDepthToggle() {
   if (btn) { btn.setAttribute("aria-pressed", depthOn ? "true" : "false"); btn.classList.toggle("on", depthOn); }
   const text = depthOn && M3 ? M3.depthCaption(depthResult) : "";
   if (cap) { cap.textContent = text; cap.hidden = !text; }
+  // Below 1024px the caption is hidden (explore.css) to free the band above
+  // the peek sheet; its text rides on the button instead.
+  if (btn) {
+    btn.title = text || "Show terrain and buildings in 3D";
+    if (text) btn.setAttribute("aria-describedby", "mapDepthCaption"); else btn.removeAttribute("aria-describedby");
+  }
 }
 function setDepth(on) {
   depthOn = !!on;

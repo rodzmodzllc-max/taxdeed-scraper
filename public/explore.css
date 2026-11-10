@@ -1161,6 +1161,18 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
 .satellite-map-canvas[data-ledger="laft"] .sat-county-bubble{background:var(--sage,#4E6B54)}
 .satellite-map-canvas[data-ledger="auction"] .sat-county-bubble{background:var(--rust,#A4512A)}
 .satellite-map-canvas[data-ledger="certificate"] .sat-county-bubble{background:var(--plum,#6B4A6E)}
+/* All-ledgers bubbles are charcoal, which inverts in the dark theme: the
+   count follows with --paper-white (white in light, deep green in dark). The
+   ledger colours stay dark in both themes and keep white figures. */
+.satellite-map-canvas .sat-county-bubble,.satellite-map-canvas .sat-county-bubble.sel{color:var(--paper-white,#fff)}
+.satellite-map-canvas[data-ledger="laft"] .sat-county-bubble:not(.sel),
+.satellite-map-canvas[data-ledger="auction"] .sat-county-bubble:not(.sel),
+.satellite-map-canvas[data-ledger="certificate"] .sat-county-bubble:not(.sel){color:#fff}
+.cluster-bubble text{fill:var(--paper-white,#fff)}
+.explore-map-canvas[data-ledger="laft"] .cluster-bubble:not(.sel) text,
+.explore-map-canvas[data-ledger="auction"] .cluster-bubble:not(.sel) text,
+.explore-map-canvas[data-ledger="certificate"] .cluster-bubble:not(.sel) text{fill:#fff}
+.cluster-bubble.sel text{fill:#fff} /* the selected bubble is deep forest in both themes */
 
 /* Side panel density: a touch more air between the rail, legend and note. */
 .map-side-body{gap:.75rem}
@@ -1185,8 +1197,10 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
 @media (max-width:1023px){ .explore-preview.mp .mp-sv{min-height:44px;padding:0 .5rem;font-size:.7rem} }
 
 /* The Street View panel over the stage. */
-.map-sv{position:absolute;z-index:9;inset:.75rem .75rem auto auto;width:min(520px,calc(100% - 1.5rem));
-  height:min(360px,calc(100% - 1.5rem));display:flex;flex-direction:column;background:var(--card);
+/* Desktop: below the stage's top-right overlay stack (Satellite/Streets, 3D
+   and its caption), so those stay reachable while the panel is open. */
+.map-sv{position:absolute;z-index:9;inset:7rem .75rem auto auto;width:min(520px,calc(100% - 1.5rem));
+  height:min(360px,calc(100% - 7.75rem));display:flex;flex-direction:column;background:var(--card);
   border:1px solid var(--card-line);border-radius:8px;box-shadow:0 12px 32px rgba(15,23,42,.28);overflow:hidden}
 .map-sv-head{display:flex;align-items:center;gap:.5rem;padding:.35rem .4rem .35rem .75rem;border-bottom:1px solid var(--card-line)}
 .map-sv-head b{font-size:.78rem}
@@ -1195,7 +1209,7 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
 .map-sv-pano{position:relative;flex:1;min-height:0;background:var(--paper)}
 .map-sv-msg{margin:0;padding:1rem;font-size:.8rem;color:var(--ink-soft)}
 .map-sv-note{margin:0;padding:.35rem .75rem .45rem;font-size:.64rem;line-height:1.4;color:var(--ink-soft);border-top:1px solid var(--card-line)}
-@media (max-width:1023px){ .map-sv{inset:.5rem .5rem auto .5rem;width:auto;height:min(380px,calc(100% - 1rem))} }
+@media (max-width:1023px){ .map-sv{inset:.5rem .5rem auto .5rem;width:auto;height:min(380px,calc(100% - 1rem))} } /* max-height: fitStreetView() */
 
 /* 3D toggle (MapTiler only, satellite-map.js): under the imagery toggle. */
 .map-depth-toggle{position:absolute;top:3rem;right:.6rem;z-index:4;display:flex;flex-direction:column;align-items:flex-end;gap:.3rem}
@@ -1208,7 +1222,7 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
 .map-depth-caption{font-size:.62rem;font-weight:600;color:var(--ink);background:color-mix(in srgb,var(--card) 90%,transparent);
   border:1px solid var(--card-line);border-radius:3px;padding:.15rem .4rem;white-space:nowrap}
 .map-depth-caption[hidden]{display:none}
-@media (max-width:1023px){ .map-depth-toggle button{min-height:44px} }
+@media (max-width:1023px){ .map-depth-toggle button{min-height:44px} .map-depth-caption:not(#_){display:none} }
 
 /* The parcel outline's credit whenever a basemap draws it: one line, the
    full credit (licence, change notice, freshness, disclaimer, metadata) one

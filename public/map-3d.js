@@ -149,9 +149,13 @@ export function mercNorm(lng, lat) {
 export function cameraForBbox(bbox, view) {
   const v = Object.assign({ width: 800, height: 600, padding: null, pitch: SELECT_PITCH, bearing: SELECT_BEARING, maxZoom: PARCEL_MAX_ZOOM, margin: 48 }, view || {});
   const pad = Object.assign({ top: 0, right: 0, bottom: 0, left: 0 }, v.padding || {});
-  const m = v.margin;
-  const availW = Math.max(40, v.width - pad.left - pad.right - 2 * m);
-  const availH = Math.max(40, v.height - pad.top - pad.bottom - 2 * m);
+  // The margin shrinks with the space left between the overlays, so a small
+  // band (a phone with the peek sheet up) still frames the parcel at a
+  // sensible zoom instead of collapsing to the 40px floor.
+  const rawW = v.width - pad.left - pad.right, rawH = v.height - pad.top - pad.bottom;
+  const mW = Math.max(0, Math.min(v.margin, rawW * 0.15)), mH = Math.max(0, Math.min(v.margin, rawH * 0.15));
+  const availW = Math.max(40, rawW - 2 * mW);
+  const availH = Math.max(40, rawH - 2 * mH);
   const [x0, y1] = mercNorm(bbox.minX, bbox.minY);
   const [x1, y0] = mercNorm(bbox.maxX, bbox.maxY);
   const dx = Math.max(1e-12, x1 - x0), dy = Math.max(1e-12, y1 - y0);
