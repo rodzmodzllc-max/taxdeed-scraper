@@ -66,6 +66,7 @@ function apiOf(detail) {
 // ---------------------------------------------------------------- lifecycle
 
 function deactivate() {
+  removePanel();
   const stage = stageEl();
   if (stage && stage.dataset.xp === NAME) { stage.innerHTML = ""; delete stage.dataset.xp; }
   if (document.documentElement.dataset.experienceReady === NAME) delete document.documentElement.dataset.experienceReady;
@@ -85,6 +86,7 @@ function draw(detail) {
     if (stage.dataset.xp === NAME) { stage.innerHTML = ""; delete stage.dataset.xp; }
     if (document.documentElement.dataset.experienceReady === NAME) delete document.documentElement.dataset.experienceReady;
     S.key = "";
+    removePanel();
     return;
   }
   if (ledger !== S.ledger) {
@@ -121,6 +123,7 @@ function draw(detail) {
     S.html = html;
     document.documentElement.dataset.experienceReady = NAME;
     S.deckAnim = null;
+    fillPanelSoon();
     return;
   }
   S.html = html;
@@ -148,6 +151,7 @@ function draw(detail) {
     if (el) { try { el.focus({ preventScroll: true }); } catch {} }
   }
   S.deckAnim = null;
+  fillPanelSoon();
 }
 
 function redraw() { if (S.last) draw(S.last); }
@@ -203,6 +207,9 @@ function updateDeck() {
   if (!oldDeck || !newDeck || !oldCtl || !newCtl) { redraw(); return; }
   const ae = document.activeElement;
   const ctlFocus = ae && oldCtl.contains(ae) ? ae.getAttribute("data-k") : null;
+  // A placard that had keyboard focus (arrow keys on the deck) hands it to
+  // the placard that lands, so Left / Right keep moving the deck.
+  const deckFocus = !!(ae && oldDeck.contains(ae));
   oldDeck.replaceWith(newDeck);
   oldCtl.replaceWith(newCtl);
   const grid = stage.querySelector(".xpt-lot-grid"), newGrid = tmp.querySelector(".xpt-lot-grid");
@@ -213,8 +220,13 @@ function updateDeck() {
   try { api.hydrateVisuals(newDeck); } catch {}
   // Keyboard focus stays on Next / Previous when the controls are swapped.
   if (ctlFocus) { const b = newCtl.querySelector(`[data-k="${ctlFocus}"]`); if (b) { try { b.focus({ preventScroll: true }); } catch {} } }
+  else if (deckFocus) {
+    const f = newDeck.querySelector(".xpt-placard.flipped .back-head") || newDeck.querySelector(".xpt-placard .face.front");
+    if (f) { try { f.focus({ preventScroll: true }); } catch {} }
+  }
   S.deckAnim = null;
-  rememberBuild();          // the stage now matches a build with this lot on top
+  rememberBuild();
+  fillPanelSoon();          // the stage now matches a build with this lot on top
 }
 
 // Record the markup a full build would give for the stage as it now stands
@@ -952,10 +964,18 @@ function onClick(e) {
 }
 
 function onKey(e) {
-  if (e.key !== "Escape") return;
   const stage = stageEl();
   if (!stage || stage.dataset.xp !== NAME || !isActive()) return;
   if (!stage.contains(document.activeElement)) return;
+  // Left / Right move the deck while focus is on the deck or its controls
+  // (2026-11-10), the keyboard twin of a swipe. The sale-day rail and the
+  // lot grid keep their own arrow-key scrolling.
+  if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && S.ledger === "auction" && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+    const at = document.activeElement.closest(".xpt-deck, .xpt-deck-ctl");
+    if (at && stage.contains(at)) { e.preventDefault(); deckStep(e.key === "ArrowRight" ? 1 : -1); }
+    return;
+  }
+  if (e.key !== "Escape") return;
   if (S.folder) { const id = S.folder; S.folder = null; redraw(); const b = stage.querySelector(`[data-k="fold-${id.replace(/["\\]/g, "")}"]`); if (b) b.focus(); }
   else if (S.fan !== null) { const k = S.fan; S.fan = null; redraw(); const b = stage.querySelector(`[data-k="fan-${String(k).replace(/["\\]/g, "")}"]`); if (b) b.focus(); }
 }
@@ -1007,14 +1027,18 @@ function endDrag(e) {
   if (Math.abs(dx) >= SWIPE_PX && lots.length > 1) {
     const dir = dx < 0 ? 1 : -1;
     if (reduced()) { card.style.transform = ""; deckStep(dir, true); return; }
-    card.style.transition = "transform 200ms ease-in, opacity 200ms ease-in";
+    card.style.transition = "transform 220ms cubic-bezier(.3,0,.8,.15), opacity 220ms cubic-bezier(.3,0,.8,.15)";
     card.style.transform = `translateX(${dx < 0 ? -460 : 460}px) rotate(${dx < 0 ? -14 : 14}deg)`;
     card.style.opacity = "0";
     setTimeout(() => deckStep(dir, true), 190);
-  } else {
-    card.style.transition = "transform 260ms cubic-bezier(.2,.9,.3,1.2)";
+  } else if (reduced()) {
     card.style.transform = "";
-    setTimeout(() => { card.style.transition = ""; }, 280);
+  } else {
+    // A short drag springs back from where the finger let go (a damped
+    // overshoot, not a snap), so the placard reads as paper, not a widget.
+    card.style.transition = "transform 420ms linear(0,.24 7%,.62 15%,.9 24%,1.04 32%,1.06 38%,1.03 48%,.995 62%,1)";
+    card.style.transform = "";
+    setTimeout(() => { card.style.transition = ""; }, 440);
   }
 }
 document.addEventListener("pointerup", endDrag);
@@ -1032,3 +1056,81 @@ else if (!isActive()) deactivate();
 // The unit's display name: an independent city stored as its own unit ("St. Louis
 // City") is never "<city> County" (audit F35; app.js unitLabelOf).
 function unitName(api, c) { return api.unitLabel ? api.unitLabel(c) : (/\bcity$/i.test(String(c || "")) ? String(c) : c + " " + api.unitWord()); }
+
+
+// ------------------------------------------------------- desktop side panel
+// Merged look, wide List (2026-11-10): the property panel beside the stage
+// used to say only "Select a property..." until a click. While nothing is
+// selected it now carries a summary of the sale day on top of the deck,
+// built only from the rows in view and the api's own labels. Chosen over
+// auto-selecting the top placard, which would record a property view nobody
+// made and rewrite the address bar. The panel stays app.js's: selecting a
+// property replaces this, clearing the panel brings its empty state back
+// and this fills it again (a MutationObserver watches for that).
+// The total in view is the List title's number alone; the summary names
+// only what the title does not (counties, sale days, ways in).
+// var, not let: draw() runs from the wiring above before this line is reached.
+var PANEL_MO = null, PANEL_T = 0;
+function fillPanelSoon() {
+  if (PANEL_T) return;
+  PANEL_T = setTimeout(() => { PANEL_T = 0; fillPanel(); }, 0);
+}
+function removePanel() {
+  const panel = document.getElementById("detailPanel");
+  const own = panel && panel.querySelector(`:scope > .xp-panelsum[data-xp="${NAME}"]`);
+  if (own) own.remove();
+}
+function fillPanel() {
+  const panel = document.getElementById("detailPanel");
+  if (!panel) return;
+  if (!PANEL_MO && typeof MutationObserver === "function") {
+    PANEL_MO = new MutationObserver(() => { if (isActive()) fillPanelSoon(); });
+    PANEL_MO.observe(panel, { childList: true });
+  }
+  const empty = panel.querySelector(":scope > .detail-panel-empty");
+  const api = apiOf(S.last);
+  const rows = S.last && Array.isArray(S.last.rows) ? S.last.rows : [];
+  if (!isActive() || S.ledger !== "auction" || !empty || !api || !rows.length || document.documentElement.dataset.experienceReady !== NAME) { removePanel(); return; }
+  const html = auctionPanelHtml(rows, api);
+  const old = panel.querySelector(":scope > .xp-panelsum");
+  if (old && old.dataset.xp === NAME && old.__html === html) return;
+  const box = document.createElement("section");
+  box.className = "xp-panelsum";
+  box.dataset.xp = NAME;
+  box.setAttribute("aria-label", "Summary of the lots in this list");
+  box.innerHTML = html;
+  box.__html = html;
+  if (old) old.replaceWith(box); else panel.insertBefore(box, empty);
+}
+function auctionPanelHtml(rows, api) {
+  const esc = api.esc;
+  const groups = groupDays(rows);
+  const g = groups.find(x => x.day === S.day) || groups[0];
+  const lots = g.rows;
+  const top = rowById(S.deckId) || lots[0];
+  const pf = api.previewFacts(top);
+  const days = g.day ? daysBetween(g.day) : null;
+  const counties = new Set(rows.map(p => p.county).filter(Boolean)).size;
+  const dayCounties = Array.from(new Set(lots.map(p => p.county).filter(Boolean)));
+  const proc = ((pf.more || []).find(r => r[0] === "Sale process") || [])[1] || "Not yet verified";
+  const link = pf.link && safeUrl(pf.link.href) ? `<a class="xps-link" href="${esc(safeUrl(pf.link.href))}" target="_blank" rel="noopener">${esc(pf.link.label)}<span aria-hidden="true"> ↗</span></a>` : "";
+  const t = titleHtml(top, api);
+  const unit = String(api.unitWord() || "County").toLowerCase();
+  const plural = unitPlural(api);
+  return `<p class="xps-k">In this list</p>
+    <h3 class="xps-t">${groups.length} sale ${groups.length === 1 ? "day" : "days"} across ${counties} ${counties === 1 ? unit : plural}</h3>
+    <dl class="xps-facts">
+      <div><dt>Sale day on the deck</dt><dd>${g.day ? esc(api.fmtDateLong(g.day)) : "Sale date not scheduled"}<span class="xps-sub">${esc(countdown(days))}</span></dd></div>
+      <div><dt>Lots that day</dt><dd>${lots.length} ${lots.length === 1 ? "lot" : "lots"}${dayCounties.length === 1 ? ` · ${esc(unitName(api, dayCounties[0]))}` : ""}</dd></div>
+      <div><dt>Sale process</dt><dd>${esc(proc)}</dd></div>
+    </dl>
+    ${link ? `<p class="xps-how"><span class="xps-k">Where bidding happens</span>${link}</p>` : ""}
+    <button type="button" class="xps-open" data-xps-open="${esc(idOf(top))}">Open the top placard<span class="xps-open-t">${t.html}</span></button>
+    <p class="xps-hint">Or pick any lot to see its full page here.</p>`;
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest('#detailPanel .xp-panelsum[data-xp="' + NAME + '"] [data-xps-open]');
+  if (!b || !isActive()) return;
+  const p = rowById(b.dataset.xpsOpen), api = apiOf(S.last);
+  if (p && api) api.openDetail(p);
+});

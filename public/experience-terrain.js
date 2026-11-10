@@ -68,6 +68,7 @@ function urgency(i) { return i === 0 ? "u-today" : i <= 3 ? "u-near" : i <= 14 ?
 function stageEl() { return document.getElementById("xpStage"); }
 function active() { const x = window.__tdwExperience; return !!(x && x.name === NAME); }
 function teardown() {
+  removePanel();
   const stage = stageEl();
   if (STORY_IO) { STORY_IO.disconnect(); STORY_IO = null; }
   if (stage && stage.dataset.xp === NAME) { stage.innerHTML = ""; delete stage.dataset.xp; }
@@ -120,6 +121,7 @@ function draw(detail, opts) {
     try { api.installCountyNowBar(stage, ledger === "laft" ? { beforeJump: head => fillStoriesBefore(stage, head) } : undefined); } catch {}
   }
   document.documentElement.dataset.experienceReady = NAME;
+  fillPanelSoon();
 }
 
 // ---------- shared bits ----------
@@ -497,15 +499,42 @@ function availableCard(p, api, i, headTrail) {
       <div class="xt-lot-k">${api.cardKickerHtml(p, LIST_CTX)}</div>
       <h4 class="xt-lot-t">${titleHtml(p, api)}</h4>
       <div class="xt-ids">${idRow(p, api)}</div>
+      ${cardStampHtml(p, api)}
       <div class="xt-figs">
         <div class="xt-fig xt-fig-main"><span class="xt-lbl">${api.esc(amt.label)}</span><span class="xt-num${amt.state === "not_published" ? " np" : ""}">${api.esc(amt.text)}</span></div>
         <div class="xt-fig"><span class="xt-lbl">${api.esc(pf.valueLabel || "County value")}</span><span class="xt-num xt-num-s${pf.value ? "" : " np"}">${api.esc(pf.value || "Not published")}</span></div>
       </div>
-      ${note ? `<p class="xt-amt-note">${api.esc(note)}</p>` : ""}
+      ${amountNoteHtml(note, api)}
       ${headTrail && trail === headTrail ? "" : trail}
       <div class="xt-actions">${openBtn(p, api, "xt-btn-primary xt-sage")}${watchBtn(p, api)}</div>
     </div>
   </article>`;
+}
+
+// The card's one status stamp, from the record's own data (api.cardStamp,
+// the same decision the Classic card stamps with): Verified path / Dated
+// list / Path not yet verified / No longer listed. Shown under the card's
+// identifiers, so the two looks never disagree (2026-11-10).
+const STAMP_KIND = { "stamp-verified": "verified", "stamp-closed": "closed", "stamp-muted": "muted", "stamp-sold": "closed", "stamp-redeemed": "closed", "stamp-soon": "muted", "stamp-date": "muted" };
+function cardStampHtml(p, api) {
+  if (typeof api.cardStamp !== "function") return "";
+  let st = null;
+  try { st = api.cardStamp(p); } catch { st = null; }
+  if (!st || !st.label) return "";
+  return `<span class="xt-stamp k-${STAMP_KIND[st.cls] || "muted"}" data-stamp="${api.esc(st.key || "")}"${st.title ? ` title="${api.esc(st.title)}"` : ""}>${api.esc(st.label)}</span>`;
+}
+
+// The figure's caveat (amountInfo().note, e.g. "Not the price to buy now:
+// the county's total adds ...") is folded, never dropped (2026-11-10): its
+// lead clause stays on the card as the disclosure's summary and the full
+// sentence opens beneath it. A note with no short lead clause folds under
+// "About this figure".
+function amountNoteHtml(note, api) {
+  const t = String(note || "").trim();
+  if (!t) return "";
+  const m = /^([^:.;]{4,48})[:;.]\s*(.+)$/s.exec(t);
+  const lead = m ? m[1] : "About this figure";
+  return `<details class="xt-amt-note"><summary><span class="xt-amt-lead">${api.esc(lead)}</span><span class="xt-amt-why" aria-hidden="true">Why</span></summary><p>${api.esc(t)}</p></details>`;
 }
 
 function trailInfo(p, api) {
@@ -751,3 +780,90 @@ window.addEventListener("tdw:experience", () => {
   draw(window.__tdwLastRender);
 });
 if (active() && window.__tdwLastRender) draw(window.__tdwLastRender);
+
+
+// ---------- desktop side panel (Merged, 2026-11-10) ----------
+// While no property is selected on a wide List, the panel beside the stage
+// carries a summary of the properties in view: how many, across how many
+// counties, and the ways in the records themselves state (acquisitionOf,
+// each with how many properties it covers - never a per-county count, which
+// lives only in the shared county bar). Chosen over auto-selecting the
+// first property, which would record a property view nobody made and
+// rewrite the address bar. The panel stays app.js's: selecting a property
+// replaces this, clearing it brings the empty state back and this refills.
+// The total in view is the List title's number alone; the summary names
+// only what the title does not (counties, sale days, ways in).
+// var, not let: draw() runs from the wiring above before this line is reached.
+var PANEL_MO = null, PANEL_T = 0;
+function fillPanelSoon() {
+  if (PANEL_T) return;
+  PANEL_T = setTimeout(() => { PANEL_T = 0; fillPanel(); }, 0);
+}
+function removePanel() {
+  const panel = document.getElementById("detailPanel");
+  const own = panel && panel.querySelector(`:scope > .xp-panelsum[data-xp="${NAME}"]`);
+  if (own) own.remove();
+}
+function fillPanel() {
+  const panel = document.getElementById("detailPanel");
+  if (!panel) return;
+  if (!PANEL_MO && typeof MutationObserver === "function") {
+    PANEL_MO = new MutationObserver(() => { if (active()) fillPanelSoon(); });
+    PANEL_MO.observe(panel, { childList: true });
+  }
+  const empty = panel.querySelector(":scope > .detail-panel-empty");
+  const api = (LAST && LAST.api) || (window.__tdwExperience && window.__tdwExperience.api);
+  const rows = LAST && Array.isArray(LAST.rows) ? LAST.rows : [];
+  if (!active() || S.scene !== "laft" || !empty || !api || !rows.length || document.documentElement.dataset.experienceReady !== NAME) { removePanel(); return; }
+  const html = availablePanelHtml(rows, api);
+  const old = panel.querySelector(":scope > .xp-panelsum");
+  if (old && old.dataset.xp === NAME && old.__html === html) return;
+  const box = document.createElement("section");
+  box.className = "xp-panelsum";
+  box.dataset.xp = NAME;
+  box.setAttribute("aria-label", "Summary of the properties in this list");
+  box.innerHTML = html;
+  box.__html = html;
+  if (old) old.replaceWith(box); else panel.insertBefore(box, empty);
+}
+function availablePanelHtml(rows, api) {
+  const esc = api.esc;
+  const counties = new Set(rows.map(p => p.county).filter(Boolean)).size;
+  const unit = api.unitWord ? String(api.unitWord()) : "County";
+  const unitL = unit.toLowerCase();
+  const plural = /[^aeiou]y$/.test(unitL) ? unitL.slice(0, -1) + "ies" : /(s|sh|ch|x|z)$/.test(unitL) ? unitL + "es" : unitL + "s";
+  // The ways in, as the records state them. Verified ways first (by how
+  // many properties they cover), then the unverified remainder.
+  const ways = new Map();
+  let unverified = 0, noPath = 0;
+  for (const p of rows) {
+    let a = null;
+    try { a = api.acquisitionOf(p); } catch {}
+    if (!a || !a.verified) { if (a && a.mode === "none") noPath++; else unverified++; continue; }
+    const k = String(a.label || "Verified process");
+    ways.set(k, (ways.get(k) || 0) + 1);
+  }
+  const word = c => `${n(c)} ${c === 1 ? "property" : "properties"}`;
+  const sorted = [...ways.entries()].sort((a, b) => b[1] - a[1]);
+  const list = sorted.slice(0, 4).map(([k, c]) => `<li><span>${esc(k)}</span><span class="xps-sub">${word(c)}</span></li>`);
+  const rest = sorted.slice(4).reduce((t, e) => t + e[1], 0);
+  if (rest) list.push(`<li><span>Other verified ways</span><span class="xps-sub">${word(rest)}</span></li>`);
+  if (unverified) list.push(`<li class="unv"><span>Not yet verified</span><span class="xps-sub">${word(unverified)}</span></li>`);
+  if (noPath) list.push(`<li class="unv"><span>No purchase path (stated by the source)</span><span class="xps-sub">${word(noPath)}</span></li>`);
+  const first = rows[0];
+  const t = api.realAddress(first) ? esc(api.realAddress(first)) : api.lotTitle(first);
+  const where = api.unitLabel ? api.unitLabel(first.county) : first.county + " " + unit;
+  return `<p class="xps-k">In this list</p>
+    <h3 class="xps-t">Across ${n(counties)} ${counties === 1 ? unitL : plural}</h3>
+    <div class="xps-how"><span class="xps-k">How to acquire here</span><ul class="xps-ways">${list.join("")}</ul></div>
+    <button type="button" class="xps-open" data-xps-open="${esc(String(first.id))}">Open the first property<span class="xps-open-t">${t} · ${esc(where)}</span></button>
+    <p class="xps-hint">Or pick any property to see its full page here.</p>`;
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest('#detailPanel .xp-panelsum[data-xp="' + NAME + '"] [data-xps-open]');
+  if (!b || !active()) return;
+  const id = String(b.dataset.xpsOpen);
+  const p = BY_ID.get(id) || ((LAST && LAST.rows) || []).find(r => String(r.id) === id);
+  const api = (LAST && LAST.api) || (window.__tdwExperience && window.__tdwExperience.api);
+  if (p && api) api.openDetail(p);
+});
