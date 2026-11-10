@@ -221,7 +221,7 @@ html[data-experience="merged"] .xpm.xpm-enter .xpm-line,html[data-experience="me
 #detailPanel .xp-panelsum .xps-ways li{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;line-height:19px;color:var(--ink,#202925)}
 #detailPanel .xp-panelsum .xps-ways li .xps-sub{display:inline;white-space:nowrap}
 #detailPanel .xp-panelsum .xps-ways li.unv{font-style:italic;color:var(--ink-soft,#56695E)}
-#detailPanel .xp-panelsum .xps-link{align-self:flex-start;font-weight:600;font-size:13.5px;color:var(--ink,#202925);text-decoration:underline;text-underline-offset:3px;min-height:32px;display:inline-flex;align-items:center}
+#detailPanel .xp-panelsum .xps-link{align-self:flex-start;font-weight:600;font-size:13.5px;color:var(--ink,#202925);text-decoration:underline;text-underline-offset:3px;min-height:32px;display:inline-flex;align-items:center;gap:4px}
 #detailPanel .xp-panelsum .xps-open{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:52px;margin:4px 0 0;padding:10px 16px;border:0;border-radius:12px;background:var(--xps-acc);color:#FDFDFB;font:600 14px/18px var(--font-sans);text-align:left;cursor:pointer}
 #detailPanel .xp-panelsum .xps-open-t{display:block;max-width:100%;font-weight:400;font-size:12.5px;line-height:17px;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #detailPanel .xp-panelsum .xps-open:hover{filter:brightness(.92)}

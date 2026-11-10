@@ -67,6 +67,9 @@
 
 /* -- Section index: sticky under the close button, one scrolling row ---- */
 .detail-nav{position:sticky;top:-1rem;z-index:3}
+/* In the modal the sticky close button (x) shares the top band with this row:
+   the row stops short of it, so its last pill is never under the x. */
+#detailModalInner > .detail-nav:not(#_){margin-right:3rem;scroll-padding-right:.5rem}
 .detail-nav-label{flex:0 0 auto;align-self:center;font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);padding:0 .35rem 0 .1rem}
 @media (min-width:769px){ .detail-nav-label{display:none} }
 /* Phone: the section index comes back as a compact "Contents" scroller

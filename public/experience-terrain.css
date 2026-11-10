@@ -394,7 +394,7 @@ html[data-experience="terrain"] #xpStage[hidden]{display:none}
 #detailPanel .xp-panelsum .xps-ways li{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;line-height:19px;color:var(--ink,#202925)}
 #detailPanel .xp-panelsum .xps-ways li .xps-sub{display:inline;white-space:nowrap}
 #detailPanel .xp-panelsum .xps-ways li.unv{font-style:italic;color:var(--ink-soft,#56695E)}
-#detailPanel .xp-panelsum .xps-link{align-self:flex-start;font-weight:600;font-size:13.5px;color:var(--ink,#202925);text-decoration:underline;text-underline-offset:3px;min-height:32px;display:inline-flex;align-items:center}
+#detailPanel .xp-panelsum .xps-link{align-self:flex-start;font-weight:600;font-size:13.5px;color:var(--ink,#202925);text-decoration:underline;text-underline-offset:3px;min-height:32px;display:inline-flex;align-items:center;gap:4px}
 #detailPanel .xp-panelsum .xps-open{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:52px;margin:4px 0 0;padding:10px 16px;border:0;border-radius:12px;background:var(--xps-acc);color:#FDFDFB;font:600 14px/18px var(--font-sans);text-align:left;cursor:pointer}
 #detailPanel .xp-panelsum .xps-open-t{display:block;max-width:100%;font-weight:400;font-size:12.5px;line-height:17px;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #detailPanel .xp-panelsum .xps-open:hover{filter:brightness(.92)}
@@ -476,6 +476,9 @@ html[data-experience="terrain"] .county-now .cnb-list{border-radius:0 0 14px 14p
 :root[data-theme="dark"] .xp-terrain .loc-panel .loc-main{color:#202925}
 :root[data-theme="dark"] .xp-terrain .loc-panel .loc-link{color:#8A3F1E}
 :root[data-theme="dark"][data-experience="terrain"] .county-now{background:rgba(253,253,251,.96);border-color:#D8DED6;color:#202925}
+/* Its OS-dark twin: identity.css paints .county-now dark under an OS dark
+   preference with no data-theme (Theme: Auto); this one outranks it (0,4,0). */
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"])[data-experience="terrain"] .county-now{background:rgba(253,253,251,.96);border-color:#D8DED6;color:#202925}}
 /* AA (2026-11-10): a done waypoint's number was paper on the pale sage glow
    (2:1); it reads deep sage on soft sage now (6:1), still quieter than an
    active step. */
