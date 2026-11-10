@@ -9,8 +9,8 @@
  },
  "denominators": {
   "acquisition_by_status": {
-   "NEEDS_REVIEW": 9,
-   "NOT_FOUND": 113,
+   "NEEDS_REVIEW": 10,
+   "NOT_FOUND": 112,
    "UNAVAILABLE": 6,
    "VERIFIED": 29
   },
@@ -39,10 +39,10 @@
   "by_category": {
    "A": 2,
    "B": 4,
-   "C": 31,
+   "C": 32,
    "D": 7,
    "E": 2,
-   "F": 109
+   "F": 108
   },
   "completable_now": 2,
   "state_ledger_units_queued": 27
@@ -300,6 +300,26 @@
    "source_accessible": "yes",
    "source_id": "mi_wayne_county_landbank",
    "state": "MI",
+   "status": "NEEDS_REVIEW"
+  },
+  {
+   "approved_for_customers": true,
+   "candidate_pages": 1,
+   "category": "C",
+   "completable_now": false,
+   "county": "Allegheny",
+   "kind": "acquisition_unit",
+   "ledger": "AVAILABLE",
+   "next_action": "Capture the identified official page(s) with job=evidence (acquisition_candidates scope), read the digest, record a verified evidence row",
+   "process_verified": false,
+   "publication_status": "APPROVED",
+   "reason": "Official pages identified; no capture recorded yet",
+   "requires": "needs official evidence through the approved capture mechanism (job=evidence)",
+   "rule_verified": null,
+   "source": "registry source pa_pittsburgh_city_property",
+   "source_accessible": "yes",
+   "source_id": "pa_pittsburgh_city_property",
+   "state": "PA",
    "status": "NEEDS_REVIEW"
   },
   {
@@ -1652,26 +1672,6 @@
    "source_accessible": "unknown",
    "source_id": "mo_kc_landbank",
    "state": "MO",
-   "status": "NOT_FOUND"
-  },
-  {
-   "approved_for_customers": true,
-   "candidate_pages": 0,
-   "category": "F",
-   "completable_now": false,
-   "county": "Allegheny",
-   "kind": "acquisition_unit",
-   "ledger": "AVAILABLE",
-   "next_action": "No official acquisition page identified; identify a candidate page first (add it to data/acquisition_candidate_pages.csv), then capture it",
-   "process_verified": false,
-   "publication_status": "APPROVED",
-   "reason": "No official acquisition page identified yet",
-   "requires": "the jurisdiction's process or product cannot yet be established authoritatively",
-   "rule_verified": null,
-   "source": "registry source pa_pittsburgh_city_property",
-   "source_accessible": "unknown",
-   "source_id": "pa_pittsburgh_city_property",
-   "state": "PA",
    "status": "NOT_FOUND"
   },
   {
