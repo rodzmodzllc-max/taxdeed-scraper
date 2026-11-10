@@ -10824,7 +10824,9 @@ function detailHtml(p) {
         <h2 class="detail-address">${title}</h2>
         ${detailKeyFigureHtml(p, stamp ? cardStampHtml(stamp) : "")}
         <div class="prop-top-actions">
-          ${statusPillHtml(p)}
+          ${/* a row with no listing status gets no pill here: the status band and
+              the certificate status lines below say what the source lists */ ""}
+          ${String(p.status || "").trim() ? statusPillHtml(p) : ""}
           <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button">${fav ? "♥ Favorited" : "♡ Favorite"}</button>
           ${bidListBtnHtml(p, false)}
         </div>
