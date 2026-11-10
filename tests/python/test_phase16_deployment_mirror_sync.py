@@ -85,6 +85,7 @@ DEPLOYED_BUNDLE_FILES = (
     "buyers-guide.json",          # 2026-10-29 Buyer's Guide (scripts/build_buyers_guide.py)
     "state-rules.json",           # 2026-10-10 state rules page (scripts/build_state_rules.py)
     "identity.css",               # 2026-10-05 identity design language (TAXACQ)
+    "motion.css",                 # 2026-11-10 app-wide motion system (loaded last)
     "acquisition-evidence.json",
     "explore.css",
     "explore.js",

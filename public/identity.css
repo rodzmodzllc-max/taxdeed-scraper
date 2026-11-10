@@ -48,6 +48,12 @@
   --c-auction:var(--rust); --c-auction-soft:var(--rust-soft); --c-auction-d:#D08A63;
   --c-certificate:var(--plum); --c-certificate-soft:var(--plum-soft); --c-certificate-d:#B392B6;
   --radius:3px; --radius-sm:2px;
+  /* Motion tokens (2026-11-10): one duration / easing set for every look.
+     motion.css and styles.css read them; prefers-reduced-motion below
+     neutralises all of it. */
+  --dur-press:90ms; --dur-quick:160ms; --dur-menu:200ms; --dur-page:280ms; --dur-hero:520ms;
+  --ease-std:cubic-bezier(.2,0,0,1); --ease-out:cubic-bezier(0,0,.2,1); --ease-in:cubic-bezier(.4,0,1,1);
+  --spring-soft:cubic-bezier(.34,1.36,.64,1);
   color-scheme:light;
 }
 /* Ledger accents: the four --led-* values the base sheet threads through
@@ -483,7 +489,14 @@ a{color:var(--copper-deep)}
 }
 
 /* ---- 12. Motion, density, accessibility ------------------------------ */
-@media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important} }
+/* Reduced motion: every animation and transition finishes at once (.01ms, one
+   iteration) so animationend / transitionend still fire and end states apply;
+   pseudo-elements included (the skeleton shimmer is an ::after); no smooth scroll. */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;
+    transition-duration:.01ms!important;transition-delay:0s!important;scroll-behavior:auto!important}
+  html{scroll-behavior:auto!important}
+}
 .prop-card,.home-ledger-card,.desk-row{transition:background-color .12s}
 
 /* ---- 13. Fixes from the first visual review --------------------------- */
