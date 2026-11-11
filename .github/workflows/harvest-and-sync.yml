@@ -1475,7 +1475,10 @@ jobs:
         # own state; the script spreads the slice across counties and backs
         # off after a failure. Stops cleanly at the budget (15 min) inside
         # the step timeout; a leg with no backlog finishes in seconds.
-        if: always() && steps.sync.outcome == 'success'
+        # Michigan's slice runs in its own job (expansion_mi_flood, below):
+        # with it the MI leg ran 47 minutes against this job's 45 and was
+        # cancelled on 2026-11-09 and 2026-11-10 (owner 2026-11-10: split).
+        if: always() && steps.sync.outcome == 'success' && matrix.state != 'MI'
         continue-on-error: true
         timeout-minutes: 18
         env:
@@ -1508,6 +1511,46 @@ jobs:
             out/private/
           if-no-files-found: ignore
           retention-days: 14
+
+  expansion_mi_flood:
+    # Michigan's FEMA flood slice as its own job (owner 2026-11-10). The MI leg
+    # of the expansion matrix carries the Detroit Land Bank's 30,000+ rows: its
+    # sync alone takes about 21 minutes, and with this 15-minute slice the leg
+    # ran past the matrix job's 45-minute limit, so its last steps (evidence
+    # summary and upload) were cancelled. The slice reads and writes the
+    # database only - it needs none of the leg's harvest files - so it runs
+    # here, after the matrix, with the same bounds as every other leg's slice.
+    # It carries no trigger of its own: it runs whenever the matrix ran (any
+    # result but skipped), so the schedule watchdog keeps one "expansion" job
+    # to account for and no schedule is added.
+    name: Michigan FEMA flood hazard - nightly slice
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: expansion
+    if: ${{ !cancelled() && needs.expansion.result != 'skipped' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: FEMA flood hazard - Michigan slice
+        continue-on-error: true
+        timeout-minutes: 18
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ENRICH_STATE: MI
+          FLOOD_BATCH_LIMIT: '1500'
+          FLOOD_PER_COUNTY_LIMIT: '400'
+          FLOOD_TIME_BUDGET_SECONDS: '900'
+        run: python3 scripts/enrich_flood_zone.py
 
   texas:
     name: Harvest Texas tax sales (LGBS) + sync - daily

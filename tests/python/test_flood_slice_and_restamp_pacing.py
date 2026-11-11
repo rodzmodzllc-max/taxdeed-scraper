@@ -169,6 +169,27 @@ def test_state_legs_run_a_bounded_flood_slice(job_name):
     assert env["ENRICH_STATE"] == expected_state
 
 
+def test_michigan_flood_slice_runs_in_its_own_job_not_in_the_matrix_leg():
+    """Owner 2026-11-10: the MI leg ran 47 minutes against the matrix job's 45
+    (sync ~21 + flood ~15) and was cancelled; its flood slice is its own job."""
+    jobs = _wf()["jobs"]
+    matrix_step = _flood_step(jobs["expansion"])
+    assert "matrix.state != 'MI'" in matrix_step["if"]
+    job = jobs["expansion_mi_flood"]
+    assert job["needs"] == "expansion"
+    # No trigger of its own: it follows the matrix, so the schedule watchdog
+    # (test_schedule_watchdog.py) still accounts for one "expansion" job.
+    assert "needs.expansion.result != 'skipped'" in job["if"] and "!cancelled()" in job["if"]
+    assert "github.event.schedule" not in job["if"] and "inputs.job" not in job["if"]
+    step = _flood_step(job)
+    env = step["env"]
+    assert env["ENRICH_STATE"] == "MI"
+    assert step.get("continue-on-error") is True
+    assert 0 < float(env["FLOOD_TIME_BUDGET_SECONDS"]) < step["timeout-minutes"] * 60 < job["timeout-minutes"] * 60
+    same = ("FLOOD_BATCH_LIMIT", "FLOOD_PER_COUNTY_LIMIT", "FLOOD_TIME_BUDGET_SECONDS")
+    assert {k: env[k] for k in same} == {k: matrix_step["env"][k] for k in same}
+
+
 def test_the_expansion_matrix_still_runs_one_leg_at_a_time():
     assert _wf()["jobs"]["expansion"]["strategy"]["max-parallel"] == 1
 
