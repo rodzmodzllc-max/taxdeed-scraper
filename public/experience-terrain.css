@@ -478,7 +478,7 @@ html[data-experience="terrain"] .county-now .cnb-list{border-radius:0 0 14px 14p
 :root[data-theme="dark"][data-experience="terrain"] .county-now{background:rgba(253,253,251,.96);border-color:#D8DED6;color:#202925}
 /* Its OS-dark twin: identity.css paints .county-now dark under an OS dark
    preference with no data-theme (Theme: Auto); this one outranks it (0,4,0). */
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"])[data-experience="terrain"] .county-now{background:rgba(253,253,251,.96);border-color:#D8DED6;color:#202925}}
+:root[data-theme="dark"][data-experience="terrain"] .county-now{background:rgba(253,253,251,.96);border-color:#D8DED6;color:#202925}
 /* AA (2026-11-10): a done waypoint's number was paper on the pale sage glow
    (2:1); it reads deep sage on soft sage now (6:1), still quieter than an
    active step. */

@@ -1343,7 +1343,10 @@ function peekFacts(p, f) {
     return a && a.text ? [{ label: a.label, value: a.text, cls: "bid" + (/\$/.test(a.text) ? "" : " text"), title: a.label }] : [];
   }
   const out = [];
-  if (f.bid) out.push({ label: f.bidLabel, value: f.bid, cls: "bid" + (/\$/.test(f.bid) ? "" : " text"), title: f.bidNote || "", note: !!f.bidNote });
+  // Whole dollars like the cards beside it ("$8,000", not "$8,000.00"); a
+  // figure with real cents keeps them.
+  const bidShown = typeof f.bid === "string" ? f.bid.replace(/^(\$[\d,]+)\.00$/, "$1") : f.bid;
+  if (f.bid) out.push({ label: f.bidLabel, value: bidShown, cls: "bid" + (/\$/.test(f.bid) ? "" : " text"), title: f.bidNote || (bidShown !== f.bid ? "Exact amount " + f.bid : ""), note: !!f.bidNote });
   if (f.phase) out.push({ label: "Status", value: f.phase, cls: "status " + (f.phaseCls || "") });
   if (f.value) out.push({ label: f.valueLabel || "Value on file", value: f.value, cls: "value", title: f.valueLabel || "" });
   else if (f.parcel) out.push({ label: f.parcelLabel, value: f.parcel, cls: "id" });

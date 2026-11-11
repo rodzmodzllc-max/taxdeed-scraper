@@ -12697,7 +12697,7 @@ function saleDayEventsHtml(day) {
     const facts = [`${e.bids} of ${e.count} with a published bid`, e.process ? "Sale process verified" : "Sale process not yet verified"];
     if (e.watched) facts.unshift(`${e.watched} watched`);
     return `<li class="cc-event${e.days <= 3 ? " cc-soon" : ""}"><button type="button" class="desk-event sales-event" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction" data-date="${esc(String(e.date || day.date).slice(0, 10))}">
-      <span class="desk-event-where">${esc(unitLabelOf(e.county))} · ${esc(PAGE_STATE)}</span>
+      <span class="desk-event-where">${esc(unitLabelOf(e.county))}<span class="pp-nw"> · ${esc(PAGE_STATE)}</span></span>
       <span class="desk-event-what">${esc(word)} sale</span>
       ${many ? `<span class="desk-event-n">${e.count} propert${e.count === 1 ? "y" : "ies"}</span>` : ""}
       <span class="cc-facts">${facts.map(t => `<span>${esc(t)}</span>`).join("")}</span>
@@ -13510,6 +13510,9 @@ window.addEventListener("hashchange", () => {
     else if (shellPage !== "county" || COUNTY_PAGE.view !== "index") openCountyIndex();
   } else if (r.page === "watchlist") {
     if (shellPage !== "watchlist") showPage("watchlist");
+  } else if (r.page === "guide") {
+    // Back / Forward or an edited address into the Buyer's Guide.
+    if (shellPage !== "guide") openGuidePage(r.county, r.guideLedger);
   }
 });
 
@@ -13876,6 +13879,11 @@ if (filtersToggleBtn && filtersPanelEl) {
     filtersToggleBtn.setAttribute("aria-expanded", String(opening));
     if (opening) pushBackLayer("filters", closeFilters);
     else popBackLayer("filters");
+    // Phone / tablet: bring the opened panel's top under the header, so its
+    // own scroll box is the whole visible screen above the bottom bar.
+    if (opening && window.matchMedia("(max-width:1023.98px)").matches) {
+      requestAnimationFrame(() => { try { filtersPanelEl.scrollIntoView({ block: "start", behavior: "smooth" }); } catch (e) { /* old browser */ } });
+    }
   });
 }
 
@@ -17328,7 +17336,7 @@ function renderHomeDesk() {
   const word = (ledgerCopy("auction").nav || "Auction").replace(/s$/, "");
   const soonChip = soon ? `<span class="desk-soon-chip" data-soon="${soon}">${soon.toLocaleString("en-US")} in the next 7 days</span>` : "";
   const salesHtml = noRows ? "" : `<section class="home-desk-block" id="homeUpcomingSales" data-ledger="auction">${homeDeskHead("Upcoming auctions", soonChip, `<button type="button" class="link-btn desk-all" data-home-ledger="auction">All auctions &rarr;</button>`)}
-    ${sales.length ? sales.map(e => { const d = new Date(e.date + "T12:00:00"); return `<button type="button" class="desk-event" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction" data-date="${esc(String(e.date).slice(0, 10))}"><span class="desk-date"><b>${isNaN(d) ? "" : d.getDate()}</b><span>${isNaN(d) ? "" : esc(d.toLocaleString("en-US", { month: "short" }).toUpperCase())}</span></span><span class="desk-event-where">${esc(unitLabelOf(e.county))} · ${esc(PAGE_STATE)}</span><span class="desk-event-what">${esc(word)} sale</span><span class="desk-event-n">${e.count} propert${e.count === 1 ? "y" : "ies"}</span></button>`; }).join("")
+    ${sales.length ? sales.map(e => { const d = new Date(e.date + "T12:00:00"); return `<button type="button" class="desk-event" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction" data-date="${esc(String(e.date).slice(0, 10))}"><span class="desk-date"><b>${isNaN(d) ? "" : d.getDate()}</b><span>${isNaN(d) ? "" : esc(d.toLocaleString("en-US", { month: "short" }).toUpperCase())}</span></span><span class="desk-event-where">${esc(unitLabelOf(e.county))}<span class="pp-nw"> · ${esc(PAGE_STATE)}</span></span><span class="desk-event-what">${esc(word)} sale</span><span class="desk-event-n">${e.count} propert${e.count === 1 ? "y" : "ies"}</span></button>`; }).join("")
       : `<p class="home-desk-empty">${esc(ledgerSettled("auction") ? `No upcoming sale dates are listed for ${STATE_INFO.name}.` : "Loading auctions…")}</p>`}</section>`;
   host.innerHTML = `<div class="home-desk-col home-next">${homeDeskHead("Next up", "", "", "homeNextHead").replace("home-desk-head", "home-desk-head home-section-title")}${availHtml}${salesHtml}</div>`;
   if (countyHost) {
@@ -17495,7 +17503,7 @@ function renderListHead(shown, k, tabCounts) {
       // title carries the count, the county picker the counties). A viewer
       // without the guide gets no line. Loading / filtered notes still follow.
       if (k === "laft") {
-        if (guideAccess()) parts.push(`<button type="button" class="link-btn list-guide-link" data-action="buyersguide" data-guide-ledger="AVAILABLE">Buyer's Guide: how to acquire Available property →</button>`);
+        if (guideAccess()) parts.push(`<button type="button" class="link-btn list-guide-link" data-action="buyersguide" data-guide-ledger="AVAILABLE">Buyer's Guide: how to acquire Available <span class="pp-nw">property →</span></button>`);
       } else
       // The ledger's question opens the Buyer's Guide for that ledger when the
       // viewer has the guide (owner, 2026-11-04); otherwise it stays text.
@@ -19258,3 +19266,25 @@ function proCleanupHtml(html) {
   return out;
 }
 window.__tdwOpenQuestions = () => Array.from(document.querySelectorAll('#detailModalInner .open-q li, #detailPanel .open-q li')).map(li => li.querySelector("b").textContent);
+
+// ==================== Property section nav: scroll fade (2026-11-11) ====================
+// The section pills row scrolls sideways with its scrollbar hidden; while it
+// overflows, a fade at its right edge says there is more (gone at the end).
+function syncDetailNavFade(nav) {
+  if (!nav) return;
+  const over = nav.scrollWidth > nav.clientWidth + 2;
+  nav.dataset.overflow = over ? "1" : "0";
+  nav.dataset.atEnd = over && nav.scrollLeft + nav.clientWidth >= nav.scrollWidth - 2 ? "1" : "0";
+}
+document.addEventListener("scroll", e => {
+  const t = e.target;
+  if (t && t.classList && t.classList.contains("detail-nav")) syncDetailNavFade(t);
+}, true);
+(function watchDetailNavs() {
+  if (typeof MutationObserver !== "function") return;
+  let pending = false;
+  const sweep = () => { pending = false; document.querySelectorAll(".detail-nav").forEach(syncDetailNavFade); };
+  new MutationObserver(() => { if (!pending) { pending = true; requestAnimationFrame(sweep); } })
+    .observe(document.body, { childList: true, subtree: true });
+  window.addEventListener("resize", () => { if (!pending) { pending = true; requestAnimationFrame(sweep); } });
+})();

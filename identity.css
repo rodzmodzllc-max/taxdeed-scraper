@@ -807,6 +807,7 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
   .cty-kv dd{margin-bottom:.45rem}
   .cty-index-legend{display:none}
   .cty-row-btn{grid-template-columns:1fr auto;grid-template-areas:"name counts" "status next"}
+  .cty-row-counts{grid-template-columns:repeat(3,2.4em);justify-items:end}
   .cty-row-name{grid-area:name}.cty-row-counts{grid-area:counts}.cty-row-status{grid-area:status}.cty-row-next{grid-area:next;text-align:right}
   .cty-table thead{display:none}
   .cty-table tr{display:block;border-bottom:1px solid var(--rule);padding:.4rem 0}
@@ -953,7 +954,7 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 
 /* Phone Account sheet: workspace entries the bottom bar does not carry. */
 .account-goto{border-bottom:1px solid var(--rule);padding:.2rem 0 .3rem;margin-bottom:.2rem}
-.account-goto-head{margin:.3rem .9rem .1rem;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
+.account-goto-head{margin:.3rem .55rem .1rem;padding-left:0!important;padding-right:0!important;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
 @media (min-width:1024px){ .account-goto{display:none} }
 
 /* State rules page (#/rules, 2026-10-10): the same editorial sheet as the
@@ -1097,9 +1098,9 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .ib:hover>.ib-pop,.ib:focus-within>.ib-pop,.ib.open>.ib-pop{display:block}
 .ib-pop p{margin:0 0 .4rem}
 .ib-pop p:last-child{margin:0}
-.ib-corner{position:absolute;top:0;right:0;z-index:5}
+.ib-corner{position:absolute;top:.45rem;right:0;z-index:5}
 .ib-corner>.ib-pop{left:auto;right:0}
-@media (max-width:640px){.ib-corner{position:static;justify-content:flex-end;margin-bottom:.3rem}}
+@media (max-width:640px){.ib-corner{position:static;display:flex;justify-content:flex-end;margin-bottom:.3rem}}
 /* Source status folds under the ledger head (2026-10-13): the properties come
    first; the status detail is one tap away. Zero-row states never fold. */
 .ledger-status-fold{margin:.5rem 0}
@@ -1533,7 +1534,6 @@ html[data-shell="v3"] .cert-card{display:flex;flex-direction:column;gap:6px;padd
 .county-now .cnb-pick[aria-current="true"]{font-weight:700;box-shadow:inset 3px 0 0 var(--sage,#4E6B54)}
 .county-now .cnb-n{font-family:var(--font-mono,monospace);font-size:.85rem;color:var(--ink-soft,#4C685A)}
 :root[data-theme="dark"] .county-now{background:#0E1411;border:1px solid #2C3A33}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .county-now{background:#0E1411;border:1px solid #2C3A33}}
 @media (prefers-reduced-motion:no-preference){.county-now .cnb-name{transition:opacity .15s ease}}
 
 /* County heads name the county only: the old program / date line is empty. */
@@ -1678,11 +1678,6 @@ html[data-shell="v3"] .hdr-nav .nav-item.on .nav-count[data-dup="1"]{display:non
 :root[data-theme="dark"] .nav-bottom-ledger[data-nav-ledger="laft"]{--lc:#86A68B}
 :root[data-theme="dark"] .nav-bottom-ledger[data-nav-ledger="auction"]{--lc:#D08A63}
 :root[data-theme="dark"] .nav-bottom-ledger[data-nav-ledger="certificate"]{--lc:#B392B6}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) .nav-bottom-ledger[data-nav-ledger="laft"]{--lc:#86A68B}
-  :root:not([data-theme="light"]) .nav-bottom-ledger[data-nav-ledger="auction"]{--lc:#D08A63}
-  :root:not([data-theme="light"]) .nav-bottom-ledger[data-nav-ledger="certificate"]{--lc:#B392B6}
-}
 @media (max-width:1023.98px){
   :root{--nav-bottom-h:4.2rem}
   html{scroll-padding-bottom:calc(var(--nav-bottom-h) + .5rem)}
@@ -1780,7 +1775,8 @@ body:has(#bootFailure:not([hidden])) .nav-bottom{display:none!important}
   --forest:#1F3A2E; --forest-deep:#142A20; --sage-brand:#4C685A; --sage-light:#8CA498; --mist:#D8DED6; --ivory:#F8F8F5;
   --radius:4px; --radius-sm:3px;
 }
-:root[data-theme="dark"]{ --forest:#8CA498; --forest-deep:#A9BDB0; --sage-brand:#A3B3A8; --mist:#2C3A33; --ivory:#141C18 }
+:root[data-theme="dark"]{ --forest:#8CA498; --forest-deep:#A9BDB0; --sage-brand:#A3B3A8; --mist:#2C3A33; --ivory:#141C18;
+  --copper:#A9BDB0; --copper-deep:#C9D6CD; --copper-soft:#22302A }
 body{font-family:var(--font-sans);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
 /* Display type: light for page statements, medium below them. The :not(#_)
    lifts specificity over the per-page heading rules above (all !important). */
@@ -1795,7 +1791,7 @@ body{font-family:var(--font-sans);font-variant-numeric:tabular-nums;-webkit-font
 /* Navigation, tabs, eyebrows and buttons: Montserrat medium, uppercase, tracked. */
 .hdr-nav .nav-item:not(#_),.ledger-tab:not(#_),.nav-bottom-item:not(#_),.nav-item:not(#_){font-family:var(--font-display)!important;font-weight:500!important;letter-spacing:.1em}
 .nav-count:not(#_),.nb-count:not(#_){font-family:var(--font-sans)!important;letter-spacing:0}
-.home-search-btn:not(#_),.cta-btn:not(#_),.detail-btn:not(#_),.landing-btn:not(#_),#authForm button[type="submit"]:not(#_),.auth-submit:not(#_){font-family:var(--font-display)!important;font-weight:500!important;letter-spacing:.12em!important;text-transform:uppercase;border-radius:var(--radius)!important;background:var(--forest)!important;border-color:var(--forest)!important;color:#F8F8F5!important}
+.home-search-btn:not(#_),.cta-btn:not(#_),.detail-btn:not(#_),.landing-btn:not(#_),#authForm button[type="submit"]:not(#_),.auth-submit:not(#_){font-family:var(--font-display)!important;font-weight:500!important;letter-spacing:.12em!important;text-transform:uppercase;border-radius:var(--radius)!important;background:var(--forest)!important;border-color:var(--forest)!important;color:var(--ivory,#F8F8F5)!important}
 .home-search-btn:hover:not(#_),.cta-btn:hover:not(#_),.landing-btn:hover:not(#_){background:var(--forest-deep)!important}
 /* Search: the deck's rounded field with a sage hairline. */
 .home-search input:not(#_),#globalSearchInput:not(#_){border-radius:999px!important;border:1px solid var(--sage-light)!important;padding-left:2.6rem}

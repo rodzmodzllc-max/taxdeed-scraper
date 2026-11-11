@@ -407,7 +407,7 @@ html[data-experience="tactile"] .xpt.xpt-enter .xpt-bundle{animation:xpt-drop 52
   html[data-experience="tactile"] .xpt{padding-bottom:36px}
   html[data-experience="tactile"] .xpt .xpt-rail-label{padding:14px 28px 0}
   html[data-experience="tactile"] .xpt .xpt-chead{margin:0 28px}
-  html[data-experience="tactile"] .xpt .xpt-auction-body.xpt-one-lot{grid-template-columns:minmax(340px,440px)}
+  html[data-experience="tactile"] .xpt .xpt-auction-body.xpt-one-lot{grid-template-columns:minmax(340px,440px);justify-content:center}
   html[data-experience="tactile"] .xpt .xpt-days{padding:16px 28px 14px}
   html[data-experience="tactile"] .xpt .xpt-auction-body{display:grid;grid-template-columns:minmax(340px,392px) minmax(0,1fr);gap:28px;padding:0 28px 0 12px;align-items:start}
   html[data-experience="tactile"] .xpt .xpt-deck-col{position:sticky;top:104px}
@@ -525,3 +525,7 @@ html[data-experience="tactile"] .xpt .xpt-deck-ctl .xpt-round:not(:disabled):hov
 html[data-experience="tactile"] .xpt .numeral-s{color:var(--rust)}
 :root[data-theme="dark"] .xpt .loc-panel .loc-main{color:#202925}
 :root[data-theme="dark"] .xpt .loc-panel .loc-link{color:#8A3F1E}
+/* Polish 2026-11-11: the sale-day band starts at the stage's top edge with
+   the stage's own corners, so no rounded cream lip shows above it. */
+html[data-experience="tactile"] .xpt.xpt-auction{padding-top:0}
+html[data-experience="tactile"] .xpt.xpt-auction > .xpt-rail:first-child{margin-top:0;border-radius:24px 24px 0 0}

@@ -73,11 +73,6 @@
 :root[data-theme="dark"] .map-ledger-pills [data-ledger="auction"] .pill-dot{background:#60A5FA}
 :root[data-theme="dark"] .map-ledger-pills [data-ledger="laft"] .pill-dot{background:#34D399}
 :root[data-theme="dark"] .map-ledger-pills [data-ledger="certificate"] .pill-dot{background:#A78BFA}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) .map-ledger-pills [data-ledger="auction"] .pill-dot{background:#60A5FA}
-  :root:not([data-theme="light"]) .map-ledger-pills [data-ledger="laft"] .pill-dot{background:#34D399}
-  :root:not([data-theme="light"]) .map-ledger-pills [data-ledger="certificate"] .pill-dot{background:#A78BFA}
-}
 .pill-dot-watch{background:var(--watch)}
 
 /* Full-bleed stage: the map is the whole page now, not a companion to a
@@ -245,15 +240,6 @@ body[data-state="TX"] .explore-map{--map-aspect:0.994}
   --map-coast:rgba(0,0,0,.55);
   --watch:#F472B6; --watch-soft:#3B1330;
 }
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --map-sea:#0C1B2E; --map-sea-deep:#091524;
-    --map-land:#1B2434; --map-land-line:#2E3A4D;
-    --map-neighbor:#161E2B; --map-neighbor-ink:#5A6577;
-    --map-coast:rgba(0,0,0,.55);
-    --watch:#F472B6; --watch-soft:#3B1330;
-  }
-}
 
 /* The map is FRAMED, not bled.
    The SVG letterboxes whenever the panel is wider than the map's own
@@ -327,7 +313,6 @@ body[data-state="TX"] .explore-map{--map-aspect:0.994}
 .map-label-sea{fill:#5B87AE;opacity:.85}
 .map-label-land{fill:var(--map-neighbor-ink);letter-spacing:.3em;font-size:17px}
 :root[data-theme="dark"] .map-label-sea{fill:#4A6E92}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .map-label-sea{fill:#4A6E92}}
 /* Statewide furniture. Blown up to a single county's scale, "GEORGIA" in
    90px letters across the top is absurd. */
 .explore-map-canvas.zoomed .map-context{display:none}
@@ -762,7 +747,7 @@ font-weight:700;color:var(--bad)}
    it wraps to a second line rather than being cut to "COUNTY JUST VAL..."
    (merged-work review, 2026-11-02). The row's labels align at the bottom,
    so every figure still sits under its own full label. */
-.mp-facts{align-items:end}
+.mp-facts{align-items:start}
 .mp-note{font-size:.7rem;letter-spacing:0;cursor:help}
 .mp-fact dd{margin:0;font-weight:700;font-size:.86rem;line-height:1.2;color:var(--ink);overflow-wrap:anywhere}
 .mp-fact.bid dd,.mp-fact.value dd{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
@@ -839,7 +824,6 @@ color:var(--ink-soft);line-height:1.5;max-width:52ch;text-align:center}
 font-weight:600;fill:#243044;stroke:var(--map-land);stroke-width:.3em;
 paint-order:stroke fill;opacity:.92;letter-spacing:.01em}
 :root[data-theme="dark"] .city-marker text{fill:#DCE4F0}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .city-marker text{fill:#DCE4F0}}
 /* Zoomed in the county is filled, so the halo has to match that fill instead
    of the panel background or the text sits in a pale box of the wrong colour. */
 .explore-map-canvas.zoomed .city-marker text{stroke:var(--accent-soft);stroke-width:.32em}
@@ -946,7 +930,10 @@ font-size:.78rem;font-weight:600;color:var(--ink)}
    The title-search warning used to sit in the header on every screen, where
    it was permanent furniture people stop reading. One button in the footer,
    full text in the modal. */
-.footer-terms{margin:0 0 .8rem}
+/* The buttons are bordered, so the " · " text between them only ever
+   dangled at a line end once they wrapped: the gap separates them instead. */
+.footer-terms{margin:0 0 .8rem;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:.4rem .5rem;font-size:0}
+.footer-terms .terms-btn{font-size:.74rem}
 .terms-btn{cursor:pointer;background:var(--card);border:1px solid var(--card-line);
 border-radius:3px;padding:.35rem .8rem;font-size:.74rem;font-weight:700;
 color:var(--ink)}
@@ -988,7 +975,7 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
    preview on top. On a phone the panel flows under the map and the preview
    becomes a bottom sheet over the map's lower edge, above the tab bar.
    ========================================================================== */
-.map-page{--map-side-w:380px;--map-chrome:8.6rem}
+.map-page{--map-side-w:380px;--map-chrome:calc(60px + 53px)}
 @media (min-width:1024px){ .page.map-page{padding:0} }
 .map-toolbar{padding:.55rem 1rem;gap:.45rem;border-bottom:1px solid var(--card-line);
   background:var(--card);position:relative;z-index:6}
@@ -1004,12 +991,13 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
 .map-toolbar .qc-field.qc-county{flex:0 1 180px}
 .map-toolbar .map-style-toggle{margin-left:auto}
 @media (max-width:640px){
-  .map-toolbar{padding:.5rem .6rem}
+  .map-toolbar{padding:.5rem 16px}
   .map-page-titlebox{flex:0 0 100%;margin:0}
   .map-page-title{font-size:.95rem;margin:0}
   .map-toolbar .qc-field{flex:1 1 100%;max-width:none}
   .map-toolbar .qc-field.qc-county{flex:1 1 44%}
   .map-toolbar .map-style-toggle{margin-left:0;flex:1 1 50%;justify-content:center}
+  .map-toolbar .map-style-toggle button:not([hidden]){flex:1 1 0}
   .map-watch-pill{flex:0 1 auto}
 }
 
