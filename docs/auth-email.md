@@ -30,28 +30,67 @@ Then go to Authentication → Rate Limits and raise **"Emails sent per hour"**. 
 
 Supabase → Authentication → Emails → **Templates**.
 
+Colours follow the TAXACQ brand (forest `#1F3A2E`, ivory `#F8F8F5`, sage `#8CA498`, mist `#D8DED6`, ink `#202925`). Email clients ignore web fonts, so the templates use Arial.
+
 **Reset Password**: subject `Reset your TAXACQ password`, then paste this body:
 
 ```html
-<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1f2933">
-  <div style="background:#0b1a2e;padding:18px 24px;border-bottom:3px solid #c9a24b;color:#fff;font-family:Georgia,serif;font-size:20px;letter-spacing:3px">TAXACQ</div>
-  <div style="padding:24px">
-    <p style="font-size:15px">We received a request to reset the password for your TAXACQ account.</p>
-    <p style="margin:24px 0"><a href="https://taxacq.com/index.html?token_hash={{ .TokenHash }}&type=recovery"
-       style="display:inline-block;padding:12px 22px;background:#0b1a2e;color:#fff;text-decoration:none;border-radius:4px;font-weight:bold">Choose a new password</a></p>
-    <p style="font-size:13px;color:#5b6675">This link works once and expires soon. If you didn't ask for a reset, ignore this email; your password stays the same.</p>
-    <p style="font-size:12px;color:#5b6675">TAXACQ · Tax Acquisition Intelligence · info@taxacq.com</p>
+<div style="background:#F8F8F5;padding:24px 0">
+  <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;background:#FFFFFF;border:1px solid #D8DED6;color:#202925">
+    <div style="background:#1F3A2E;padding:20px 24px;border-bottom:3px solid #8CA498">
+      <div style="color:#F8F8F5;font-size:20px;font-weight:300;letter-spacing:4px">TAXACQ</div>
+      <div style="color:#8CA498;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Tax Acquisition Intelligence</div>
+    </div>
+    <div style="padding:28px 24px">
+      <p style="font-size:15px;line-height:1.5;margin:0 0 20px">We received a request to reset the password for your TAXACQ account.</p>
+      <p style="margin:0 0 24px"><a href="https://taxacq.com/index.html?token_hash={{ .TokenHash }}&type=recovery"
+         style="display:inline-block;padding:12px 24px;background:#1F3A2E;color:#F8F8F5;text-decoration:none;border-radius:999px;font-size:13px;font-weight:bold;letter-spacing:1px;text-transform:uppercase">Choose a new password</a></p>
+      <p style="font-size:13px;line-height:1.5;color:#56695E;margin:0 0 8px">This link works once and expires soon. If you didn't ask for this, ignore this email; nothing on your account changes.</p>
+    </div>
+    <div style="border-top:1px solid #D8DED6;padding:14px 24px;font-size:12px;color:#56695E">TAXACQ · https://taxacq.com · info@taxacq.com</div>
   </div>
 </div>
 ```
 
-**Confirm signup**: subject `Confirm your TAXACQ email`, with the same body and these changes:
+**Confirm signup**: subject `Confirm your TAXACQ email`, body:
 
-- the link is `https://taxacq.com/index.html?token_hash={{ .TokenHash }}&type=email`;
-- the button reads "Confirm my email";
-- the first line reads "Confirm the email address for your new TAXACQ account."
+```html
+<div style="background:#F8F8F5;padding:24px 0">
+  <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;background:#FFFFFF;border:1px solid #D8DED6;color:#202925">
+    <div style="background:#1F3A2E;padding:20px 24px;border-bottom:3px solid #8CA498">
+      <div style="color:#F8F8F5;font-size:20px;font-weight:300;letter-spacing:4px">TAXACQ</div>
+      <div style="color:#8CA498;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Tax Acquisition Intelligence</div>
+    </div>
+    <div style="padding:28px 24px">
+      <p style="font-size:15px;line-height:1.5;margin:0 0 20px">Confirm the email address for your new TAXACQ account.</p>
+      <p style="margin:0 0 24px"><a href="https://taxacq.com/index.html?token_hash={{ .TokenHash }}&type=email"
+         style="display:inline-block;padding:12px 24px;background:#1F3A2E;color:#F8F8F5;text-decoration:none;border-radius:999px;font-size:13px;font-weight:bold;letter-spacing:1px;text-transform:uppercase">Confirm my email</a></p>
+      <p style="font-size:13px;line-height:1.5;color:#56695E;margin:0 0 8px">This link works once and expires soon. If you didn't ask for this, ignore this email; nothing on your account changes.</p>
+    </div>
+    <div style="border-top:1px solid #D8DED6;padding:14px 24px;font-size:12px;color:#56695E">TAXACQ · https://taxacq.com · info@taxacq.com</div>
+  </div>
+</div>
+```
 
-**Change Email Address**: link `https://taxacq.com/index.html?token_hash={{ .TokenHash }}&type=email_change`.
+**Change Email Address**: subject `Confirm your new TAXACQ email`, body:
+
+```html
+<div style="background:#F8F8F5;padding:24px 0">
+  <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;background:#FFFFFF;border:1px solid #D8DED6;color:#202925">
+    <div style="background:#1F3A2E;padding:20px 24px;border-bottom:3px solid #8CA498">
+      <div style="color:#F8F8F5;font-size:20px;font-weight:300;letter-spacing:4px">TAXACQ</div>
+      <div style="color:#8CA498;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Tax Acquisition Intelligence</div>
+    </div>
+    <div style="padding:28px 24px">
+      <p style="font-size:15px;line-height:1.5;margin:0 0 20px">Confirm the new email address for your TAXACQ account.</p>
+      <p style="margin:0 0 24px"><a href="https://taxacq.com/index.html?token_hash={{ .TokenHash }}&type=email_change"
+         style="display:inline-block;padding:12px 24px;background:#1F3A2E;color:#F8F8F5;text-decoration:none;border-radius:999px;font-size:13px;font-weight:bold;letter-spacing:1px;text-transform:uppercase">Confirm new email</a></p>
+      <p style="font-size:13px;line-height:1.5;color:#56695E;margin:0 0 8px">This link works once and expires soon. If you didn't ask for this, ignore this email; nothing on your account changes.</p>
+    </div>
+    <div style="border-top:1px solid #D8DED6;padding:14px 24px;font-size:12px;color:#56695E">TAXACQ · https://taxacq.com · info@taxacq.com</div>
+  </div>
+</div>
+```
 
 ## How the link works on the site
 
