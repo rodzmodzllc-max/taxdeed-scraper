@@ -225,16 +225,22 @@ for (const mode of ['ready', 'error']) {
     await route.fulfill({ response: res, body, headers: Object.assign({}, res.headers(), { 'content-type': 'application/javascript' }) });
   });
   await pg.route('**/map-3d.js', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: mode === 'ready'
-    ? `export async function mountGisMap(el, o) { window.__gisOpts = { lat: o.lat, lng: o.lng, ledger: o.ledger, fetcher: typeof o.boundaryFetcher }; const before = el.innerHTML; el.innerHTML = '<div class="m3d-gis-canvas">map</div>'; window.__pitch = []; return { status: 'ready', outline: false, map: { easeTo: c => window.__pitch.push(c.pitch) }, destroy: () => { el.innerHTML = before; } }; }`
+    ? `export async function mountGisMap(el, o) { window.__gisOpts = { lat: o.lat, lng: o.lng, ledger: o.ledger, fetcher: typeof o.boundaryFetcher, tilt: o.tilt, creditAfter: o.creditAfter }; const before = el.innerHTML; el.innerHTML = '<div class="m3d-gis-canvas">map</div>'; window.__pitch = []; return { status: 'ready', outline: false, tilted: o.tilt === true, map: { easeTo: c => window.__pitch.push(c.pitch) }, destroy: () => { el.innerHTML = before; } }; }`
     : `export async function mountGisMap(el) { return { status: 'error', outline: false, destroy() {} }; }` }));
   await pg.goto(BASE + '?look=merged#/auctions/p5', { waitUntil: 'networkidle' });
   await pg.waitForTimeout(500);
   await pg.evaluate(new Function(`const h = ${HOST}; const d = h.querySelector('details[data-fold="map"]'); if (d) d.open = true;`));
   await pg.waitForTimeout(800);
-  const st = await pg.evaluate(new Function(`const el = ${HOST}.querySelector('[data-gis-live]'); const t = el && el.querySelector('.gis-tilt-btn'); if (t) t.click();
-    return el ? { state: el.dataset.gisLiveState, tilt: !!t, pressed: t ? t.getAttribute('aria-pressed') : null, iframe: !!el.querySelector('iframe'), opts: window.__gisOpts || null, pitch: window.__pitch || null } : null;`));
-  if (mode === 'ready') check('gis-live-mounts-with-tilt', st && st.state === 'ready' && st.tilt && st.pressed === 'true' && st.pitch && st.pitch[0] === 55 && st.opts && st.opts.fetcher === 'function' && st.opts.ledger === 'auction', st);
-  else check('gis-live-error-keeps-embed', st && st.state === 'error' && !st.tilt && st.iframe, st);
+  // 2026-11-10 (owner): the tilted MapTiler map is the page's PICTURE; the GIS
+  // card keeps its embed when the picture took the map, and mounts the map
+  // itself only when the picture could not (error) - never two live maps.
+  const st = await pg.evaluate(new Function(`const h = ${HOST}; const hero = h.querySelector('.detail-hero-photo'); const el = h.querySelector('[data-gis-live]');
+    const t = hero && hero.querySelector('.gis-tilt-btn'); const before = t ? t.getAttribute('aria-pressed') : null; if (t) t.click();
+    return el ? { hero: hero ? hero.dataset.gisLiveState || null : null, heroPic: !!(hero && hero.innerHTML.trim()), state: el.dataset.gisLiveState || null, tilt: !!t, before, pressed: t ? t.getAttribute('aria-pressed') : null,
+      cardTilt: !!el.querySelector('.gis-tilt-btn'), iframe: !!el.querySelector('iframe'), opts: window.__gisOpts || null, pitch: window.__pitch || null } : null;`));
+  if (mode === 'ready') check('hero-live-mounts-tilted-first', st && st.hero === 'ready' && st.tilt && st.before === 'true' && st.pressed === 'false' && st.pitch && st.pitch[0] === 0
+    && st.state === null && st.iframe && !st.cardTilt && st.opts && st.opts.fetcher === 'function' && st.opts.ledger === 'auction' && st.opts.tilt === true && st.opts.creditAfter === true, st);
+  else check('gis-live-error-keeps-picture-and-embed', st && st.hero === 'error' && st.heroPic && st.state === 'error' && !st.tilt && !st.cardTilt && st.iframe, st);
   await ctx.close();
 }
 

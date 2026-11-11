@@ -70,6 +70,8 @@ export const SELECT_PITCH = 55;
 export const SELECT_BEARING = -18;
 export const PARCEL_MAX_ZOOM = 19;
 export const PARCEL_FILL_OPACITY = 0.18;
+export const GIS_TILT_PITCH = 50;            // the mini-map's first view when no outline frames it
+export const GIS_PITCH_ZOOM_BACKOFF = 0.4;   // see mountGisMap
 export const DEPTH_CAPTION_TERRAIN = "Terrain: MapTiler";
 export const DEPTH_CAPTION_BOTH = "Terrain and buildings: MapTiler / OpenStreetMap";
 // Ledger colours (CLAUDE.md "TAXACQ brand": unchanged per ledger).
@@ -363,8 +365,11 @@ export async function mountGisMap(el, opts) {
     const canvas = el.firstElementChild;
     map = new gl.Map({
       container: canvas, style: maptilerStyleUrl("satellite", key), center: [lng, lat], zoom: 17,
-      pitch: 0, bearing: 0, attributionControl: true, cooperativeGestures: true
+      pitch: 0, bearing: 0, attributionControl: false, cooperativeGestures: true
     });
+    // Compact: the full attribution is one tap away and never covers the
+    // parcel on a small map (it used to open across the bottom on a phone).
+    map.addControl(new gl.AttributionControl({ compact: true }), "bottom-right");
     map.addControl(new gl.NavigationControl({ showCompass: true, visualizePitch: true }), "top-right");
     const pin = document.createElement("div");
     pin.className = "sat-pin sel m3d-pin";
@@ -377,6 +382,8 @@ export async function mountGisMap(el, opts) {
       map.once("error", e => { if (!map.loaded()) reject(e && e.error ? e.error : new Error("style failed")); });
     });
     let outline = false;
+    let creditNode = null;
+    const wantTilt = o.tilt === true;
     if (typeof o.boundaryFetcher === "function" && o.propertyId != null) {
       let res = null;
       try { res = await o.boundaryFetcher(o.propertyId, o.row || { latitude: lat, longitude: lng }); } catch { res = null; }
@@ -384,13 +391,30 @@ export async function mountGisMap(el, opts) {
         outline = addParcelLayers(map, res.boundary, { ledger: o.ledger });
         if (outline) {
           const cam = cameraForBbox(res.boundary.bbox, { width: canvas.clientWidth || 600, height: canvas.clientHeight || 300, pitch: 45, bearing: SELECT_BEARING, margin: 24 });
+          // cameraForBbox only approximates perspective: on a small pitched
+          // map the near edge of the parcel is magnified and ran off the
+          // bottom. Pull back a little so the whole outline stays in view.
+          cam.zoom = Math.round((cam.zoom - GIS_PITCH_ZOOM_BACKOFF) * 100) / 100;
           map.easeTo(Object.assign(cam, reducedMotion() ? { duration: 0 } : { duration: 900 }));
           const credit = boundaryCreditHtml(res.boundary.attribution);
-          if (credit) el.insertAdjacentHTML("beforeend", credit);
+          if (credit) {
+            // creditAfter: the host clips its content (the property page's
+            // picture slot), so the credit goes right after it, never hidden.
+            el.insertAdjacentHTML(o.creditAfter ? "afterend" : "beforeend", credit);
+            creditNode = o.creditAfter ? el.nextElementSibling : el.lastElementChild;
+          }
         }
       }
     }
-    return { status: "ready", outline, map, destroy: () => { try { map.remove(); } catch { /* gone */ } restore(); } };
+    // tilt: the pitched view is the first view even without an outline.
+    if (!outline && wantTilt && map) {
+      map.easeTo({ pitch: GIS_TILT_PITCH, bearing: SELECT_BEARING, duration: reducedMotion() ? 0 : 900 });
+    }
+    return { status: "ready", outline, tilted: outline || wantTilt, map, destroy: () => {
+      try { map.remove(); } catch { /* gone */ }
+      if (creditNode && creditNode.parentNode && creditNode !== el && !el.contains(creditNode)) creditNode.remove();
+      restore();
+    } };
   } catch {
     try { if (map) map.remove(); } catch { /* gone */ }
     restore();
@@ -409,6 +433,7 @@ export function headingTo(fromLat, fromLng, toLat, toLng) {
   return ((Math.atan2(y, x) / r) + 360) % 360;
 }
 export const STREET_VIEW_RADIUS_M = 50;
+export const STREET_VIEW_REFUSAL_WATCH_MS = 20000;
 export async function mountStreetView(el, opts) {
   const noop = () => {};
   const o = opts || {};
@@ -434,7 +459,26 @@ export async function mountStreetView(el, opts) {
       pano: data.location.pano, pov: { heading, pitch: 0 }, zoom: 0,
       addressControl: false, fullscreenControl: false, motionTracking: false, motionTrackingControl: false
     });
-    return { status: "ready", destroy: () => { try { pano.setVisible(false); } catch { /* gone */ } el.innerHTML = ""; } };
+    // Google refuses Street View for a key whose project has no billing
+    // (seen live 2026-11-10: "You must enable Billing"). It does not call
+    // gm_authFailure for that; it draws its own "This page can't load Google
+    // Maps correctly" dialog (a .dismissButton) inside the panorama. Watch
+    // for that dialog and tell the caller, so the panel can say what happened
+    // instead of showing Google's inverted placeholder.
+    let watcher = null, watchTimer = null;
+    const stopWatch = () => { if (watcher) { watcher.disconnect(); watcher = null; } if (watchTimer) { clearTimeout(watchTimer); watchTimer = null; } };
+    if (typeof o.onRefused === "function" && typeof MutationObserver === "function") {
+      const check = () => {
+        if (!el.querySelector(".dismissButton, .gm-err-container")) return;
+        stopWatch();
+        try { o.onRefused(); } catch { /* caller's problem */ }
+      };
+      watcher = new MutationObserver(check);
+      watcher.observe(el, { childList: true, subtree: true });
+      watchTimer = setTimeout(stopWatch, STREET_VIEW_REFUSAL_WATCH_MS);
+      check();
+    }
+    return { status: "ready", destroy: () => { stopWatch(); try { pano.setVisible(false); } catch { /* gone */ } el.innerHTML = ""; } };
   } catch {
     return { status: "error", destroy: noop };
   }
