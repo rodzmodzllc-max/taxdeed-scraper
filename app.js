@@ -2777,6 +2777,7 @@ function hydrateVisuals(root) {
   const scope = root || document;
   hydrateNaip(scope);
   hydrateBoundaries(scope);
+  hydrateCardTilt(scope);
   const hosts = scope.querySelectorAll ? scope.querySelectorAll(".minimap:not([data-mm])") : [];
   if (!hosts.length) return;
   if (!minimapObserver && typeof IntersectionObserver === "function") {
@@ -10130,7 +10131,7 @@ var GIS_LIVE = null;   // the one live mini-map; a new one releases the last (We
 function mountGisLiveInto(el, p, opts) {
   el.dataset.gisLiveState = "loading";
   return import("./map-3d.js").then(m => (m && typeof m.mountGisMap === "function")
-    ? m.mountGisMap(el, Object.assign({ lat: Number(p.latitude), lng: Number(p.longitude), propertyId: p.id, row: p, ledger: p.source, tilt: true, boundaryFetcher: (pid, row) => boundaryFor(pid, row) }, opts || {}))
+    ? m.mountGisMap(el, Object.assign({ lat: Number(p.latitude), lng: Number(p.longitude), propertyId: p.id, row: p, ledger: p.source, tilt: true, flyIn: true, boundaryFetcher: (pid, row) => boundaryFor(pid, row) }, opts || {}))
     : { status: "error" })
     .then(res => {
       el.dataset.gisLiveState = res && res.status ? res.status : "error";
@@ -10185,6 +10186,104 @@ function hydrateHeroLive(root, p) {
     return state;
   });
 }
+// ---- List cards: the tilted MapTiler view on hover or tap (owner 2026-11-10) ----
+// A card keeps its aerial picture. The tilted map animates in when the card's
+// picture is hovered (a mouse) or its "Tilt view" button is pressed (touch /
+// keyboard), and the picture comes back when the pointer leaves or the button
+// is pressed again. Chosen over a live map per card because every map spends
+// MapTiler requests and a page holds only a few WebGL contexts: ONE card map
+// at a time, never loaded for a card nobody points at. The map is not
+// interactive here, so the card's own click and the list's scroll are
+// untouched. Declared with var / function: render() can run during start-up.
+var CARD_LIVE = null, CARD_LIVE_HOST = null, CARD_LIVE_STICKY = false, CARD_LIVE_TIMER = null;
+var CARD_ROW_INDEX = null, CARD_ROW_INDEX_SRC = null, CARD_ROW_INDEX_N = -1;
+function cardRowById(pid) {
+  if (CARD_ROW_INDEX_SRC !== ALL || CARD_ROW_INDEX_N !== ALL.length) {
+    CARD_ROW_INDEX = new Map(ALL.map(r => [String(r.id), r]));
+    CARD_ROW_INDEX_SRC = ALL; CARD_ROW_INDEX_N = ALL.length;
+  }
+  return CARD_ROW_INDEX.get(String(pid)) || null;
+}
+function cardLiveRow(host) {
+  const holder = host && host.closest ? host.closest("[data-pid]") : null;
+  const p = holder ? cardRowById(holder.dataset.pid) : null;
+  return p && gisLiveConfigured(p) ? p : null;
+}
+function cardTiltButton(pressed) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "pc-tilt-btn";
+  b.setAttribute("aria-pressed", String(!!pressed));
+  b.textContent = pressed ? "Photo" : "Tilt view";
+  b.title = pressed ? "Back to the aerial picture" : "Tilted satellite view of this property (MapTiler)";
+  return b;
+}
+function stopCardLive() {
+  if (CARD_LIVE_TIMER) { clearTimeout(CARD_LIVE_TIMER); CARD_LIVE_TIMER = null; }
+  const live = CARD_LIVE, host = CARD_LIVE_HOST;
+  CARD_LIVE = null; CARD_LIVE_HOST = null; CARD_LIVE_STICKY = false;
+  if (live) { try { live.destroy(); } catch { /* already gone */ } }
+  if (host) delete host.dataset.cardLive;
+}
+function startCardLive(host, sticky) {
+  if (!host || !host.isConnected) return;
+  if (CARD_LIVE_HOST === host) { CARD_LIVE_STICKY = CARD_LIVE_STICKY || !!sticky; return; }
+  const p = cardLiveRow(host);
+  if (!p) return;
+  stopCardLive();
+  CARD_LIVE_HOST = host; CARD_LIVE_STICKY = !!sticky;
+  host.dataset.cardLive = "loading";
+  import("./map-3d.js").then(m => (m && typeof m.mountGisMap === "function")
+    ? m.mountGisMap(host, { lat: Number(p.latitude), lng: Number(p.longitude), propertyId: p.id, row: p, ledger: p.source, tilt: true,
+        interactive: false, creditOverlay: true, flyIn: true, boundaryFetcher: (pid, row) => boundaryFor(pid, row) })
+    : { status: "error" })
+    .then(res => {
+      const mine = CARD_LIVE_HOST === host && host.isConnected;
+      if (!res || res.status !== "ready" || !mine) {
+        if (res && res.status === "ready") { try { res.destroy(); } catch { /* gone */ } }
+        if (CARD_LIVE_HOST === host) { CARD_LIVE_HOST = null; CARD_LIVE_STICKY = false; }
+        delete host.dataset.cardLive;
+        return;
+      }
+      CARD_LIVE = res;
+      host.dataset.cardLive = "ready";
+      host.appendChild(cardTiltButton(true));
+    })
+    .catch(() => { if (CARD_LIVE_HOST === host) { CARD_LIVE_HOST = null; CARD_LIVE_STICKY = false; } delete host.dataset.cardLive; });
+}
+// The button, on every card picture whose record can show the map.
+function hydrateCardTilt(scope) {
+  const c = window.TDW_CONFIG || {};
+  if (!(typeof c.maptilerKey === "string" && c.maptilerKey.trim()) || !scope || !scope.querySelectorAll) return;
+  scope.querySelectorAll(".prop-card-photo:not([data-tilt])").forEach(host => {
+    host.dataset.tilt = "1";
+    if (host.dataset.cardLive || !cardLiveRow(host)) return;
+    host.appendChild(cardTiltButton(false));
+  });
+}
+document.addEventListener("click", e => {
+  const b = e.target && e.target.closest ? e.target.closest(".pc-tilt-btn") : null;
+  if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  const host = b.closest(".prop-card-photo");
+  if (!host) return;
+  if (CARD_LIVE_HOST === host) stopCardLive(); else startCardLive(host, true);
+}, true);
+document.addEventListener("mouseover", e => {
+  if (!(window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches)) return;
+  const host = e.target && e.target.closest ? e.target.closest(".prop-card-photo") : null;
+  if (!host || host === CARD_LIVE_HOST || host.contains(e.relatedTarget)) return;
+  if (CARD_LIVE_STICKY) return;
+  if (CARD_LIVE_TIMER) clearTimeout(CARD_LIVE_TIMER);
+  CARD_LIVE_TIMER = setTimeout(() => { CARD_LIVE_TIMER = null; if (host.matches(":hover")) startCardLive(host, false); }, 400);
+});
+document.addEventListener("mouseout", e => {
+  const host = e.target && e.target.closest ? e.target.closest(".prop-card-photo") : null;
+  if (!host || host.contains(e.relatedTarget)) return;
+  if (CARD_LIVE_TIMER) { clearTimeout(CARD_LIVE_TIMER); CARD_LIVE_TIMER = null; }
+  if (host === CARD_LIVE_HOST && !CARD_LIVE_STICKY) stopCardLive();
+});
+window.__tdwCardLive = () => ({ host: !!CARD_LIVE_HOST, ready: !!CARD_LIVE, sticky: CARD_LIVE_STICKY });
 function hydrateGisLive(root, p) {
   // The picture slot first. When it took the live map, the GIS card keeps its
   // own embed: one live map per page (WebGL contexts and map sessions).
