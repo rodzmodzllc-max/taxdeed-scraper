@@ -12428,6 +12428,7 @@ function render() {
   // The look did not take this draw (not evaluated yet, or it handed the
   // display back): Classic is on screen, so its cards are built now.
   if (classicIsShowing()) fillDeferredCards();
+  else scheduleLookPreload();
   // Classic draws the list itself; a look installs the bar on its own stage.
   if (activeLedger === "laft" && (document.documentElement.dataset.experience || "classic") === "classic") installCountyNowBar(main);
 
@@ -18301,6 +18302,29 @@ function loadExperience(name) {
     showErrorToast("Couldn't load the " + ENGINE_LABELS[name] + " look; showing Classic.");
     applyExperience("classic", false);
   });
+}
+// Under Merged each ledger has its own module, and a module was fetched only
+// on the first switch to its ledger: until it arrived Classic built that
+// ledger's whole card list (2026-11-11, deployed data: the first switch to
+// Auctions took ~5 s, later ones ~1.2 s). Once a look has drawn and the
+// browser is idle, the other two modules are fetched ahead of time. They
+// draw nothing until their ledger is opened (each checks it is the active
+// one). A failed fetch is silent here: the switch itself retries and reports.
+var LOOK_PRELOAD_SCHEDULED = false;
+function scheduleLookPreload() {
+  if (LOOK_PRELOAD_SCHEDULED || EXPERIENCE_CHOICE !== "merged") return;
+  LOOK_PRELOAD_SCHEDULED = true;
+  const go = () => Object.values(MERGED_ENGINES).forEach(name => {
+    if (EXPERIENCE_LOADED[name] || EXPERIENCE_CHOICE !== "merged") return;
+    EXPERIENCE_LOADED[name] = true;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = `experience-${name}.css`;
+    document.head.appendChild(link);
+    import(`./experience-${name}.js`).catch(() => { EXPERIENCE_LOADED[name] = false; link.remove(); });
+  });
+  if (typeof requestIdleCallback === "function") requestIdleCallback(go, { timeout: 4000 });
+  else setTimeout(go, 1500);
 }
 // Merged (owner's request 2026-10-27): Available draws with Terrain's
 // layout, Auctions with Tactile's, Liens & Certificates with Merged's own

@@ -77,6 +77,24 @@ for (const [hash, ledger, re, extra] of [['#/auctions', 'AUCTIONS', /^Buyer's Gu
   await ctx.close();
 }
 
+// ---- Merged: the other ledgers' modules arrive while idle, so the FIRST switch builds no Classic cards either
+{
+  const { ctx, pg } = await ctxPage({ tag: 'preload' });
+  await pg.goto(BASE + '?look=merged#/lands', { waitUntil: 'networkidle' });
+  await pg.waitForFunction(() => performance.getEntriesByType('resource').some(r => /experience-tactile\.js/.test(r.name)), null, { timeout: 15000 }).catch(() => {});
+  await pg.waitForTimeout(600);
+  const before = await pg.evaluate(() => ({ mods: ['terrain', 'tactile', 'merged'].filter(n => performance.getEntriesByType('resource').some(r => r.name.includes('experience-' + n + '.js'))),
+    engine: document.documentElement.dataset.experience, ready: document.documentElement.dataset.experienceReady || null, stage: document.getElementById('xpStage').dataset.xp || null }));
+  check('otherLookModulesPreloadedAndIdle', before.mods.length === 3 && before.engine === 'terrain' && before.ready === 'terrain', before);
+  let built = 0;
+  await pg.exposeFunction('__noteMainCards', n => { built = Math.max(built, n); });
+  await pg.evaluate(() => { new MutationObserver(() => window.__noteMainCards(document.querySelectorAll('#main .prop-card').length)).observe(document.getElementById('main'), { childList: true, subtree: true }); });
+  await pg.click('[data-nav-ledger="auction"]'); await pg.waitForTimeout(1200);
+  const after = await pg.evaluate(() => ({ engine: document.documentElement.dataset.experience, ready: document.documentElement.dataset.experienceReady || null, stageCards: document.querySelectorAll('#xpStage [data-pid]').length }));
+  check('firstSwitchBuildsNoClassicCards', built === 0 && after.ready === 'tactile' && after.stageCards > 0, { built, after });
+  await ctx.close();
+}
+
 // ---- update prompt
 {
   const { ctx, pg } = await ctxPage({ tag: 'update' });
