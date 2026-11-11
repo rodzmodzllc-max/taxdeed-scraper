@@ -1025,7 +1025,7 @@ function isPublishable(p) {
   if (!inCustomerInventory(p)) return false;
   // An Available record its own source has not confirmed in UNCONFIRMED_DAYS
   // (or never) is not presented to customers as available (2026-10-27).
-  if (unconfirmedAvailable(p)) return false;
+  if (unconfirmedRecord(p)) return false;
   // The acquisition-path gate (when enforced) applies to every non-admin,
   // the tester preview included: an unverified Available row is not an
   // actionable opportunity for anyone but an administrator.
@@ -1052,7 +1052,7 @@ function sourceLineHtml(p) {
   if (det && det !== "in_subset") bits.push(`<span class="source-subset-chip" data-subset="${det}" title="${esc(DETROIT_SUBSET_REASONS[det])}">Not included in current Detroit customer subset</span>`);
   // Administrators see the acquisition-path gate's finding on every
   // unverified Available row - what customers are (or would be) withheld.
-  const unc = IS_ADMIN && unconfirmedAvailable(p);
+  const unc = IS_ADMIN && unconfirmedRecord(p);
   if (unc) bits.push(`<span class="unconfirmed-chip" data-unconfirmed="${unc.never ? "never" : "stale"}" title="Customers do not see this record until its source confirms it again">${esc(unconfirmedText(unc))} · withheld from customers</span>`);
   if (IS_ADMIN && p.source === "laft") {
     const v = acquisitionVerification(p);
@@ -1075,30 +1075,51 @@ function sourceLineHtml(p) {
 // Config: TDW_CONFIG.unconfirmedAvailableGate === false switches it off (the
 // test fixture's dated rows; ?unconfirmed=1 switches it back on there).
 var UNCONFIRMED_DAYS = 7;
-var UNCONFIRMED_WITHHELD = { total: 0, byCounty: {} };
-function unconfirmedAvailable(p) {
-  if (!p || p.source !== "laft" || (window.TDW_CONFIG || {}).unconfirmedAvailableGate === false) return null;
+// Lien certificates (2026-11-11, owner: "Fix gaps"): the same rule for a
+// certificate - a county-held certificate its own list has not confirmed in
+// UNCONFIRMED_DAYS (LienHub has answered 403 to every read, so 1,518 Florida
+// rows were never read back) is not presented to customers as one on offer.
+// TDW_CONFIG.unconfirmedLienGate === false switches that half off.
+var UNCONFIRMED_WITHHELD = { total: 0, byCounty: {}, bySource: {} };
+var UNCONFIRMED_NOUNS = { laft: ["Available record", "Available records", "still available", "properties"],
+  certificate: ["lien certificate", "lien certificates", "still offered", "certificates"] };
+function unconfirmedGateOn(source) {
+  const c = window.TDW_CONFIG || {};
+  if (source === "laft") return c.unconfirmedAvailableGate !== false;
+  if (source === "certificate") return c.unconfirmedLienGate !== false;
+  return false;
+}
+function unconfirmedRecord(p) {
+  if (!p || !unconfirmedGateOn(p.source)) return null;
   const st = String(p.status || "active");
   if (st !== "active" && st !== "available") return null;
   const seen = p.last_seen_at ? Date.parse(p.last_seen_at) : NaN;
   if (!isNaN(seen) && Date.now() - seen <= UNCONFIRMED_DAYS * 86400000) return null;
   return { never: isNaN(seen), since: isNaN(seen) ? null : String(p.last_seen_at) };
 }
+function unconfirmedFor(kind) {
+  return (UNCONFIRMED_WITHHELD.bySource || {})[kind] || { total: 0, byCounty: {} };
+}
 function unconfirmedText(u) {
   return u.never ? "Never confirmed by the source - source unavailable"
     : `Not confirmed by the source since ${fmtDate(u.since.slice(0, 10))} - source unavailable`;
 }
-function unconfirmedCountyText(county) {
-  const n = (UNCONFIRMED_WITHHELD.byCounty || {})[county] || 0;
+function unconfirmedCountyText(county, kind) {
+  kind = kind || "laft";
+  const nn = UNCONFIRMED_NOUNS[kind] || UNCONFIRMED_NOUNS.laft;
+  const n = (unconfirmedFor(kind).byCounty || {})[county] || 0;
   if (!n) return "";
-  return `${n.toLocaleString("en-US")} Available record${n === 1 ? "" : "s"} in ${county} withheld: the source could not be read to confirm ${n === 1 ? "it is" : "they are"} still available. This is not a statement that ${county} has no properties.`;
+  return `${n.toLocaleString("en-US")} ${n === 1 ? nn[0] : nn[1]} in ${county} withheld: the source could not be read to confirm ${n === 1 ? "it is" : "they are"} ${nn[2]}. This is not a statement that ${county} has no ${nn[3]}.`;
 }
-function unconfirmedLedgerText() {
-  const n = UNCONFIRMED_WITHHELD.total;
-  return `${n.toLocaleString("en-US")} Available record${n === 1 ? " is" : "s are"} withheld because ${n === 1 ? "its" : "their"} source could not be read to confirm ${n === 1 ? "it is" : "they are"} still available. This is not a statement that there are no properties.`;
+function unconfirmedLedgerText(kind) {
+  kind = kind || "laft";
+  const nn = UNCONFIRMED_NOUNS[kind] || UNCONFIRMED_NOUNS.laft;
+  const n = unconfirmedFor(kind).total;
+  return `${n.toLocaleString("en-US")} ${n === 1 ? nn[0] + " is" : nn[1] + " are"} withheld because ${n === 1 ? "its" : "their"} source could not be read to confirm ${n === 1 ? "it is" : "they are"} ${nn[2]}. This is not a statement that there are no ${nn[3]}.`;
 }
 window.__tdwUnconfirmed = () => ({ total: UNCONFIRMED_WITHHELD.total, byCounty: Object.assign({}, UNCONFIRMED_WITHHELD.byCounty),
-  countyText: c => unconfirmedCountyText(c) });
+  bySource: JSON.parse(JSON.stringify(UNCONFIRMED_WITHHELD.bySource || {})),
+  countyText: (c, k) => unconfirmedCountyText(c, k) });
 function sourceReviewHtml(p) {
   const customer = isCustomerPublishable(p);
   const ps = publicationStateOf(p);
@@ -1116,8 +1137,8 @@ function sourceReviewBannerHtml(p) {
   const gate = ps && ps !== "CUSTOMER_PUBLISHED"
     ? `<div class="source-review-banner pub-gate-banner" id="publicationGateBanner" data-pub-state="${esc(ps)}"><b>Not customer-published: ${esc(PUBLICATION_STATE_LABELS[ps] || ps)}.</b> ${esc(publicationReasonsText(p))} ${esc(reviewViewerReason().replace(/^shown/, "Shown"))}; customers do not see this record.${p.publication_remediation ? ` <span class="pub-remediation">To publish: ${esc(p.publication_remediation)}</span>` : ""}</div>`
     : "";
-  const unc = unconfirmedAvailable(p);
-  const uncHtml = unc ? `<div class="source-review-banner unconfirmed-banner" id="unconfirmedBanner" data-unconfirmed="${unc.never ? "never" : "stale"}"><b>${esc(unconfirmedText(unc))}.</b> This record's source has not confirmed it in the last ${UNCONFIRMED_DAYS} days, so it is not presented as available. ${esc(reviewViewerReason().replace(/^shown/, "Shown"))}; customers do not see this record. Nothing was closed.</div>` : "";
+  const unc = unconfirmedRecord(p);
+  const uncHtml = unc ? `<div class="source-review-banner unconfirmed-banner" id="unconfirmedBanner" data-unconfirmed="${unc.never ? "never" : "stale"}"><b>${esc(unconfirmedText(unc))}.</b> This record's source has not confirmed it in the last ${UNCONFIRMED_DAYS} days, so it is not presented as ${p.source === "certificate" ? "on offer" : "available"}. ${esc(reviewViewerReason().replace(/^shown/, "Shown"))}; customers do not see this record. Nothing was closed.</div>` : "";
   if (isCustomerPublishable(p)) return uncHtml + gate;
   return uncHtml + gate + `<div class="source-review-banner" id="sourceReviewBanner"><b>Source review: ${esc(sourceReviewLabel(p))}.</b> This record comes from a source awaiting customer-publication review - ${esc(reviewViewerReason())}. It is not customer-published. Its availability below is the source's own statement and is a separate fact.</div>`;
 }
@@ -4867,7 +4888,7 @@ function ledgerZeroState(kind) {
   else if (eligibility === "NOT_OFFERED") zeroCase = "NOT_OFFERED";
   else if (count > 0 || !settled) zeroCase = null;
   else if (healths.length && unhealthy && !readOk) zeroCase = "SOURCE_FAILURE";
-  else if (kind === "laft" && UNCONFIRMED_WITHHELD.total) zeroCase = "SOURCE_FAILURE";
+  else if (unconfirmedFor(kind).total) zeroCase = "SOURCE_FAILURE";
   else if (!tracked) zeroCase = "NOT_IMPLEMENTED";
   else if (withheld || pending || eligibility === "SOURCE_RESTRICTED" || pubSourceOnly) zeroCase = "SOURCE_RESTRICTED";
   else if (pubWithheld) zeroCase = "WITHHELD";
@@ -4923,7 +4944,7 @@ function ledgerStatusHtml(kind, shown, opts) {
     ${countIsTitle ? "" : `<span class="ls-item"><b>${ok && !o.compact ? "Ledger total" : "Current count"}</b><span class="ls-val" data-ls-count="${ok ? z.count : ""}"${ok ? ` data-ls-total="${ledgerTotal}"` : ""}>${esc(ok && !o.compact ? ledgerNoun(kind, ledgerTotal) : countText)}</span></span>`}
     <span class="ls-item"><b>Source read</b><span class="ls-val" data-ls-read>${esc(freshness)}</span></span>
     ${z.pub ? `<span class="ls-item"><b>Withheld from customers</b><span class="ls-val${z.pubWithheld ? " warn" : ""}" data-ls-withheld="${z.pubWithheld}" title="Records collected but not customer-published until they pass the publication gate: source approval, verified state and county rules, record validation, a documented acquisition path and a current observation">${esc(z.pubWithheld ? publicationWithheldText(kind) : "None - every active record passed the publication gate")}</span>${z.pubWithheld && IS_ADMIN ? `<span class="ls-sub">Shown to you as an admin, each labelled; customers do not see them</span>` : ""}</span>` : ""}
-    ${why ? `<p class="ls-why" data-zero-why="${esc(z.zeroCase)}"><b>${esc(why.label)}.</b> ${esc(why.text)}${lastKnown ? ` ${esc(lastKnown)}.` : ""}${covText ? ` ${esc(covText)}.` : ""}${z.zeroCase === "WITHHELD" || (z.zeroCase === "SOURCE_RESTRICTED" && z.pubWithheld) ? ` ${esc(publicationWithheldText(kind))}.` : ""}${kind === "laft" && UNCONFIRMED_WITHHELD.total ? ` <span data-unconfirmed-withheld="${UNCONFIRMED_WITHHELD.total}">${esc(unconfirmedLedgerText())}</span>` : ""}</p>` : ""}
+    ${why ? `<p class="ls-why" data-zero-why="${esc(z.zeroCase)}"><b>${esc(why.label)}.</b> ${esc(why.text)}${lastKnown ? ` ${esc(lastKnown)}.` : ""}${covText ? ` ${esc(covText)}.` : ""}${z.zeroCase === "WITHHELD" || (z.zeroCase === "SOURCE_RESTRICTED" && z.pubWithheld) ? ` ${esc(publicationWithheldText(kind))}.` : ""}${unconfirmedFor(kind).total ? ` <span data-unconfirmed-withheld="${unconfirmedFor(kind).total}">${esc(unconfirmedLedgerText(kind))}</span>` : ""}</p>` : ""}
     ${o.compact ? "" : `<p class="ls-links">${z.led && z.led.meaning ? `<span class="ls-meaning">${esc(z.led.meaning)}</span>` : ""}<button type="button" class="link-btn" data-action="staterules" data-ledger="${esc(LEDGER_NAME_FOR_KEY[kind])}">State rules and sources →</button>${z.led && z.led.eligibility_source_url ? `<a href="${esc(z.led.eligibility_source_url)}" target="_blank" rel="noopener">Official reference →</a>` : ""}</p>`}
   </div>`;
 }
@@ -5046,16 +5067,19 @@ function applyLedgerRows() {
     // writer decides active rows only): left unlabelled, never guessed.
   });
   GATE_WITHHELD = { total: 0, by: {} };
-  UNCONFIRMED_WITHHELD = { total: 0, byCounty: {} };
+  UNCONFIRMED_WITHHELD = { total: 0, byCounty: {}, bySource: {} };
   ALL = rows.filter(p => {
     // Outside the Detroit customer subset: not customer inventory at all, so
     // not "withheld" either (DETROIT_SUMMARY names it on the ledger instead).
     if (!IS_ADMIN && !inCustomerInventory(p)) return false;
     // Not confirmed by its own source: counted on its own (the zero case says
     // the source could not be read), never folded into source review.
-    if (!IS_ADMIN && unconfirmedAvailable(p) && p.publication_status !== "BLOCKED") {
+    if (!IS_ADMIN && unconfirmedRecord(p) && p.publication_status !== "BLOCKED") {
       UNCONFIRMED_WITHHELD.total++;
       UNCONFIRMED_WITHHELD.byCounty[p.county] = (UNCONFIRMED_WITHHELD.byCounty[p.county] || 0) + 1;
+      const bs = UNCONFIRMED_WITHHELD.bySource[p.source] || (UNCONFIRMED_WITHHELD.bySource[p.source] = { total: 0, byCounty: {} });
+      bs.total++;
+      bs.byCounty[p.county] = (bs.byCounty[p.county] || 0) + 1;
       return false;
     }
     if (isPublishable(p)) {
@@ -6214,7 +6238,7 @@ function cardStamp(p) {
   if (p.source === "laft") {
     if (isGone(p)) return { key: "gone", cls: "stamp-closed", label: "No longer listed", title: GONE_STATUS_CAVEAT };
     // Only an admin ever sees an unconfirmed record (customers are not shown it).
-    const unc = IS_ADMIN && unconfirmedAvailable(p);
+    const unc = IS_ADMIN && unconfirmedRecord(p);
     if (unc) return { key: "unconfirmed", cls: "stamp-closed", label: unc.never ? "Never confirmed" : "Not confirmed", title: `${unconfirmedText(unc)} · withheld from customers` };
     const a = acquisitionOf(p);
     if (a.verified && a.mode !== "none") return { key: "verified", cls: "stamp-verified", label: "Verified path", title: "How to acquire was read from the source's own page or document" };
@@ -12870,9 +12894,9 @@ function section(container, title, sub, rows, kind) {
       if (ledgerEmpty) e.dataset.ledgerEmpty = "1";
       // Available records withheld because their source could not confirm
       // them: never let the county (or ledger) read as having no properties.
-      if (kind === "laft" && UNCONFIRMED_WITHHELD.total) {
+      if (unconfirmedFor(kind).total) {
         const one = selectedCountyOrAll();
-        const txt = one !== "ALL" ? unconfirmedCountyText(one) : unconfirmedLedgerText();
+        const txt = one !== "ALL" ? unconfirmedCountyText(one, kind) : unconfirmedLedgerText(kind);
         if (txt) {
           if (stateEmpty || ledgerEmpty) e.textContent = "";
           const u = document.createElement("span");
