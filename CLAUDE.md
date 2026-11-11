@@ -1923,6 +1923,9 @@ Full description: `docs/six-state-expansion.md`. Stable facts:
     `sw.js` → `tdw-shell-v57`.
 - **Workflow:** the `expansion` job is a matrix over MI, WY, SC, CO and WI in
   the existing 12:00 UTC slot, or dispatched with `job=expansion`.
+  Michigan's FEMA flood slice runs in its own job, `expansion_mi_flood`
+  (2026-11-10): with it the MI leg ran 47 minutes against the matrix job's 45
+  and its last steps were cancelled. Same trigger, after the matrix.
 
 ## Five-state enrichment: MI, WY, SC, CO, WI (2026-10-01, PR open, no migration)
 
