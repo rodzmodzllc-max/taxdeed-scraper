@@ -1264,3 +1264,6 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
 .update-ready-x{min-width:36px;min-height:36px;border:0;background:none;color:#fff;font-size:1rem;cursor:pointer}
 .update-ready-go:focus-visible,.update-ready-x:focus-visible{outline:2px solid #fff;outline-offset:2px}
 @media (min-width:1024px){ .update-ready{bottom:24px} }
+.update-ready > span{flex:1 1 auto;min-width:0}
+/* Phone: the bar spans the width, so the sentence wraps to two lines at most. */
+@media (max-width:560px){ .update-ready{left:12px;right:12px;transform:none;max-width:none} }
