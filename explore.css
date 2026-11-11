@@ -1256,6 +1256,11 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
 /* Map preview picture: the Tilt view map fills the picture, as on a list card. */
 .pv-visual{position:relative}
 .pv-visual.m3d-gis{overflow:hidden}
+/* The preview card has its close button in the picture's top-right corner: the Tilt view button
+   sits to its left (it covered it, 2026-11-11). On a phone the picture is a small thumbnail, so
+   there is no tilt view there. */
+.pv-visual > .pc-tilt-btn.pc-tilt-btn{right:calc(.4rem + 46px)}
+@media (max-width:1023px){ .pv-visual > .pc-tilt-btn.pc-tilt-btn{display:none} }
 .pv-visual.m3d-gis .m3d-gis-canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:0}
 /* "A new version is ready" (app.js showUpdateReady). */
 .update-ready{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom, 0px) + 84px);transform:translateX(-50%);z-index:1200;display:flex;align-items:center;gap:.6rem;

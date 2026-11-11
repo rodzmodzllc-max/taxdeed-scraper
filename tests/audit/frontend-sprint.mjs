@@ -107,9 +107,13 @@ for (const key of [false, true]) {
   await pg.waitForTimeout(1500);
   const card = pg.locator('#mapWorkspace .strip-card[data-pid]').first();
   if (picked && await card.count()) { await card.click(); await pg.waitForTimeout(1200); }
-  const r = await pg.evaluate(() => { const p = document.getElementById('explorePreview'); const v = p && p.querySelector('.pv-visual'); return { style: [...document.querySelectorAll('#mapStyleToggle .on')].map(x => x.id), peek: !!p && !p.hidden, visual: !!v, btn: !!(v && v.querySelector(':scope > .pc-tilt-btn')), pid: p ? p.dataset.pid : null }; });
+  const r = await pg.evaluate(() => { const p = document.getElementById('explorePreview'); const v = p && p.querySelector('.pv-visual'); const t = v && v.querySelector(':scope > .pc-tilt-btn'); const c = p && p.querySelector('.preview-close'); const mid = e => { const r = e.getBoundingClientRect(); return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); };
+    return { style: [...document.querySelectorAll('#mapStyleToggle .on')].map(x => x.id), peek: !!p && !p.hidden, visual: !!v, btn: !!t, pid: p ? p.dataset.pid : null,
+      closeFree: c ? (m => m === c || c.contains(m))(mid(c)) : null, tiltFree: t ? (m => m === t)(mid(t)) : null }; });
   if (!r.visual) check('previewTilt ' + (key ? 'withKey' : 'noKey') + ' (fixture has a preview picture)', false, { picked, r });
   else check('previewTilt ' + (key ? 'withKey' : 'noKey'), r.btn === key, r);
+  // The Tilt view button never covers the preview's close button (it did on 2026-11-11).
+  if (key) check('previewTiltLeavesCloseButtonFree', r.closeFree === true && r.tiltFree === true, r);
   await ctx.close();
 }
 
