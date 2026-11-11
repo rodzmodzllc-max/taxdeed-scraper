@@ -153,3 +153,13 @@ html[data-experience="merged"] .detail-fold-summary .detail-more-title::before{c
   .detail-fold[open] > :not(summary){animation:detailFoldIn .18s ease-out}
   @keyframes detailFoldIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
 }
+
+/* -- Picture slot: the live tilted MapTiler map (hydrateHeroLive) ----------
+   The slot's aerial rules size a still picture; a map needs room to read
+   and its credit sits right under it, so those limits are lifted here. */
+.detail-hero-photo.m3d-gis,
+.detail-first .detail-hero-photo.m3d-gis,
+.detail-panel .detail-first .detail-hero-photo.m3d-gis{position:relative;aspect-ratio:auto;height:auto;max-height:none;display:block}
+.detail-hero-photo.m3d-gis .m3d-gis-canvas{height:clamp(220px,38vh,360px);border-radius:inherit}
+.detail-panel .detail-hero-photo.m3d-gis .m3d-gis-canvas{height:240px}
+@media (max-width:640px){ .detail-hero-photo.m3d-gis .m3d-gis-canvas{height:clamp(200px,34vh,280px)} }

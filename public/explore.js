@@ -1481,9 +1481,14 @@ function watchPeekViewport() {
 // request to Google from it.
 // ---------------------------------------------------------------------------
 let svHandle = null;
+// Google refused Street View for this key earlier in this session (no billing
+// on its Cloud project): the button is not offered again until a new session,
+// because every attempt also puts Google's error overlay on the Google basemap.
+const SV_REFUSED_KEY = "tdw_sv_refused_v1";
+function streetViewRefused() { try { return sessionStorage.getItem(SV_REFUSED_KEY) === "1"; } catch { return false; } }
 function streetViewAllowed(p) {
   const k = (window.TDW_CONFIG || {}).googleMapsApiKey;
-  return window.__tdwIsAdmin === true && typeof k === "string" && k.trim() !== "" && !!p && hasPin(p);
+  return !streetViewRefused() && window.__tdwIsAdmin === true && typeof k === "string" && k.trim() !== "" && !!p && hasPin(p);
 }
 let svOpener = null;
 // restoreFocus: the panel's own close button or Escape hands focus back to
@@ -1534,7 +1539,13 @@ async function openStreetView(p) {
   let res;
   try {
     const m = await import("./map-3d.js");
-    res = await m.mountStreetView(panel.querySelector(".map-sv-pano"), { lat: p.latitude, lng: p.longitude });
+    res = await m.mountStreetView(panel.querySelector(".map-sv-pano"), { lat: p.latitude, lng: p.longitude, onRefused: () => {
+      try { sessionStorage.setItem(SV_REFUSED_KEY, "1"); } catch { /* private mode: this page only */ }
+      if (svHandle) { try { svHandle.destroy(); } catch { /* gone */ } svHandle = null; }
+      const host = panel.querySelector(".map-sv-pano");
+      if (host) host.innerHTML = `<p class="map-sv-msg">Google refused Street View for this key: billing is not enabled on its Google Cloud project. Street View stays off for this session. If the Google basemap now shows an error notice, reload the page; the MapTiler map is not affected.</p>`;
+      document.querySelectorAll("#explorePreview .mp-sv").forEach(b => b.remove());
+    } });
   } catch { res = { status: "error" }; }
   if (!panel.isConnected || !activeProp || activeProp.id !== pid) { if (res && res.destroy) res.destroy(); return; }
   svHandle = res;

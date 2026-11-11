@@ -2273,7 +2273,13 @@ function propertyVisual(p, cls, opts) {
   }
   const coords = hasNum(p.latitude) && hasNum(p.longitude);
   if (coords && p.photo_url !== "" && naipLiveEnabled() && imageryHasCoords(p) && !naipFailedSet().has(naipKey(p.latitude, p.longitude))) return naipLiveHtml(p, cls);
-  const sat = coords ? staticImageUrl(p) : null;
+  // MapTiler's static-image endpoint is NOT on this key's plan: checked live
+  // 2026-11-10, it answers HTTP 200 with an "Invalid key" placard image, so
+  // no error event fires and the card showed that placard as the picture.
+  // MapTiler imagery is the live map instead (hydrateHeroLive); a still
+  // falls through to the county context below.
+  const satAny = coords ? staticImageUrl(p) : null;
+  const sat = satAny && satAny.provider !== "maptiler" ? satAny : null;
   if (sat) {
     return `<div class="${cls} has-photo static-sat" data-provider="${sat.provider}" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"><img class="static-sat-img" src="${esc(sat.url)}" alt="Satellite image centred on this property's coordinates" loading="lazy" decoding="async" width="${STATIC_IMG_W}" height="${STATIC_IMG_H}"><span class="photo-caption">${esc(sat.label)}</span></div>`;
   }
@@ -10117,39 +10123,81 @@ function gisLiveConfigured(p) {
   return !!key && !!p && hasNum(p.latitude) && hasNum(p.longitude);
 }
 var GIS_LIVE = null;   // the one live mini-map; a new one releases the last (WebGL contexts are scarce)
+// Mounts the live MapTiler map into `el` and adds the Tilt / Flat button.
+// The tilted view is the first view (owner 2026-11-10: "make the map tilt
+// view priority ... for every property using the GIS"): the button starts
+// pressed whenever the map came up pitched. Returns a promise of the state.
+function mountGisLiveInto(el, p, opts) {
+  el.dataset.gisLiveState = "loading";
+  return import("./map-3d.js").then(m => (m && typeof m.mountGisMap === "function")
+    ? m.mountGisMap(el, Object.assign({ lat: Number(p.latitude), lng: Number(p.longitude), propertyId: p.id, row: p, ledger: p.source, tilt: true, boundaryFetcher: (pid, row) => boundaryFor(pid, row) }, opts || {}))
+    : { status: "error" })
+    .then(res => {
+      el.dataset.gisLiveState = res && res.status ? res.status : "error";
+      if (!res || res.status !== "ready" || !res.map) return el.dataset.gisLiveState;
+      // The page was closed or rebuilt while the map loaded: release it.
+      if (!el.isConnected) { try { res.destroy && res.destroy(); } catch { /* gone */ } return el.dataset.gisLiveState; }
+      if (GIS_LIVE && GIS_LIVE !== res) { try { GIS_LIVE.destroy(); } catch { /* already gone */ } }
+      GIS_LIVE = res;
+      const reduce = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: no-preference)").matches);
+      const tilted = res.tilted === true;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "gis-tilt-btn";
+      btn.setAttribute("aria-pressed", String(tilted));
+      btn.textContent = tilted ? "Flat" : "Tilt";
+      btn.title = "Tilt the camera to see the terrain - the parcel outline itself stays flat";
+      btn.addEventListener("click", () => {
+        const on = btn.getAttribute("aria-pressed") !== "true";
+        btn.setAttribute("aria-pressed", String(on));
+        btn.textContent = on ? "Flat" : "Tilt";
+        try { res.map.easeTo({ pitch: on ? 55 : 0, duration: reduce ? 0 : 700 }); } catch { /* map gone */ }
+      });
+      el.appendChild(btn);
+      return el.dataset.gisLiveState;
+    })
+    .catch(() => { el.dataset.gisLiveState = "error"; return "error"; });
+}
+// The property page's PICTURE is the tilted MapTiler map whenever the record
+// has coordinates and a MapTiler key is configured (owner 2026-11-10). The
+// aerial picture the page was drawn with (stored / live USDA NAIP, or the
+// county context) stays exactly as it is when the map cannot be used: no
+// key, no coordinates, or a map that fails to load (mountGisMap puts the
+// host's content back). The parcel outline, when one is published for the
+// record, is drawn on the map with its credit right under it.
+function hydrateHeroLive(root, p) {
+  if (!root || !p || !gisLiveConfigured(p)) return null;
+  const el = root.querySelector(".detail-hero-photo");
+  if (!el || el.dataset.gisLiveState) return null;
+  el.dataset.heroLive = String(p.id);
+  return mountGisLiveInto(el, p, { creditAfter: true }).then(state => {
+    if (state !== "ready") return state;
+    // The aerial's own outline credit sat right after the picture; the map
+    // carries its own now (same source, same wording).
+    let n = el.nextElementSibling;
+    let seen = 0;
+    while (n && n.matches && n.matches("[data-pb-credit]")) {
+      const next = n.nextElementSibling;
+      if (seen++ > 0) n.remove();
+      n = next;
+    }
+    el.setAttribute("aria-label", "Interactive tilted satellite map of this property");
+    return state;
+  });
+}
 function hydrateGisLive(root, p) {
+  // The picture slot first. When it took the live map, the GIS card keeps its
+  // own embed: one live map per page (WebGL contexts and map sessions).
+  const hero = hydrateHeroLive(root, p);
   const el = root && root.querySelector(`[data-gis-live="${cssEscape(String(p.id))}"]`);
   if (!el || el.dataset.gisLiveState || !gisLiveConfigured(p)) return;
   const fold = el.closest("details");
   const go = () => {
     if (el.dataset.gisLiveState) return;
-    el.dataset.gisLiveState = "loading";
-    import("./map-3d.js").then(m => (m && typeof m.mountGisMap === "function")
-      ? m.mountGisMap(el, { lat: Number(p.latitude), lng: Number(p.longitude), propertyId: p.id, row: p, ledger: p.source, boundaryFetcher: (pid, row) => boundaryFor(pid, row) })
-      : { status: "error" })
-      .then(res => {
-        el.dataset.gisLiveState = res && res.status ? res.status : "error";
-        if (!res || res.status !== "ready" || !res.map) return;
-        // The page was closed or rebuilt while the map loaded: release it.
-        if (!el.isConnected) { try { res.destroy && res.destroy(); } catch { /* gone */ } return; }
-        if (GIS_LIVE && GIS_LIVE !== res) { try { GIS_LIVE.destroy(); } catch { /* already gone */ } }
-        GIS_LIVE = res;
-        const reduce = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: no-preference)").matches);
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "gis-tilt-btn";
-        btn.setAttribute("aria-pressed", "false");
-        btn.textContent = "Tilt";
-        btn.title = "Tilt the camera to see the terrain - the parcel outline itself stays flat";
-        btn.addEventListener("click", () => {
-          const on = btn.getAttribute("aria-pressed") !== "true";
-          btn.setAttribute("aria-pressed", String(on));
-          btn.textContent = on ? "Flat" : "Tilt";
-          try { res.map.easeTo({ pitch: on ? 55 : 0, duration: reduce ? 0 : 700 }); } catch { /* map gone */ }
-        });
-        el.appendChild(btn);
-      })
-      .catch(() => { el.dataset.gisLiveState = "error"; });
+    Promise.resolve(hero).then(state => {
+      if (state === "ready" || el.dataset.gisLiveState || !el.isConnected) return;
+      mountGisLiveInto(el, p);
+    });
   };
   if (!fold || fold.open) { go(); return; }
   fold.addEventListener("toggle", function once() { if (fold.open) { fold.removeEventListener("toggle", once); go(); } });
