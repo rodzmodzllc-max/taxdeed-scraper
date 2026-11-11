@@ -178,6 +178,9 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
 // 7. Watchlist page: one column, no emoji, count pill.
 {
   const pg = await open('index.html?look=merged#/auctions');
+  // 2026-11-11: while a look draws the ledger, Classic's hidden cards are not built; this check adds two
+  // records through Classic's own Watchlist buttons, so it asks for them (as happens whenever Classic shows).
+  await pg.evaluate(() => { if (window.__tdwFillDeferredCards) window.__tdwFillDeferredCards(); });
   const ids = await pg.evaluate(() => [...document.querySelectorAll('#main [data-action="bidlist"][data-pid]')].slice(0, 2).map(b => b.dataset.pid));
   for (const id of ids) { await pg.evaluate(i => document.querySelector(`#main [data-action="bidlist"][data-pid="${i}"]`).click(), id); await pg.waitForTimeout(400); }
   const toast = await pg.evaluate(() => [...document.querySelectorAll('.tdw-toast')].map(t => t.dataset.tone + ':' + t.innerText));

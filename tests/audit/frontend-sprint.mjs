@@ -48,6 +48,35 @@ for (const [hash, ledger, re, extra] of [['#/auctions', 'AUCTIONS', /^Buyer's Gu
   await ctx.close();
 }
 
+// ---- a look that draws the ledger: Classic's hidden cards are not built; they appear at once when Classic shows
+{
+  const { ctx, pg } = await ctxPage({ tag: 'defer' });
+  await pg.goto(BASE + '?look=merged#/lands', { waitUntil: 'networkidle' });
+  await pg.waitForTimeout(1000);
+  const snap = () => pg.evaluate(() => ({ engine: document.documentElement.dataset.experience, ready: document.documentElement.dataset.experienceReady || null,
+    mainCards: document.querySelectorAll('#main .prop-card').length, stageCards: document.querySelectorAll('#xpStage [data-pid]').length, deferred: window.__tdwDeferredCards(),
+    mainShown: getComputedStyle(document.getElementById('main')).display !== 'none' }));
+  await pg.click('[data-nav-ledger="auction"]'); await pg.waitForTimeout(900);
+  await pg.click('[data-nav-ledger="laft"]'); await pg.waitForTimeout(900);
+  await pg.click('[data-nav-ledger="auction"]'); await pg.waitForTimeout(900);
+  const look = await snap();
+  check('lookDrawsAndClassicCardsAreDeferred', look.engine === 'tactile' && look.ready === 'tactile' && !look.mainShown && look.stageCards > 0 && look.mainCards === 0 && look.deferred > 0, look);
+  // The look hands the display back (as it does for an empty or failed ledger).
+  await pg.evaluate(() => { delete document.documentElement.dataset.experienceReady; });
+  await pg.waitForTimeout(250);
+  const back = await snap();
+  check('classicIsCompleteTheMomentItShows', back.mainShown && back.mainCards > 0 && back.deferred === 0, back);
+  // Picking Classic outright.
+  await pg.goto(BASE + '?look=merged#/auctions', { waitUntil: 'networkidle' }); await pg.waitForTimeout(900);
+  await pg.click('[data-nav-ledger="laft"]'); await pg.waitForTimeout(700);
+  await pg.click('[data-nav-ledger="auction"]'); await pg.waitForTimeout(700);
+  await pg.evaluate(() => { const bt = document.querySelector('#lookMenu [data-look="classic"]'); if (bt) bt.click(); });
+  await pg.waitForTimeout(900);
+  const classic = await snap();
+  check('pickingClassicBuildsItsCards', classic.engine === 'classic' && classic.mainShown && classic.mainCards > 0 && classic.deferred === 0, classic);
+  await ctx.close();
+}
+
 // ---- update prompt
 {
   const { ctx, pg } = await ctxPage({ tag: 'update' });
