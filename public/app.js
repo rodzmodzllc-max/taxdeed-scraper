@@ -3521,6 +3521,36 @@ function auctionLinkInfo(p) {
   if (kind === "info") return { href, kind, label: "View county tax-sale information", note: null };
   return { href, kind: null, label: "View listing", note: "The scope of this link has not been recorded." };
 }
+// The record's link to its source (owner, 2026-11-11: "the link takes you
+// directly to that property link not the search page"). A page for THIS
+// property wins whenever the row carries one: the listing link the database
+// marks as a property page (url_auction_kind = property), else the verified
+// acquisition page whose scope is the property. Only when neither is on file
+// does it fall back to the list / sale-day page, and then it is named as a
+// list and says what to look for there. Never a constructed URL.
+function recordSourceLink(p) {
+  if (!p) return null;
+  const l = auctionLinkInfo(p);
+  if (l.href && l.kind === "property") return { href: l.href, label: l.label, scope: "property", kind: "property", note: "" };
+  const a = p.source !== "certificate" && typeof acquisitionOf === "function" ? acquisitionOf(p) : null;
+  if (a && a.verified && a.scope === "property" && a.type === "direct_property_url" && /^https:\/\//i.test(a.url || "") && !isDataServiceUrl(a.url))
+    return { href: a.url, label: "Open this property at the source", scope: "property", kind: "property", note: "" };
+  const find = p.source === "auction" && p.case_no ? "case " + p.case_no : (parcelOf(p) ? "parcel " + parcelOf(p) : (p.case_no ? "case " + p.case_no : ""));
+  const note = "The source publishes a list, not a page for this property" + (find ? " - find it there by " + find : "") + ".";
+  if (l.href) return { href: l.href, label: l.label, scope: "list", kind: l.kind || "unknown", note };
+  const av = p.source === "laft" ? availabilityLink(p) : null;
+  if (av) return { href: av.href, label: av.label, scope: "list", kind: "source", note };
+  return null;
+}
+// Phone (owner, 2026-11-11): the source link stays on screen while the record
+// scrolls. One bar at the foot of the record sheet; CSS shows it at phone
+// width only. Nothing is drawn when the row has no link on file.
+function recordFloatHtml(p) {
+  const s = recordSourceLink(p);
+  if (!s) return "";
+  return `<div class="detail-float" data-float-scope="${s.scope}"><a href="${esc(s.href)}" target="_blank" rel="noopener" data-auction-link="${esc(s.kind)}" data-float-link>${esc(s.label)} <span aria-hidden="true">↗</span></a>${s.note ? `<span class="detail-float-note">${esc(s.note)}</span>` : ""}</div>`;
+}
+window.__tdwRecordSourceLink = pid => { const p = ALL.find(x => String(x.id) === String(pid)); const s = p ? recordSourceLink(p) : null; return s ? { href: s.href, scope: s.scope, label: s.label } : null; };
 // opts.noDate (2026-10-27): on the List the sale date is the date divider
 // above the card, so the sale-listing button drops it.
 function auctionLinkHtml(p, cls, opts) {
@@ -11222,7 +11252,7 @@ function detailHtml(p) {
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
     </div>${recordOriginsHtml(p)}` : provenanceCardHtml(p)}
     <!--/RESEARCH-->
-    ${p.source === "laft" ? auctionLinkHtml(p, "detail-cta") : ""}
+    ${p.source === "laft" ? (() => { const s = recordSourceLink(p); return s && s.scope === "property" ? `<a class="detail-cta" href="${esc(s.href)}" target="_blank" rel="noopener" data-auction-link="property">${svgIcon("gavel")}${esc(s.label)}</a>` : auctionLinkHtml(p, "detail-cta"); })() : ""}
     ${noteHtml(p)}`;
   // Phase 66: the section nav is built from the sections that actually
   // rendered above (see detailNavHtml), so it is spliced in afterwards.
@@ -11455,7 +11485,8 @@ function openDetail(p) {
   // refreshOpenDetail() re-enters this function, so the class stays current
   // after a favourite or a watchlist change rebuilds the modal.
   inner.className = "detail-modal-inner prop-card " + cardStatus(p);
-  inner.innerHTML = detailHtml(p);
+  // The Free preview withholds the address and the source, so it gets no bar.
+  inner.innerHTML = detailHtml(p) + (pageTier() === "free" ? "" : recordFloatHtml(p));
   collapseSecondaryOnPhone(inner);
   inner.dataset.pid = String(p.id);
   ensureFullProvenance(p);
