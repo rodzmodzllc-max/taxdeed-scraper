@@ -12425,6 +12425,9 @@ function render() {
   // The county "Now showing" bar is an Available-ledger control only.
   if (activeLedger !== "laft") hideCountyNowBar();
   window.dispatchEvent(new CustomEvent("tdw:rendered", { detail: rendered }));
+  // The look did not take this draw (not evaluated yet, or it handed the
+  // display back): Classic is on screen, so its cards are built now.
+  if (classicIsShowing()) fillDeferredCards();
   // Classic draws the list itself; a look installs the bar on its own stage.
   if (activeLedger === "laft" && (document.documentElement.dataset.experience || "classic") === "classic") installCountyNowBar(main);
 
@@ -12809,6 +12812,8 @@ function adminWithheldLineHtml(kind) {
 }
 function section(container, title, sub, rows, kind) {
   const sec = document.createElement("section"); sec.className = "mega-section";
+  DEFERRED_CARDS.length = 0;
+  const deferCards = lookWillDraw(kind);
   const shown = sortRows(rows.filter(passes));
   const cfg = ledgerCopy(kind);
 
@@ -13033,10 +13038,20 @@ function section(container, title, sub, rows, kind) {
     list.dataset.groupKey = key;
     GROUP_PAGES.set(key, { rows: countyRows, renderCard });
     const n = Math.min(countyRows.length, Math.max(LIST_PAGE, GROUP_SHOWN.get(key) || 0));
-    for (let i = 0; i < n; i++) list.appendChild(renderCard(countyRows[i], false, LIST_CARD_CTX));
-    list.dataset.listed = String(n);
-    det.appendChild(list);
-    if (n < countyRows.length) det.appendChild(groupMoreButton(key, n, countyRows.length));
+    // A look that is loaded draws this ledger itself and hides #main: this
+    // group's cards are not built until Classic actually has to show them
+    // (fillDeferredCards). 2026-11-11, deployed data: a switch to Auctions
+    // spent ~2.5 s building 3,466 cards that the look then covered.
+    if (deferCards) {
+      list.dataset.listed = "0";
+      det.appendChild(list);
+      DEFERRED_CARDS.push({ list, det, key, rows: countyRows, renderCard, n });
+    } else {
+      for (let i = 0; i < n; i++) list.appendChild(renderCard(countyRows[i], false, LIST_CARD_CTX));
+      list.dataset.listed = String(n);
+      det.appendChild(list);
+      if (n < countyRows.length) det.appendChild(groupMoreButton(key, n, countyRows.length));
+    }
 
     sec.appendChild(det);
   });
@@ -13045,6 +13060,50 @@ function section(container, title, sub, rows, kind) {
   return { shown };
 }
 
+// ---- Classic cards a look made unnecessary (see section()) ----
+// Classic is what shows whenever a look cannot draw: it is not loaded yet,
+// it failed to load, the person picked Classic, or the look handed the
+// display back (an empty or failed ledger). In every one of those cases
+// the cards are built at once, in the same order, by the same renderCard.
+var DEFERRED_CARDS = [];
+function lookWillDraw(kind) {
+  if (typeof EXPERIENCE_CHOICE === "undefined" || EXPERIENCE_CHOICE === "classic") return false;
+  const engine = engineFor(EXPERIENCE_CHOICE, kind);
+  // Loaded is enough: if the look does not take the draw after all, render()
+  // and the observer below build the cards the moment Classic is on screen.
+  return engine !== "classic" && EXPERIENCE_LOADED[engine] === true;
+}
+function fillDeferredCards() {
+  if (!DEFERRED_CARDS.length) return 0;
+  const todo = DEFERRED_CARDS.splice(0, DEFERRED_CARDS.length);
+  let built = 0;
+  todo.forEach(g => {
+    if (!g.list.isConnected || g.list.dataset.listed !== "0") return;
+    for (let i = 0; i < g.n; i++) g.list.appendChild(g.renderCard(g.rows[i], false, LIST_CARD_CTX));
+    g.list.dataset.listed = String(g.n);
+    if (g.n < g.rows.length) g.det.appendChild(groupMoreButton(g.key, g.n, g.rows.length));
+    built += g.n;
+  });
+  if (built) { try { hydrateVisuals(document.getElementById("main")); } catch { /* pictures hydrate on the next render */ } }
+  return built;
+}
+// A look draws when it sets <html data-experience-ready="<its name>">; when
+// that flag is not the engine now in charge, Classic is what is on screen.
+function classicIsShowing() {
+  const root = document.documentElement;
+  const engine = root.dataset.experience || "classic";
+  return engine === "classic" || root.dataset.experienceReady !== engine;
+}
+if (typeof MutationObserver === "function") {
+  new MutationObserver(() => {
+    const root = document.documentElement;
+    const ready = root.dataset.experienceReady;
+    // Remember which looks have drawn at least once in this page.
+    if (ready) (window.__tdwExperienceDrawn = window.__tdwExperienceDrawn || {})[ready] = true;
+    if (classicIsShowing()) fillDeferredCards();
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-experience-ready", "data-experience"] });
+}
+window.__tdwDeferredCards = () => DEFERRED_CARDS.length;
 function groupMoreButton(key, n, total) {
   const btn = document.createElement("button");
   btn.type = "button";
