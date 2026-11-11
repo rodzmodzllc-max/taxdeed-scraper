@@ -13104,6 +13104,8 @@ if (typeof MutationObserver === "function") {
   }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-experience-ready", "data-experience"] });
 }
 window.__tdwDeferredCards = () => DEFERRED_CARDS.length;
+// Test hook: build Classic's cards now (what happens by itself whenever Classic shows).
+window.__tdwFillDeferredCards = () => fillDeferredCards();
 function groupMoreButton(key, n, total) {
   const btn = document.createElement("button");
   btn.type = "button";
