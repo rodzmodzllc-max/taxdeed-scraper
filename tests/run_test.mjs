@@ -8282,7 +8282,7 @@ const EXPECTED = {
   // Raw coordinates moved to the property page; the card's picture states
   // only what the row has: a pin in this county (was '26.93420, -82.04540').
   previewCoords: 'Pinned in Charlotte County',
-  previewBid: '$8,000.00',
+  previewBid: '$8,000', // 2026-11-11: whole dollars like the cards (explore.js peekFacts)
   previewValueLabel: 'County Just Value',
   // The card's fact labels, from app.js previewFacts (was the parcel / case
   // values, now on the property page).
