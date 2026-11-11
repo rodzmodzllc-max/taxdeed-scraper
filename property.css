@@ -167,7 +167,7 @@ html[data-experience="merged"] .detail-fold-summary .detail-more-title::before{c
 /* The map picture's outline credit, folded to one line (map-3d.js creditFold). */
 .pb-credit-fold{margin:.35rem 0 .6rem;font-size:.72rem;line-height:1.45;color:var(--ink-soft)}
 .pb-credit-fold > summary{cursor:pointer;min-height:28px;display:flex;align-items:center;gap:.35rem}
-.pb-credit-fold > summary::after{content:"Details";margin-left:auto;font-weight:600;text-decoration:underline;text-underline-offset:2px}
+.pb-credit-fold > summary::after{content:"Details";flex:none;white-space:nowrap;margin-left:auto;font-weight:600;text-decoration:underline;text-underline-offset:2px}
 .pb-credit-fold[open] > summary::after{content:"Hide"}
 .pb-credit-fold .pb-credit{margin:.3rem 0 0}
 
