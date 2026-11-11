@@ -65,7 +65,27 @@ Even so, the List showed skeletons for as long as Louisiana Available
   - a deep link to a property on a later page or another ledger opens once
     every ledger is in.
 
-### List payload: migration 028 (NOT applied)
+### List payload: migration 028 (applied 2026-11-11, with narrower grants than the file)
+
+**Applied to production 2026-11-11** (owner's explicit authorization; Supabase migration
+`20261111120515 028_property_list_payload`). Why then: on 2026-11-11 `get_properties()` timed out
+three times in a row for a signed-in customer (the `authenticated` role's 8 s statement limit)
+while the scheduled harvest was inserting in bulk and autovacuum was running on `properties`.
+
+**Production differs from the file in one way - the grants.** The file grants EXECUTE to `anon`
+as well ("the same roles that hold it on `get_properties()` in production", read 2026-10-05). On
+2026-11-11 production granted `get_properties()` to `authenticated` and `service_role` only, so
+the two new functions were created with the same: EXECUTE revoked from PUBLIC and `anon`, granted
+to `authenticated` and `service_role`. `has_function_privilege('anon', ...)` is false. The file
+and its tests are left as written (they describe the file, and its live-Postgres tests apply it
+verbatim to a scratch cluster); before re-running the file anywhere, drop `anon` from its two
+grant lines.
+
+Checked after applying (read-only): `get_properties()` unchanged; Florida Available returns the
+same 226 ids in the same order from both functions; one 1,000-row Michigan page is 11 MB of JSON
+from `get_properties()` and 5.2 MB from `get_properties_list()`; the deployed site (v175) loaded
+through `get_properties_list()` with no fallback, and a property page fetched
+`get_property_provenance()` once.
 
 `scripts/migrations/028_property_list_payload.sql` adds two functions and
 changes nothing else.
