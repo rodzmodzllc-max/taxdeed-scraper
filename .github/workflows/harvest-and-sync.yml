@@ -1520,12 +1520,14 @@ jobs:
     # summary and upload) were cancelled. The slice reads and writes the
     # database only - it needs none of the leg's harvest files - so it runs
     # here, after the matrix, with the same bounds as every other leg's slice.
-    # Same trigger as the matrix; no new schedule.
+    # It carries no trigger of its own: it runs whenever the matrix ran (any
+    # result but skipped), so the schedule watchdog keeps one "expansion" job
+    # to account for and no schedule is added.
     name: Michigan FEMA flood hazard - nightly slice
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    needs: [schedule_guard, expansion]
-    if: ${{ !cancelled() && ((github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'expansion' || github.event.inputs.job == '')) || (github.event.schedule == '37 11 * * *' || github.event.schedule == '37 3 * * *')) && !contains(needs.schedule_guard.outputs.covered, 'expansion') }}
+    needs: expansion
+    if: ${{ !cancelled() && needs.expansion.result != 'skipped' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

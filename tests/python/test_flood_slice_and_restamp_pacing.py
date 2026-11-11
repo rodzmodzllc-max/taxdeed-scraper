@@ -176,8 +176,11 @@ def test_michigan_flood_slice_runs_in_its_own_job_not_in_the_matrix_leg():
     matrix_step = _flood_step(jobs["expansion"])
     assert "matrix.state != 'MI'" in matrix_step["if"]
     job = jobs["expansion_mi_flood"]
-    assert set(job["needs"]) == {"schedule_guard", "expansion"}
-    assert job["if"] == jobs["expansion"]["if"]            # same trigger, no new schedule
+    assert job["needs"] == "expansion"
+    # No trigger of its own: it follows the matrix, so the schedule watchdog
+    # (test_schedule_watchdog.py) still accounts for one "expansion" job.
+    assert "needs.expansion.result != 'skipped'" in job["if"] and "!cancelled()" in job["if"]
+    assert "github.event.schedule" not in job["if"] and "inputs.job" not in job["if"]
     step = _flood_step(job)
     env = step["env"]
     assert env["ENRICH_STATE"] == "MI"
