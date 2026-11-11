@@ -95,6 +95,25 @@ for (const [hash, ledger, re, extra] of [['#/auctions', 'AUCTIONS', /^Buyer's Gu
   await ctx.close();
 }
 
+// ---- Terrain card: the picture caption and the outline credit do not cover each other
+{
+  const { ctx, pg } = await ctxPage({ tag: 'caption' });
+  await pg.route('**/config.js', async route => { const r = await route.fetch(); await route.fulfill({ response: r, body: (await r.text()).replace('naipLiveImagery: false', 'naipLiveImagery: true') }); });
+  await pg.route('https://imagery.nationalmap.gov/**', route => route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64') }));
+  await pg.addInitScript(rs => { window.__stubExtraRows = rs; }, [{ id: 'capt1', source: 'laft', state: 'FL', county: 'Bay', case_no: 'CAP-1', parcel: '17920-000-000', address: '1 Caption Way', bid: 1200, purchase_amount: 1200, purchase_amount_kind: 'ORIGINAL_OPENING_BID', status: 'active', ledger_type: 'buy', latitude: 30.163, longitude: -85.6518, lien_level: 'unscreened', publication_status: 'APPROVED', inventory_status: 'available_otc', last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString() }]);
+  await pg.goto(BASE + '?look=merged&boundary=ok#/lands', { waitUntil: 'networkidle' });
+  await pg.waitForSelector('#xpStage .prop-card-photo > .pb-attrib', { timeout: 15000 }).catch(() => {});
+  await pg.waitForTimeout(500);
+  const got = await pg.evaluate(() => Array.from(document.querySelectorAll('#xpStage .prop-card-photo')).map(h => {
+    const c = h.querySelector(':scope > .photo-caption'), a = h.querySelector(':scope > .pb-attrib');
+    if (!c || !a || !c.offsetParent || !a.offsetParent) return null;
+    const cb = c.getBoundingClientRect(), ab = a.getBoundingClientRect(), hb = h.getBoundingClientRect();
+    return { apart: cb.bottom <= ab.top + 1 || ab.bottom <= cb.top + 1 || cb.right <= ab.left + 1 || ab.right <= cb.left + 1, inside: cb.top >= hb.top - 1 && ab.bottom <= hb.bottom + 1 };
+  }).filter(Boolean));
+  check('terrainCaptionClearsOutlineCredit', got.length > 0 && got.every(g => g.apart && g.inside), got);
+  await ctx.close();
+}
+
 // ---- update prompt
 {
   const { ctx, pg } = await ctxPage({ tag: 'update' });
