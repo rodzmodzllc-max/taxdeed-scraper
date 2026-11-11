@@ -34,6 +34,37 @@ def test_unchanged_fresh_row_is_skipped_and_provenance_stamp_ignored():
     assert W.needs_write(row, stored, NOW) is None
 
 
+def test_a_layers_row_number_never_makes_a_row_changed():
+    """2026-11-11: mi_detroit_landbank_lots - 29,767 rows 'changed' on every read by
+    otc_provenance.object_id alone (the publisher renumbers features)."""
+    stored = {"case_no": "1", "bid": 500, "last_seen_at": iso(NOW - timedelta(hours=2)),
+              "otc_provenance": {"harvester": "mi_detroit_landbank_lots", "object_id": 1001, "layer": "lots"}}
+    row = {"case_no": "1", "bid": 500, "last_seen_at": iso(NOW),
+           "otc_provenance": {"harvester": "mi_detroit_landbank_lots", "object_id": 48213, "layer": "lots"}}
+    assert ("otc_provenance", "object_id") in W.VOLATILE_PATHS
+    assert W.unchanged(row, stored) and W.changed_columns(row, stored) == []
+    assert W.needs_write(row, stored, NOW) is None
+    # A row number that appears or disappears is not a change either ...
+    gone = {**row, "otc_provenance": {"harvester": "mi_detroit_landbank_lots", "layer": "lots"}}
+    assert W.unchanged(gone, stored)
+    # ... but any other key of the same column still is.
+    moved = {**row, "otc_provenance": {**row["otc_provenance"], "layer": "structures"}}
+    assert not W.unchanged(moved, stored) and W.changed_columns(moved, stored) == ["otc_provenance.layer"]
+    assert W.needs_write(moved, stored, NOW) == "changed"
+
+
+def test_a_coordinate_is_the_same_point_to_six_decimals():
+    stored = {"case_no": "1", "latitude": 42.3314271, "longitude": -83.0457538, "last_seen_at": iso(NOW - timedelta(hours=2))}
+    jitter = {"case_no": "1", "latitude": 42.33142712, "longitude": "-83.04575379", "last_seen_at": iso(NOW)}
+    assert W.unchanged(jitter, stored) and W.changed_columns(jitter, stored) == []
+    moved = {"case_no": "1", "latitude": 42.33143, "longitude": -83.0457538}
+    assert not W.unchanged(moved, stored) and W.changed_columns(moved, stored) == ["latitude"]
+    # A coordinate that appears or is cleared is a change; other numbers keep exact comparison.
+    assert not W.unchanged({"case_no": "1", "latitude": None}, stored)
+    assert not W.unchanged({"case_no": "1", "latitude": 42.3314271}, {**stored, "latitude": None})
+    assert not W.same_column("bid", 500.0000001, 500) and W.same_column("bid", 500.0, "500")
+
+
 def test_stale_stamp_new_and_changed_rows_are_written():
     old = {"case_no": "1", "bid": 500, "last_seen_at": iso(NOW - timedelta(hours=25))}
     assert W.needs_write({"case_no": "1", "bid": 500, "last_seen_at": iso(NOW)}, old, NOW) == "restamp"
