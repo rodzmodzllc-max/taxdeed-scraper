@@ -87,8 +87,11 @@ for (const look of ['classic', 'merged']) {
   check('countyHeadsCarryGuideLinkNotSteps', r.heads > 0 && r.headLinks > 0 && r.headSteps === 0 && r.first === r.county, r);
   await pg.click('#xpStage [data-county-head] .xt-guide-link');
   await pg.waitForTimeout(1200);
-  const g = await pg.evaluate(() => ({ hash: decodeURIComponent(location.hash), shown: !document.getElementById('pageGuide').hidden }));
+  const g = await pg.evaluate(() => { const pr = document.querySelector('#pageGuide .bg-process'); return { hash: decodeURIComponent(location.hash), shown: !document.getElementById('pageGuide').hidden,
+    process: pr ? pr.dataset.bgProcess : null, title: pr ? pr.querySelector('.bg-process-t').textContent : null, steps: pr ? pr.querySelectorAll('.bg-process-steps li').length : 0, foot: pr && pr.querySelector('.bg-process-f') ? pr.querySelector('.bg-process-f').textContent : '' }; });
   check('countyHeadLinkOpensThatCountysGuide', g.shown && /^#\/guide\?/.test(g.hash) && /ledger=AVAILABLE/.test(g.hash) && g.hash.includes('county=' + r.county), { g, county: r.county });
+  // The county's own process is in the guide (same for every property there), not on each card.
+  check('guideShowsTheCountysProcess', !!g.process && g.title === 'How to acquire in ' + r.county + ' County' && (g.process === 'unverified' || (/same for every Available property/.test(g.foot))), g);
   await pg.close();
 }
 // Without the guide the question stays plain text.

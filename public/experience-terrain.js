@@ -503,7 +503,12 @@ function availableCard(p, api, i, headTrail) {
   let note = "";
   try { note = api.amountInfo(p).note || ""; } catch {}
   const visual = api.propertyVisual(p, "prop-card-photo xt-visual", { omitCounty: true });
-  const trail = trailInfo(p, api).html;
+  // A county-wide process lives in the Buyer's Guide for that county (the
+  // county head links to it); a card repeats it only for a viewer without
+  // the guide. A path published for this one parcel always stays on its card.
+  const ti = trailInfo(p, api);
+  const inGuide = ti.hoistable && typeof api.guideAccess === "function" && api.guideAccess();
+  const trail = inGuide ? "" : ti.html;
   return `<article class="xt-acard" role="listitem" data-xt="acard" data-pid="${api.esc(p.id)}" data-xt-ping style="--r:${Math.min(i, 8)}">
     <div class="xt-acard-vis">${visual}</div>
     <div class="xt-acard-body">

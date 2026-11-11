@@ -8017,6 +8017,51 @@ function openGuidePage(county, ledger) {
   GUIDE_PAGE.ledger = ledger || (state && GUIDE_LEDGER_FOR_SOURCE[state.ledger]) || "AVAILABLE";
   showPage("guide");
 }
+// The county's own way to acquire an Available property, for the Buyer's Guide
+// (owner 2026-11-10: "this should be in the buyers guide as it should be the
+// same for all properties in that county"). Built from the same verified
+// record every property of the county carries (acquisitionOf): the steps in
+// the source's order, the contact the source published, the official page and
+// when it was read. A path published for ONE parcel is never shown as the
+// county's. No record read yet says so; a county with no listing shows nothing.
+function guideCountyRows(county) {
+  return county ? ALL.filter(p => p && p.source === "laft" && p.county === county && !isGone(p)) : [];
+}
+// The guide can be opened before the Available pages have arrived (a cold
+// start on #/guide): draw it again once this county's rows are in.
+window.addEventListener("tdw:ledgersupdated", () => {
+  const sec = document.getElementById("pageGuide");
+  if (!sec || sec.hidden || !GUIDE_PAGE.county || (GUIDE_PAGE.ledger || "AVAILABLE") !== "AVAILABLE") return;
+  if (guideCountyRows(GUIDE_PAGE.county).length !== GUIDE_PAGE.procRows) renderGuidePage();
+});
+function guideCountyProcessHtml(county) {
+  if (!county) return "";
+  const rows = guideCountyRows(county);
+  GUIDE_PAGE.procRows = rows.length;
+  if (!rows.length) return "";
+  const place = unitLabelOf(county);
+  let a = null;
+  for (const p of rows) { const x = acquisitionOf(p); if (x && x.verified && x.scope !== "property") { a = x; break; } }
+  const https = u => (u && /^https:\/\//i.test(String(u).trim()) ? String(u).trim() : "");
+  if (!a) {
+    return `<section class="bg-process" data-bg-process="unverified" aria-label="How to acquire in ${esc(place)}">` +
+      `<h2 class="bg-process-t">How to acquire in ${esc(place)}</h2>` +
+      `<p class="bg-process-none">Not yet verified. The county's list has been read, but no county page or document establishing how to acquire from it has been verified yet. Ask the office that publishes the list before you pay.</p></section>`;
+  }
+  const steps = (a.steps || []).filter(Boolean);
+  const body = steps.length
+    ? `<ol class="bg-process-steps">${steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>`
+    : (a.instructions ? `<p class="bg-process-text">${esc(a.instructions)}</p>` : "");
+  const links = [];
+  if (https(a.applicationUrl)) links.push(`<a href="${esc(https(a.applicationUrl))}" target="_blank" rel="noopener">Application or form <span aria-hidden="true">↗</span></a>`);
+  if (https(a.evidenceUrl)) links.push(`<a href="${esc(https(a.evidenceUrl))}" target="_blank" rel="noopener">${esc(a.evidenceTitle || "Official page")} <span aria-hidden="true">↗</span></a>`);
+  const obs = a.observedOn && /^\d{4}-\d{2}-\d{2}/.test(String(a.observedOn)) ? fmtDate(String(a.observedOn).slice(0, 10)) : "";
+  return `<section class="bg-process" data-bg-process="verified" aria-label="How to acquire in ${esc(place)}">` +
+    `<h2 class="bg-process-t">How to acquire in ${esc(place)}</h2>` +
+    (a.label ? `<p class="bg-process-k">${esc(a.label)}</p>` : "") + body + acquisitionContactHtml(a) +
+    (links.length ? `<p class="bg-process-links">${links.join(" · ")}</p>` : "") +
+    `<p class="bg-process-f">The county's own process, the same for every Available property in ${esc(place)} - not an approval for any one parcel.${obs ? ` Last verified ${esc(obs)}.` : ""}</p></section>`;
+}
 function renderGuidePage() {
   const sec = ensureGuideSection();
   if (!guideAccess()) {
@@ -8028,6 +8073,7 @@ function renderGuidePage() {
     state: PAGE_STATE, stateName: meta.name || PAGE_STATE, unit: UNIT_WORD,
     county: GUIDE_PAGE.county, ledger: GUIDE_PAGE.ledger,
     counties: Array.isArray(ALL_COUNTIES) ? ALL_COUNTIES.slice() : [],
+    countyProcessHtml: c => guideCountyProcessHtml(c),
     esc, fmtDate: d => (typeof fmtDate === "function" ? fmtDate(String(d).slice(0, 10)) : String(d)),
     navigate: ({ ledger, county }) => { GUIDE_PAGE.ledger = ledger || GUIDE_PAGE.ledger; GUIDE_PAGE.county = county || null; syncPageHash(); renderGuidePage(); },
   };
