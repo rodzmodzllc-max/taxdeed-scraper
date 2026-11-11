@@ -2764,7 +2764,9 @@ function drawBoundary(host, boundary) {
     if (pop) pop.insertAdjacentHTML("beforeend", boundaryCreditHtml(boundary.attribution));
     else host.insertAdjacentHTML("beforeend", `<span class="pc-info pc-outline-info">${infoBubbleHtml("Outline source", boundaryCreditHtml(boundary.attribution))}</span>`);
   } else {
-    host.insertAdjacentHTML("afterend", boundaryCreditHtml(boundary.attribution));
+    // Folded like the map picture's (map-3d.js creditFold): the paragraph ran
+    // to nine lines under the picture on a phone. Folded, never dropped.
+    host.insertAdjacentHTML("afterend", `<details class="pb-credit-fold pb-credit-fold-aerial" data-pb-credit><summary aria-label="Parcel outline: source, licence and terms"></summary>${boundaryCreditHtml(boundary.attribution)}</details>`);
   }
   const cap = host.querySelector(".photo-caption");
   if (cap) cap.title = "Parcel outline from " + boundary.attribution.credit + ", " + boundaryMatchText(boundary.matchMethod) + ". The aerial itself does not show ownership, current condition or title.";
@@ -4429,6 +4431,11 @@ async function showApp() {
   // Name the page being opened on the loading skeleton (see renderListHead).
   BOOT_PAGE_NAME = route && route.page && route.page !== "list" && !PROPERTIES_LOADED ? (BOOT_PAGE_NAMES[route.page] || "") : "";
   if (BOOT_PAGE_NAME) { try { renderListHead([], state.ledger, null); } catch { /* the head is drawn again by the first render */ } }
+  // The guide is drawn from buyers-guide.json alone: open it now instead of
+  // behind the property load (about ten seconds on the deployed data). The
+  // routing below opens it again once the rows are in, which fills the
+  // county's own process.
+  if (route && route.page === "guide" && !PROPERTIES_LOADED) { try { openGuidePage(route.county, route.guideLedger); } catch { /* opened after the load instead */ } }
   // Phase 58: same idea, one level deeper - #/auctions/12345 should reopen
   // that property's card, not just land on the Auctions list. Captured here,
   // before setLedger() below replaces the hash with the bare "#/slug" (losing
@@ -8013,6 +8020,8 @@ async function researchAfterOpen(p) {
 // "admin". var / function declarations: showPage() can run during init (TDZ).
 var GUIDE_PAGE = GUIDE_PAGE || { county: null, ledger: null };
 // The page a cold start is heading for, named on the loading skeleton (see the list head).
+var LIST_GUIDE_LINK_TEXT = { laft: "Buyer's Guide: how to acquire Available property", auction: "Buyer's Guide: how tax-sale auctions work",
+  certificate: "Buyer's Guide: how liens and certificates work" };
 var BOOT_PAGE_NAME = "";
 var BOOT_PAGE_NAMES = { watchlist: "Watchlist", map: "Map", dashboard: "Home", guide: "Buyer's Guide", county: "Counties", research: "My research", rules: "State rules" };
 var GUIDE_LEDGER_FOR_SOURCE = { auction: "AUCTIONS", laft: "AVAILABLE", certificate: "LIENS_CERTIFICATES" };
@@ -10331,7 +10340,7 @@ function startCardLive(host, sticky) {
 function hydrateCardTilt(scope) {
   const c = window.TDW_CONFIG || {};
   if (!(typeof c.maptilerKey === "string" && c.maptilerKey.trim()) || !scope || !scope.querySelectorAll) return;
-  scope.querySelectorAll(".prop-card-photo:not([data-tilt])").forEach(host => {
+  scope.querySelectorAll(".prop-card-photo:not([data-tilt]), .pv-visual:not([data-tilt])").forEach(host => {
     host.dataset.tilt = "1";
     if (host.dataset.cardLive || !cardLiveRow(host)) return;
     host.appendChild(cardTiltButton(false));
@@ -10341,20 +10350,20 @@ document.addEventListener("click", e => {
   const b = e.target && e.target.closest ? e.target.closest(".pc-tilt-btn") : null;
   if (!b) return;
   e.preventDefault(); e.stopPropagation();
-  const host = b.closest(".prop-card-photo");
+  const host = b.closest(".prop-card-photo, .pv-visual");
   if (!host) return;
   if (CARD_LIVE_HOST === host) stopCardLive(); else startCardLive(host, true);
 }, true);
 document.addEventListener("mouseover", e => {
   if (!(window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches)) return;
-  const host = e.target && e.target.closest ? e.target.closest(".prop-card-photo") : null;
+  const host = e.target && e.target.closest ? e.target.closest(".prop-card-photo, .pv-visual") : null;
   if (!host || host === CARD_LIVE_HOST || host.contains(e.relatedTarget)) return;
   if (CARD_LIVE_STICKY) return;
   if (CARD_LIVE_TIMER) clearTimeout(CARD_LIVE_TIMER);
   CARD_LIVE_TIMER = setTimeout(() => { CARD_LIVE_TIMER = null; if (host.matches(":hover")) startCardLive(host, false); }, 400);
 });
 document.addEventListener("mouseout", e => {
-  const host = e.target && e.target.closest ? e.target.closest(".prop-card-photo") : null;
+  const host = e.target && e.target.closest ? e.target.closest(".prop-card-photo, .pv-visual") : null;
   if (!host || host.contains(e.relatedTarget)) return;
   if (CARD_LIVE_TIMER) { clearTimeout(CARD_LIVE_TIMER); CARD_LIVE_TIMER = null; }
   if (host === CARD_LIVE_HOST && !CARD_LIVE_STICKY) stopCardLive();
@@ -12319,7 +12328,10 @@ function renderLedgerCounts(scrollActive) {
     // Only the strip scrolls, sideways (2026-10-29): scrollIntoView also
     // scrolled the PAGE back up to the tabs on every render, so a watchlist
     // tap while scrolled down a phone page jumped the page.
-    if (active && scrollActive) scrollStripTo(btn);
+    // After the paint (2026-11-11): measuring the strip here forced a full
+    // layout in the middle of every render - about half a second of each
+    // ledger switch on the deployed data.
+    if (active && scrollActive) requestAnimationFrame(() => { if (btn.isConnected) scrollStripTo(btn); });
     const countEl = document.getElementById("tabCount" + src[0].toUpperCase() + src.slice(1));
     if (countEl) countEl.textContent = ledgerCountText(src, tabCounts[src] || 0, false);
   });
@@ -15168,7 +15180,28 @@ if (themeBtnEl) themeBtnEl.addEventListener("click", () => {
   applyTheme(themeMode);
 });
 
+// A deploy replaces the service worker under an open tab (sw.js skipWaiting +
+// clients.claim). The page then keeps the scripts and styles it started
+// with until it is reloaded - on 2026-11-11 a tab showed the previous
+// stylesheet right after a deploy. Say so once, with the reload one press
+// away; never reload on the reader's behalf (unsaved notes, an open record).
+function showUpdateReady() {
+  if (document.getElementById("updateReady")) return;
+  const bar = document.createElement("div");
+  bar.id = "updateReady";
+  bar.className = "update-ready";
+  bar.setAttribute("role", "status");
+  bar.innerHTML = `<span>A new version of TAXACQ is ready.</span><button type="button" class="update-ready-go">Refresh</button><button type="button" class="update-ready-x" aria-label="Dismiss">✕</button>`;
+  bar.querySelector(".update-ready-go").addEventListener("click", () => location.reload());
+  bar.querySelector(".update-ready-x").addEventListener("click", () => bar.remove());
+  document.body.appendChild(bar);
+}
+window.__tdwShowUpdateReady = showUpdateReady;
 if ("serviceWorker" in navigator) {
+  // Only when this tab was ALREADY controlled: the very first install also
+  // fires controllerchange, and that is not an update.
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (hadController) showUpdateReady(); });
   // This module awaits supabase-loader.js (top-level await), so it can resume
   // after the window "load" event has already fired - a bare load listener
   // would then never run and the service worker would never register.
@@ -17502,17 +17535,18 @@ function renderListHead(shown, k, tabCounts) {
       // the Buyer's Guide - no question, program name or county count (the
       // title carries the count, the county picker the counties). A viewer
       // without the guide gets no line. Loading / filtered notes still follow.
-      if (k === "laft") {
-        if (guideAccess()) parts.push(`<button type="button" class="link-btn list-guide-link" data-action="buyersguide" data-guide-ledger="AVAILABLE">Buyer's Guide: how to acquire Available <span class="pp-nw">property →</span></button>`);
-      } else
-      // The ledger's question opens the Buyer's Guide for that ledger when the
-      // viewer has the guide (owner, 2026-11-04); otherwise it stays text.
-      if (cfg.question) parts.push(guideAccess()
-        ? `<button type="button" class="link-btn list-guide-link" data-action="buyersguide" data-guide-ledger="${esc(GUIDE_LEDGER_FOR_SOURCE[k] || "AVAILABLE")}">${esc(cfg.question)}</button>`
-        : esc(cfg.question));
+      // Every ledger (2026-11-11): the same link, named for the ledger. Auctions
+      // and Liens keep their program line after it (it says which list this
+      // is - "County-held certificates"); the county count is the picker's.
+      if (guideAccess()) {
+        // The last word rides with the arrow, so "→" never wraps alone.
+        const gt = String(LIST_GUIDE_LINK_TEXT[k] || LIST_GUIDE_LINK_TEXT.laft);
+        const gi = gt.lastIndexOf(" ");
+        parts.push(`<button type="button" class="link-btn list-guide-link" data-action="buyersguide" data-guide-ledger="${esc(GUIDE_LEDGER_FOR_SOURCE[k] || "AVAILABLE")}">${esc(gt.slice(0, gi + 1))}<span class="pp-nw">${esc(gt.slice(gi + 1))} →</span></button>`);
+      }
       const prog = k === "laft" ? "" : listProgramLine(k);
       if (prog) parts.push(esc(prog));
-      const counties = k === "laft" ? 0 : new Set(shown.map(p => p.county).filter(Boolean)).size;
+      const counties = 0;   // 2026-11-11: no ledger repeats the county count under its title
       if (counties) parts.push(esc(`${counties.toLocaleString("en-US")} ${counties === 1 ? UNIT_WORD.toLowerCase() : UNITS_WORD}`));
       if (!ledgerSettled(k)) parts.push("Loading the rest…");
       else if (n < total) parts.push(esc(`Filtered from ${total.toLocaleString("en-US")}`));
