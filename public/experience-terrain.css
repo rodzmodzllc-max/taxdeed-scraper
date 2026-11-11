@@ -495,3 +495,16 @@ html[data-experience="terrain"] .county-now .cnb-list{border-radius:0 0 14px 14p
 .xp-terrain .xt-guide-link:focus-visible{outline:2px solid var(--accent,#1F3A2E);outline-offset:2px}
 /* An italic step label lost its last letter to overflow:hidden ("Not yet verifiea"). */
 .xp-terrain .wp-t{padding-right:.15em}
+
+/* The price caveat: a "+" beside the figure, shown on hover / focus / press (2026-11-10). */
+.xp-terrain .xt-fig-main{position:relative}
+.xp-terrain .xt-num-row{display:inline-flex;align-items:center;gap:8px}
+.xp-terrain .xt-amt-plus{display:inline-flex;align-items:center}
+.xp-terrain .xt-amt-btn{position:relative;flex:none;width:24px;height:24px;padding:0;border-radius:50%;border:1px solid #B9C7BB;background:#FDFDFB;color:#3E5743;font:600 17px/1 var(--font-sans,system-ui);cursor:pointer}
+.xp-terrain .xt-amt-btn::before{content:"";position:absolute;inset:-10px}
+.xp-terrain .xt-amt-plus.open .xt-amt-btn{background:#3E5743;color:#FDFDFB;border-color:#3E5743}
+.xp-terrain .xt-amt-btn:focus-visible{outline:2px solid #3E5743;outline-offset:2px}
+.xp-terrain .xt-amt-pop{display:none;position:absolute;left:0;top:calc(100% + 6px);z-index:6;width:min(280px,calc(100vw - 72px));padding:8px 10px;border-radius:10px;
+  border:1px solid #D8DED6;background:#F1F6F0;color:#3D4A42;font-size:12px;line-height:16px;font-weight:400;letter-spacing:0;text-transform:none;white-space:normal;box-shadow:0 8px 20px rgba(20,35,28,.14)}
+.xp-terrain .xt-amt-pop .xt-amt-lead{display:inline;font-weight:600;color:#2F4034}
+.xp-terrain .xt-amt-plus:hover .xt-amt-pop,.xp-terrain .xt-amt-plus:focus-within .xt-amt-pop,.xp-terrain .xt-amt-plus.open .xt-amt-pop{display:block}

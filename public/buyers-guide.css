@@ -36,7 +36,9 @@
   font-family:var(--font-display);font-weight:500;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--bg-ink);white-space:nowrap}
 .bg-tab.on{color:#FDFDFB}
 .bg-tab-short{display:none}
-@media (max-width:479px){.bg-tab-long{display:none}.bg-tab-short{display:inline}.bg-seg{flex-basis:100%;max-width:none}}
+@media (max-width:479px){.bg-seg{flex-basis:100%;max-width:none}}
+/* 759 (was 479): "Liens & Certificates" was cut off in the tab between 480 and 760px. */
+@media (max-width:759px){.bg-tab-long{display:none}.bg-tab-short{display:inline}}
 .bg-county{display:flex;align-items:center;gap:.45rem;font-size:.85rem;color:var(--bg-soft)}
 .bg-county-l{font-family:var(--font-display);font-weight:500;letter-spacing:.06em;text-transform:uppercase;font-size:.72rem}
 .bg-county select,.bg-search,.bg-callout select{min-height:44px;border:1px solid var(--bg-line);border-radius:999px;background:var(--bg-card);color:var(--bg-ink);padding:0 2rem 0 .9rem;font:inherit;font-size:.92rem}

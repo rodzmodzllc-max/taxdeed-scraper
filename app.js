@@ -4405,6 +4405,9 @@ async function showApp() {
   const route = routeFromHash();
   const routed = route && route.ledger ? route.ledger : null;
   if (routed) state.ledger = routed;
+  // Name the page being opened on the loading skeleton (see renderListHead).
+  BOOT_PAGE_NAME = route && route.page && route.page !== "list" && !PROPERTIES_LOADED ? (BOOT_PAGE_NAMES[route.page] || "") : "";
+  if (BOOT_PAGE_NAME) { try { renderListHead([], state.ledger, null); } catch { /* the head is drawn again by the first render */ } }
   // Phase 58: same idea, one level deeper - #/auctions/12345 should reopen
   // that property's card, not just land on the Auctions list. Captured here,
   // before setLedger() below replaces the hash with the bare "#/slug" (losing
@@ -7985,6 +7988,9 @@ async function researchAfterOpen(p) {
 // "all" (default while testing), "guided" (Guided tier and admins/testers),
 // "admin". var / function declarations: showPage() can run during init (TDZ).
 var GUIDE_PAGE = GUIDE_PAGE || { county: null, ledger: null };
+// The page a cold start is heading for, named on the loading skeleton (see the list head).
+var BOOT_PAGE_NAME = "";
+var BOOT_PAGE_NAMES = { watchlist: "Watchlist", map: "Map", dashboard: "Home", guide: "Buyer's Guide", county: "Counties", research: "My research", rules: "State rules" };
 var GUIDE_LEDGER_FOR_SOURCE = { auction: "AUCTIONS", laft: "AVAILABLE", certificate: "LIENS_CERTIFICATES" };
 function ensureGuideSection() {
   let sec = document.getElementById("pageGuide");
@@ -17444,6 +17450,10 @@ function renderListHead(shown, k, tabCounts) {
   const countBelow = k === "laft";
   // The state's name and the count wrap together (2026-11-05): "Liens &
   // Certificates in Florida" used to leave its count alone on the next line.
+  // Cold start on another page (#/watchlist, #/map, #/guide ...): the list
+  // skeleton is what shows until the first rows arrive, so it carries that
+  // page's name instead of "Auctions in <state>" (2026-11-10).
+  if (!PROPERTIES_LOADED && BOOT_PAGE_NAME) { t.textContent = BOOT_PAGE_NAME; renderListTotal("", 0); if (sub) { sub.textContent = LOAD_FAILED ? `${STATE_INFO.name} property data could not be loaded` : `Loading ${STATE_INFO.name}…`; sub.hidden = false; } return; }
   t.innerHTML = `<span class="lt-text">${esc(name)} in <span class="lt-tail">${esc(STATE_INFO.name)}${count && !countBelow ? ` <span class="list-count" id="listCount">${esc(count)}</span>` : ""}</span></span>`;
   renderListTotal(countBelow ? count : "", n);
   refreshCountyQuick();
