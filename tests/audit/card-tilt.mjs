@@ -117,6 +117,28 @@ async function page(withKey) {
   await ctx.close();
 }
 
+// ---- inside a look's stage the button keeps its own ground (the looks reset
+// every button there; on the deployed site that left it transparent, 2026-11-11)
+{
+  const ctx = await b.newContext({ viewport: DESK, serviceWorkers: 'block' });
+  const pg = await ctx.newPage();
+  pg.on('pageerror', e => errs.push('look: ' + e.message));
+  await pg.route('**/config.js', async route => {
+    const res = await route.fetch();
+    const body = (await res.text()) + '\n;window.TDW_CONFIG = Object.assign(window.TDW_CONFIG || {}, { maptilerKey: "test-key" });';
+    await route.fulfill({ response: res, body, headers: Object.assign({}, res.headers(), { 'content-type': 'application/javascript' }) });
+  });
+  const looks = {};
+  for (const [look, hash] of [['merged', '#/lands'], ['merged', '#/auctions']]) {
+    await pg.goto(BASE + '?look=' + look + hash, { waitUntil: 'networkidle' });
+    await pg.waitForTimeout(900);
+    looks[hash] = await pg.evaluate(() => { const bt = document.querySelector('#xpStage .prop-card-photo > .pc-tilt-btn'); if (!bt) return null; const cs = getComputedStyle(bt); return { bg: cs.backgroundColor, color: cs.color, pos: cs.position }; });
+  }
+  const solid = v => !!v && v.pos === 'absolute' && !/rgba\(0, 0, 0, 0\)|transparent/.test(v.bg) && /255, 255, 255/.test(v.color);
+  check('button-keeps-its-ground-inside-the-looks', Object.values(looks).some(Boolean) && Object.values(looks).filter(Boolean).every(solid), looks);
+  await ctx.close();
+}
+
 // ---- the real module: the country fits the map's width
 {
   const pg = await b.newPage({ viewport: DESK });
