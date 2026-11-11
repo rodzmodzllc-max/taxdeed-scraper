@@ -1242,13 +1242,33 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
 
 /* -- List cards: the tilted MapTiler view on hover / tap (app.js startCardLive) -- */
 .prop-card-photo{position:relative}
-.prop-card-photo > .pc-tilt-btn.pc-tilt-btn{position:absolute;right:.4rem;top:.4rem;z-index:4;min-height:32px;padding:.15rem .6rem;border:1px solid rgba(255,255,255,.75);border-radius:999px;
+:is(.prop-card-photo, .pv-visual) > .pc-tilt-btn.pc-tilt-btn{position:absolute;right:.4rem;top:.4rem;z-index:4;min-height:32px;padding:.15rem .6rem;border:1px solid rgba(255,255,255,.75);border-radius:999px;
   background:rgba(20,35,28,.74);color:#fff;font:600 .66rem var(--font-sans,system-ui);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;line-height:1}
-.prop-card-photo > .pc-tilt-btn.pc-tilt-btn[aria-pressed="true"]{background:#fff;color:#1F3A2E;border-color:#1F3A2E}
-.prop-card-photo > .pc-tilt-btn.pc-tilt-btn:focus-visible{outline:2px solid var(--accent,#1F3A2E);outline-offset:2px}
+:is(.prop-card-photo, .pv-visual) > .pc-tilt-btn.pc-tilt-btn[aria-pressed="true"]{background:#fff;color:#1F3A2E;border-color:#1F3A2E}
+:is(.prop-card-photo, .pv-visual) > .pc-tilt-btn.pc-tilt-btn:focus-visible{outline:2px solid var(--accent,#1F3A2E);outline-offset:2px}
 .prop-card-photo.m3d-gis{overflow:hidden}
 .prop-card-photo.m3d-gis .m3d-gis-canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:0}
 .m3d-card-credit{position:absolute;left:.35rem;bottom:.35rem;z-index:3;max-width:calc(100% - .7rem);max-height:70%;overflow:auto;padding:.12rem .4rem;border-radius:3px;
   background:rgba(255,255,255,.93);color:#22302a;font-size:.62rem;line-height:1.35}
 .m3d-card-credit summary{cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .m3d-card-credit .m3d-credit{margin:.25rem 0 0;font-size:.62rem;color:#22302a}
+
+/* Map preview picture: the Tilt view map fills the picture, as on a list card. */
+.pv-visual{position:relative}
+.pv-visual.m3d-gis{overflow:hidden}
+/* The preview card has its close button in the picture's top-right corner: the Tilt view button
+   sits to its left (it covered it, 2026-11-11). On a phone the picture is a small thumbnail, so
+   there is no tilt view there. */
+.pv-visual > .pc-tilt-btn.pc-tilt-btn{right:calc(.4rem + 46px)}
+@media (max-width:1023px){ .pv-visual > .pc-tilt-btn.pc-tilt-btn{display:none} }
+.pv-visual.m3d-gis .m3d-gis-canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:0}
+/* "A new version is ready" (app.js showUpdateReady). */
+.update-ready{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom, 0px) + 84px);transform:translateX(-50%);z-index:1200;display:flex;align-items:center;gap:.6rem;
+  max-width:calc(100vw - 24px);padding:.55rem .7rem .55rem .9rem;border-radius:10px;background:#1F3A2E;color:#fff;font-size:.86rem;box-shadow:0 10px 28px rgba(0,0,0,.28)}
+.update-ready-go{min-height:36px;padding:0 .9rem;border:0;border-radius:8px;background:#fff;color:#1F3A2E;font:600 .84rem var(--font-sans,system-ui);cursor:pointer}
+.update-ready-x{min-width:36px;min-height:36px;border:0;background:none;color:#fff;font-size:1rem;cursor:pointer}
+.update-ready-go:focus-visible,.update-ready-x:focus-visible{outline:2px solid #fff;outline-offset:2px}
+@media (min-width:1024px){ .update-ready{bottom:24px} }
+.update-ready > span{flex:1 1 auto;min-width:0}
+/* Phone: the bar spans the width, so the sentence wraps to two lines at most. */
+@media (max-width:560px){ .update-ready{left:12px;right:12px;transform:none;max-width:none} }

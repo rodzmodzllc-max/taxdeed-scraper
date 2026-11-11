@@ -173,3 +173,6 @@ html[data-experience="merged"] .detail-fold-summary .detail-more-title::before{c
 
 /* Available: the Buyer's Guide link under the list title reads as one left-aligned line of text. */
 #listSubtitle .list-guide-link{display:inline;text-align:left;white-space:normal}
+
+/* The aerial picture's folded credit: its one line is written here, the credit itself is the element's text. */
+.pb-credit-fold-aerial > summary::before{content:"Parcel outline: source, licence and terms"}

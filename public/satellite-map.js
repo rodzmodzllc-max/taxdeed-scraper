@@ -931,6 +931,21 @@ async function loadParcel(pid, focus) {
   drawnParcel = { pid, boundary: boundary || null, ledger: row ? row.source : null };
   drawParcelOnMaps();
   if (activeStyle === "maptiler") moveToSelection("maptiler", focus);
+  else if (activeStyle === "google" && boundary) googleFrame(boundary);
+}
+// Google: frame the parcel itself (2026-11-11). The selection zoom (16) left
+// the outline a few pixels wide; fitBounds takes the peek card's covered
+// side as padding. Capped at zoom 20: past it the imagery runs out.
+function googleFrame(boundary) {
+  const map = googleState.map;
+  const b = boundary && boundary.bbox;
+  if (!map || googleState.loadState !== "ready" || !b || !(window.google && google.maps)) return;
+  const inset = Object.assign({}, ZERO_PAD, selection.inset || {});
+  const pad = { top: (inset.top || 0) + 56, right: (inset.right || 0) + 56, bottom: (inset.bottom || 0) + 56, left: (inset.left || 0) + 56 };
+  try {
+    map.fitBounds({ west: b.minX, south: b.minY, east: b.maxX, north: b.maxY }, pad);
+    google.maps.event.addListenerOnce(map, "idle", () => { if ((map.getZoom() || 0) > 20) map.setZoom(20); });
+  } catch { /* the outline is drawn either way */ }
 }
 function drawParcelOnMaps() {
   const b = drawnParcel.boundary;
