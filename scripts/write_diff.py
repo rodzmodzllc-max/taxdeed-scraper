@@ -24,7 +24,17 @@ This module is the one rule every sync uses before it writes:
     otc_provenance.retrieved_at, otc_provenance.source_match.read_at) never
     make a row "changed" either - they say when the row was read, which
     last_seen_at already records (2026-10-26: Louisiana's ~4,500 rows were
-    rewritten every run because each read carried a new retrieved_at).
+    rewritten every run because each read carried a new retrieved_at);
+  * an ArcGIS layer's per-feature row number (otc_provenance.object_id) is
+    not a fact about the property either: the publisher renumbers it when
+    the layer is republished (harvesters/otc/adapters/arcgis.py _content()
+    already leaves it out of "the same listing"). 2026-11-11: 29,767
+    Detroit Land Bank rows were 'changed' on every read by that one key -
+    30,102 rows upserted in 164 requests, 11 of them timed out, and
+    customer reads of get_properties() timed out behind them;
+  * a coordinate that differs only past the sixth decimal (about 0.1 m) is
+    the same point (a centroid recomputed from the layer's polygon moves in
+    the last digits from read to read).
 
 Pure functions; no request is made here. Counts only in any log line.
 """
@@ -37,7 +47,11 @@ FRESH_HOURS = 20
 # Columns that never make a row "changed" on their own.
 IGNORE = frozenset({"last_seen_at", "updated_at", "created_at", "id"})
 # Nested read-time stamps, as (column, key, key ...): compared as if absent.
-VOLATILE_PATHS = frozenset({("otc_provenance", "retrieved_at"), ("otc_provenance", "source_match", "read_at")})
+VOLATILE_PATHS = frozenset({("otc_provenance", "retrieved_at"), ("otc_provenance", "source_match", "read_at"),
+                            ("otc_provenance", "object_id")})
+# Coordinates are compared to this many decimals (1e-6 degree is about 0.1 m).
+COORD_COLUMNS = frozenset({"latitude", "longitude"})
+COORD_DECIMALS = 6
 
 
 def strip_paths(column: str, value, paths=VOLATILE_PATHS):
@@ -115,6 +129,15 @@ def same(a, b) -> bool:
     return False
 
 
+def same_column(column: str, a, b) -> bool:
+    """same(), with a coordinate column compared to COORD_DECIMALS decimals."""
+    if column in COORD_COLUMNS:
+        na, nb = _num(a), _num(b)
+        if na is not None and nb is not None:
+            return round(na, COORD_DECIMALS) == round(nb, COORD_DECIMALS)
+    return same(a, b)
+
+
 def unchanged(row: dict, stored: dict | None, ignore=IGNORE, ignore_paths=VOLATILE_PATHS) -> bool:
     """True when every column `row` would write already holds that value
     (`ignore` columns skipped; `ignore_paths` nested keys compared as absent)."""
@@ -128,7 +151,7 @@ def unchanged(row: dict, stored: dict | None, ignore=IGNORE, ignore_paths=VOLATI
         if k == "field_provenance":
             if not same(strip_recorded(v), strip_recorded(stored.get(k))):
                 return False
-        elif not same(strip_paths(k, v, ignore_paths), strip_paths(k, stored.get(k), ignore_paths)):
+        elif not same_column(k, strip_paths(k, v, ignore_paths), strip_paths(k, stored.get(k), ignore_paths)):
             return False
     return True
 
@@ -153,7 +176,7 @@ def changed_columns(row: dict, stored: dict | None, ignore=IGNORE, ignore_paths=
             a, b = strip_recorded(v), strip_recorded(stored.get(k))
         else:
             a, b = strip_paths(k, v, ignore_paths), strip_paths(k, stored.get(k), ignore_paths)
-        if same(a, b):
+        if same_column(k, a, b):
             continue
         if isinstance(a, dict) and isinstance(b, dict):
             keys = sorted(set(a) | set(b), key=str)
