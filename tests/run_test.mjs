@@ -7647,7 +7647,8 @@ await big.press('#globalSearchInput', 'Enter');
       const vis = el => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
       const bar = document.getElementById('countyNowBar');
       const heads = [...document.querySelectorAll(scope + ' [data-county-head]')];
-      const headText = hd => ((hd.matches('details') ? hd.querySelector(':scope > summary') : hd) || hd).textContent.replace(/\s+/g, ' ').trim();
+      // The county's NAME (2026-11-10: a Merged county head also carries a Buyer's Guide link for that county).
+      const headText = hd => (hd.querySelector('.xt-story-t') || (hd.matches('details') ? hd.querySelector(':scope > summary') : hd) || hd).textContent.replace(/\s+/g, ' ').trim();
       const count = (document.getElementById('listCount') || {}).textContent || '';
       // noRepeatViewCount: the title count is the only visible element whose whole text is that number.
       const sameNumber = [...document.querySelectorAll('body *')].filter(el => !el.children.length && vis(el) && el.textContent.trim() === count && !el.closest('#countyNowBar, ol, .wp')).length; // step numbers in a how-to-acquire list are not counts
