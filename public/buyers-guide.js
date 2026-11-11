@@ -297,6 +297,7 @@ function draw(root, ctx, data) {
     </div>
     <p class="bg-count" role="status" aria-live="polite"></p>
     ${county ? "" : calloutHtml(moved, c2, model)}
+    ${county && ledger === "AVAILABLE" && typeof ctx.countyProcessHtml === "function" ? (ctx.countyProcessHtml(county) || "") : ""}
     <div class="bg-body">
       <nav class="bg-rail" aria-label="Journey steps"><ol>${rail}</ol></nav>
       <div class="bg-main">

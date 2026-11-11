@@ -2777,6 +2777,7 @@ function hydrateVisuals(root) {
   const scope = root || document;
   hydrateNaip(scope);
   hydrateBoundaries(scope);
+  hydrateCardTilt(scope);
   const hosts = scope.querySelectorAll ? scope.querySelectorAll(".minimap:not([data-mm])") : [];
   if (!hosts.length) return;
   if (!minimapObserver && typeof IntersectionObserver === "function") {
@@ -4404,6 +4405,9 @@ async function showApp() {
   const route = routeFromHash();
   const routed = route && route.ledger ? route.ledger : null;
   if (routed) state.ledger = routed;
+  // Name the page being opened on the loading skeleton (see renderListHead).
+  BOOT_PAGE_NAME = route && route.page && route.page !== "list" && !PROPERTIES_LOADED ? (BOOT_PAGE_NAMES[route.page] || "") : "";
+  if (BOOT_PAGE_NAME) { try { renderListHead([], state.ledger, null); } catch { /* the head is drawn again by the first render */ } }
   // Phase 58: same idea, one level deeper - #/auctions/12345 should reopen
   // that property's card, not just land on the Auctions list. Captured here,
   // before setLedger() below replaces the hash with the bare "#/slug" (losing
@@ -7984,6 +7988,9 @@ async function researchAfterOpen(p) {
 // "all" (default while testing), "guided" (Guided tier and admins/testers),
 // "admin". var / function declarations: showPage() can run during init (TDZ).
 var GUIDE_PAGE = GUIDE_PAGE || { county: null, ledger: null };
+// The page a cold start is heading for, named on the loading skeleton (see the list head).
+var BOOT_PAGE_NAME = "";
+var BOOT_PAGE_NAMES = { watchlist: "Watchlist", map: "Map", dashboard: "Home", guide: "Buyer's Guide", county: "Counties", research: "My research", rules: "State rules" };
 var GUIDE_LEDGER_FOR_SOURCE = { auction: "AUCTIONS", laft: "AVAILABLE", certificate: "LIENS_CERTIFICATES" };
 function ensureGuideSection() {
   let sec = document.getElementById("pageGuide");
@@ -8016,6 +8023,51 @@ function openGuidePage(county, ledger) {
   GUIDE_PAGE.ledger = ledger || (state && GUIDE_LEDGER_FOR_SOURCE[state.ledger]) || "AVAILABLE";
   showPage("guide");
 }
+// The county's own way to acquire an Available property, for the Buyer's Guide
+// (owner 2026-11-10: "this should be in the buyers guide as it should be the
+// same for all properties in that county"). Built from the same verified
+// record every property of the county carries (acquisitionOf): the steps in
+// the source's order, the contact the source published, the official page and
+// when it was read. A path published for ONE parcel is never shown as the
+// county's. No record read yet says so; a county with no listing shows nothing.
+function guideCountyRows(county) {
+  return county ? ALL.filter(p => p && p.source === "laft" && p.county === county && !isGone(p)) : [];
+}
+// The guide can be opened before the Available pages have arrived (a cold
+// start on #/guide): draw it again once this county's rows are in.
+window.addEventListener("tdw:ledgersupdated", () => {
+  const sec = document.getElementById("pageGuide");
+  if (!sec || sec.hidden || !GUIDE_PAGE.county || (GUIDE_PAGE.ledger || "AVAILABLE") !== "AVAILABLE") return;
+  if (guideCountyRows(GUIDE_PAGE.county).length !== GUIDE_PAGE.procRows) renderGuidePage();
+});
+function guideCountyProcessHtml(county) {
+  if (!county) return "";
+  const rows = guideCountyRows(county);
+  GUIDE_PAGE.procRows = rows.length;
+  if (!rows.length) return "";
+  const place = unitLabelOf(county);
+  let a = null;
+  for (const p of rows) { const x = acquisitionOf(p); if (x && x.verified && x.scope !== "property") { a = x; break; } }
+  const https = u => (u && /^https:\/\//i.test(String(u).trim()) ? String(u).trim() : "");
+  if (!a) {
+    return `<section class="bg-process" data-bg-process="unverified" aria-label="How to acquire in ${esc(place)}">` +
+      `<h2 class="bg-process-t">How to acquire in ${esc(place)}</h2>` +
+      `<p class="bg-process-none">Not yet verified. The county's list has been read, but no county page or document establishing how to acquire from it has been verified yet. Ask the office that publishes the list before you pay.</p></section>`;
+  }
+  const steps = (a.steps || []).filter(Boolean);
+  const body = steps.length
+    ? `<ol class="bg-process-steps">${steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>`
+    : (a.instructions ? `<p class="bg-process-text">${esc(a.instructions)}</p>` : "");
+  const links = [];
+  if (https(a.applicationUrl)) links.push(`<a href="${esc(https(a.applicationUrl))}" target="_blank" rel="noopener">Application or form <span aria-hidden="true">↗</span></a>`);
+  if (https(a.evidenceUrl)) links.push(`<a href="${esc(https(a.evidenceUrl))}" target="_blank" rel="noopener">${esc(a.evidenceTitle || "Official page")} <span aria-hidden="true">↗</span></a>`);
+  const obs = a.observedOn && /^\d{4}-\d{2}-\d{2}/.test(String(a.observedOn)) ? fmtDate(String(a.observedOn).slice(0, 10)) : "";
+  return `<section class="bg-process" data-bg-process="verified" aria-label="How to acquire in ${esc(place)}">` +
+    `<h2 class="bg-process-t">How to acquire in ${esc(place)}</h2>` +
+    (a.label ? `<p class="bg-process-k">${esc(a.label)}</p>` : "") + body + acquisitionContactHtml(a) +
+    (links.length ? `<p class="bg-process-links">${links.join(" · ")}</p>` : "") +
+    `<p class="bg-process-f">The county's own process, the same for every Available property in ${esc(place)} - not an approval for any one parcel.${obs ? ` Last verified ${esc(obs)}.` : ""}</p></section>`;
+}
 function renderGuidePage() {
   const sec = ensureGuideSection();
   if (!guideAccess()) {
@@ -8027,6 +8079,7 @@ function renderGuidePage() {
     state: PAGE_STATE, stateName: meta.name || PAGE_STATE, unit: UNIT_WORD,
     county: GUIDE_PAGE.county, ledger: GUIDE_PAGE.ledger,
     counties: Array.isArray(ALL_COUNTIES) ? ALL_COUNTIES.slice() : [],
+    countyProcessHtml: c => guideCountyProcessHtml(c),
     esc, fmtDate: d => (typeof fmtDate === "function" ? fmtDate(String(d).slice(0, 10)) : String(d)),
     navigate: ({ ledger, county }) => { GUIDE_PAGE.ledger = ledger || GUIDE_PAGE.ledger; GUIDE_PAGE.county = county || null; syncPageHash(); renderGuidePage(); },
   };
@@ -10130,7 +10183,7 @@ var GIS_LIVE = null;   // the one live mini-map; a new one releases the last (We
 function mountGisLiveInto(el, p, opts) {
   el.dataset.gisLiveState = "loading";
   return import("./map-3d.js").then(m => (m && typeof m.mountGisMap === "function")
-    ? m.mountGisMap(el, Object.assign({ lat: Number(p.latitude), lng: Number(p.longitude), propertyId: p.id, row: p, ledger: p.source, tilt: true, boundaryFetcher: (pid, row) => boundaryFor(pid, row) }, opts || {}))
+    ? m.mountGisMap(el, Object.assign({ lat: Number(p.latitude), lng: Number(p.longitude), propertyId: p.id, row: p, ledger: p.source, tilt: true, flyIn: true, boundaryFetcher: (pid, row) => boundaryFor(pid, row) }, opts || {}))
     : { status: "error" })
     .then(res => {
       el.dataset.gisLiveState = res && res.status ? res.status : "error";
@@ -10170,7 +10223,7 @@ function hydrateHeroLive(root, p) {
   const el = root.querySelector(".detail-hero-photo");
   if (!el || el.dataset.gisLiveState) return null;
   el.dataset.heroLive = String(p.id);
-  return mountGisLiveInto(el, p, { creditAfter: true }).then(state => {
+  return mountGisLiveInto(el, p, { creditAfter: true, creditFold: true }).then(state => {
     if (state !== "ready") return state;
     // The aerial's own outline credit sat right after the picture; the map
     // carries its own now (same source, same wording).
@@ -10185,6 +10238,104 @@ function hydrateHeroLive(root, p) {
     return state;
   });
 }
+// ---- List cards: the tilted MapTiler view on hover or tap (owner 2026-11-10) ----
+// A card keeps its aerial picture. The tilted map animates in when the card's
+// picture is hovered (a mouse) or its "Tilt view" button is pressed (touch /
+// keyboard), and the picture comes back when the pointer leaves or the button
+// is pressed again. Chosen over a live map per card because every map spends
+// MapTiler requests and a page holds only a few WebGL contexts: ONE card map
+// at a time, never loaded for a card nobody points at. The map is not
+// interactive here, so the card's own click and the list's scroll are
+// untouched. Declared with var / function: render() can run during start-up.
+var CARD_LIVE = null, CARD_LIVE_HOST = null, CARD_LIVE_STICKY = false, CARD_LIVE_TIMER = null;
+var CARD_ROW_INDEX = null, CARD_ROW_INDEX_SRC = null, CARD_ROW_INDEX_N = -1;
+function cardRowById(pid) {
+  if (CARD_ROW_INDEX_SRC !== ALL || CARD_ROW_INDEX_N !== ALL.length) {
+    CARD_ROW_INDEX = new Map(ALL.map(r => [String(r.id), r]));
+    CARD_ROW_INDEX_SRC = ALL; CARD_ROW_INDEX_N = ALL.length;
+  }
+  return CARD_ROW_INDEX.get(String(pid)) || null;
+}
+function cardLiveRow(host) {
+  const holder = host && host.closest ? host.closest("[data-pid]") : null;
+  const p = holder ? cardRowById(holder.dataset.pid) : null;
+  return p && gisLiveConfigured(p) ? p : null;
+}
+function cardTiltButton(pressed) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "pc-tilt-btn";
+  b.setAttribute("aria-pressed", String(!!pressed));
+  b.textContent = pressed ? "Photo" : "Tilt view";
+  b.title = pressed ? "Back to the aerial picture" : "Tilted satellite view of this property (MapTiler)";
+  return b;
+}
+function stopCardLive() {
+  if (CARD_LIVE_TIMER) { clearTimeout(CARD_LIVE_TIMER); CARD_LIVE_TIMER = null; }
+  const live = CARD_LIVE, host = CARD_LIVE_HOST;
+  CARD_LIVE = null; CARD_LIVE_HOST = null; CARD_LIVE_STICKY = false;
+  if (live) { try { live.destroy(); } catch { /* already gone */ } }
+  if (host) delete host.dataset.cardLive;
+}
+function startCardLive(host, sticky) {
+  if (!host || !host.isConnected) return;
+  if (CARD_LIVE_HOST === host) { CARD_LIVE_STICKY = CARD_LIVE_STICKY || !!sticky; return; }
+  const p = cardLiveRow(host);
+  if (!p) return;
+  stopCardLive();
+  CARD_LIVE_HOST = host; CARD_LIVE_STICKY = !!sticky;
+  host.dataset.cardLive = "loading";
+  import("./map-3d.js").then(m => (m && typeof m.mountGisMap === "function")
+    ? m.mountGisMap(host, { lat: Number(p.latitude), lng: Number(p.longitude), propertyId: p.id, row: p, ledger: p.source, tilt: true,
+        interactive: false, creditOverlay: true, flyIn: true, boundaryFetcher: (pid, row) => boundaryFor(pid, row) })
+    : { status: "error" })
+    .then(res => {
+      const mine = CARD_LIVE_HOST === host && host.isConnected;
+      if (!res || res.status !== "ready" || !mine) {
+        if (res && res.status === "ready") { try { res.destroy(); } catch { /* gone */ } }
+        if (CARD_LIVE_HOST === host) { CARD_LIVE_HOST = null; CARD_LIVE_STICKY = false; }
+        delete host.dataset.cardLive;
+        return;
+      }
+      CARD_LIVE = res;
+      host.dataset.cardLive = "ready";
+      host.appendChild(cardTiltButton(true));
+    })
+    .catch(() => { if (CARD_LIVE_HOST === host) { CARD_LIVE_HOST = null; CARD_LIVE_STICKY = false; } delete host.dataset.cardLive; });
+}
+// The button, on every card picture whose record can show the map.
+function hydrateCardTilt(scope) {
+  const c = window.TDW_CONFIG || {};
+  if (!(typeof c.maptilerKey === "string" && c.maptilerKey.trim()) || !scope || !scope.querySelectorAll) return;
+  scope.querySelectorAll(".prop-card-photo:not([data-tilt])").forEach(host => {
+    host.dataset.tilt = "1";
+    if (host.dataset.cardLive || !cardLiveRow(host)) return;
+    host.appendChild(cardTiltButton(false));
+  });
+}
+document.addEventListener("click", e => {
+  const b = e.target && e.target.closest ? e.target.closest(".pc-tilt-btn") : null;
+  if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  const host = b.closest(".prop-card-photo");
+  if (!host) return;
+  if (CARD_LIVE_HOST === host) stopCardLive(); else startCardLive(host, true);
+}, true);
+document.addEventListener("mouseover", e => {
+  if (!(window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches)) return;
+  const host = e.target && e.target.closest ? e.target.closest(".prop-card-photo") : null;
+  if (!host || host === CARD_LIVE_HOST || host.contains(e.relatedTarget)) return;
+  if (CARD_LIVE_STICKY) return;
+  if (CARD_LIVE_TIMER) clearTimeout(CARD_LIVE_TIMER);
+  CARD_LIVE_TIMER = setTimeout(() => { CARD_LIVE_TIMER = null; if (host.matches(":hover")) startCardLive(host, false); }, 400);
+});
+document.addEventListener("mouseout", e => {
+  const host = e.target && e.target.closest ? e.target.closest(".prop-card-photo") : null;
+  if (!host || host.contains(e.relatedTarget)) return;
+  if (CARD_LIVE_TIMER) { clearTimeout(CARD_LIVE_TIMER); CARD_LIVE_TIMER = null; }
+  if (host === CARD_LIVE_HOST && !CARD_LIVE_STICKY) stopCardLive();
+});
+window.__tdwCardLive = () => ({ host: !!CARD_LIVE_HOST, ready: !!CARD_LIVE, sticky: CARD_LIVE_STICKY });
 function hydrateGisLive(root, p) {
   // The picture slot first. When it took the live map, the GIS card keeps its
   // own embed: one live map per page (WebGL contexts and map sessions).
@@ -17299,6 +17450,10 @@ function renderListHead(shown, k, tabCounts) {
   const countBelow = k === "laft";
   // The state's name and the count wrap together (2026-11-05): "Liens &
   // Certificates in Florida" used to leave its count alone on the next line.
+  // Cold start on another page (#/watchlist, #/map, #/guide ...): the list
+  // skeleton is what shows until the first rows arrive, so it carries that
+  // page's name instead of "Auctions in <state>" (2026-11-10).
+  if (!PROPERTIES_LOADED && BOOT_PAGE_NAME) { t.textContent = BOOT_PAGE_NAME; renderListTotal("", 0); if (sub) { sub.textContent = LOAD_FAILED ? `${STATE_INFO.name} property data could not be loaded` : `Loading ${STATE_INFO.name}…`; sub.hidden = false; } return; }
   t.innerHTML = `<span class="lt-text">${esc(name)} in <span class="lt-tail">${esc(STATE_INFO.name)}${count && !countBelow ? ` <span class="list-count" id="listCount">${esc(count)}</span>` : ""}</span></span>`;
   renderListTotal(countBelow ? count : "", n);
   refreshCountyQuick();
@@ -17311,14 +17466,21 @@ function renderListHead(shown, k, tabCounts) {
     if (!PROPERTIES_LOADED) parts.push(esc(LOAD_FAILED ? `${STATE_INFO.name} property data could not be loaded` : `Loading ${STATE_INFO.name}…`));
     else {
       const cfg = ledgerCopy(k) || {};
+      // Available (owner 2026-11-10): the line under the title is one link to
+      // the Buyer's Guide - no question, program name or county count (the
+      // title carries the count, the county picker the counties). A viewer
+      // without the guide gets no line. Loading / filtered notes still follow.
+      if (k === "laft") {
+        if (guideAccess()) parts.push(`<button type="button" class="link-btn list-guide-link" data-action="buyersguide" data-guide-ledger="AVAILABLE">Buyer's Guide: how to acquire Available property →</button>`);
+      } else
       // The ledger's question opens the Buyer's Guide for that ledger when the
       // viewer has the guide (owner, 2026-11-04); otherwise it stays text.
       if (cfg.question) parts.push(guideAccess()
         ? `<button type="button" class="link-btn list-guide-link" data-action="buyersguide" data-guide-ledger="${esc(GUIDE_LEDGER_FOR_SOURCE[k] || "AVAILABLE")}">${esc(cfg.question)}</button>`
         : esc(cfg.question));
-      const prog = listProgramLine(k);
+      const prog = k === "laft" ? "" : listProgramLine(k);
       if (prog) parts.push(esc(prog));
-      const counties = new Set(shown.map(p => p.county).filter(Boolean)).size;
+      const counties = k === "laft" ? 0 : new Set(shown.map(p => p.county).filter(Boolean)).size;
       if (counties) parts.push(esc(`${counties.toLocaleString("en-US")} ${counties === 1 ? UNIT_WORD.toLowerCase() : UNITS_WORD}`));
       if (!ledgerSettled(k)) parts.push("Loading the rest…");
       else if (n < total) parts.push(esc(`Filtered from ${total.toLocaleString("en-US")}`));
@@ -17753,6 +17915,7 @@ function experienceApi() {
     unitWord: () => UNIT_WORD,
     // The unit's display name: an independent city is never "<city> County" (audit F35).
     unitLabel: c => unitLabelOf(c),
+    guideAccess: () => guideAccess(),
     ledgerTitle: k => (ledgerCopy(k) || {}).title || k,
     // Selection contract (2026-11-10): a look marks the record open in the
     // desktop side panel without reaching into app.js. selectedId() reads the

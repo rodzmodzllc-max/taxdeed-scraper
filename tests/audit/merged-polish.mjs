@@ -87,15 +87,18 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
   });
   check(`countyBarLight_${vp.width}`, bar.bg[0] > 230 && bar.bg[1] > 230, bar.bg);
   check(`countyBarSlim_${vp.width}`, bar.h <= (vp.width < 500 ? 64 : 48) && bar.steps.every(h => h >= 44), bar);
+  // 2026-11-10 (owner): the caveat is a "+" beside the price; hover or press shows it in full.
   const note = await pg.evaluate(() => {
-    const d = document.querySelector('#xpStage .xt-acard details.xt-amt-note');
-    if (!d) return null;
-    return { open: d.open, summary: d.querySelector('summary').textContent.trim(), text: d.textContent.replace(/\s+/g, ' '), pVisible: d.querySelector('p').checkVisibility() };
+    const w = document.querySelector('#xpStage .xt-acard .xt-fig-main .xt-amt-plus');
+    if (!w) return null;
+    const pop = w.querySelector('.xt-amt-pop'), btn = w.querySelector('.xt-amt-btn');
+    return { plus: btn.textContent.trim(), label: btn.getAttribute('aria-label'), expanded: btn.getAttribute('aria-expanded'), text: pop.textContent.replace(/\s+/g, ' '), popVisible: pop.checkVisibility(),
+      oldLine: !!document.querySelector('#xpStage .xt-acard details.xt-amt-note'), besidePrice: !!w.previousElementSibling && w.previousElementSibling.classList.contains('xt-num') };
   });
-  check(`amountCaveatFolded_${vp.width}`, !!note && !note.open && !note.pVisible && /Not the price to buy now/.test(note.summary), note);
-  check(`amountCaveatKeptInFull_${vp.width}`, !!note && /Request the current Lands Available statement from the clerk/.test(note.text), note && note.text);
-  await pg.locator('#xpStage .xt-acard details.xt-amt-note summary').first().click();
-  const opened = await pg.evaluate(() => { const d = document.querySelector('#xpStage .xt-acard details.xt-amt-note'); return d.open && d.querySelector('p').checkVisibility(); });
+  check(`amountCaveatFolded_${vp.width}`, !!note && note.plus === '+' && note.besidePrice && !note.oldLine && note.expanded === 'false' && !note.popVisible && /Not the price to buy now/.test(note.label), note);
+  check(`amountCaveatKeptInFull_${vp.width}`, !!note && /Not the price to buy now/.test(note.text) && /Request the current Lands Available statement from the clerk/.test(note.text), note && note.text);
+  await pg.locator('#xpStage .xt-acard .xt-amt-btn').first().click();
+  const opened = await pg.evaluate(() => { const w = document.querySelector('#xpStage .xt-acard .xt-amt-plus'); return w.classList.contains('open') && w.querySelector('.xt-amt-btn').getAttribute('aria-expanded') === 'true' && w.querySelector('.xt-amt-pop').checkVisibility(); });
   check(`amountCaveatOpens_${vp.width}`, opened, opened);
   const order = await pg.evaluate(() => { const c = document.querySelector('#xpStage .xt-acard'); const t = c.querySelector('.xt-lot-t').getBoundingClientRect().top, k = c.querySelector('.xt-lot-k').getBoundingClientRect().top, f = c.querySelector('.xt-fig-main').getBoundingClientRect().top; return { t, k, f }; });
   check(`cardLeadsWithAddress_${vp.width}`, order.t < order.k && order.k < order.f, order);

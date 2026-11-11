@@ -70,6 +70,16 @@ export const SELECT_PITCH = 55;
 export const SELECT_BEARING = -18;
 export const PARCEL_MAX_ZOOM = 19;
 export const PARCEL_FILL_OPACITY = 0.18;
+// Fly-in (owner 2026-11-10): the map opens on the contiguous United States and
+// flies down to the property. Centre and span of the lower 48; the opening
+// zoom is fitted to the map's own width so the country fills a small card too.
+export const US_CENTER = [-96.5, 38.5];
+export const US_SPAN_DEG = 59;
+export const FLY_IN_MS = 4200;
+export function usFitZoom(widthPx) {
+  const w = isNum(widthPx) && widthPx > 0 ? widthPx : 600;
+  return Math.max(1, Math.min(4, Math.round(Math.log2(w / ((US_SPAN_DEG / 360) * 512)) * 100) / 100));
+}
 export const GIS_TILT_PITCH = 50;            // the mini-map's first view when no outline frames it
 export const GIS_PITCH_ZOOM_BACKOFF = 0.4;   // see mountGisMap
 export const DEPTH_CAPTION_TERRAIN = "Terrain: MapTiler";
@@ -357,20 +367,33 @@ export async function mountGisMap(el, opts) {
   if (!key) return { status: "unconfigured", outline: false, destroy: noop };
   const before = el.innerHTML;
   const restore = () => { el.innerHTML = before; el.classList.remove("m3d-gis"); };
+  // interactive:false - a picture that animates (a list card): no controls,
+  // no gestures, so the card's own click and the page's scroll are untouched.
+  const interactive = o.interactive !== false;
   let map = null;
   try {
     const gl = await loadMapLibre();
     el.innerHTML = `<div class="m3d-gis-canvas" role="region" aria-label="Interactive parcel map"></div>`;
     el.classList.add("m3d-gis");
     const canvas = el.firstElementChild;
+    // flyIn: start on the whole country, then fly to the property (below).
+    // Off under prefers-reduced-motion: the map simply opens on the property.
+    const flyIn = o.flyIn === true && !reducedMotion();
     map = new gl.Map({
-      container: canvas, style: maptilerStyleUrl("satellite", key), center: [lng, lat], zoom: 17,
-      pitch: 0, bearing: 0, attributionControl: false, cooperativeGestures: true
+      container: canvas, style: maptilerStyleUrl("satellite", key),
+      center: flyIn ? US_CENTER : [lng, lat], zoom: flyIn ? usFitZoom(canvas.clientWidth) : 17,
+      pitch: 0, bearing: 0, attributionControl: false, cooperativeGestures: interactive, interactive
     });
     // Compact: the full attribution is one tap away and never covers the
     // parcel on a small map (it used to open across the bottom on a phone).
     map.addControl(new gl.AttributionControl({ compact: true }), "bottom-right");
-    map.addControl(new gl.NavigationControl({ showCompass: true, visualizePitch: true }), "top-right");
+    // MapLibre opens a compact attribution until the map is first moved; on a
+    // small picture that strip covers the parcel. Start it closed: the
+    // attribution stays one tap away on its (i) button.
+    const closeAttrib = () => { const a = canvas.querySelector(".maplibregl-ctrl-attrib"); if (a) { a.classList.remove("maplibregl-compact-show"); a.removeAttribute("open"); } };
+    closeAttrib();
+    map.once("load", closeAttrib);
+    if (interactive) map.addControl(new gl.NavigationControl({ showCompass: true, visualizePitch: true }), "top-right");
     const pin = document.createElement("div");
     pin.className = "sat-pin sel m3d-pin";
     pin.setAttribute("aria-hidden", "true");
@@ -383,6 +406,10 @@ export async function mountGisMap(el, opts) {
     });
     let outline = false;
     let creditNode = null;
+    const moveTo = cam => {
+      if (flyIn) map.flyTo(Object.assign({ essential: true, duration: FLY_IN_MS, curve: 1.5 }, cam));
+      else map.easeTo(Object.assign(cam, reducedMotion() ? { duration: 0 } : { duration: 900 }));
+    };
     const wantTilt = o.tilt === true;
     if (typeof o.boundaryFetcher === "function" && o.propertyId != null) {
       let res = null;
@@ -395,20 +422,33 @@ export async function mountGisMap(el, opts) {
           // map the near edge of the parcel is magnified and ran off the
           // bottom. Pull back a little so the whole outline stays in view.
           cam.zoom = Math.round((cam.zoom - GIS_PITCH_ZOOM_BACKOFF) * 100) / 100;
-          map.easeTo(Object.assign(cam, reducedMotion() ? { duration: 0 } : { duration: 900 }));
+          moveTo(cam);
           const credit = boundaryCreditHtml(res.boundary.attribution);
           if (credit) {
             // creditAfter: the host clips its content (the property page's
             // picture slot), so the credit goes right after it, never hidden.
-            el.insertAdjacentHTML(o.creditAfter ? "afterend" : "beforeend", credit);
-            creditNode = o.creditAfter ? el.nextElementSibling : el.lastElementChild;
+            if (o.creditOverlay) {
+              // A card: one line on the picture, the full credit one tap away.
+              el.insertAdjacentHTML("beforeend", `<details class="m3d-card-credit"><summary>Parcel outline: ${escHtml(res.boundary.attribution.credit)}</summary>${credit}</details>`);
+              creditNode = el.lastElementChild;
+            } else {
+              // creditFold: one line under the map, the full credit one tap away
+              // (folded, never dropped) - the paragraph ran to nine lines on a phone.
+              const shown = o.creditFold
+                ? `<details class="pb-credit-fold" data-pb-credit><summary>Parcel outline: ${escHtml(res.boundary.attribution.credit)}</summary>${credit}</details>`
+                : credit;
+              el.insertAdjacentHTML(o.creditAfter ? "afterend" : "beforeend", shown);
+              creditNode = o.creditAfter ? el.nextElementSibling : el.lastElementChild;
+            }
           }
         }
       }
     }
     // tilt: the pitched view is the first view even without an outline.
-    if (!outline && wantTilt && map) {
-      map.easeTo({ pitch: GIS_TILT_PITCH, bearing: SELECT_BEARING, duration: reducedMotion() ? 0 : 900 });
+    if (!outline && map && (wantTilt || flyIn)) {
+      const cam = { pitch: wantTilt ? GIS_TILT_PITCH : 0, bearing: wantTilt ? SELECT_BEARING : 0 };
+      if (flyIn) Object.assign(cam, { center: [lng, lat], zoom: 17 });
+      moveTo(cam);
     }
     return { status: "ready", outline, tilted: outline || wantTilt, map, destroy: () => {
       try { map.remove(); } catch { /* gone */ }

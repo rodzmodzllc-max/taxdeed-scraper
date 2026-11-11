@@ -163,3 +163,13 @@ html[data-experience="merged"] .detail-fold-summary .detail-more-title::before{c
 .detail-hero-photo.m3d-gis .m3d-gis-canvas{height:clamp(220px,38vh,360px);border-radius:inherit}
 .detail-panel .detail-hero-photo.m3d-gis .m3d-gis-canvas{height:240px}
 @media (max-width:640px){ .detail-hero-photo.m3d-gis .m3d-gis-canvas{height:clamp(200px,34vh,280px)} }
+
+/* The map picture's outline credit, folded to one line (map-3d.js creditFold). */
+.pb-credit-fold{margin:.35rem 0 .6rem;font-size:.72rem;line-height:1.45;color:var(--ink-soft)}
+.pb-credit-fold > summary{cursor:pointer;min-height:28px;display:flex;align-items:center;gap:.35rem}
+.pb-credit-fold > summary::after{content:"Details";margin-left:auto;font-weight:600;text-decoration:underline;text-underline-offset:2px}
+.pb-credit-fold[open] > summary::after{content:"Hide"}
+.pb-credit-fold .pb-credit{margin:.3rem 0 0}
+
+/* Available: the Buyer's Guide link under the list title reads as one left-aligned line of text. */
+#listSubtitle .list-guide-link{display:inline;text-align:left;white-space:normal}

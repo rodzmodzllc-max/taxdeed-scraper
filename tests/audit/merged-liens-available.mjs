@@ -159,8 +159,9 @@ for (const vp of [{ width: 1600, height: 900 }, { width: 390, height: 844 }]) {
     await pg.click(`#countyNowBar [data-cnb-pick="${target}"]`);
     await pg.waitForTimeout(2600);
     const r = await pg.evaluate(t => { const h = document.querySelector(`#xpStage [data-county-head="${t}"]`); const bar = document.querySelector('#countyNowBar [data-cnb-name]'); const row = document.querySelector('#countyNowBar .cnb-row');
-      return { top: Math.round(h.getBoundingClientRect().top), barBottom: Math.round(row.getBoundingClientRect().bottom), name: bar.textContent.trim() }; }, target);
-    check(`F48 jump to ${target} lands on its head (${vp.width})`, r.name.startsWith(target) && r.top >= r.barBottom - 30 && r.top <= r.barBottom + 80, r);
+      return { top: Math.round(h.getBoundingClientRect().top), barBottom: Math.round(row.getBoundingClientRect().bottom), name: bar.textContent.trim(),
+        atEnd: window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2 }; }, target);
+    check(`F48 jump to ${target} lands on its head (${vp.width})`, r.name.startsWith(target) && r.top >= r.barBottom - 30 && (r.top <= r.barBottom + 80 || r.atEnd), r);   // atEnd (2026-11-10): county heads are shorter (a guide link, not the steps), so the last county's head can stop short of the bar at the end of the page
   }
   await pg.close();
 }

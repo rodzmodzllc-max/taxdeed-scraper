@@ -1239,3 +1239,16 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
 .m3d-gis .m3d-credit{margin:.35rem 0 0;font-size:.66rem;line-height:1.45;color:var(--ink-soft)}
 .m3d-pin{pointer-events:none}
 @media (max-width:640px){ .m3d-gis-canvas{height:220px} }
+
+/* -- List cards: the tilted MapTiler view on hover / tap (app.js startCardLive) -- */
+.prop-card-photo{position:relative}
+.pc-tilt-btn{position:absolute;right:.4rem;top:.4rem;z-index:4;min-height:32px;padding:.15rem .6rem;border:1px solid rgba(255,255,255,.75);border-radius:999px;
+  background:rgba(20,35,28,.74);color:#fff;font:600 .66rem var(--font-sans,system-ui);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;line-height:1}
+.pc-tilt-btn[aria-pressed="true"]{background:#fff;color:#1F3A2E;border-color:#1F3A2E}
+.pc-tilt-btn:focus-visible{outline:2px solid var(--accent,#1F3A2E);outline-offset:2px}
+.prop-card-photo.m3d-gis{overflow:hidden}
+.prop-card-photo.m3d-gis .m3d-gis-canvas{position:absolute;inset:0;width:100%;height:100%;border-radius:0}
+.m3d-card-credit{position:absolute;left:.35rem;bottom:.35rem;z-index:3;max-width:calc(100% - .7rem);max-height:70%;overflow:auto;padding:.12rem .4rem;border-radius:3px;
+  background:rgba(255,255,255,.93);color:#22302a;font-size:.62rem;line-height:1.35}
+.m3d-card-credit summary{cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m3d-card-credit .m3d-credit{margin:.25rem 0 0;font-size:.62rem;color:#22302a}

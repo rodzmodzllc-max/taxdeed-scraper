@@ -203,7 +203,7 @@ for (const look of ['classic', 'merged']) {
   const pid = await btn.getAttribute('data-pid');
   await btn.tap(); await pg.waitForTimeout(600);
   const y2 = await pg.evaluate(() => window.scrollY);
-  check(`f10WatchTapKeepsScroll_${look}`, y0 > 500 && Math.abs(y2 - y1) < 60, { y0, y1, y2 });
+  check(`f10WatchTapKeepsScroll_${look}`, y0 > 400 && Math.abs(y2 - y1) < 60, { y0, y1, y2 });   // y0 floor 400 (was 500): county heads are shorter since 2026-11-10
   check(`f47WatchButtonFlippedInPlace_${look}`, await pg.evaluate(pid => [...document.querySelectorAll(`[data-action="bidlist"][data-pid="${pid}"]`)].every(b => b.classList.contains('on')), pid), pid);
   await pg.context().close();
   // Background pages arriving while scrolled down.

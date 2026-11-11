@@ -7647,7 +7647,8 @@ await big.press('#globalSearchInput', 'Enter');
       const vis = el => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
       const bar = document.getElementById('countyNowBar');
       const heads = [...document.querySelectorAll(scope + ' [data-county-head]')];
-      const headText = hd => ((hd.matches('details') ? hd.querySelector(':scope > summary') : hd) || hd).textContent.replace(/\s+/g, ' ').trim();
+      // The county's NAME (2026-11-10: a Merged county head also carries a Buyer's Guide link for that county).
+      const headText = hd => (hd.querySelector('.xt-story-t') || (hd.matches('details') ? hd.querySelector(':scope > summary') : hd) || hd).textContent.replace(/\s+/g, ' ').trim();
       const count = (document.getElementById('listCount') || {}).textContent || '';
       // noRepeatViewCount: the title count is the only visible element whose whole text is that number.
       const sameNumber = [...document.querySelectorAll('body *')].filter(el => !el.children.length && vis(el) && el.textContent.trim() === count && !el.closest('#countyNowBar, ol, .wp')).length; // step numbers in a how-to-acquire list are not counts
@@ -8010,7 +8011,7 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v173"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v174"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -8394,7 +8395,7 @@ const EXPECTED = {
   rdChipRemoved: {"listSearch": "", "chips": 0, "hidden": true},
   rdPathChip: ["Purchase path: No online path on file×"],
   rdClearAll: {"chips": 0, "path": "any"},
-  rdListHead: {"title": "Available in Florida", "sub": "What can I acquire now? · Lands Available list - over the counter · 2 counties", "lit": ["ledger:laft"]}, // 2026-11-04: Available title carries no count (it sits above the county bar)
+  rdListHead: {"title": "Available in Florida", "sub": "Buyer's Guide: how to acquire Available property →", "lit": ["ledger:laft"]}, // 2026-11-04: Available title carries no count (it sits above the county bar)
   rdCountyPanel: {"shaded": []},
   rdNavCert: {"hash": "#/certificates", "title": "Liens & Certificates in Florida 1"},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
   rdNavAuction: {"hash": "#/auctions", "title": "Auctions in Florida 9"},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)

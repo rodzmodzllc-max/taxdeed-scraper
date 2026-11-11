@@ -70,6 +70,30 @@ for (const look of ['classic', 'merged']) {
   }
   await pg.close();
 }
+// 2026-11-10 (owner): the line under "Available in <state>" is one Buyer's Guide
+// link, and a county head carries a Buyer's Guide link for that county instead
+// of the "How to acquire" steps.
+{
+  const pg = await open('index.html#/lands', 'merged');
+  const r = await pg.evaluate(() => {
+    const sub = document.getElementById('listSubtitle');
+    const heads = [...document.querySelectorAll('#xpStage [data-county-head]')];
+    return { sub: sub.textContent.replace(/\s+/g, ' ').trim(), subLinks: sub.querySelectorAll('.list-guide-link').length,
+      heads: heads.length, headLinks: heads.filter(h => h.querySelector('.xt-guide-link[data-action="buyersguide"]')).length,
+      headSteps: heads.filter(h => h.querySelector('.xt-trail')).length, first: heads[0] ? heads[0].querySelector('.xt-guide-link') && heads[0].querySelector('.xt-guide-link').dataset.county : null,
+      county: heads[0] ? heads[0].dataset.countyHead : null };
+  });
+  check('availableSubtitleIsTheGuideLinkOnly', r.subLinks === 1 && /^Buyer's Guide: how to acquire Available property/.test(r.sub) && !/What can I acquire now|over the counter|count/i.test(r.sub), r);
+  check('countyHeadsCarryGuideLinkNotSteps', r.heads > 0 && r.headLinks > 0 && r.headSteps === 0 && r.first === r.county, r);
+  await pg.click('#xpStage [data-county-head] .xt-guide-link');
+  await pg.waitForTimeout(1200);
+  const g = await pg.evaluate(() => { const pr = document.querySelector('#pageGuide .bg-process'); return { hash: decodeURIComponent(location.hash), shown: !document.getElementById('pageGuide').hidden,
+    process: pr ? pr.dataset.bgProcess : null, title: pr ? pr.querySelector('.bg-process-t').textContent : null, steps: pr ? pr.querySelectorAll('.bg-process-steps li').length : 0, foot: pr && pr.querySelector('.bg-process-f') ? pr.querySelector('.bg-process-f').textContent : '' }; });
+  check('countyHeadLinkOpensThatCountysGuide', g.shown && /^#\/guide\?/.test(g.hash) && /ledger=AVAILABLE/.test(g.hash) && g.hash.includes('county=' + r.county), { g, county: r.county });
+  // The county's own process is in the guide (same for every property there), not on each card.
+  check('guideShowsTheCountysProcess', !!g.process && g.title === 'How to acquire in ' + r.county + ' County' && (g.process === 'unverified' || (/same for every Available property/.test(g.foot))), g);
+  await pg.close();
+}
 // Without the guide the question stays plain text.
 {
   const ctx = await b.newContext({ viewport: { width: 390, height: 844 } });
@@ -79,7 +103,7 @@ for (const look of ['classic', 'merged']) {
   await pg.goto(root + 'index.html#/lands', { waitUntil: 'networkidle' });
   await pg.waitForTimeout(1500);
   const r = await pg.evaluate(() => ({ link: !!document.querySelector('#listSubtitle .list-guide-link'), text: document.getElementById('listSubtitle').textContent }));
-  check('noGuideAccessPlainQuestion', !r.link && /What can I acquire now\?/.test(r.text), r);
+  check('noGuideAccessNoGuideLine', !r.link && !/What can I acquire now\?|Buyer's Guide/.test(r.text), r);   // 2026-11-10: Available's line is the guide link or nothing
   await ctx.close();
 }
 check('noPageErrors', errors.length === 0, errors);

@@ -394,6 +394,17 @@ function storyTrail(g, api) {
   return html || "";
 }
 
+// Under a county's name (owner 2026-11-10): one link to the Buyer's Guide for
+// that county instead of the "How to acquire" steps. The steps stay on the
+// property page and in the guide itself. A viewer without the guide keeps
+// the steps here, so the county's process is never left unreachable.
+function storyHeadTrail(g, api, name) {
+  if (typeof api.guideAccess === "function" && api.guideAccess()) {
+    return `<div class="xt-story-trail xt-story-guide"><button type="button" class="xt-guide-link" data-action="buyersguide" data-county="${api.esc(g.county)}" data-guide-ledger="AVAILABLE">How to acquire in ${api.esc(name)}: Buyer's Guide →</button></div>`;
+  }
+  return g.headTrail ? `<div class="xt-story-trail">${g.headTrail}</div>` : "";
+}
+
 function storyCardsHtml(g, api, lim) {
   const shown = g.rows.slice(0, lim);
   shown.forEach(p => BY_ID.set(String(p.id), p));
@@ -434,7 +445,7 @@ function availableView(rows, api, enter) {
         </svg>
         <span class="xt-locator county-locator minimap minimap-county" data-county="${api.esc(g.county)}" data-frame="state" aria-hidden="true"></span>
         <h3 class="xt-story-t">${api.esc(name)}</h3>
-        ${g.headTrail ? `<div class="xt-story-trail">${g.headTrail}</div>` : ""}
+        ${storyHeadTrail(g, api, name)}
       </div>
       ${rail}
     </section>`;
@@ -492,7 +503,12 @@ function availableCard(p, api, i, headTrail) {
   let note = "";
   try { note = api.amountInfo(p).note || ""; } catch {}
   const visual = api.propertyVisual(p, "prop-card-photo xt-visual", { omitCounty: true });
-  const trail = trailInfo(p, api).html;
+  // A county-wide process lives in the Buyer's Guide for that county (the
+  // county head links to it); a card repeats it only for a viewer without
+  // the guide. A path published for this one parcel always stays on its card.
+  const ti = trailInfo(p, api);
+  const inGuide = ti.hoistable && typeof api.guideAccess === "function" && api.guideAccess();
+  const trail = inGuide ? "" : ti.html;
   return `<article class="xt-acard" role="listitem" data-xt="acard" data-pid="${api.esc(p.id)}" data-xt-ping style="--r:${Math.min(i, 8)}">
     <div class="xt-acard-vis">${visual}</div>
     <div class="xt-acard-body">
@@ -501,10 +517,9 @@ function availableCard(p, api, i, headTrail) {
       <div class="xt-ids">${idRow(p, api)}</div>
       ${cardStampHtml(p, api)}
       <div class="xt-figs">
-        <div class="xt-fig xt-fig-main"><span class="xt-lbl">${api.esc(amt.label)}</span><span class="xt-num${amt.state === "not_published" ? " np" : ""}">${api.esc(amt.text)}</span></div>
+        <div class="xt-fig xt-fig-main"><span class="xt-lbl">${api.esc(amt.label)}</span><span class="xt-num-row"><span class="xt-num${amt.state === "not_published" ? " np" : ""}">${api.esc(amt.text)}</span>${amountNoteHtml(note, api)}</span></div>
         <div class="xt-fig"><span class="xt-lbl">${api.esc(pf.valueLabel || "County value")}</span><span class="xt-num xt-num-s${pf.value ? "" : " np"}">${api.esc(pf.value || "Not published")}</span></div>
       </div>
-      ${amountNoteHtml(note, api)}
       ${headTrail && trail === headTrail ? "" : trail}
       <div class="xt-actions">${openBtn(p, api, "xt-btn-primary xt-sage")}${watchBtn(p, api)}</div>
     </div>
@@ -534,7 +549,11 @@ function amountNoteHtml(note, api) {
   if (!t) return "";
   const m = /^([^:.;]{4,48})[:;.]\s*(.+)$/s.exec(t);
   const lead = m ? m[1] : "About this figure";
-  return `<details class="xt-amt-note"><summary><span class="xt-amt-lead">${api.esc(lead)}</span><span class="xt-amt-why" aria-hidden="true">Why</span></summary><p>${api.esc(t)}</p></details>`;
+  // Owner 2026-11-10: a "+" beside the price; hovering or pressing it shows
+  // the caveat in full (folded, never dropped). The whole sentence stays in
+  // the DOM for every card.
+  return `<span class="xt-amt-plus"><button type="button" class="xt-amt-btn" aria-expanded="false" aria-label="${api.esc(lead)} - why" title="${api.esc(lead)}">+</button>` +
+    `<span class="xt-amt-pop" role="note"><b class="xt-amt-lead">${api.esc(lead)}${m ? ":" : ""}</b>${m ? " " + api.esc(m[2]) : " " + api.esc(t)}</span></span>`;
 }
 
 function trailInfo(p, api) {
@@ -870,3 +889,23 @@ document.addEventListener("click", e => {
   const api = (LAST && LAST.api) || (window.__tdwExperience && window.__tdwExperience.api);
   if (p && api) api.openDetail(p);
 });
+
+if (typeof document !== "undefined" && !window.__xtAmtBound) {
+  window.__xtAmtBound = true;
+  const closeAll = except => document.querySelectorAll(".xt-amt-plus.open").forEach(w => {
+    if (w === except) return;
+    w.classList.remove("open");
+    const b = w.querySelector(".xt-amt-btn"); if (b) b.setAttribute("aria-expanded", "false");
+  });
+  document.addEventListener("click", e => {
+    const btn = e.target && e.target.closest ? e.target.closest(".xt-amt-btn") : null;
+    if (!btn) { if (!(e.target && e.target.closest && e.target.closest(".xt-amt-plus"))) closeAll(null); return; }
+    e.preventDefault(); e.stopPropagation();
+    const wrap = btn.parentElement;
+    const on = !wrap.classList.contains("open");
+    closeAll(wrap);
+    wrap.classList.toggle("open", on);
+    btn.setAttribute("aria-expanded", String(on));
+  }, true);
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeAll(null); });
+}
