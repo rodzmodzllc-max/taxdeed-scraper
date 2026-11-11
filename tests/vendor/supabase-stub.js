@@ -426,6 +426,16 @@ if (new URLSearchParams(location.search).get("unconfirmed") === "1") {
   const p15 = FIXTURE_PROPERTIES.find(r => r.id === "p15");
   if (p15) p15.last_seen_at = new Date(Date.now() - 10 * 86400 * 1000).toISOString();
 }
+// ?unconfirmedliens=1 (2026-11-11 unconfirmed lien certificates): every
+// certificate row read back an hour ago except Alachua's p4 (never confirmed,
+// like production's LienHub rows). tests/config.js turns the lien gate on for
+// this knob only.
+if (new URLSearchParams(location.search).get("unconfirmedliens") === "1") {
+  const fresh = new Date(Date.now() - 3600 * 1000).toISOString();
+  FIXTURE_PROPERTIES.forEach(r => { if (r.source === "certificate") r.last_seen_at = fresh; });
+  const p4 = FIXTURE_PROPERTIES.find(r => r.id === "p4");
+  if (p4) { p4.last_seen_at = null; p4.first_seen_at = null; }
+}
 // ?brokenlinks=1 (2026-10-27 source link checks, migration 036): the table
 // holds p15's list page BROKEN on two daily checks (hidden as a link), its
 // purchase page BROKEN once (still a link) and p3's list BLOCKED (still a

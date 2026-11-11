@@ -12,6 +12,10 @@ window.TDW_CONFIG = { supabaseUrl: "https://fake-project.supabase.co", supabaseP
 try {
   window.TDW_CONFIG.unconfirmedAvailableGate = new URLSearchParams(location.search).get("unconfirmed") === "1";
 } catch (e) { window.TDW_CONFIG.unconfirmedAvailableGate = false; }
+// Same for the lien-certificate half (2026-11-11): on only under ?unconfirmedliens=1.
+try {
+  window.TDW_CONFIG.unconfirmedLienGate = new URLSearchParams(location.search).get("unconfirmedliens") === "1";
+} catch (e) { window.TDW_CONFIG.unconfirmedLienGate = false; }
 // ?oauth=google,apple,azure turns the "Continue with ..." buttons on for the
 // sign-in tests (fixture only; the stub's signInWithOAuth never navigates).
 try {
