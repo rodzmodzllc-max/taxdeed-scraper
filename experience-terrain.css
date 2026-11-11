@@ -488,3 +488,10 @@ html[data-experience="terrain"] .county-now .cnb-list{border-radius:0 0 14px 14p
 .xp-terrain .xt-acard .xt-stamp.k-verified{color:#2F5E39}
 .xp-terrain .xt-acard .xt-stamp.k-muted{color:#56695E;border-style:dashed;font-weight:600}
 .xp-terrain .xt-acard .xt-stamp.k-closed{color:#574F46;border-style:dashed}
+
+/* County head: the Buyer's Guide link that replaced the How-to-acquire steps (2026-11-10). */
+.xp-terrain .xt-story-guide{margin-top:8px;max-width:none}
+.xp-terrain .xt-guide-link{min-height:36px;padding:.2rem 0;font-size:.86rem;font-weight:600;text-align:left;color:inherit;font-family:inherit;text-decoration:underline;text-underline-offset:3px;background:none;border:0;cursor:pointer}
+.xp-terrain .xt-guide-link:focus-visible{outline:2px solid var(--accent,#1F3A2E);outline-offset:2px}
+/* An italic step label lost its last letter to overflow:hidden ("Not yet verifiea"). */
+.xp-terrain .wp-t{padding-right:.15em}

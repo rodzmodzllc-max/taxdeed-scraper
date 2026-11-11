@@ -394,6 +394,17 @@ function storyTrail(g, api) {
   return html || "";
 }
 
+// Under a county's name (owner 2026-11-10): one link to the Buyer's Guide for
+// that county instead of the "How to acquire" steps. The steps stay on the
+// property page and in the guide itself. A viewer without the guide keeps
+// the steps here, so the county's process is never left unreachable.
+function storyHeadTrail(g, api, name) {
+  if (typeof api.guideAccess === "function" && api.guideAccess()) {
+    return `<div class="xt-story-trail xt-story-guide"><button type="button" class="xt-guide-link" data-action="buyersguide" data-county="${api.esc(g.county)}" data-guide-ledger="AVAILABLE">How to acquire in ${api.esc(name)}: Buyer's Guide →</button></div>`;
+  }
+  return g.headTrail ? `<div class="xt-story-trail">${g.headTrail}</div>` : "";
+}
+
 function storyCardsHtml(g, api, lim) {
   const shown = g.rows.slice(0, lim);
   shown.forEach(p => BY_ID.set(String(p.id), p));
@@ -434,7 +445,7 @@ function availableView(rows, api, enter) {
         </svg>
         <span class="xt-locator county-locator minimap minimap-county" data-county="${api.esc(g.county)}" data-frame="state" aria-hidden="true"></span>
         <h3 class="xt-story-t">${api.esc(name)}</h3>
-        ${g.headTrail ? `<div class="xt-story-trail">${g.headTrail}</div>` : ""}
+        ${storyHeadTrail(g, api, name)}
       </div>
       ${rail}
     </section>`;

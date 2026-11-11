@@ -10171,7 +10171,7 @@ function hydrateHeroLive(root, p) {
   const el = root.querySelector(".detail-hero-photo");
   if (!el || el.dataset.gisLiveState) return null;
   el.dataset.heroLive = String(p.id);
-  return mountGisLiveInto(el, p, { creditAfter: true }).then(state => {
+  return mountGisLiveInto(el, p, { creditAfter: true, creditFold: true }).then(state => {
     if (state !== "ready") return state;
     // The aerial's own outline credit sat right after the picture; the map
     // carries its own now (same source, same wording).
@@ -17410,14 +17410,21 @@ function renderListHead(shown, k, tabCounts) {
     if (!PROPERTIES_LOADED) parts.push(esc(LOAD_FAILED ? `${STATE_INFO.name} property data could not be loaded` : `Loading ${STATE_INFO.name}…`));
     else {
       const cfg = ledgerCopy(k) || {};
+      // Available (owner 2026-11-10): the line under the title is one link to
+      // the Buyer's Guide - no question, program name or county count (the
+      // title carries the count, the county picker the counties). A viewer
+      // without the guide gets no line. Loading / filtered notes still follow.
+      if (k === "laft") {
+        if (guideAccess()) parts.push(`<button type="button" class="link-btn list-guide-link" data-action="buyersguide" data-guide-ledger="AVAILABLE">Buyer's Guide: how to acquire Available property →</button>`);
+      } else
       // The ledger's question opens the Buyer's Guide for that ledger when the
       // viewer has the guide (owner, 2026-11-04); otherwise it stays text.
       if (cfg.question) parts.push(guideAccess()
         ? `<button type="button" class="link-btn list-guide-link" data-action="buyersguide" data-guide-ledger="${esc(GUIDE_LEDGER_FOR_SOURCE[k] || "AVAILABLE")}">${esc(cfg.question)}</button>`
         : esc(cfg.question));
-      const prog = listProgramLine(k);
+      const prog = k === "laft" ? "" : listProgramLine(k);
       if (prog) parts.push(esc(prog));
-      const counties = new Set(shown.map(p => p.county).filter(Boolean)).size;
+      const counties = k === "laft" ? 0 : new Set(shown.map(p => p.county).filter(Boolean)).size;
       if (counties) parts.push(esc(`${counties.toLocaleString("en-US")} ${counties === 1 ? UNIT_WORD.toLowerCase() : UNITS_WORD}`));
       if (!ledgerSettled(k)) parts.push("Loading the rest…");
       else if (n < total) parts.push(esc(`Filtered from ${total.toLocaleString("en-US")}`));
@@ -17852,6 +17859,7 @@ function experienceApi() {
     unitWord: () => UNIT_WORD,
     // The unit's display name: an independent city is never "<city> County" (audit F35).
     unitLabel: c => unitLabelOf(c),
+    guideAccess: () => guideAccess(),
     ledgerTitle: k => (ledgerCopy(k) || {}).title || k,
     // Selection contract (2026-11-10): a look marks the record open in the
     // desktop side panel without reaching into app.js. selectedId() reads the

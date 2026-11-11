@@ -8394,7 +8394,7 @@ const EXPECTED = {
   rdChipRemoved: {"listSearch": "", "chips": 0, "hidden": true},
   rdPathChip: ["Purchase path: No online path on file×"],
   rdClearAll: {"chips": 0, "path": "any"},
-  rdListHead: {"title": "Available in Florida", "sub": "What can I acquire now? · Lands Available list - over the counter · 2 counties", "lit": ["ledger:laft"]}, // 2026-11-04: Available title carries no count (it sits above the county bar)
+  rdListHead: {"title": "Available in Florida", "sub": "Buyer's Guide: how to acquire Available property →", "lit": ["ledger:laft"]}, // 2026-11-04: Available title carries no count (it sits above the county bar)
   rdCountyPanel: {"shaded": []},
   rdNavCert: {"hash": "#/certificates", "title": "Liens & Certificates in Florida 1"},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)
   rdNavAuction: {"hash": "#/auctions", "title": "Auctions in Florida 9"},   // header/tiers revision 2026-10-25 (docs/review/header-tiers.md)

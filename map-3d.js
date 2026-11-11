@@ -387,6 +387,12 @@ export async function mountGisMap(el, opts) {
     // Compact: the full attribution is one tap away and never covers the
     // parcel on a small map (it used to open across the bottom on a phone).
     map.addControl(new gl.AttributionControl({ compact: true }), "bottom-right");
+    // MapLibre opens a compact attribution until the map is first moved; on a
+    // small picture that strip covers the parcel. Start it closed: the
+    // attribution stays one tap away on its (i) button.
+    const closeAttrib = () => { const a = canvas.querySelector(".maplibregl-ctrl-attrib"); if (a) { a.classList.remove("maplibregl-compact-show"); a.removeAttribute("open"); } };
+    closeAttrib();
+    map.once("load", closeAttrib);
     if (interactive) map.addControl(new gl.NavigationControl({ showCompass: true, visualizePitch: true }), "top-right");
     const pin = document.createElement("div");
     pin.className = "sat-pin sel m3d-pin";
@@ -426,7 +432,12 @@ export async function mountGisMap(el, opts) {
               el.insertAdjacentHTML("beforeend", `<details class="m3d-card-credit"><summary>Parcel outline: ${escHtml(res.boundary.attribution.credit)}</summary>${credit}</details>`);
               creditNode = el.lastElementChild;
             } else {
-              el.insertAdjacentHTML(o.creditAfter ? "afterend" : "beforeend", credit);
+              // creditFold: one line under the map, the full credit one tap away
+              // (folded, never dropped) - the paragraph ran to nine lines on a phone.
+              const shown = o.creditFold
+                ? `<details class="pb-credit-fold" data-pb-credit><summary>Parcel outline: ${escHtml(res.boundary.attribution.credit)}</summary>${credit}</details>`
+                : credit;
+              el.insertAdjacentHTML(o.creditAfter ? "afterend" : "beforeend", shown);
               creditNode = o.creditAfter ? el.nextElementSibling : el.lastElementChild;
             }
           }
