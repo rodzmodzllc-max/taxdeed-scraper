@@ -2052,3 +2052,12 @@ html[data-experience] .xpt .xpt-mono-s:not(#_),html[data-experience] .xpm .xpm-m
 :root[data-theme="dark"] #authGate button#signInBtn,:root[data-theme="dark"] #authGate button#signInBtn:hover{color:#141C18!important}
 #pendingGate.pv-on .pv-details-toggle{text-align:left}
 @media (max-width:599.98px){.pv-unlocks li{font-size:.8rem;padding:.22rem .45rem}.pv-banner{padding:.9rem .9rem}.pv-state select{max-width:9.5rem}}
+
+/* Dark theme, the Available record body (2026-11-12 sprint check): the light
+   theme's sage and rust ledger colours were used as text on the dark sheet
+   ("Known tax obligation" / "Known fees" heads and the Status line 2.6:1, the
+   "No acquisition route found" verdict 2.7:1), and two buttons put white text
+   on the dark theme's light green (2.5:1). */
+:root[data-theme="dark"] .fp-group-head,:root[data-theme="dark"] dd.phase-fixed{color:var(--lc-d,#86A68B)!important}
+:root[data-theme="dark"] .acq-gate-verdict{color:#E0A07E!important}
+:root[data-theme="dark"] .detail-btn:not(#_),:root[data-theme="dark"] .cta-btn:not(#_),:root[data-theme="dark"] button.note-save{color:#141C18!important}
