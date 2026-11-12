@@ -755,6 +755,54 @@ function radiusFor(count, max) {
   return MIN_R + (MAX_R - MIN_R) * Math.sqrt(count / max);
 }
 
+// Statewide bubble layout (investor sprint, 2026-11-12). Radii shrink as more
+// counties are drawn (a 67-county map cannot carry 38-unit bubbles), then up
+// to 240 relaxation steps push every overlapping pair apart along the line
+// between their centres - the smaller bubble moves more - with a pull back to
+// its own county so nothing drifts further than it must. Deterministic: the
+// same rows always give the same map. Returns [{county, list, c, r, x, y}].
+var BUBBLE_GAP = 2;
+function layoutBubbles(items, max) {
+  const n = items.length;
+  const scale = n > 40 ? 0.62 : n > 24 ? 0.72 : n > 12 ? 0.85 : 1;
+  const bs = items.map(b => ({ ...b, r: Math.max(10, radiusFor(b.list.length, max) * scale), x: b.c.cx, y: b.c.cy }));
+  bs.sort((a, b) => String(a.county).localeCompare(String(b.county)));
+  for (let it = 0; it < 240; it++) {
+    let moved = false;
+    for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) {
+      const a = bs[i], b = bs[j];
+      let dx = b.x - a.x, dy = b.y - a.y;
+      let d = Math.hypot(dx, dy);
+      const need = a.r + b.r + BUBBLE_GAP;
+      if (d >= need) continue;
+      if (d < 1e-6) { dx = 1; dy = (i % 2 ? 1 : -1) * 0.5; d = Math.hypot(dx, dy); }   // same point: a fixed nudge
+      const push = (need - d) / d;
+      const wa = b.r / (a.r + b.r), wb = a.r / (a.r + b.r);   // the smaller one moves more
+      a.x -= dx * push * wa; a.y -= dy * push * wa;
+      b.x += dx * push * wb; b.y += dy * push * wb;
+      moved = true;
+    }
+    // A gentle pull home, weaker than any push, only while nothing overlaps it.
+    if (!moved) break;
+    bs.forEach(b => { b.x += (b.c.cx - b.x) * 0.02; b.y += (b.c.cy - b.y) * 0.02; });
+  }
+  // The pull can leave a sliver of overlap on the last step: resolve it
+  // without any pull until no pair overlaps.
+  for (let it = 0; it < 120; it++) {
+    let moved = false;
+    for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) {
+      const a = bs[i], b = bs[j];
+      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1e-6, need = a.r + b.r + BUBBLE_GAP;
+      if (d >= need) continue;
+      const push = (need - d) / d / 2;
+      a.x -= dx * push; a.y -= dy * push; b.x += dx * push; b.y += dy * push;
+      moved = true;
+    }
+    if (!moved) break;
+  }
+  return bs;
+}
+
 function draw() {
   const canvas = $(CANVAS_ID);
   const svg = canvas && canvas.querySelector("svg");
@@ -812,16 +860,26 @@ function draw() {
   const max = counts.length ? Math.max(...counts) : 0;
   const bubbleBoxes = [];
 
+  // Readable bubbles (investor sprint, owner 2026-11-12): statewide, dozens
+  // of central Florida bubbles overlapped and their numbers were unreadable.
+  // Bubbles are scaled down when many counties are drawn, then a collision
+  // pass nudges overlapping ones apart; a bubble moved off its county keeps a
+  // thin leader line to the county's centre. Every count stays exact and
+  // every bubble stays its own county's control.
+  const placed = layoutBubbles(Array.from(byCounty.entries())
+    .map(([county, list]) => ({ county, list, c: centroids.get(county) }))
+    .filter(b => b.c), max);
+  const leaders = document.createElementNS(NS, "g");
+  leaders.setAttribute("class", "bubble-leaders");
+  leaders.setAttribute("aria-hidden", "true");
+  layer.appendChild(leaders);
+
   // Biggest first so a small county's bubble is never buried under a large
   // neighbour's - later siblings paint on top in SVG.
-  Array.from(byCounty.entries())
-    .sort((a, b) => b[1].length - a[1].length)
-    .forEach(([county, list]) => {
-      const c = centroids.get(county);
-      if (!c) return;                       // county not in the SVG (shouldn't
-                                            // happen - names are 1:1 with
-                                            // ALL_COUNTIES - but don't crash)
-      const r = radiusFor(list.length, max);
+  placed
+    .sort((a, b) => b.list.length - a.list.length)
+    .forEach(({ county, list, r, x, y, c: home }) => {
+      const c = { cx: x, cy: y };
       const g = document.createElementNS(NS, "g");
       g.setAttribute("class", "cluster-bubble" + (selectedCounty === county ? " sel" : "") +
         (selectedCounty && selectedCounty !== county ? " dim" : ""));
@@ -836,13 +894,30 @@ function draw() {
         `${unitLabelOf(county)}, ${list.length} ${list.length === 1 ? "property" : "properties"}` +
         (selectedCounty === county ? " - selected, activate to clear" : " - activate to filter the list"));
       g.setAttribute("aria-pressed", selectedCounty === county ? "true" : "false");
+      // Moved off its county by the collision pass: a leader to the county.
+      // (Drawn in a layer under every bubble, so a line never crosses a number.)
+      if (Math.hypot(x - home.cx, y - home.cy) > r * 0.6) {
+        const lead = document.createElementNS(NS, "line");
+        lead.setAttribute("class", "bubble-leader");
+        lead.setAttribute("x1", home.cx); lead.setAttribute("y1", home.cy);
+        lead.setAttribute("x2", x); lead.setAttribute("y2", y);
+        lead.dataset.county = county;
+        leaders.appendChild(lead);
+        const dot = document.createElementNS(NS, "circle");
+        dot.setAttribute("class", "bubble-anchor");
+        dot.setAttribute("cx", home.cx); dot.setAttribute("cy", home.cy); dot.setAttribute("r", Math.max(1.5, r * 0.14));
+        leaders.appendChild(dot);
+        g.dataset.nudged = "1";
+      }
 
       // Touch target (2026-10-24): a small bubble is well under 44px on a phone.
       // A transparent hit circle behind it guarantees a 44px target on screen,
       // sized from the SVG's current scale (viewBox units per rendered pixel).
       const vbW = (svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number)[2] || svg.clientWidth || 1;
       const unitsPerPx = vbW / Math.max(1, svg.clientWidth || vbW);
-      const hitR = Math.max(r, 22 * unitsPerPx);
+      // Never reaching over a neighbouring bubble, which would take its taps.
+      const room = placed.reduce((m, o) => (o.county === county ? m : Math.min(m, Math.hypot(o.x - x, o.y - y) - o.r - 1)), Infinity);
+      const hitR = Math.max(r, Math.min(22 * unitsPerPx, room));
       if (hitR > r) {
         const hit = document.createElementNS(NS, "circle");
         hit.setAttribute("class", "bubble-hit");
@@ -860,7 +935,9 @@ function draw() {
       const text = document.createElementNS(NS, "text");
       text.setAttribute("x", c.cx);
       text.setAttribute("y", c.cy);
-      text.setAttribute("font-size", Math.max(13, Math.min(24, r * 0.95)));
+      // The number always fits inside its bubble (a long count gets a smaller font).
+      const digits = String(list.length).length;
+      text.setAttribute("font-size", Math.min(Math.max(10, Math.min(24, r * 0.95)), (1.7 * r) / (0.62 * Math.max(1, digits))));
       text.textContent = list.length;
       g.appendChild(text);
 

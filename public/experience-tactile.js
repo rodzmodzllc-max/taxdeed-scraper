@@ -260,10 +260,16 @@ function watchBtn(p, api, cls) {
 
 function missing(text, api) { return `<span class="xpt-missing">${api.esc(text)}</span>`; }
 
+// Card title (investor sprint, owner 2026-11-12): the street address, or
+// "Parcel <number>" - never a legal description published in the address
+// column (api.cardTitle; escaped HTML). `where` is "<County>, <ST>".
 function titleHtml(p, api) {
+  if (typeof api.cardTitle === "function") { const t = api.cardTitle(p); return { html: t.html, parcel: t.parcelTitle, where: t.sub }; }
   const street = api.realAddress(p);
   return street ? { html: api.esc(street), parcel: false } : { html: api.lotTitle(p), parcel: true };   // lotTitle is already escaped
 }
+// Plain language (owner, 2026-11-12): "Not yet verified" says what.
+function plainProc(text) { return text === "Not yet verified" ? "Not yet confirmed" : text; }
 
 function linkHtml(link, api, cls) {
   const href = link ? safeUrl(link.href) : "";
@@ -358,7 +364,7 @@ function auctionsHtml(rows, api) {
       ${oneCounty ? `<span class="xpt-chip fmt">${api.esc(unitName(api, oneCounty))}</span>` : ""}
     </div>
     <ol class="xpt-miles" aria-label="Sale milestones">
-      <li class="mile ${proc ? "fill" : "hatch"}" style="--md:120ms"><span class="node" aria-hidden="true"></span><span class="xpt-caps">Sale process</span><span class="mv">${proc ? api.esc(proc) : "Not yet verified"}</span></li>
+      <li class="mile ${proc ? "fill" : "hatch"}" style="--md:120ms"><span class="node" aria-hidden="true"></span><span class="xpt-caps">Sale process</span><span class="mv">${proc ? api.esc(proc) : "Not yet confirmed"}</span></li>
       <li class="mile fill" style="--md:180ms"><span class="node" aria-hidden="true"></span><span class="xpt-caps">Sale day</span><span class="mv">${g.day ? "Scheduled" : "Not scheduled"}</span></li>
       <li class="mile ${days !== null && days < 0 ? "hatch" : "outline"}" style="--md:240ms"><span class="node" aria-hidden="true"></span><span class="xpt-caps">Result</span><span class="mv">${days !== null && days < 0 ? "Sale date passed - see each lot" : "Sale not yet held"}</span></li>
       <li aria-hidden="true" class="miles-line"></li>
@@ -435,11 +441,11 @@ function placardHtml(p, idx, n, api, pf, countyInBanner) {
         <span class="lotrow"><span class="lotnum"><span class="xpt-caps">Lot</span><span class="numeral">${idx + 1}</span></span>
           <span class="xpt-mono-s">${api.esc(caseText)}</span></span>
         <span class="ctitle${t.parcel ? " parcel" : ""}">${t.html}</span>
-        <span class="ids xpt-mono-s">${pf.parcel ? api.esc(pf.parcelLabel + " " + pf.parcel) : "Parcel # not published"}${countyInBanner ? "" : " · " + api.esc(unitName(api, p.county))}</span>
+        <span class="ids xpt-mono-s">${t.parcel ? (countyInBanner ? "" : t.where || api.esc(unitName(api, p.county))) : (pf.parcel ? api.esc(pf.parcelLabel + " " + pf.parcel) : "Parcel # not published") + (countyInBanner ? "" : " · " + api.esc(unitName(api, p.county)))}</span>
         <span class="plate"><span class="plate-in">${api.propertyVisual(p, "prop-card-photo xpt-vis", countyInBanner ? { omitCounty: true } : undefined)}</span></span>
         <span class="figs">
           <span class="figure"><span class="xpt-caps">${api.esc(pf.bidLabel)}</span>${pf.bid ? `<span class="fig-xl">${api.esc(placardBid(p, pf.bid, api))}</span>` : missing("Not published", api)}</span>
-          <span class="figure"><span class="xpt-caps">${api.esc(pf.valueLabel || "County value")}</span>${value}<span class="ctx">county value, not a price</span></span>
+          <span class="figure"><span class="xpt-caps">${api.esc(api.plainValueLabel ? api.plainValueLabel(pf.valueLabel || "County value").label : (pf.valueLabel || "County value"))}</span>${value}<span class="ctx">${api.plainValueLabel && api.plainValueLabel(pf.valueLabel || "").note ? "the county's assessed value, not an appraisal or a price" : "county value, not a price"}</span></span>
         </span>
         ${foot}
       </button>
@@ -515,7 +521,7 @@ function availableHtml(rows, api) {
   const counts = { all: rows.length, verified, unverified: rows.length - verified };
   if (!counts[S.seg] && S.seg !== "all") S.seg = "all";
   const list = S.seg === "all" ? rows : rows.filter(p => (S.seg === "verified") === acqOf(p, api).verified);
-  const segs = [["all", "All"], ["verified", "Verified path"], ["unverified", "Not yet verified"]];
+  const segs = [["all", "All"], ["verified", "How to buy: confirmed"], ["unverified", "How to buy: not yet confirmed"]];
   const si = segs.findIndex(s => s[0] === S.seg);
   // One drawer per county, in the order the List sorted the rows. Every
   // county gets its head at once (so the shared "Now showing" bar can reach
@@ -568,7 +574,7 @@ function folderHtml(p, i, api) {
   const tabCls = a.verified ? "ok" : a.mode === "none" ? "none" : "wait";
   // The tab says the path state once; the chip under the figure says the
   // verified method (or nothing - the tab already says it is not verified).
-  const tabText = a.verified ? "Verified path" : a.mode === "none" ? "No purchase path published" : "Path not yet verified";
+  const tabText = a.verified ? "How to buy: confirmed" : a.mode === "none" ? "No purchase path published" : "How to buy: not yet confirmed";
   const chip = a.verified
     ? `<span class="xpt-chip vchip">${checkIcon()}${api.esc(a.label)}${a.steps.length ? ` · ${a.steps.length} step${a.steps.length === 1 ? "" : "s"}` : ""}</span>`
     : "";
@@ -1125,11 +1131,11 @@ function auctionPanelHtml(rows, api) {
     <dl class="xps-facts">
       <div><dt>Sale day on the deck</dt><dd>${g.day ? esc(api.fmtDateLong(g.day)) : "Sale date not scheduled"}<span class="xps-sub">${esc(countdown(days))}</span></dd></div>
       <div><dt>Lots that day</dt><dd>${lots.length} ${lots.length === 1 ? "lot" : "lots"}${dayCounties.length === 1 ? ` · ${esc(unitName(api, dayCounties[0]))}` : ""}</dd></div>
-      <div><dt>Sale process</dt><dd>${esc(proc)}</dd></div>
+      <div><dt>Sale process</dt><dd>${esc(plainProc(proc))}</dd></div>
     </dl>
     ${link ? `<p class="xps-how"><span class="xps-k">Where bidding happens</span>${link}</p>` : ""}
     <button type="button" class="xps-open" data-xps-open="${esc(idOf(top))}">Open the top placard<span class="xps-open-t">${t.html}</span></button>
-    <p class="xps-hint">Or pick any lot to see its full page here.</p>`;
+    <p class="xps-hint">Or open any lot's record from its placard.</p>`;
 }
 document.addEventListener("click", e => {
   const b = e.target.closest && e.target.closest('#detailPanel .xp-panelsum[data-xp="' + NAME + '"] [data-xps-open]');
