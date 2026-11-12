@@ -5,7 +5,11 @@
 // supportEmail is deliberately blank here so the suite exercises the
 // "no support address configured" path; run_test.mjs also loads a page
 // with ?support=1 to cover the configured path via the stub.
-window.TDW_CONFIG = { supabaseUrl: "https://fake-project.supabase.co", supabasePublishableKey: "sb_publishable_fake", supportEmail: "", naipLiveImagery: false };
+// oauthDetect: false - the fixture project does not exist, so the app's question to
+// Supabase ("which sign-in providers are on?") is off; ?oauthdetect=1 turns it on
+// for the test that answers it with a routed response.
+window.TDW_CONFIG = { supabaseUrl: "https://fake-project.supabase.co", supabasePublishableKey: "sb_publishable_fake", supportEmail: "", naipLiveImagery: false,
+  oauthDetect: new URLSearchParams(location.search).get("oauthdetect") === "1" };
 // The unconfirmed-Available gate (app.js) compares last_seen_at with today;
 // the fixture's rows carry historical dates, so it is off here except under
 // ?unconfirmed=1, where the stub re-dates every Available row.
