@@ -137,6 +137,15 @@ function watchBtn(p, api) {
 function openBtn(p, api, cls) {
   return `<button type="button" class="xt-btn ${cls || "xt-btn-primary"}" data-xt="open" data-pid="${api.esc(p.id)}">Open record<span aria-hidden="true">→</span></button>`;
 }
+// Owner, 2026-11-11: "get as close to the listing as possible ... purchase in
+// the less clicks as possible". A row that carries the source's own page for
+// this property gets that page one tap from the list. Rows with only a list
+// page get no button here: the record says what to look for there.
+function listingBtn(p, api) {
+  const s = api.recordSourceLink ? api.recordSourceLink(p) : null;
+  if (!s || s.scope !== "property") return "";
+  return `<a class="xt-btn xt-btn-quiet xt-listing" href="${api.esc(s.href)}" target="_blank" rel="noopener" data-auction-link="property" data-xt-listing>Open listing<span aria-hidden="true">↗</span></a>`;
+}
 function titleHtml(p, api) {
   const a = api.realAddress(p);
   return a ? api.esc(a) : api.lotTitle(p); // lotTitle() returns escaped HTML
@@ -521,7 +530,7 @@ function availableCard(p, api, i, headTrail) {
         <div class="xt-fig"><span class="xt-lbl">${api.esc(pf.valueLabel || "County value")}</span><span class="xt-num xt-num-s${pf.value ? "" : " np"}">${api.esc(pf.value || "Not published")}</span></div>
       </div>
       ${headTrail && trail === headTrail ? "" : trail}
-      <div class="xt-actions">${openBtn(p, api, "xt-btn-primary xt-sage")}${watchBtn(p, api)}</div>
+      <div class="xt-actions">${openBtn(p, api, "xt-btn-primary xt-sage")}${listingBtn(p, api)}${watchBtn(p, api)}</div>
     </div>
   </article>`;
 }

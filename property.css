@@ -176,3 +176,19 @@ html[data-experience="merged"] .detail-fold-summary .detail-more-title::before{c
 
 /* The aerial picture's folded credit: its one line is written here, the credit itself is the element's text. */
 .pb-credit-fold-aerial > summary::before{content:"Parcel outline: source, licence and terms"}
+
+/* Record sheet on a phone (owner, 2026-11-11): the link to the source stays at
+   the foot of the sheet while the record scrolls. Hidden above phone width,
+   where the page's own button and the side panel are in reach. The sticky edge is
+   the sheet's content box, so the offset and the margins undo its 1.1rem / 1.6rem
+   padding and the bar reaches the sheet's own edges. */
+.detail-float{display:none}
+@media (max-width:759px){
+  .detail-modal-inner > .detail-float{display:flex;flex-direction:column;gap:.2rem;position:sticky;bottom:-1.6rem;z-index:6;flex-shrink:0;
+    margin:.8rem -1.1rem -1.6rem;padding:.5rem .8rem calc(.5rem + env(safe-area-inset-bottom,0px));
+    background:var(--paper-white,var(--paper));border-top:1px solid var(--rule-strong,var(--card-line));box-shadow:0 -8px 18px rgba(32,41,37,.14)}
+  .detail-float a{display:flex;align-items:center;justify-content:center;gap:.35rem;min-height:44px;padding:.35rem .8rem;border-radius:3px;
+    background:var(--ok);color:#fff;font-weight:700;font-size:.85rem;line-height:1.2;text-align:center;text-decoration:none}
+  .detail-float a:active{filter:brightness(.94)}
+  .detail-float-note{font-size:.68rem;line-height:1.3;color:var(--ink-soft);text-align:center}
+}
