@@ -8461,7 +8461,7 @@ const EXPECTED = {
   signupButtonText: 'Create account',
   signupAnonAdminRedirected: true,
   signupPendingShown: true,
-  signupPendingText: 'Account created \u2014 awaiting approval.',
+  signupPendingText: "Your account is waiting for approval. Here's a preview of what's inside.",   // 2026-11-12: the pending card became the Free preview app (tests/audit/new-customer-ten.mjs)
   signupAppHidden: true,
   signupAuthMsgNotSignupsDisabled: true,
   signupProfile: { approved: false, is_admin: false },
