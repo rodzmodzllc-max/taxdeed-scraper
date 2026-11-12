@@ -21,7 +21,7 @@ const errs = [];
 const DESK = { width: 1440, height: 900 };
 
 const STUB = `export async function mountGisMap(el, o) {
-  window.__cardMounts = (window.__cardMounts || []).concat([{ pid: String(o.propertyId), tilt: o.tilt, flyIn: o.flyIn, interactive: o.interactive, creditOverlay: o.creditOverlay, fetcher: typeof o.boundaryFetcher }]);
+  window.__cardMounts = (window.__cardMounts || []).concat([{ pid: String(o.propertyId), tilt: o.tilt, flyIn: o.flyIn, interactive: o.interactive, creditOverlay: o.creditOverlay, fetcher: typeof o.boundaryFetcher, state: o.state }]);
   const before = el.innerHTML; el.innerHTML = '<div class="m3d-gis-canvas">map</div>'; el.classList.add('m3d-gis');
   return { status: 'ready', outline: false, tilted: true, map: { easeTo() {} }, destroy: () => { window.__cardDestroys = (window.__cardDestroys || 0) + 1; el.innerHTML = before; el.classList.remove('m3d-gis'); } };
 }`;
@@ -76,7 +76,7 @@ async function page(withKey) {
   });
   const m = on.mounts[0] || {};
   check('press-mounts-one-tilted-fly-in-map', on.state === 'ready' && on.canvas && on.btn === 'Photo' && on.pressed === 'true' && on.mounts.length === 1
-    && m.pid === 'p5' && m.tilt === true && m.flyIn === true && m.interactive === false && m.creditOverlay === true && m.fetcher === 'function' && on.live.ready && on.live.sticky, on);
+    && m.pid === 'p5' && m.state === 'FL' && m.tilt === true && m.flyIn === true && m.interactive === false && m.creditOverlay === true && m.fetcher === 'function' && on.live.ready && on.live.sticky, on);
   check('press-does-not-open-the-property', on.modal === before.modal && on.panel === before.panel, { before, on: { modal: on.modal, panel: on.panel } });
 
   // Photo: the aerial comes back, the map is released.
@@ -145,6 +145,17 @@ async function page(withKey) {
   await pg.goto(BASE, { waitUntil: 'domcontentloaded' });
   const z = await pg.evaluate(async () => { const m = await import('./map-3d.js'); return { a: m.usFitZoom(300), c: m.usFitZoom(1200), bad: m.usFitZoom(0), center: m.US_CENTER, ms: m.FLY_IN_MS }; });
   check('us-fit-zoom', z.a > 1.5 && z.a < 2.2 && z.c > z.a && z.c <= 4 && z.bad >= 1 && z.center[0] < -90 && z.center[1] > 35 && z.ms >= 3000, z);
+  // Owner 2026-11-12: the fly-in starts on the property's state, not the country, and is slower.
+  const s = await pg.evaluate(async () => {
+    const m = await import('./map-3d.js');
+    const fl = m.stateStartCamera('FL', 360, 220), tx = m.stateStartCamera('tx', 600, 340);
+    const appStates = ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN', 'TN', 'AL', 'AR', 'AZ', 'UT', 'WV'];
+    return { fl, tx, us: m.usFitZoom(360), unknown: m.stateStartCamera('ZZ', 360, 220), none: m.stateStartCamera(undefined, 360, 220),
+      allStates: appStates.every(st => !!m.stateStartCamera(st, 360, 220)), ms: m.FLY_IN_MS, hold: m.FLY_IN_HOLD_MS };
+  });
+  check('fly-in-starts-on-the-state', !!s.fl && s.fl.center[0] > -87.7 && s.fl.center[0] < -80 && s.fl.center[1] > 24.5 && s.fl.center[1] < 31 && s.fl.zoom > s.us
+    && !!s.tx && s.tx.center[0] > -106.7 && s.tx.center[0] < -93.5 && s.unknown === null && s.none === null && s.allStates, s);
+  check('fly-in-is-slower-with-a-hold-on-the-state', s.ms >= 6000 && s.hold >= 500, { ms: s.ms, hold: s.hold });
   await pg.close();
 }
 

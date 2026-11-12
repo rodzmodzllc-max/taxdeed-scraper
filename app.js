@@ -10259,7 +10259,7 @@ var GIS_LIVE = null;   // the one live mini-map; a new one releases the last (We
 function mountGisLiveInto(el, p, opts) {
   el.dataset.gisLiveState = "loading";
   return import("./map-3d.js").then(m => (m && typeof m.mountGisMap === "function")
-    ? m.mountGisMap(el, Object.assign({ lat: Number(p.latitude), lng: Number(p.longitude), propertyId: p.id, row: p, ledger: p.source, tilt: true, flyIn: true, boundaryFetcher: (pid, row) => boundaryFor(pid, row) }, opts || {}))
+    ? m.mountGisMap(el, Object.assign({ lat: Number(p.latitude), lng: Number(p.longitude), propertyId: p.id, row: p, ledger: p.source, state: regionOf(p), tilt: true, flyIn: true, boundaryFetcher: (pid, row) => boundaryFor(pid, row) }, opts || {}))
     : { status: "error" })
     .then(res => {
       el.dataset.gisLiveState = res && res.status ? res.status : "error";
@@ -10362,7 +10362,7 @@ function startCardLive(host, sticky) {
   CARD_LIVE_HOST = host; CARD_LIVE_STICKY = !!sticky;
   host.dataset.cardLive = "loading";
   import("./map-3d.js").then(m => (m && typeof m.mountGisMap === "function")
-    ? m.mountGisMap(host, { lat: Number(p.latitude), lng: Number(p.longitude), propertyId: p.id, row: p, ledger: p.source, tilt: true,
+    ? m.mountGisMap(host, { lat: Number(p.latitude), lng: Number(p.longitude), propertyId: p.id, row: p, ledger: p.source, state: regionOf(p), tilt: true,
         interactive: false, creditOverlay: true, flyIn: true, boundaryFetcher: (pid, row) => boundaryFor(pid, row) })
     : { status: "error" })
     .then(res => {
