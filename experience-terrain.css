@@ -68,6 +68,7 @@ html[data-experience="terrain"] #xpStage[hidden]{display:none}
 .xp-terrain .xt-btn-quiet{background:var(--paper);border:1px solid var(--hair);color:var(--ink)}
 .xp-terrain .xt-btn-quiet.on{background:var(--acc-soft);border-color:var(--acc-glow);color:var(--acc-deep)}
 .xp-terrain .xt-btn-s{min-height:44px;padding:0 12px;font-size:13px}
+.xp-terrain a.xt-btn.xt-listing{text-decoration:none;white-space:nowrap}
 .xp-terrain .xt-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .xp-terrain .xt-actions .xt-btn-primary{flex:1 1 auto}
 .xp-terrain .xt-more{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;margin-top:12px;border-radius:14px;border:1px dashed var(--acc-glow);background:rgba(253,253,251,.72);

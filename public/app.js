@@ -3534,13 +3534,22 @@ function recordSourceLink(p) {
   if (l.href && l.kind === "property") return { href: l.href, label: l.label, scope: "property", kind: "property", note: "" };
   const a = p.source !== "certificate" && typeof acquisitionOf === "function" ? acquisitionOf(p) : null;
   if (a && a.verified && a.scope === "property" && a.type === "direct_property_url" && /^https:\/\//i.test(a.url || "") && !isDataServiceUrl(a.url))
-    return { href: a.url, label: "Open this property at the source", scope: "property", kind: "property", note: "" };
+    return { href: a.url, label: "Open this property at the source", scope: "property", kind: "property", note: propertyActionNote(p) };
   const find = p.source === "auction" && p.case_no ? "case " + p.case_no : (parcelOf(p) ? "parcel " + parcelOf(p) : (p.case_no ? "case " + p.case_no : ""));
   const note = "The source publishes a list, not a page for this property" + (find ? " - find it there by " + find : "") + ".";
   if (l.href) return { href: l.href, label: l.label, scope: "list", kind: l.kind || "unknown", note };
   const av = p.source === "laft" ? availabilityLink(p) : null;
   if (av) return { href: av.href, label: av.label, scope: "list", kind: "source", note };
   return null;
+}
+// What the source's own page offers once it opens, in the source's words
+// (otc_provenance.purchase_action_label / purchase_account_required, written
+// by the harvester from the page it verified). Blank when not recorded.
+function propertyActionNote(p) {
+  const op = p && p.otc_provenance && typeof p.otc_provenance === "object" ? p.otc_provenance : {};
+  const label = typeof op.purchase_action_label === "string" ? op.purchase_action_label.trim() : "";
+  if (!label) return "";
+  return "The page has the source's own “" + label + "” button" + (op.purchase_account_required ? " (their site asks you to sign in to it)." : ".");
 }
 // Phone (owner, 2026-11-11): the source link stays on screen while the record
 // scrolls. One bar at the foot of the record sheet; CSS shows it at phone
@@ -18027,7 +18036,7 @@ function experienceApi() {
     openDetail, previewFacts, propertyVisual, hydrateVisuals, amountShort, amountInfo,
     auctionBidLabel, valueLabel, dataGaps, sourceNameFor, realAddress, lotTitle, parcelOf,
     caseIdentText, fmtDateLong, fmtMoney, bidDisplayCard, cardKickerHtml, offCurrentSaleList,
-    availableProgram, acquisitionOf, officialStatusText, esc,
+    availableProgram, acquisitionOf, officialStatusText, esc, recordSourceLink,
     auctionOutcomeState, isGone, isDatedList, cardStamp,
     countyNowBarHtml, installCountyNowBar, hideCountyNowBar, countyLineHtml,
     listCardCtx: () => LIST_CARD_CTX,

@@ -76,6 +76,20 @@ const scrollTo = (pg, frac) => pg.evaluate(fr => { const i = document.getElement
   await ctx.close();
 }
 
+// ---- the list: a row with its own page gets it one tap away; a list-only row gets no such button
+{
+  const { ctx, pg } = await open(pageFor('TN') + '?look=merged#/lands', DESK, [TN]);
+  await pg.waitForSelector('#xpStage [data-xt-listing]', { timeout: 10000 }).catch(() => {});
+  const got = await pg.evaluate(id => { const links = Array.from(document.querySelectorAll('#xpStage a[data-xt-listing]')); const mine = links.find(a => a.closest('[data-pid="' + id + '"]')) || links[0];
+    return { n: links.length, href: mine && mine.getAttribute('href'), text: mine && mine.textContent.trim(), target: mine && mine.target, h: mine ? Math.round(mine.getBoundingClientRect().height) : 0 }; }, TN.id);
+  check('cardOpensTheListingInOneTap', got.n >= 1 && got.href === TN.purchase_url && /^Open listing/.test(got.text) && got.target === '_blank' && got.h >= 44, got);
+  await ctx.close();
+  const fl = await open(BASE + '?look=merged#/lands', DESK);
+  const none = await fl.pg.evaluate(() => ({ cards: document.querySelectorAll('#xpStage [data-xt="open"]').length, links: document.querySelectorAll('#xpStage a[data-xt-listing]').length }));
+  check('listOnlyRowsGetNoListingButton', none.cards > 0 && none.links === 0, none);
+  await fl.ctx.close();
+}
+
 // ---- a listing link the database marks as a property page
 {
   const { ctx, pg } = await open(BASE + '?look=merged#/auctions/' + PROP.id, PHONE, [PROP]);
