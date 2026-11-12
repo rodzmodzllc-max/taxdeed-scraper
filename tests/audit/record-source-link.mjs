@@ -122,6 +122,27 @@ const scrollTo = (pg, frac) => pg.evaluate(fr => { const i = document.getElement
   await ctx.close();
 }
 
+// ---- dark theme: the record's texts and green buttons stay readable (2026-11-12 phone sweep)
+{
+  const ctx = await b.newContext({ viewport: PHONE, serviceWorkers: 'block' });
+  const pg = await ctx.newPage();
+  pg.on('pageerror', e => errs.push('dark: ' + e.message));
+  await pg.addInitScript(() => { try { localStorage.setItem('tdw_theme', 'dark'); } catch {} });
+  const ratios = {};
+  for (const h of ['#/auctions/p5', '#/lands/p3']) {
+    await pg.goto(BASE + '?look=merged' + h, { waitUntil: 'networkidle' }); await pg.waitForTimeout(800);
+    Object.assign(ratios, await pg.evaluate(tag => {
+      const lum = c => { const m = c.match(/[\d.]+/g).slice(0, 3).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * m[0] + .7152 * m[1] + .0722 * m[2]; };
+      const bgOf = el => { while (el) { const c = getComputedStyle(el).backgroundColor; if (!/rgba\(0, 0, 0, 0\)/.test(c)) return c; el = el.parentElement; } return 'rgb(0,0,0)'; };
+      const r = sel => { const e = document.querySelector(sel); if (!e) return null; const a = lum(getComputedStyle(e).color), c = lum(bgOf(e)); return +((Math.max(a, c) + .05) / (Math.min(a, c) + .05)).toFixed(2); };
+      const o = {}; o[tag + 'Crumb'] = r('#detailModalInner .crumb'); o[tag + 'CountyLine'] = r('#detailModalInner .prop-county-tag'); o[tag + 'SourceButton'] = r('#detailModalInner a.detail-cta'); o[tag + 'FloatBar'] = r('#detailModalInner .detail-float a');
+      if (tag === 'laft') o.laftAcquireHeading = r('#detailModalInner .acquire-card .acq-h, #detailModalInner .acq-h');
+      return o; }, h.includes('lands') ? 'laft' : 'auction'));
+  }
+  check('darkRecordTextsReadable', Object.values(ratios).every(v => v === null || v >= 4.5) && Object.values(ratios).filter(v => v !== null).length >= 8, ratios);
+  await ctx.close();
+}
+
 check('noPageErrors', errs.length === 0, errs);
 await b.close();
 console.log(fail ? fail + ' FAILED' : 'ALL PASS');

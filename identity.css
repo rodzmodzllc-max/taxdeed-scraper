@@ -1888,3 +1888,17 @@ body:not(#_){font-variant-numeric:normal}
 /* Identifier lines in the looks (case, parcel, certificate numbers) are read,
    not added up: proportional figures, so "Case K-1" has no gap at the hyphen. */
 html[data-experience] .xpt .xpt-mono-s:not(#_),html[data-experience] .xpm .xpm-mono-s:not(#_),.xp-terrain .xt-cap .v:not(#_){font-variant-numeric:normal}
+
+/* Dark theme, record page and guide (2026-11-12 phone sweep). Several light-theme
+   brand tokens (--copper, --copper-deep, a ledger's --lc) stay dark green or rust in
+   the dark theme, where they are text on a dark sheet: the breadcrumb measured 1.0:1,
+   the "How do I acquire it?" headings 1.4:1, the county line 2.6:1, and the green
+   buttons (the record's source button and the floating source bar) got the dark
+   theme's light link colour on a light green, 2.5:1. The tokens are also backgrounds
+   under white text elsewhere, so they are not changed; only these texts are. */
+:root[data-theme="dark"] .detail-crumbs .crumb{color:#A9BDB0!important}
+:root[data-theme="dark"] .acquire-card .acq-h,:root[data-theme="dark"] .acquire-card .eyebrow{color:var(--ink-soft)!important}
+:root[data-theme="dark"] .detail-modal-inner > .prop-county-tag,:root[data-theme="dark"] .detail-id .prop-county-tag{color:var(--lc-d,var(--ink-soft))!important}
+:root[data-theme="dark"] a.detail-cta,:root[data-theme="dark"] .detail-float a{color:#141C18!important}
+:root[data-theme="dark"] .bg-step-k,:root[data-theme="dark"] .bg-step-n{color:var(--ink-soft)}
+:root[data-theme="dark"] .prop-card .card-stat-label{color:var(--ink-soft)!important}
