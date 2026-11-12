@@ -75,7 +75,45 @@ export const PARCEL_FILL_OPACITY = 0.18;
 // zoom is fitted to the map's own width so the country fills a small card too.
 export const US_CENTER = [-96.5, 38.5];
 export const US_SPAN_DEG = 59;
-export const FLY_IN_MS = 4200;
+// Owner 2026-11-12: "slow down the animation ... start out in the outline of
+// the state ... a standard for each state. The whole flying in from the United
+// States is a little too much." The map now opens framed on the property's
+// own state (STATE_BOUNDS, below), holds there for FLY_IN_HOLD_MS so the
+// state reads, then flies to the property over FLY_IN_MS. The country view
+// above is only the fallback for a row whose state is not in the table.
+export const FLY_IN_MS = 6500;
+export const FLY_IN_HOLD_MS = 900;
+export const FLY_IN_CURVE = 1.2;
+// Each state's bounding box (west, south, east, north, degrees).
+export const STATE_BOUNDS = {
+  AL: [-88.47, 30.22, -84.89, 35.01], AZ: [-114.82, 31.33, -109.04, 37.0], AR: [-94.62, 33.0, -89.64, 36.5],
+  CA: [-124.41, 32.53, -114.13, 42.01], CO: [-109.06, 36.99, -102.04, 41.0], CT: [-73.73, 40.98, -71.79, 42.05],
+  DE: [-75.79, 38.45, -75.05, 39.84], DC: [-77.12, 38.79, -76.91, 38.99], FL: [-87.63, 24.52, -80.03, 31.0],
+  GA: [-85.61, 30.36, -80.84, 35.0], HI: [-160.25, 18.91, -154.81, 22.24], ID: [-117.24, 41.99, -111.04, 49.0],
+  IL: [-91.51, 36.97, -87.49, 42.51], IN: [-88.1, 37.77, -84.78, 41.76], IA: [-96.64, 40.38, -90.14, 43.5],
+  KS: [-102.05, 36.99, -94.59, 40.0], KY: [-89.57, 36.5, -81.96, 39.15], LA: [-94.04, 28.93, -88.82, 33.02],
+  ME: [-71.08, 43.06, -66.95, 47.46], MD: [-79.49, 37.91, -75.05, 39.72], MA: [-73.51, 41.24, -69.93, 42.89],
+  MI: [-90.42, 41.7, -82.41, 48.31], MN: [-97.24, 43.5, -89.49, 49.38], MS: [-91.66, 30.17, -88.1, 35.0],
+  MO: [-95.77, 35.99, -89.1, 40.61], MT: [-116.05, 44.36, -104.04, 49.0], NE: [-104.05, 40.0, -95.31, 43.0],
+  NV: [-120.01, 35.0, -114.04, 42.0], NH: [-72.56, 42.7, -70.61, 45.31], NJ: [-75.56, 38.93, -73.89, 41.36],
+  NM: [-109.05, 31.33, -103.0, 37.0], NY: [-79.76, 40.5, -71.86, 45.02], NC: [-84.32, 33.84, -75.46, 36.59],
+  ND: [-104.05, 45.94, -96.55, 49.0], OH: [-84.82, 38.4, -80.52, 41.98], OK: [-103.0, 33.62, -94.43, 37.0],
+  OR: [-124.57, 41.99, -116.46, 46.29], PA: [-80.52, 39.72, -74.69, 42.27], RI: [-71.86, 41.15, -71.12, 42.02],
+  SC: [-83.35, 32.03, -78.54, 35.22], SD: [-104.06, 42.48, -96.44, 45.95], TN: [-90.31, 34.98, -81.65, 36.68],
+  TX: [-106.65, 25.84, -93.51, 36.5], UT: [-114.05, 37.0, -109.04, 42.0], VT: [-73.44, 42.73, -71.46, 45.02],
+  VA: [-83.68, 36.54, -75.24, 39.47], WA: [-124.85, 45.54, -116.92, 49.0], WV: [-82.64, 37.2, -77.72, 40.64],
+  WI: [-92.89, 42.49, -86.25, 47.08], WY: [-111.06, 40.99, -104.05, 45.01]
+};
+// The opening camera for a state: the whole state in view with a margin,
+// flat, north up. null when the state is unknown (the caller falls back to
+// the country view).
+export function stateStartCamera(state, widthPx, heightPx) {
+  const b = STATE_BOUNDS[String(state || "").toUpperCase()];
+  if (!b) return null;
+  const w = isNum(widthPx) && widthPx > 0 ? widthPx : 600, h = isNum(heightPx) && heightPx > 0 ? heightPx : 340;
+  const cam = cameraForBbox({ minX: b[0], minY: b[1], maxX: b[2], maxY: b[3] }, { width: w, height: h, pitch: 0, bearing: 0, margin: Math.round(Math.min(w, h) * 0.08) });
+  return { center: cam.center, zoom: Math.max(1, Math.round((cam.zoom - 0.15) * 100) / 100) };
+}
 export function usFitZoom(widthPx) {
   const w = isNum(widthPx) && widthPx > 0 ? widthPx : 600;
   return Math.max(1, Math.min(4, Math.round(Math.log2(w / ((US_SPAN_DEG / 360) * 512)) * 100) / 100));
@@ -376,12 +414,14 @@ export async function mountGisMap(el, opts) {
     el.innerHTML = `<div class="m3d-gis-canvas" role="region" aria-label="Interactive parcel map"></div>`;
     el.classList.add("m3d-gis");
     const canvas = el.firstElementChild;
-    // flyIn: start on the whole country, then fly to the property (below).
-    // Off under prefers-reduced-motion: the map simply opens on the property.
+    // flyIn: start on the property's state (the country only when the state is
+    // unknown), then fly to the property (below). Off under
+    // prefers-reduced-motion: the map simply opens on the property.
     const flyIn = o.flyIn === true && !reducedMotion();
+    const start = flyIn ? (stateStartCamera(o.state || (o.row && o.row.state), canvas.clientWidth, canvas.clientHeight) || { center: US_CENTER, zoom: usFitZoom(canvas.clientWidth) }) : null;
     map = new gl.Map({
       container: canvas, style: maptilerStyleUrl("satellite", key),
-      center: flyIn ? US_CENTER : [lng, lat], zoom: flyIn ? usFitZoom(canvas.clientWidth) : 17,
+      center: flyIn ? start.center : [lng, lat], zoom: flyIn ? start.zoom : 17,
       pitch: 0, bearing: 0, attributionControl: false, cooperativeGestures: interactive, interactive
     });
     // Compact: the full attribution is one tap away and never covers the
@@ -400,14 +440,20 @@ export async function mountGisMap(el, opts) {
     pin.innerHTML = '<span class="sat-pin-mark"></span>';
     if (o.ledger) pin.dataset.ledger = o.ledger;
     new gl.Marker({ element: pin, anchor: "bottom" }).setLngLat([lng, lat]).addTo(map);
+    let loadedAt = 0;
     await new Promise((resolve, reject) => {
-      map.once("load", resolve);
+      map.once("load", () => { loadedAt = Date.now(); resolve(); });
       map.once("error", e => { if (!map.loaded()) reject(e && e.error ? e.error : new Error("style failed")); });
     });
     let outline = false;
     let creditNode = null;
     const moveTo = cam => {
-      if (flyIn) map.flyTo(Object.assign({ essential: true, duration: FLY_IN_MS, curve: 1.5 }, cam));
+      if (flyIn) {
+        // The state stays on screen for FLY_IN_HOLD_MS after the map loads (the
+        // parcel lookup may already have used some of that time).
+        const wait = Math.max(0, FLY_IN_HOLD_MS - (Date.now() - loadedAt));
+        setTimeout(() => { try { map.flyTo(Object.assign({ essential: true, duration: FLY_IN_MS, curve: FLY_IN_CURVE }, cam)); } catch { /* removed */ } }, wait);
+      }
       else map.easeTo(Object.assign(cam, reducedMotion() ? { duration: 0 } : { duration: 900 }));
     };
     const wantTilt = o.tilt === true;
