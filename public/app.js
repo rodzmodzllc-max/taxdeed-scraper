@@ -8113,9 +8113,27 @@ function guideCountyRows(county) {
 // start on #/guide): draw it again once this county's rows are in.
 window.addEventListener("tdw:ledgersupdated", () => {
   const sec = document.getElementById("pageGuide");
-  if (!sec || sec.hidden || !GUIDE_PAGE.county || (GUIDE_PAGE.ledger || "AVAILABLE") !== "AVAILABLE") return;
+  if (!sec || sec.hidden) return;
+  // The "Next step" count arrives with the rows (2026-11-12).
+  if (guideLedgerCount(GUIDE_PAGE.ledger || "AVAILABLE", GUIDE_PAGE.county) !== GUIDE_PAGE.shownCount) { renderGuidePage(); return; }
+  if (!GUIDE_PAGE.county || (GUIDE_PAGE.ledger || "AVAILABLE") !== "AVAILABLE") return;
   if (guideCountyRows(GUIDE_PAGE.county).length !== GUIDE_PAGE.procRows) renderGuidePage();
 });
+var GUIDE_LEDGER_SOURCE = { AUCTIONS: "auction", AVAILABLE: "laft", LIENS_CERTIFICATES: "certificate" };
+// A ledger's listing count for the guide, counted exactly as the header counts
+// (renderLedgerCounts), optionally for one county; null until that ledger has
+// settled, so the guide never shows a partial or invented number.
+function guideLedgerCount(ledger, county) {
+  const k = GUIDE_LEDGER_SOURCE[ledger];
+  if (!k || !PROPERTIES_LOADED || !ledgerSettled(k) || LEDGER_LOAD[k] === "error") return null;
+  let n = 0;
+  ALL.forEach(p => {
+    if (p.source !== k || (county && p.county !== county)) return;
+    if (isPastDue(p) || HIDDEN.has(p.id) || goneExpired(p) || !isCurrentListing(p)) return;
+    n++;
+  });
+  return n;
+}
 function guideCountyProcessHtml(county) {
   if (!county) return "";
   const rows = guideCountyRows(county);
@@ -8158,6 +8176,10 @@ function renderGuidePage() {
     countyProcessHtml: c => guideCountyProcessHtml(c),
     esc, fmtDate: d => (typeof fmtDate === "function" ? fmtDate(String(d).slice(0, 10)) : String(d)),
     navigate: ({ ledger, county }) => { GUIDE_PAGE.ledger = ledger || GUIDE_PAGE.ledger; GUIDE_PAGE.county = county || null; syncPageHash(); renderGuidePage(); },
+    // The guide's "Next step" (2026-11-12): the ledger's count, by the header
+    // counts' own rule, or null while that ledger is still loading - never a guess.
+    count: (ledger, county) => { const n = guideLedgerCount(ledger, county); if (ledger === GUIDE_PAGE.ledger && (county || null) === (GUIDE_PAGE.county || null)) GUIDE_PAGE.shownCount = n; return n; },
+    openList: (ledger, county) => { const k = GUIDE_LEDGER_SOURCE[ledger]; if (!k) return; goToLedger(k); applyCountySelection(county && ALL_COUNTIES.includes(county) ? county : "ALL"); window.scrollTo({ top: 0, behavior: "auto" }); },
   };
   import("./buyers-guide.js").then(m => m.render(sec, ctx)).then(r => { window.__tdwGuideLast = r || null; }).catch(err => {
     (window.__tdwBootErrors = window.__tdwBootErrors || []).push("buyers-guide: " + (err && err.message));
@@ -13628,6 +13650,18 @@ window.addEventListener("hashchange", () => {
     else if (shellPage !== "county" || COUNTY_PAGE.view !== "index") openCountyIndex();
   } else if (r.page === "watchlist") {
     if (shellPage !== "watchlist") showPage("watchlist");
+  } else if (r.page === "guide") {
+    // Buyer's Guide sprint (2026-11-12): #/guide typed or linked while a record
+    // was open left the List showing under a #/guide address - this route had
+    // no branch. The property modal's own popstate has already closed it (the
+    // browser fires popstate before hashchange); if it is somehow still open it
+    // is closed here WITHOUT history.back(), which would undo this very entry.
+    // The desktop side panel is cleared so Back lands on the plain list.
+    const modal = document.getElementById("detailModal");
+    if (modal && !modal.hidden) { popping = true; try { closeDetail(); } finally { popping = false; } }
+    if (selectedPid != null) clearDetailPanel();   // the hash is #/guide, so it is left alone
+    const led = r.guideLedger || null, c = r.county || null;
+    if (shellPage !== "guide" || GUIDE_PAGE.county !== c || (led && GUIDE_PAGE.ledger !== led)) openGuidePage(c, led);
   }
 });
 
