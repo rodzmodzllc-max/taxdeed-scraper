@@ -365,6 +365,10 @@ html[data-experience="terrain"] #xpStage[hidden]{display:none}
    Classic; on this light survey sheet it reads as paper. */
 .xp-terrain .xt-acard-vis .photo-caption{background:rgba(253,253,251,.92)!important;color:var(--ink)!important;border:1px solid var(--hair);box-shadow:0 2px 6px rgba(32,41,37,.08);text-shadow:none!important}
 .xp-terrain .xt-acard-vis .photo-caption *{color:inherit!important}
+/* Terrain shows the picture's caption on the card (Classic keeps it in a bubble),
+   so it shared the bottom-left corner with the parcel outline's source credit and
+   the credit covered it (deployed site, 2026-11-11). The caption sits above it. */
+.xp-terrain .prop-card-photo:has(> .pb-attrib) > .photo-caption{bottom:1.75rem}
 /* QA 2026-10-25: #xpStage is placed where the List's own #main sits
    (styles.css), so the property panel keeps its column beside the stage
    instead of dropping below it (auto-placement put the stage in row 1). */
