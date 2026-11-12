@@ -922,7 +922,7 @@ function stubVariant(p) {
 const LIST_OTC_DROPPED_KEYS = ["purchase_instructions", "query_where", "attributes", "layer_url", "columns", "id_field", "object_id_field"];
 const LIST_REVIEW_SOURCE_IDS = ["tx_lgbs", "tx_realauction"];
 // Migration 039's projection (see the get_preview_listings handler in rpc()).
-const PREVIEW_COLUMNS = ["preview_id", "state", "county", "ledger_type", "source", "source_id", "land_use", "dor_use_code", "acreage", "lot_sqft", "sale_month"];
+const PREVIEW_COLUMNS = ["preview_id", "state", "county", "source", "source_id", "land_use", "dor_use_code", "acreage", "lot_sqft", "sale_month"];
 const PREVIEW_LEDGER_FOR_SOURCE = { auction: "auctions", laft: "buy", certificate: "lien" };
 function stubPreviewId(id) {
   // Opaque, like the SQL's md5('tdw-preview:' || id): two FNV-1a passes, hex.
@@ -946,7 +946,7 @@ function stubPreviewRows(args) {
   const trim = v => (typeof v === "string" && v.trim() ? v.trim() : null);
   return rows.slice(offset, offset + limit).map(p => {
     const out = {
-      preview_id: stubPreviewId(p.id), state: p.state || "FL", county: p.county, ledger_type: p.ledger_type || PREVIEW_LEDGER_FOR_SOURCE[p.source],
+      preview_id: stubPreviewId(p.id), state: p.state || "FL", county: p.county,
       source: p.source, source_id: p.source_id || null, land_use: trim(p.prop_type) || trim(p.land_use), dor_use_code: trim(p.dor_use_code),
       acreage: Number(p.acreage) > 0 ? Math.round(Number(p.acreage) * 100) / 100 : null,
       lot_sqft: Number(p.lot_sqft) > 0 ? Math.round(Number(p.lot_sqft) / 100) * 100 : null,

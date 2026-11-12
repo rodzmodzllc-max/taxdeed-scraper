@@ -18389,6 +18389,17 @@ function countyNowSetList(open) {
   bar.classList.toggle("open", open);
   if (open) { const cur = list.querySelector('[aria-current="true"]'); if (cur) { try { cur.scrollIntoView({ block: "nearest" }); } catch {} } }
 }
+function countyNowTailRoom(y) {
+  const scope = COUNTY_BAR.scope;
+  if (!scope || !scope.isConnected) return;
+  let tail = scope.querySelector(":scope > .cnb-tail");
+  const doc = document.documentElement;
+  const have = tail ? tail.offsetHeight : 0;
+  const short = Math.ceil(y - (doc.scrollHeight - have - window.innerHeight));
+  if (short <= 0) { if (tail) tail.style.height = "0px"; return; }
+  if (!tail) { tail = document.createElement("div"); tail.className = "cnb-tail"; tail.setAttribute("aria-hidden", "true"); scope.appendChild(tail); }
+  tail.style.height = short + "px";
+}
 function countyNowGo(k) {
   const b = COUNTY_BAR, n = b.names.length;
   if (!n || k < -n) return;
@@ -18406,6 +18417,10 @@ function countyNowGo(k) {
   if (typeof b.beforeJump === "function") { try { b.beforeJump(h); } catch {} }
   // Scrolling only moves the page: a county the reader closed stays closed.
   const target = () => h.getBoundingClientRect().top + window.scrollY - countyNowLine() + 4;
+  // A short list (the last county near the page end) cannot scroll far
+  // enough to bring its head under the bar: a spacer after the list gives
+  // the page that room (sprint 2026-11-12, slimmer county sections).
+  countyNowTailRoom(target());
   const y = target();
   try { window.scrollTo({ top: Math.max(0, y), behavior: reduce ? "auto" : "smooth" }); } catch { window.scrollTo(0, Math.max(0, y)); }
   // Once the scroll has settled, measure the head again and correct once if
@@ -19671,7 +19686,7 @@ function previewStateName() { return (STATE_META[PAGE_STATE] || {}).name || PAGE
 // A preview row as the record helpers read a property - only the safe fields
 // exist on it, so nothing else can reach the page.
 function previewRowToProp(r) {
-  return { id: String(r.preview_id), state: r.state || PAGE_STATE, county: r.county || "", source: r.source, ledger_type: r.ledger_type,
+  return { id: String(r.preview_id), state: r.state || PAGE_STATE, county: r.county || "", source: r.source,
     source_id: r.source_id || null, prop_type: r.land_use || null, dor_use_code: r.dor_use_code || null,
     acreage: r.acreage, lot_sqft: r.lot_sqft, sale_month: r.sale_month || null, preview: true };
 }

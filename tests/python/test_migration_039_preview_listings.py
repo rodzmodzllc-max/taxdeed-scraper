@@ -16,7 +16,9 @@ SQL = (ROOT / "scripts" / "migrations" / "039_preview_listings.sql").read_text(e
 STUB = (ROOT / "tests" / "vendor" / "supabase-stub.js").read_text(encoding="utf-8")
 APP = (ROOT / "public" / "app.js").read_text(encoding="utf-8")
 
-SAFE_COLUMNS = ["preview_id", "state", "county", "ledger_type", "source", "source_id",
+# ledger_type is never returned (test_phase14b: an internal field the front end never reads);
+# the function still filters on it, as get_properties does.
+SAFE_COLUMNS = ["preview_id", "state", "county", "source", "source_id",
                 "land_use", "dor_use_code", "acreage", "lot_sqft", "sale_month"]
 FORBIDDEN = ["address", "parcel", "case_no", "certificate_no", "owner", "owner_name", "bid", "min_bid",
              "purchase_amount", "amount", "assessed", "market", "land_value", "taxable_value",
@@ -61,7 +63,7 @@ def test_no_forbidden_column_in_the_select_list_or_returns():
     sel = select_list()
     # every selected expression names its alias, or is p.<safe column>
     tokens = set(re.findall(r"p\.([a-z_]+)", sel))
-    allowed_inputs = {"id", "state", "county", "ledger_type", "source", "source_id", "prop_type",
+    allowed_inputs = {"id", "state", "county", "source", "source_id", "prop_type",
                       "land_use", "dor_use_code", "acreage", "lot_sqft", "sale_date"}
     assert tokens <= allowed_inputs, tokens - allowed_inputs
     for word in FORBIDDEN:

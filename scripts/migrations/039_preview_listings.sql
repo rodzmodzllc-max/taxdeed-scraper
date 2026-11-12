@@ -13,7 +13,7 @@
 --
 --   preview_id    md5 of the row id with a fixed prefix - opaque, never the
 --                 property's uuid, so it opens nothing anywhere else
---   state, county, ledger_type, source, source_id (names the kind of sale /
+--   state, county, source, source_id (names the kind of sale /
 --                 list, e.g. "Tax lien sale"; no link, no identifier of a
 --                 property)
 --   land_use      the published property type / land use text
@@ -59,7 +59,6 @@ returns table(
   preview_id text,
   state text,
   county text,
-  ledger_type text,
   source text,
   source_id text,
   land_use text,
@@ -77,7 +76,6 @@ as $$
     md5('tdw-preview:' || p.id::text) as preview_id,
     p.state,
     p.county,
-    p.ledger_type,
     p.source,
     p.source_id,
     coalesce(nullif(btrim(p.prop_type), ''), nullif(btrim(p.land_use), '')) as land_use,
@@ -104,7 +102,7 @@ as $$
 $$;
 
 comment on function public.get_preview_listings(text, text, integer, integer) is
-  'Free preview for accounts awaiting approval (2026-11-12): safe fields only (opaque id, state, county, ledger, source, land use, rounded size, auction sale month) of customer-publishable rows; max 60 per call.';
+  'Free preview for accounts awaiting approval (2026-11-12): safe fields only (opaque id, state, county, source, land use, rounded size, auction sale month) of customer-publishable rows; max 60 per call.';
 
 revoke all on function public.get_preview_listings(text, text, integer, integer) from public, anon;
 grant execute on function public.get_preview_listings(text, text, integer, integer) to authenticated, service_role;
