@@ -51,7 +51,7 @@ from typing import Any, Callable
 from urllib.parse import urlencode
 
 from ..model import AmountKind, InventoryType, OtcRecord, PurchaseUrlKind, SourceAuthority
-from .property_page import PropertyPage
+from .property_page import PropertyPage, RecordPage
 
 __all__ = ["EppConfig", "EppResult", "fetch_all", "list_date", "page_url", "parse_rows", "required_fields"]
 
@@ -106,6 +106,10 @@ class EppConfig:
     # a property's details to /property/<parcelNumber>; each offered row gets
     # that page as its purchase URL (property scope). None = no per-row link.
     property_page: PropertyPage | None = None
+    # A tenant whose property page shows the listing but no apply / purchase
+    # action (Calhoun County MI, 2026-11-11): the page is the row's own
+    # listing link (record_url), never a purchase URL.
+    record_page: RecordPage | None = None
     # Thin-fields sprint (2026-10-27): the portal fields a tenant fills with
     # the parcel's lot area / the structure's year built and square footage
     # (read live per tenant: Kansas City and Pittsburgh fill
@@ -306,6 +310,9 @@ def parse_rows(cfg: EppConfig, rows: list[dict], *, retrieved_at: datetime) -> t
         if page:
             purchase_url, purchase_kind = page, cfg.property_page.kind
             prov.update(cfg.property_page.provenance())
+        record_url = cfg.record_page.url_for(pid) if cfg.record_page else None
+        if record_url:
+            prov["record_url"] = cfg.record_page.basis()
         if cfg.county_field:
             prov["county_rule"] = f"field {cfg.county_field!r} in {sorted(cfg.county_values)} (rows of another county are counted, never re-labelled)"
         as_of = list_date(row.get(cfg.list_as_of_field)) if cfg.list_as_of_field else None
@@ -319,7 +326,7 @@ def parse_rows(cfg: EppConfig, rows: list[dict], *, retrieved_at: datetime) -> t
             address=_text(row.get("propertyAddress1")),
             legal_desc=_text(row.get("legalDescription")),
             amount=amount, amount_kind=kind,
-            list_url=cfg.list_url, purchase_url=purchase_url, purchase_url_kind=purchase_kind,
+            list_url=cfg.list_url, purchase_url=purchase_url, purchase_url_kind=purchase_kind, record_url=record_url,
             provenance=prov, record_source=cfg.record_source,
             land_use=None if (land_use or "").upper() in NO_VALUE else land_use,
             assessed=_positive(row.get("currentAssessment")),
