@@ -31,9 +31,13 @@
 -- app's customer rules (app.js isPublishable) and, where unsure, stricter:
 --   - signed-in callers only (auth.uid() is not null);
 --   - status 'active' and not delisted;
---   - the source's publication decision is APPROVED or APPROVED_GRANDFATHERED
---     (migration 022; a NULL decision, which the app tolerates, is excluded
---     here - stricter; BLOCKED / UNREVIEWED / RESTRICTED never);
+--   - the source's publication decision is APPROVED, APPROVED_GRANDFATHERED
+--     or not recorded (NULL) - the same rule the app applies to approved
+--     customers (isPublishable: NULL keeps the row). Integrator's change
+--     2026-11-12: production carries no decision on any Florida auction
+--     (1,848 rows) or Florida lien (1,750 rows), so excluding NULL left a
+--     waiting Florida customer with empty Auctions and Liens previews.
+--     BLOCKED / UNREVIEWED / RESTRICTED are never returned;
 --   - migration 031's per-row decision when that column exists: only
 --     CUSTOMER_PUBLISHED (read through to_jsonb so this function works with
 --     or without 031; once 031 is applied, NULL is never shown);
@@ -88,7 +92,7 @@ as $$
     and (p_ledger_type is null or p.ledger_type = p_ledger_type)
     and p.status = 'active'
     and p.delisted_at is null
-    and p.publication_status in ('APPROVED', 'APPROVED_GRANDFATHERED')
+    and (p.publication_status is null or p.publication_status in ('APPROVED', 'APPROVED_GRANDFATHERED'))
     and coalesce(p.source_id, '') not in ('mi_detroit_landbank_lots', 'mi_detroit_landbank_programs')
     and (p.source <> 'laft' or p.last_seen_at >= now() - interval '7 days')
     and (p.source <> 'auction' or p.sale_date >= current_date)

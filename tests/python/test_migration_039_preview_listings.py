@@ -79,7 +79,9 @@ def test_sale_month_is_truncated_and_auction_only():
 def test_customer_publishable_rows_only():
     c = code()
     for rule in ("auth.uid() is not null", "p.state = p_state", "p.status = 'active'", "p.delisted_at is null",
-                 "p.publication_status in ('approved', 'approved_grandfathered')",
+                 # NULL (no decision recorded) is kept, as the app does for approved customers;
+                 # an explicit BLOCKED / UNREVIEWED / RESTRICTED decision never passes.
+                 "(p.publication_status is null or p.publication_status in ('approved', 'approved_grandfathered'))",
                  "not in ('mi_detroit_landbank_lots', 'mi_detroit_landbank_programs')",
                  "p.last_seen_at >= now() - interval '7 days'", "p.sale_date >= current_date",
                  "to_jsonb(p) ->> 'publication_state' = 'customer_published'"):
