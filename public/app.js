@@ -3963,15 +3963,42 @@ var OAUTH_PROVIDERS = {
   apple: { label: "Apple", icon: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M16.4 12.7c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2.1-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4.1zM13.9 5.1c.7-.9 1.2-2 1-3.1-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.2-.6 2.9-1.4z"/></svg>' },
   azure: { label: "Microsoft", scopes: "email", icon: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#F25022" d="M1 1h10.5v10.5H1z"/><path fill="#7FBA00" d="M12.5 1H23v10.5H12.5z"/><path fill="#00A4EF" d="M1 12.5h10.5V23H1z"/><path fill="#FFB900" d="M12.5 12.5H23V23H12.5z"/></svg>' }
 };
+// Owner, 2026-11-11 ("so that way when you go online, you have the option to
+// onboard"): Supabase itself says which providers are switched on - its public
+// auth settings, read with the publishable key every request already carries.
+// Once that answer is in, the buttons are exactly the providers Supabase has
+// enabled, in the order Google, Apple, Microsoft: enabling one in the dashboard
+// is the whole step, and a provider that is off can never show a button (it
+// would lead to a raw error page). Until the answer arrives, or if it cannot
+// be read, the config.js list decides as before. config.js oauthDetect: false
+// turns the question off.
+var OAUTH_DETECTED = null;
 function oauthProvidersEnabled() {
+  if (Array.isArray(OAUTH_DETECTED)) return Object.keys(OAUTH_PROVIDERS).filter(p => OAUTH_DETECTED.includes(p));
   const list = (window.TDW_CONFIG || {}).oauthProviders;
   return Array.isArray(list) ? list.filter((p, i) => OAUTH_PROVIDERS[p] && list.indexOf(p) === i) : [];
+}
+async function detectOAuthProviders() {
+  const c = window.TDW_CONFIG || {};
+  if (c.oauthDetect === false || !c.supabaseUrl || !c.supabasePublishableKey || typeof fetch !== "function") return;
+  try {
+    const res = await fetch(String(c.supabaseUrl).replace(/\/+$/, "") + "/auth/v1/settings", { headers: { apikey: c.supabasePublishableKey } });
+    if (!res.ok) return;
+    const ext = (await res.json() || {}).external;
+    if (!ext || typeof ext !== "object") return;
+    OAUTH_DETECTED = Object.keys(OAUTH_PROVIDERS).filter(p => ext[p] === true);
+    renderOAuthButtons();
+  } catch { /* offline or blocked: the config.js list stands */ }
 }
 function renderOAuthButtons() {
   const form = document.getElementById("authForm");
   const providers = oauthProvidersEnabled();
-  if (!form || !providers.length || document.getElementById("oauthBlock")) return;
+  const old = document.getElementById("oauthBlock");
+  if (old && old.dataset.providers === providers.join(",")) return;
+  if (old) old.remove();
+  if (!form || !providers.length) return;
   const block = document.createElement("div");
+  block.dataset.providers = providers.join(",");
   block.className = "oauth-block";
   block.id = "oauthBlock";
   block.innerHTML = '<div class="oauth-buttons">' + providers.map(p =>
@@ -4002,6 +4029,7 @@ async function startOAuth(provider, btn) {
   }
 }
 renderOAuthButtons();
+detectOAuthProviders();
 
 // An account created through a provider has none of the sign-up form's
 // details (name, address). The pending screen asks for the missing ones,
