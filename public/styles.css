@@ -2258,3 +2258,74 @@ a.ledger-badge:hover{text-decoration:underline}
 .cov-list li{display:flex;align-items:center;gap:.4rem;justify-content:space-between}
 .cov-note{font-size:.74rem}
 .why-list{margin:.3rem 0 .8rem 1.1rem;padding:0;display:flex;flex-direction:column;gap:.35rem}
+
+/* ==================== Investor sprint: cards front and center (2026-11-12) ====================
+   Owner: "When we're looking at the property cards, I want that to be like
+   front and center". Under Merged on a desktop:
+   1. The list head is one band - title and guide link, the county / Filters /
+      Sort toolbar and the count side by side - so the first card's picture
+      and price show without scrolling on a 1368 x 777 laptop.
+   2. The List takes the full width. The side panel no longer holds a record
+      (a record opens wide, below); it is the slim "In this list" strip above
+      the cards, with the same content (the acquisition breakdown and "Open
+      the first property"). The Filters stay behind their button at every
+      width, opening above the list.
+   3. The record opens in one ~1100px sheet in two columns (app.js
+      layoutWideRecord). A phone keeps its full-screen sheet. */
+@media (min-width:1024px){
+  html[data-look="merged"] .masthead{display:flex;flex-wrap:wrap;align-items:center;gap:.45rem 1rem;padding:.55rem 1.6rem .45rem}
+  html[data-look="merged"] .masthead > .list-head{flex:0 1 auto;margin:0;min-width:0}
+  html[data-look="merged"] .masthead > .list-head .list-title{font-size:1.55rem;line-height:1.15}
+  html[data-look="merged"] .masthead > .list-head .list-sub{margin-top:.1rem}
+  html[data-look="merged"] .masthead > .quick-controls{flex:1 1 520px;margin:0;padding:.3rem!important;max-width:760px}
+  html[data-look="merged"] .masthead > .list-total{flex:0 0 auto;margin:0 0 0 auto}
+  html[data-look="merged"] .masthead > .filter-chips:not([hidden]){flex-basis:100%}
+  html[data-look="merged"] .masthead > .ledger-tabs{flex-basis:100%}
+
+  html[data-look="merged"] .auctions-body{grid-template-columns:minmax(0,1fr)!important}
+  html[data-look="merged"] .auctions-body>.filters-panel{grid-column:1!important;grid-row:1!important;position:static!important;max-height:70vh;margin:0 0 .6rem}
+  html[data-look="merged"] .auctions-body>.filters-panel:not(.open){display:none!important}
+  html[data-look="merged"] .quick-controls .filters-toggle{display:inline-flex!important}
+  html[data-look="merged"] .auctions-body>.detail-panel{grid-column:1!important;grid-row:2!important;display:block;position:static;max-height:none;overflow:visible;
+    padding:0!important;margin:0 0 .5rem!important;background:none!important;border:0!important;border-radius:0!important}
+  html[data-look="merged"] .auctions-body>.detail-panel:not(:has(> .xp-panelsum)){display:none}
+  html[data-look="merged"] .auctions-body>.detail-panel > .detail-panel-empty{display:none}
+  html[data-look="merged"] .auctions-body>#xpStage,html[data-look="merged"] .auctions-body>#main,html[data-look="merged"] .auctions-body>.data-table-wrap{grid-column:1!important;grid-row:3!important;min-width:0}
+
+  /* The "In this list" strip: one row, wrapping only when the content needs it. */
+  html[data-look="merged"] #detailPanel .xp-panelsum{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-auto-rows:auto;align-items:center;gap:.1rem 1.4rem;padding:.35rem .4rem .35rem .9rem;
+    background:var(--paper-white,#FDFDFB);border:1px solid var(--rule,#D8DED6);border-radius:var(--radius,8px);animation:none}
+  html[data-look="merged"] #detailPanel .xp-panelsum > .xps-k:first-child{grid-column:1;grid-row:1}
+  html[data-look="merged"] #detailPanel .xp-panelsum > .xps-t{grid-column:1;grid-row:2}
+  html[data-look="merged"] #detailPanel .xp-panelsum > .xps-facts{grid-column:2;grid-row:1}
+  html[data-look="merged"] #detailPanel .xp-panelsum > .xps-how{grid-column:2;grid-row:2}
+  html[data-look="merged"] #detailPanel .xp-panelsum > .xps-facts:not(:has(~ .xps-how)),
+  html[data-look="merged"] #detailPanel .xp-panelsum > .xps-how:not(.xps-facts ~ .xps-how){grid-row:1 / span 2}
+  html[data-look="merged"] #detailPanel .xp-panelsum > .xps-open{grid-column:3;grid-row:1 / span 2}
+  html[data-look="merged"] #detailPanel .xp-panelsum .xps-t{font-size:15px;line-height:20px;font-family:var(--font-sans);font-weight:600}
+  html[data-look="merged"] #detailPanel .xp-panelsum .xps-facts{flex-direction:row;flex-wrap:wrap;gap:.2rem 1.1rem;border:0}
+  html[data-look="merged"] #detailPanel .xp-panelsum .xps-facts > div{display:flex;align-items:baseline;gap:.4rem;padding:0;border:0;font-size:13px;line-height:18px}
+  html[data-look="merged"] #detailPanel .xp-panelsum .xps-facts .xps-sub{display:inline;margin-left:.3rem;font-size:12px}
+  html[data-look="merged"] #detailPanel .xp-panelsum .xps-how{flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:.2rem .7rem}
+  html[data-look="merged"] #detailPanel .xp-panelsum .xps-how > .xps-sub{max-width:52ch}
+  html[data-look="merged"] #detailPanel .xp-panelsum .xps-ways{flex-direction:row;flex-wrap:wrap;gap:.2rem 1rem;margin:0}
+  html[data-look="merged"] #detailPanel .xp-panelsum .xps-ways li{gap:.35rem;font-size:13px;line-height:18px}
+  html[data-look="merged"] #detailPanel .xp-panelsum .xps-link{min-height:28px;font-size:13px}
+  html[data-look="merged"] #detailPanel .xp-panelsum .xps-open{width:auto;min-height:38px;margin:0;padding:.3rem .8rem;border-radius:10px;flex-direction:row;align-items:baseline;gap:.45rem;font-size:13px}
+  html[data-look="merged"] #detailPanel .xp-panelsum .xps-open-t{max-width:18ch;font-size:12px}
+  html[data-look="merged"] #detailPanel .xp-panelsum .xps-hint{display:none}
+
+  /* The wide record. */
+  #detailModal.detail-modal-wide{justify-content:center!important;align-items:flex-start;padding:1rem 1.2rem!important;background:rgba(15,23,42,.5)}
+  #detailModal.detail-modal-wide .detail-modal-inner.detail-wide{max-width:1100px!important;width:100%;height:auto!important;max-height:calc(100% - .5rem)!important;
+    border-radius:var(--radius,10px)!important;padding:1.1rem 1.6rem 1.6rem;box-shadow:0 30px 80px rgba(20,32,26,.35)}
+  .detail-wide > .detail-cols{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:0 2rem;align-items:start}
+  .detail-wide .detail-col{min-width:0;display:flex;flex-direction:column}
+  .detail-wide .detail-col > *{flex-shrink:0}
+  .detail-wide .detail-col-main .detail-first .detail-hero-photo.has-photo,
+  .detail-wide .detail-col-main .detail-first .detail-hero-photo.naip-live{max-height:300px}
+  .detail-wide .detail-col-main .detail-first .detail-hero-photo.minimap{max-height:200px}
+  .detail-wide .detail-col-more > .detail-nav{margin-top:0}
+}
+.detail-addr-published{margin:.2rem 0 .4rem;font-size:.8rem;line-height:1.35;color:var(--ink-soft);overflow-wrap:anywhere}
+.detail-addr-published span{display:block;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}

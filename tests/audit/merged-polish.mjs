@@ -59,15 +59,18 @@ for (const route of Object.keys(ROWS)) {
   const pg = await open(route, { width: 1440, height: 900 });
   const s = await pg.evaluate(() => {
     const box = document.querySelector('#detailPanel > .xp-panelsum');
-    return { has: !!box, xp: box && box.dataset.xp, text: box ? box.textContent.replace(/\s+/g, ' ').trim() : '', visible: !!box && box.getBoundingClientRect().height > 80, hash: location.hash, empty: !!document.querySelector('#detailPanel > .detail-panel-empty') };
+    return { has: !!box, xp: box && box.dataset.xp, text: box ? box.textContent.replace(/\s+/g, ' ').trim() : '', visible30: !!box && box.getBoundingClientRect().height > 30 && box.getBoundingClientRect().height <= 90, hash: location.hash, empty: !!document.querySelector('#detailPanel > .detail-panel-empty') };
   });
-  check(`panelSummaryShown_${route}`, s.has && s.visible && s.xp === XP[route], s);
+  // Investor sprint (owner, 2026-11-12: cards "front and center"): the
+  // summary is a slim strip above the cards (visible > 30px, not > 80px), and
+  // "Open the ..." opens the record wide (#detailModal), never in the panel.
+  check(`panelSummaryShown_${route}`, s.has && s.visible30 && s.xp === XP[route], s);
   check(`panelSummaryKeepsEmptyState_${route}`, s.empty && !/\/[^/]+\/./.test(s.hash.replace(/^#\//, '/')), s.hash);
   check(`panelSummaryNamesTheList_${route}`, /^In this list/.test(s.text) && /Open the/.test(s.text), s.text.slice(0, 160));
   await pg.click('#detailPanel .xp-panelsum [data-xps-open]');
   await pg.waitForTimeout(500);
-  const o = await pg.evaluate(() => ({ open: !!document.querySelector('#detailPanel.prop-card:not(:has(.detail-panel-empty))'), sum: !!document.querySelector('#detailPanel > .xp-panelsum'), hash: location.hash }));
-  check(`panelSummaryOpensARecord_${route}`, o.open && !o.sum, o);
+  const o = await pg.evaluate(() => ({ modal: !document.getElementById('detailModal').hidden && !!document.querySelector('#detailModalInner.detail-wide .detail-address'), panelRecord: !!document.querySelector('#detailPanel .detail-address'), sum: !!document.querySelector('#detailPanel > .xp-panelsum'), hash: location.hash }));
+  check(`panelSummaryOpensARecord_${route}`, o.modal && !o.panelRecord && o.sum, o);
   await pg.close();
 }
 {
@@ -104,7 +107,8 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
   check(`cardLeadsWithAddress_${vp.width}`, order.t < order.k && order.k < order.f, order);
   // The record's own status stamp (app.js cardStamp, as on the Classic card).
   const stamp = await pg.evaluate(() => { const s = document.querySelector('#xpStage .xt-acard .xt-stamp'); return s ? s.textContent.trim() : null; });
-  check(`cardStampFromRecord_${vp.width}`, /^(Verified path|Path not yet verified|Dated list|No longer listed)$/.test(stamp || ''), stamp);
+  // Plain language (owner, 2026-11-12): "How to buy: confirmed / not yet confirmed".
+  check(`cardStampFromRecord_${vp.width}`, /^(How to buy: confirmed|How to buy: not yet confirmed|Dated list|No longer listed)$/.test(stamp || ''), stamp);
   await pg.close();
 }
 

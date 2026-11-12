@@ -513,3 +513,64 @@ html[data-experience="terrain"] .county-now .cnb-list{border-radius:0 0 14px 14p
   border:1px solid #D8DED6;background:#F1F6F0;color:#3D4A42;font-size:12px;line-height:16px;font-weight:400;letter-spacing:0;text-transform:none;white-space:normal;box-shadow:0 8px 20px rgba(20,35,28,.14)}
 .xp-terrain .xt-amt-pop .xt-amt-lead{display:inline;font-weight:600;color:#2F4034}
 .xp-terrain .xt-amt-plus:hover .xt-amt-pop,.xp-terrain .xt-amt-plus:focus-within .xt-amt-pop,.xp-terrain .xt-amt-plus.open .xt-amt-pop{display:block}
+
+/* ==================== Investor sprint: cards front and center (2026-11-12) ====================
+   Owner: "When we're looking at the property cards, I want that to be like
+   front and center". Each county's cards sit in a grid (no sideways
+   scrolling at any width): 4 a row on a 1368px desktop, 2 on a tablet, 1 on
+   a phone. The county head is one slim row (name, locator, Buyer's Guide
+   link). The picture carries one small label, the Tilt view button and one
+   (i) for its credits (app.js compactPhotoChrome). */
+.xp-terrain .xt-rail{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;overflow:visible;scroll-snap-type:none;margin:0;padding:10px 0 4px}
+.xp-terrain .xt-rail .xt-acard,.xp-terrain .xt-rail .xt-rail-more{flex:none;width:auto;min-width:0;scroll-snap-align:none}
+.xp-terrain .xt-rail .xt-rail-more{min-height:120px}
+@container xt (min-width:600px){
+  .xp-terrain .xt-rail{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@container xt (min-width:900px){
+  .xp-terrain .xt-rail{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@container xt (min-width:1160px){
+  .xp-terrain .xt-rail{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+.xp-terrain .xt-acard-vis .xt-visual{aspect-ratio:16 / 9}
+@container xt (min-width:1160px){
+  .xp-terrain .xt-acard-vis .xt-visual{aspect-ratio:16 / 8}
+}
+.xp-terrain .xt-acard-body{padding:10px 14px 12px}
+.xp-terrain .xt-acard .xt-lot-t{font:500 18px/23px var(--font-display);overflow-wrap:anywhere}
+.xp-terrain .xt-acard .xt-lot-where{order:-1;font-size:13px;line-height:18px;color:var(--gray)}
+.xp-terrain .xt-acard .xt-lot-t + .xt-lot-where{order:-1}
+.xp-terrain .xt-acard .xt-figs{margin-top:8px}
+.xp-terrain .xt-acard .xt-actions{padding-top:10px}
+/* The plain-language line reads as a sentence, not shouted capitals. */
+.xp-terrain .xt-acard .xt-lot-k .prop-kicker,.xp-terrain .xt-acard .xt-lot-k .prop-kicker *{text-transform:none!important;letter-spacing:0;font-size:12.5px;line-height:17px}
+
+/* County head: one slim row. */
+.xp-terrain .xt-stories{gap:14px}
+.xp-terrain .xt-story-head{display:flex;flex-wrap:wrap;align-items:center;gap:2px 16px;min-height:0;padding:8px 64px 8px 14px;border-radius:14px}
+.xp-terrain .xt-story-head:not(:has(.xt-story-trail)){min-height:48px}
+.xp-terrain .xt-story-t{font:500 19px/24px var(--font-display);margin:0;padding-right:0;min-height:0}
+.xp-terrain .xt-story-guide{margin:0}
+.xp-terrain .xt-story-trail:not(.xt-story-guide){flex-basis:100%}
+.xp-terrain .xt-guide-link{min-height:32px}
+.xp-terrain .xt-locator{width:40px;height:40px;top:50%;right:12px;transform:translateY(-50%)}
+.xp-terrain.xt-enter .xt-locator{animation:none}
+.xp-terrain .xt-story-contour{display:none}
+
+/* The picture: one label bottom-left, Tilt view top-right, (i) bottom-right. */
+.xp-terrain .prop-card-photo[data-compact] > .pb-attrib{display:none}
+.xp-terrain .prop-card-photo[data-compact] > .photo-caption{bottom:.5rem!important;max-width:calc(100% - 3.5rem);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.xp-terrain .prop-card-photo .pc-photo-info .ib-btn{position:relative;width:28px;height:28px;min-height:28px;padding:0;border-radius:50%;font:italic 700 13px/1 Georgia,serif;display:inline-flex;align-items:center;justify-content:center}
+.xp-terrain .prop-card-photo .pc-photo-info .ib-btn::before{content:"";position:absolute;inset:-8px}
+.xp-terrain .prop-card-photo .pc-photo-info .ib-pop{top:calc(100% + .45rem);bottom:auto;width:min(300px,calc(100vw - 48px));font-size:12px;line-height:16px;text-align:left}
+.xp-terrain .pc-photo-about{display:flex;flex-direction:column;gap:4px}
+.xp-terrain .pc-photo-about b{font-weight:600}
+.xp-terrain .xt-acard:has(.ib.open),.xp-terrain .xt-acard:has(.ib:hover),.xp-terrain .xt-acard:has(.ib:focus-within){overflow:visible;z-index:5}
+.xp-terrain .xt-acard:has(.pc-info .ib.open) .xt-visual,.xp-terrain .xt-acard:has(.pc-info .ib:hover) .xt-visual,.xp-terrain .xt-acard:has(.pc-info .ib:focus-within) .xt-visual{overflow:visible}
+
+/* The county value's (i): what "market value" means here. */
+.xp-terrain .xt-val-info{display:inline-flex;align-items:center;position:relative}
+.xp-terrain .xt-val-info .ib-btn{position:relative;width:20px;height:20px;min-height:20px;padding:0;border-radius:50%;border:1px solid #B9C7BB;background:#FDFDFB;color:#3E5743;font:italic 700 11px/1 Georgia,serif;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.xp-terrain .xt-val-info .ib-btn::before{content:"";position:absolute;inset:-12px}
+.xp-terrain .xt-val-info .ib-pop{left:0;right:auto;width:min(260px,calc(100vw - 72px));font-size:12px;line-height:16px;text-transform:none;letter-spacing:0;font-weight:400}

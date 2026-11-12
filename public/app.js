@@ -2263,7 +2263,37 @@ function storedAerialOutlineHost(p, cls) {
 }
 // opts.omitCounty (2026-10-27): inside a county group the caption drops the
 // county name the group head already shows; the wording is otherwise the same.
+// opts.compact (investor sprint, owner 2026-11-12): a list card in a look
+// carries ONE small label on its picture ("Aerial · USDA") plus the Tilt view
+// button; the full caption, its basis note and - once drawn - the parcel
+// outline's full credit sit behind one (i) on the picture (drawBoundary puts
+// the credit into this bubble). Folded, never dropped.
 function propertyVisual(p, cls, opts) {
+  const html = propertyVisualFull(p, cls, opts);
+  return opts && opts.compact ? compactPhotoChrome(html) : html;
+}
+function shortPhotoLabel(caption) {
+  const c = String(caption || "");
+  return c
+    .replace(/^Aerial image · USDA NAIP\b/, "Aerial · USDA")
+    .replace(/^Aerial imagery · USDA NAIP \(public domain\).*?(· approximate point)?$/, (m, ap) => "Aerial · USDA" + (ap ? " · approx. point" : ""))
+    .replace(/^Aerial · USDA NAIP\b/, "Aerial · USDA");
+}
+function compactPhotoChrome(html) {
+  if (!/\bhas-photo\b/.test(html)) return html;
+  const m = /<span class="photo-caption"(?: title="([^"]*)")?>([^<]*)<\/span>/.exec(html);
+  if (!m) return html;
+  const fullTitle = m[1] || "", fullText = m[2];
+  const short = shortPhotoLabel(fullText.replace(/&amp;/g, "&").replace(/&middot;/g, "·"));
+  // The caption keeps its full wording as its own title; the bubble repeats
+  // it with the basis note, so a touch reader reaches both.
+  const pop = `<span class="pc-photo-about"><b>${fullText}</b>${fullTitle ? `<span>${fullTitle}</span>` : ""}</span>`;
+  const info = `<span class="pc-info pc-photo-info">${infoBubbleHtml("i", pop, { dataAttr: 'aria-label="About this picture: source and credits"' })}</span>`;
+  return html
+    .replace(m[0], `<span class="photo-caption" title="${fullTitle || fullText}">${esc(short)}</span>${info}`)
+    .replace(/^<div class="([^"]*)"/, '<div class="$1" data-compact="1"');
+}
+function propertyVisualFull(p, cls, opts) {
   const omitCounty = !!(opts && opts.omitCounty);
   if (hasPhoto(p)) {
     const html = photoOrPlaceholder(p, cls);
@@ -2840,6 +2870,8 @@ document.addEventListener("error", e => {
       host.dataset.imagery = "provider_static";
       const cap = host.querySelector(".photo-caption");
       if (cap) { cap.textContent = sat.label; cap.removeAttribute("title"); }
+      const about = host.querySelector(".pc-photo-about");
+      if (about) about.innerHTML = `<b>${esc(sat.label)}</b>`;
       return;
     }
     img.classList.add("static-sat-img");
@@ -2854,6 +2886,7 @@ document.addEventListener("error", e => {
   // (explore.js listens), so the card is never left without a picture.
   if (host.classList.contains("pv-visual")) { host.dispatchEvent(new CustomEvent("tdw:visualfailed", { bubbles: true })); host.remove(); return; }
   host.classList.add("minimap");
+  host.querySelectorAll(".pc-photo-info").forEach(n => n.remove());
   // Say the aerial image failed, never just "location" as if none was tried.
   if (cap) cap.textContent = `${host.dataset.imagery === "naip_failed" ? "Aerial image unavailable · " : ""}Location in ${unitLabelOf(host.dataset.county)}`;
   hydrateVisuals(host.parentElement);
@@ -3166,6 +3199,56 @@ const hasParcel = p => { const v = parcelOf(p); return !!(v && String(v).trim() 
 const lotTitle = p => (hasParcel(p)
   ? `Parcel #${esc(parcelOf(p))} (${esc(unitLabelOf(p.county))} Lot)`
   : `${esc(unitLabelOf(p.county))} Lot (parcel # not published)`);
+
+// Investor sprint (owner, 2026-11-12: "experienced investors getting up to a
+// 10"). A county that publishes no street address sometimes puts the legal
+// description in the address column ("BEG 418 FT S AND 110 FT W OF INTER OF
+// ..."), and the card was titled with it in capitals. These are survey
+// phrases no street address carries; anything else is trusted, as in
+// realAddress(). Only the TITLE changes: the text stays on the record (its
+// Legal description, or "Address as the county published it" below the title).
+// A function, not a top-level const: a card can be drawn during module
+// start-up (see the TDZ notes above render()).
+function legalDescMarkers() { return /\bBEG(?:IN|INNING)?\b|\bCOMM?(?:ENCING|ENCE)?\s+AT\b|\bTHENCE\b|\bTHN?C\b|\bPOB\b|\bO\.?\s?R\.?\s*(?:BK|BOOK)\b|\bORB?\s*\d+\s*PG\b|\bPLAT\s+BOOK\b|\bPB\s*\d+\s*PG\b|\bPG\s*\d+\b|\bTWP\b|\bRNG\b|\bRGE\b|\b\d+(?:\.\d+)?\s*FT\s+(?:OF|TO|[NSEW]{1,2}\b)|\b[NSEW]{1,2}\s*1\/[234]\b|\bBLK\s+\d+|\bINTER(?:SECTION)?\s+OF\b|\bLESS\s+(?:THE\s+)?[NSEW]{1,2}\b|\bUNREC(?:ORDED)?\s+(?:PLAT|SUB)/i; }
+function looksLikeLegalDescription(text) {
+  const t = String(text || "").trim();
+  return !!t && legalDescMarkers().test(t);
+}
+// The address a card may use as its title: realAddress() minus a legal
+// description published in the address column.
+function cardAddress(p) {
+  const a = realAddress(p);
+  return a && !looksLikeLegalDescription(a) ? a : "";
+}
+// A list card's title and the line under it (escaped HTML). A street
+// address when the row has one; otherwise "Parcel <number>" over
+// "<County>, <ST>" - never the legal description, never the parcel twice.
+// parcelTitle tells the card not to repeat the parcel in its id line.
+function cardTitleOf(p) {
+  const where = `${esc(unitLabelOf(p.county))}, ${esc(regionOf(p))}`;
+  const a = cardAddress(p);
+  if (a) return { html: esc(a), sub: "", parcelTitle: false };
+  if (hasParcel(p)) return { html: `Parcel ${esc(parcelOf(p))}`, sub: where, parcelTitle: true };
+  return { html: "Parcel number not published", sub: where, parcelTitle: true };
+}
+
+// Plain language on cards and record headers (owner, 2026-11-12). The
+// meaning stays exact; only the trade shorthand is spelled out. The record's
+// body keeps its full statutory wording (valueLabel(), kickerParts()).
+// Florida's "just value" is the property appraiser's assessed market value
+// for a tax roll year (F.S. 193.011): never an appraisal or a sale price.
+function plainValueLabel(label) {
+  const s = String(label || "");
+  let m = /^(\d{4}) County Just Value$/i.exec(s);
+  if (m) return { label: `County market value (${m[1]})`, note: `The county property appraiser's “just value” for the ${m[1]} tax roll: its assessed market value, not an appraisal and not a sale price.` };
+  if (/^County Just Value$/i.test(s)) return { label: "County market value", note: "The county property appraiser's “just value”: its assessed market value, not an appraisal and not a sale price." };
+  return { label: s, note: "" };
+}
+function plainPhase(phase) {
+  const s = String(phase || "");
+  if (s === "Lands Available list · over the counter") return "Buy directly from the county, no auction";
+  return s.replace(/ · not verified available now$/, " · availability now not confirmed");
+}
 
 const valueRatio = p => (Number(p.bid) > 0 ? marketOf(p) / Number(p.bid) : 0);
 // Florida only: the filter match leans on manual lien notes, which Texas rows
@@ -5919,7 +6002,9 @@ function kickerParts(p) {
 function cardKickerHtml(p, showCounty, ctx) {
   if (showCounty && typeof showCounty === "object") { ctx = showCounty; showCounty = false; }
   const c = ctx || {};
-  const { type, phase, cls } = kickerParts(p);
+  const { type, cls } = kickerParts(p);
+  // { plain } (2026-11-12): the Merged cards spell out the trade shorthand.
+  const phase = c.plain ? plainPhase(kickerParts(p).phase) : kickerParts(p).phase;
   // Phase 66: county + state always lead the line, not only in flat lists -
   // the card has to stand on its own in the watchlist modal, in search
   // results and in a screenshot, where the county group header isn't there
@@ -6301,12 +6386,14 @@ function cardStamp(p) {
   if (p.source === "laft") {
     if (isGone(p)) return { key: "gone", cls: "stamp-closed", label: "No longer listed", title: GONE_STATUS_CAVEAT };
     // Only an admin ever sees an unconfirmed record (customers are not shown it).
+    // Plain language (owner, 2026-11-12): each label says WHAT is or is not
+    // confirmed. Keys and titles are unchanged.
     const unc = IS_ADMIN && unconfirmedAvailable(p);
-    if (unc) return { key: "unconfirmed", cls: "stamp-closed", label: unc.never ? "Never confirmed" : "Not confirmed", title: `${unconfirmedText(unc)} · withheld from customers` };
+    if (unc) return { key: "unconfirmed", cls: "stamp-closed", label: unc.never ? "Listing never confirmed by source" : "Listing not re-confirmed by source", title: `${unconfirmedText(unc)} · withheld from customers` };
     const a = acquisitionOf(p);
-    if (a.verified && a.mode !== "none") return { key: "verified", cls: "stamp-verified", label: "Verified path", title: "How to acquire was read from the source's own page or document" };
+    if (a.verified && a.mode !== "none") return { key: "verified", cls: "stamp-verified", label: "How to buy: confirmed", title: "How to acquire was read from the source's own page or document" };
     if (isDatedList(p)) return { key: "dated", cls: "stamp-muted", label: "Dated list", title: datedListText(p) + " - not verified available now" };
-    return { key: "unverified", cls: "stamp-muted", label: "Path not yet verified", title: "No verified acquisition path on file for this record" };
+    return { key: "unverified", cls: "stamp-muted", label: "How to buy: not yet confirmed", title: "No verified acquisition path on file for this record" };
   }
   if (p.source === "certificate") {
     const s = String(p.inventory_status || "");
@@ -11114,7 +11201,10 @@ function detailHtml(p) {
     ["Clerk of Courts", p.url_clerk],
     ["GIS Map", p.url_gis]
   ].filter(([, href]) => href);
-  const detailStreet = isCert ? "" : realAddress(p);
+  // A legal description published in the address column is never the
+  // title (2026-11-12); it stays on the record, under the title.
+  const detailStreet = isCert ? "" : cardAddress(p);
+  const legalAsAddress = !isCert && !detailStreet && realAddress(p) ? realAddress(p) : "";
   const title = isCert ? `Certificate #${esc(p.certificate_no || "Unknown")}` :
     (detailStreet ? esc(detailStreet) : lotTitle(p));
   const bidPublished = hasPublishedBid(p);
@@ -11238,6 +11328,7 @@ function detailHtml(p) {
       <div class="detail-id">
         <div class="prop-county-tag">${esc(unitLabelOf(p.county))}, ${esc(regionOf(p))}${isCert ? " · Certificate" : (p.source === "laft" ? (isDatedList(p) ? " · Adjudicated (dated list)" : regionOf(p) === "TX" ? " · Struck-off inventory" : regionOf(p) === "FL" ? " · Lands Available" : " · " + esc(availableProgram(p))) : " · Auction")}</div>
         <h2 class="detail-address">${title}</h2>
+        ${legalAsAddress ? `<p class="detail-addr-published"><span>Address as the county published it</span> ${esc(legalAsAddress)}</p>` : ""}
         ${detailKeyFigureHtml(p, stamp ? cardStampHtml(stamp) : "")}
         <div class="prop-top-actions">
           ${/* a row with no listing status gets no pill here: the status band and
@@ -11536,7 +11627,46 @@ function restoreModalFocus() {
 function detailPanelOnList() {
   let page;
   try { page = shellPage; } catch { page = "list"; }
+  // Investor sprint (owner, 2026-11-12: the property cards "front and
+  // center"): under Merged the List keeps its full width and a record opens
+  // wide (wideRecordOn) instead of in the 420px side panel.
+  if (document.documentElement.dataset.look === "merged") return false;
   return page === "list" && !!(window.matchMedia && window.matchMedia("(min-width:1280px)").matches);
+}
+// The wide record (Merged, desktop >= 1024px): one ~1100px sheet in two
+// columns - the picture, the key facts and How to acquire on the left, every
+// other section on the right. A phone keeps the full-screen sheet and its
+// floating source bar. Nothing is added or removed: the same nodes move into
+// two column wrappers.
+function wideRecordOn() {
+  return document.documentElement.dataset.look === "merged" && !!(window.matchMedia && window.matchMedia("(min-width:1024px)").matches);
+}
+function layoutWideRecord(inner) {
+  const modal = document.getElementById("detailModal");
+  const on = wideRecordOn();
+  if (modal) modal.classList.toggle("detail-modal-wide", on);
+  inner.classList.toggle("detail-wide", on);
+  if (!on) return;
+  const left = document.createElement("div");
+  left.className = "detail-col detail-col-main";
+  const right = document.createElement("div");
+  right.className = "detail-col detail-col-more";
+  const keep = new Set(["detail-close", "detail-topbar", "detail-float"]);
+  const kids = Array.from(inner.children).filter(el => ![...el.classList].some(c => keep.has(c)));
+  const first = inner.querySelector(":scope > .detail-first");
+  const acquire = inner.querySelector(':scope > .detail-section[data-section="acquire"]');
+  // The sale / list link (.detail-cta) is a first-screen fact: it stays with
+  // the picture and key facts, right under them.
+  const ctas = kids.filter(el => el.classList.contains("detail-cta"));
+  if (first) left.appendChild(first);
+  ctas.forEach(el => left.appendChild(el));
+  if (acquire) left.appendChild(acquire);
+  kids.forEach(el => { if (el !== first && el !== acquire && !ctas.includes(el)) right.appendChild(el); });
+  const cols = document.createElement("div");
+  cols.className = "detail-cols";
+  cols.append(left, right);
+  const float = inner.querySelector(":scope > .detail-float");
+  if (float) inner.insertBefore(cols, float); else inner.appendChild(cols);
 }
 function openDetail(p) {
   const modal = document.getElementById("detailModal");
@@ -11560,6 +11690,7 @@ function openDetail(p) {
   // The Free preview withholds the address and the source, so it gets no bar.
   inner.innerHTML = detailHtml(p) + (pageTier() === "free" ? "" : recordFloatHtml(p));
   collapseSecondaryOnPhone(inner);
+  layoutWideRecord(inner);
   inner.dataset.pid = String(p.id);
   ensureFullProvenance(p);
   hydrateVisuals(inner);
@@ -16149,7 +16280,7 @@ document.addEventListener("click", e => {
   const tr = e.target.closest(".data-table tbody tr[data-pid]");
   if (!tr) return;
   const p = ALL.find(x => String(x.id) === String(tr.dataset.pid));
-  if (p) selectProperty(p);
+  if (p) { if (detailPanelOnList()) selectProperty(p); else openDetail(p); }
 });
 
 // ---- persistent detail panel (desktop) ----
@@ -16182,6 +16313,8 @@ function clearDetailPanel() {
 function selectProperty(p) {
   const panel = document.getElementById("detailPanel");
   if (!panel || !p) return;
+  // Under Merged the panel is the list's summary strip, never a record.
+  if (document.documentElement.dataset.look === "merged") { openDetail(p); return; }
   if (selectedPid !== p.id) track("property_viewed", { property_id: p.id, ledger: p.source, surface: "panel" });
   selectedPid = p.id;
   try { history.replaceState(history.state, "", "#/" + (LEDGERS[p.source] || LEDGERS[state.ledger]).slug + "/" + p.id); } catch { /* file:// etc */ }
@@ -18114,6 +18247,8 @@ function experienceApi() {
     availableProgram, acquisitionOf, officialStatusText, esc, recordSourceLink,
     auctionOutcomeState, isGone, isDatedList, cardStamp,
     countyNowBarHtml, installCountyNowBar, hideCountyNowBar, countyLineHtml,
+    // Investor sprint (2026-11-12): one card title rule and plain labels.
+    cardTitle: cardTitleOf, plainValueLabel, plainPhase, infoBubbleHtml,
     listCardCtx: () => LIST_CARD_CTX,
     isWatched: id => BIDLIST.has(id),
     isFavorite: id => FAVS.has(id),
@@ -18477,6 +18612,12 @@ function applyExperience(name, persist) {
   if (persist) { try { localStorage.setItem(EXPERIENCE_KEY, name); } catch {} }
   EXPERIENCE_CHOICE = name;
   document.documentElement.dataset.look = name;
+  // Merged has no record in the side panel (it opens wide): a record shown
+  // there under Classic moves to the wide sheet.
+  if (name === "merged" && selectedPid != null) {
+    const cur = ALL.find(x => String(x.id) === String(selectedPid));
+    try { clearDetailPanel(); if (cur) openDetail(cur); } catch {}
+  }
   const last = window.__tdwLastRender;
   const engine = engineFor(name, last && last.ledger === "laft" || last && last.ledger === "certificate" ? last.ledger : "auction");
   syncLookButton();

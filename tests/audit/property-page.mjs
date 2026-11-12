@@ -72,7 +72,9 @@ for (const look of ['merged', 'classic']) {
         cta: cta ? inView(cta) : null,
         tierCompact: (() => { const t = h.querySelector('.tier-switch'); return !t || t.getBoundingClientRect().height <= 34; })()
       };`));
-    check(`${look}-${lg}-desk-surface-is-panel`, desk && desk.surface === 'detailPanel', desk);
+    // Investor sprint (owner, 2026-11-12): under Merged a desktop record opens
+    // wide (#detailModalInner, two columns) instead of in the side panel.
+    check(`${look}-${lg}-desk-surface-is-${look === 'merged' ? 'wide-record' : 'panel'}`, desk && (look === 'merged' ? desk.surface === 'detailModalInner' : desk.surface === 'detailPanel'), desk);
     if (lg !== 'lien') check(`${look}-${lg}-desk-hero-first-screen`, desk && desk.hero === true, desk);
     check(`${look}-${lg}-desk-title-stamp-figure-first-screen`, desk && desk.title && desk.stamp && desk.figure && desk.figureLabel.length > 0, desk);
     if (lg === 'available') check(`${look}-${lg}-desk-how-to-acquire-steps-and-contact-first-screen`, desk && desk.howSteps === true && desk.contact === true, desk);

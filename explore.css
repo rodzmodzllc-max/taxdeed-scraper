@@ -1272,3 +1272,10 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
 .update-ready > span{flex:1 1 auto;min-width:0}
 /* Phone: the bar spans the width, so the sentence wraps to two lines at most. */
 @media (max-width:560px){ .update-ready{left:12px;right:12px;transform:none;max-width:none} }
+
+/* Statewide bubbles that the collision pass moved off their county
+   (investor sprint, 2026-11-12): a thin leader back to the county. */
+.bubble-leaders{pointer-events:none}
+.bubble-leaders .bubble-leader{stroke:var(--ink-soft,#56695E);stroke-width:1.2;vector-effect:non-scaling-stroke;opacity:.75}
+.bubble-leaders .bubble-anchor{fill:var(--ink-soft,#56695E);opacity:.8}
+.cluster-bubble[data-nudged] circle:not(.bubble-hit){transform-box:fill-box;transform-origin:center}

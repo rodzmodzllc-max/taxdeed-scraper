@@ -9216,7 +9216,8 @@ const EXPECTED = {
   // Unconfirmed Available records + broken source links (2026-10-27).
   unconfirmedCustomer: {"p3": false, "p15": false, "p14": false, "total": 2, "byCounty": {"Bay": 1, "Citrus": 1}, "noStamp": true},
   unconfirmedEmpty: {"ledger": "ALL|2 Available records are withheld because their source could not be read to confirm they are still available. This is not a statement that there are no properties.", "noNoneClaim": true, "zeroCase": "SOURCE_FAILURE", "whyNamesIt": true, "county": "1 Available record in Bay withheld: the source could not be read to confirm it is still available. This is not a statement that Bay has no properties.", "otherCounty": ""},
-  unconfirmedAdmin: {"p3": "Never confirmed|true", "p15": "Not confirmed|true", "p14": null, "withheldCount": 0},
+  // Plain language (owner, 2026-11-12): the stamp says what is not confirmed.
+  unconfirmedAdmin: {"p3": "Listing never confirmed by source|true", "p15": "Listing not re-confirmed by source|true", "p14": null, "withheldCount": 0},
   unconfirmedAdminDetail: "never|true",
   unconfirmedDefaultOff: {"counted": 0, "p3": true},
   brokenLinks: {"loaded": ["https://x/citrus-list"], "anchorsLeft": 0, "spans": true, "note": true, "onceBrokenStillLink": true, "blockedStillLink": true},

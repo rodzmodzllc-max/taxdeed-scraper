@@ -104,13 +104,16 @@ for (const [hash, ledger, re, extra] of [['#/auctions', 'AUCTIONS', /^Buyer's Gu
   await pg.goto(BASE + '?look=merged&boundary=ok#/lands', { waitUntil: 'networkidle' });
   await pg.waitForSelector('#xpStage .prop-card-photo > .pb-attrib', { timeout: 15000 }).catch(() => {});
   await pg.waitForTimeout(500);
-  const got = await pg.evaluate(() => Array.from(document.querySelectorAll('#xpStage .prop-card-photo')).map(h => {
+  // Investor sprint (owner, 2026-11-12): the card picture carries ONE label;
+  // the outline's credit (short and full) is folded into the picture's (i)
+  // instead of a second strip on the picture - folded, never dropped.
+  const got = await pg.evaluate(() => Array.from(document.querySelectorAll('#xpStage .prop-card-photo.has-boundary')).map(h => {
     const c = h.querySelector(':scope > .photo-caption'), a = h.querySelector(':scope > .pb-attrib');
-    if (!c || !a || !c.offsetParent || !a.offsetParent) return null;
-    const cb = c.getBoundingClientRect(), ab = a.getBoundingClientRect(), hb = h.getBoundingClientRect();
-    return { apart: cb.bottom <= ab.top + 1 || ab.bottom <= cb.top + 1 || cb.right <= ab.left + 1 || ab.right <= cb.left + 1, inside: cb.top >= hb.top - 1 && ab.bottom <= hb.bottom + 1 };
-  }).filter(Boolean));
-  check('terrainCaptionClearsOutlineCredit', got.length > 0 && got.every(g => g.apart && g.inside), got);
+    const pop = h.querySelector(':scope > .pc-photo-info .ib-pop');
+    const cb = c ? c.getBoundingClientRect() : null, hb = h.getBoundingClientRect();
+    return { caption: !!c && c.checkVisibility(), inside: !!cb && cb.top >= hb.top - 1 && cb.bottom <= hb.bottom + 1, stripHidden: !a || !a.checkVisibility(), credit: !!(pop && pop.querySelector('[data-pb-credit]')) };
+  }));
+  check('terrainCaptionClearsOutlineCredit', got.length > 0 && got.every(g => g.caption && g.inside && g.stripHidden && g.credit), got);
   await ctx.close();
 }
 
