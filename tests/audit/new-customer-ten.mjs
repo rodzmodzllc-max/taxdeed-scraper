@@ -23,7 +23,7 @@ let fail = 0;
 const check = (name, ok, got) => { console.log((ok ? 'PASS ' : 'FAIL ') + name + (ok ? '' : ' -> ' + JSON.stringify(got))); if (!ok) fail++; };
 const errs = [];
 const DESK = { width: 1368, height: 777 }, PHONE = { width: 390, height: 844 };
-const SAFE = ['preview_id', 'state', 'county', 'ledger_type', 'source', 'source_id', 'land_use', 'dor_use_code', 'acreage', 'lot_sqft', 'sale_month'];
+const SAFE = ['preview_id', 'state', 'county', 'source', 'source_id', 'land_use', 'dor_use_code', 'acreage', 'lot_sqft', 'sale_month'];
 
 // Every identifying value the fixture holds (addresses, owners, parcels,
 // case / certificate numbers, links): none may reach a pending account's page.
