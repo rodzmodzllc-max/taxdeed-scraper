@@ -480,7 +480,8 @@ if (new URLSearchParams(location.search).get("gatefresh") === "1") {
     purchase_amount: null, purchase_amount_kind: null, purchase_url: null, purchase_url_kind: null, list_url: "https://calhounclerk.com/court-services/", latitude: null, longitude: null });
 }
 
-const PROFILE_MODE = new URLSearchParams(location.search).get("profile") || "default";
+// ?pending=1 is an alias of ?profile=pending (2026-11-12, new-customer preview).
+const PROFILE_MODE = new URLSearchParams(location.search).get("profile") || (new URLSearchParams(location.search).get("pending") === "1" ? "pending" : "default");
 
 // ?pubgate=1 (2026-10-10 mandatory acquisition-path gate, migration 031): the
 // SERVER side of the customer-publication gate. Every fixture row carries a
@@ -920,6 +921,40 @@ function stubVariant(p) {
 // pins these key lists equal to the SQL's).
 const LIST_OTC_DROPPED_KEYS = ["purchase_instructions", "query_where", "attributes", "layer_url", "columns", "id_field", "object_id_field"];
 const LIST_REVIEW_SOURCE_IDS = ["tx_lgbs", "tx_realauction"];
+// Migration 039's projection (see the get_preview_listings handler in rpc()).
+const PREVIEW_COLUMNS = ["preview_id", "state", "county", "source", "source_id", "land_use", "dor_use_code", "acreage", "lot_sqft", "sale_month"];
+const PREVIEW_LEDGER_FOR_SOURCE = { auction: "auctions", laft: "buy", certificate: "lien" };
+function stubPreviewId(id) {
+  // Opaque, like the SQL's md5('tdw-preview:' || id): two FNV-1a passes, hex.
+  const h = s => { let x = 0x811c9dc5; for (const ch of String(s)) { x ^= ch.charCodeAt(0); x = Math.imul(x, 0x01000193) >>> 0; } return x.toString(16).padStart(8, "0"); };
+  return h("tdw-preview:" + id) + h(id + ":tdw-preview") + h("pv" + id) + h(id + "pv");
+}
+function stubPreviewRows(args) {
+  const today = new Date().toISOString().slice(0, 10);
+  const gate = new URLSearchParams(location.search).get("unconfirmed") === "1";
+  const rows = FIXTURE_PROPERTIES.filter(p => (p.state || "FL") === args.p_state)
+    .filter(p => !args.p_ledger_type || (p.ledger_type || PREVIEW_LEDGER_FOR_SOURCE[p.source]) === args.p_ledger_type)
+    // Fixture concession: the oldest Florida Available rows carry the legacy
+    // status "available" (production writes "active"); both count as active here.
+    .filter(p => ["active", "available"].includes(String(p.status || "active")) && !p.delisted_at)
+    .filter(p => !p.publication_status || p.publication_status === "APPROVED" || p.publication_status === "APPROVED_GRANDFATHERED")
+    .filter(p => !["mi_detroit_landbank_lots", "mi_detroit_landbank_programs"].includes(p.source_id || ""))
+    .filter(p => p.source !== "laft" || !gate || (p.last_seen_at && Date.now() - Date.parse(p.last_seen_at) <= 7 * 86400000))
+    .filter(p => p.source !== "auction" || (!!p.sale_date && String(p.sale_date).slice(0, 10) >= today))
+    .sort((a, b) => String(a.county).localeCompare(String(b.county)) || String(a.source).localeCompare(String(b.source)) || String(a.id).localeCompare(String(b.id)));
+  const limit = Math.min(Math.max(Number(args.p_limit ?? 60) || 0, 0), 60), offset = Math.max(Number(args.p_offset) || 0, 0);
+  const trim = v => (typeof v === "string" && v.trim() ? v.trim() : null);
+  return rows.slice(offset, offset + limit).map(p => {
+    const out = {
+      preview_id: stubPreviewId(p.id), state: p.state || "FL", county: p.county,
+      source: p.source, source_id: p.source_id || null, land_use: trim(p.prop_type) || trim(p.land_use), dor_use_code: trim(p.dor_use_code),
+      acreage: Number(p.acreage) > 0 ? Math.round(Number(p.acreage) * 100) / 100 : null,
+      lot_sqft: Number(p.lot_sqft) > 0 ? Math.round(Number(p.lot_sqft) / 100) * 100 : null,
+      sale_month: p.source === "auction" && p.sale_date ? String(p.sale_date).slice(0, 7) + "-01" : null
+    };
+    return Object.fromEntries(PREVIEW_COLUMNS.map(k => [k, out[k]]));
+  });
+}
 function slimForList(p) {
   const out = { ...p, provenance_scope: "list" };
   const op = p.otc_provenance;
@@ -978,6 +1013,7 @@ const STUB_EMAIL_LIMIT = new URLSearchParams(location.search).get("emaillimit") 
 const STUB_UNCONFIRMED = new URLSearchParams(location.search).get("unconfirmed") === "1";
 const STUB_RATE_ERR = { message: "email rate limit exceeded", status: 429, code: "over_email_send_rate_limit" };
 const STUB_SESSION_KEY = "stub-auth-session";
+const STUB_NEW_USER = new URLSearchParams(location.search).get("newuser") === "1";
 const STUB_DB_KEY = "stub-server-db";
 const STUB_SERVER_USERS = [
   { id: "n1", email: "normal@example.com", password: "fixture-normal-pass", approved: true, is_admin: false },
@@ -1008,11 +1044,14 @@ export function createClient() {
       async getSession() {
         if (STUB_AUTH) { const u = stubSessionUser(); return { data: { session: u ? { user: u } : null } }; }
         if (FORCE_GATE) return { data: { session: null } };
+        // ?newuser=1 (2026-11-12): the account was created just now (supabase-js
+        // users carry created_at), so the first-run welcome applies.
+        if (STUB_NEW_USER) return { data: { session: { user: { id: "u1", email: "test@example.com", created_at: new Date().toISOString() } } } };
         return { data: { session: { user: { id: "u1", email: "test@example.com" } } } };
       },
       onAuthStateChange(cb) {
         if (STUB_AUTH) { stubListeners.push(cb); return { data: { subscription: { unsubscribe() {} } } }; }
-        if (!FORCE_GATE) setTimeout(() => cb("SIGNED_IN", { user: { id: "u1", email: "test@example.com" } }), 0);
+        if (!FORCE_GATE) setTimeout(() => cb("SIGNED_IN", { user: Object.assign({ id: "u1", email: "test@example.com" }, STUB_NEW_USER ? { created_at: new Date().toISOString() } : {}) }), 0);
         // ?recovery=1: what supabase-js emits after a password-reset link
         // lands (detectSessionInUrl consumed the recovery token).
         if (!FORCE_GATE && new URLSearchParams(location.search).get("recovery") === "1") {
@@ -1232,6 +1271,38 @@ export function createClient() {
       }
       if (fnName === "get_properties_list" && new URLSearchParams(location.search).get("nolistrpc") === "1") {
         return { data: null, error: { message: "Could not find the function public.get_properties_list(p_ledger_type, p_limit, p_offset, p_state) in the schema cache", code: "PGRST202" } };
+      }
+      // Migration 039 (2026-11-12): get_preview_listings - the Free preview
+      // an account waiting for approval reads. The stub returns EXACTLY the
+      // SQL's columns (PREVIEW_COLUMNS, pinned equal by
+      // tests/python/test_migration_039_preview_listings.py), derived from the
+      // fixture rows with the SQL's rules (active, not delisted, approved
+      // source decision, no Detroit Land Bank rows, upcoming auctions only,
+      // 60-row cap, ordered by county / source). Two fixture concessions:
+      // fixture rows written before migration 022 carry no publication
+      // decision and are treated as approved, the legacy fixture status
+      // "available" counts as active, and the 7-day Available
+      // confirmation follows the fixture's unconfirmedAvailableGate switch
+      // (off unless ?unconfirmed=1), as the app's own gate does.
+      //   ?previewrpc=absent   039 not applied (PGRST202)
+      //   ?previewrpc=error    a failed read (statement timeout)
+      // Every call and its exact response are logged to window.__stubPreviewLog.
+      if (fnName === "get_preview_listings") {
+        const mode = new URLSearchParams(location.search).get("previewrpc");
+        const log = window.__stubPreviewLog = window.__stubPreviewLog || [];
+        if (mode === "absent") {
+          const res = { data: null, error: { message: "Could not find the function public.get_preview_listings(p_ledger_type, p_limit, p_offset, p_state) in the schema cache", code: "PGRST202" } };
+          log.push({ args, res }); return res;
+        }
+        if (mode === "error") { const res = { data: null, error: { message: "canceling statement due to statement timeout", code: "57014" } }; log.push({ args, res }); return res; }
+        const res = { data: stubPreviewRows(args || {}), error: null };
+        log.push({ args, res: JSON.parse(JSON.stringify(res)) });
+        return res;
+      }
+      // RLS: an account waiting for approval reads no listing (properties
+      // requires is_approved(); the list RPCs are SECURITY INVOKER).
+      if ((fnName === "get_properties" || fnName === "get_properties_list") && PROFILE_MODE === "pending") {
+        return { data: [], error: null };
       }
       if (fnName === "get_properties" || fnName === "get_properties_list") {
         const pState = args && args.p_state;

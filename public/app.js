@@ -2263,7 +2263,37 @@ function storedAerialOutlineHost(p, cls) {
 }
 // opts.omitCounty (2026-10-27): inside a county group the caption drops the
 // county name the group head already shows; the wording is otherwise the same.
+// opts.compact (investor sprint, owner 2026-11-12): a list card in a look
+// carries ONE small label on its picture ("Aerial · USDA") plus the Tilt view
+// button; the full caption, its basis note and - once drawn - the parcel
+// outline's full credit sit behind one (i) on the picture (drawBoundary puts
+// the credit into this bubble). Folded, never dropped.
 function propertyVisual(p, cls, opts) {
+  const html = propertyVisualFull(p, cls, opts);
+  return opts && opts.compact ? compactPhotoChrome(html) : html;
+}
+function shortPhotoLabel(caption) {
+  const c = String(caption || "");
+  return c
+    .replace(/^Aerial image · USDA NAIP\b/, "Aerial · USDA")
+    .replace(/^Aerial imagery · USDA NAIP \(public domain\).*?(· approximate point)?$/, (m, ap) => "Aerial · USDA" + (ap ? " · approx. point" : ""))
+    .replace(/^Aerial · USDA NAIP\b/, "Aerial · USDA");
+}
+function compactPhotoChrome(html) {
+  if (!/\bhas-photo\b/.test(html)) return html;
+  const m = /<span class="photo-caption"(?: title="([^"]*)")?>([^<]*)<\/span>/.exec(html);
+  if (!m) return html;
+  const fullTitle = m[1] || "", fullText = m[2];
+  const short = shortPhotoLabel(fullText.replace(/&amp;/g, "&").replace(/&middot;/g, "·"));
+  // The caption keeps its full wording as its own title; the bubble repeats
+  // it with the basis note, so a touch reader reaches both.
+  const pop = `<span class="pc-photo-about"><b>${fullText}</b>${fullTitle ? `<span>${fullTitle}</span>` : ""}</span>`;
+  const info = `<span class="pc-info pc-photo-info">${infoBubbleHtml("i", pop, { dataAttr: 'aria-label="About this picture: source and credits"' })}</span>`;
+  return html
+    .replace(m[0], `<span class="photo-caption" title="${fullTitle || fullText}">${esc(short)}</span>${info}`)
+    .replace(/^<div class="([^"]*)"/, '<div class="$1" data-compact="1"');
+}
+function propertyVisualFull(p, cls, opts) {
   const omitCounty = !!(opts && opts.omitCounty);
   if (hasPhoto(p)) {
     const html = photoOrPlaceholder(p, cls);
@@ -2840,6 +2870,8 @@ document.addEventListener("error", e => {
       host.dataset.imagery = "provider_static";
       const cap = host.querySelector(".photo-caption");
       if (cap) { cap.textContent = sat.label; cap.removeAttribute("title"); }
+      const about = host.querySelector(".pc-photo-about");
+      if (about) about.innerHTML = `<b>${esc(sat.label)}</b>`;
       return;
     }
     img.classList.add("static-sat-img");
@@ -2854,6 +2886,7 @@ document.addEventListener("error", e => {
   // (explore.js listens), so the card is never left without a picture.
   if (host.classList.contains("pv-visual")) { host.dispatchEvent(new CustomEvent("tdw:visualfailed", { bubbles: true })); host.remove(); return; }
   host.classList.add("minimap");
+  host.querySelectorAll(".pc-photo-info").forEach(n => n.remove());
   // Say the aerial image failed, never just "location" as if none was tried.
   if (cap) cap.textContent = `${host.dataset.imagery === "naip_failed" ? "Aerial image unavailable · " : ""}Location in ${unitLabelOf(host.dataset.county)}`;
   hydrateVisuals(host.parentElement);
@@ -3166,6 +3199,56 @@ const hasParcel = p => { const v = parcelOf(p); return !!(v && String(v).trim() 
 const lotTitle = p => (hasParcel(p)
   ? `Parcel #${esc(parcelOf(p))} (${esc(unitLabelOf(p.county))} Lot)`
   : `${esc(unitLabelOf(p.county))} Lot (parcel # not published)`);
+
+// Investor sprint (owner, 2026-11-12: "experienced investors getting up to a
+// 10"). A county that publishes no street address sometimes puts the legal
+// description in the address column ("BEG 418 FT S AND 110 FT W OF INTER OF
+// ..."), and the card was titled with it in capitals. These are survey
+// phrases no street address carries; anything else is trusted, as in
+// realAddress(). Only the TITLE changes: the text stays on the record (its
+// Legal description, or "Address as the county published it" below the title).
+// A function, not a top-level const: a card can be drawn during module
+// start-up (see the TDZ notes above render()).
+function legalDescMarkers() { return /\bBEG(?:IN|INNING)?\b|\bCOMM?(?:ENCING|ENCE)?\s+AT\b|\bTHENCE\b|\bTHN?C\b|\bPOB\b|\bO\.?\s?R\.?\s*(?:BK|BOOK)\b|\bORB?\s*\d+\s*PG\b|\bPLAT\s+BOOK\b|\bPB\s*\d+\s*PG\b|\bPG\s*\d+\b|\bTWP\b|\bRNG\b|\bRGE\b|\b\d+(?:\.\d+)?\s*FT\s+(?:OF|TO|[NSEW]{1,2}\b)|\b[NSEW]{1,2}\s*1\/[234]\b|\bBLK\s+\d+|\bINTER(?:SECTION)?\s+OF\b|\bLESS\s+(?:THE\s+)?[NSEW]{1,2}\b|\bUNREC(?:ORDED)?\s+(?:PLAT|SUB)/i; }
+function looksLikeLegalDescription(text) {
+  const t = String(text || "").trim();
+  return !!t && legalDescMarkers().test(t);
+}
+// The address a card may use as its title: realAddress() minus a legal
+// description published in the address column.
+function cardAddress(p) {
+  const a = realAddress(p);
+  return a && !looksLikeLegalDescription(a) ? a : "";
+}
+// A list card's title and the line under it (escaped HTML). A street
+// address when the row has one; otherwise "Parcel <number>" over
+// "<County>, <ST>" - never the legal description, never the parcel twice.
+// parcelTitle tells the card not to repeat the parcel in its id line.
+function cardTitleOf(p) {
+  const where = `${esc(unitLabelOf(p.county))}, ${esc(regionOf(p))}`;
+  const a = cardAddress(p);
+  if (a) return { html: esc(a), sub: "", parcelTitle: false };
+  if (hasParcel(p)) return { html: `Parcel ${esc(parcelOf(p))}`, sub: where, parcelTitle: true };
+  return { html: "Parcel number not published", sub: where, parcelTitle: true };
+}
+
+// Plain language on cards and record headers (owner, 2026-11-12). The
+// meaning stays exact; only the trade shorthand is spelled out. The record's
+// body keeps its full statutory wording (valueLabel(), kickerParts()).
+// Florida's "just value" is the property appraiser's assessed market value
+// for a tax roll year (F.S. 193.011): never an appraisal or a sale price.
+function plainValueLabel(label) {
+  const s = String(label || "");
+  let m = /^(\d{4}) County Just Value$/i.exec(s);
+  if (m) return { label: `County market value (${m[1]})`, note: `The county property appraiser's “just value” for the ${m[1]} tax roll: its assessed market value, not an appraisal and not a sale price.` };
+  if (/^County Just Value$/i.test(s)) return { label: "County market value", note: "The county property appraiser's “just value”: its assessed market value, not an appraisal and not a sale price." };
+  return { label: s, note: "" };
+}
+function plainPhase(phase) {
+  const s = String(phase || "");
+  if (s === "Lands Available list · over the counter") return "Buy directly from the county, no auction";
+  return s.replace(/ · not verified available now$/, " · availability now not confirmed");
+}
 
 const valueRatio = p => (Number(p.bid) > 0 ? marketOf(p) / Number(p.bid) : 0);
 // Florida only: the filter match leans on manual lien notes, which Texas rows
@@ -3633,6 +3716,7 @@ function setAuthMode(mode) {
   if (passwordConfirmEl) passwordConfirmEl.removeAttribute("aria-invalid");
   if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = ""; }
   showResendConfirmation(false);
+  syncAuthModeTabs(signUp);
 }
 if (authModeToggle) {
   authModeToggle.addEventListener("click", () => setAuthMode(authMode === "signin" ? "signup" : "signin"));
@@ -4003,7 +4087,7 @@ function renderOAuthButtons() {
   block.id = "oauthBlock";
   block.innerHTML = '<div class="oauth-buttons">' + providers.map(p =>
     `<button type="button" class="oauth-btn" data-oauth="${p}">${OAUTH_PROVIDERS[p].icon}<span>Continue with ${OAUTH_PROVIDERS[p].label}</span></button>`).join("") +
-    '</div><p class="oauth-note">New accounts wait for approval, whichever way you sign up.</p>' +
+    '</div><p class="oauth-note">New accounts get an instant preview, and full access once approved - whichever way you sign up.</p>' +
     '<p class="oauth-or"><span>or use your email</span></p>';
   form.parentNode.insertBefore(block, form);
   block.addEventListener("click", e => {
@@ -4056,10 +4140,13 @@ function providerNameParts(meta) {
   };
 }
 function renderPendingDetails() {
-  const card = pendingGate && pendingGate.querySelector(".auth-card");
+  // The preview app's banner holds the form (#pendingDetailsSlot, open while
+  // details are missing); the plain card is the fallback.
+  const card = pendingGate && (pendingGate.querySelector("#pendingDetailsSlot") || pendingGate.querySelector(".auth-card"));
   const old = document.getElementById("pendingDetails");
   const meta = (ME && ME.user_metadata) || {};
-  if (!card || !ME || !pendingDetailsMissing(meta)) { if (old) old.remove(); return; }
+  if (!card || !ME || !pendingDetailsMissing(meta)) { if (old) old.remove(); syncPreviewDetailsToggle(false); return; }
+  syncPreviewDetailsToggle(true);
   if (old) return;
   const guess = providerNameParts(meta);
   const val = k => String(meta[k] || guess[k] || "").trim();
@@ -4071,7 +4158,7 @@ function renderPendingDetails() {
       `<label class="auth-field"><span>${label}</span><input type="${type}" name="${k}" autocomplete="${ac}" maxlength="200" required value="${esc(val(k))}"></label>`).join("") +
     '<button type="submit">Save details</button><div class="auth-msg" id="pendingDetailsMsg" aria-live="polite"></div>';
   const signOut = document.getElementById("pendingSignOutBtn");
-  card.insertBefore(form, signOut || null);
+  card.insertBefore(form, signOut && signOut.parentNode === card ? signOut : null);
   form.addEventListener("submit", async e => {
     e.preventDefault();
     const msg = document.getElementById("pendingDetailsMsg");
@@ -4095,6 +4182,7 @@ function renderPendingDetails() {
     if (res && res.user) ME = res.user;
     refreshAccountBadge();
     form.innerHTML = '<p class="pending-details-lead">Details saved. You will get access once your account is approved.</p>';
+    syncPreviewDetailsToggle(false, true);
   });
 }
 
@@ -4143,11 +4231,17 @@ async function doSignOut(reason) {
   location.reload();
 }
 
+// An account waiting for approval (or one whose approval could not be read)
+// no longer meets a dead end: #pendingGate holds the Free preview app
+// (renderPreviewApp, "New customers" section at the end of this file) - the
+// banner, real listings with every identifying value blurred, the Buyer's
+// Guide, and the details form. #app stays hidden: it reads nothing.
 function showPending() {
   stopIdleWatch();
   if (gate) gate.hidden = true;
   if (app) app.hidden = true;
   if (pendingGate) pendingGate.hidden = false;
+  try { renderPreviewApp(); } catch (e) { (window.__tdwBootErrors = window.__tdwBootErrors || []).push("preview: " + (e && e.message)); }
   renderPendingDetails();
 }
 
@@ -4181,6 +4275,8 @@ async function checkApprovalAndEnter(session) {
     if (missingTable) {
       console.warn("profiles table not found (schema-v6-approvals.sql not run yet?) - falling back to pre-approval-gate behavior.", error);
       IS_ADMIN = false;
+      // Pre-gate behaviour: everyone signed in reads the full record.
+      ACCESS = { role: "tester", state: "tester_beta", source: "legacy", entitlement: null };
       showApp();
       return;
     }
@@ -4209,13 +4305,13 @@ async function checkApprovalAndEnter(session) {
   const ent = await readEntitlement();
   if (ent) {
     ACCESS = { role: ent.role, state: ent.state, source: "entitlement", entitlement: ent };
-    if (ent.access) { showApp(); afterEntryBillingRoute(); }
+    if (ent.access) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); }
     else showPlanOrPending(ent);
     return;
   }
   const approved = !!(profile && profile.approved);
   ACCESS = { role: IS_ADMIN ? "admin" : approved ? "tester" : "inactive", state: IS_ADMIN ? "admin_override" : approved ? "tester_beta" : "inactive", source: "legacy", entitlement: null };
-  if (approved) { showApp(); afterEntryBillingRoute(); }
+  if (approved) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); }
   else showPlanOrPending(null);
 }
 
@@ -5906,7 +6002,9 @@ function kickerParts(p) {
 function cardKickerHtml(p, showCounty, ctx) {
   if (showCounty && typeof showCounty === "object") { ctx = showCounty; showCounty = false; }
   const c = ctx || {};
-  const { type, phase, cls } = kickerParts(p);
+  const { type, cls } = kickerParts(p);
+  // { plain } (2026-11-12): the Merged cards spell out the trade shorthand.
+  const phase = c.plain ? plainPhase(kickerParts(p).phase) : kickerParts(p).phase;
   // Phase 66: county + state always lead the line, not only in flat lists -
   // the card has to stand on its own in the watchlist modal, in search
   // results and in a screenshot, where the county group header isn't there
@@ -6288,12 +6386,14 @@ function cardStamp(p) {
   if (p.source === "laft") {
     if (isGone(p)) return { key: "gone", cls: "stamp-closed", label: "No longer listed", title: GONE_STATUS_CAVEAT };
     // Only an admin ever sees an unconfirmed record (customers are not shown it).
+    // Plain language (owner, 2026-11-12): each label says WHAT is or is not
+    // confirmed. Keys and titles are unchanged.
     const unc = IS_ADMIN && unconfirmedAvailable(p);
-    if (unc) return { key: "unconfirmed", cls: "stamp-closed", label: unc.never ? "Never confirmed" : "Not confirmed", title: `${unconfirmedText(unc)} · withheld from customers` };
+    if (unc) return { key: "unconfirmed", cls: "stamp-closed", label: unc.never ? "Listing never confirmed by source" : "Listing not re-confirmed by source", title: `${unconfirmedText(unc)} · withheld from customers` };
     const a = acquisitionOf(p);
-    if (a.verified && a.mode !== "none") return { key: "verified", cls: "stamp-verified", label: "Verified path", title: "How to acquire was read from the source's own page or document" };
+    if (a.verified && a.mode !== "none") return { key: "verified", cls: "stamp-verified", label: "How to buy: confirmed", title: "How to acquire was read from the source's own page or document" };
     if (isDatedList(p)) return { key: "dated", cls: "stamp-muted", label: "Dated list", title: datedListText(p) + " - not verified available now" };
-    return { key: "unverified", cls: "stamp-muted", label: "Path not yet verified", title: "No verified acquisition path on file for this record" };
+    return { key: "unverified", cls: "stamp-muted", label: "How to buy: not yet confirmed", title: "No verified acquisition path on file for this record" };
   }
   if (p.source === "certificate") {
     const s = String(p.inventory_status || "");
@@ -8113,9 +8213,27 @@ function guideCountyRows(county) {
 // start on #/guide): draw it again once this county's rows are in.
 window.addEventListener("tdw:ledgersupdated", () => {
   const sec = document.getElementById("pageGuide");
-  if (!sec || sec.hidden || !GUIDE_PAGE.county || (GUIDE_PAGE.ledger || "AVAILABLE") !== "AVAILABLE") return;
+  if (!sec || sec.hidden) return;
+  // The "Next step" count arrives with the rows (2026-11-12).
+  if (guideLedgerCount(GUIDE_PAGE.ledger || "AVAILABLE", GUIDE_PAGE.county) !== GUIDE_PAGE.shownCount) { renderGuidePage(); return; }
+  if (!GUIDE_PAGE.county || (GUIDE_PAGE.ledger || "AVAILABLE") !== "AVAILABLE") return;
   if (guideCountyRows(GUIDE_PAGE.county).length !== GUIDE_PAGE.procRows) renderGuidePage();
 });
+var GUIDE_LEDGER_SOURCE = { AUCTIONS: "auction", AVAILABLE: "laft", LIENS_CERTIFICATES: "certificate" };
+// A ledger's listing count for the guide, counted exactly as the header counts
+// (renderLedgerCounts), optionally for one county; null until that ledger has
+// settled, so the guide never shows a partial or invented number.
+function guideLedgerCount(ledger, county) {
+  const k = GUIDE_LEDGER_SOURCE[ledger];
+  if (!k || !PROPERTIES_LOADED || !ledgerSettled(k) || LEDGER_LOAD[k] === "error") return null;
+  let n = 0;
+  ALL.forEach(p => {
+    if (p.source !== k || (county && p.county !== county)) return;
+    if (isPastDue(p) || HIDDEN.has(p.id) || goneExpired(p) || !isCurrentListing(p)) return;
+    n++;
+  });
+  return n;
+}
 function guideCountyProcessHtml(county) {
   if (!county) return "";
   const rows = guideCountyRows(county);
@@ -8158,6 +8276,10 @@ function renderGuidePage() {
     countyProcessHtml: c => guideCountyProcessHtml(c),
     esc, fmtDate: d => (typeof fmtDate === "function" ? fmtDate(String(d).slice(0, 10)) : String(d)),
     navigate: ({ ledger, county }) => { GUIDE_PAGE.ledger = ledger || GUIDE_PAGE.ledger; GUIDE_PAGE.county = county || null; syncPageHash(); renderGuidePage(); },
+    // The guide's "Next step" (2026-11-12): the ledger's count, by the header
+    // counts' own rule, or null while that ledger is still loading - never a guess.
+    count: (ledger, county) => { const n = guideLedgerCount(ledger, county); if (ledger === GUIDE_PAGE.ledger && (county || null) === (GUIDE_PAGE.county || null)) GUIDE_PAGE.shownCount = n; return n; },
+    openList: (ledger, county) => { const k = GUIDE_LEDGER_SOURCE[ledger]; if (!k) return; goToLedger(k); applyCountySelection(county && ALL_COUNTIES.includes(county) ? county : "ALL"); window.scrollTo({ top: 0, behavior: "auto" }); },
   };
   import("./buyers-guide.js").then(m => m.render(sec, ctx)).then(r => { window.__tdwGuideLast = r || null; }).catch(err => {
     (window.__tdwBootErrors = window.__tdwBootErrors || []).push("buyers-guide: " + (err && err.message));
@@ -11079,7 +11201,10 @@ function detailHtml(p) {
     ["Clerk of Courts", p.url_clerk],
     ["GIS Map", p.url_gis]
   ].filter(([, href]) => href);
-  const detailStreet = isCert ? "" : realAddress(p);
+  // A legal description published in the address column is never the
+  // title (2026-11-12); it stays on the record, under the title.
+  const detailStreet = isCert ? "" : cardAddress(p);
+  const legalAsAddress = !isCert && !detailStreet && realAddress(p) ? realAddress(p) : "";
   const title = isCert ? `Certificate #${esc(p.certificate_no || "Unknown")}` :
     (detailStreet ? esc(detailStreet) : lotTitle(p));
   const bidPublished = hasPublishedBid(p);
@@ -11203,6 +11328,7 @@ function detailHtml(p) {
       <div class="detail-id">
         <div class="prop-county-tag">${esc(unitLabelOf(p.county))}, ${esc(regionOf(p))}${isCert ? " · Certificate" : (p.source === "laft" ? (isDatedList(p) ? " · Adjudicated (dated list)" : regionOf(p) === "TX" ? " · Struck-off inventory" : regionOf(p) === "FL" ? " · Lands Available" : " · " + esc(availableProgram(p))) : " · Auction")}</div>
         <h2 class="detail-address">${title}</h2>
+        ${legalAsAddress ? `<p class="detail-addr-published"><span>Address as the county published it</span> ${esc(legalAsAddress)}</p>` : ""}
         ${detailKeyFigureHtml(p, stamp ? cardStampHtml(stamp) : "")}
         <div class="prop-top-actions">
           ${/* a row with no listing status gets no pill here: the status band and
@@ -11501,7 +11627,46 @@ function restoreModalFocus() {
 function detailPanelOnList() {
   let page;
   try { page = shellPage; } catch { page = "list"; }
+  // Investor sprint (owner, 2026-11-12: the property cards "front and
+  // center"): under Merged the List keeps its full width and a record opens
+  // wide (wideRecordOn) instead of in the 420px side panel.
+  if (document.documentElement.dataset.look === "merged") return false;
   return page === "list" && !!(window.matchMedia && window.matchMedia("(min-width:1280px)").matches);
+}
+// The wide record (Merged, desktop >= 1024px): one ~1100px sheet in two
+// columns - the picture, the key facts and How to acquire on the left, every
+// other section on the right. A phone keeps the full-screen sheet and its
+// floating source bar. Nothing is added or removed: the same nodes move into
+// two column wrappers.
+function wideRecordOn() {
+  return document.documentElement.dataset.look === "merged" && !!(window.matchMedia && window.matchMedia("(min-width:1024px)").matches);
+}
+function layoutWideRecord(inner) {
+  const modal = document.getElementById("detailModal");
+  const on = wideRecordOn();
+  if (modal) modal.classList.toggle("detail-modal-wide", on);
+  inner.classList.toggle("detail-wide", on);
+  if (!on) return;
+  const left = document.createElement("div");
+  left.className = "detail-col detail-col-main";
+  const right = document.createElement("div");
+  right.className = "detail-col detail-col-more";
+  const keep = new Set(["detail-close", "detail-topbar", "detail-float"]);
+  const kids = Array.from(inner.children).filter(el => ![...el.classList].some(c => keep.has(c)));
+  const first = inner.querySelector(":scope > .detail-first");
+  const acquire = inner.querySelector(':scope > .detail-section[data-section="acquire"]');
+  // The sale / list link (.detail-cta) is a first-screen fact: it stays with
+  // the picture and key facts, right under them.
+  const ctas = kids.filter(el => el.classList.contains("detail-cta"));
+  if (first) left.appendChild(first);
+  ctas.forEach(el => left.appendChild(el));
+  if (acquire) left.appendChild(acquire);
+  kids.forEach(el => { if (el !== first && el !== acquire && !ctas.includes(el)) right.appendChild(el); });
+  const cols = document.createElement("div");
+  cols.className = "detail-cols";
+  cols.append(left, right);
+  const float = inner.querySelector(":scope > .detail-float");
+  if (float) inner.insertBefore(cols, float); else inner.appendChild(cols);
 }
 function openDetail(p) {
   const modal = document.getElementById("detailModal");
@@ -11525,6 +11690,7 @@ function openDetail(p) {
   // The Free preview withholds the address and the source, so it gets no bar.
   inner.innerHTML = detailHtml(p) + (pageTier() === "free" ? "" : recordFloatHtml(p));
   collapseSecondaryOnPhone(inner);
+  layoutWideRecord(inner);
   inner.dataset.pid = String(p.id);
   ensureFullProvenance(p);
   hydrateVisuals(inner);
@@ -13628,6 +13794,18 @@ window.addEventListener("hashchange", () => {
     else if (shellPage !== "county" || COUNTY_PAGE.view !== "index") openCountyIndex();
   } else if (r.page === "watchlist") {
     if (shellPage !== "watchlist") showPage("watchlist");
+  } else if (r.page === "guide") {
+    // Buyer's Guide sprint (2026-11-12): #/guide typed or linked while a record
+    // was open left the List showing under a #/guide address - this route had
+    // no branch. The property modal's own popstate has already closed it (the
+    // browser fires popstate before hashchange); if it is somehow still open it
+    // is closed here WITHOUT history.back(), which would undo this very entry.
+    // The desktop side panel is cleared so Back lands on the plain list.
+    const modal = document.getElementById("detailModal");
+    if (modal && !modal.hidden) { popping = true; try { closeDetail(); } finally { popping = false; } }
+    if (selectedPid != null) clearDetailPanel();   // the hash is #/guide, so it is left alone
+    const led = r.guideLedger || null, c = r.county || null;
+    if (shellPage !== "guide" || GUIDE_PAGE.county !== c || (led && GUIDE_PAGE.ledger !== led)) openGuidePage(c, led);
   }
 });
 
@@ -15037,6 +15215,8 @@ function openRecoveryModal() {
   const lbl = document.querySelector("#recoveryForm label span");
   if (lbl) lbl.textContent = `New password (at least ${MIN_PASSWORD_LENGTH} characters)`;
   if (msg) { msg.textContent = ""; msg.className = "auth-msg"; }
+  // The new-password form is never covered by the first-run welcome.
+  if (typeof closeWelcome === "function") closeWelcome(false);
   recoveryUi.open();
 }
 (function () {
@@ -16102,7 +16282,7 @@ document.addEventListener("click", e => {
   const tr = e.target.closest(".data-table tbody tr[data-pid]");
   if (!tr) return;
   const p = ALL.find(x => String(x.id) === String(tr.dataset.pid));
-  if (p) selectProperty(p);
+  if (p) { if (detailPanelOnList()) selectProperty(p); else openDetail(p); }
 });
 
 // ---- persistent detail panel (desktop) ----
@@ -16135,6 +16315,8 @@ function clearDetailPanel() {
 function selectProperty(p) {
   const panel = document.getElementById("detailPanel");
   if (!panel || !p) return;
+  // Under Merged the panel is the list's summary strip, never a record.
+  if (document.documentElement.dataset.look === "merged") { openDetail(p); return; }
   if (selectedPid !== p.id) track("property_viewed", { property_id: p.id, ledger: p.source, surface: "panel" });
   selectedPid = p.id;
   try { history.replaceState(history.state, "", "#/" + (LEDGERS[p.source] || LEDGERS[state.ledger]).slug + "/" + p.id); } catch { /* file:// etc */ }
@@ -18067,6 +18249,8 @@ function experienceApi() {
     availableProgram, acquisitionOf, officialStatusText, esc, recordSourceLink,
     auctionOutcomeState, isGone, isDatedList, cardStamp,
     countyNowBarHtml, installCountyNowBar, hideCountyNowBar, countyLineHtml,
+    // Investor sprint (2026-11-12): one card title rule and plain labels.
+    cardTitle: cardTitleOf, plainValueLabel, plainPhase, infoBubbleHtml,
     listCardCtx: () => LIST_CARD_CTX,
     isWatched: id => BIDLIST.has(id),
     isFavorite: id => FAVS.has(id),
@@ -18207,6 +18391,17 @@ function countyNowSetList(open) {
   bar.classList.toggle("open", open);
   if (open) { const cur = list.querySelector('[aria-current="true"]'); if (cur) { try { cur.scrollIntoView({ block: "nearest" }); } catch {} } }
 }
+function countyNowTailRoom(y) {
+  const scope = COUNTY_BAR.scope;
+  if (!scope || !scope.isConnected) return;
+  let tail = scope.querySelector(":scope > .cnb-tail");
+  const doc = document.documentElement;
+  const have = tail ? tail.offsetHeight : 0;
+  const short = Math.ceil(y - (doc.scrollHeight - have - window.innerHeight));
+  if (short <= 0) { if (tail) tail.style.height = "0px"; return; }
+  if (!tail) { tail = document.createElement("div"); tail.className = "cnb-tail"; tail.setAttribute("aria-hidden", "true"); scope.appendChild(tail); }
+  tail.style.height = short + "px";
+}
 function countyNowGo(k) {
   const b = COUNTY_BAR, n = b.names.length;
   if (!n || k < -n) return;
@@ -18224,6 +18419,10 @@ function countyNowGo(k) {
   if (typeof b.beforeJump === "function") { try { b.beforeJump(h); } catch {} }
   // Scrolling only moves the page: a county the reader closed stays closed.
   const target = () => h.getBoundingClientRect().top + window.scrollY - countyNowLine() + 4;
+  // A short list (the last county near the page end) cannot scroll far
+  // enough to bring its head under the bar: a spacer after the list gives
+  // the page that room (sprint 2026-11-12, slimmer county sections).
+  countyNowTailRoom(target());
   const y = target();
   try { window.scrollTo({ top: Math.max(0, y), behavior: reduce ? "auto" : "smooth" }); } catch { window.scrollTo(0, Math.max(0, y)); }
   // Once the scroll has settled, measure the head again and correct once if
@@ -18430,6 +18629,12 @@ function applyExperience(name, persist) {
   if (persist) { try { localStorage.setItem(EXPERIENCE_KEY, name); } catch {} }
   EXPERIENCE_CHOICE = name;
   document.documentElement.dataset.look = name;
+  // Merged has no record in the side panel (it opens wide): a record shown
+  // there under Classic moves to the wide sheet.
+  if (name === "merged" && selectedPid != null) {
+    const cur = ALL.find(x => String(x.id) === String(selectedPid));
+    try { clearDetailPanel(); if (cur) openDetail(cur); } catch {}
+  }
   const last = window.__tdwLastRender;
   const engine = engineFor(name, last && last.ledger === "laft" || last && last.ledger === "certificate" ? last.ledger : "auction");
   syncLookButton();
@@ -18835,7 +19040,28 @@ installShellV3();
 var PAGE_TIER_KEY = "tdw_page_tier_v1";
 var PAGE_TIERS = ["free", "beginner", "pro"];
 var PAGE_TIER_LABELS = { free: "Free preview", beginner: "Guided", pro: "Full record" };
-function canSwitchTier() { return !!IS_ADMIN || (ACCESS && (ACCESS.role === "tester" || ACCESS.role === "admin")); }
+// ---- Tiers at login (owner, 2026-11-12) - THE one mapping from access to tier ----
+//   signed in, not approved (pending / inactive) -> "free" (Free preview: the
+//       preview app in #pendingGate; nothing hidden is ever sent to it)
+//   approved (tester / customer / admin)         -> "pro" (Full record), and
+//       every approved account may switch between Guided and Full record
+//   admins and testers may also pick Free preview, to see what a free
+//       account sees.
+// Billing (migration 027, not applied): when my_entitlement() answers, ACCESS
+// carries the server's role / scope (ACCESS.entitlement). A paid plan that
+// buys a specific tier maps HERE - e.g. an entitlement plan_key -> "beginner"
+// or "pro" - and nowhere else; until then an entitled customer gets "pro".
+function accountTier() {
+  if (IS_ADMIN) return "pro";
+  const role = ACCESS && ACCESS.role;
+  if (role === "admin" || role === "tester" || role === "customer") return "pro";
+  return "free";
+}
+function tiersSelectable() {
+  if (IS_ADMIN || (ACCESS && (ACCESS.role === "admin" || ACCESS.role === "tester"))) return PAGE_TIERS.slice();
+  return accountTier() === "pro" ? ["beginner", "pro"] : ["free"];
+}
+function canSwitchTier() { return tiersSelectable().length > 1; }
 var PAGE_TIER_SESSION_KEY = "tdw_page_tier_chosen_v1";
 // A fresh page load that names ?tier= is an explicit choice: it replaces a
 // choice made earlier in this tab. Only a Back inside the app (no reload)
@@ -18848,18 +19074,26 @@ function pageTier() {
   // still carries ?tier=; a choice made on the page (this session) wins.
   let chosen = null;
   try { chosen = sessionStorage.getItem(PAGE_TIER_SESSION_KEY); } catch { chosen = null; }
-  if (PAGE_TIERS.includes(chosen) && canSwitchTier()) return chosen;
-  if (PAGE_TIERS.includes(q)) return q;
-  if (!canSwitchTier()) return "pro";
-  try { const s = localStorage.getItem(PAGE_TIER_KEY); if (PAGE_TIERS.includes(s)) return s; } catch { /* storage off */ }
-  return "pro";
+  // Only a tier this account may hold is ever returned (a ?tier=free from a
+  // customer, or a stored choice from another account, is ignored).
+  const allowed = tiersSelectable();
+  if (allowed.includes(chosen)) return chosen;
+  if (allowed.includes(q)) return q;
+  if (allowed.length > 1) {
+    try { const s = localStorage.getItem(PAGE_TIER_KEY); if (allowed.includes(s)) return s; } catch { /* storage off */ }
+  }
+  const base = accountTier();
+  return allowed.includes(base) ? base : allowed[allowed.length - 1];
 }
 function tierSwitchHtml(tier) {
-  if (!canSwitchTier()) return "";
-  // Testers only, kept compact (2026-11-10): one small row beside the
-  // breadcrumb; the note is still in the DOM (screen readers, tooltip).
-  return `<div class="tier-switch" role="group" aria-label="Page view (testing - accounts carry no tier yet)" title="Testing - accounts carry no tier yet"><span class="tier-switch-label">View</span>${PAGE_TIERS.map(t =>
-    `<button type="button" class="tier-btn${t === tier ? " on" : ""}" data-tier-set="${t}" aria-pressed="${t === tier}">${esc(PAGE_TIER_LABELS[t])}</button>`).join("")}<span class="tier-switch-note">testing - accounts carry no tier yet</span></div>`;
+  const allowed = tiersSelectable();
+  if (allowed.length < 2) return "";
+  // Kept compact (2026-11-10): one small row beside the breadcrumb. Admins
+  // and testers also get Free preview, with a note saying what it is.
+  const staff = allowed.includes("free");
+  const note = staff ? "Free preview = what an account awaiting approval sees" : "Guided walks you through it; Full record shows everything";
+  return `<div class="tier-switch" role="group" aria-label="Page view" title="${esc(note)}"><span class="tier-switch-label">View</span>${allowed.map(t =>
+    `<button type="button" class="tier-btn${t === tier ? " on" : ""}" data-tier-set="${t}" aria-pressed="${t === tier}">${esc(PAGE_TIER_LABELS[t])}</button>`).join("")}<span class="tier-switch-note">${esc(note)}</span></div>`;
 }
 function tierLandUse(p) {
   if (p.prop_type) return String(p.prop_type);
@@ -18941,8 +19175,11 @@ function tierTitle(p) {
 // ---- Free preview ----
 var TIER_BLUR = { short: "██████", money: "$██,███", line: "████ ██████ ████████ ██", long: "████████ ███ ██████ ████ ████████ ███ █████" };
 function blurCell(kind) { return `<span class="tier-blur" aria-hidden="true">${TIER_BLUR[kind] || TIER_BLUR.line}</span><span class="sr-only">Hidden in the free preview</span>`; }
-function freeDetailHtml(p) {
+function freeDetailHtml(p, opts) {
   const isCert = p.source === "certificate";
+  // The preview app (an account awaiting approval) reads only the safe
+  // preview fields; its call to action is the approval, not a sales contact.
+  const preview = !!(opts && opts.preview);
   const facts = [tierLandUse(p), isCert ? "" : tierSize(p)].filter(Boolean);
   const rows = [];
   rows.push([isCert ? "Account" : "Address", blurCell("line")]);
@@ -18964,14 +19201,22 @@ function freeDetailHtml(p) {
     <h2 class="detail-address">${isCert ? "A tax lien certificate" : "A property"} in ${esc(unitLabelOf(p.county))}</h2>
     ${facts.length ? `<div class="tier-facts">${facts.map(f => `<span>${esc(f)}</span>`).join("")}</div>` : ""}
     <dl class="tier-free-rows">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>
-    <div class="tier-unlock">
+    ${preview ? `<div class="tier-unlock" data-unlock="approval">
+      <b>Unlocks when your account is approved</b>
+      <ul>
+        <li>The address, the parcel and the ${esc(isCert ? "certificate amount" : p.source === "auction" ? "opening bid" : "price")}</li>
+        <li><b>How to acquire</b> it, with the link to the official source</li>
+        <li><b>Guided</b> - a step-by-step checklist from listing to deed - and your watchlist and notes</li>
+      </ul>
+      <button type="button" class="detail-btn tier-unlock-btn" data-pv-close>Back to the preview</button>
+    </div>` : `<div class="tier-unlock">
       <b>See what you could buy</b>
       <ul>
         <li><b>Guided</b> - the address, the price and a step-by-step checklist from listing to deed.</li>
         <li><b>Pro</b> - the full record: values, history, sources, documents and every open question.</li>
       </ul>
       <button type="button" class="detail-btn tier-unlock-btn" data-action="support" data-topic="support" data-pid="${esc(p.id)}">Ask about access</button>
-    </div>
+    </div>`}
   </div>`;
 }
 
@@ -19416,3 +19661,457 @@ function proCleanupHtml(html) {
   return out;
 }
 window.__tdwOpenQuestions = () => Array.from(document.querySelectorAll('#detailModalInner .open-q li, #detailPanel .open-q li')).map(li => li.querySelector("b").textContent);
+
+// ==================== New customers (owner, 2026-11-12) ====================
+// "As soon as you log in ... if it's free, you should automatically be able to
+// see blurred out items and not have the links." Three parts:
+//   1. the Free preview app for an account waiting for approval (in
+//      #pendingGate; #app stays hidden and reads nothing): a banner with what
+//      unlocks and the details form, the real lists in preview form from
+//      get_preview_listings() (migration 039 - safe fields only, never an
+//      address, parcel, amount, link or provenance), the Free preview record
+//      (freeDetailHtml) on open, the Buyer's Guide, and the locked features;
+//   2. a first-run welcome (three steps), once per account in this browser,
+//      re-openable from the account menu ("How TAXACQ works");
+//   3. the sign-in screen's Sign in / Create account choice at equal weight.
+// Without migration 039 the preview says plainly that the list is coming;
+// everything else works. `var` + function declarations only (TDZ).
+var PREVIEW_LEDGERS = [
+  { key: "laft", ledger: "buy", label: "Available", guide: "AVAILABLE" },
+  { key: "auction", ledger: "auctions", label: "Auctions", guide: "AUCTIONS" },
+  { key: "certificate", ledger: "lien", label: "Liens & Certificates", guide: "LIENS_CERTIFICATES" }
+];
+var PREVIEW_PAGE_SIZE = 60;
+var PREVIEW = { built: false, tab: "laft", lastList: "laft", rpc: null, rows: {}, more: {}, loading: {}, guideLedger: null, guideCounty: null, opener: null, welcomeForced: false };
+function previewLedger(key) { return PREVIEW_LEDGERS.find(l => l.key === key) || PREVIEW_LEDGERS[0]; }
+function previewStateName() { return (STATE_META[PAGE_STATE] || {}).name || PAGE_STATE; }
+// A preview row as the record helpers read a property - only the safe fields
+// exist on it, so nothing else can reach the page.
+function previewRowToProp(r) {
+  return { id: String(r.preview_id), state: r.state || PAGE_STATE, county: r.county || "", source: r.source,
+    source_id: r.source_id || null, prop_type: r.land_use || null, dor_use_code: r.dor_use_code || null,
+    acreage: r.acreage, lot_sqft: r.lot_sqft, sale_month: r.sale_month || null, preview: true };
+}
+function previewMonth(d) {
+  const m = /^(\d{4})-(\d{2})/.exec(String(d || ""));
+  if (!m) return "";
+  return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, 1)).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+}
+function previewKind(p) {
+  try { return tierKind(p); } catch { return previewLedger(p.source).label; }
+}
+function pvFacts(p) {
+  const out = [];
+  try { const u = tierLandUse(p); if (u) out.push(u); } catch { /* no label */ }
+  if (p.source !== "certificate") { try { const s = tierSize(p); if (s) out.push(s); } catch { /* no size */ } }
+  if (p.source === "auction" && p.sale_month) out.push("Sale in " + previewMonth(p.sale_month));
+  return out;
+}
+var PV_LOCK_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="1"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>';
+var PV_LOCKED = [
+  ["watchlist", "Watchlist", "Save up to 10 properties and see what changed since you last looked."],
+  ["notes", "Notes & checklist", "Keep your own notes and due-diligence ticks on each property."],
+  ["export", "Export", "Download a list as a spreadsheet (CSV)."]
+];
+function previewShellHtml() {
+  const legal = '<a href="terms.html">Terms of Service</a> · <a href="privacy.html">Privacy Policy</a> · <a href="acceptable-use.html">Acceptable Use</a> · <a href="source-disclaimer.html">Source &amp; research disclaimer</a>';
+  const states = STATE_CODES.map(st => `<option value="${esc(st)}"${st === PAGE_STATE ? " selected" : ""}>${esc(STATE_META[st].name)}</option>`).join("");
+  const tabs = PREVIEW_LEDGERS.map(l => `<button type="button" class="pv-tab" data-pv-tab="${l.key}" data-ledger="${l.key}">${esc(l.label)}</button>`).join("") +
+    '<button type="button" class="pv-tab" data-pv-tab="guide">Buyer\'s Guide</button>';
+  return `<div class="pv-shell" id="previewShell" data-tier="free">
+  <header class="pv-top">
+    <span class="pv-brand"><img src="icons/icon-192.png?v=3" width="32" height="32" alt="" aria-hidden="true"><span>TAXACQ</span></span>
+    <span class="pv-tier-chip" title="Your view until your account is approved">${esc(PAGE_TIER_LABELS.free)}</span>
+    <label class="pv-state"><span class="sr-only">State</span><select id="pvStateSelect" aria-label="State">${states}</select></label>
+    <div class="pv-account">
+      <button type="button" class="pv-account-btn" id="pvAccountBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="pvMenu">Account</button>
+      <div class="pv-menu" id="pvMenu" role="menu" hidden>
+        <p class="pv-menu-email" id="pvAccountEmail"></p>
+        <button type="button" class="pv-menu-item" role="menuitem" data-pv-act="welcome">How TAXACQ works</button>
+        <button type="button" class="pv-menu-item" role="menuitem" data-pv-act="details" id="pvMenuDetails" hidden>Your details</button>
+        <button type="button" class="pv-menu-item" role="menuitem" data-pv-act="theme">Theme: <span id="pvThemeLabel">${esc(THEME_LABEL[themeMode] || "Auto")}</span></button>
+        <button type="button" class="pv-menu-item pv-danger" role="menuitem" id="pendingSignOutBtn">Sign out</button>
+      </div>
+    </div>
+  </header>
+  <section class="pv-banner" id="previewBanner" aria-labelledby="pvBannerTitle">
+    <div class="pv-banner-main">
+    <h1 class="auth-lead pv-banner-title" id="pvBannerTitle">Your account is waiting for approval. Here's a preview of what's inside.</h1>
+    <p class="pv-banner-sub">We have been notified and will e-mail you when it is approved - no need to sign up again. Until then, each listing shows what kind of property it is and where; the details stay blurred.</p>
+    <div class="pv-unlocks"><b>Unlocks when you are approved</b>
+      <ul><li>The address, parcel and price of every listing</li><li>How to acquire it, with the link to the official source</li><li>Guided view: a checklist from listing to deed</li><li>Watchlist, notes and export</li></ul></div>
+    </div>
+    <div class="pv-banner-side">
+    <button type="button" class="pv-details-toggle" id="pvDetailsToggle" aria-expanded="false" aria-controls="pvDetailsPanel" hidden>Add your details so we can review your account</button>
+    <div class="pv-details-panel" id="pvDetailsPanel" hidden><div id="pendingDetailsSlot"></div></div>
+    </div>
+  </section>
+  <div id="pvWelcome"></div>
+  <nav class="pv-tabs" id="pvTabs" aria-label="Preview">${tabs}</nav>
+  <main class="pv-main" id="previewMain">
+    <div id="pvListRoot" aria-live="polite"></div>
+    <div id="pvGuideRoot" hidden></div>
+  </main>
+  <section class="pv-locked" id="pvLocked" aria-labelledby="pvLockedHead">
+    <h2 id="pvLockedHead">Unlocks with approval</h2>
+    <ul>${PV_LOCKED.map(([k, t, d]) => `<li><button type="button" class="pv-lock" data-pv-locked="${k}" aria-disabled="true" aria-describedby="pvLockDesc-${k}">${PV_LOCK_SVG}<span>${esc(t)}</span></button><span class="pv-lock-desc" id="pvLockDesc-${k}">${esc(d)}</span></li>`).join("")}</ul>
+    <p class="pv-locked-note" id="pvLockedNote" role="status"></p>
+  </section>
+  <p class="auth-legal-links pv-legal">${legal}</p>
+  <div class="pv-detail" id="previewDetail" role="dialog" aria-modal="true" aria-label="Property preview" hidden><div class="pv-detail-inner" id="previewDetailInner"></div></div>
+</div>`;
+}
+function renderPreviewApp() {
+  if (!pendingGate) return;
+  if (!PREVIEW.built) {
+    pendingGate.innerHTML = previewShellHtml();
+    pendingGate.classList.add("pv-on");
+    wirePreview();
+    PREVIEW.built = true;
+  }
+  const em = document.getElementById("pvAccountEmail");
+  if (em) em.textContent = (ME && ME.email) || "";
+  renderPreviewWelcome();
+  showPreviewTab(PREVIEW.tab);
+}
+// The details form lives in the banner; it is open while details are missing.
+function syncPreviewDetailsToggle(missing, keepOpen) {
+  const t = document.getElementById("pvDetailsToggle"), panel = document.getElementById("pvDetailsPanel"), item = document.getElementById("pvMenuDetails");
+  if (!t || !panel) return;
+  if (missing) { t.hidden = false; panel.hidden = false; t.setAttribute("aria-expanded", "true"); if (item) item.hidden = false; }
+  else if (!keepOpen) { t.hidden = true; panel.hidden = true; t.setAttribute("aria-expanded", "false"); if (item) item.hidden = true; }
+  else { t.hidden = true; if (item) item.hidden = true; }
+}
+function wirePreview() {
+  const shell = document.getElementById("previewShell");
+  if (!shell) return;
+  const out = document.getElementById("pendingSignOutBtn");
+  if (out) out.addEventListener("click", () => doSignOut(null));
+  const sel = document.getElementById("pvStateSelect");
+  if (sel) sel.addEventListener("change", () => { if (STATE_META[sel.value] && sel.value !== PAGE_STATE) location.href = stateSwitchHref(sel.value); });
+  const btn = document.getElementById("pvAccountBtn"), menu = document.getElementById("pvMenu");
+  const closeMenu = () => { if (menu && !menu.hidden) { menu.hidden = true; btn.setAttribute("aria-expanded", "false"); } };
+  if (btn && menu) {
+    btn.addEventListener("click", e => { e.stopPropagation(); menu.hidden = !menu.hidden; btn.setAttribute("aria-expanded", String(!menu.hidden)); });
+    document.addEventListener("click", e => { if (!e.target.closest || !e.target.closest(".pv-account")) closeMenu(); });
+  }
+  shell.addEventListener("click", e => {
+    const t = e.target && e.target.closest ? e.target : null;
+    if (!t) return;
+    const tab = t.closest("[data-pv-tab]");
+    if (tab) { showPreviewTab(tab.dataset.pvTab); return; }
+    const open = t.closest("[data-pv-open]");
+    if (open) { openPreviewDetail(open.dataset.pvOpen, open); return; }
+    if (t.closest("[data-pv-close]")) { closePreviewDetail(); return; }
+    if (t === document.getElementById("previewDetail")) { closePreviewDetail(); return; }
+    if (t.closest("[data-pv-more]")) { loadPreviewRows(PREVIEW.tab, true); return; }
+    if (t.closest("[data-pv-retry]")) { PREVIEW.rpc = null; PREVIEW.rows = {}; PREVIEW.more = {}; showPreviewTab(PREVIEW.tab); return; }
+    const lock = t.closest("[data-pv-locked]");
+    if (lock) {
+      const item = PV_LOCKED.find(x => x[0] === lock.dataset.pvLocked);
+      const note = document.getElementById("pvLockedNote");
+      if (note && item) note.textContent = `${item[1]} opens when your account is approved. ${item[2]}`;
+      return;
+    }
+    const toggle = t.closest("#pvDetailsToggle");
+    if (toggle) {
+      const panel = document.getElementById("pvDetailsPanel");
+      if (panel) { panel.hidden = !panel.hidden; toggle.setAttribute("aria-expanded", String(!panel.hidden)); }
+      return;
+    }
+    const act = t.closest("[data-pv-act]");
+    if (act) {
+      closeMenu();
+      const a = act.dataset.pvAct;
+      if (a === "welcome") openWelcome("preview");
+      else if (a === "details") {
+        const panel = document.getElementById("pvDetailsPanel");
+        if (panel) { panel.hidden = false; const f = panel.querySelector("input"); if (f) f.focus(); }
+      } else if (a === "theme") {
+        themeMode = THEME_CYCLE[(THEME_CYCLE.indexOf(themeMode) + 1) % THEME_CYCLE.length];
+        try { localStorage.setItem(THEME_KEY, themeMode); } catch { /* storage off */ }
+        applyTheme(themeMode);
+        const l = document.getElementById("pvThemeLabel"); if (l) l.textContent = THEME_LABEL[themeMode] || "Auto";
+      }
+      return;
+    }
+    if (t.closest("[data-welcome-dismiss]")) { markWelcomeSeen("preview"); renderPreviewWelcome(); }
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape") return;
+    const d = document.getElementById("previewDetail");
+    if (d && !d.hidden) closePreviewDetail();
+    else closeMenu();
+  });
+}
+function showPreviewTab(key) {
+  const isGuide = key === "guide";
+  PREVIEW.tab = isGuide ? "guide" : previewLedger(key).key;
+  if (!isGuide) PREVIEW.lastList = PREVIEW.tab;
+  document.querySelectorAll("#pvTabs [data-pv-tab]").forEach(b => {
+    const on = b.dataset.pvTab === PREVIEW.tab;
+    b.classList.toggle("on", on);
+    if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+  });
+  const list = document.getElementById("pvListRoot"), guide = document.getElementById("pvGuideRoot");
+  if (list) list.hidden = isGuide;
+  if (guide) guide.hidden = !isGuide;
+  if (isGuide) { renderPreviewGuide(); return; }
+  if (PREVIEW.rows[PREVIEW.tab] === undefined && PREVIEW.rpc !== "absent" && PREVIEW.rpc !== "error") loadPreviewRows(PREVIEW.tab, false);
+  else renderPreviewList();
+}
+// The ONLY data read of the preview: get_preview_listings (migration 039),
+// for accounts waiting for approval only - showPending() is its only route.
+async function loadPreviewRows(key, more) {
+  if (PREVIEW.loading[key]) return;
+  const l = previewLedger(key);
+  const have = PREVIEW.rows[key] || [];
+  PREVIEW.loading[key] = true;
+  if (!more) renderPreviewList(); else if (PREVIEW.tab === key) renderPreviewList();
+  let res;
+  try { res = await sb.rpc("get_preview_listings", { p_state: PAGE_STATE, p_ledger_type: l.ledger, p_limit: PREVIEW_PAGE_SIZE, p_offset: more ? have.length : 0 }); }
+  catch (e) { res = { data: null, error: e || new Error("network") }; }
+  PREVIEW.loading[key] = false;
+  if (res && res.error) {
+    PREVIEW.rpc = isMissingFunctionError(res.error) || Number(res.error.status) === 404 ? "absent" : "error";
+    if (PREVIEW.rpc === "error") console.warn("Preview list unavailable.", res.error);
+  } else {
+    PREVIEW.rpc = "ok";
+    const rows = (Array.isArray(res && res.data) ? res.data : []).map(previewRowToProp);
+    PREVIEW.rows[key] = more ? have.concat(rows) : rows;
+    PREVIEW.more[key] = rows.length === PREVIEW_PAGE_SIZE;
+  }
+  if (PREVIEW.tab === key) renderPreviewList();
+  window.__tdwPreview = previewDebug();
+}
+function previewDebug() {
+  return { tab: PREVIEW.tab, rpc: PREVIEW.rpc, counts: Object.fromEntries(Object.entries(PREVIEW.rows).map(([k, v]) => [k, v.length])), tier: accountTier() };
+}
+function previewCardHtml(p) {
+  const kind = previewKind(p);
+  const facts = pvFacts(p);
+  const place = unitLabelOf(p.county);
+  const money = p.source === "auction" ? "Opening bid" : p.source === "certificate" ? "Certificate amount" : "Price";
+  return `<li class="pv-card" data-ledger="${esc(p.source)}">
+    <span class="pv-kind">${esc(kind)}</span>
+    <b class="pv-place">${p.source === "certificate" ? "A tax lien certificate" : "A property"} in ${esc(place)}</b>
+    ${facts.length ? `<span class="pv-facts">${facts.map(f => `<span>${esc(f)}</span>`).join("")}</span>` : ""}
+    <span class="pv-blurs"><span class="pv-blur-row"><span class="pv-blur-k">${p.source === "certificate" ? "Account" : "Address"}</span>${blurCell("line")}</span><span class="pv-blur-row"><span class="pv-blur-k">${money}</span>${blurCell("money")}</span></span>
+    <button type="button" class="pv-card-btn" data-pv-open="${esc(p.id)}" aria-label="Open the preview: ${esc(kind)} in ${esc(place)}">Preview · unlocks when approved</button>
+  </li>`;
+}
+function renderPreviewList() {
+  const root = document.getElementById("pvListRoot");
+  if (!root || PREVIEW.tab === "guide") return;
+  const l = previewLedger(PREVIEW.tab);
+  const st = previewStateName();
+  const rows = PREVIEW.rows[l.key];
+  if (PREVIEW.rpc === "absent" || PREVIEW.rpc === "error") {
+    const failed = PREVIEW.rpc === "error";
+    root.innerHTML = `<div class="pv-note" data-pv-note="${failed ? "unavailable" : "coming"}">
+      <b>${failed ? "The listing preview isn't available right now." : "The listing preview is coming soon."}</b>
+      <p>${failed ? "This page shows" : "Once it is switched on, this page shows"} ${esc(st)}'s real ${esc(l.label)} listings with the address, price and links blurred${failed ? " - please try again in a moment" : ""}. Your account and the rest of this page work today, and the Buyer's Guide is fully open.</p>
+      <div class="pv-note-actions">${failed ? '<button type="button" class="pv-primary" data-pv-retry>Try again</button>' : ""}<button type="button" class="pv-secondary" data-pv-tab="guide">Open the Buyer's Guide</button></div>
+    </div>`;
+    return;
+  }
+  if (rows === undefined) {
+    root.innerHTML = `<p class="pv-loading" role="status">Loading the ${esc(l.label)} preview…</p>`;
+    return;
+  }
+  if (!rows.length) {
+    root.innerHTML = `<div class="pv-note" data-pv-note="empty"><b>No ${esc(l.label)} listings are in the preview for ${esc(st)} right now.</b><p>The preview shows only listings released to customers. This is not a statement that ${esc(st)} has none.</p></div>`;
+    return;
+  }
+  root.innerHTML = `<p class="pv-count">${rows.length.toLocaleString("en-US")}${PREVIEW.more[l.key] ? "+" : ""} listing${rows.length === 1 ? "" : "s"} in ${esc(st)} · ${esc(l.label)} · preview</p>
+    <ul class="pv-list">${rows.map(previewCardHtml).join("")}</ul>
+    ${PREVIEW.more[l.key] ? `<button type="button" class="pv-secondary pv-more" data-pv-more${PREVIEW.loading[l.key] ? " disabled" : ""}>${PREVIEW.loading[l.key] ? "Loading…" : "Show more"}</button>` : ""}`;
+}
+function openPreviewDetail(id, opener) {
+  const p = (PREVIEW.rows[PREVIEW.tab] || []).find(r => r.id === String(id));
+  const d = document.getElementById("previewDetail"), inner = document.getElementById("previewDetailInner");
+  if (!p || !d || !inner) return;
+  let body;
+  try { body = freeDetailHtml(p, { preview: true }); }
+  catch (e) {
+    body = `<div class="tier-free" data-tier-view="free"><h2 class="detail-address">A property in ${esc(unitLabelOf(p.county))}</h2><div class="tier-unlock" data-unlock="approval"><b>Unlocks when your account is approved</b><button type="button" class="detail-btn tier-unlock-btn" data-pv-close>Back to the preview</button></div></div>`;
+  }
+  inner.innerHTML = `<button type="button" class="pv-detail-close" data-pv-close aria-label="Close">✕</button>${body}`;
+  PREVIEW.opener = opener || null;
+  d.hidden = false;
+  try { hydrateVisuals(inner); } catch { /* the county picture is optional */ }
+  const c = inner.querySelector(".pv-detail-close");
+  if (c) c.focus();
+}
+function closePreviewDetail() {
+  const d = document.getElementById("previewDetail");
+  if (!d || d.hidden) return;
+  d.hidden = true;
+  if (PREVIEW.opener && document.contains(PREVIEW.opener)) PREVIEW.opener.focus();
+  PREVIEW.opener = null;
+}
+function previewCounties() {
+  const seen = new Set();
+  Object.values(PREVIEW.rows).forEach(rows => (rows || []).forEach(r => { if (r.county) seen.add(r.county); }));
+  if (PAGE_STATE === "FL") ALL_COUNTIES.forEach(c => seen.add(c));
+  return [...seen].sort((a, b) => a.localeCompare(b));
+}
+// The Buyer's Guide is public reading: rendered here by the same module, with
+// no county-specific process (that one is built from listings this account
+// cannot read yet).
+function renderPreviewGuide() {
+  const root = document.getElementById("pvGuideRoot");
+  if (!root) return;
+  const ctx = {
+    state: PAGE_STATE, stateName: previewStateName(), unit: UNIT_WORD,
+    county: PREVIEW.guideCounty, ledger: PREVIEW.guideLedger || previewLedger(PREVIEW.lastList).guide,
+    counties: previewCounties(), countyProcessHtml: () => "",
+    esc, fmtDate: d => fmtDate(String(d).slice(0, 10)),
+    navigate: ({ ledger, county }) => { PREVIEW.guideLedger = ledger || PREVIEW.guideLedger; PREVIEW.guideCounty = county || null; renderPreviewGuide(); }
+  };
+  import("./buyers-guide.js").then(m => m.render(root, ctx)).catch(err => {
+    (window.__tdwBootErrors = window.__tdwBootErrors || []).push("preview guide: " + (err && err.message));
+    root.innerHTML = '<div class="pv-note"><b>The Buyer\'s Guide could not be loaded right now.</b><p>Please try again in a moment.</p></div>';
+  });
+}
+
+// ---- First-run welcome ----
+var WELCOME_KEY = "tdw_welcome_v1";
+var WELCOME_NEW_DAYS = 60;
+var WELCOME_STEPS = {
+  full: [
+    ["Pick a list", "Available (buy from the county now), Auctions (upcoming tax sales) or Liens & Certificates."],
+    ["Open a property", "Each record shows what it is, where it is and what the source published - with the source named and dated."],
+    ["Follow How to acquire", "It leads to the official source: the county or office that sells it. Confirm the details there before you pay."]
+  ],
+  preview: [
+    ["Pick a list", "Available, Auctions or Liens & Certificates - the tabs below."],
+    ["Open a property", "In the preview you see what it is and where; the rest unlocks when you are approved."],
+    ["Follow How to acquire", "Once approved, every record leads to the official source that sells it."]
+  ]
+};
+function welcomeStorageKey(kind) { return `${WELCOME_KEY}:${kind}:${(ME && ME.id) || "anon"}`; }
+// true / false, or null when this browser's storage cannot be read.
+function welcomeSeen(kind) {
+  try { return localStorage.getItem(welcomeStorageKey(kind)) === "1"; } catch { return null; }
+}
+function markWelcomeSeen(kind) {
+  try { localStorage.setItem(welcomeStorageKey(kind), "1"); } catch { /* storage off */ }
+}
+function welcomeStepsHtml(kind) {
+  return `<ol class="welcome-steps">${WELCOME_STEPS[kind].map(([t, d], i) => `<li><span class="welcome-num" aria-hidden="true">${i + 1}</span><span><b>${esc(t)}</b><span>${esc(d)}</span></span></li>`).join("")}</ol>`;
+}
+// The lighter version for the preview: an inline card, dismissible, shown once.
+function renderPreviewWelcome() {
+  const host = document.getElementById("pvWelcome");
+  if (!host) return;
+  const forced = PREVIEW.welcomeForced;
+  PREVIEW.welcomeForced = false;
+  if (welcomeSeen("preview") === true && !forced) { host.innerHTML = ""; return; }
+  host.innerHTML = `<section class="welcome-card" id="welcomeCard" data-welcome="preview" aria-labelledby="welcomeCardHead">
+    <h2 id="welcomeCardHead">How TAXACQ works</h2>${welcomeStepsHtml("preview")}
+    <button type="button" class="pv-secondary" data-welcome-dismiss>Got it</button></section>`;
+}
+// A new account: created in the last WELCOME_NEW_DAYS days (supabase-js users
+// carry created_at). Accounts that have used TAXACQ for longer are not
+// interrupted; anyone can open it from the account menu.
+function accountIsNew(user) {
+  const t = user && user.created_at ? Date.parse(user.created_at) : NaN;
+  return !isNaN(t) && Date.now() - t <= WELCOME_NEW_DAYS * 86400000;
+}
+function maybeShowWelcome() {
+  if (!ME || !accountIsNew(ME) || welcomeSeen("full") !== false) return;
+  // Arriving from a password-reset link: the new-password form comes first;
+  // the welcome waits for a later visit (it is not marked seen).
+  const rc = document.getElementById("recoveryModal");
+  if (rc && !rc.hidden && rc.getClientRects().length) return;
+  openWelcome("full");
+}
+function openWelcome(kind) {
+  if (kind === "preview") {
+    PREVIEW.welcomeForced = true;
+    renderPreviewWelcome();
+    const c = document.getElementById("welcomeCard");
+    if (c) { c.scrollIntoView({ block: "nearest" }); const b = c.querySelector("button"); if (b) b.focus(); }
+    return;
+  }
+  if (document.getElementById("welcomeIntro")) return;
+  const opener = document.activeElement;
+  const wrap = document.createElement("div");
+  wrap.className = "welcome-overlay";
+  wrap.id = "welcomeIntro";
+  wrap.innerHTML = `<div class="welcome-dialog" role="dialog" aria-modal="true" aria-labelledby="welcomeHead">
+    <button type="button" class="welcome-close" data-welcome-close aria-label="Close">✕</button>
+    <p class="welcome-eyebrow">Welcome to TAXACQ</p>
+    <h2 id="welcomeHead">Three steps from a listing to the official source</h2>
+    ${welcomeStepsHtml("full")}
+    <p class="welcome-note">You can open this again from the account menu: How TAXACQ works.</p>
+    <button type="button" class="welcome-go" data-welcome-close>Get started</button>
+  </div>`;
+  document.body.appendChild(wrap);
+  wrap.__opener = opener;
+  wrap.addEventListener("click", e => { if (e.target === wrap || (e.target.closest && e.target.closest("[data-welcome-close]"))) closeWelcome(true); });
+  const go = wrap.querySelector(".welcome-go");
+  if (go) go.focus();
+}
+function closeWelcome(mark) {
+  const w = document.getElementById("welcomeIntro");
+  if (!w) return;
+  if (mark) markWelcomeSeen("full");
+  const opener = w.__opener;
+  w.remove();
+  if (opener && opener.focus && document.contains(opener)) opener.focus();
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape" && document.getElementById("welcomeIntro")) closeWelcome(true); });
+function installWelcomeMenuItem() {
+  const menu = document.getElementById("accountMenu");
+  if (!menu || menu.querySelector("[data-welcome-open]")) return;
+  const item = document.createElement("button");
+  item.type = "button";
+  item.className = "account-item";
+  item.setAttribute("role", "menuitem");
+  item.dataset.welcomeOpen = "1";
+  item.textContent = "How TAXACQ works";
+  const support = document.getElementById("supportBtnMenu");
+  if (support && support.parentNode === menu) support.before(item); else menu.appendChild(item);
+  item.addEventListener("click", () => setTimeout(() => openWelcome("full"), 0));
+}
+installWelcomeMenuItem();
+
+// ---- Sign in / Create account at equal weight ----
+function installAuthModeTabs() {
+  const lead = document.getElementById("authLead");
+  if (!gate || !lead || document.getElementById("authModeTabs")) return;
+  const tabs = document.createElement("div");
+  tabs.id = "authModeTabs";
+  tabs.className = "auth-mode-tabs";
+  tabs.setAttribute("role", "group");
+  tabs.setAttribute("aria-label", "Sign in or create an account");
+  tabs.innerHTML = '<button type="button" class="auth-tab" data-auth-tab="signin" aria-pressed="true">Sign in</button>' +
+    '<button type="button" class="auth-tab" data-auth-tab="signup" aria-pressed="false">Create account</button>';
+  lead.before(tabs);
+  const note = document.createElement("p");
+  note.id = "authSignupNote";
+  note.className = "auth-signup-note";
+  note.hidden = true;
+  note.innerHTML = "<b>Free while TAXACQ is in beta.</b> You get an instant preview of the listings as soon as you sign up, and full access once your account is approved - we e-mail you.";
+  lead.after(note);
+  tabs.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest("[data-auth-tab]");
+    if (!b) return;
+    const want = b.dataset.authTab === "signup" ? "signup" : "signin";
+    if (want !== authMode) setAuthMode(want);
+    const first = document.getElementById(want === "signup" ? "firstName" : "email");
+    if (first) first.focus();
+  });
+  syncAuthModeTabs(authMode === "signup");
+}
+function syncAuthModeTabs(signUp) {
+  const tabs = document.getElementById("authModeTabs");
+  if (tabs) tabs.querySelectorAll("[data-auth-tab]").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.authTab === "signup") === !!signUp)));
+  const note = document.getElementById("authSignupNote");
+  if (note) note.hidden = !signUp;
+  if (gate) gate.classList.toggle("auth-signup", !!signUp);
+}
+installAuthModeTabs();
+window.__tdwTiers = () => ({ account: accountTier(), selectable: tiersSelectable(), page: pageTier(), role: ACCESS && ACCESS.role });

@@ -146,17 +146,35 @@ function listingBtn(p, api) {
   if (!s || s.scope !== "property") return "";
   return `<a class="xt-btn xt-btn-quiet xt-listing" href="${api.esc(s.href)}" target="_blank" rel="noopener" data-auction-link="property" data-xt-listing>Open listing<span aria-hidden="true">↗</span></a>`;
 }
-function titleHtml(p, api) {
+// Card title (investor sprint, owner 2026-11-12): the street address, or
+// "Parcel <number>" with "<County>, <ST>" under it - never the legal
+// description, never the parcel twice (api.cardTitle, escaped HTML).
+function titleOf(p, api) {
+  if (typeof api.cardTitle === "function") return api.cardTitle(p);
   const a = api.realAddress(p);
-  return a ? api.esc(a) : api.lotTitle(p); // lotTitle() returns escaped HTML
+  return a ? { html: api.esc(a), sub: "", parcelTitle: false } : { html: api.lotTitle(p), sub: "", parcelTitle: true };
+}
+function titleHtml(p, api) { return titleOf(p, api).html; }
+function titleBlock(p, api, tag) {
+  const t = titleOf(p, api);
+  return `<${tag} class="xt-lot-t${t.parcelTitle ? " xt-lot-t-parcel" : ""}">${t.html}</${tag}>${t.sub ? `<div class="xt-lot-where">${t.sub}</div>` : ""}`;
 }
 function idRow(p, api) {
   const parts = [];
   const parcel = api.parcelOf(p);
-  if (parcel && String(parcel).trim()) parts.push(`Parcel # ${api.esc(parcel)}`);
+  // A card titled "Parcel <number>" does not repeat it here.
+  if (!titleOf(p, api).parcelTitle && parcel && String(parcel).trim()) parts.push(`Parcel # ${api.esc(parcel)}`);
   const c = api.caseIdentText(p);
   if (c) parts.push(api.esc(c));
   return parts.join(" · ");
+}
+// The county value under its plain name, with what it is one tap away.
+function valueLabelHtml(pf, api) {
+  const raw = pf.valueLabel || "County value";
+  const pl = typeof api.plainValueLabel === "function" ? api.plainValueLabel(raw) : { label: raw, note: "" };
+  const info = pl.note && typeof api.infoBubbleHtml === "function"
+    ? `<span class="xt-val-info">${api.infoBubbleHtml("i", api.esc(pl.note), { dataAttr: `aria-label="What ${api.esc(pl.label)} means"` })}</span>` : "";
+  return `<span class="xt-lbl">${api.esc(pl.label)}</span>${info}`;
 }
 // The ledger name, the state and the view count live in the List's own title
 // (#listCount); a stage head carries only what that title does not.
@@ -346,12 +364,12 @@ function auctionCard(p, api, i) {
   const geoGap = gaps.some(g => /geocod/i.test(g));
   const flood = pf.flood && !floodGap ? pf.flood.text : null;
   return `<li class="xt-lot${sel ? " sel" : ""}" data-xt="lot" data-pid="${api.esc(p.id)}" data-xt-ping style="--r:${Math.min(i, 10)}">
-    <div class="xt-lot-k">${api.cardKickerHtml(p, { singleLedger: true, singleState: true })}</div>
-    <h3 class="xt-lot-t">${titleHtml(p, api)}</h3>
+    <div class="xt-lot-k">${api.cardKickerHtml(p, { singleLedger: true, singleState: true, plain: true })}</div>
+    ${titleBlock(p, api, "h3")}
     <div class="xt-ids">${idRow(p, api)}</div>
     <div class="xt-figs">
       <div class="xt-fig xt-fig-main"><span class="xt-lbl">${api.esc(amt.label)}</span><span class="xt-num${amt.state === "not_published" ? " np" : ""}">${api.esc(amt.text)}</span></div>
-      <div class="xt-fig"><span class="xt-lbl">${api.esc(pf.valueLabel || "County value")}</span><span class="xt-num xt-num-s${pf.value ? "" : " np"}">${api.esc(pf.value || "Not published")}</span>${pf.value ? `<span class="xt-fig-note">Not a sale price</span>` : ""}</div>
+      <div class="xt-fig">${valueLabelHtml(pf, api)}<span class="xt-num xt-num-s${pf.value ? "" : " np"}">${api.esc(pf.value || "Not published")}</span>${pf.value ? `<span class="xt-fig-note">Not a sale price</span>` : ""}</div>
     </div>
     <div class="xt-facts">
       ${hasCoords(p) || !geoGap ? `<span class="xt-fact${hasCoords(p) ? " on" : ""}"><i></i>${hasCoords(p) ? "Pinned on the plat" : "Not yet geocoded"}</span>` : ""}
@@ -380,7 +398,7 @@ function centerSelectedDay(stage) {
 // Every county head is drawn at once so the bar can reach any county; a
 // story's cards are drawn eagerly for the first STORY_PAGE counties and
 // filled in as each later story nears the viewport.
-const LIST_CTX = { inGroup: true, singleLedger: true, singleState: true };
+const LIST_CTX = { inGroup: true, singleLedger: true, singleState: true, plain: true };
 let STORY_IO = null;
 
 function storyLimit(g, si) {
@@ -484,8 +502,12 @@ function fillStory(stage, rail) {
 // head, so its real height is in place before the jump measures (audit F48).
 function fillStoriesBefore(stage, head) {
   const lazy = stage.querySelectorAll(".xt-rail-lazy[data-xt-lazy]");
+  // Also the target's own cards and the next stories after it (2026-11-12):
+  // a county grid is taller than the old one-row rail, and a page still short
+  // of the target's rows clamped the jump above the head.
+  let after = 0;
   lazy.forEach(rail => {
-    if (!(rail.compareDocumentPosition(head) & Node.DOCUMENT_POSITION_FOLLOWING)) return;
+    if (!(rail.compareDocumentPosition(head) & Node.DOCUMENT_POSITION_FOLLOWING) && ++after > 3) return;
     if (STORY_IO) STORY_IO.unobserve(rail);
     fillStory(stage, rail);
   });
@@ -511,7 +533,8 @@ function availableCard(p, api, i, headTrail) {
   const amt = api.amountShort(p);
   let note = "";
   try { note = api.amountInfo(p).note || ""; } catch {}
-  const visual = api.propertyVisual(p, "prop-card-photo xt-visual", { omitCounty: true });
+  // compact: one label on the picture, its credits behind one (i) (2026-11-12).
+  const visual = api.propertyVisual(p, "prop-card-photo xt-visual", { omitCounty: true, compact: true });
   // A county-wide process lives in the Buyer's Guide for that county (the
   // county head links to it); a card repeats it only for a viewer without
   // the guide. A path published for this one parcel always stays on its card.
@@ -522,12 +545,12 @@ function availableCard(p, api, i, headTrail) {
     <div class="xt-acard-vis">${visual}</div>
     <div class="xt-acard-body">
       <div class="xt-lot-k">${api.cardKickerHtml(p, LIST_CTX)}</div>
-      <h4 class="xt-lot-t">${titleHtml(p, api)}</h4>
-      <div class="xt-ids">${idRow(p, api)}</div>
+      ${titleBlock(p, api, "h4")}
+      ${(() => { const ids = idRow(p, api); return ids ? `<div class="xt-ids">${ids}</div>` : ""; })()}
       ${cardStampHtml(p, api)}
       <div class="xt-figs">
         <div class="xt-fig xt-fig-main"><span class="xt-lbl">${api.esc(amt.label)}</span><span class="xt-num-row"><span class="xt-num${amt.state === "not_published" ? " np" : ""}">${api.esc(amt.text)}</span>${amountNoteHtml(note, api)}</span></div>
-        <div class="xt-fig"><span class="xt-lbl">${api.esc(pf.valueLabel || "County value")}</span><span class="xt-num xt-num-s${pf.value ? "" : " np"}">${api.esc(pf.value || "Not published")}</span></div>
+        <div class="xt-fig">${valueLabelHtml(pf, api)}<span class="xt-num xt-num-s${pf.value ? "" : " np"}">${api.esc(pf.value || "Not published")}</span></div>
       </div>
       ${headTrail && trail === headTrail ? "" : trail}
       <div class="xt-actions">${openBtn(p, api, "xt-btn-primary xt-sage")}${listingBtn(p, api)}${watchBtn(p, api)}</div>
@@ -569,11 +592,12 @@ function trailInfo(p, api) {
   const a = api.acquisitionOf(p) || { verified: false, label: "Not yet verified", steps: [] };
   if (!a.verified) {
     const none = a.mode === "none";
-    return { hoistable: true, html: `<div class="xt-trail unverified" aria-label="How to acquire: ${api.esc(none ? "no purchase path stated by the source" : "not yet verified")}">
+    // Plain language (owner, 2026-11-12): "How to buy: not yet confirmed".
+    return { hoistable: true, html: `<div class="xt-trail unverified" aria-label="How to acquire: ${api.esc(none ? "no purchase path stated by the source" : "how to buy not yet confirmed")}">
       <div class="xt-trail-k">How to acquire</div>
       <ol>
         <li class="wp done"><span class="wp-n">1</span><span class="wp-t">On the source's list</span></li>
-        <li class="wp q"><span class="wp-n">?</span><span class="wp-t">${api.esc(none ? "No purchase path (stated by the source)" : "Not yet verified")}</span></li>
+        <li class="wp q"><span class="wp-n">?</span><span class="wp-t">${api.esc(none ? "No purchase path (stated by the source)" : "How to buy: not yet confirmed")}</span></li>
       </ol>
     </div>` };
   }
@@ -879,16 +903,16 @@ function availablePanelHtml(rows, api) {
   const list = sorted.slice(0, 4).map(([k, c]) => `<li><span>${esc(k)}</span><span class="xps-sub">${word(c)}</span></li>`);
   const rest = sorted.slice(4).reduce((t, e) => t + e[1], 0);
   if (rest) list.push(`<li><span>Other verified ways</span><span class="xps-sub">${word(rest)}</span></li>`);
-  if (unverified) list.push(`<li class="unv"><span>Not yet verified</span><span class="xps-sub">${word(unverified)}</span></li>`);
+  if (unverified) list.push(`<li class="unv"><span>How to buy: not yet confirmed</span><span class="xps-sub">${word(unverified)}</span></li>`);
   if (noPath) list.push(`<li class="unv"><span>No purchase path (stated by the source)</span><span class="xps-sub">${word(noPath)}</span></li>`);
   const first = rows[0];
-  const t = api.realAddress(first) ? esc(api.realAddress(first)) : api.lotTitle(first);
+  const t = titleHtml(first, api);
   const where = api.unitLabel ? api.unitLabel(first.county) : first.county + " " + unit;
   return `<p class="xps-k">In this list</p>
     <h3 class="xps-t">Across ${n(counties)} ${counties === 1 ? unitL : plural}</h3>
     <div class="xps-how"><span class="xps-k">How to acquire here</span><ul class="xps-ways">${list.join("")}</ul></div>
     <button type="button" class="xps-open" data-xps-open="${esc(String(first.id))}">Open the first property<span class="xps-open-t">${t} · ${esc(where)}</span></button>
-    <p class="xps-hint">Or pick any property to see its full page here.</p>`;
+    <p class="xps-hint">Or open any property's record from its card.</p>`;
 }
 document.addEventListener("click", e => {
   const b = e.target.closest && e.target.closest('#detailPanel .xp-panelsum[data-xp="' + NAME + '"] [data-xps-open]');
