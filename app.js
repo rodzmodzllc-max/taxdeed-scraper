@@ -15215,6 +15215,8 @@ function openRecoveryModal() {
   const lbl = document.querySelector("#recoveryForm label span");
   if (lbl) lbl.textContent = `New password (at least ${MIN_PASSWORD_LENGTH} characters)`;
   if (msg) { msg.textContent = ""; msg.className = "auth-msg"; }
+  // The new-password form is never covered by the first-run welcome.
+  if (typeof closeWelcome === "function") closeWelcome(false);
   recoveryUi.open();
 }
 (function () {
@@ -20019,6 +20021,10 @@ function accountIsNew(user) {
 }
 function maybeShowWelcome() {
   if (!ME || !accountIsNew(ME) || welcomeSeen("full") !== false) return;
+  // Arriving from a password-reset link: the new-password form comes first;
+  // the welcome waits for a later visit (it is not marked seen).
+  const rc = document.getElementById("recoveryModal");
+  if (rc && !rc.hidden && rc.getClientRects().length) return;
   openWelcome("full");
 }
 function openWelcome(kind) {
