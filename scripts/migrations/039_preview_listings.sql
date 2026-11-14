@@ -94,7 +94,14 @@ as $$
     and coalesce(p.source_id, '') not in ('mi_detroit_landbank_lots', 'mi_detroit_landbank_programs')
     and (p.source <> 'laft' or p.last_seen_at >= now() - interval '7 days')
     and (p.source <> 'auction' or p.sale_date >= current_date)
-    and (not (to_jsonb(p) ? 'publication_state')
+    -- Whether 031's column exists is looked up once per call (an InitPlan);
+    -- only then is a row read through to_jsonb. Testing every row with
+    -- to_jsonb(p) ? ... cost 2.6 s on Missouri's list against 0.1 s this way
+    -- (measured read-only on production, 2026-11-13).
+    and (not exists (select 1 from pg_catalog.pg_attribute a
+                     where a.attrelid = 'public.properties'::regclass
+                       and a.attname = 'publication_state'
+                       and a.attnum > 0 and not a.attisdropped)
          or to_jsonb(p) ->> 'publication_state' = 'CUSTOMER_PUBLISHED')
   order by p.county, p.source, p.id
   limit least(greatest(coalesce(p_limit, 60), 0), 60)
