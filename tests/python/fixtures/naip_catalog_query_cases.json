@@ -1,0 +1,26 @@
+{
+  "_note": "Real answers of https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/query (2026-11-14), with the parameters scripts/enrich_property_photos_naip.py fetch_capture_year() sends (geometry = the export box, where = Category = 1, outFields = OBJECTID,Name,Category,Year,acquisition_date). The `fields` domain list is trimmed; the features are verbatim.",
+  "alachua_fl": {
+    "point": [29.660087, -82.301424],
+    "expect_year": 2023,
+    "payload": {"objectIdFieldName": "OBJECTID",
+      "fields": [{"name": "OBJECTID", "type": "esriFieldTypeOID"}, {"name": "Name", "type": "esriFieldTypeString"},
+                 {"name": "Category", "type": "esriFieldTypeInteger"}, {"name": "Year", "type": "esriFieldTypeSmallInteger"},
+                 {"name": "acquisition_date", "type": "esriFieldTypeDate"}],
+      "features": [{"attributes": {"OBJECTID": 36765, "Name": "m_2908222_se_17_030_20230126", "Category": 1, "Year": 2022, "acquisition_date": 1674691200000}}]}
+  },
+  "fl_ga_tile_corner": {
+    "point": [31.0, -84.0],
+    "expect_year": 2023,
+    "payload": {"objectIdFieldName": "OBJECTID",
+      "features": [{"attributes": {"OBJECTID": 38509, "Name": "m_3008301_nw_17_060_20231018", "Category": 1, "Year": 2023, "acquisition_date": 1697587200000}},
+                   {"attributes": {"OBJECTID": 38635, "Name": "m_3008408_ne_16_060_20231018", "Category": 1, "Year": 2023, "acquisition_date": 1697587200000}},
+                   {"attributes": {"OBJECTID": 39395, "Name": "m_3108357_sw_17_060_20231018", "Category": 1, "Year": 2023, "acquisition_date": 1697587200000}},
+                   {"attributes": {"OBJECTID": 39678, "Name": "m_3108464_se_16_060_20231018", "Category": 1, "Year": 2023, "acquisition_date": 1697587200000}}]}
+  },
+  "open_ocean": {
+    "point": [25.0, -70.0],
+    "expect_year": null,
+    "payload": {"objectIdFieldName": "OBJECTID", "features": []}
+  }
+}

@@ -100,6 +100,7 @@ def test_naip_spends_budget_on_available_first(monkeypatch):
     reports = []
     monkeypatch.setattr(naip, "fetch_county_batch", batch)
     monkeypatch.setattr(naip, "fetch_naip_image", lambda *a, **k: (b"x" * 10, True))
+    monkeypatch.setattr(naip, "fetch_capture_year", lambda *a, **k: (None, True))
     monkeypatch.setattr(naip, "object_exists", lambda path: False)
     monkeypatch.setattr(naip, "put_object", lambda path, data, ct: True)
     monkeypatch.setattr(naip, "patch_property", lambda *a, **k: None)

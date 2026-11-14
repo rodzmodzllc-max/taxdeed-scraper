@@ -63,6 +63,7 @@ def _run_naip(monkeypatch, naip, *, used=0, tiers_rows=None, exists=lambda p: Fa
         return [{"id": f"{flt['source']}-{i}", "latitude": 30, "longitude": -85} for i in range(min(limit, tiers_rows.get(flt["source"], 0)))]
     monkeypatch.setattr(naip, "fetch_county_batch", batch)
     monkeypatch.setattr(naip, "fetch_naip_image", lambda *a, **k: (image, True))
+    monkeypatch.setattr(naip, "fetch_capture_year", lambda *a, **k: (None, True))
     monkeypatch.setattr(naip, "object_exists", exists)
     monkeypatch.setattr(naip, "put_object", lambda path, data, ct: uploads.append((path, len(data), ct)) or (put(path, data, ct) if put else True))
     monkeypatch.setattr(naip, "patch_property", lambda pid, fields: patches.append((pid, fields)))
@@ -264,6 +265,10 @@ def test_s10b_failed_verification_restores_the_original(monkeypatch, png):
 def test_s13_storage_code_touches_no_publication_or_acquisition_field():
     for name in ("image_storage.py", "optimize_stored_images.py", "enrich_property_photos_naip.py"):
         src = (ROOT / "scripts" / name).read_text(encoding="utf-8")
+        # 2026-11-14: `acquisition_date` is the NAIP ImageServer catalog's
+        # capture-date field (read for photo_captured_year), not a property's
+        # acquisition semantics - the only spelling exempted.
+        src = src.replace("acquisition_date", "")
         for field in ("publication_status", "purchase_path", "acquisition", "inventory_status", "ledger_type", "delisted_at"):
             assert field not in src, (name, field)
     opt_src = (ROOT / "scripts/optimize_stored_images.py").read_text(encoding="utf-8")
