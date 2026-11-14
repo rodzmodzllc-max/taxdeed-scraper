@@ -193,9 +193,11 @@ def test_s03_signups_disabled_error_gets_a_clear_message():
     # let in: it gets the pending screen (showPlanOrPending(null) has no
     # entitlement, so it can only show pending); with one, only access = true
     # enters.
-    assert "if (approved) { showApp(); afterEntryBillingRoute(); }\n  else showPlanOrPending(null);" in APP_JS
+    # 2026-11-12 sprint: entering the app also offers the first-run welcome;
+    # the rule itself (an unapproved account never enters) is unchanged.
+    assert "if (approved) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); }\n  else showPlanOrPending(null);" in APP_JS
     assert "if (!cfg.enabled || !ent || !planGate) { if (planGate) planGate.hidden = true; showPending(); return; }" in APP_JS
-    assert "if (ent.access) { showApp(); afterEntryBillingRoute(); }\n    else showPlanOrPending(ent);" in APP_JS
+    assert "if (ent.access) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); }\n    else showPlanOrPending(ent);" in APP_JS
 
 
 def test_s04_docs_name_the_manual_dashboard_setting():

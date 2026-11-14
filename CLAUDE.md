@@ -3658,6 +3658,29 @@ A trial so the owner can compare two List experiences on live data before choosi
   by the existing document-level action handler. Ledger tabs, filters and search keep driving the rows.
 - All four files are in the mirror `FILES`, `DEPLOYED_BUNDLE_FILES` and the sw `SHELL`.
 
+## Investor sprint: cards front and center (2026-11-12, frontend only)
+
+Owner: the property cards "front and center"; experienced investors "up to a 10". Under Merged (`html[data-look="merged"]`):
+- **Grid, not rails**: each county's Terrain cards are a CSS grid (4 / 3 / 2 / 1 a row by stage width; class `.xt-rail`
+  kept). County heads are one slim row. Desktop list head is one band (title + guide link, toolbar, count; styles.css).
+- **No record in the side panel**: `detailPanelOnList()` is false under Merged; `#detailPanel` is only the slim
+  "In this list" strip above the cards (the modules' `.xp-panelsum`, same content). `openDetail()` at >= 1024px adds
+  `.detail-wide` and `layoutWideRecord()` moves the same nodes into two columns (picture, key facts, How to acquire |
+  the rest). Phone keeps the full-screen sheet and `.detail-float`. Filters stay behind their button at every width.
+- **Card titles** (`cardTitleOf()` = `api.cardTitle`): street address, else "Parcel <n>" over "<County>, <ST>"; an
+  address that `looksLikeLegalDescription()` is never a title - the record shows it under its title ("Address as the
+  county published it"). The record title otherwise still uses `lotTitle()`.
+- **Picture chrome** (`propertyVisual(..., { compact: true })`, looks only): one short label ("Aerial · USDA"), Tilt
+  view, one (i) holding the full caption, basis note and - via `drawBoundary()` - the outline's full credit; the
+  short `.pb-attrib` strip is hidden in compact pictures. Classic cards are unchanged.
+- **Plain language**: `cardStamp()` labels "How to buy: confirmed / not yet confirmed", "Listing never confirmed /
+  not re-confirmed by source"; `cardKickerHtml(p, { plain: true })` "Buy directly from the county, no auction";
+  `plainValueLabel()` "County market value (YYYY)" with an (i) (assessed just value, not an appraisal). The record
+  body and Classic keep `valueLabel()` / `kickerParts()` wording.
+- **Map** (explore.js `layoutBubbles()`): radii shrink with county count, a collision pass separates bubbles (leader
+  line to a moved bubble's county), numbers fit their bubble, counts exact; hit circles never reach a neighbour.
+- Audit: `tests/audit/investor-ten.mjs` (fixture `investor-fixture.mjs`).
+
 ## Header, filters and free tier (2026-10-25, PR open, frontend only)
 
 Full description: `docs/review/header-tiers.md`. Stable facts:

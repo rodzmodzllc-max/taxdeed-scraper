@@ -715,6 +715,7 @@ jobs:
           # Stop cleanly at 10 minutes (step timeout 12) - before, the step was
           # killed on every run and printed nothing (audit B28).
           NAIP_TIME_BUDGET_SECONDS: '600'
+          NAIP_YEAR_BACKFILL_LIMIT: '50'  # photo_captured_year on stored images, first, inside the same budget
         run: python3 -u scripts/enrich_property_photos_naip.py
 
       - name: Backfill property photos (Street View Static API)

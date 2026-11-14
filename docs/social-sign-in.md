@@ -34,6 +34,17 @@ dashboard only.
   The sign-in screen says which provider's sign-in did not complete and
   removes the error from the address. The raw provider text is never shown.
 
+## Buttons follow Supabase (2026-11-11)
+
+The sign-in screen now asks Supabase's public auth settings
+(`/auth/v1/settings`, with the publishable key) which providers are switched
+on, and shows exactly those, in the order Google, Apple, Microsoft. Enabling a
+provider in the dashboard is therefore the whole step: no `config.js` edit and
+no deploy. A provider that is off never shows a button. The `oauthProviders`
+list in `config.js` is used only when that answer cannot be read;
+`oauthDetect: false` turns the question off. Test a provider straight after
+enabling it, because its button is live at once.
+
 ## Owner steps (outside the repository)
 
 Do each provider separately. Add its id to `oauthProviders` only after its

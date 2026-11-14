@@ -104,6 +104,48 @@ def test_shelby_row_resolves_to_a_property_scope_direct_path():
     assert r["otc_provenance"]["acquisition"]["mode"] == "online"
 
 
+# ---- ePropertyPlus tenants verified live 2026-11-11 --------------------------
+EPP_PAGES = ((EX.MO_KC_LANDBANK, "JA00000000000000001"), (EX.PA_PITTSBURGH_CITY_PROPERTY, "0001A00001000000"),
+             (EX.MI_WAYNE_COUNTY_LANDBANK, "00000000000001"), (EX.MI_SAGINAW_LANDBANK, "01-01-1-01-1001-001"))
+
+
+def test_verified_epp_tenants_carry_their_own_property_page():
+    for cfg, pid in EPP_PAGES:
+        page = cfg.property_page
+        assert page.template == cfg.portal + "/property/{id}"
+        assert page.kind is PurchaseUrlKind.ONLINE_PURCHASE and page.account_required
+        assert page.action_label == "Apply For this Property"
+        assert page.url_for(pid) == cfg.portal + "/property/" + pid
+        assert page.url_for("BAD ID") is None and page.url_for(pid + "9") is None
+        assert "verified 2026-11-11" in page.basis()
+        # the page is never the portal's landing / search page
+        assert page.url_for(pid) != cfg.list_url
+
+
+def test_kansas_city_row_gets_its_property_page_only_for_the_sampled_identifier_shape():
+    rows = [{"id": 1, "parcelNumber": "JA00000000000000001", "county": "Jackson", "propertyAddress1": "1 FIXTURE ST", "askingPrice": 0},
+            {"id": 2, "parcelNumber": "00-000-00-00-00-0-00-001", "county": "Jackson", "propertyAddress1": "2 FIXTURE ST", "askingPrice": 0}]
+    recs, _ = EPP.parse_rows(EX.MO_KC_LANDBANK, rows, retrieved_at=AT)
+    by = {r.parcel: r for r in recs}
+    sampled = by["JA00000000000000001"]
+    assert sampled.purchase_url == "https://public-kclb.epropertyplus.com/property/JA00000000000000001"
+    assert sampled.purchase_url_kind is PurchaseUrlKind.ONLINE_PURCHASE
+    other = by.get("00-000-00-00-00-0-00-001")
+    assert other is None or other.purchase_url is None
+
+
+def test_calhoun_page_is_a_listing_link_never_a_purchase_url():
+    cfg = EX.MI_CALHOUN_LANDBANK
+    assert cfg.property_page is None and cfg.record_page.template == cfg.portal + "/property/{id}"
+    assert cfg.record_page.url_for("BAD") is None and "no purchase action" in cfg.record_page.basis()
+    row = {"id": 1, "parcelNumber": "0000-00-000-0", "county": "Calhoun", "propertyAddress1": "1 FIXTURE ST", "askingPrice": 0}
+    (r,) = EPP.parse_rows(cfg, [row], retrieved_at=AT)[0]
+    assert r.purchase_url is None and r.purchase_url_kind is None
+    assert r.record_url == "https://public-cclb.epropertyplus.com/property/0000-00-000-0"
+    out = r.to_properties_row()
+    assert (out["url_auction"], out["url_auction_kind"]) == (r.record_url, "property")
+
+
 # ---- St. Louis LRA (tabular CSV + the City's For-Sale file) -----------------
 LRA_CSV = ("ParcelId,Parcel_Status,Address,LegalDescription,PropertyType\n"
            "00000000001,Available,1 FIXTURE ST,FIXTURE LOT 1,Lot\n"

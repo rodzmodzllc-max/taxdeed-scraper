@@ -27,7 +27,7 @@ from urllib.parse import quote
 
 from ..model import PurchaseUrlKind
 
-__all__ = ["PropertyPage"]
+__all__ = ["PropertyPage", "RecordPage"]
 
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -77,3 +77,33 @@ class PropertyPage:
         action = f" ('{self.action_label}')" if self.action_label else ""
         return (f"the source's own per-property page{action}, pattern published by the source ({self.pattern_source}); "
                 f"verified {self.verified_on}: {self.verification}")
+
+
+@dataclass(frozen=True)
+class RecordPage:
+    """The source's own page for ONE listing that carries no purchase / apply
+    action (2026-11-11). Same rules as PropertyPage - the source publishes the
+    pattern, the identifier is a published field, the pattern was followed
+    live for sampled rows - but it is a listing link (properties.url_auction,
+    kind 'property'), never a purchase URL and never an acquisition path."""
+    template: str
+    id_pattern: str
+    verified_on: str
+    verification: str
+    pattern_source: str
+
+    def __post_init__(self) -> None:
+        if not self.template.startswith("https://") or self.template.count("{id}") != 1:
+            raise ValueError("template must be https with exactly one {id} placeholder")
+        if not _DATE.match(self.verified_on) or not self.verification or not self.pattern_source:
+            raise ValueError("a per-record page needs verified_on, verification and pattern_source")
+
+    def url_for(self, identifier: str | None) -> str | None:
+        ident = (identifier or "").strip()
+        if not ident or not re.fullmatch(self.id_pattern, ident):
+            return None
+        return self.template.replace("{id}", quote(ident, safe=""))
+
+    def basis(self) -> str:
+        return (f"the source's own page for this listing (no purchase action on it), pattern published by the source "
+                f"({self.pattern_source}); verified {self.verified_on}: {self.verification}")

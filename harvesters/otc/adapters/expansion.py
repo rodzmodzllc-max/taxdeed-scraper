@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from ..model import AmountKind, InventoryType, PurchaseUrlKind, SourceAuthority
 from .arcgis import ArcGisFieldMap, ArcGisLayerConfig
 from .epropertyplus import EppConfig
-from .property_page import PropertyPage
+from .property_page import PropertyPage, RecordPage
 from .sc_flc import GEORGETOWN as SC_GEORGETOWN_FLC   # Georgetown SC FLC list (PR #69)
 from .tabular import ColumnMap, TabularConfig
 from . import tax_sale_info as TSI
@@ -553,6 +553,13 @@ OWNER_INTERIM_2026_10_26 = ("Owner decision 2026-10-26 (collect every property f
 # presence: the land bank's published inventory IS its offered list (each
 # portal's public landing page is the land bank's "properties for sale").
 _EPP_LIST = "/landmgmtpub/app/base/landing"
+# Owner, 2026-11-11: "All available properties source link should be the same
+# straight to the listing." Each tenant below was checked live that day, three
+# sampled parcels per portal: <portal>/property/<parcelNumber> opened that
+# parcel anonymously on all five. Kansas City, Pittsburgh, Wayne and Saginaw
+# show the portal's own "Apply For this Property" button (a portal account is
+# needed), so the page is the row's purchase URL as on Shelby. Calhoun shows the
+# listing with no apply action, so there it is the listing link only.
 
 # Kansas City (MO) Land Bank - 2,577 published rows (2026-10-26), state MO,
 # county Jackson (1 row Clay, counted, never re-labelled); inventoryType
@@ -569,6 +576,14 @@ MO_KC_LANDBANK = EppConfig(
     columns_verified=True,
     # 2026-10-27: parcelSquareFootage filled (positive) on 500 of 500 sampled rows.
     lot_sqft_field="parcelSquareFootage",
+    property_page=PropertyPage(
+        template="https://public-kclb.epropertyplus.com/property/{id}",
+        kind=PurchaseUrlKind.ONLINE_PURCHASE, id_pattern=r"JA\d{17}", verified_on="2026-11-11",
+        action_label="Apply For this Property", account_required=True,
+        pattern_source="the portal's own code routes a property's details to `/property/${parcelNumber}` (the parcelNumber field of getPublishedProperties) and serves that route without a login",
+        verification="opened anonymously in a browser for 3 parcels sampled from the stored read (each page showed its "
+                     "parcel number and the portal's own 'Apply For this Property' button); following that button on one "
+                     "of them led to the portal's own login page (an account is needed to apply); only the 'JA' + 17-digit identifier shape was sampled, so the hyphenated shape gets no page"),
     notes="Land Bank of Kansas City, Missouri - its ePropertyPlus public portal (public-kclb). Every published row is read "
           "(no availability flag is published; the row's comments, never mapped, say e.g. 'Property available to apply for'). "
           "parcelNumber = the Jackson County parcel id ('JA' + 17 digits). askingPrice kept as published, never called a price.")
@@ -586,6 +601,14 @@ PA_PITTSBURGH_CITY_PROPERTY = EppConfig(
     columns_verified=True,
     # 2026-10-27: parcelSquareFootage filled (positive) on 500 of 500 sampled rows.
     lot_sqft_field="parcelSquareFootage",
+    property_page=PropertyPage(
+        template="https://public-pgh.epropertyplus.com/property/{id}",
+        kind=PurchaseUrlKind.ONLINE_PURCHASE, id_pattern=r"\d{4}[A-Z]\d{5}[0-9A-Z]{6}", verified_on="2026-11-11",
+        action_label="Apply For this Property", account_required=True,
+        pattern_source="the portal's own code routes a property's details to `/property/${parcelNumber}` (the parcelNumber field of getPublishedProperties) and serves that route without a login",
+        verification="opened anonymously in a browser for 3 parcels sampled from the stored read (each page showed its "
+                     "parcel number and the portal's own 'Apply For this Property' button); following that button on one "
+                     "of them led to the portal's own login page (an account is needed to apply)"),
     notes="City of Pittsburgh city-owned property (eProperty Plus public portal public-pgh; inventoryType 'Public Sale' / "
           "'PLB Transfer' / 'URA Transfer' kept verbatim). Only rows whose s_custom_0010 reads 'Available for Sale' are read; "
           "'Sale Pending' and 'Not Available' are not. parcelNumber = the Allegheny County 16-character lot-and-block id.")
@@ -599,6 +622,14 @@ MI_WAYNE_COUNTY_LANDBANK = EppConfig(
     id_pattern=r"\d{8}(?:\d{6}|\.|-\d)?",
     amount_field="askingPrice", amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, amount_label="Asking Price",
     columns_verified=True,
+    property_page=PropertyPage(
+        template="https://public-wclb.epropertyplus.com/property/{id}",
+        kind=PurchaseUrlKind.ONLINE_PURCHASE, id_pattern=r"\d{14}", verified_on="2026-11-11",
+        action_label="Apply For this Property", account_required=True,
+        pattern_source="the portal's own code routes a property's details to `/property/${parcelNumber}` (the parcelNumber field of getPublishedProperties) and serves that route without a login",
+        verification="opened anonymously in a browser for 3 parcels sampled from the stored read (each page showed its "
+                     "parcel number and the portal's own 'Apply For this Property' button); following that button on one "
+                     "of them led to the portal's own login page (an account is needed to apply); only the 14-digit identifier shape was sampled"),
     notes="Wayne County Land Bank Corporation (Michigan) ePropertyPlus public portal (public-wclb); outside Detroit (Highland "
           "Park, Romulus, Redford, ...). Offered = the portal's own available 'Y'. askingPrice kept as published.")
 
@@ -613,6 +644,14 @@ MI_SAGINAW_LANDBANK = EppConfig(
     # 2026-10-27, 500 sampled rows: parcelSquareFootage on 60, yearBuilt on 22
     # and structureSquareFootage on 20 (its structures); kept as published.
     lot_sqft_field="parcelSquareFootage", year_built_field="yearBuilt", living_area_field="structureSquareFootage",
+    property_page=PropertyPage(
+        template="https://public-sclb.epropertyplus.com/property/{id}",
+        kind=PurchaseUrlKind.ONLINE_PURCHASE, id_pattern=r"\d{2}-\d{2}-\d-\d{1,2}-\d[0-9A-Z]\d{2}-\d{3}", verified_on="2026-11-11",
+        action_label="Apply For this Property", account_required=True,
+        pattern_source="the portal's own code routes a property's details to `/property/${parcelNumber}` (the parcelNumber field of getPublishedProperties) and serves that route without a login",
+        verification="opened anonymously in a browser for 3 parcels sampled from the stored read (each page showed its "
+                     "parcel number and the portal's own 'Apply For this Property' button); following that button on one "
+                     "of them led to the portal's own login page (an account is needed to apply)"),
     notes="Saginaw County Land Bank Authority ePropertyPlus public portal (public-sclb): every published row read on list "
           "presence (no availability flag published). No price published.")
 
@@ -627,6 +666,12 @@ MI_CALHOUN_LANDBANK = EppConfig(
     columns_verified=True,
     # 2026-10-27, all 219 rows: structureSquareFootage on 7 (its structures); kept as published.
     living_area_field="structureSquareFootage",
+    record_page=RecordPage(
+        template="https://public-cclb.epropertyplus.com/property/{id}",
+        id_pattern=r"\d{2,4}-\d{2,3}-\d{3}-\d{1,2}", verified_on="2026-11-11",
+        pattern_source="the portal's own code routes a property's details to `/property/${parcelNumber}` (the parcelNumber field of getPublishedProperties) and serves that route without a login",
+        verification="opened anonymously in a browser for 3 parcels sampled from the stored read: each page showed its "
+                     "parcel number and listing details, and no apply / purchase button"),
     notes="Calhoun County Land Bank Authority (Michigan) ePropertyPlus public portal (public-cclb): every published row read "
           "on list presence; the program (s_custom_0003, e.g. 'Develop This Lot', 'Side Lot') is not mapped.")
 

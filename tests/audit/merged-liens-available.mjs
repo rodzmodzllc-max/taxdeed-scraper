@@ -127,24 +127,16 @@ for (const vp of [{ width: 1366, height: 900 }, { width: 390, height: 844 }]) {
   await pg.close();
 }
 
-// F65 / F49: the county card rail is a horizontal, snapping strip at every width.
+// F65 / F49, superseded 2026-11-12 (owner: the property cards "front and
+// center"; investor sprint): the county's cards are a GRID with no sideways
+// scrolling - several a row on a desktop, one a row on a phone - and the
+// picture height stays bounded.
 for (const vp of [{ width: 390, height: 844 }, { width: 1440, height: 900 }, { width: 1455, height: 900 }, { width: 1420, height: 900 }]) {
   const pg = await open(BASE_URL + '?look=merged#/lands', vp, laftRows());
   const r = await pg.evaluate(() => { const rail = document.querySelector('#xpStage .xt-rail:not(.xt-rail-lazy)'); const cs = getComputedStyle(rail); const vis = rail.querySelector('.xt-acard-vis'); const card = rail.querySelector('.xt-acard');
-    return { dir: cs.flexDirection, snap: cs.scrollSnapType, sw: rail.scrollWidth, cw: rail.clientWidth, visH: vis.getBoundingClientRect().height, cardW: card.getBoundingClientRect().width, h: rail.getBoundingClientRect().height }; });
-  check(`F65/F49 rail is a horizontal snap strip at ${vp.width}`, r.dir === 'row' && /x/.test(r.snap) && r.sw > r.cw + 40, r);
-  check(`F65/F49 card picture height bounded at ${vp.width}`, r.visH <= 260 && r.cardW < r.cw, r);
-  if (vp.width === 390) {
-    const rail = pg.locator('#xpStage .xt-rail:not(.xt-rail-lazy)').first();
-    await rail.scrollIntoViewIfNeeded();
-    const b = await rail.boundingBox();
-    // A touch-like horizontal drag (wheel with deltaX stands in for a finger swipe).
-    await pg.mouse.move(b.x + b.width / 2, b.y + 100);
-    await pg.mouse.wheel(300, 0);
-    await pg.waitForTimeout(700);
-    const sl = await rail.evaluate(e => e.scrollLeft);
-    check('F65 phone rail slides sideways', sl > 100, sl);
-  }
+    return { display: cs.display, cols: cs.gridTemplateColumns.split(' ').length, sw: rail.scrollWidth, cw: rail.clientWidth, visH: vis.getBoundingClientRect().height, cardW: card.getBoundingClientRect().width, h: rail.getBoundingClientRect().height }; });
+  check(`F65/F49 county cards are a grid with no sideways scroll at ${vp.width}`, r.display === 'grid' && r.sw <= r.cw + 1 && (vp.width < 500 ? r.cols === 1 : r.cols >= 3), r);
+  check(`F65/F49 card picture height bounded at ${vp.width}`, r.visH <= 260 && r.cardW <= r.cw, r);
   await pg.close();
 }
 

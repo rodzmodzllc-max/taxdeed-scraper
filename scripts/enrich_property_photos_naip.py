@@ -33,9 +33,12 @@ better fit and certainly the more honest one:
   * Aerial imagery shows the whole parcel - frontage, outbuildings,
     encroachment, whether anything is built at all - which is closer to what
     a bidder needs than a kerbside photo of one facade.
-  * It is dated, and honestly so: `photo_captured_year` records the NAIP
-    vintage, because a 2023 image of a lot that burned in 2025 must not be
-    presented as current.
+  * It is dated, and honestly so: `photo_captured_year` records the year
+    the imagery was flown (the catalog's `acquisition_date`, see
+    NAIP_CATALOG_QUERY_ENDPOINT), because a 2023 image of a lot that burned
+    in 2025 must not be presented as current. `--backfill-capture-year`
+    (or NAIP_YEAR_BACKFILL_LIMIT) fills it on images stored before it was
+    recorded, only where the stored image is provably today's export.
 
 It is NOT a photograph of a building, and the UI must not label it one.
 
@@ -55,6 +58,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import time
 from collections import Counter
@@ -84,6 +88,23 @@ NAIP_ENDPOINT = (
     "https://imagery.nationalmap.gov/arcgis/rest/services/"
     "USGSNAIPImagery/ImageServer/exportImage"
 )
+# The same ImageServer's catalog (2026-11-14). Read from the service's own
+# metadata (`ImageServer?f=pjson`): the mosaic catalog carries, per raster
+# item, `acquisition_date` (esriFieldTypeDate, epoch milliseconds UTC - the
+# day the tile was flown, matching the date suffix of the item's `Name`, e.g.
+# m_2908222_se_17_030_20230126 -> 1674691200000 = 2023-01-26) and `Year`
+# (the NAIP program year, e.g. 2022 for that same Florida tile flown in
+# January 2023). `photo_captured_year` is the CAPTURE year, so it comes from
+# `acquisition_date`, never from `Year`. Only `Category = 1` (primary)
+# items carry it; overviews have NULL dates.
+NAIP_CATALOG_QUERY_ENDPOINT = (
+    "https://imagery.nationalmap.gov/arcgis/rest/services/"
+    "USGSNAIPImagery/ImageServer/query"
+)
+# Year backfill for stored usda_naip images whose photo_captured_year is NULL
+# (0 = off). Runs BEFORE the new-image pass, inside the same time budget, so
+# a run that spends its whole budget on new images still backfills a slice.
+YEAR_BACKFILL_LIMIT = int(os.environ.get("NAIP_YEAR_BACKFILL_LIMIT", "0") or 0)
 
 # Roughly a 150m box around the parcel centroid - wide enough to show the
 # whole lot and its frontage, tight enough that the parcel is the subject
@@ -196,6 +217,70 @@ def fetch_naip_image(latitude, longitude):
     return body, True
 
 
+def capture_year_from_catalog(payload, *, max_year: int | None = None):
+    """The capture year of the imagery in a catalog query answer, or None.
+
+    `payload` is the parsed JSON of NAIP_CATALOG_QUERY_ENDPOINT for the
+    image's own box, `where=Category = 1`. A year is returned only when every
+    primary item the box touches has an `acquisition_date` and they all fall
+    in ONE calendar year (UTC). No item, a missing date, items from different
+    years, a truncated answer or an implausible year -> None: the image is
+    then stored without a year rather than with a guessed one.
+    """
+    from datetime import datetime, timezone  # noqa: PLC0415
+    if not isinstance(payload, dict) or payload.get("exceededTransferLimit"):
+        return None
+    feats = payload.get("features")
+    if not isinstance(feats, list) or not feats:
+        return None
+    years = set()
+    for f in feats:
+        a = (f or {}).get("attributes") or {}
+        if a.get("Category") not in (None, 1):
+            continue
+        ms = a.get("acquisition_date")
+        if not isinstance(ms, (int, float)) or isinstance(ms, bool):
+            return None
+        try:
+            years.add(datetime.fromtimestamp(ms / 1000.0, timezone.utc).year)
+        except (OverflowError, OSError, ValueError):
+            return None
+    if len(years) != 1:
+        return None
+    year = years.pop()
+    top = max_year if max_year is not None else datetime.now(timezone.utc).year + 1
+    # migration 011's properties_photo_year_sane: 1990 .. next year.
+    return year if 1990 <= year <= top else None
+
+
+def fetch_capture_year(latitude, longitude):
+    """(year_or_None, ok) for the image exported at these coordinates.
+
+    Asks the ImageServer catalog which primary items intersect the exact box
+    the image was exported for. ok=False = the request failed (HTTP error,
+    ArcGIS error body, unparseable answer): nothing is learned.
+    """
+    params = {
+        "geometry": bbox_for(latitude, longitude),
+        "geometryType": "esriGeometryEnvelope",
+        "inSR": "4326",
+        "spatialRel": "esriSpatialRelIntersects",
+        "where": "Category = 1",
+        "outFields": "OBJECTID,Name,Category,Year,acquisition_date",
+        "returnGeometry": "false",
+        "f": "json",
+    }
+    try:
+        resp = requests.get(NAIP_CATALOG_QUERY_ENDPOINT, params=params, timeout=REQUEST_TIMEOUT)
+        resp.raise_for_status()
+        payload = resp.json()
+    except (requests.RequestException, ValueError):
+        return None, False
+    if not isinstance(payload, dict) or "error" in payload or not isinstance(payload.get("features"), list):
+        return None, False
+    return capture_year_from_catalog(payload), True
+
+
 def public_url(path: str) -> str:
     return f"{SUPABASE_URL}/storage/v1/object/public/{STORAGE_BUCKET}/{path}"
 
@@ -276,7 +361,7 @@ def storage_used_bytes(prefix: str = "", depth: int = 0) -> int | None:
         offset += 1000
 
 
-def build_update_fields(photo_url, *, checked_at):
+def build_update_fields(photo_url, *, checked_at, captured_year=None):
     """photo_url='' is the established no-coverage sentinel on this column -
     NULL means never checked. Preserved exactly rather than inventing a
     fourth state."""
@@ -289,7 +374,128 @@ def build_update_fields(photo_url, *, checked_at):
         # was taken. An aerial image presented as a current photograph of a
         # building would be a misrepresentation twice over.
         fields["photo_source"] = "usda_naip"
+        # The capture year comes from the same service (photo_source records
+        # whose it is); written only when the catalog established it.
+        if captured_year is not None:
+            fields["photo_captured_year"] = int(captured_year)
     return fields
+
+
+# --- capture-year backfill for images already stored ------------------------
+#
+# A stored row's year cannot simply be read from today's catalog: NAIP
+# replaces an area's imagery when a newer flight is published, and the row's
+# image may predate that. The year is written only when the image the service
+# returns TODAY for the row's own box is byte-identical to the stored one -
+# established from the content address in the stored path
+# (naip/v2/<sha256 of the source bytes>.<ext>, image_storage) or, for an
+# object stored untouched at an older path, from the stored bytes themselves.
+# The export is deterministic (the same box returns the same bytes - checked
+# 2026-11-14, three identical exports). Anything else is left NULL.
+
+_V2_SHA = re.compile(r"(?:^|/)" + re.escape(IS.OPTIMIZED_PREFIX) + r"([0-9a-f]{64})\.[a-z0-9]+$")
+
+
+def stored_source_sha(photo_url):
+    """The source-image sha256 a content-addressed stored path names, or None."""
+    path = IS.object_path_of(photo_url, STORAGE_BUCKET) or ""
+    m = _V2_SHA.search(path)
+    return m.group(1) if m else None
+
+
+def fetch_stored_object(photo_url):
+    """The stored object's bytes, or None (any failure)."""
+    try:
+        resp = requests.get(photo_url, timeout=REQUEST_TIMEOUT)
+    except requests.RequestException:
+        return None
+    return resp.content if resp.status_code == 200 and resp.content else None
+
+
+def stored_image_matches_today(row, today_png: bytes):
+    """True only when the stored image is provably today's export."""
+    today = IS.sha256(today_png)
+    named = stored_source_sha(row.get("photo_url"))
+    if named is not None:
+        return named == today
+    stored = fetch_stored_object(row.get("photo_url"))
+    return stored is not None and IS.sha256(stored) == today
+
+
+def fetch_year_backfill_rows(limit):
+    params = {
+        "select": "id,latitude,longitude,photo_url",
+        "photo_source": "eq.usda_naip",
+        "photo_captured_year": "is.null",
+        "photo_url": "not.is.null",
+        "latitude": "not.is.null",
+        "longitude": "not.is.null",
+    }
+    params.update(EU.state_param(EU.state_filter()))
+    # A random window (keyset from a random id, wrapping), pages of <= 1000:
+    # rows whose year cannot be established stay NULL and must not hold the
+    # front of the queue on every run.
+    return EU.get_window(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, limit)
+
+
+def patch_capture_year(property_id, year):
+    """One PATCH, one column, only while the column is still NULL."""
+    url = f"{SUPABASE_URL}/rest/v1/properties"
+    patch_headers = dict(HEADERS)
+    patch_headers["Prefer"] = "return=minimal"
+    resp = requests.patch(url, headers=patch_headers, timeout=20,
+                          params={"id": f"eq.{property_id}", "photo_captured_year": "is.null"},
+                          json={"photo_captured_year": int(year)})
+    resp.raise_for_status()
+
+
+def backfill_capture_years(limit, deadline=None):
+    """Fill photo_captured_year on up to `limit` stored usda_naip rows."""
+    out = {"limit": limit, "examined": 0, "written": 0, "image_changed": 0, "no_year": 0, "failed": 0,
+           "time_budget_reached": False}
+    if limit <= 0:
+        return out
+    if "photo_captured_year" not in available_optional_columns():
+        out["skipped"] = "photo_captured_year column not available"
+        return out
+    try:
+        rows = fetch_year_backfill_rows(limit)
+    except (requests.RequestException, ValueError) as exc:
+        print(f"Year backfill: could not read rows ({exc.__class__.__name__}) - skipped this run.", file=sys.stderr)
+        out["failed"] += 1
+        return out
+    for row in rows[:limit]:
+        if deadline is not None and time.monotonic() >= deadline:
+            out["time_budget_reached"] = True
+            break
+        if not IMG.has_coordinates(row) or not row.get("photo_url"):
+            continue
+        out["examined"] += 1
+        png, ok = fetch_naip_image(row["latitude"], row["longitude"])
+        time.sleep(REQUEST_DELAY_SECONDS)
+        if not ok or png is None:
+            out["failed"] += 1
+            continue
+        if not stored_image_matches_today(row, png):
+            out["image_changed"] += 1
+            continue
+        year, ok = fetch_capture_year(row["latitude"], row["longitude"])
+        time.sleep(REQUEST_DELAY_SECONDS)
+        if not ok:
+            out["failed"] += 1
+            continue
+        if year is None:
+            out["no_year"] += 1
+            continue
+        try:
+            patch_capture_year(row["id"], year)
+        except requests.RequestException:
+            out["failed"] += 1
+            continue
+        out["written"] += 1
+    print(f"Year backfill: examined {out['examined']}, written {out['written']}, image changed since stored "
+          f"{out['image_changed']}, no single capture year {out['no_year']}, failed {out['failed']}.")
+    return out
 
 
 # Imagery priority (Customer-value sprint, 2026-10-01). Storage is the binding
@@ -368,17 +574,37 @@ def patch_property(property_id, fields):
     resp.raise_for_status()
 
 
-def main():
+def parse_args(argv):
+    import argparse  # noqa: PLC0415
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--backfill-capture-year", action="store_true",
+                    help="only fill photo_captured_year on stored usda_naip rows (no new images)")
+    ap.add_argument("--limit", type=int, default=None,
+                    help="rows for --backfill-capture-year (default NAIP_YEAR_BACKFILL_LIMIT, else 300)")
+    return ap.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args([] if argv is None else argv)
     # Source permission (2026-10-12): recorded fetch/store permission for
     # usda_naip (data/source_permissions.csv), checked before any request.
     import permission_gate as _PG  # noqa: PLC0415
     if not _PG.allowed("usda_naip", ('fetch', 'store'), state="US", label="enrich_property_photos_naip"):
         sys.exit(_PG.DENIED_EXIT)
+    deadline = time.monotonic() + TIME_BUDGET_SECONDS if TIME_BUDGET_SECONDS > 0 else None
+    if args.backfill_capture_year:
+        limit = args.limit if args.limit is not None else (YEAR_BACKFILL_LIMIT or 300)
+        backfill_capture_years(limit, deadline)
+        return 0
+    year_backfill = backfill_capture_years(YEAR_BACKFILL_LIMIT, deadline) if YEAR_BACKFILL_LIMIT > 0 else None
     used = storage_used_bytes()
     budget = int(STORAGE_BUDGET_MB * 1024 * 1024)
     report = {"budget_mb": STORAGE_BUDGET_MB, "used_mb": None if used is None else round(used / 1048576, 1),
               "excluded_ledgers": list(EXCLUDED_SOURCES), "tiers": {}, "uploads_allowed": False}
-    report.update({"collected_tiers": list(COLLECTED_TIERS), "compressed": 0, "deduplicated": 0, "bytes_saved": 0, "bytes_stored": 0})
+    report.update({"collected_tiers": list(COLLECTED_TIERS), "compressed": 0, "deduplicated": 0, "bytes_saved": 0, "bytes_stored": 0,
+                   "captured_year_written": 0})
+    if year_backfill is not None:
+        report["capture_year_backfill"] = year_backfill
     tiers = []
     for name, flt in IMAGERY_TIERS:
         units = fetch_counties_needing_photos(flt)
@@ -402,7 +628,6 @@ def main():
     report["uploads_allowed"] = True
     attempted = 0
     stop = False
-    deadline = time.monotonic() + TIME_BUDGET_SECONDS if TIME_BUDGET_SECONDS > 0 else None
     report["time_budget_reached"] = False
     for name, flt, counties in tiers:
         t = report["tiers"][name]
@@ -468,7 +693,14 @@ def main():
                     # stamped, so the row is retried - never marked complete.
                     t["failed"] += 1
                     continue
-                patch_property(row["id"], build_update_fields(stored_url, checked_at=checked_at))
+                # The capture year of the image just exported, from the same
+                # service's catalog for the same box. A failed or ambiguous
+                # lookup stores the image without a year (backfilled later).
+                year, _ok = fetch_capture_year(row["latitude"], row["longitude"])
+                time.sleep(REQUEST_DELAY_SECONDS)
+                if year is not None:
+                    report["captured_year_written"] += 1
+                patch_property(row["id"], build_update_fields(stored_url, checked_at=checked_at, captured_year=year))
                 t["stored"] += 1
                 used += need
     report["used_mb"] = round(used / 1048576, 1)
@@ -482,11 +714,12 @@ def _finish(report: dict) -> None:
     write_priority_report(report)
     print("Imagery priority (available > active auctions; closed auctions deferred by policy; certificates excluded):")
     print(f"  storage: compressed {report.get('compressed', 0)}, deduplicated {report.get('deduplicated', 0)}, "
-          f"bytes stored {report.get('bytes_stored', 0)}, estimated bytes saved {report.get('bytes_saved', 0)}")
+          f"bytes stored {report.get('bytes_stored', 0)}, estimated bytes saved {report.get('bytes_saved', 0)}, "
+          f"capture year recorded on {report.get('captured_year_written', 0)} new image(s)")
     for name, t in report["tiers"].items():
         print(f"  {name}: outstanding {t['outstanding']}, attempted {t['attempted']}, stored {t['stored']}, "
               f"no coverage {t['no_coverage']}, failed {t['failed']}, deferred {t['deferred']}")
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

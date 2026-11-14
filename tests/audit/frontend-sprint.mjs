@@ -48,6 +48,75 @@ for (const [hash, ledger, re, extra] of [['#/auctions', 'AUCTIONS', /^Buyer's Gu
   await ctx.close();
 }
 
+// ---- a look that draws the ledger: Classic's hidden cards are not built; they appear at once when Classic shows
+{
+  const { ctx, pg } = await ctxPage({ tag: 'defer' });
+  await pg.goto(BASE + '?look=merged#/lands', { waitUntil: 'networkidle' });
+  await pg.waitForTimeout(1000);
+  const snap = () => pg.evaluate(() => ({ engine: document.documentElement.dataset.experience, ready: document.documentElement.dataset.experienceReady || null,
+    mainCards: document.querySelectorAll('#main .prop-card').length, stageCards: document.querySelectorAll('#xpStage [data-pid]').length, deferred: window.__tdwDeferredCards(),
+    mainShown: getComputedStyle(document.getElementById('main')).display !== 'none' }));
+  await pg.click('[data-nav-ledger="auction"]'); await pg.waitForTimeout(900);
+  await pg.click('[data-nav-ledger="laft"]'); await pg.waitForTimeout(900);
+  await pg.click('[data-nav-ledger="auction"]'); await pg.waitForTimeout(900);
+  const look = await snap();
+  check('lookDrawsAndClassicCardsAreDeferred', look.engine === 'tactile' && look.ready === 'tactile' && !look.mainShown && look.stageCards > 0 && look.mainCards === 0 && look.deferred > 0, look);
+  // The look hands the display back (as it does for an empty or failed ledger).
+  await pg.evaluate(() => { delete document.documentElement.dataset.experienceReady; });
+  await pg.waitForTimeout(250);
+  const back = await snap();
+  check('classicIsCompleteTheMomentItShows', back.mainShown && back.mainCards > 0 && back.deferred === 0, back);
+  // Picking Classic outright.
+  await pg.goto(BASE + '?look=merged#/auctions', { waitUntil: 'networkidle' }); await pg.waitForTimeout(900);
+  await pg.click('[data-nav-ledger="laft"]'); await pg.waitForTimeout(700);
+  await pg.click('[data-nav-ledger="auction"]'); await pg.waitForTimeout(700);
+  await pg.evaluate(() => { const bt = document.querySelector('#lookMenu [data-look="classic"]'); if (bt) bt.click(); });
+  await pg.waitForTimeout(900);
+  const classic = await snap();
+  check('pickingClassicBuildsItsCards', classic.engine === 'classic' && classic.mainShown && classic.mainCards > 0 && classic.deferred === 0, classic);
+  await ctx.close();
+}
+
+// ---- Merged: the other ledgers' modules arrive while idle, so the FIRST switch builds no Classic cards either
+{
+  const { ctx, pg } = await ctxPage({ tag: 'preload' });
+  await pg.goto(BASE + '?look=merged#/lands', { waitUntil: 'networkidle' });
+  await pg.waitForFunction(() => performance.getEntriesByType('resource').some(r => /experience-tactile\.js/.test(r.name)), null, { timeout: 15000 }).catch(() => {});
+  await pg.waitForTimeout(600);
+  const before = await pg.evaluate(() => ({ mods: ['terrain', 'tactile', 'merged'].filter(n => performance.getEntriesByType('resource').some(r => r.name.includes('experience-' + n + '.js'))),
+    engine: document.documentElement.dataset.experience, ready: document.documentElement.dataset.experienceReady || null, stage: document.getElementById('xpStage').dataset.xp || null }));
+  check('otherLookModulesPreloadedAndIdle', before.mods.length === 3 && before.engine === 'terrain' && before.ready === 'terrain', before);
+  let built = 0;
+  await pg.exposeFunction('__noteMainCards', n => { built = Math.max(built, n); });
+  await pg.evaluate(() => { new MutationObserver(() => window.__noteMainCards(document.querySelectorAll('#main .prop-card').length)).observe(document.getElementById('main'), { childList: true, subtree: true }); });
+  await pg.click('[data-nav-ledger="auction"]'); await pg.waitForTimeout(1200);
+  const after = await pg.evaluate(() => ({ engine: document.documentElement.dataset.experience, ready: document.documentElement.dataset.experienceReady || null, stageCards: document.querySelectorAll('#xpStage [data-pid]').length }));
+  check('firstSwitchBuildsNoClassicCards', built === 0 && after.ready === 'tactile' && after.stageCards > 0, { built, after });
+  await ctx.close();
+}
+
+// ---- Terrain card: the picture caption and the outline credit do not cover each other
+{
+  const { ctx, pg } = await ctxPage({ tag: 'caption' });
+  await pg.route('**/config.js', async route => { const r = await route.fetch(); await route.fulfill({ response: r, body: (await r.text()).replace('naipLiveImagery: false', 'naipLiveImagery: true') }); });
+  await pg.route('https://imagery.nationalmap.gov/**', route => route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64') }));
+  await pg.addInitScript(rs => { window.__stubExtraRows = rs; }, [{ id: 'capt1', source: 'laft', state: 'FL', county: 'Bay', case_no: 'CAP-1', parcel: '17920-000-000', address: '1 Caption Way', bid: 1200, purchase_amount: 1200, purchase_amount_kind: 'ORIGINAL_OPENING_BID', status: 'active', ledger_type: 'buy', latitude: 30.163, longitude: -85.6518, lien_level: 'unscreened', publication_status: 'APPROVED', inventory_status: 'available_otc', last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString() }]);
+  await pg.goto(BASE + '?look=merged&boundary=ok#/lands', { waitUntil: 'networkidle' });
+  await pg.waitForSelector('#xpStage .prop-card-photo > .pb-attrib', { timeout: 15000 }).catch(() => {});
+  await pg.waitForTimeout(500);
+  // Investor sprint (owner, 2026-11-12): the card picture carries ONE label;
+  // the outline's credit (short and full) is folded into the picture's (i)
+  // instead of a second strip on the picture - folded, never dropped.
+  const got = await pg.evaluate(() => Array.from(document.querySelectorAll('#xpStage .prop-card-photo.has-boundary')).map(h => {
+    const c = h.querySelector(':scope > .photo-caption'), a = h.querySelector(':scope > .pb-attrib');
+    const pop = h.querySelector(':scope > .pc-photo-info .ib-pop');
+    const cb = c ? c.getBoundingClientRect() : null, hb = h.getBoundingClientRect();
+    return { caption: !!c && c.checkVisibility(), inside: !!cb && cb.top >= hb.top - 1 && cb.bottom <= hb.bottom + 1, stripHidden: !a || !a.checkVisibility(), credit: !!(pop && pop.querySelector('[data-pb-credit]')) };
+  }));
+  check('terrainCaptionClearsOutlineCredit', got.length > 0 && got.every(g => g.caption && g.inside && g.stripHidden && g.credit), got);
+  await ctx.close();
+}
+
 // ---- update prompt
 {
   const { ctx, pg } = await ctxPage({ tag: 'update' });

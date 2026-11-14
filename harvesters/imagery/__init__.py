@@ -56,7 +56,9 @@ SOURCES = {
         "terms_status": "APPROVED",
         "image_type": "Aerial orthoimagery",
         "delivery": ("stored", "live_export"),
-        "capture_date": "Stored images carry the capture year when the service reports it; live images are the service's current mosaic",
+        "capture_date": ("Stored images carry the capture year (photo_captured_year) from the ImageServer catalog's "
+                         "acquisition_date for the image's own box, when every primary item there shares one year; "
+                         "live images are the service's current mosaic"),
         "attribution": "USDA NAIP imagery via USGS The National Map",
         "endpoint": NAIP_EXPORT_ENDPOINT,
     },

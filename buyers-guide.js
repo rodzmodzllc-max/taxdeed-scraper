@@ -1,28 +1,45 @@
-// Buyer's Guide (2026-10-29, owner's request; destination redesign 2026-11-09):
-// the questions a buyer asks before acting, per state, ledger and county, read
-// as a journey - Find > Check > Buy > After > Risks - each answered from an
-// official source or plainly marked "Not yet confirmed" with where to look.
+// Buyer's Guide (2026-10-29, owner's request; destination redesign 2026-11-09;
+// "up to a 10" sprint 2026-11-12): the questions a buyer asks before acting, per
+// state, ledger and county, read as a guide - a short version at the top, then
+// Find > Check > Buy > After > Risks with the answers open, then the next step
+// back to the properties. Each answer comes from an official source (its title,
+// link and the date it was read; the source's own wording folded beneath) or is
+// plainly marked "Not yet confirmed" with where to look.
 //
 // Data: public/buyers-guide.json (backend-generated; contract in
 // docs/buyers-guide-contract.md). Until that file exists the guide is built
 // from public/state-rules.json - the verified rules and county procedures
 // already on file - mapped onto the same questions by rule topic. Nothing here
-// invents an answer: a question with no recorded answer says so, and the
-// meter is a count of answered questions, never a score.
+// invents an answer: the short version quotes the first sentence of an answer
+// (or the ledger's own summary) from the file, a question with no recorded
+// answer says so, and no count or score is shown (2026-11-12: the "N of M
+// answered" meter and the per-row "Answered" badges read as coverage
+// bookkeeping to a customer and were removed).
 //
 // Loaded on demand by app.js (showPage("guide") -> import("./buyers-guide.js")).
 // app.js passes everything page-specific through `ctx`; this module reads no
 // app.js globals and makes no request other than the two JSON files. app.js
 // re-renders the whole section on every ledger / county change, so this module
-// keeps the reader's own state (open questions, search text, the county
-// callout, the control that was used) and restores it after each render.
+// keeps the reader's own state (questions they closed, search text, the
+// control that was used) and restores it after each render.
 
 const LEDGER_NAMES = { AVAILABLE: "Available", AUCTIONS: "Auctions", LIENS_CERTIFICATES: "Liens & Certificates" };
 const LEDGER_SHORT = { AVAILABLE: "Available", AUCTIONS: "Auctions", LIENS_CERTIFICATES: "Liens" };
 const LEDGER_HERO = { AVAILABLE: "Available property", AUCTIONS: "Auctions", LIENS_CERTIFICATES: "Liens & Certificates" };
-// One status vocabulary for the whole guide (chips, counts, tests).
+// The listing noun of the next-step link: [one, many].
+const LEDGER_NOUN = { AVAILABLE: ["Available property", "Available properties"], AUCTIONS: ["property at auction", "properties at auction"], LIENS_CERTIFICATES: ["lien or certificate", "liens and certificates"] };
+// One status vocabulary for the whole guide (chips, tests). Since 2026-11-12 an
+// answered row carries no chip; "Answered" stays here as the status's name.
 export const STATUS_LABELS = { VERIFIED: "Answered", PARTIALLY_VERIFIED: "Partly answered", NOT_VERIFIED: "Not yet confirmed", SOURCE_RESTRICTED: "Official page blocked" };
 const ANSWERED = new Set(["VERIFIED", "PARTIALLY_VERIFIED"]);
+// "The short version": which question answers each of the three lines, per
+// ledger. Only an answer already in the file is shown (its first sentence, word
+// for word); the "what" line prefers the ledger's own summary sentence.
+export const SHORT_VERSION = {
+  AVAILABLE: [["what", "What it is", "what_is_list"], ["cost", "What it costs", "price"], ["buy", "How to buy", "how_to_buy"]],
+  AUCTIONS: [["what", "What it is", "how_it_works"], ["cost", "What it costs", "opening_bid"], ["buy", "How to buy", "register"]],
+  LIENS_CERTIFICATES: [["what", "What it is", "what_is_it"], ["cost", "What it costs", "costs"], ["buy", "How to buy", "how_to_buy"]],
+};
 
 // The journey (pinned equal to buyers-guide.json "journey" by
 // tests/python/test_buyers_guide.py); used when the file carries none.
@@ -74,12 +91,14 @@ const has = (o, k) => !!o && Object.prototype.hasOwnProperty.call(o, k);
 const isHttps = u => typeof u === "string" && /^https:\/\//.test(u);
 const reduceMotion = () => !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: no-preference)").matches);
 
-// The reader's own state, kept across app.js re-renders.
-const UI = { open: new Map(), search: "", callout: false, trigger: null, lastLedger: null };
-function openSet(key) { if (!UI.open.has(key)) UI.open.set(key, new Set()); return UI.open.get(key); }
+// The reader's own state, kept across app.js re-renders. Answers are open by
+// default (2026-11-12); `closed` remembers the ones the reader folded.
+const UI = { closed: new Map(), search: "", trigger: null, lastLedger: null };
+function closedSet(key) { if (!UI.closed.has(key)) UI.closed.set(key, new Set()); return UI.closed.get(key); }
 
 // ---------------------------------------------------------------- model
 // One shape for both data sources: { questions: [...], answer(q, county), countyAnswers(q) }.
+const answered = a => !!(a && a.answer && ANSWERED.has(a.status));
 function ledgerModel(data, st, ledger) {
   const g = data.guide;
   if (g && g.states && has(g.states, st)) {
@@ -97,11 +116,19 @@ function ledgerModel(data, st, ledger) {
       offered: base.offered || null,
       questions: qs.map(q => ({ id: q.id, group: q.group || "", question: q.question, where: q.where_to_look || q.where || "" })),
       counties: Object.keys(s.counties || {}).filter(c => has(s.counties[c], ledger)).sort(),
+      // A county's answered row replaces the statewide one in that county; the
+      // statewide answer stays readable beneath it (`statewide`). A county row
+      // that is still open does not hide an answered statewide one: the state
+      // answer is shown and the county's own "where to look" travels with it
+      // (`countyOpen`) - the statewide rule still applies in that county.
       answer(q, county) {
         const ca = countyAns(county, q.id);
-        if (ca) return Object.assign({ scope: "county" }, ca);
         const a = statewide.get(q.id);
-        return a ? Object.assign({ scope: "state" }, a) : null;
+        const sa = a ? Object.assign({ scope: "state" }, a) : null;
+        if (ca && answered(ca)) return Object.assign({ scope: "county", statewide: answered(sa) ? sa : null }, ca);
+        if (ca && answered(sa)) return Object.assign({}, sa, { countyOpen: ca });
+        if (ca) return Object.assign({ scope: "county" }, ca);
+        return sa;
       },
       // Counties whose own page answers this question.
       countyAnswers(q) {
@@ -135,7 +162,17 @@ function ledgerModel(data, st, ledger) {
   };
 }
 
-const answered = a => !!(a && a.answer && ANSWERED.has(a.status));
+// The opening of an answer, word for word (never rewritten): whole sentences
+// until about 120 characters, so a short first sentence ("For the first 90 days
+// only the county may buy...") is not left without the one that completes it.
+// A full stop followed by a capital letter ends a sentence; "s. 197.552" does not.
+export function firstSentence(t) {
+  const s = String(t || "").trim();
+  const parts = s.split(/(?<=[.!?])\s+(?=[A-Z"“(])/);
+  let out = "";
+  for (const p of parts) { out = out ? out + " " + p : p; if (out.length >= 120) break; }
+  return out;
+}
 
 // ---------------------------------------------------------------- render parts
 function placeName(county, unit) { return / City$/.test(county) ? county : `${county} ${unit}`; }
@@ -146,20 +183,20 @@ function linksOf(a) {
   return list;
 }
 
-function linkHtml(l, e) { return `<a href="${e(l.url)}" target="_blank" rel="noopener">${e(l.title || "Official page")} →</a>`; }
+function linkHtml(l, e) { return `<a href="${e(l.url)}" target="_blank" rel="noopener">${e(l.title || "Official page")} <span aria-hidden="true">↗</span></a>`; }
 
 // "Where to look: <link>. Remaining sentence." - the link title is shown once,
 // as the link, when the sentence starts with it.
-function whereHtml(q, a, e) {
+function whereHtml(q, a, e, lead) {
   const where = (a && a.where_to_look) || q.where || "Ask the office that runs the sale.";
   const links = linksOf(a);
   let body = e(where), rest = links;
   if (links.length) {
-    const lead = `See ${links[0].title}.`;
-    if (where.startsWith(lead)) { body = linkHtml(links[0], e) + e(where.slice(lead.length)); rest = links.slice(1); }
+    const start = `See ${links[0].title}.`;
+    if (where.startsWith(start)) { body = linkHtml(links[0], e) + e(where.slice(start.length)); rest = links.slice(1); }
   }
   const more = rest.length ? `<span class="bg-where-links">${rest.map(l => linkHtml(l, e)).join("")}</span>` : "";
-  return `<p class="bg-where"><span class="bg-where-l">Where to look:</span> ${body}${more}</p>`;
+  return `<p class="bg-where">${lead ? `<span class="bg-where-for">${e(lead)}</span> ` : ""}<span class="bg-where-l">Where to look:</span> ${body}${more}</p>`;
 }
 
 function mostlyCaps(t) {
@@ -179,18 +216,34 @@ function chipHtml(status, e) {
   return `<span class="bg-chip bg-chip-${cls}">${e(STATUS_LABELS[status] || STATUS_LABELS.NOT_VERIFIED)}</span>`;
 }
 
-function answeredRowHtml(q, a, ctx, isOpen) {
+// Provenance, compact: scope · source title (link) · checked <date> · office,
+// with the source's own wording folded beneath. Never dropped.
+function provenanceHtml(a, ctx) {
+  const e = ctx.esc;
+  const link = isHttps(a.source_url) ? `<span class="bg-meta-src">${linkHtml({ url: a.source_url, title: a.source_title || "Official source" }, e)}</span>` : "";
+  const meta = [`<span class="bg-scope">${e(scopeChip(a, ctx))}</span>`, link,
+    a.verified_on ? `<span class="bg-meta-date">checked ${e(ctx.fmtDate(a.verified_on))}</span>` : "",
+    a.office ? `<span>${e(a.office)}</span>` : ""].filter(Boolean).join("");
+  const quote = a.quote ? `<details class="bg-src"><summary>Official wording</summary><blockquote class="bg-quote${mostlyCaps(a.quote) ? " bg-caps" : ""}">${e(a.quote)}</blockquote></details>` : "";
+  return `<p class="bg-meta">${meta}</p>${quote}`;
+}
+
+function answerBodyHtml(a, ctx) {
   const e = ctx.esc;
   const steps = Array.isArray(a.steps) && a.steps.length ? `<ol class="bg-steps">${a.steps.map(s => `<li>${e(s)}</li>`).join("")}</ol>` : "";
-  const quote = a.quote ? `<details class="bg-src"><summary>Official wording</summary><blockquote class="bg-quote${mostlyCaps(a.quote) ? " bg-caps" : ""}">${e(a.quote)}</blockquote></details>` : "";
-  const link = isHttps(a.source_url) ? `<span>${linkHtml({ url: a.source_url, title: a.source_title || "Official source" }, e)}</span>` : "";
-  const meta = [`<span class="bg-scope">${e(scopeChip(a, ctx))}</span>`, link,
-    a.office ? `<span>${e(a.office)}</span>` : "",
-    a.verified_on ? `<span>Checked ${e(ctx.fmtDate(a.verified_on))}</span>` : ""].filter(Boolean).join("");
+  return `<p class="bg-answer">${e(a.answer)}</p>${steps}${provenanceHtml(a, ctx)}`;
+}
+
+function answeredRowHtml(q, a, ctx, isOpen) {
+  const e = ctx.esc;
   const verified = a.status === "VERIFIED";
-  return `<details class="bg-q bg-q-ok${verified ? " bg-q-verified" : ""}" data-bg-q="${e(q.id)}" data-bg-status="${e(a.status)}"${verified ? ' data-bg-verified="1"' : ""}${isOpen ? " open" : ""}>
-    <summary><span class="bg-q-text">${e(q.question)}</span>${chipHtml(a.status, e)}</summary>
-    <div class="bg-a"><p class="bg-answer">${e(a.answer)}</p>${steps}${quote}<p class="bg-meta">${meta}</p></div></details>`;
+  // Under a county answer, the statewide rule for the same question.
+  const also = a.statewide ? `<div class="bg-also"><p class="bg-also-k">Statewide</p>${answerBodyHtml(a.statewide, ctx)}</div>` : "";
+  // A county page not yet read for a question the state answers.
+  const countyOpen = a.countyOpen && ctx.county ? whereHtml(q, a.countyOpen, e, `${placeName(ctx.county, ctx.unit)}: not yet confirmed.`) : "";
+  return `<details class="bg-q bg-q-ok${verified ? " bg-q-verified" : ""}" data-bg-q="${e(q.id)}" data-bg-status="${e(a.status)}" data-bg-scope="${e(a.scope || "state")}"${verified ? ' data-bg-verified="1"' : ""}${isOpen ? " open" : ""}>
+    <summary><span class="bg-q-text">${e(q.question)}</span>${a.status === "PARTIALLY_VERIFIED" ? chipHtml(a.status, e) : ""}</summary>
+    <div class="bg-a">${answerBodyHtml(a, ctx)}${also}${countyOpen}</div></details>`;
 }
 
 function openRowHtml(q, a, ctx) {
@@ -200,29 +253,59 @@ function openRowHtml(q, a, ctx) {
     <p class="bg-q-line"><span class="bg-q-text">${e(q.question)}</span>${chipHtml(status, e)}</p>${whereHtml(q, a, e)}</div>`;
 }
 
-function stepHtml(step, n, items, ctx, opened) {
+function stepHtml(step, n, items, ctx, closed) {
   const e = ctx.esc;
   const done = items.filter(x => answered(x.a));
   const todo = items.filter(x => !answered(x.a));
   return `<section class="bg-step" id="bgStep-${e(step.id)}" data-bg-step="${e(step.id)}" aria-labelledby="bgStepH-${e(step.id)}">
     <header class="bg-step-head"><span class="bg-step-n" aria-hidden="true">${n}</span>
-      <div class="bg-step-hd"><p class="bg-step-k">Step ${n} · ${e(step.label)}</p><h2 class="bg-step-h" id="bgStepH-${e(step.id)}">${e(step.title)}</h2></div>
-      <span class="bg-step-c">${done.length}/${items.length} answered</span></header>
-    ${done.length ? `<div class="bg-list">${done.map(x => answeredRowHtml(x.q, x.a, ctx, opened.has(x.q.id))).join("")}</div>` : ""}
+      <div class="bg-step-hd"><p class="bg-step-k">Step ${n} · ${e(step.label)}</p><h2 class="bg-step-h" id="bgStepH-${e(step.id)}">${e(step.title)}</h2></div></header>
+    ${done.length ? `<div class="bg-list">${done.map(x => answeredRowHtml(x.q, x.a, ctx, !closed.has(x.q.id))).join("")}</div>` : ""}
     ${todo.length ? `<div class="bg-todo"><h3 class="bg-todo-h">Still to confirm (${todo.length})</h3>${todo.map(x => openRowHtml(x.q, x.a, ctx)).join("")}</div>` : ""}
   </section>`;
 }
 
-function calloutHtml(moved, ctx, model) {
+// "The short version": three lines, each the first sentence of an answer in the
+// file (the "what" line: the ledger's summary sentence when there is one), with
+// a link to the full answer below. An unanswered line says "Not yet confirmed".
+function shortVersionHtml(ledger, model, county, ctx, stepOf) {
+  const e = ctx.esc;
+  const rows = (SHORT_VERSION[ledger] || []).map(([key, label, qid]) => {
+    const q = model.questions.find(x => x.id === qid);
+    const a = q ? model.answer(q, county) : null;
+    const own = answered(a) && a.scope === "county" && county;
+    let from, text = "", src = "";
+    if (key === "what" && model.summary && !own) { from = "summary"; text = model.summary; }
+    else if (answered(a)) {
+      from = a.scope === "county" ? "county" : "answer"; text = firstSentence(a.answer);
+      src = [isHttps(a.source_url) ? linkHtml({ url: a.source_url, title: a.source_title || "Official source" }, e) : "", a.verified_on ? `checked ${e(ctx.fmtDate(a.verified_on))}` : ""].filter(Boolean).join(" · ");
+    } else from = "missing";
+    const target = q && stepOf(qid) ? qid : null;
+    const more = target ? `<button type="button" class="bg-short-more" data-bg-goto="${e(target)}">${from === "missing" ? "Where to look" : "Full answer"} <span aria-hidden="true">↓</span></button>` : "";
+    const body = from === "missing"
+      ? `<span class="bg-short-none">Not yet confirmed.</span>${target ? "" : " Ask the office that runs the sale before you pay."}`
+      : `<span class="bg-short-t">${e(text)}</span>`;
+    return `<div class="bg-short-row" data-bg-short="${key}" data-bg-short-from="${from}"${q ? ` data-bg-short-q="${e(qid)}"` : ""}>
+      <dt>${e(label)}${from === "county" ? ` <span class="bg-short-scope">${e(placeName(county, ctx.unit))}</span>` : ""}</dt>
+      <dd>${body} ${more}${src ? `<span class="bg-short-src">${src}</span>` : ""}</dd></div>`;
+  }).join("");
+  return `<section class="bg-short" aria-labelledby="bgShortH"><h2 class="bg-short-h" id="bgShortH">The short version</h2><dl class="bg-short-list">${rows}</dl></section>`;
+}
+
+// Statewide view: the questions whose answers differ by county, with the county
+// picker in plain sight (it used to sit behind a collapsed bar).
+function calloutHtml(moved, counties, ctx) {
   const e = ctx.esc;
   if (!moved.length) return "";
   const unit = ctx.unit.toLowerCase();
-  const all = Array.from(new Set(moved.flatMap(x => x.counties))).sort();
+  const plural = unit === "parish" ? "parishes" : "counties";
+  const all = Array.from(new Set(moved.flatMap(x => x.counties).concat(counties))).sort();
   const opts = `<option value="">Choose a ${e(unit)}</option>` + all.map(c => `<option value="${e(c)}">${e(placeName(c, ctx.unit))}</option>`).join("");
-  return `<aside class="bg-callout" data-bg-callout><details${UI.callout ? " open" : ""}><summary><span class="bg-callout-t">${moved.length} ${moved.length === 1 ? "question is" : "questions are"} answered ${e(unit)} by ${e(unit)}</span></summary>
-    <p class="bg-callout-p">No statewide source answers ${moved.length === 1 ? "it" : "these"}; each ${e(unit)}'s own official page does. Pick a ${e(unit)} to read its answers.</p>
-    <ul class="bg-callout-list">${moved.map(x => `<li><span>${e(x.q.question)}</span><span class="bg-callout-n">${x.counties.length} ${x.counties.length === 1 ? e(unit) : (unit === "parish" ? "parishes" : "counties")}</span></li>`).join("")}</ul>
-    <label class="bg-callout-pick"><span>${e(ctx.unit)}</span><select data-bg-callout-county aria-label="Open the guide for a ${e(unit)}">${opts}</select></label></details></aside>`;
+  return `<aside class="bg-callout" data-bg-callout aria-labelledby="bgCalloutH">
+    <h2 class="bg-callout-t" id="bgCalloutH">Pick your ${e(unit)} for its own answers</h2>
+    <p class="bg-callout-p">${moved.length === 1 ? "This question is" : "These questions are"} answered by each ${e(unit)}'s own official page, not statewide. The statewide answers stay shown under the ${e(unit)}'s.</p>
+    <label class="bg-callout-pick"><span>${e(ctx.unit)}</span><select data-bg-callout-county aria-label="Open the guide for a ${e(unit)}">${opts}</select></label>
+    <ul class="bg-callout-list">${moved.map(x => `<li><span>${e(x.q.question)}</span><span class="bg-callout-n">${x.counties.length} ${x.counties.length === 1 ? e(unit) : plural}</span></li>`).join("")}</ul></aside>`;
 }
 
 function ledgerTabsHtml(order, ledger, ctx) {
@@ -233,6 +316,23 @@ function ledgerTabsHtml(order, ledger, ctx) {
     <span class="bg-seg-thumb" aria-hidden="true"></span>
     ${order.map(k => `<button type="button" class="bg-tab${k === ledger ? " on" : ""}" data-bg-ledger="${k}" data-tab-ledger="${k}" aria-pressed="${k === ledger}" aria-label="${e(LEDGER_NAMES[k])}"><span class="bg-tab-long">${e(LEDGER_NAMES[k])}</span><span class="bg-tab-short" aria-hidden="true">${e(LEDGER_SHORT[k])}</span></button>`).join("")}
   </div>`;
+}
+
+// The next step: back to this ledger's properties (with the count the app
+// already has; no count is shown when it has none), and the other two guides.
+function nextStepHtml(order, ledger, county, ctx) {
+  const e = ctx.esc;
+  let where = county, n = typeof ctx.count === "function" ? ctx.count(ledger, county) : null;
+  // A county with none listed: the state's list instead, never "See the 0 ...".
+  if (county && n === 0) { where = null; n = typeof ctx.count === "function" ? ctx.count(ledger, null) : null; }
+  const place = where ? placeName(where, ctx.unit) : ctx.stateName;
+  const noun = LEDGER_NOUN[ledger] || ["property", "properties"];
+  const label = typeof n === "number" && n > 0 ? `See the ${n.toLocaleString("en-US")} ${n === 1 ? noun[0] : noun[1]} in ${place}` : `See the ${noun[1]} in ${place}`;
+  const list = typeof ctx.openList === "function"
+    ? `<button type="button" class="bg-next-go" data-bg-list="${e(ledger)}"${where ? ` data-bg-list-county="${e(where)}"` : ""}${typeof n === "number" ? ` data-bg-count="${n}"` : ""}>${e(label)} <span aria-hidden="true">→</span></button>` : "";
+  const others = order.filter(k => k !== ledger).map(k => `<li><button type="button" class="bg-next-guide" data-bg-ledger-go="${e(k)}">Buyer's Guide: ${e(LEDGER_NAMES[k])} <span aria-hidden="true">→</span></button></li>`).join("");
+  return `<section class="bg-next" aria-labelledby="bgNextH"><h2 class="bg-next-h" id="bgNextH">Next step</h2>
+    ${list}<p class="bg-next-p">Or read how the other sales work:</p><ul class="bg-next-list">${others}</ul></section>`;
 }
 
 // ---------------------------------------------------------------- render
@@ -267,76 +367,106 @@ function draw(root, ctx, data) {
   const steps = journey.steps.map(s => ({ step: s, items: shown.filter(x => map[x.q.id] === s.id) })).filter(s => s.items.length);
   const unmapped = shown.filter(x => !journey.steps.some(s => s.id === map[x.q.id]));
   if (unmapped.length) steps.push({ step: MORE_STEP, items: unmapped });
+  const stepOf = id => (steps.find(s => s.items.some(x => x.q.id === id)) || {}).step || null;
 
   const verifiedN = all.filter(x => x.a && x.a.status === "VERIFIED").length;
-  const meterN = shown.filter(x => x.a && x.a.status === "VERIFIED").length;
-  const meterM = shown.length;
   const place = county ? placeName(county, ctx.unit) : ctx.stateName;
-  const key = `${ctx.state}|${ledger}`;
-  const opened = openSet(key);
-  const lede = model.summary || "The questions to settle before you act, each answered from an official page or marked not yet confirmed with where to look.";
-  const opts = `<option value="">Statewide</option>` + counties.map(c => `<option value="${e(c)}"${c === county ? " selected" : ""}>${e(placeName(c, ctx.unit))}</option>`).join("");
-  const rail = steps.map((s, i) => {
-    const d = s.items.filter(x => answered(x.a)).length;
-    return `<li><button type="button" class="bg-jump" data-bg-jump="${e(s.step.id)}"><span class="bg-jump-n" aria-hidden="true">${i + 1}</span><span class="bg-jump-l">${e(s.step.label)}</span><span class="bg-jump-c">${d}/${s.items.length}</span></button></li>`;
-  }).join("");
+  const key = `${ctx.state}|${ledger}|${county || ""}`;
+  const closed = closedSet(key);
+  const opts = `<option value="">All of ${e(ctx.stateName)} (statewide)</option>` + counties.map(c => `<option value="${e(c)}"${c === county ? " selected" : ""}>${e(placeName(c, ctx.unit))}</option>`).join("");
+  const rail = steps.map((s, i) => `<li><button type="button" class="bg-jump" data-bg-jump="${e(s.step.id)}"><span class="bg-jump-n" aria-hidden="true">${i + 1}</span><span class="bg-jump-l">${e(s.step.title)}</span></button></li>`).join("");
+  const anyAnswered = shown.some(x => answered(x.a));
 
-  root.innerHTML = `<div class="bg-page" data-ledger="${ledger}" data-bg-mode="${model.mode}">
+  root.innerHTML = `<div class="bg-page" data-ledger="${ledger}" data-bg-mode="${model.mode}"${county ? ` data-bg-county-on="${e(county)}"` : ""}>
     <header class="bg-hero">
       <p class="bg-eyebrow">Buyer's Guide · ${e(ctx.stateName)}</p>
       <h1 class="bg-title">${e(LEDGER_HERO[ledger])} in ${e(place)}</h1>
-      <p class="bg-lede">${e(lede)}</p>
-      <div class="bg-meter"><p class="bg-meter-t"><strong>${meterN}</strong> of ${meterM} answered from official pages${county ? "" : " statewide"}</p>
-        <span class="bg-meter-bar" aria-hidden="true"><span style="--f:${meterM ? (meterN / meterM).toFixed(3) : 0}"></span></span></div>
+      <p class="bg-lede">How it works, what it costs and how to buy - each answer from an official page, with its source and the date it was checked.</p>
       <p class="bg-legal">Answers describe the public process, not any one property. Not legal advice - confirm with the office before you pay.${model.mode === "rules" ? " The full guide is being prepared; these answers come from the verified rules on file." : ""}</p>
     </header>
     <div class="bg-controls">
       ${ledgerTabsHtml(order, ledger, ctx)}
       <label class="bg-county"><span class="bg-county-l">Showing:</span><select data-bg-county aria-label="Showing: ${e(ctx.unit)} or statewide">${opts}</select></label>
-      <div class="bg-search-wrap"><input class="bg-search" type="search" placeholder="Search questions" aria-label="Search questions" data-bg-search autocomplete="off"></div>
     </div>
-    <p class="bg-count" role="status" aria-live="polite"></p>
-    ${county ? "" : calloutHtml(moved, c2, model)}
+    ${shortVersionHtml(ledger, model, county, c2, stepOf)}
+    ${county ? "" : calloutHtml(moved, counties, c2)}
     ${county && ledger === "AVAILABLE" && typeof ctx.countyProcessHtml === "function" ? (ctx.countyProcessHtml(county) || "") : ""}
     <div class="bg-body">
-      <nav class="bg-rail" aria-label="Journey steps"><ol>${rail}</ol></nav>
-      <div class="bg-main">
-        ${steps.map((s, i) => stepHtml(s.step, i + 1, s.items, c2, opened)).join("")}
+      <nav class="bg-rail" aria-label="On this page"><p class="bg-rail-h" aria-hidden="true">On this page</p><ol>${rail}<li><button type="button" class="bg-jump bg-jump-next" data-bg-jump="next"><span class="bg-jump-n" aria-hidden="true">→</span><span class="bg-jump-l">Next step</span></button></li></ol></nav>
+      <div class="bg-main" id="bgMain">
+        <div class="bg-tools">
+          <div class="bg-search-wrap"><input class="bg-search" type="search" placeholder="Search the guide" aria-label="Search the guide" data-bg-search autocomplete="off"></div>
+          ${anyAnswered ? `<button type="button" class="bg-expand" data-bg-expand aria-controls="bgMain" aria-expanded="true">Collapse all</button>` : ""}
+        </div>
+        <p class="bg-count" role="status" aria-live="polite"></p>
+        ${steps.map((s, i) => stepHtml(s.step, i + 1, s.items, c2, closed)).join("")}
         <div class="bg-empty" hidden><p>No question matches <span class="bg-empty-q"></span>.</p><button type="button" class="bg-clear" data-bg-clear>Clear search</button></div>
       </div>
     </div>
+    ${nextStepHtml(order, ledger, county, c2)}
   </div>`;
 
-  wire(root, ctx, { ledger, county, key, total: shown.length, stepsN: steps.length });
+  wire(root, ctx, { ledger, county, key, total: shown.length, stepsN: steps.length, stepOf });
   const tb = document.querySelector('html[data-shell="v3"] .topbar');
   root.style.setProperty("--bg-top", (tb ? Math.round(tb.getBoundingClientRect().height) : 0) + "px");
   UI.lastLedger = ledger;
-  return { mode: model.mode, verified: verifiedN, total: all.length, shown: shown.length, countyOnly: moved.length, steps: steps.map(s => s.step.id) };
+  return { mode: model.mode, verified: verifiedN, total: all.length, shown: shown.length, countyOnly: moved.length, steps: steps.map(s => s.step.id), county };
 }
 
 function wire(root, ctx, s) {
   const page = root.querySelector(".bg-page");
   const remember = sel => { UI.trigger = sel; };
   const go = (next, sel) => { remember(sel); ctx.navigate(next); };
+  const smooth = () => (reduceMotion() ? "auto" : "smooth");
   root.querySelectorAll("[data-bg-ledger]").forEach(b => b.addEventListener("click", () => {
     if (b.dataset.bgLedger !== s.ledger) go({ ledger: b.dataset.bgLedger, county: s.county }, `[data-bg-ledger="${b.dataset.bgLedger}"]`);
+  }));
+  // The other guides, from the bottom of the page: open at the top.
+  root.querySelectorAll("[data-bg-ledger-go]").forEach(b => b.addEventListener("click", () => {
+    go({ ledger: b.dataset.bgLedgerGo, county: s.county }, `[data-bg-ledger="${b.dataset.bgLedgerGo}"]`);
+    window.scrollTo({ top: 0, behavior: "auto" });
   }));
   const sel = root.querySelector("[data-bg-county]");
   if (sel) sel.addEventListener("change", () => go({ ledger: s.ledger, county: sel.value || null }, "[data-bg-county]"));
   const csel = root.querySelector("[data-bg-callout-county]");
   if (csel) csel.addEventListener("change", () => { if (csel.value) go({ ledger: s.ledger, county: csel.value }, "[data-bg-county]"); });
-  const callout = root.querySelector("[data-bg-callout] details");
-  if (callout) callout.addEventListener("toggle", () => { UI.callout = callout.open; });
-  const opened = openSet(s.key);
-  root.querySelectorAll("details.bg-q").forEach(d => d.addEventListener("toggle", () => {
-    if (d.dataset.bgAuto) return;
-    if (d.open) opened.add(d.dataset.bgQ); else opened.delete(d.dataset.bgQ);
+  const listBtn = root.querySelector("[data-bg-list]");
+  if (listBtn && typeof ctx.openList === "function") listBtn.addEventListener("click", () => ctx.openList(listBtn.dataset.bgList, listBtn.dataset.bgListCounty || null));
+
+  const closed = closedSet(s.key);
+  const rows = () => Array.from(root.querySelectorAll("details.bg-q"));
+  const expand = root.querySelector("[data-bg-expand]");
+  const syncExpand = () => {
+    if (!expand) return;
+    const allOpen = rows().filter(d => !d.hidden).every(d => d.open);
+    expand.textContent = allOpen ? "Collapse all" : "Expand all";
+    expand.setAttribute("aria-expanded", allOpen ? "true" : "false");
+  };
+  rows().forEach(d => d.addEventListener("toggle", () => {
+    if (!d.dataset.bgAuto) { if (d.open) closed.delete(d.dataset.bgQ); else closed.add(d.dataset.bgQ); }
+    syncExpand();
   }));
+  if (expand) expand.addEventListener("click", () => {
+    const open = expand.getAttribute("aria-expanded") !== "true";
+    rows().forEach(d => { delete d.dataset.bgAuto; d.open = open; if (open) closed.delete(d.dataset.bgQ); else closed.add(d.dataset.bgQ); });
+    syncExpand();
+  });
+  const focusHeading = t => { const h = t.querySelector(".bg-step-h, .bg-next-h"); if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); } };
   root.querySelectorAll("[data-bg-jump]").forEach(b => b.addEventListener("click", () => {
-    const t = root.querySelector(`#bgStep-${b.dataset.bgJump}`);
+    const t = b.dataset.bgJump === "next" ? root.querySelector(".bg-next") : root.querySelector(`#bgStep-${b.dataset.bgJump}`);
     if (!t) return;
-    t.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" });
-    const h = t.querySelector(".bg-step-h"); if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
+    t.scrollIntoView({ behavior: smooth(), block: "start" });
+    focusHeading(t);
+  }));
+  // The short version's "Full answer" / "Where to look": open that question and go to it.
+  root.querySelectorAll("[data-bg-goto]").forEach(b => b.addEventListener("click", () => {
+    const t = root.querySelector(`.bg-q[data-bg-q="${b.dataset.bgGoto}"]`);
+    if (!t) return;
+    if (t.hidden && search.value) { search.value = ""; apply(); }
+    if (t.tagName === "DETAILS" && !t.open) t.open = true;
+    t.scrollIntoView({ behavior: smooth(), block: "start" });
+    const f = t.querySelector("summary") || t.querySelector("a");
+    if (f) f.focus({ preventScroll: true });
   }));
 
   // Search: filters rows, keeps its text across re-renders, Escape clears.
@@ -353,19 +483,20 @@ function wire(root, ctx, s) {
       if (hit) n++;
       if (d.tagName === "DETAILS") {
         if (t && hit && !d.open) { d.dataset.bgAuto = "1"; d.open = true; }
-        else if (!t && d.dataset.bgAuto) { d.open = opened.has(d.dataset.bgQ); }
+        else if (!t && d.dataset.bgAuto) { d.open = !closed.has(d.dataset.bgQ); }
         if (!t) setTimeout(() => { delete d.dataset.bgAuto; }, 0);
       }
     });
     root.querySelectorAll(".bg-step").forEach(sec => { sec.hidden = !sec.querySelector(".bg-q:not([hidden])"); });
     root.querySelectorAll(".bg-todo").forEach(g => { g.hidden = !g.querySelector(".bg-q:not([hidden])"); });
-    root.querySelectorAll("[data-bg-jump]").forEach(b => { const sec = root.querySelector(`#bgStep-${b.dataset.bgJump}`); b.classList.toggle("dim", !!(sec && sec.hidden)); });
+    root.querySelectorAll(".bg-jump[data-bg-jump]").forEach(b => { const sec = root.querySelector(`#bgStep-${b.dataset.bgJump}`); b.classList.toggle("dim", !!(sec && sec.hidden)); });
     if (empty) { empty.hidden = !t || n > 0; const q = empty.querySelector(".bg-empty-q"); if (q) q.textContent = `“${search.value.trim()}”`; }
-    count.textContent = t ? (n ? `${n} ${n === 1 ? "question matches" : "questions match"} “${search.value.trim()}”.` : `No question matches “${search.value.trim()}”. Press Escape to clear.`)
-      : `${s.total} questions in ${s.stepsN} steps.`;
+    // Only a search result is announced; the plain page needs no count line.
+    count.textContent = t ? (n ? `${n} ${n === 1 ? "question matches" : "questions match"} “${search.value.trim()}”.` : `No question matches “${search.value.trim()}”. Press Escape to clear.`) : "";
     // The empty box below says the same sentence on screen; the status line
     // stays for the screen-reader announcement only, so it is not read twice.
     count.classList.toggle("bg-sr", !!(empty && !empty.hidden));
+    syncExpand();
   };
   search.value = UI.search || "";
   search.addEventListener("input", apply);
