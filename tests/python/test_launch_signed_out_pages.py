@@ -50,7 +50,7 @@ def test_every_state_page_describes_itself_and_the_product():
         assert _attr(head, r'<meta property="og:title" content="([^"]+)">') == "TAXACQ — Tax Acquisition Intelligence", page
         assert _attr(head, r'<meta property="og:description" content="([^"]+)">') == desc, page
         assert _attr(head, r'<meta name="twitter:description" content="([^"]+)">') == desc, page
-        assert _attr(head, r'<meta property="og:image" content="([^"]+)">') == "https://taxacq.com/icons/icon-512.png", page
+        assert _attr(head, r'<meta property="og:image" content="([^"]+)">') == "https://taxacq.com/icons/share-1200x628.png", page
         assert head.count("<title>") == 1 and head.count('name="description"') == 1, page
         # The title stays the product's; the state is named only in the description.
         assert "<title>TAXACQ — Tax Acquisition Intelligence</title>" in head, page
