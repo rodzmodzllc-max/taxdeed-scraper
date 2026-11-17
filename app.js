@@ -4282,7 +4282,6 @@ function showPending() {
   if (app) app.hidden = true;
   if (pendingGate) pendingGate.hidden = false;
   try { renderPreviewApp(); } catch (e) { (window.__tdwBootErrors = window.__tdwBootErrors || []).push("preview: " + (e && e.message)); }
-  try { pricingOnPreview(); } catch { /* optional */ }
   renderPendingDetails();
 }
 
@@ -4363,7 +4362,7 @@ async function checkApprovalAndEnter(session) {
   const onTrial = !approved && !IS_ADMIN && !!TRIAL_ENDS_AT && TRIAL_ENDS_AT.getTime() > Date.now();
   TRIAL_ENDED = !approved && !IS_ADMIN && !!TRIAL_ENDS_AT && !onTrial;
   ACCESS = { role: IS_ADMIN ? "admin" : approved ? "tester" : onTrial ? "trial" : "inactive", state: IS_ADMIN ? "admin_override" : approved ? "tester_beta" : onTrial ? "trial" : "inactive", source: "legacy", entitlement: null };
-  if (approved || onTrial) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); if (onTrial) { showTrialBanner(); pricingAfterTrialBanner(); } }
+  if (approved || onTrial) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); if (onTrial) showTrialBanner(); }
   else showPlanOrPending(null);
 }
 
@@ -20360,136 +20359,3 @@ function syncAuthModeTabs(signUp) {
 }
 installAuthModeTabs();
 window.__tdwTiers = () => ({ account: accountTier(), selectable: tiersSelectable(), page: pageTier(), role: ACCESS && ACCESS.role });
-
-// ==================== "What would you pay?" (owner, 2026-11-17) ====================
-// The owner has no price yet and asked customers to say what the service is
-// worth. Van Westendorp's four price questions (monthly, USD), the plan they
-// would pick, what they buy, and a comment - saved to public.pricing_feedback
-// (migration 042: insert own, admins read). Offered from the account menu,
-// from the trial banner, once automatically when a trial has 4 days or less
-// left, and on the Free preview after a trial ends. Nothing here changes
-// access; answering is optional.
-var PRICING_DISMISS_DAYS = 2;
-function pricingKey(suffix) { return "tdw_pricing_" + suffix + "_v1:" + ((ME && ME.id) || "anon"); }
-function pricingAnswered() { try { return localStorage.getItem(pricingKey("answered")) === "1"; } catch { return false; } }
-function pricingRecentlyDismissed() {
-  try { const t = +localStorage.getItem(pricingKey("dismissed")) || 0; return Date.now() - t < PRICING_DISMISS_DAYS * 86400000; } catch { return false; }
-}
-function pricingMoney(v) {
-  const s = String(v == null ? "" : v).replace(/[$,\s]/g, "");
-  if (s === "") return null;
-  const n = Number(s);
-  return isFinite(n) && n >= 0 && n <= 10000 ? Math.round(n * 100) / 100 : NaN;
-}
-function openPricingSurvey(origin) {
-  if (document.getElementById("pricingSurvey")) return;
-  const wrap = document.createElement("div");
-  wrap.id = "pricingSurvey";
-  wrap.className = "pricing-survey-backdrop";
-  wrap.innerHTML = `
-  <form class="pricing-survey" role="dialog" aria-modal="true" aria-labelledby="pricingSurveyTitle" novalidate>
-    <button type="button" class="pricing-close" data-pricing-close aria-label="Close">&times;</button>
-    <h2 id="pricingSurveyTitle">What would TAXACQ be worth to you?</h2>
-    <p class="pricing-lead">TAXACQ organizes tax-sale leads from county and state lists into one place, then sends you to the county or its auction site to buy. We haven't set a price yet - your answer decides it. Monthly, in US dollars; skip anything you're unsure about.</p>
-    <div class="pricing-grid">
-      <label>So cheap you'd doubt the quality<span class="pricing-money"><span>$</span><input name="too_cheap" inputmode="decimal" autocomplete="off"></span></label>
-      <label>A bargain - a great buy for the money<span class="pricing-money"><span>$</span><input name="bargain" inputmode="decimal" autocomplete="off"></span></label>
-      <label>Getting expensive, but you'd still consider it<span class="pricing-money"><span>$</span><input name="getting_expensive" inputmode="decimal" autocomplete="off"></span></label>
-      <label>Too expensive to consider<span class="pricing-money"><span>$</span><input name="too_expensive" inputmode="decimal" autocomplete="off"></span></label>
-    </div>
-    <fieldset class="pricing-choices"><legend>Which would you pick?</legend>
-      <label><input type="radio" name="plan" value="one_state"> One state</label>
-      <label><input type="radio" name="plan" value="few_states"> A few states</label>
-      <label><input type="radio" name="plan" value="all_states"> Every state</label>
-      <label><input type="radio" name="plan" value="pay_per_list"> Pay per county list, no subscription</label>
-      <label><input type="radio" name="plan" value="would_not_pay"> I wouldn't pay for this</label>
-    </fieldset>
-    <fieldset class="pricing-choices"><legend>What do you buy? (any)</legend>
-      <label><input type="checkbox" name="buys" value="auctions"> Tax-deed auctions</label>
-      <label><input type="checkbox" name="buys" value="available"> Over-the-counter / available</label>
-      <label><input type="checkbox" name="buys" value="liens"> Liens &amp; certificates</label>
-      <label><input type="checkbox" name="buys" value="learning"> Still learning</label>
-    </fieldset>
-    <label class="pricing-comment">Anything that would make it worth more? (optional)<textarea name="comment" maxlength="1000" rows="3"></textarea></label>
-    <p class="pricing-msg" role="status"></p>
-    <div class="pricing-actions"><button type="submit" class="pricing-send">Send my answer</button><button type="button" class="pricing-later" data-pricing-close>Not now</button></div>
-  </form>`;
-  document.body.appendChild(wrap);
-  const form = wrap.querySelector("form"), msg = wrap.querySelector(".pricing-msg");
-  const close = (dismissed) => {
-    if (dismissed) { try { localStorage.setItem(pricingKey("dismissed"), String(Date.now())); } catch { /* storage off */ } }
-    wrap.remove();
-  };
-  wrap.addEventListener("click", e => { if (e.target === wrap || (e.target.closest && e.target.closest("[data-pricing-close]"))) close(true); });
-  wrap.addEventListener("keydown", e => { if (e.key === "Escape") close(true); });
-  const first = form.querySelector("input[name=too_cheap]"); if (first) first.focus();
-  form.addEventListener("submit", async e => {
-    e.preventDefault();
-    const fd = new FormData(form);
-    const row = {};
-    for (const k of ["too_cheap", "bargain", "getting_expensive", "too_expensive"]) {
-      const v = pricingMoney(fd.get(k));
-      if (Number.isNaN(v)) { msg.className = "pricing-msg err"; msg.textContent = "Please enter a dollar amount (numbers only) or leave it blank."; return; }
-      row[k] = v;
-    }
-    row.plan = fd.get("plan") || null;
-    const buys = fd.getAll("buys"); row.buys = buys.length ? buys : null;
-    const c = String(fd.get("comment") || "").trim(); row.comment = c ? c.slice(0, 1000) : null;
-    row.access_role = String((ACCESS && ACCESS.role) || "").slice(0, 20) || null;
-    if (row.too_cheap == null && row.bargain == null && row.getting_expensive == null && row.too_expensive == null && !row.plan && !row.comment) {
-      msg.className = "pricing-msg err"; msg.textContent = "Answer at least one question - or press Not now."; return;
-    }
-    const btn = form.querySelector(".pricing-send"); btn.disabled = true;
-    msg.className = "pricing-msg"; msg.textContent = "Sending";
-    let error = null;
-    try { ({ error } = await sb.from("pricing_feedback").insert(row)); } catch (err) { error = err || new Error("network"); }
-    btn.disabled = false;
-    if (error) {
-      msg.className = "pricing-msg err";
-      msg.innerHTML = "We couldn't save that just now. You can e-mail your answer to <a href=\"mailto:info@taxacq.com?subject=What%20I%20would%20pay%20for%20TAXACQ\">info@taxacq.com</a> instead.";
-      return;
-    }
-    try { localStorage.setItem(pricingKey("answered"), "1"); } catch { /* storage off */ }
-    form.innerHTML = "<h2>Thank you!</h2><p class=\"pricing-lead\">Your answer goes straight into how we price TAXACQ.</p><div class=\"pricing-actions\"><button type=\"button\" class=\"pricing-send\" data-pricing-close>Close</button></div>";
-    window.__tdwPricingSaved = row;
-  });
-}
-function installPricingMenuItem() {
-  const menu = document.getElementById("accountMenu");
-  if (!menu || menu.querySelector("[data-pricing-survey]")) return;
-  const item = document.createElement("button");
-  item.type = "button";
-  item.className = "account-item";
-  item.setAttribute("role", "menuitem");
-  item.dataset.pricingSurvey = "1";
-  item.textContent = "What would you pay?";
-  menu.appendChild(item);
-  item.addEventListener("click", () => openPricingSurvey("menu"));
-}
-installPricingMenuItem();
-// The trial banner offers it, and once - with 4 days or less left - it opens
-// by itself (never twice within PRICING_DISMISS_DAYS, never after an answer).
-function pricingAfterTrialBanner() {
-  const b = document.getElementById("trialBanner");
-  if (b && !b.querySelector("[data-pricing-survey]")) {
-    const btn = document.createElement("button");
-    btn.type = "button"; btn.className = "trial-banner-btn"; btn.dataset.pricingSurvey = "1";
-    btn.textContent = "What would you pay?";
-    btn.addEventListener("click", () => openPricingSurvey("trial_banner"));
-    b.appendChild(btn);
-  }
-  if (trialDaysLeft() <= 4 && !pricingAnswered() && !pricingRecentlyDismissed()) setTimeout(() => openPricingSurvey("trial_auto"), 4000);
-}
-// After a trial ends the Free preview asks too.
-function pricingOnPreview() {
-  if (!TRIAL_ENDED) return;
-  const banner = document.getElementById("previewBanner");
-  if (!banner || banner.querySelector("[data-pricing-survey]")) return;
-  const btn = document.createElement("button");
-  btn.type = "button"; btn.className = "trial-banner-btn"; btn.dataset.pricingSurvey = "1";
-  btn.textContent = "Tell us what it would be worth to you";
-  btn.addEventListener("click", () => openPricingSurvey("trial_ended"));
-  const main = banner.querySelector(".pv-banner-main") || banner;
-  main.appendChild(btn);
-}
-window.__tdwOpenPricingSurvey = openPricingSurvey;

@@ -2339,27 +2339,3 @@ a.ledger-badge:hover{text-decoration:underline}
 .nav-ledger-official{display:block;font-size:.68em;font-weight:500;letter-spacing:0;text-transform:none;opacity:.72;line-height:1.15;margin-top:1px;white-space:nowrap}
 /* 041: the 7-day Guided trial banner (a trial account sees it above the app). */
 .trial-banner{margin:0;padding:.55rem 1rem;background:var(--accent-soft,#eef3ff);color:var(--ink,#13213a);border-bottom:1px solid var(--card-line,#d9dfeb);font-size:.9rem;font-weight:600;text-align:center}
-/* "What would you pay?" survey (owner 2026-11-17, migration 042). */
-.trial-banner-btn{margin-left:.75rem;padding:.25rem .7rem;border:1px solid currentColor;border-radius:999px;background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer}
-.pv-banner .trial-banner-btn{margin:.8rem 0 0}
-.pricing-survey-backdrop{position:fixed;inset:0;z-index:1000;background:rgba(10,20,15,.55);display:grid;place-items:center;padding:16px;overflow:auto}
-.pricing-survey{position:relative;width:min(560px,100%);max-height:calc(100vh - 32px);overflow:auto;background:var(--card,#fff);color:var(--ink,#13213a);border-radius:12px;padding:1.4rem 1.4rem 1.1rem;box-shadow:0 20px 60px rgba(0,0,0,.3)}
-.pricing-survey h2{margin:0 2rem .5rem 0;font-size:1.25rem}
-.pricing-lead{margin:0 0 1rem;font-size:.92rem;color:var(--ink-soft,#4a5568)}
-.pricing-close{position:absolute;top:.6rem;right:.7rem;border:0;background:transparent;font-size:1.6rem;line-height:1;cursor:pointer;color:inherit}
-.pricing-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
-@media (max-width:520px){.pricing-grid{grid-template-columns:1fr}}
-.pricing-grid label,.pricing-comment{display:flex;flex-direction:column;gap:.3rem;font-size:.85rem;font-weight:600}
-.pricing-money{display:flex;align-items:center;border:1px solid var(--card-line,#cfd6e0);border-radius:8px;padding:0 .5rem;background:var(--bg,#fff)}
-.pricing-money input{flex:1;min-width:0;border:0;padding:.5rem .3rem;font:inherit;background:transparent;color:inherit}
-.pricing-choices{border:0;margin:1rem 0 0;padding:0;display:flex;flex-wrap:wrap;gap:.35rem .9rem;font-size:.9rem}
-.pricing-choices legend{font-weight:700;margin-bottom:.35rem;font-size:.9rem}
-.pricing-comment{margin-top:1rem}
-.pricing-comment textarea{font:inherit;padding:.5rem;border:1px solid var(--card-line,#cfd6e0);border-radius:8px;background:var(--bg,#fff);color:inherit}
-.pricing-msg{min-height:1.2em;margin:.6rem 0 0;font-size:.88rem}
-.pricing-msg.err{color:var(--bad,#b42318)}
-.pricing-actions{display:flex;gap:.6rem;margin-top:.8rem}
-.pricing-send{padding:.6rem 1.1rem;border:0;border-radius:999px;background:#1F3A2E;color:#F4F1EA;font:inherit;font-weight:700;cursor:pointer}
-.pricing-later{padding:.6rem 1rem;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;text-decoration:underline}
-.pricing-money:focus-within{outline:2px solid #1F3A2E;outline-offset:1px}
-.pricing-money input:focus{outline:none}
