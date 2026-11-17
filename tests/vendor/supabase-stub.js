@@ -548,7 +548,13 @@ function stubCallerIsAdmin() {
 }
 
 const PROFILES_TABLE = PROFILE_MODE === "notable" ? null : [
-  PROFILE_MODE === "pending"
+  // 041: "trial" = unapproved inside its 7-day trial (3 days left);
+  // "trialended" = unapproved, trial over (is_approved() false again).
+  PROFILE_MODE === "trial"
+    ? { id: "u1", email: "test@example.com", approved: false, is_admin: false, requested_at: "2026-08-10T00:00:00Z", trial_ends_at: new Date(Date.now() + 3 * 86400000 - 3600000).toISOString() }
+  : PROFILE_MODE === "trialended"
+    ? { id: "u1", email: "test@example.com", approved: false, is_admin: false, requested_at: "2026-08-10T00:00:00Z", trial_ends_at: new Date(Date.now() - 86400000).toISOString() }
+  : PROFILE_MODE === "pending"
     ? { id: "u1", email: "test@example.com", approved: false, is_admin: false, requested_at: "2026-08-10T00:00:00Z" }
     : { id: "u1", email: "test@example.com", approved: true, is_admin: PROFILE_MODE === "admin", requested_at: "2026-08-01T00:00:00Z" },
   ...(PROFILE_MODE === "admin" ? [
@@ -1303,7 +1309,7 @@ export function createClient() {
       }
       // RLS: an account waiting for approval reads no listing (properties
       // requires is_approved(); the list RPCs are SECURITY INVOKER).
-      if ((fnName === "get_properties" || fnName === "get_properties_list") && PROFILE_MODE === "pending") {
+      if ((fnName === "get_properties" || fnName === "get_properties_list") && (PROFILE_MODE === "pending" || PROFILE_MODE === "trialended")) {
         return { data: [], error: null };
       }
       if (fnName === "get_properties" || fnName === "get_properties_list") {

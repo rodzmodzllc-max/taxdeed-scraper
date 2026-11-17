@@ -252,7 +252,7 @@ function appraiserLink(p) {
 // 2026-08-19" build tag in the header read as an unfinished/dev-mode
 // artifact to end users, so the eyebrow below no longer includes it.
 const BUILD = "v7 - 2026-08-19";
-const IDLE_MINUTES = 5;
+const IDLE_MINUTES = 60;   // owner 2026-11-17: was 5
 
 const DOC_STAMP_RATE = 0.007;
 const RECORDING_FEE = 30;
@@ -3920,9 +3920,9 @@ if (authForm) {
         if (signInError) {
           setAuthMode("signin");
           const em = document.getElementById("email"); if (em) em.value = email;
-          if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Account created. Sign in with your email and password. New accounts stay pending until an administrator approves them."; }
+          if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Account created. Sign in with your email and password to start your free 7-day Guided trial."; }
         }
-        // On success onAuthStateChange takes over and shows the pending-approval screen.
+        // On success onAuthStateChange takes over and opens the 7-day trial (041).
         return;
       }
       if (!viaFn.unreachable) {
@@ -3944,7 +3944,7 @@ if (authForm) {
         setAuthMode("signin");
         if (authMsg) {
           authMsg.className = "auth-msg";
-          authMsg.textContent = "Account created — check your email to confirm it, then sign in. New accounts stay pending until an administrator approves them.";
+          authMsg.textContent = "Account created — check your email to confirm it, then sign in to start your free 7-day Guided trial.";
         }
       }
       return;
@@ -4294,7 +4294,14 @@ function showPending() {
 async function checkApprovalAndEnter(session) {
   ME = session.user;
   refreshAccountBadge();
-  const { data: profile, error } = await sb.from("profiles").select("approved,is_admin").eq("id", ME.id).maybeSingle();
+  // 041 (owner, 2026-11-17): a new account starts a 7-day Guided trial at
+  // sign-up instead of waiting for approval. trial_ends_at is server-set;
+  // before 041 is applied the column does not exist (42703), so the read
+  // falls back to the old two columns and the old approval gate.
+  let { data: profile, error } = await sb.from("profiles").select("approved,is_admin,trial_ends_at").eq("id", ME.id).maybeSingle();
+  if (error && (error.code === "42703" || /trial_ends_at/.test(String(error.message || "")))) {
+    ({ data: profile, error } = await sb.from("profiles").select("approved,is_admin").eq("id", ME.id).maybeSingle());
+  }
   if (error) {
     // Phase 63: only the specific "schema-v6-approvals.sql hasn't been run
     // yet" case (the profiles table itself doesn't exist) should fall back
@@ -4351,9 +4358,47 @@ async function checkApprovalAndEnter(session) {
     return;
   }
   const approved = !!(profile && profile.approved);
-  ACCESS = { role: IS_ADMIN ? "admin" : approved ? "tester" : "inactive", state: IS_ADMIN ? "admin_override" : approved ? "tester_beta" : "inactive", source: "legacy", entitlement: null };
-  if (approved) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); }
+  TRIAL_ENDS_AT = trialEndsAt(profile);
+  const onTrial = !approved && !IS_ADMIN && !!TRIAL_ENDS_AT && TRIAL_ENDS_AT.getTime() > Date.now();
+  TRIAL_ENDED = !approved && !IS_ADMIN && !!TRIAL_ENDS_AT && !onTrial;
+  ACCESS = { role: IS_ADMIN ? "admin" : approved ? "tester" : onTrial ? "trial" : "inactive", state: IS_ADMIN ? "admin_override" : approved ? "tester_beta" : onTrial ? "trial" : "inactive", source: "legacy", entitlement: null };
+  if (approved || onTrial) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); if (onTrial) showTrialBanner(); }
   else showPlanOrPending(null);
+}
+
+// ---- 7-day Guided trial (migration 041) ----
+// The server decides: is_approved() admits an account while its
+// profiles.trial_ends_at is in the future, so a trial reads what an approved
+// account reads. Here only the view follows: a trial sees the Guided tier
+// (accountTier), a banner with the days left, and when the date passes the
+// tab reloads into the Free preview.
+var TRIAL_DAYS = 7;
+var TRIAL_ENDS_AT = null;
+var TRIAL_ENDED = false;
+function trialEndsAt(profile) {
+  const v = profile && profile.trial_ends_at;
+  if (!v) return null;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+function trialDaysLeft() {
+  if (!TRIAL_ENDS_AT) return 0;
+  return Math.max(0, Math.ceil((TRIAL_ENDS_AT.getTime() - Date.now()) / 86400000));
+}
+function showTrialBanner() {
+  if (!TRIAL_ENDS_AT || document.getElementById("trialBanner")) return;
+  const n = trialDaysLeft();
+  const el = document.createElement("div");
+  el.id = "trialBanner";
+  el.className = "trial-banner";
+  el.setAttribute("role", "status");
+  const when = TRIAL_ENDS_AT.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  el.textContent = `Free ${TRIAL_DAYS}-day Guided trial - ${n} day${n === 1 ? "" : "s"} left (ends ${when}).`;
+  const host = document.getElementById("app");
+  if (host) host.insertBefore(el, host.firstChild);
+  // The trial ends while the tab is open: drop back to the Free preview.
+  const ms = TRIAL_ENDS_AT.getTime() - Date.now();
+  if (ms > 0 && ms < 2147483647) setTimeout(() => location.reload(), ms + 1000);
 }
 
 // ==================== paid beta: entitlement, plan screen, billing ====================
@@ -15490,7 +15535,7 @@ function renderBillingModal() {
   const row = (k, v) => rows.push(`<div class="billing-row"><dt>${esc(k)}</dt><dd>${v}</dd></div>`);
   row("Access", `<b>${esc(BILLING_STATE_LABELS[ACCESS.state] || ACCESS.state || "Unknown")}</b>`);
   if (ACCESS.source === "legacy") {
-    row("Why", esc(ACCESS.role === "admin" ? "Administrator account." : "Approved by an administrator."));
+    row("Why", esc(ACCESS.role === "admin" ? "Administrator account." : ACCESS.role === "trial" ? `Free ${TRIAL_DAYS}-day Guided trial - ${trialDaysLeft()} day${trialDaysLeft() === 1 ? "" : "s"} left.` : "Approved by an administrator."));
     row("Billing", "Not set up for this deployment yet - access comes from an administrator's approval.");
   } else {
     row("Why", esc((e && e.reason) || ""));
@@ -19231,11 +19276,13 @@ function accountTier() {
   if (IS_ADMIN) return "pro";
   const role = ACCESS && ACCESS.role;
   if (role === "admin" || role === "tester" || role === "customer") return "pro";
+  if (role === "trial") return "beginner";   // 041: the 7-day Guided trial
   return "free";
 }
 function tiersSelectable() {
   if (IS_ADMIN || (ACCESS && (ACCESS.role === "admin" || ACCESS.role === "tester"))) return PAGE_TIERS.slice();
-  return accountTier() === "pro" ? ["beginner", "pro"] : ["free"];
+  const t = accountTier();
+  return t === "pro" ? ["beginner", "pro"] : t === "beginner" ? ["beginner"] : ["free"];
 }
 function canSwitchTier() { return tiersSelectable().length > 1; }
 var PAGE_TIER_SESSION_KEY = "tdw_page_tier_chosen_v1";
@@ -19912,8 +19959,8 @@ function previewShellHtml() {
   </header>
   <section class="pv-banner" id="previewBanner" aria-labelledby="pvBannerTitle">
     <div class="pv-banner-main">
-    <h1 class="auth-lead pv-banner-title" id="pvBannerTitle">Your account is waiting for approval. Here's a preview of what's inside.</h1>
-    <p class="pv-banner-sub">We have been notified and will e-mail you when it is approved - no need to sign up again. Until then, each listing shows what kind of property it is and where; the details stay blurred.</p>
+    <h1 class="auth-lead pv-banner-title" id="pvBannerTitle">${TRIAL_ENDED ? `Your free ${TRIAL_DAYS}-day trial has ended. Here's a preview of what's inside.` : "Your account is waiting for approval. Here's a preview of what's inside."}</h1>
+    <p class="pv-banner-sub">${TRIAL_ENDED ? "We have been notified and will e-mail you when full access is approved - no need to sign up again." : "We have been notified and will e-mail you when it is approved - no need to sign up again."} Until then, each listing shows what kind of property it is and where; the details stay blurred.</p>
     <div class="pv-unlocks"><b>Unlocks when you are approved</b>
       <ul><li>The address, parcel and price of every listing</li><li>How to acquire it, with the link to the official source</li><li>Guided view: a checklist from listing to deed</li><li>Watchlist, notes and export</li></ul></div>
     </div>

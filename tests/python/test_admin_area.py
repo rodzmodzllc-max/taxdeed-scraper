@@ -186,7 +186,7 @@ def test_s03_signups_disabled_error_gets_a_clear_message():
     assert "function signUpErrorText(error)" in APP_JS
     assert "/signups? not allowed/i.test(msg)" in APP_JS
     assert 'authMsg.textContent = signUpErrorText(error);' in APP_JS
-    assert "New accounts stay pending until an administrator approves them." in APP_JS
+    assert "then sign in to start your free 7-day Guided trial." in APP_JS   # 041
     # A new account without approval sees the pending screen, never the app.
     # Paid beta (2026-10-05): the same rule, now beside the server's entitlement.
     # Without one (migration 027 not applied), an unapproved account is never
@@ -194,8 +194,9 @@ def test_s03_signups_disabled_error_gets_a_clear_message():
     # entitlement, so it can only show pending); with one, only access = true
     # enters.
     # 2026-11-12 sprint: entering the app also offers the first-run welcome;
-    # the rule itself (an unapproved account never enters) is unchanged.
-    assert "if (approved) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); }\n  else showPlanOrPending(null);" in APP_JS
+    # 041 (owner, 2026-11-17): an unapproved account inside its server-set
+    # 7-day trial enters too (is_approved() admits it); otherwise pending.
+    assert "if (approved || onTrial) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); if (onTrial) showTrialBanner(); }\n  else showPlanOrPending(null);" in APP_JS
     assert "if (!cfg.enabled || !ent || !planGate) { if (planGate) planGate.hidden = true; showPending(); return; }" in APP_JS
     assert "if (ent.access) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); }\n    else showPlanOrPending(ent);" in APP_JS
 

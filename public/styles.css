@@ -2337,3 +2337,5 @@ a.ledger-badge:hover{text-decoration:underline}
 [data-empty="1"]:hover{background:none}
 /* The state's own name for a ledger, under the general name (2026-11-17). */
 .nav-ledger-official{display:block;font-size:.68em;font-weight:500;letter-spacing:0;text-transform:none;opacity:.72;line-height:1.15;margin-top:1px;white-space:nowrap}
+/* 041: the 7-day Guided trial banner (a trial account sees it above the app). */
+.trial-banner{margin:0;padding:.55rem 1rem;background:var(--accent-soft,#eef3ff);color:var(--ink,#13213a);border-bottom:1px solid var(--card-line,#d9dfeb);font-size:.9rem;font-weight:600;text-align:center}
