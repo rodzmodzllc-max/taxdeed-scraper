@@ -196,7 +196,7 @@ def test_s03_signups_disabled_error_gets_a_clear_message():
     # 2026-11-12 sprint: entering the app also offers the first-run welcome;
     # 041 (owner, 2026-11-17): an unapproved account inside its server-set
     # 7-day trial enters too (is_approved() admits it); otherwise pending.
-    assert "if (approved || onTrial) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); if (onTrial) showTrialBanner(); }\n  else showPlanOrPending(null);" in APP_JS
+    assert "if (approved || onTrial) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); if (onTrial) { showTrialBanner(); pricingAfterTrialBanner(); } }\n  else showPlanOrPending(null);" in APP_JS
     assert "if (!cfg.enabled || !ent || !planGate) { if (planGate) planGate.hidden = true; showPending(); return; }" in APP_JS
     assert "if (ent.access) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); }\n    else showPlanOrPending(ent);" in APP_JS
 
