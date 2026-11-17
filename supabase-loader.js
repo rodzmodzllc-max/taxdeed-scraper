@@ -13,7 +13,7 @@
 // Every failure is recorded on window.__tdwBootErrors for boot.js to show.
 const REMOTE = "https://esm.sh/@supabase/supabase-js@2";
 const LOCAL = "supabase-js.umd.js";
-const REMOTE_TIMEOUT_MS = 8000;
+const REMOTE_TIMEOUT_MS = 4000;   // 8 s made a slow CDN cost every visitor 8 s before the local copy (2026-11-17)
 
 function note(msg) {
   (window.__tdwBootErrors = window.__tdwBootErrors || []).push(String(msg));

@@ -174,7 +174,12 @@ function customerPageUrl(u) {
 }
 // Operator diagnostics (raw pipeline codes, repository paths, migration
 // notes) belong to admin views; customers get plain language (audit F58).
-function isOperatorView() { return !!IS_ADMIN; }
+// "View as a customer" (owner, 2026-11-17: "look at yourself as a user"): an
+// administrator can switch the operator-only wording and chips off for this
+// tab, to see a record exactly as a customer does. Per tab (sessionStorage);
+// admin pages and approvals are unaffected.
+var CUSTOMER_PREVIEW = (function () { try { return sessionStorage.getItem("tdw_customer_preview") === "1"; } catch (e) { return false; } })();
+function isOperatorView() { return !!IS_ADMIN && !CUSTOMER_PREVIEW; }
 // Evidence wording for customers: the same statement with repository paths,
 // script names and source ids taken out. Empty when nothing readable is left.
 function customerEvidenceText(s) {
@@ -1063,9 +1068,9 @@ function sourceLineHtml(p) {
   if (det && det !== "in_subset") bits.push(`<span class="source-subset-chip" data-subset="${det}" title="${esc(DETROIT_SUBSET_REASONS[det])}">Not included in current Detroit customer subset</span>`);
   // Administrators see the acquisition-path gate's finding on every
   // unverified Available row - what customers are (or would be) withheld.
-  const unc = IS_ADMIN && unconfirmedAvailable(p);
+  const unc = isOperatorView() && unconfirmedAvailable(p);
   if (unc) bits.push(`<span class="unconfirmed-chip" data-unconfirmed="${unc.never ? "never" : "stale"}" title="Customers do not see this record until its source confirms it again">${esc(unconfirmedText(unc))} · withheld from customers</span>`);
-  if (IS_ADMIN && p.source === "laft") {
+  if (isOperatorView() && p.source === "laft") {
     const v = acquisitionVerification(p);
     if (v && !v.verified) bits.push(`<span class="acq-gate-chip" data-acq-gate="${esc(v.classification)}" title="${esc(v.reasons.map(r => ACQ_GATE_REASONS[r] || r).join("; "))}">${ACQ_GATE_MODE === "enforce" ? "Withheld from customers" : "Not customer-actionable (gate off)"}: ${esc(ACQ_GATE_CLASS_LABELS[v.classification] || v.classification)}</span>`);
   }
@@ -4302,6 +4307,7 @@ async function checkApprovalAndEnter(session) {
   // the server again and refuses anyone the server does not call an admin).
   const adminLink = document.getElementById("adminAreaLink");
   if (adminLink) adminLink.hidden = !IS_ADMIN;
+  if (typeof installCustomerPreviewItem === "function") installCustomerPreviewItem();   // admin only
   // Who is viewing, for modules that do not import app.js (satellite-map.js:
   // the Google basemap is admin-only until the Google key's permits change,
   // owner 2026-11-03). Visibility only - nothing here grants data access.
@@ -12530,10 +12536,50 @@ function scrollStripTo(btn) {
 // does nothing on a click. Never while loading or after a failed read (that
 // is "unknown", not "none").
 const LEDGER_EMPTY_WORD = { laft: "Available", auction: "auction", certificate: "lien or certificate" };
+// Texas's third ledger has its own name (Redeemable Deeds): say that, not "lien".
+function emptyLedgerWord(k) {
+  let nav = "";
+  try { nav = ledgerNavName(k); } catch { nav = ""; }
+  if (k === "certificate" && nav && nav !== "Liens & Certificates") return nav.toLowerCase().replace(/s$/, "");
+  return LEDGER_EMPTY_WORD[k] || "";
+}
 function ledgerIsEmpty(k, counts) {
   try {
     return PROPERTIES_LOADED && !LOAD_FAILED && ledgerSettled(k) && LEDGER_LOAD[k] !== "error" && !(counts[k] || 0);
   } catch { return false; }
+}
+// Empty states (owner, 2026-11-17): once this state's rows have loaded, the
+// other states are probed in the background with the State picker's own check
+// (probeOtherStates - current, publishable rows only, cached for the tab), and
+// a state where every ledger came back empty is disabled in the header's
+// state menu as "no listings yet". A failed probe (null) never disables.
+var STATE_PROBE_STARTED = false;
+function maybeProbeStatesForSelect() {
+  if (STATE_PROBE_STARTED) return;
+  try { if (!PROPERTIES_LOADED || LOAD_FAILED || !allLedgersSettled()) return; } catch { return; }
+  STATE_PROBE_STARTED = true;
+  syncStateSelectOptions();
+  setTimeout(() => { probeOtherStates(syncStateSelectOptions).catch(() => {}); }, 2500);
+}
+function stateHasNoListings(st) {
+  if (st === PAGE_STATE) return false;   // the reader is here; this page says what it has
+  const c = SHELL_UI.picker && SHELL_UI.picker[st];
+  return !!c && LEDGER_ORDER.every(k => c[k] === false);
+}
+function syncStateSelectOptions() {
+  const el = document.getElementById("stateSelect");
+  if (el) [...el.options].forEach(o => {
+    const meta = STATE_META[o.value];
+    if (!meta) return;
+    const none = stateHasNoListings(o.value);
+    o.disabled = none;
+    o.textContent = none ? meta.name + " - no listings yet" : meta.name;
+  });
+  const allBtn = document.getElementById("homeAllStates");
+  if (allBtn) {
+    const n = STATE_CODES.filter(st => !stateHasNoListings(st)).length;
+    allBtn.textContent = `All ${n} states`;
+  }
 }
 function markEmptyLedgers(counts) {
   const stateName = (STATE_META[PAGE_STATE] || {}).name || PAGE_STATE;
@@ -12551,7 +12597,7 @@ function markEmptyLedgers(counts) {
         try { led = ledgerEligibility(k); } catch { led = null; }
         el.title = led && led.eligibility === "NOT_OFFERED"
           ? `Not offered in ${stateName}`
-          : `No ${LEDGER_EMPTY_WORD[k] || ""} listings in ${stateName} right now`;
+          : `No ${emptyLedgerWord(k)} listings in ${stateName} right now`;
       } else if (el.dataset.empty) {
         delete el.dataset.empty;
         el.removeAttribute("aria-disabled");
@@ -12584,6 +12630,7 @@ function renderLedgerCounts(scrollActive) {
     tabCounts[p.source]++;
   });
   markEmptyLedgers(baseCounts);
+  maybeProbeStatesForSelect();
   // No cross-state counts here: the state is the page (the header's
   // #stateSelect), and counting another state would need exactly the
   // combined/cross-state query the per-state pages exist to avoid.
@@ -13842,7 +13889,12 @@ window.addEventListener("hashchange", () => {
   if (!r) return;
   if (r.page === "list") {
     if (r.ledger && r.ledger !== state.ledger) setLedger(r.ledger, { silent: true });
-    if (shellPage !== "list") showPage("list"); else syncPageHash();
+    // 2026-11-17 live walk-through: a property link pasted into a tab where
+    // the app is already open (#/lands/<id>) only showed the list and dropped
+    // the id; open that property, as a cold start does.
+    const p = r.pid ? ALL.find(x => String(x.id) === String(r.pid)) : null;
+    if (shellPage !== "list") showPage("list"); else if (!p) syncPageHash();
+    if (p) { openDetail(p); return; }
   } else if (r.page === "map") {
     applyMapParams(r.params);
     if (shellPage !== "map") showPage("map"); else renderMapPage();
@@ -17219,7 +17271,6 @@ function syncLedgerNavNames() {
     el.textContent = ledgerNavName(k);
     paintLedgerOfficialName(el, k);
   });
-  document.querySelectorAll("#ledgerTabs .ledger-tab[data-ledger]").forEach(btn => paintLedgerOfficialName(btn, btn.dataset.ledger));
   syncBarLedgerNames();   // the phone bar's short names and accessible names
 }
 syncLedgerNavNames();
@@ -17806,7 +17857,7 @@ function renderHome() {
     el.addEventListener("animationend", () => { el.classList.remove("countup"); el.style.removeProperty("--to"); }, { once: true });
   });
   const scope = document.getElementById("homeScope");
-  if (scope) scope.innerHTML = `Searching <b>${esc(STATE_INFO.name)}</b> · <button type="button" class="link-btn" id="homeChangeState">Change state</button> · <button type="button" class="link-btn" id="homeAllStates" aria-haspopup="dialog" aria-controls="statePicker">All ${STATE_CODES.length} states</button>`;
+  if (scope) scope.innerHTML = `Searching <b>${esc(STATE_INFO.name)}</b> · <button type="button" class="link-btn" id="homeChangeState">Change state</button> · <button type="button" class="link-btn" id="homeAllStates" aria-haspopup="dialog" aria-controls="statePicker">All ${STATE_CODES.filter(st => !stateHasNoListings(st)).length} states</button>`;
   const hs = document.getElementById("homeSearchInput");
   if (hs && PAGE_STATE !== "FL") {
     const county = topCountyName();
@@ -20176,6 +20227,27 @@ function installWelcomeMenuItem() {
   item.addEventListener("click", () => setTimeout(() => openWelcome("full"), 0));
 }
 installWelcomeMenuItem();
+function installCustomerPreviewItem() {
+  const menu = document.getElementById("accountMenu");
+  if (!menu) return;
+  let item = menu.querySelector("[data-customer-preview]");
+  if (!item) {
+    item = document.createElement("button");
+    item.type = "button";
+    item.className = "account-item";
+    item.setAttribute("role", "menuitem");
+    item.dataset.customerPreview = "1";
+    const admin = document.getElementById("adminAreaLink");
+    if (admin && admin.parentNode === menu) admin.after(item); else menu.appendChild(item);
+    item.addEventListener("click", () => {
+      try { if (CUSTOMER_PREVIEW) sessionStorage.removeItem("tdw_customer_preview"); else sessionStorage.setItem("tdw_customer_preview", "1"); } catch (e) { /* storage blocked */ }
+      location.reload();
+    });
+  }
+  item.textContent = CUSTOMER_PREVIEW ? "Back to the admin view" : "View as a customer";
+  item.hidden = !IS_ADMIN;
+}
+installCustomerPreviewItem();
 
 // ---- Sign in / Create account at equal weight ----
 function installAuthModeTabs() {
