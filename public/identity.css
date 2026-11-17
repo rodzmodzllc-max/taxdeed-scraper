@@ -2087,3 +2087,6 @@ html[data-shell="v3"] .hdr-nav .nav-item[data-nav-ledger] .nav-ledger-name{displ
    parcel outline) the picture caption sat on top of the outline credit. The
    caption lifts above the credit wherever a credit is drawn - every look. */
 .prop-card-photo:has(> .pb-attrib) > .photo-caption:not(#_){bottom:1.75rem}
+/* The outline-unavailable note (property page only, 2026-11-17) sits top-left,
+   clear of the TILT VIEW badge in the top-right corner. */
+.pb-state:not(#_){right:auto;left:.4rem}

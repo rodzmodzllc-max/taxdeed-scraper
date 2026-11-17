@@ -2723,7 +2723,12 @@ async function applyBoundary(host) {
   }
   if (res.status === "error") {
     console.warn("parcel boundary unavailable:", res.code);
-    showBoundaryState(host, pid);
+    // 2026-11-17 live walk-through: on a list card the message sat on top of
+    // the TILT VIEW badge for what is usually a brief database hiccup. A card
+    // retries quietly (twice, after the one-minute back-off); the property
+    // page keeps the message and its Retry button.
+    if (host.classList.contains("detail-hero-photo") || host.classList.contains("pv-visual")) showBoundaryState(host, pid);
+    else if ((host.__bretry = (host.__bretry || 0) + 1) <= 2) setTimeout(() => { if (host.isConnected) queueBoundary(host); }, BOUNDARY_RETRY_MS + 1000);
   }
   // none / not_deployed / invalid: the aerial stays unchanged, no outline, no message.
   if (res.status === "invalid") console.warn("parcel boundary refused:", res.reason);
