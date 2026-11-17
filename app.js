@@ -19000,7 +19000,9 @@ function installShellV3() {
 // data-ledger on any of it: the delegated [data-ledger] rules must never
 // match a navigation button.
 function barLedgerShortName(k) {
-  return ledgerNavName(k).replace(/\s*&\s*Certificates$/i, "");
+  // Texas: "Redeemable Deeds" was cut to "Redeemabl..." on a phone bar; the
+  // full name stays in the button's accessible name (2026-11-17).
+  return ledgerNavName(k).replace(/\s*&\s*Certificates$/i, "").replace(/^Redeemable\s+/i, "");
 }
 function barLedgerLabel(btn, countText) {
   const full = ledgerNavName(btn.dataset.navLedger);
