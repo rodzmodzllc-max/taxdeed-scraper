@@ -236,7 +236,7 @@ for (const [mode, note] of [['absent', 'coming'], ['error', 'unavailable']]) {
   check('legacy-toggle-still-switches-and-syncs-tabs', await pg.evaluate(() => document.getElementById('signInBtn').textContent === 'Sign in' && document.querySelector('[data-auth-tab="signin"]').getAttribute('aria-pressed') === 'true'), null);
   await ctx.close();
   const o = await open('?stubauth=1&look=merged&oauth=google');
-  check('google-button-kept-with-preview-note', await o.pg.evaluate(() => !!document.querySelector('#authGate [data-oauth="google"]') && /instant preview/.test((document.querySelector('.oauth-note') || {}).textContent || '')), null);
+  check('google-button-kept-with-trial-note', await o.pg.evaluate(() => !!document.querySelector('#authGate [data-oauth="google"]') && /7-day trial/.test((document.querySelector('.oauth-note') || {}).textContent || '')), null);
   await o.ctx.close();
 }
 
