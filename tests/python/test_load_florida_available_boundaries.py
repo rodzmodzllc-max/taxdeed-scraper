@@ -379,3 +379,47 @@ def test_download_retries_5xx_but_never_4xx(tmp_path):
     with pytest.raises(requests.HTTPError):
         L.download("u", tmp_path / "g.zip", once=once_404, sleep=lambda s: None)
     assert len(seen4) == 1
+
+
+# --- the portal's listing API failing (2026-11-17: 500 on every _api call) ----
+
+class _St:
+    def __init__(self, code, names=()):
+        self.status_code, self._names = code, names
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise AssertionError("raise_for_status on %s" % self.status_code)
+
+    def json(self):
+        return {"value": [{"Name": n} for n in self._names]}
+
+
+def test_a_listing_5xx_is_retried_and_a_later_answer_is_used():
+    answers = [_St(500), _St(503), _St(200, ["leon_2026pin.zip"])]
+    sleeps = []
+    files = L.list_pin_files(2026, get=lambda url, **kw: answers.pop(0), sleep=sleeps.append)
+    assert files == {"Leon": "leon_2026pin.zip"} and sleeps == list(L.LISTING_BACKOFF_S[:2])
+
+
+def test_a_listing_that_stays_down_falls_back_to_each_countys_own_file_name():
+    exists = {"leon_2026pin.zip", "sarasota_2026pin.shp.zip", "bay_2026pin.zip", "bay_2026pin.shp.zip"}
+    probes = []
+
+    def get(url, **kw):
+        if "/_api/" in url:
+            return _St(500)
+        probes.append((url, kw.get("headers", {}).get("Range")))
+        return _St(206 if url.rsplit("/", 1)[1] in exists else 404)
+
+    files = L.list_pin_files(2026, get=get, sleep=lambda s: None)
+    # Bay answers under both names: two files for one county -> left out, as with the listing.
+    assert files == {"Leon": "leon_2026pin.zip", "Sarasota": "sarasota_2026pin.shp.zip"}
+    assert probes and all(r == "bytes=0-0" for _, r in probes)
+    assert all("condo" not in u for u, _ in probes)
+
+
+def test_a_listing_4xx_is_still_an_error_not_a_fallback():
+    import pytest
+    with pytest.raises(AssertionError):
+        L.list_pin_files(2026, get=lambda url, **kw: _St(403), sleep=lambda s: None)

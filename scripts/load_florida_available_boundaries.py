@@ -73,16 +73,49 @@ def file_stem(county: str) -> str:
     return re.sub(r"[^a-z]", "", county.lower())
 
 
-def list_pin_files(year: int, *, get=requests.get) -> dict:
+LISTING_BACKOFF_S = (5, 20, 60)
+
+
+def _probe_names(year: int, *, get=requests.get) -> list:
+    """Fallback when the portal's folder listing (its SharePoint API) answers
+    5xx - seen 2026-11-17 on every _api call while the files themselves still
+    downloaded. Each county's file is looked for under the two names the
+    listing has ever used (<stem>_<year>pin.zip / .shp.zip), one 1-byte ranged
+    GET each; a name counts only on a 200/206 answer. Same output as the
+    listing (file names), so the same one-file-per-county rule applies."""
+    found = []
+    for county in fl_dor.COUNTY_CODES:
+        for name in (f"{file_stem(county)}_{year}pin.zip", f"{file_stem(county)}_{year}pin.shp.zip"):
+            try:
+                r = get(file_url(year, name), headers={"Range": "bytes=0-0", "User-Agent": USER_AGENT}, timeout=60)
+            except requests.RequestException:
+                continue
+            if r.status_code in (200, 206):
+                found.append(name)
+    return found
+
+
+def list_pin_files(year: int, *, get=requests.get, sleep=time.sleep) -> dict:
     """county -> file name, from the portal's folder listing. A county whose
     file is missing, or appears more than once, is left out (reported by the
-    caller as NO_COUNTY_FILE); condominium files are never used."""
+    caller as NO_COUNTY_FILE); condominium files are never used. A listing
+    that keeps answering 5xx falls back to probing each county's file name
+    (_probe_names); any other error is raised as before."""
     folder = FOLDER.format(year=year)
     url = (f"{PORTAL}/_api/web/GetFolderByServerRelativeUrl('{urllib.parse.quote(folder)}')/Files"
            "?$select=Name")
-    resp = get(url, headers={"Accept": "application/json;odata=nometadata", "User-Agent": USER_AGENT}, timeout=60)
-    resp.raise_for_status()
-    names = [f["Name"] for f in resp.json().get("value", [])]
+    names = None
+    for attempt in range(len(LISTING_BACKOFF_S) + 1):
+        resp = get(url, headers={"Accept": "application/json;odata=nometadata", "User-Agent": USER_AGENT}, timeout=60)
+        if getattr(resp, "status_code", 200) < 500:
+            resp.raise_for_status()
+            names = [f["Name"] for f in resp.json().get("value", [])]
+            break
+        if attempt < len(LISTING_BACKOFF_S):
+            sleep(LISTING_BACKOFF_S[attempt])
+    if names is None:
+        print(json.dumps({"listing": "UNAVAILABLE", "status": getattr(resp, "status_code", None), "fallback": "probe_file_names"}))
+        names = _probe_names(year, get=get)
     by_stem: dict = {}
     for name in names:
         low = name.lower()
