@@ -1,7 +1,7 @@
 """Load parcel outlines for Florida properties (Available by default; auctions and
 certificates when asked) from the DOR PTO county PIN shapefiles.
 
-Manual only (.github/workflows/parcel-boundaries-florida-available.yml).
+Manual dispatch plus a weekly scheduled apply (.github/workflows/parcel-boundaries-florida-available.yml).
 Default mode is dry-run: it lists the counties with active Available
 properties, downloads each county's PIN file, matches, and prints COUNTS ONLY.
 Nothing is written unless --mode apply AND --confirm APPLY are both given.
