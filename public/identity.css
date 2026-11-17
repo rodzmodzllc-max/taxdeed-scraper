@@ -2083,3 +2083,7 @@ html[data-experience] .xpt .xpt-mono-s:not(#_),html[data-experience] .xpm .xpm-m
 /* The state's own ledger name under the general one, in the header. */
 html[data-shell="v3"] .hdr-nav .nav-ledger-official{font:500 .6rem/1.1 var(--font-sans);letter-spacing:0;text-transform:none;color:var(--ink-soft);opacity:.85}
 html[data-shell="v3"] .hdr-nav .nav-item[data-nav-ledger] .nav-ledger-name{display:inline-flex;flex-direction:column;align-items:flex-start}
+/* 2026-11-17 live walk-through: on the auction placard (and any card with a
+   parcel outline) the picture caption sat on top of the outline credit. The
+   caption lifts above the credit wherever a credit is drawn - every look. */
+.prop-card-photo:has(> .pb-attrib) > .photo-caption:not(#_){bottom:1.75rem}
