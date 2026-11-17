@@ -20338,7 +20338,7 @@ function installAuthModeTabs() {
   note.id = "authSignupNote";
   note.className = "auth-signup-note";
   note.hidden = true;
-  note.innerHTML = "<b>Free while TAXACQ is in beta.</b> You get an instant preview of the listings as soon as you sign up, and full access once your account is approved - we e-mail you.";
+  note.innerHTML = "<b>Free 7-day trial, no approval wait.</b> Your account opens the Guided view of every listing as soon as you sign up - no card needed.";
   lead.after(note);
   tabs.addEventListener("click", e => {
     const b = e.target.closest && e.target.closest("[data-auth-tab]");
