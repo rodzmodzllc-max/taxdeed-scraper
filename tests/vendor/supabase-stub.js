@@ -420,7 +420,9 @@ if (new URLSearchParams(location.search).get("offlist") === "1") {
 // only - the fixture's other rows carry historical dates.
 if (new URLSearchParams(location.search).get("unconfirmed") === "1") {
   const fresh = new Date(Date.now() - 3600 * 1000).toISOString();
-  FIXTURE_PROPERTIES.forEach(r => { if (r.source === "laft") r.last_seen_at = fresh; });
+  // 2026-11-17: certificates follow the same rule now (app.js
+  // unconfirmedCertificate), so they are read back fresh too.
+  FIXTURE_PROPERTIES.forEach(r => { if (r.source === "laft" || r.source === "certificate") r.last_seen_at = fresh; });
   const p3 = FIXTURE_PROPERTIES.find(r => r.id === "p3");
   if (p3) { p3.last_seen_at = null; p3.first_seen_at = null; }
   const p15 = FIXTURE_PROPERTIES.find(r => r.id === "p15");

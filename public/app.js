@@ -1042,6 +1042,7 @@ function isPublishable(p) {
   // An Available record its own source has not confirmed in UNCONFIRMED_DAYS
   // (or never) is not presented to customers as available (2026-10-27).
   if (unconfirmedAvailable(p)) return false;
+  if (unconfirmedCertificate(p)) return false;
   // The acquisition-path gate (when enforced) applies to every non-admin,
   // the tester preview included: an unverified Available row is not an
   // actionable opportunity for anyone but an administrator.
@@ -1068,7 +1069,7 @@ function sourceLineHtml(p) {
   if (det && det !== "in_subset") bits.push(`<span class="source-subset-chip" data-subset="${det}" title="${esc(DETROIT_SUBSET_REASONS[det])}">Not included in current Detroit customer subset</span>`);
   // Administrators see the acquisition-path gate's finding on every
   // unverified Available row - what customers are (or would be) withheld.
-  const unc = isOperatorView() && unconfirmedAvailable(p);
+  const unc = isOperatorView() && (unconfirmedAvailable(p) || unconfirmedCertificate(p));
   if (unc) bits.push(`<span class="unconfirmed-chip" data-unconfirmed="${unc.never ? "never" : "stale"}" title="Customers do not see this record until its source confirms it again">${esc(unconfirmedText(unc))} · withheld from customers</span>`);
   if (isOperatorView() && p.source === "laft") {
     const v = acquisitionVerification(p);
@@ -1094,6 +1095,22 @@ var UNCONFIRMED_DAYS = 7;
 var UNCONFIRMED_WITHHELD = { total: 0, byCounty: {} };
 function unconfirmedAvailable(p) {
   if (!p || p.source !== "laft" || (window.TDW_CONFIG || {}).unconfirmedAvailableGate === false) return null;
+  const st = String(p.status || "active");
+  if (st !== "active" && st !== "available") return null;
+  const seen = p.last_seen_at ? Date.parse(p.last_seen_at) : NaN;
+  if (!isNaN(seen) && Date.now() - seen <= UNCONFIRMED_DAYS * 86400000) return null;
+  return { never: isNaN(seen), since: isNaN(seen) ? null : String(p.last_seen_at) };
+}
+// Liens & certificates (owner, 2026-11-17: "remove lien and certificates if
+// it's not a reliable read ... focus on the other two ledgers until it
+// grows"): a certificate its own source has not confirmed in UNCONFIRMED_DAYS
+// - or ever (LienHub refuses our reader) - is not shown to customers. Sources
+// read reliably (Sarasota's Tax Collector, the Colorado county lists) stay.
+// Administrators still see the row, marked. Same switch as the Available rule
+// (the test fixture turns both off unless ?unconfirmed=1).
+var UNCONFIRMED_CERTS_WITHHELD = 0;
+function unconfirmedCertificate(p) {
+  if (!p || p.source !== "certificate" || (window.TDW_CONFIG || {}).unconfirmedAvailableGate === false) return null;
   const st = String(p.status || "active");
   if (st !== "active" && st !== "available") return null;
   const seen = p.last_seen_at ? Date.parse(p.last_seen_at) : NaN;
@@ -1132,7 +1149,7 @@ function sourceReviewBannerHtml(p) {
   const gate = ps && ps !== "CUSTOMER_PUBLISHED"
     ? `<div class="source-review-banner pub-gate-banner" id="publicationGateBanner" data-pub-state="${esc(ps)}"><b>Not customer-published: ${esc(PUBLICATION_STATE_LABELS[ps] || ps)}.</b> ${esc(publicationReasonsText(p))} ${esc(reviewViewerReason().replace(/^shown/, "Shown"))}; customers do not see this record.${p.publication_remediation ? ` <span class="pub-remediation">To publish: ${esc(p.publication_remediation)}</span>` : ""}</div>`
     : "";
-  const unc = unconfirmedAvailable(p);
+  const unc = unconfirmedAvailable(p) || unconfirmedCertificate(p);
   const uncHtml = unc ? `<div class="source-review-banner unconfirmed-banner" id="unconfirmedBanner" data-unconfirmed="${unc.never ? "never" : "stale"}"><b>${esc(unconfirmedText(unc))}.</b> This record's source has not confirmed it in the last ${UNCONFIRMED_DAYS} days, so it is not presented as available. ${esc(reviewViewerReason().replace(/^shown/, "Shown"))}; customers do not see this record. Nothing was closed.</div>` : "";
   if (isCustomerPublishable(p)) return uncHtml + gate;
   return uncHtml + gate + `<div class="source-review-banner" id="sourceReviewBanner"><b>Source review: ${esc(sourceReviewLabel(p))}.</b> This record comes from a source awaiting customer-publication review - ${esc(reviewViewerReason())}. It is not customer-published. Its availability below is the source's own statement and is a separate fact.</div>`;
@@ -5236,6 +5253,7 @@ function applyLedgerRows() {
   });
   GATE_WITHHELD = { total: 0, by: {} };
   UNCONFIRMED_WITHHELD = { total: 0, byCounty: {} };
+  UNCONFIRMED_CERTS_WITHHELD = 0;
   ALL = rows.filter(p => {
     // Outside the Detroit customer subset: not customer inventory at all, so
     // not "withheld" either (DETROIT_SUMMARY names it on the ledger instead).
@@ -5247,6 +5265,7 @@ function applyLedgerRows() {
       UNCONFIRMED_WITHHELD.byCounty[p.county] = (UNCONFIRMED_WITHHELD.byCounty[p.county] || 0) + 1;
       return false;
     }
+    if (!IS_ADMIN && unconfirmedCertificate(p) && p.publication_status !== "BLOCKED") { UNCONFIRMED_CERTS_WITHHELD++; return false; }
     if (isPublishable(p)) {
       if (!isCustomerPublishable(p) && p.source in REVIEW_PENDING_SHOWN) REVIEW_PENDING_SHOWN[p.source]++;
       return true;
