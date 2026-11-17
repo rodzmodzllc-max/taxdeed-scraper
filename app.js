@@ -107,8 +107,19 @@ function unitLabel(p) { return unitLabelOf(p && p.county); }
 function isDataServiceUrl(u) {
   const s = String(u || "").trim();
   if (!s) return false;
-  return /\/arcgis\/rest\/services\//i.test(s) || /\/(Feature|Map|Image)Server(\/\d+)?\/?(\?|#|$)/i.test(s) || /\/(Feature|Map|Image)Server\/\d+\/query/i.test(s) || /arcgis\.com\/home\/item\.html/i.test(s);
+  return /\/arcgis\/rest\/services\//i.test(s) || /\/(Feature|Map|Image)Server(\/\d+)?\/?(\?|#|$)/i.test(s) || /\/(Feature|Map|Image)Server\/\d+\/query/i.test(s) || /arcgis\.com\/home\/item\.html/i.test(s)
+    // 2026-11-17 live walk-through: an open-data portal's dataset page (Socrata
+    // /d/<4x4>, a city data catalogue entry) is the harvester's input, not a
+    // page a buyer can act on - Louisiana's button opened data.brla.gov.
+    || /^https?:\/\/data\.[^/]+\/d\/[a-z0-9]{4}-[a-z0-9]{4}(?:[/?#]|$)/i.test(s) || /\/data\/datasets\/dataset\.cfm/i.test(s);
 }
+// County-held lien sources whose only harvested link is a data item: the
+// county's own page for those liens, verified in a browser 2026-11-17
+// (Douglas: lists the current county-held liens and the "Request for
+// Assignment of County Held Tax Lien" form).
+var CERT_OFFICIAL_PAGES = {
+  co_douglas_county_held_liens: { href: "https://www.douglasco.gov/treasurer/tax-lien-sale-information/", label: "View the county's county-held liens page" },
+};
 // Links an office restricts in its own reply (data/office_replies.csv, entry
 // pages marked "!" in restricted_link_patterns; pinned equal by
 // tests/python/test_office_replies.py). A deeper page on such a host is never
@@ -3563,7 +3574,9 @@ function auctionLinkInfo(p) {
     // page a buyer can use; otherwise the row says there is none.
     const a = typeof acquisitionOf === "function" && p.source !== "certificate" ? acquisitionOf(p) : null;
     const ev = a && a.verified && a.evidenceUrl && !isDataServiceUrl(a.evidenceUrl) && /^https:\/\//i.test(a.evidenceUrl) ? a.evidenceUrl : "";
-    if (ev) return { href: ev, kind: "info", label: "View county tax-sale information", note: "The county's own process page - the listing itself is published as a data service, not a web page.", dataService: true };
+    if (ev) return { href: ev, kind: "info", label: "View " + UNIT_WORD.toLowerCase() + " tax-sale information", note: "The " + UNIT_WORD.toLowerCase() + "'s own process page - the listing itself is published as a data service, not a web page.", dataService: true };
+    const cp = p && p.source === "certificate" ? CERT_OFFICIAL_PAGES[p.source_id] : null;
+    if (cp) return { href: cp.href, kind: "info", label: cp.label, note: "The county's own page for its county-held liens - the list itself is published as a data service, not a web page.", dataService: true };
     return { href: null, kind, label: "No county listing page on file", note: "The source publishes this record as a data service, not a web page.", dataService: true };
   }
   const href = raw;
@@ -12509,8 +12522,55 @@ function scrollStripTo(btn) {
   if (br.left >= sr.left && br.right <= sr.right) return;
   strip.scrollLeft += (br.left + br.width / 2) - (sr.left + sr.width / 2);
 }
+// Empty ledgers (owner, 2026-11-17: "if there's no certificates for a state
+// ... gray out the ledger - why even present that to the client to click an
+// empty page"). Once a ledger has finished loading with no current listing in
+// this state, every control that opens it - the header and rail entries, the
+// List's tabs, the phone bar and the Map's ledger pills - is greyed out and
+// does nothing on a click. Never while loading or after a failed read (that
+// is "unknown", not "none").
+const LEDGER_EMPTY_WORD = { laft: "Available", auction: "auction", certificate: "lien or certificate" };
+function ledgerIsEmpty(k, counts) {
+  try {
+    return PROPERTIES_LOADED && !LOAD_FAILED && ledgerSettled(k) && LEDGER_LOAD[k] !== "error" && !(counts[k] || 0);
+  } catch { return false; }
+}
+function markEmptyLedgers(counts) {
+  const stateName = (STATE_META[PAGE_STATE] || {}).name || PAGE_STATE;
+  LEDGER_ORDER.forEach(k => {
+    const empty = ledgerIsEmpty(k, counts);
+    const sel = [`.nav-item[data-nav-ledger="${k}"]`, `#navBottom .nav-bottom-ledger[data-nav-ledger="${k}"]`,
+      `#ledgerTabs .ledger-tab[data-ledger="${k}"]`, `#mapLedgerPills [data-ledger="${k}"]`].join(",");
+    document.querySelectorAll(sel).forEach(el => {
+      if (empty) {
+        el.dataset.empty = "1";
+        el.setAttribute("aria-disabled", "true");
+        // NOT_OFFERED only when the state-rules record says so (it is law);
+        // otherwise only what is true: nothing listed here right now.
+        let led = null;
+        try { led = ledgerEligibility(k); } catch { led = null; }
+        el.title = led && led.eligibility === "NOT_OFFERED"
+          ? `Not offered in ${stateName}`
+          : `No ${LEDGER_EMPTY_WORD[k] || ""} listings in ${stateName} right now`;
+      } else if (el.dataset.empty) {
+        delete el.dataset.empty;
+        el.removeAttribute("aria-disabled");
+        el.removeAttribute("title");
+      }
+    });
+  });
+}
+// A click on a greyed-out ledger control does nothing (capture phase, so no
+// other handler sees it).
+document.addEventListener("click", e => {
+  const el = e.target && e.target.closest && e.target.closest('[data-empty="1"]');
+  if (!el) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+}, true);
 function renderLedgerCounts(scrollActive) {
   const tabCounts = { auction: 0, laft: 0, certificate: 0 };
+  const baseCounts = { auction: 0, laft: 0, certificate: 0 };   // before the reader's own hidden list
   const activeLedger = state.ledger;
   ALL.forEach(p => {
     if (!(p.source in tabCounts)) return;
@@ -12518,9 +12578,12 @@ function renderLedgerCounts(scrollActive) {
     // state-scoped get_properties() RPC below), so no region check is
     // needed here the way there used to be when ALL held every state's rows
     // at once.
-    if (isPastDue(p) || HIDDEN.has(p.id) || goneExpired(p) || !isCurrentListing(p)) return;
+    if (isPastDue(p) || goneExpired(p) || !isCurrentListing(p)) return;
+    baseCounts[p.source]++;
+    if (HIDDEN.has(p.id)) return;
     tabCounts[p.source]++;
   });
+  markEmptyLedgers(baseCounts);
   // No cross-state counts here: the state is the page (the header's
   // #stateSelect), and counting another state would need exactly the
   // combined/cross-state query the per-state pages exist to avoid.
@@ -17117,10 +17180,46 @@ function unitWordFor(n) {
   if (n === 1) return w;
   return w === "parish" ? "parishes" : w.endsWith("y") ? w.slice(0, -1) + "ies" : w + "s";
 }
+// The state's own name for each ledger (owner, 2026-11-17: "make the ledger
+// name under the current general name - include the state's official name,
+// e.g. under Available for Texas: Struck-off properties"). The general name
+// stays the same in every state; this line under it is the term that state's
+// sources use (the same wording as each state's ledger copy above). A ledger
+// a state has no term for shows the general name alone.
+var LEDGER_OFFICIAL_NAMES = {
+  FL: { laft: "Lands Available for Taxes", auction: "Tax deed sales", certificate: "County-held tax certificates" },
+  TX: { laft: "Struck-off property", auction: "Tax sales" },
+  LA: { laft: "Adjudicated property" },
+  MI: { laft: "Land bank property", auction: "Tax foreclosure sales" },
+  WY: { auction: "Tax lien sale" },
+  SC: { laft: "Forfeited land", auction: "Tax sales" },
+  CO: { auction: "Tax lien sale & treasurer's deeds", certificate: "County-held tax liens" },
+  WI: { auction: "Tax deed sales" },
+  MO: { laft: "Land bank & LRA property" },
+  OK: { laft: "County-owned property" },
+  PA: { laft: "Repository & city property" },
+  MN: { laft: "Tax-forfeited land", auction: "Tax-forfeited land auctions" },
+  TN: { laft: "Land bank property" },
+};
+function ledgerOfficialName(k) {
+  const m = LEDGER_OFFICIAL_NAMES[PAGE_STATE] || {};
+  return m[k] || "";
+}
+function paintLedgerOfficialName(host, k) {
+  if (!host) return;
+  const off = ledgerOfficialName(k);
+  let el = host.querySelector(":scope .nav-ledger-official");
+  if (!off) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement("small"); el.className = "nav-ledger-official"; host.appendChild(el); }
+  el.textContent = off;
+}
 function syncLedgerNavNames() {
   document.querySelectorAll(".nav-item[data-nav-ledger] .nav-ledger-name").forEach(el => {
-    el.textContent = ledgerNavName(el.closest("[data-nav-ledger]").dataset.navLedger);
+    const k = el.closest("[data-nav-ledger]").dataset.navLedger;
+    el.textContent = ledgerNavName(k);
+    paintLedgerOfficialName(el, k);
   });
+  document.querySelectorAll("#ledgerTabs .ledger-tab[data-ledger]").forEach(btn => paintLedgerOfficialName(btn, btn.dataset.ledger));
   syncBarLedgerNames();   // the phone bar's short names and accessible names
 }
 syncLedgerNavNames();
@@ -18859,7 +18958,7 @@ function barLedgerLabel(btn, countText) {
   else if (countText && /…$/.test(countText)) label = full + ", " + countText.slice(0, -1) + " properties so far";
   else if (countText) label = full + ", " + countText + (countText === "1" ? " property" : " properties");
   btn.setAttribute("aria-label", label);
-  btn.title = full;
+  if (!btn.dataset.empty) btn.title = full;   // an empty ledger keeps its "no listings" tooltip
 }
 function syncBarLedgerNames() {
   document.querySelectorAll("#navBottom .nav-bottom-ledger").forEach(btn => {
