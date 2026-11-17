@@ -107,8 +107,19 @@ function unitLabel(p) { return unitLabelOf(p && p.county); }
 function isDataServiceUrl(u) {
   const s = String(u || "").trim();
   if (!s) return false;
-  return /\/arcgis\/rest\/services\//i.test(s) || /\/(Feature|Map|Image)Server(\/\d+)?\/?(\?|#|$)/i.test(s) || /\/(Feature|Map|Image)Server\/\d+\/query/i.test(s) || /arcgis\.com\/home\/item\.html/i.test(s);
+  return /\/arcgis\/rest\/services\//i.test(s) || /\/(Feature|Map|Image)Server(\/\d+)?\/?(\?|#|$)/i.test(s) || /\/(Feature|Map|Image)Server\/\d+\/query/i.test(s) || /arcgis\.com\/home\/item\.html/i.test(s)
+    // 2026-11-17 live walk-through: an open-data portal's dataset page (Socrata
+    // /d/<4x4>, a city data catalogue entry) is the harvester's input, not a
+    // page a buyer can act on - Louisiana's button opened data.brla.gov.
+    || /^https?:\/\/data\.[^/]+\/d\/[a-z0-9]{4}-[a-z0-9]{4}(?:[/?#]|$)/i.test(s) || /\/data\/datasets\/dataset\.cfm/i.test(s);
 }
+// County-held lien sources whose only harvested link is a data item: the
+// county's own page for those liens, verified in a browser 2026-11-17
+// (Douglas: lists the current county-held liens and the "Request for
+// Assignment of County Held Tax Lien" form).
+var CERT_OFFICIAL_PAGES = {
+  co_douglas_county_held_liens: { href: "https://www.douglasco.gov/treasurer/tax-lien-sale-information/", label: "View the county's county-held liens page" },
+};
 // Links an office restricts in its own reply (data/office_replies.csv, entry
 // pages marked "!" in restricted_link_patterns; pinned equal by
 // tests/python/test_office_replies.py). A deeper page on such a host is never
@@ -163,7 +174,12 @@ function customerPageUrl(u) {
 }
 // Operator diagnostics (raw pipeline codes, repository paths, migration
 // notes) belong to admin views; customers get plain language (audit F58).
-function isOperatorView() { return !!IS_ADMIN; }
+// "View as a customer" (owner, 2026-11-17: "look at yourself as a user"): an
+// administrator can switch the operator-only wording and chips off for this
+// tab, to see a record exactly as a customer does. Per tab (sessionStorage);
+// admin pages and approvals are unaffected.
+var CUSTOMER_PREVIEW = (function () { try { return sessionStorage.getItem("tdw_customer_preview") === "1"; } catch (e) { return false; } })();
+function isOperatorView() { return !!IS_ADMIN && !CUSTOMER_PREVIEW; }
 // Evidence wording for customers: the same statement with repository paths,
 // script names and source ids taken out. Empty when nothing readable is left.
 function customerEvidenceText(s) {
@@ -1026,6 +1042,7 @@ function isPublishable(p) {
   // An Available record its own source has not confirmed in UNCONFIRMED_DAYS
   // (or never) is not presented to customers as available (2026-10-27).
   if (unconfirmedAvailable(p)) return false;
+  if (unconfirmedCertificate(p)) return false;
   // The acquisition-path gate (when enforced) applies to every non-admin,
   // the tester preview included: an unverified Available row is not an
   // actionable opportunity for anyone but an administrator.
@@ -1052,9 +1069,9 @@ function sourceLineHtml(p) {
   if (det && det !== "in_subset") bits.push(`<span class="source-subset-chip" data-subset="${det}" title="${esc(DETROIT_SUBSET_REASONS[det])}">Not included in current Detroit customer subset</span>`);
   // Administrators see the acquisition-path gate's finding on every
   // unverified Available row - what customers are (or would be) withheld.
-  const unc = IS_ADMIN && unconfirmedAvailable(p);
+  const unc = isOperatorView() && (unconfirmedAvailable(p) || unconfirmedCertificate(p));
   if (unc) bits.push(`<span class="unconfirmed-chip" data-unconfirmed="${unc.never ? "never" : "stale"}" title="Customers do not see this record until its source confirms it again">${esc(unconfirmedText(unc))} · withheld from customers</span>`);
-  if (IS_ADMIN && p.source === "laft") {
+  if (isOperatorView() && p.source === "laft") {
     const v = acquisitionVerification(p);
     if (v && !v.verified) bits.push(`<span class="acq-gate-chip" data-acq-gate="${esc(v.classification)}" title="${esc(v.reasons.map(r => ACQ_GATE_REASONS[r] || r).join("; "))}">${ACQ_GATE_MODE === "enforce" ? "Withheld from customers" : "Not customer-actionable (gate off)"}: ${esc(ACQ_GATE_CLASS_LABELS[v.classification] || v.classification)}</span>`);
   }
@@ -1078,6 +1095,22 @@ var UNCONFIRMED_DAYS = 7;
 var UNCONFIRMED_WITHHELD = { total: 0, byCounty: {} };
 function unconfirmedAvailable(p) {
   if (!p || p.source !== "laft" || (window.TDW_CONFIG || {}).unconfirmedAvailableGate === false) return null;
+  const st = String(p.status || "active");
+  if (st !== "active" && st !== "available") return null;
+  const seen = p.last_seen_at ? Date.parse(p.last_seen_at) : NaN;
+  if (!isNaN(seen) && Date.now() - seen <= UNCONFIRMED_DAYS * 86400000) return null;
+  return { never: isNaN(seen), since: isNaN(seen) ? null : String(p.last_seen_at) };
+}
+// Liens & certificates (owner, 2026-11-17: "remove lien and certificates if
+// it's not a reliable read ... focus on the other two ledgers until it
+// grows"): a certificate its own source has not confirmed in UNCONFIRMED_DAYS
+// - or ever (LienHub refuses our reader) - is not shown to customers. Sources
+// read reliably (Sarasota's Tax Collector, the Colorado county lists) stay.
+// Administrators still see the row, marked. Same switch as the Available rule
+// (the test fixture turns both off unless ?unconfirmed=1).
+var UNCONFIRMED_CERTS_WITHHELD = 0;
+function unconfirmedCertificate(p) {
+  if (!p || p.source !== "certificate" || (window.TDW_CONFIG || {}).unconfirmedAvailableGate === false) return null;
   const st = String(p.status || "active");
   if (st !== "active" && st !== "available") return null;
   const seen = p.last_seen_at ? Date.parse(p.last_seen_at) : NaN;
@@ -1116,7 +1149,7 @@ function sourceReviewBannerHtml(p) {
   const gate = ps && ps !== "CUSTOMER_PUBLISHED"
     ? `<div class="source-review-banner pub-gate-banner" id="publicationGateBanner" data-pub-state="${esc(ps)}"><b>Not customer-published: ${esc(PUBLICATION_STATE_LABELS[ps] || ps)}.</b> ${esc(publicationReasonsText(p))} ${esc(reviewViewerReason().replace(/^shown/, "Shown"))}; customers do not see this record.${p.publication_remediation ? ` <span class="pub-remediation">To publish: ${esc(p.publication_remediation)}</span>` : ""}</div>`
     : "";
-  const unc = unconfirmedAvailable(p);
+  const unc = unconfirmedAvailable(p) || unconfirmedCertificate(p);
   const uncHtml = unc ? `<div class="source-review-banner unconfirmed-banner" id="unconfirmedBanner" data-unconfirmed="${unc.never ? "never" : "stale"}"><b>${esc(unconfirmedText(unc))}.</b> This record's source has not confirmed it in the last ${UNCONFIRMED_DAYS} days, so it is not presented as available. ${esc(reviewViewerReason().replace(/^shown/, "Shown"))}; customers do not see this record. Nothing was closed.</div>` : "";
   if (isCustomerPublishable(p)) return uncHtml + gate;
   return uncHtml + gate + `<div class="source-review-banner" id="sourceReviewBanner"><b>Source review: ${esc(sourceReviewLabel(p))}.</b> This record comes from a source awaiting customer-publication review - ${esc(reviewViewerReason())}. It is not customer-published. Its availability below is the source's own statement and is a separate fact.</div>`;
@@ -2690,7 +2723,12 @@ async function applyBoundary(host) {
   }
   if (res.status === "error") {
     console.warn("parcel boundary unavailable:", res.code);
-    showBoundaryState(host, pid);
+    // 2026-11-17 live walk-through: on a list card the message sat on top of
+    // the TILT VIEW badge for what is usually a brief database hiccup. A card
+    // retries quietly (twice, after the one-minute back-off); the property
+    // page keeps the message and its Retry button.
+    if (host.classList.contains("detail-hero-photo") || host.classList.contains("pv-visual")) showBoundaryState(host, pid);
+    else if ((host.__bretry = (host.__bretry || 0) + 1) <= 2) setTimeout(() => { if (host.isConnected) queueBoundary(host); }, BOUNDARY_RETRY_MS + 1000);
   }
   // none / not_deployed / invalid: the aerial stays unchanged, no outline, no message.
   if (res.status === "invalid") console.warn("parcel boundary refused:", res.reason);
@@ -3563,7 +3601,9 @@ function auctionLinkInfo(p) {
     // page a buyer can use; otherwise the row says there is none.
     const a = typeof acquisitionOf === "function" && p.source !== "certificate" ? acquisitionOf(p) : null;
     const ev = a && a.verified && a.evidenceUrl && !isDataServiceUrl(a.evidenceUrl) && /^https:\/\//i.test(a.evidenceUrl) ? a.evidenceUrl : "";
-    if (ev) return { href: ev, kind: "info", label: "View county tax-sale information", note: "The county's own process page - the listing itself is published as a data service, not a web page.", dataService: true };
+    if (ev) return { href: ev, kind: "info", label: "View " + UNIT_WORD.toLowerCase() + " tax-sale information", note: "The " + UNIT_WORD.toLowerCase() + "'s own process page - the listing itself is published as a data service, not a web page.", dataService: true };
+    const cp = p && p.source === "certificate" ? CERT_OFFICIAL_PAGES[p.source_id] : null;
+    if (cp) return { href: cp.href, kind: "info", label: cp.label, note: "The county's own page for its county-held liens - the list itself is published as a data service, not a web page.", dataService: true };
     return { href: null, kind, label: "No county listing page on file", note: "The source publishes this record as a data service, not a web page.", dataService: true };
   }
   const href = raw;
@@ -4289,6 +4329,7 @@ async function checkApprovalAndEnter(session) {
   // the server again and refuses anyone the server does not call an admin).
   const adminLink = document.getElementById("adminAreaLink");
   if (adminLink) adminLink.hidden = !IS_ADMIN;
+  if (typeof installCustomerPreviewItem === "function") installCustomerPreviewItem();   // admin only
   // Who is viewing, for modules that do not import app.js (satellite-map.js:
   // the Google basemap is admin-only until the Google key's permits change,
   // owner 2026-11-03). Visibility only - nothing here grants data access.
@@ -5217,6 +5258,7 @@ function applyLedgerRows() {
   });
   GATE_WITHHELD = { total: 0, by: {} };
   UNCONFIRMED_WITHHELD = { total: 0, byCounty: {} };
+  UNCONFIRMED_CERTS_WITHHELD = 0;
   ALL = rows.filter(p => {
     // Outside the Detroit customer subset: not customer inventory at all, so
     // not "withheld" either (DETROIT_SUMMARY names it on the ledger instead).
@@ -5228,6 +5270,7 @@ function applyLedgerRows() {
       UNCONFIRMED_WITHHELD.byCounty[p.county] = (UNCONFIRMED_WITHHELD.byCounty[p.county] || 0) + 1;
       return false;
     }
+    if (!IS_ADMIN && unconfirmedCertificate(p) && p.publication_status !== "BLOCKED") { UNCONFIRMED_CERTS_WITHHELD++; return false; }
     if (isPublishable(p)) {
       if (!isCustomerPublishable(p) && p.source in REVIEW_PENDING_SHOWN) REVIEW_PENDING_SHOWN[p.source]++;
       return true;
@@ -12509,8 +12552,95 @@ function scrollStripTo(btn) {
   if (br.left >= sr.left && br.right <= sr.right) return;
   strip.scrollLeft += (br.left + br.width / 2) - (sr.left + sr.width / 2);
 }
+// Empty ledgers (owner, 2026-11-17: "if there's no certificates for a state
+// ... gray out the ledger - why even present that to the client to click an
+// empty page"). Once a ledger has finished loading with no current listing in
+// this state, every control that opens it - the header and rail entries, the
+// List's tabs, the phone bar and the Map's ledger pills - is greyed out and
+// does nothing on a click. Never while loading or after a failed read (that
+// is "unknown", not "none").
+const LEDGER_EMPTY_WORD = { laft: "Available", auction: "auction", certificate: "lien or certificate" };
+// Texas's third ledger has its own name (Redeemable Deeds): say that, not "lien".
+function emptyLedgerWord(k) {
+  let nav = "";
+  try { nav = ledgerNavName(k); } catch { nav = ""; }
+  if (k === "certificate" && nav && nav !== "Liens & Certificates") return nav.toLowerCase().replace(/s$/, "");
+  return LEDGER_EMPTY_WORD[k] || "";
+}
+function ledgerIsEmpty(k, counts) {
+  try {
+    return PROPERTIES_LOADED && !LOAD_FAILED && ledgerSettled(k) && LEDGER_LOAD[k] !== "error" && !(counts[k] || 0);
+  } catch { return false; }
+}
+// Empty states (owner, 2026-11-17): once this state's rows have loaded, the
+// other states are probed in the background with the State picker's own check
+// (probeOtherStates - current, publishable rows only, cached for the tab), and
+// a state where every ledger came back empty is disabled in the header's
+// state menu as "no listings yet". A failed probe (null) never disables.
+var STATE_PROBE_STARTED = false;
+function maybeProbeStatesForSelect() {
+  if (STATE_PROBE_STARTED) return;
+  try { if (!PROPERTIES_LOADED || LOAD_FAILED || !allLedgersSettled()) return; } catch { return; }
+  STATE_PROBE_STARTED = true;
+  syncStateSelectOptions();
+  setTimeout(() => { probeOtherStates(syncStateSelectOptions).catch(() => {}); }, 2500);
+}
+function stateHasNoListings(st) {
+  if (st === PAGE_STATE) return false;   // the reader is here; this page says what it has
+  const c = SHELL_UI.picker && SHELL_UI.picker[st];
+  return !!c && LEDGER_ORDER.every(k => c[k] === false);
+}
+function syncStateSelectOptions() {
+  const el = document.getElementById("stateSelect");
+  if (el) [...el.options].forEach(o => {
+    const meta = STATE_META[o.value];
+    if (!meta) return;
+    const none = stateHasNoListings(o.value);
+    o.disabled = none;
+    o.textContent = none ? meta.name + " - no listings yet" : meta.name;
+  });
+  const allBtn = document.getElementById("homeAllStates");
+  if (allBtn) {
+    const n = STATE_CODES.filter(st => !stateHasNoListings(st)).length;
+    allBtn.textContent = `All ${n} states`;
+  }
+}
+function markEmptyLedgers(counts) {
+  const stateName = (STATE_META[PAGE_STATE] || {}).name || PAGE_STATE;
+  LEDGER_ORDER.forEach(k => {
+    const empty = ledgerIsEmpty(k, counts);
+    const sel = [`.nav-item[data-nav-ledger="${k}"]`, `#navBottom .nav-bottom-ledger[data-nav-ledger="${k}"]`,
+      `#ledgerTabs .ledger-tab[data-ledger="${k}"]`, `#mapLedgerPills [data-ledger="${k}"]`].join(",");
+    document.querySelectorAll(sel).forEach(el => {
+      if (empty) {
+        el.dataset.empty = "1";
+        el.setAttribute("aria-disabled", "true");
+        // NOT_OFFERED only when the state-rules record says so (it is law);
+        // otherwise only what is true: nothing listed here right now.
+        let led = null;
+        try { led = ledgerEligibility(k); } catch { led = null; }
+        el.title = led && led.eligibility === "NOT_OFFERED"
+          ? `Not offered in ${stateName}`
+          : `No ${emptyLedgerWord(k)} listings in ${stateName} right now`;
+      } else if (el.dataset.empty) {
+        delete el.dataset.empty;
+        el.removeAttribute("aria-disabled");
+        el.removeAttribute("title");
+      }
+    });
+  });
+}
+// A click on a greyed-out ledger control does nothing (capture phase, so no
+// other handler sees it).
+document.addEventListener("click", e => {
+  const el = e.target && e.target.closest && e.target.closest('[data-empty="1"]');
+  if (!el) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+}, true);
 function renderLedgerCounts(scrollActive) {
   const tabCounts = { auction: 0, laft: 0, certificate: 0 };
+  const baseCounts = { auction: 0, laft: 0, certificate: 0 };   // before the reader's own hidden list
   const activeLedger = state.ledger;
   ALL.forEach(p => {
     if (!(p.source in tabCounts)) return;
@@ -12518,9 +12648,13 @@ function renderLedgerCounts(scrollActive) {
     // state-scoped get_properties() RPC below), so no region check is
     // needed here the way there used to be when ALL held every state's rows
     // at once.
-    if (isPastDue(p) || HIDDEN.has(p.id) || goneExpired(p) || !isCurrentListing(p)) return;
+    if (isPastDue(p) || goneExpired(p) || !isCurrentListing(p)) return;
+    baseCounts[p.source]++;
+    if (HIDDEN.has(p.id)) return;
     tabCounts[p.source]++;
   });
+  markEmptyLedgers(baseCounts);
+  maybeProbeStatesForSelect();
   // No cross-state counts here: the state is the page (the header's
   // #stateSelect), and counting another state would need exactly the
   // combined/cross-state query the per-state pages exist to avoid.
@@ -13779,7 +13913,12 @@ window.addEventListener("hashchange", () => {
   if (!r) return;
   if (r.page === "list") {
     if (r.ledger && r.ledger !== state.ledger) setLedger(r.ledger, { silent: true });
-    if (shellPage !== "list") showPage("list"); else syncPageHash();
+    // 2026-11-17 live walk-through: a property link pasted into a tab where
+    // the app is already open (#/lands/<id>) only showed the list and dropped
+    // the id; open that property, as a cold start does.
+    const p = r.pid ? ALL.find(x => String(x.id) === String(r.pid)) : null;
+    if (shellPage !== "list") showPage("list"); else if (!p) syncPageHash();
+    if (p) { openDetail(p); return; }
   } else if (r.page === "map") {
     applyMapParams(r.params);
     if (shellPage !== "map") showPage("map"); else renderMapPage();
@@ -17117,9 +17256,44 @@ function unitWordFor(n) {
   if (n === 1) return w;
   return w === "parish" ? "parishes" : w.endsWith("y") ? w.slice(0, -1) + "ies" : w + "s";
 }
+// The state's own name for each ledger (owner, 2026-11-17: "make the ledger
+// name under the current general name - include the state's official name,
+// e.g. under Available for Texas: Struck-off properties"). The general name
+// stays the same in every state; this line under it is the term that state's
+// sources use (the same wording as each state's ledger copy above). A ledger
+// a state has no term for shows the general name alone.
+var LEDGER_OFFICIAL_NAMES = {
+  FL: { laft: "Lands Available for Taxes", auction: "Tax deed sales", certificate: "County-held tax certificates" },
+  TX: { laft: "Struck-off property", auction: "Tax sales" },
+  LA: { laft: "Adjudicated property" },
+  MI: { laft: "Land bank property", auction: "Tax foreclosure sales" },
+  WY: { auction: "Tax lien sale" },
+  SC: { laft: "Forfeited land", auction: "Tax sales" },
+  CO: { auction: "Tax lien sale & treasurer's deeds", certificate: "County-held tax liens" },
+  WI: { auction: "Tax deed sales" },
+  MO: { laft: "Land bank & LRA property" },
+  OK: { laft: "County-owned property" },
+  PA: { laft: "Repository & city property" },
+  MN: { laft: "Tax-forfeited land", auction: "Tax-forfeited land auctions" },
+  TN: { laft: "Land bank property" },
+};
+function ledgerOfficialName(k) {
+  const m = LEDGER_OFFICIAL_NAMES[PAGE_STATE] || {};
+  return m[k] || "";
+}
+function paintLedgerOfficialName(host, k) {
+  if (!host) return;
+  const off = ledgerOfficialName(k);
+  let el = host.querySelector(":scope .nav-ledger-official");
+  if (!off) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement("small"); el.className = "nav-ledger-official"; host.appendChild(el); }
+  el.textContent = off;
+}
 function syncLedgerNavNames() {
   document.querySelectorAll(".nav-item[data-nav-ledger] .nav-ledger-name").forEach(el => {
-    el.textContent = ledgerNavName(el.closest("[data-nav-ledger]").dataset.navLedger);
+    const k = el.closest("[data-nav-ledger]").dataset.navLedger;
+    el.textContent = ledgerNavName(k);
+    paintLedgerOfficialName(el, k);
   });
   syncBarLedgerNames();   // the phone bar's short names and accessible names
 }
@@ -17707,7 +17881,7 @@ function renderHome() {
     el.addEventListener("animationend", () => { el.classList.remove("countup"); el.style.removeProperty("--to"); }, { once: true });
   });
   const scope = document.getElementById("homeScope");
-  if (scope) scope.innerHTML = `Searching <b>${esc(STATE_INFO.name)}</b> · <button type="button" class="link-btn" id="homeChangeState">Change state</button> · <button type="button" class="link-btn" id="homeAllStates" aria-haspopup="dialog" aria-controls="statePicker">All ${STATE_CODES.length} states</button>`;
+  if (scope) scope.innerHTML = `Searching <b>${esc(STATE_INFO.name)}</b> · <button type="button" class="link-btn" id="homeChangeState">Change state</button> · <button type="button" class="link-btn" id="homeAllStates" aria-haspopup="dialog" aria-controls="statePicker">All ${STATE_CODES.filter(st => !stateHasNoListings(st)).length} states</button>`;
   const hs = document.getElementById("homeSearchInput");
   if (hs && PAGE_STATE !== "FL") {
     const county = topCountyName();
@@ -18850,7 +19024,9 @@ function installShellV3() {
 // data-ledger on any of it: the delegated [data-ledger] rules must never
 // match a navigation button.
 function barLedgerShortName(k) {
-  return ledgerNavName(k).replace(/\s*&\s*Certificates$/i, "");
+  // Texas: "Redeemable Deeds" was cut to "Redeemabl..." on a phone bar; the
+  // full name stays in the button's accessible name (2026-11-17).
+  return ledgerNavName(k).replace(/\s*&\s*Certificates$/i, "").replace(/^Redeemable\s+/i, "");
 }
 function barLedgerLabel(btn, countText) {
   const full = ledgerNavName(btn.dataset.navLedger);
@@ -18859,7 +19035,7 @@ function barLedgerLabel(btn, countText) {
   else if (countText && /…$/.test(countText)) label = full + ", " + countText.slice(0, -1) + " properties so far";
   else if (countText) label = full + ", " + countText + (countText === "1" ? " property" : " properties");
   btn.setAttribute("aria-label", label);
-  btn.title = full;
+  if (!btn.dataset.empty) btn.title = full;   // an empty ledger keeps its "no listings" tooltip
 }
 function syncBarLedgerNames() {
   document.querySelectorAll("#navBottom .nav-bottom-ledger").forEach(btn => {
@@ -20077,6 +20253,27 @@ function installWelcomeMenuItem() {
   item.addEventListener("click", () => setTimeout(() => openWelcome("full"), 0));
 }
 installWelcomeMenuItem();
+function installCustomerPreviewItem() {
+  const menu = document.getElementById("accountMenu");
+  if (!menu) return;
+  let item = menu.querySelector("[data-customer-preview]");
+  if (!item) {
+    item = document.createElement("button");
+    item.type = "button";
+    item.className = "account-item";
+    item.setAttribute("role", "menuitem");
+    item.dataset.customerPreview = "1";
+    const admin = document.getElementById("adminAreaLink");
+    if (admin && admin.parentNode === menu) admin.after(item); else menu.appendChild(item);
+    item.addEventListener("click", () => {
+      try { if (CUSTOMER_PREVIEW) sessionStorage.removeItem("tdw_customer_preview"); else sessionStorage.setItem("tdw_customer_preview", "1"); } catch (e) { /* storage blocked */ }
+      location.reload();
+    });
+  }
+  item.textContent = CUSTOMER_PREVIEW ? "Back to the admin view" : "View as a customer";
+  item.hidden = !IS_ADMIN;
+}
+installCustomerPreviewItem();
 
 // ---- Sign in / Create account at equal weight ----
 function installAuthModeTabs() {

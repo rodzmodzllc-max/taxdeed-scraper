@@ -2061,3 +2061,32 @@ html[data-experience] .xpt .xpt-mono-s:not(#_),html[data-experience] .xpm .xpm-m
 :root[data-theme="dark"] .fp-group-head,:root[data-theme="dark"] dd.phase-fixed{color:var(--lc-d,#86A68B)!important}
 :root[data-theme="dark"] .acq-gate-verdict{color:#E0A07E!important}
 :root[data-theme="dark"] .detail-btn:not(#_),:root[data-theme="dark"] .cta-btn:not(#_),:root[data-theme="dark"] button.note-save{color:#141C18!important}
+
+/* 2026-11-17 live walk-through: a wordy status in the amount column ("Included
+   in the total / figure") squeezed the label to one word per line. The label
+   keeps at least 8rem and the status text wraps under 10rem. */
+@media (min-width:641px){
+  .fp-lines li{grid-template-columns:minmax(8rem,1fr) minmax(0,auto)}
+  .fp-line-amt .muted{display:inline-block;max-width:10rem;white-space:normal;line-height:1.25}
+}
+
+/* 2026-11-17 live walk-through: at 1024-1279px the header (brand, three
+   ledgers with counts, Map, search, look, state, account) was ~30px wider
+   than the window - the page scrolled sideways and the account button was
+   cut off. The wordmark and tagline give way first (the TA mark stays), then
+   the search box narrows. */
+@media (min-width:1024px) and (max-width:1279.98px){
+  html[data-shell="v3"] .hdr-brand .brand-name:not(#_),html[data-shell="v3"] .hdr-brand-sub:not(#_){display:none!important}
+  html[data-shell="v3"] .topbar:not(#_){gap:.6rem}
+  html[data-shell="v3"] .topbar .global-search:not(#_){min-width:120px!important}
+}
+/* The state's own ledger name under the general one, in the header. */
+html[data-shell="v3"] .hdr-nav .nav-ledger-official{font:500 .6rem/1.1 var(--font-sans);letter-spacing:0;text-transform:none;color:var(--ink-soft);opacity:.85}
+html[data-shell="v3"] .hdr-nav .nav-item[data-nav-ledger] .nav-ledger-name{display:inline-flex;flex-direction:column;align-items:flex-start}
+/* 2026-11-17 live walk-through: on the auction placard (and any card with a
+   parcel outline) the picture caption sat on top of the outline credit. The
+   caption lifts above the credit wherever a credit is drawn - every look. */
+.prop-card-photo:has(> .pb-attrib) > .photo-caption:not(#_){bottom:1.75rem}
+/* The outline-unavailable note (property page only, 2026-11-17) sits top-left,
+   clear of the TILT VIEW badge in the top-right corner. */
+.pb-state:not(#_){right:auto;left:.4rem}
