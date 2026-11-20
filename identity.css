@@ -2086,3 +2086,28 @@ html[data-shell="v3"] .hdr-nav .nav-item[data-nav-ledger] .nav-ledger-name{displ
 /* The outline-unavailable note (property page only, 2026-11-17) sits top-left,
    clear of the TILT VIEW badge in the top-right corner. */
 .pb-state:not(#_){right:auto;left:.4rem}
+
+/* ==================== 15. Rough edges (2026-11-18) ====================
+   From the 2026-11-18 layout review (out/design/review-2026-11-18.md). */
+/* Property sheet on a phone: the close button sticks level with the sticky
+   section tabs, and the strip to the right of the tabs is painted, so text
+   scrolling underneath no longer shows between the two. */
+#detailModalInner > .detail-close:not(#_){top:-1rem}
+#detailModalInner > .detail-nav:not(#_){box-shadow:3rem 0 0 var(--paper-white)}
+/* How to acquire: neighbouring questions share one rule instead of two. */
+.acquire-card .acq-q + .acq-q:not(#_){border-top:0!important}
+/* "Source wording" reads as something to open, not as an empty label. */
+.acq-src > summary:not(#_){cursor:pointer;list-style:none;color:var(--copper);font-weight:600;text-decoration:underline;text-underline-offset:2px}
+.acq-src > summary::-webkit-details-marker{display:none}
+.acq-src > summary::before{content:"+";display:inline-block;width:1.1em;text-decoration:none;font-weight:700}
+.acq-src[open] > summary::before{content:"\2212"}
+/* Info buttons ("About this price", "About this list"): a solid outline, like
+   every other button, instead of a dashed one that looked unfinished. */
+.ib-btn:not(#_){border-style:solid}
+/* County bar: "Now showing · County 1 of 2 ▾" stays on one line. */
+.county-now .cnb-eyebrow:not(#_){white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+/* The count beside a list title reads as a count, not a stray small number. */
+.list-title .list-count:not(#_){font-family:var(--font-sans);font-size:.5em;font-weight:600;letter-spacing:0;color:var(--warm-gray);border:1px solid var(--rule);border-radius:999px;padding:.15em .6em;align-self:center;line-height:1.2}
+/* On a phone an info button that drops below its figure lines up with it on
+   the left, instead of floating alone at the right edge. */
+@media (max-width:640px){.ib-corner:not(#_){justify-content:flex-start}}
