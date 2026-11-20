@@ -69,7 +69,7 @@
 .detail-nav{position:sticky;top:-1rem;z-index:3}
 /* In the modal the sticky close button (x) shares the top band with this row:
    the row stops short of it, so its last pill is never under the x. */
-#detailModalInner > .detail-nav:not(#_){margin-right:3rem;scroll-padding-right:.5rem}
+#detailModalInner > .detail-nav:not(#_){margin-right:0;padding-right:3.25rem;scroll-padding-right:3.75rem}
 .detail-nav-label{flex:0 0 auto;align-self:center;font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);padding:0 .35rem 0 .1rem}
 @media (min-width:769px){ .detail-nav-label{display:none} }
 /* Phone: the section index comes back as a compact "Contents" scroller
@@ -144,9 +144,6 @@ html[data-experience="merged"] .detail-fold-summary .detail-more-title::before{c
 
 /* -- Dark theme ------------------------------------------------------------- */
 :root[data-theme="dark"] .detail-keyfig-val{color:var(--ink)}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) .detail-keyfig-val{color:var(--ink)}
-}
 
 /* -- Motion: only when the reader allows it -------------------------------- */
 @media (prefers-reduced-motion:no-preference){
