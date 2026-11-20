@@ -69,6 +69,16 @@ const barState = pg => pg.evaluate(() => [...document.querySelectorAll('#navBott
   for (const k of ['auction', 'certificate', 'laft']) {
     await pg.evaluate(() => window.scrollTo(0, 2500)); await pg.waitForTimeout(150);
     check('barUncoveredOn_' + k, await barUncovered(pg), null);
+    // 2026-11-17: a ledger with nothing listed in this state is greyed out
+    // and does nothing on a tap (owner: "why even present that to the client").
+    const empty = await pg.evaluate(k => document.querySelector(`#navBottom [data-nav-ledger="${k}"]`).dataset.empty === '1', k);
+    if (empty) {
+      const before = await pg.evaluate(() => location.hash);
+      await pg.click(`#navBottom .nav-bottom-item[data-nav-ledger="${k}"]`, { force: true }); await pg.waitForTimeout(400);
+      const e = await pg.evaluate(k => { const b = document.querySelector(`#navBottom [data-nav-ledger="${k}"]`); return { hash: location.hash, aria: b.getAttribute('aria-disabled'), title: b.title, op: getComputedStyle(b).opacity }; }, k);
+      check('barEmptyLedgerGreyedAndInert_' + k, e.hash === before && e.aria === 'true' && /listings in/.test(e.title) && +e.op < 0.6, e);
+      continue;
+    }
     await pg.click(`#navBottom .nav-bottom-item[data-nav-ledger="${k}"]`); await pg.waitForTimeout(500);
     const r = await pg.evaluate(k => {
       const on = [...document.querySelectorAll('#navBottom .nav-bottom-item.on')].map(e => e.dataset.navLedger || e.dataset.page);

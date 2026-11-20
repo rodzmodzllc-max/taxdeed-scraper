@@ -230,13 +230,13 @@ for (const [mode, note] of [['absent', 'coming'], ['error', 'unavailable']]) {
     note: (document.getElementById('authSignupNote') || {}).hidden === false ? document.getElementById('authSignupNote').textContent : null,
     pressed: document.querySelector('[data-auth-tab="signup"]').getAttribute('aria-pressed'),
     side: (() => { const a = document.getElementById('firstName').getBoundingClientRect(), c = document.getElementById('lastName').getBoundingClientRect(); return Math.abs(a.top - c.top) < 2; })() }));
-  check('signup-mode-says-instant-preview-then-approval', s.mode === 'Create account' && s.first && s.pressed === 'true' && /instant preview/.test(s.note || '') && /approved/.test(s.note || ''), s);
+  check('signup-mode-says-free-trial-no-approval-wait', s.mode === 'Create account' && s.first && s.pressed === 'true' && /7-day trial/.test(s.note || '') && /no approval wait/.test(s.note || ''), s);   // 041: trial at sign-up
   check('signup-form-short-names-side-by-side', s.side, s);
   await pg.click('#authModeToggle'); await pg.waitForTimeout(150);
   check('legacy-toggle-still-switches-and-syncs-tabs', await pg.evaluate(() => document.getElementById('signInBtn').textContent === 'Sign in' && document.querySelector('[data-auth-tab="signin"]').getAttribute('aria-pressed') === 'true'), null);
   await ctx.close();
   const o = await open('?stubauth=1&look=merged&oauth=google');
-  check('google-button-kept-with-preview-note', await o.pg.evaluate(() => !!document.querySelector('#authGate [data-oauth="google"]') && /instant preview/.test((document.querySelector('.oauth-note') || {}).textContent || '')), null);
+  check('google-button-kept-with-trial-note', await o.pg.evaluate(() => !!document.querySelector('#authGate [data-oauth="google"]') && /7-day trial/.test((document.querySelector('.oauth-note') || {}).textContent || '')), null);
   await o.ctx.close();
 }
 

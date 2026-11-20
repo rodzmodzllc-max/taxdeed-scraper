@@ -102,9 +102,21 @@
     document.body.appendChild(box);
   }
 
-  var ms = typeof window.__tdwBootTimeoutMs === "number" ? window.__tdwBootTimeoutMs : 15000;
+  // 2026-11-17 live walk-through: a slow but successful start (esm.sh timing
+  // out, then the local copy; a sign-in round trip) passed 15 s, the panel was
+  // added, and it stayed at the foot of the working app ("The app didn't
+  // finish loading" under Home). The wait is 20 s now, and the panel removes
+  // itself as soon as any screen appears.
+  var ms = typeof window.__tdwBootTimeoutMs === "number" ? window.__tdwBootTimeoutMs : 20000;
   setTimeout(function check() {
-    if (!started()) showPanel();
+    if (started()) return;
+    showPanel();
+    var watch = setInterval(function () {
+      if (!started()) return;
+      clearInterval(watch);
+      var box = document.getElementById("bootFailure");
+      if (box) box.remove();
+    }, 1000);
   }, ms);
 })();
 

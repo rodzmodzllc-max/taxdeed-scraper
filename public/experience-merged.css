@@ -272,3 +272,8 @@ html[data-experience="merged"] .xpm .fslip .fb:focus-visible,html[data-experienc
   html[data-experience="merged"] .xpm .tray-acts{flex-wrap:wrap}
   html[data-experience="merged"] .xpm .tray-acts .xpm-cta{flex:1 1 120px}
 }
+
+/* 2026-11-17 live walk-through: a two-word stamp on a narrow lien slip
+   ("Source unavailable") was cut to "SOURCE UNA...". The slip's stamp wraps
+   onto two short lines instead of being cut. */
+.xpm-stamp.slip:not(#_){white-space:normal;text-overflow:clip;overflow:visible;line-height:1.15;text-align:center}

@@ -368,7 +368,7 @@ def cta(state_name: str, place: str | None, st: str) -> str:
     where = place or state_name
     return f"""<section class="g-cta" aria-labelledby="g-cta-h">
 <h2 id="g-cta-h">See what is listed in {esc(where)}</h2>
-<p>TAXACQ shows each listing with its official source, when that source was last read, and the office's own process for acquiring it. Accounts are free while TAXACQ is in beta.</p>
+<p>TAXACQ shows each listing with its official source, when that source was last read, and the office's own process for acquiring it. New accounts start a free 7-day trial right away - no approval wait, no card.</p>
 <a class="g-primary" href="/index.html">Create a free account</a>
 <a class="g-secondary" href="{esc(app_page(st))}">See current listings in {esc(where)}</a>
 </section>
