@@ -176,7 +176,8 @@ def place_name(county: str, unit: str) -> str:
 
 
 def app_page(st: str) -> str:
-    return "/index.html" if st == "FL" else f"/{st.lower()}.html"
+    # Final addresses: Cloudflare Pages 308-redirects /index.html to / and /xx.html to /xx (2026-11-21).
+    return "/" if st == "FL" else f"/{st.lower()}"
 
 
 def url_for(rel: str) -> str:
@@ -238,7 +239,7 @@ def head(title: str, description: str, rel: str, jsonld: list[dict], toc_layout:
 </head>
 <body>
 <header class="g-top"><div class="g-top-inner">
-<a class="g-brand" href="/index.html">{BRAND}<small>Tax Acquisition Intelligence</small></a>
+<a class="g-brand" href="/">{BRAND}<small>Tax Acquisition Intelligence</small></a>
 <a class="g-top-cta" href="/guides/">County guides</a>
 </div></header>
 <main class="{main_cls}" id="main">
@@ -270,7 +271,7 @@ def foot() -> str:
     return f"""</main>
 <footer class="g-foot"><div class="g-foot-inner">
 <p class="g-disclaimer">{esc(DISCLAIMER)}</p>
-<p><a href="/guides/">All county guides</a> · <a href="/terms.html">Terms of Service</a> · <a href="/privacy.html">Privacy Policy</a> · <a href="/source-disclaimer.html">Source &amp; research disclaimer</a> · <a href="mailto:info@taxacq.com">info@taxacq.com</a></p>
+<p><a href="/guides/">All county guides</a> · <a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a> · <a href="/source-disclaimer">Source &amp; research disclaimer</a> · <a href="mailto:info@taxacq.com">info@taxacq.com</a></p>
 </div></footer>
 </body>
 </html>
@@ -369,7 +370,7 @@ def cta(state_name: str, place: str | None, st: str) -> str:
     return f"""<section class="g-cta" aria-labelledby="g-cta-h">
 <h2 id="g-cta-h">See what is listed in {esc(where)}</h2>
 <p>TAXACQ shows each listing with its official source, when that source was last read, and the office's own process for acquiring it. New accounts start a free 7-day trial right away - no approval wait, no card.</p>
-<a class="g-primary" href="/index.html">Create a free account</a>
+<a class="g-primary" href="/">Create a free account</a>
 <a class="g-secondary" href="{esc(app_page(st))}">See current listings in {esc(where)}</a>
 </section>
 """
@@ -377,12 +378,41 @@ def cta(state_name: str, place: str | None, st: str) -> str:
 
 # ------------------------------------------------------------------ pages
 
+# The words people type into a search engine for each list (2026-11-21, SEO). Florida's
+# own terms are "tax deed sales", "lands available" and "tax certificates"; other states
+# are named generically, never with Florida's "Lands Available".
+SEARCH_TERMS = {
+    "FL": {"AUCTIONS": "Tax Deed Sales", "AVAILABLE": "Lands Available", "LIENS_CERTIFICATES": "Tax Certificates"},
+    "*": {"AUCTIONS": "Tax Sales", "AVAILABLE": "Available Tax Land", "LIENS_CERTIFICATES": "Tax Lien Certificates"},
+}
+# The state's own name for its available-property list, where it has one people search for.
+AVAILABLE_TERMS = {
+    "LA": "Adjudicated Property", "MN": "Tax-Forfeited Land", "TX": "Struck-Off Property",
+    "PA": "Repository Property", "SC": "Forfeited Land", "MI": "Land Bank Property",
+    "MO": "Land Bank Property", "TN": "Land Bank Property", "OK": "County-Owned Property",
+}
+# Only states that sell tax lien certificates get that phrase in a title; elsewhere the
+# guide's lien section explains what the state does instead, which is not a search term.
+LIEN_CERTIFICATE_STATES = {"FL", "CO", "WY"}
+
+
+def search_terms(st: str, ledgers: list[str]) -> str:
+    """'Tax Deed Sales, Lands Available & Tax Certificates' for the lists a guide covers."""
+    words = dict(SEARCH_TERMS.get(st, SEARCH_TERMS["*"]))
+    if st in AVAILABLE_TERMS:
+        words["AVAILABLE"] = AVAILABLE_TERMS[st]
+    keep = [L for L in ("AUCTIONS", "AVAILABLE", "LIENS_CERTIFICATES") if L in ledgers
+            and (L != "LIENS_CERTIFICATES" or st in LIEN_CERTIFICATE_STATES)]
+    terms = [words[L] for L in keep] or [words["AUCTIONS"]]
+    return terms[0] if len(terms) == 1 else ", ".join(terms[:-1]) + " & " + terms[-1]
+
+
 def county_page(doc: dict, st: str, state: dict, county: str) -> str:
     place = place_name(county, state["unit"])
     full = f"{place}, {st}"
     rel = f"/guides/{st.lower()}/{slug(county)}"
-    title = f"How to buy tax-sale property in {full} — {BRAND}"
     sections, dates, items = ledger_blocks(doc, state, county)
+    title = f"{full} {search_terms(st, [L for L, _ in items])}: How to Buy — {BRAND}"
     ledgers = [doc["ledgers"][L] for L, _ in items]
     desc = (f"How tax-sale property is bought in {full}: {', '.join(ledgers)}. Answers from the "
             f"{state['unit'].lower()}'s own official pages, each linked and dated.")
@@ -403,11 +433,11 @@ def county_page(doc: dict, st: str, state: dict, county: str) -> str:
 def state_page(doc: dict, st: str, state: dict, counties: list[str]) -> str:
     rel = f"/guides/{st.lower()}/"
     unit = state["unit"]
-    title = f"How to buy tax-sale property in {state['name']} — {unit} guides — {BRAND}"
     desc = (f"{state['name']} tax-sale guides: statewide rules and {len(counties)} {unit.lower()} guides, each "
             f"answer taken from an official page and linked.")
     trail = [("Guides", "/guides/"), (state["name"], rel)]
     sections, dates, items = ledger_blocks(doc, state, None)
+    title = f"{state['name']} {search_terms(st, [L for L, _ in items])} by {unit}: How to Buy — {BRAND}"
     links = "".join(f'<li><a href="/guides/{st.lower()}/{slug(c)}">{esc(place_name(c, unit))}</a></li>'
                     for c in counties)
     county_block = (f'<h2>{esc(unit)} guides</h2>\n<ul class="g-list">{links}</ul>' if counties else

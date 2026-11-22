@@ -88,7 +88,9 @@ def test_pages_are_well_formed_script_free_and_links_resolve():
             if href.startswith("/guides/"):
                 assert target(href).exists(), (p, href)
             elif href.startswith("/") and not href.startswith("//"):
-                assert (REPO / href.lstrip("/").split("?")[0]).exists(), (p, href)
+                path = href.lstrip("/").split("?")[0] or "index.html"
+                # Clean addresses (2026-11-21): /tx is served from tx.html.
+                assert (REPO / path).exists() or (REPO / (path + ".html")).exists(), (p, href)
         for a in c.ext_links:
             if "fonts.googleapis.com" in a["href"]:
                 continue
@@ -119,7 +121,8 @@ def test_unit_words_and_ledger_names():
     for p in pages():
         if "/guides/fl/" not in str(p).replace("\\", "/") and p != GUIDES / "index.html":
             assert "Lands Available" not in p.read_text(encoding="utf-8"), p
-    assert "How to buy tax-sale property in Alachua County, FL — TAXACQ" in \
+    # Titles carry the searched terms (2026-11-21); the H1 keeps the plain question.
+    assert "Alachua County, FL Tax Deed Sales, Lands Available &amp; Tax Certificates: How to Buy — TAXACQ" in \
         (GUIDES / "fl/alachua.html").read_text(encoding="utf-8")
 
 

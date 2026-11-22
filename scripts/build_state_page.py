@@ -52,8 +52,8 @@ def page_meta(state: str, page: str) -> list[tuple[str, str]]:
         (f'<meta name="description" content="{tx}">', f'<meta name="description" content="{me}">'),
         (f'<meta property="og:description" content="{tx}">', f'<meta property="og:description" content="{me}">'),
         (f'<meta name="twitter:description" content="{tx}">', f'<meta name="twitter:description" content="{me}">'),
-        (f'<link rel="canonical" href="{SITE}/tx.html">', f'<link rel="canonical" href="{SITE}/{page}">'),
-        (f'<meta property="og:url" content="{SITE}/tx.html">', f'<meta property="og:url" content="{SITE}/{page}">'),
+        (f'<link rel="canonical" href="{SITE}/tx">', f'<link rel="canonical" href="{SITE}/{page}">'),
+        (f'<meta property="og:url" content="{SITE}/tx">', f'<meta property="og:url" content="{SITE}/{page}">'),
     ]
 
 PAGES = {
@@ -131,7 +131,7 @@ def render(code: str, template: str) -> str:
          '<span class="pill-dot pill-dot-certificate" aria-hidden="true"></span>Liens &amp; Certificates</button>'),
         (TX_TERMS_COMMENT, f"<!-- {cfg['name']} terms (2026-09-30, six-state expansion). No {cfg['name']} statutory copy\n"
                            "is stated here: none has been reviewed with counsel. Do not add it without counsel review. -->"),
-        *page_meta(cfg["name"], f"{code.lower()}.html"),
+        *page_meta(cfg["name"], code.lower()),
     ):
         if out.count(old) != 1:
             raise SystemExit(f"{code}: template anchor not found exactly once: {old[:60]!r}")
