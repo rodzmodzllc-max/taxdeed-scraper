@@ -19325,7 +19325,10 @@ function pageTier() {
     try { const s = localStorage.getItem(PAGE_TIER_KEY); if (allowed.includes(s)) return s; } catch { /* storage off */ }
   }
   // Everyone lands on Guided (owner, 2026-11-22); the Full record stays one
-  // click away for accounts that may hold it.
+  // click away for accounts that may hold it. config.js may name another
+  // default view (defaultPageTier: "pro"); production names none.
+  const cfgTier = String((window.TDW_CONFIG || {}).defaultPageTier || "");
+  if (cfgTier && allowed.includes(cfgTier)) return cfgTier;
   if (allowed.includes("beginner")) return "beginner";
   const base = accountTier();
   return allowed.includes(base) ? base : allowed[allowed.length - 1];

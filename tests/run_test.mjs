@@ -114,10 +114,6 @@ async function newPage(opts) {
   // sections read the complete record ("Show every field"); the cleaned
   // default is checked with ?fields=clean in the "Property page tiers" block.
   await raw.addInitScript(() => { window.__tdwFullFieldsDefault = true; });
-  // Everyone lands on Guided (owner, 2026-11-22). The checks written against
-  // the Full record read it as a reader who picked "Full record" would; the
-  // real default is checked in the "Property page tiers" block (?realtier=1).
-  await raw.addInitScript(() => { try { if (!/[?&]realtier=1/.test(location.search) && !localStorage.getItem('tdw_page_tier_v2')) localStorage.setItem('tdw_page_tier_v2', 'pro'); } catch { /* storage off */ } });
   await raw.addInitScript(() => {
     const openAll = () => { if (window.__suiteKeepResearchClosed) return; document.querySelectorAll('details.detail-more:not([open])').forEach(d => { d.open = true; }); };
     new MutationObserver(openAll).observe(document, { childList: true, subtree: true });
@@ -7715,8 +7711,12 @@ await big.press('#globalSearchInput', 'Enter');
 
 // ---- Property page tiers (2026-10-27): Free preview / Guided / Full record ----
 {
-  const tierUrl = (tier, hash) => { const u = new URL(BASE_URL); u.searchParams.set('realtier', '1'); if (tier) u.searchParams.set('tier', tier); u.hash = hash; return u.toString(); };
+  const tierUrl = (tier, hash) => { const u = new URL(BASE_URL); if (tier) u.searchParams.set('tier', tier); u.hash = hash; return u.toString(); };
   const tp = await newPage({ viewport: { width: 390, height: 1400 } });
+  // The fixture config pins Full record as the default view (tests/config.js
+  // defaultPageTier) for the checks written against it; this page drops that
+  // key so it sees the production default - Guided (owner, 2026-11-22).
+  await tp.addInitScript(() => { let v; Object.defineProperty(window, 'TDW_CONFIG', { configurable: true, get() { return v; }, set(x) { if (x) delete x.defaultPageTier; v = x; } }); });
   await tp.goto(tierUrl(null, '/lands/p15'), { waitUntil: 'networkidle' });
   await tp.waitForTimeout(900);
   results.tierDefault = await tp.evaluate(() => ({ tier: window.__tdwPageTier(), switchShown: !!document.querySelector('#detailModalInner .tier-switch'),
