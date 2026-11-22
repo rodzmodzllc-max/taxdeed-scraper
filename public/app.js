@@ -3920,7 +3920,7 @@ if (authForm) {
         if (signInError) {
           setAuthMode("signin");
           const em = document.getElementById("email"); if (em) em.value = email;
-          if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Account created. Sign in with your email and password to start your free 7-day Guided trial."; }
+          if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Account created. Sign in with your email and password - TAXACQ is free during early access."; }
         }
         // On success onAuthStateChange takes over and opens the 7-day trial (041).
         return;
@@ -3944,7 +3944,7 @@ if (authForm) {
         setAuthMode("signin");
         if (authMsg) {
           authMsg.className = "auth-msg";
-          authMsg.textContent = "Account created — check your email to confirm it, then sign in to start your free 7-day Guided trial.";
+          authMsg.textContent = "Account created — check your email to confirm it, then sign in. TAXACQ is free during early access.";
         }
       }
       return;
@@ -4127,7 +4127,7 @@ function renderOAuthButtons() {
   block.id = "oauthBlock";
   block.innerHTML = '<div class="oauth-buttons">' + providers.map(p =>
     `<button type="button" class="oauth-btn" data-oauth="${p}">${OAUTH_PROVIDERS[p].icon}<span>Continue with ${OAUTH_PROVIDERS[p].label}</span></button>`).join("") +
-    '</div><p class="oauth-note">New accounts start a free 7-day trial right away - whichever way you sign up.</p>' +
+    '</div><p class="oauth-note">Free during early access - no approval wait, no card, whichever way you sign up.</p>' +
     '<p class="oauth-or"><span>or use your email</span></p>';
   form.parentNode.insertBefore(block, form);
   block.addEventListener("click", e => {
@@ -4359,10 +4359,15 @@ async function checkApprovalAndEnter(session) {
   }
   const approved = !!(profile && profile.approved);
   TRIAL_ENDS_AT = trialEndsAt(profile);
-  const onTrial = !approved && !IS_ADMIN && !!TRIAL_ENDS_AT && TRIAL_ENDS_AT.getTime() > Date.now();
-  TRIAL_ENDED = !approved && !IS_ADMIN && !!TRIAL_ENDS_AT && !onTrial;
-  ACCESS = { role: IS_ADMIN ? "admin" : approved ? "tester" : onTrial ? "trial" : "inactive", state: IS_ADMIN ? "admin_override" : approved ? "tester_beta" : onTrial ? "trial" : "inactive", source: "legacy", entitlement: null };
-  if (approved || onTrial) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); if (onTrial) showTrialBanner(); }
+  // 043 (owner, 2026-11-22): while TAXACQ is free, the server admits every
+  // signed-in account (app_settings.open_access). The app only asks so it can
+  // show the Guided view instead of a trial banner or the trial-ended screen;
+  // the database decides what is readable either way.
+  OPEN_ACCESS = (!approved && !IS_ADMIN) ? await readOpenAccess() : false;
+  const onTrial = !approved && !IS_ADMIN && !OPEN_ACCESS && !!TRIAL_ENDS_AT && TRIAL_ENDS_AT.getTime() > Date.now();
+  TRIAL_ENDED = !approved && !IS_ADMIN && !OPEN_ACCESS && !!TRIAL_ENDS_AT && !onTrial;
+  ACCESS = { role: IS_ADMIN ? "admin" : approved ? "tester" : (OPEN_ACCESS || onTrial) ? "trial" : "inactive", state: IS_ADMIN ? "admin_override" : approved ? "tester_beta" : OPEN_ACCESS ? "open_access" : onTrial ? "trial" : "inactive", source: "legacy", entitlement: null };
+  if (approved || onTrial || OPEN_ACCESS) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); if (onTrial) showTrialBanner(); }
   else showPlanOrPending(null);
 }
 
@@ -4375,6 +4380,14 @@ async function checkApprovalAndEnter(session) {
 var TRIAL_DAYS = 7;
 var TRIAL_ENDS_AT = null;
 var TRIAL_ENDED = false;
+// 043: the free period. Before 043 exists the RPC is missing and this is false.
+var OPEN_ACCESS = false;
+async function readOpenAccess() {
+  try {
+    const { data, error } = await sb.rpc("open_access");
+    return !error && data === true;
+  } catch { return false; }
+}
 function trialEndsAt(profile) {
   const v = profile && profile.trial_ends_at;
   if (!v) return null;
@@ -4415,6 +4428,7 @@ var BILLING_INTENT = (function () {
 })();
 const BILLING_STATE_LABELS = {
   admin_override: "Administrator",
+  open_access: "Free early access",
   tester_beta: "Tester (beta)",
   manual_customer: "Customer - access granted by an administrator",
   active: "Active",
@@ -6378,13 +6392,20 @@ function card(p, showCounty, ctx) {
     ? `<button class="detail-btn detail-btn-primary" data-action="viewdetails" data-pid="${p.id}" type="button">How to acquire →</button>`
     : auctionLinkHtml(p, "cta-btn", cx ? { noDate: true } : null);
   const secondary = ledger === "laft" ? "" : `<button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">Details →</button>`;
-  const stamp = cardStamp(p);
+  // Simpler card (owner, 2026-11-22): customers get no status stamp on the
+  // face; an administrator still sees it (e.g. "Listing never confirmed by
+  // source", which flags a row withheld from customers).
+  const stamp = IS_ADMIN ? cardStamp(p) : null;
   el.innerHTML = `
     ${propertyVisual(p, "prop-card-photo", cx && cx.inGroup ? { omitCounty: true } : null)}
     <div class="prop-body">
       ${stamp ? `<div class="pc-stamp-inline">${cardStampHtml(stamp)}</div>` : ""}
       <div class="prop-address">${titleLine}</div>
       ${countyLineHtml(p, cx)}
+      <div class="prop-ids">
+        ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(parcelOf(p))}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
+        ${p.case_no && !(cx && hasAddress && hasParcel(p) && String(p.case_no) === String(parcelOf(p))) ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
+      </div>
       <div class="card-price">${ledger === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}"${bidPublished ? ` title="${esc(`Exact amount ${fmtMoney(p.bid)}. Cards round to whole dollars.`)}"` : ""}>${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
       ${cardLotLineHtml(p)}
       <div class="pc-actions">${primary}${bidListBtnHtml(p, "card")}${secondary}</div>
@@ -6392,10 +6413,6 @@ function card(p, showCounty, ctx) {
         <summary>Record details</summary>
         <div class="card-details-body">
           ${tag}
-          <div class="prop-ids">
-            ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(parcelOf(p))}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
-            ${p.case_no && !(cx && hasAddress && hasParcel(p) && String(p.case_no) === String(parcelOf(p))) ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
-          </div>
           ${cardStatsHtml(p)}
           ${offListNote}
           <div class="prop-top-actions">
@@ -15535,7 +15552,7 @@ function renderBillingModal() {
   const row = (k, v) => rows.push(`<div class="billing-row"><dt>${esc(k)}</dt><dd>${v}</dd></div>`);
   row("Access", `<b>${esc(BILLING_STATE_LABELS[ACCESS.state] || ACCESS.state || "Unknown")}</b>`);
   if (ACCESS.source === "legacy") {
-    row("Why", esc(ACCESS.role === "admin" ? "Administrator account." : ACCESS.role === "trial" ? `Free ${TRIAL_DAYS}-day Guided trial - ${trialDaysLeft()} day${trialDaysLeft() === 1 ? "" : "s"} left.` : "Approved by an administrator."));
+    row("Why", esc(ACCESS.role === "admin" ? "Administrator account." : ACCESS.state === "open_access" ? "Free during early access - no approval or card needed." : ACCESS.role === "trial" ? `Free ${TRIAL_DAYS}-day Guided trial - ${trialDaysLeft()} day${trialDaysLeft() === 1 ? "" : "s"} left.` : "Approved by an administrator."));
     row("Billing", "Not set up for this deployment yet - access comes from an administrator's approval.");
   } else {
     row("Why", esc((e && e.reason) || ""));
@@ -19258,7 +19275,9 @@ installShellV3();
 // No account carries a tier yet (billing ships off), so administrators and
 // testers pick the view with the switch at the top of the page; everyone else
 // sees the full record. `var` / function declarations only (TDZ).
-var PAGE_TIER_KEY = "tdw_page_tier_v1";
+// v2 (owner, 2026-11-22): everyone lands on Guided; a choice stored under v1
+// (often "Full record") no longer overrides that default.
+var PAGE_TIER_KEY = "tdw_page_tier_v2";
 var PAGE_TIERS = ["free", "beginner", "pro"];
 var PAGE_TIER_LABELS = { free: "Free preview", beginner: "Guided", pro: "Full record" };
 // ---- Tiers at login (owner, 2026-11-12) - THE one mapping from access to tier ----
@@ -19305,6 +19324,9 @@ function pageTier() {
   if (allowed.length > 1) {
     try { const s = localStorage.getItem(PAGE_TIER_KEY); if (allowed.includes(s)) return s; } catch { /* storage off */ }
   }
+  // Everyone lands on Guided (owner, 2026-11-22); the Full record stays one
+  // click away for accounts that may hold it.
+  if (allowed.includes("beginner")) return "beginner";
   const base = accountTier();
   return allowed.includes(base) ? base : allowed[allowed.length - 1];
 }
@@ -20338,7 +20360,7 @@ function installAuthModeTabs() {
   note.id = "authSignupNote";
   note.className = "auth-signup-note";
   note.hidden = true;
-  note.innerHTML = "<b>Free 7-day trial, no approval wait.</b> Your account opens the Guided view of every listing as soon as you sign up - no card needed.";
+  note.innerHTML = "<b>Free during early access, no approval wait.</b> Your account opens the Guided view of every listing as soon as you sign up - no card needed.";
   lead.after(note);
   tabs.addEventListener("click", e => {
     const b = e.target.closest && e.target.closest("[data-auth-tab]");
