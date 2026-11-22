@@ -33,6 +33,11 @@ def _head(html: str) -> str:
     return html[: html.index("</head>")]
 
 
+def _final(page: str) -> str:
+    """The address Cloudflare Pages serves a page at: /index.html -> /, /xx.html -> /xx (2026-11-21)."""
+    return "https://taxacq.com/" + ("" if page == "index.html" else page[:-len(".html")])
+
+
 def _attr(html: str, tag_re: str) -> str:
     m = re.search(tag_re, html)
     assert m, tag_re
@@ -45,8 +50,8 @@ def test_every_state_page_describes_itself_and_the_product():
         desc = _attr(head, r'<meta name="description" content="([^"]+)">')
         assert desc.startswith("TAXACQ — tax sale property research for " + state + ":"), page
         assert "No scores, no estimates" in desc, page
-        assert _attr(head, r'<link rel="canonical" href="([^"]+)">') == f"https://taxacq.com/{page}", page
-        assert _attr(head, r'<meta property="og:url" content="([^"]+)">') == f"https://taxacq.com/{page}", page
+        assert _attr(head, r'<link rel="canonical" href="([^"]+)">') == _final(page), page
+        assert _attr(head, r'<meta property="og:url" content="([^"]+)">') == _final(page), page
         assert _attr(head, r'<meta property="og:title" content="([^"]+)">') == "TAXACQ — Tax Acquisition Intelligence", page
         assert _attr(head, r'<meta property="og:description" content="([^"]+)">') == desc, page
         assert _attr(head, r'<meta name="twitter:description" content="([^"]+)">') == desc, page
@@ -66,8 +71,8 @@ def test_generated_pages_are_rebuilt_with_their_own_meta():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     assert mod.main(["--check"]) == 0
-    pairs = dict(mod.page_meta("Michigan", "mi.html"))
-    assert all("Texas" in old and "Michigan" in new or old.endswith('/tx.html">') for old, new in pairs.items())
+    pairs = dict(mod.page_meta("Michigan", "mi"))
+    assert all("Texas" in old and "Michigan" in new or old.endswith('/tx">') for old, new in pairs.items())
 
 
 def test_index_carries_the_product_section_after_the_gates():
@@ -104,7 +109,8 @@ def test_sitemap_and_robots_name_the_product_pages_only():
     locs = re.findall(r"<loc>([^<]+)</loc>", sitemap)
     assert locs[0] == "https://taxacq.com/"
     for page in list(STATE_PAGES) + list(LEGAL_PAGES):
-        assert f"https://taxacq.com/{page}" in locs, page
+        assert _final(page) in locs, page
+        assert f"https://taxacq.com/{page}" not in locs or page == "index.html", page   # never a redirecting address
     assert "admin.html" not in sitemap
     assert all(loc.startswith("https://taxacq.com/") for loc in locs)
     assert len(locs) == len(set(locs))
