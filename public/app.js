@@ -19621,7 +19621,7 @@ function guidedThree(p) {
     const sale = saleKindOf(p);
     const when = p.sale_date ? `, ${fmtDate(String(p.sale_date).slice(0, 10))}` : "";
     const what = sale.lien ? `A tax lien, not the land - ${sale.kind.toLowerCase()}${when}.`
-      : sale.option ? `An option for a Treasurer's deed - ${sale.kind.toLowerCase()}${when}.`
+      : sale.option ? `An option for a Treasurer's deed, not the deed - ${sale.kind.toLowerCase()}${when}.`
       : `The property itself - ${sale.kind.toLowerCase()}${when}.`;
     const value = hasValueNum(p.market) ? ` · county value ${fmtMoney(Number(p.market))}` : "";
     const cost = !hasPublishedBid(p) ? "The opening bid is not published yet."
