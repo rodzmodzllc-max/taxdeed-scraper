@@ -11446,7 +11446,7 @@ function detailHtml(p) {
     </header>`;
   const html = `
     <button class="detail-close" data-action="closedetail" type="button" aria-label="Close">✕</button>
-    <div class="detail-topbar">${detailCrumbsHtml(p)}${tierSwitchHtml("pro")}</div>
+    <div class="detail-topbar">${detailCrumbsHtml(p)}${tierSwitchHtml("pro") || (tiersSelectable().includes("beginner") ? `<button type="button" class="g-full-link g-back-guided" data-tier-set="beginner">← Back to the checklist</button>` : "")}</div>
     ${firstHtml}
     <!--NAV-->
     ${isCert ? `
@@ -19336,6 +19336,11 @@ function pageTier() {
 function tierSwitchHtml(tier) {
   const allowed = tiersSelectable();
   if (allowed.length < 2) return "";
+  // Guided first (owner, 2026-11-23): customers get no View switch at the top;
+  // the Full record is one quiet link at the bottom of the Guided page
+  // (guidedFullRecordHtml). Only admins keep the switch (they also check the
+  // Free preview); testers and customers use the link.
+  if (!(IS_ADMIN || (ACCESS && ACCESS.role === "admin"))) return "";
   // Kept compact (2026-11-10): one small row beside the breadcrumb. Admins
   // and testers also get Free preview, with a note saying what it is.
   const staff = allowed.includes("free");
@@ -19479,7 +19484,7 @@ function guidedStages(p) {
     key: "risks", title: "Check the risks", facts: [], tasks: [
       { key: "liens", title: "Look for other liens", how: "Search the clerk's records and ask code enforcement - some liens can survive a tax sale." },
       { key: "title", title: "Plan a title search", how: "A title company can tell you what you would actually own." },
-      { key: "see", title: "See the property", how: coords ? "Study the aerial picture above, then drive by if you can." : "Drive by, or find it on the appraiser's map." }
+      { key: "see", title: "See the property", how: coords ? "Study the aerial picture above, then drive by if you can." : "Drive by, or find it on the appraiser's map.", href: appraiserLink(p) ? appraiserLink(p).url : null, hrefLabel: "Appraiser record" }
     ]
   };
   if (floodChecked) risks.facts.push({ title: "Flood zone", answer: fl.text + (p.flood_sfha === true ? " - a FEMA high-risk area" : "") });
@@ -19624,6 +19629,106 @@ function guidedThree(p) {
   const how = a.verified ? `${a.label}${a.office ? ` from ${a.office}` : ""}.${a.steps.length ? ` First: ${a.steps[0]}` : ""}` : "The county has not published how to buy it yet - the official listing names the office to ask.";
   return [["What it is", availableWhy(p).text + "."], ["What it costs", cost], ["How you buy it", how]];
 }
+// ---- Word bubbles (owner, 2026-11-23) ----
+// "Don't plaster words everywhere": a word a first-time buyer may not know is
+// dotted-underlined where it appears; hover or tap it for one plain sentence,
+// with a way into the Buyer's Guide. Nothing else on the page grows. The "?"
+// beside "Your path to buy" lists the words used on this page.
+// var + function declarations only (render() can reach this during init).
+var GUIDED_TERMS = [
+  ["otc", "Over the counter", /\bover the counter\b/, "Bought straight from the county at a set price - no auction, no bidding."],
+  ["lien", "Tax lien", /\b[Tt]ax liens?\b|\b[Ll]iens?\b/, "A debt attached to a property. Some liens stay with the property after a tax sale."],
+  ["redeem", "Redemption", /\b[Rr]edeem\w*|\b[Rr]edemption\b|\brepa(?:id|ys)\b/, "The owner pays the back taxes, plus interest, and keeps the property."],
+  ["title", "Title search", /\b[Tt]itle search\b|\bclearing title\b|\btitle company\b/, "A check of public records that shows who owns the property and what is still owed on it."],
+  ["deed", "Deed", /\b(?:[Tt]ax |Treasurer's )?deed\b/, "The recorded paper that makes you the owner."],
+  ["assignment", "Assignment", /\b[Aa]ssignment\b/, "Buying a certificate the county already holds, for its stated amount - no auction."],
+  ["back", "Back taxes", /\b[Bb]ack taxes\b/, "Property taxes the owner did not pay."],
+  ["bid", "Opening bid", /\b(?:[Oo]pening|[Mm]inimum) bid\b/, "Where bidding starts. The winning bid is often higher."],
+  ["recorded", "Recorded", /\brecorded\b/, "Filed in the county's public records, so everyone can see you own it."],
+  ["appraiser", "Property appraiser", /\bappraiser(?:'s)?\b/, "The county office that keeps each property's value, size and owner on file."],
+  ["code", "Code enforcement", /\bcode enforcement\b/, "The city or county office that fines owners for violations - those fines can become liens."]
+];
+function termify(text) {
+  let html = esc(text);
+  GUIDED_TERMS.forEach(([key, , re]) => {
+    html = html.replace(re, m => `<span class="g-term" data-term="${key}">${m}</span>`);
+  });
+  return html;
+}
+function termInfo(key) { return GUIDED_TERMS.find(t => t[0] === key) || null; }
+function termsInHtml(html) { return GUIDED_TERMS.filter(t => html.includes(`data-term="${t[0]}"`)); }
+var termPopEl = null, termPopTimer = null;
+function termPop() {
+  if (termPopEl) return termPopEl;
+  termPopEl = document.createElement("div");
+  termPopEl.className = "g-term-pop";
+  termPopEl.setAttribute("role", "tooltip");
+  termPopEl.hidden = true;
+  termPopEl.addEventListener("mouseenter", () => clearTimeout(termPopTimer));
+  termPopEl.addEventListener("mouseleave", () => hideTermPop(150));
+  document.body.appendChild(termPopEl);
+  return termPopEl;
+}
+function placeTermPop(anchor, html) {
+  const pop = termPop();
+  clearTimeout(termPopTimer);
+  pop.innerHTML = html;
+  pop.hidden = false;
+  const r = anchor.getBoundingClientRect();
+  const w = Math.min(280, innerWidth - 24);
+  pop.style.width = w + "px";
+  pop.style.left = Math.max(12, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 12)) + "px";
+  const below = r.bottom + 8 + pop.offsetHeight < innerHeight;
+  pop.style.top = (below ? r.bottom + 8 : Math.max(8, r.top - 8 - pop.offsetHeight)) + "px";
+  pop.dataset.side = below ? "below" : "above";
+}
+function showTermPop(el) {
+  const t = termInfo(el.dataset.term);
+  if (!t) return;
+  const host = el.closest("[data-tier-view]");
+  const pid = host ? (host.querySelector("[data-guided-pid]") || {}).dataset?.guidedPid : "";
+  placeTermPop(el, `<b>${esc(t[1])}</b><span>${esc(t[3])}</span>${pid ? `<button type="button" class="g-term-more" data-term-guide="${esc(pid)}">More in the Buyer's Guide →</button>` : ""}`);
+}
+function showTermLegend(btn) {
+  const view = btn.closest("[data-tier-view]");
+  const used = termsInHtml(view ? view.innerHTML : "");
+  if (!used.length) return;
+  placeTermPop(btn, `<b>Words on this page</b><dl>${used.map(t => `<dt>${esc(t[1])}</dt><dd>${esc(t[3])}</dd>`).join("")}</dl>`);
+}
+function hideTermPop(delay) {
+  clearTimeout(termPopTimer);
+  termPopTimer = setTimeout(() => { if (termPopEl) termPopEl.hidden = true; }, delay || 0);
+}
+// Capture phase: a word inside a checklist row explains itself instead of
+// ticking the row.
+document.addEventListener("click", e => {
+  const term = e.target && e.target.closest && e.target.closest(".g-term");
+  if (term) { e.preventDefault(); e.stopPropagation(); showTermPop(term); return; }
+  const legend = e.target && e.target.closest && e.target.closest("[data-term-legend]");
+  if (legend) { e.preventDefault(); e.stopPropagation(); showTermLegend(legend); return; }
+  const more = e.target && e.target.closest && e.target.closest("[data-term-guide]");
+  if (more) {
+    e.preventDefault(); e.stopPropagation();
+    const p = ALL.find(x => String(x.id) === String(more.dataset.termGuide));
+    hideTermPop();
+    if (typeof closeDetail === "function") closeDetail();
+    openGuidePage(p ? p.county : null, p ? GUIDE_LEDGER_FOR_SOURCE[p.source] : null);
+    return;
+  }
+  if (termPopEl && !termPopEl.hidden && !termPopEl.contains(e.target)) hideTermPop();
+}, true);
+document.addEventListener("mouseover", e => {
+  if (!window.matchMedia || !window.matchMedia("(hover: hover)").matches) return;
+  const term = e.target && e.target.closest && e.target.closest(".g-term");
+  if (term) showTermPop(term);
+});
+document.addEventListener("mouseout", e => {
+  const term = e.target && e.target.closest && e.target.closest(".g-term");
+  if (term && !(e.relatedTarget && termPopEl && termPopEl.contains(e.relatedTarget))) hideTermPop(250);
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && termPopEl && !termPopEl.hidden) { hideTermPop(); e.stopPropagation(); } }, true);
+window.addEventListener("scroll", () => { if (termPopEl && !termPopEl.hidden) hideTermPop(); }, true);
+window.__tdwTerms = () => GUIDED_TERMS.map(t => t[0]);
 function journeyMarks(p) {
   if (!RESEARCH || !RESEARCH.loaded) return {};
   const it = researchSavedFor(p.id)[0];
@@ -19651,22 +19756,22 @@ function guidedBodyHtml(p) {
     const tasks = s.tasks.map(t => {
       const k = s.key + "." + t.key;
       const on = !!marks[k];
-      return `<li class="g-task${on ? " on" : ""}"><button type="button" class="g-tick" data-tier-task="${esc(k)}" data-pid="${esc(p.id)}" aria-pressed="${on}"><span class="g-box" aria-hidden="true">${on ? "✓" : ""}</span><span><b>${esc(t.title)}</b><span>${esc(t.how)}</span></span></button>${t.href ? `<a class="g-task-link" href="${esc(t.href)}" target="_blank" rel="noopener">${esc(t.hrefLabel || "Open")} ↗</a>` : ""}</li>`;
+      return `<li class="g-task${on ? " on" : ""}"><button type="button" class="g-tick" data-tier-task="${esc(k)}" data-pid="${esc(p.id)}" aria-pressed="${on}"><span class="g-box" aria-hidden="true">${on ? "✓" : ""}</span><span><b>${esc(t.title)}</b><span>${termify(t.how)}</span></span></button>${t.href ? `<a class="g-task-link" href="${esc(t.href)}" target="_blank" rel="noopener">${esc(t.hrefLabel || "Open")} ↗</a>` : ""}</li>`;
     }).join("");
     return `<li class="g-stage" data-stage="${esc(s.key)}" data-stage-state="${chip.toLowerCase().replace(/\s+/g, "-")}">
       <details${isNext || (!next && idx === 0) ? " open" : ""}><summary><span class="g-dot">${!openTasks ? "✓" : idx + 1}</span><span class="g-stage-title">${esc(s.title)}</span><span class="g-chip">${esc(chip)}</span></summary>
       <ul class="g-items">${facts}${tasks}</ul></details></li>`;
   }).join("");
-  const storage = RESEARCH && RESEARCH.loaded && RESEARCH.mode === "server" ? "Your ticks are saved to your account and follow you to any device."
-    : RESEARCH && RESEARCH.loaded ? "Your ticks are kept in this browser only." : "Loading your saved ticks…";
-  return `<div class="g-progress">${ring}<div><span class="g-eyebrow">Your path to buy</span><b class="g-headline">${esc(headline)}</b></div></div>
-    ${next ? `<div class="g-next"><span class="g-eyebrow">Next step · ${esc(next.stage)}</span><b>${esc(next.title)}</b><span>${esc(next.how)}</span></div>` : ""}
+  const storage = RESEARCH && RESEARCH.loaded && RESEARCH.mode === "server" ? "Saved to your account"
+    : RESEARCH && RESEARCH.loaded ? "Saved in this browser" : "Loading your ticks…";
+  return `<div class="g-progress">${ring}<div><span class="g-eyebrow">Your path to buy</span><b class="g-headline">${esc(headline)}</b></div><button type="button" class="g-legend-btn" data-term-legend aria-label="What the underlined words mean">?</button></div>
+    ${next ? `<div class="g-next"><span class="g-eyebrow">Next step · ${esc(next.stage)}</span><b>${esc(next.title)}</b><span>${termify(next.how)}</span></div>` : ""}
     <ol class="g-stages">${stageHtml}</ol>
-    <p class="g-note">Green ✓ items come from the county's own records. The boxes you tick are your own notes and never change what the records say. ${esc(storage)}</p>`;
+    <p class="g-note"><span class="g-key-fact">✓</span> from the county's records <span class="g-key-sep">·</span> <span class="g-key-box"></span> your own checklist <span class="g-key-sep">·</span> <span class="g-term g-key-term">dotted words</span> tap to explain <span class="g-key-sep">·</span> ${esc(storage)}</p>`;
 }
 function guidedDetailHtml(p) {
   const facts = [tierLandUse(p), p.source === "certificate" ? "" : tierSize(p)].filter(Boolean);
-  const three = guidedThree(p).map(([k, v], n) => `<div class="g-know"><span class="g-num">${n + 1}</span><div><b>${esc(k)}</b><span>${esc(v)}</span></div></div>`).join("");
+  const three = guidedThree(p).map(([k, v], n) => `<div class="g-know"><span class="g-num">${n + 1}</span><div><b>${esc(k)}</b><span>${termify(v)}</span></div></div>`).join("");
   const a = p.source === "laft" ? acquisitionOf(p) : null;
   const cta = a ? (acquisitionCta(a) || (availabilityLink(p) ? { label: "Open the official listing", href: availabilityLink(p).href } : null)) : null;
   const ctaHtml = p.source === "laft" ? (cta ? `<a class="detail-cta" href="${esc(cta.href)}" ${/^(mailto|tel):/.test(cta.href) ? "" : 'target="_blank" rel="noopener"'}>${esc(cta.label)}</a>` : "") : auctionLinkHtml(p, "detail-cta");
@@ -19679,8 +19784,14 @@ function guidedDetailHtml(p) {
     <section class="g-three" aria-label="Three things to know"><span class="g-eyebrow">Three things to know</span>${three}</section>
     <div class="guided" data-guided-pid="${esc(p.id)}">${guidedBodyHtml(p)}</div>
     ${ctaHtml}
-    <p class="g-locked">The full record - values, history, sources and documents - is part of Pro.</p>
+    ${guidedFullRecordHtml()}
   </div>`;
+}
+// The Full record sits behind the Guided page (owner, 2026-11-23): one quiet
+// link for accounts that may open it, a plain note for everyone else.
+function guidedFullRecordHtml() {
+  if (tiersSelectable().includes("pro")) return `<p class="g-locked"><button type="button" class="g-full-link" data-tier-set="pro">See the full record (every field on file) →</button></p>`;
+  return `<p class="g-locked">More detail - values, history and documents - comes later with Pro.</p>`;
 }
 function hydrateGuided(pid) {
   const p = ALL.find(x => String(x.id) === String(pid));

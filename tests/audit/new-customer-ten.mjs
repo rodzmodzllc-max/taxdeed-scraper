@@ -72,7 +72,9 @@ const contrast = (pg, sel) => pg.evaluate(sel => {
   const { ctx, pg } = await open('?look=merged#/lands/p15');
   await pg.waitForSelector('[data-tier-set]', { timeout: 10000 }).catch(() => {});
   const t = await pg.evaluate(() => ({ tiers: window.__tdwTiers(), sw: [...document.querySelectorAll('[data-tier-set]')].map(x => x.dataset.tierSet) }));
-  check('tier-approved-tester-full-record-with-switch', t.tiers.account === 'pro' && t.tiers.page === 'pro' && t.sw.includes('beginner') && t.sw.includes('pro') && t.sw.includes('free'), t);
+  // Guided first (2026-11-23): only admins get the View switch; a tester's
+  // Full record carries one way back to the checklist.
+  check('tier-approved-tester-full-record-with-back-link', t.tiers.account === 'pro' && t.tiers.page === 'pro' && t.sw.join() === 'beginner', t);
   await ctx.close();
 }
 {

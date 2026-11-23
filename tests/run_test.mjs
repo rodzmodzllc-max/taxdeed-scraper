@@ -7732,6 +7732,24 @@ await big.press('#globalSearchInput', 'Enter');
       note: (m.querySelector('.g-note') || {}).textContent || null, overflow: document.documentElement.scrollWidth - innerWidth };
   });
   results.tierGuided = await guided();
+  // Word bubbles (2026-11-23): a dotted word explains itself on tap and never ticks its row.
+  {
+    const before = await tp.evaluate(() => (document.querySelector('#detailModalInner .g-ring span') || {}).textContent || null);
+    await tp.evaluate(() => { const t = [...document.querySelectorAll('#detailModalInner .g-term[data-term]')].find(x => x.getClientRects().length); if (t) t.setAttribute('data-test-term', '1'); });
+    await tp.click('[data-test-term="1"]');
+    await tp.waitForTimeout(200);
+    results.tierTermBubble = await tp.evaluate((b) => { const pop = document.querySelector('.g-term-pop'); return {
+      terms: document.querySelectorAll('#detailModalInner .g-term[data-term]').length > 0,
+      shown: !!pop && !pop.hidden, hasTitle: !!(pop && pop.querySelector('b')), hasGuide: !!(pop && pop.querySelector('[data-term-guide]')),
+      ringUnchanged: ((document.querySelector('#detailModalInner .g-ring span') || {}).textContent || null) === b,
+      noGlossaryBox: !document.querySelector('#detailModalInner .g-words') }; }, before);
+    await tp.click('#detailModalInner [data-term-legend]');
+    await tp.waitForTimeout(200);
+    results.tierTermLegend = await tp.evaluate(() => { const pop = document.querySelector('.g-term-pop'); return !!pop && !pop.hidden && pop.querySelectorAll('dt').length > 0; });
+    await tp.keyboard.press('Escape');
+    await tp.waitForTimeout(150);
+    results.tierTermHidden = await tp.evaluate(() => { const pop = document.querySelector('.g-term-pop'); return !pop || pop.hidden; });
+  }
   await tp.click('[data-tier-task="price.price"]');
   await tp.waitForTimeout(700);
   const g2 = await guided();
@@ -7749,7 +7767,11 @@ await big.press('#globalSearchInput', 'Enter');
       heading: (m.querySelector('.detail-address') || {}).textContent || null, blurred: m.querySelectorAll('.tier-blur').length,
       noAddress: !/Manatee/i.test(h), noMoney: !/\$\d/.test(t), noParcel: !/1515/.test(h), noPhoto: !m.querySelector('img'), unlock: !!m.querySelector('.tier-unlock') };
   });
-  await tp.click('[data-tier-set="pro"]');
+  // Guided first (2026-11-23): the Full record is the quiet link at the
+  // bottom of the Guided page (testers and customers get no View switch).
+  await tp.goto(tierUrl('beginner', '/lands/p15'), { waitUntil: 'networkidle' });
+  await tp.waitForTimeout(900);
+  await tp.click('#detailModalInner .g-full-link[data-tier-set="pro"]');
   await tp.waitForTimeout(900);
   results.tierSwitchToFull = await tp.evaluate(() => ({ stored: localStorage.getItem('tdw_page_tier_v2'), tier: window.__tdwPageTier(), fullRecord: !!document.querySelector('#detailModalInner [data-section="acquire"]'), urlTier: new URL(location.href).searchParams.has('tier') }));
   await tp.close();
@@ -7841,8 +7863,11 @@ const EXPECTED = {
   fullRecordShowAll: {"checklist": true, "questions": 0, "note": true, "stored": "1"},
   fullRecordBackToClean: {"checklist": false, "questions": 8},
   fullRecordCleanAuction: ["Flood zone", "Other liens, judgments, foreclosure or code cases", "How to register and pay the deposit", "A picture of the property", "Legal description", "Lot size", "Land use"],
-  tierDefault: {"tier": "beginner", "switchShown": true, "pressed": ["beginner"], "fullRecord": false},
-  tierGuided: {"view": "beginner", "know": 3, "stages": ["find:confirmed", "price:your-turn", "risks:later", "apply:later", "pay:later", "deed:later"], "ring": "7/15", "next": "Get today's total price", "fullRecord": false, "note": "Green ✓ items come from the county's own records. The boxes you tick are your own notes and never change what the records say. Your ticks are saved to your account and follow you to any device.", "overflow": 0},
+  tierDefault: {"tier": "beginner", "switchShown": false, "pressed": [], "fullRecord": false},
+  tierTermBubble: {"terms": true, "shown": true, "hasTitle": true, "hasGuide": true, "ringUnchanged": true, "noGlossaryBox": true},
+  tierTermLegend: true,
+  tierTermHidden: true,
+  tierGuided: {"view": "beginner", "know": 3, "stages": ["find:confirmed", "price:your-turn", "risks:later", "apply:later", "pay:later", "deed:later"], "ring": "7/15", "next": "Get today's total price", "fullRecord": false, "note": "✓ from the county's records ·  your own checklist · dotted words tap to explain · Saved to your account", "overflow": 0},
   tierGuidedTick: {"ring": "8/15", "next": "Look for other liens", "stillOpen": true, "saved": {"mode": "server", "lists": ["My properties"], "journey": [["price.price"]]}},
   tierGuidedUntick: "7/15",
   tierFree: {"view": "free", "crumb": "Citrus County", "heading": "A property in Citrus County", "blurred": 5, "noAddress": true, "noMoney": true, "noParcel": true, "noPhoto": true, "unlock": true},
