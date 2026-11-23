@@ -19595,38 +19595,46 @@ function guidedStages(p) {
     { key: "deed", title: "Get the deed", facts: [], tasks: [{ key: "deed", title: "Receive the recorded deed", how: `Ask ${office} how and when the deed is issued and recorded.` }] }
   ];
 }
+// One short line per card (owner, 2026-11-23: "trim them"). The detail lives
+// in the checklist steps and the word bubbles, not here.
+function shortHow(text) {
+  // The first sentence that says what to DO - skip one that only repeats
+  // "a lien, not the land" (already the first card) - cut at its first ";".
+  const parts = String(text || "").split(/(?<=\.)\s+/).filter(Boolean);
+  const pick = parts.find(x => !/not the land/i.test(x)) || parts[0] || "";
+  const cut = pick.split(";")[0].trim();
+  return /[.!?]$/.test(cut) ? cut : cut + ".";
+}
 function guidedThree(p) {
   if (p.source === "certificate") {
     // Audit F26: county-held, sold by assignment - no sale to bid at.
     return [
-      ["What it is", "A county-held tax lien certificate: a debt secured by the property, not the property. The owner repays the amount with interest; only if nobody redeems can you apply for a deed."],
-      ["What it costs", [hasPublishedBid(p) ? `Certificate amount ${bidDisplay(p)}` : "The certificate amount is not on file", hasNum(p.interest_rate) ? `interest rate ${p.interest_rate}%` : "the interest rate is not on file"].filter(Boolean).join(", ") + "."],
-      ["How you buy it", `By assignment from ${certOffice(p)}, for the amount it states - no sale, no bidding.`]
+      ["What it is", "A tax lien on the property - not the property itself."],
+      ["What it costs", [hasPublishedBid(p) ? bidDisplay(p) : "Certificate amount not on file", hasNum(p.interest_rate) ? `${p.interest_rate}% interest` : "the interest rate is not on file"].join(" · ") + "."],
+      ["How you buy it", `By assignment from ${certOffice(p)} - no bidding.`]
     ];
   }
   if (p.source === "auction") {
     // Audit F25: the sale is named per source / state (a Colorado or Wyoming
-    // lien sale is never a tax-deed auction); "Bidding starts there" only when
-    // the figure is a known opening / minimum bid, never for an amount whose
-    // kind the source did not state.
+    // lien sale is never a tax-deed auction); "starts at" only when the
+    // figure is a known opening / minimum bid.
     const sale = saleKindOf(p);
-    const when = p.sale_date ? ` on ${fmtDate(String(p.sale_date).slice(0, 10))}` : "";
-    const what = sale.lien
-      ? `A tax lien on this property, sold at the county's ${sale.kind.toLowerCase()}${when}. You would own the lien, not the land.`
-      : sale.option
-      ? `An option for a Treasurer's deed on this property, offered at the county's ${sale.kind.toLowerCase()}${when}. You would hold the option, not the deed.`
-      : `A property offered at the county's ${sale.kind.toLowerCase()}${when}.`;
-    const cost = hasPublishedBid(p)
-      ? `${auctionBidLabel(p, true)} ${fmtMoney(Number(p.bid))}. ${isBidAmount(p) ? "Bidding starts there and can go higher." : "The source does not say what this amount is - not a bid or a price."}${hasValueNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : ""}`
-      : "The opening bid is not published yet.";
-    return [["What it is", what], ["What it costs", cost], ["How you buy it", sale.how]];
+    const when = p.sale_date ? `, ${fmtDate(String(p.sale_date).slice(0, 10))}` : "";
+    const what = sale.lien ? `A tax lien, not the land - ${sale.kind.toLowerCase()}${when}.`
+      : sale.option ? `An option for a Treasurer's deed - ${sale.kind.toLowerCase()}${when}.`
+      : `The property itself - ${sale.kind.toLowerCase()}${when}.`;
+    const value = hasValueNum(p.market) ? ` · county value ${fmtMoney(Number(p.market))}` : "";
+    const cost = !hasPublishedBid(p) ? "The opening bid is not published yet."
+      : isBidAmount(p) ? `${auctionBidLabel(p, true)} ${fmtMoney(Number(p.bid))} - can go higher${value}.`
+      : `${fmtMoney(Number(p.bid))} listed - not a bid or a price${value}.`;
+    return [["What it is", what], ["What it costs", cost], ["How you buy it", shortHow(sale.how)]];
   }
   const a = acquisitionOf(p);
   const i = amountInfo(p);
   const hasAmt = i.value !== null && i.value !== undefined;
-  const cost = (hasAmt ? `${i.label} ${fmtMoney(i.value)}.` : `${i.display && i.display !== "Not published" ? i.display : "The list does not publish a price - ask the office"}.`) +
-    (hasValueNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : "");
-  const how = a.verified ? `${a.label}${a.office ? ` from ${a.office}` : ""}.${a.steps.length ? ` First: ${a.steps[0]}` : ""}` : "The county has not published how to buy it yet - the official listing names the office to ask.";
+  const value = hasValueNum(p.market) ? ` · county value ${fmtMoney(Number(p.market))}` : "";
+  const cost = (hasAmt ? `${i.label} ${fmtMoney(i.value)}` : (i.display && i.display !== "Not published" ? i.display : "No price published - ask the office")) + value + ".";
+  const how = a.verified ? `${a.label}${a.office ? ` from ${a.office}` : ""}.` : "Ask the office named on the official listing.";
   return [["What it is", availableWhy(p).text + "."], ["What it costs", cost], ["How you buy it", how]];
 }
 // ---- Word bubbles (owner, 2026-11-23) ----
