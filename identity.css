@@ -1636,6 +1636,9 @@ html[data-shell="v3"] .hdr-nav .nav-item.on .nav-count[data-dup="1"]{display:non
 .g-task-link{align-self:flex-start;margin:0 0 .4rem 2rem;font-size:.85rem;font-weight:600;color:var(--copper-deep,#7E3B1C)}
 .g-note,.g-locked{font-size:.8rem;color:var(--ink-soft,#4C685A);line-height:1.45;margin:.7rem 0}
 .tier-guided .detail-cta{margin-top:.6rem}
+/* Guided is one column: the picture spans it instead of stopping at its
+   aspect-ratio width (it left a half-width gap beside it, review 2026-11-25). */
+.tier-guided > .detail-hero-photo:not(.m3d-gis){width:100%;aspect-ratio:auto;height:clamp(170px,30vw,260px);max-height:none}
 :root[data-theme="dark"] .tier-free-rows,:root[data-theme="dark"] .g-know,:root[data-theme="dark"] .g-next,:root[data-theme="dark"] .g-stage details,:root[data-theme="dark"] .tier-facts span{background:#24211E;border-color:#3A3631;color:#F8F8F5}
 :root[data-theme="dark"] .g-know div span,:root[data-theme="dark"] .tier-blur{color:#F8F8F5}
 :root[data-theme="dark"] .tier-switch,:root[data-theme="dark"] .tier-free-visual{background:#23302A}

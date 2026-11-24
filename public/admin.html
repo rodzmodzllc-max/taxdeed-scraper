@@ -24,40 +24,67 @@ row-level security) whether the signed-in account is an admin. Anyone else
       <h1 class="admin-title">Administration</h1>
     </div>
   </header>
+  <!-- Tabs (2026-11-25, owner: "view in mobile is garbage"): one area on screen
+       at a time; admin.js initTabs() shows the sections whose data-tab matches.
+       Old anchors (#pending, #attention, #freshness, #inventory) open their tab. -->
+  <nav class="admin-tabs" id="adminTabs" role="tablist" aria-label="Admin areas">
+    <button type="button" role="tab" data-tab="usage">Usage</button>
+    <button type="button" role="tab" data-tab="people">People</button>
+    <button type="button" role="tab" data-tab="attention">Attention <span class="admin-tab-count" id="adminTabAttention"></span></button>
+    <button type="button" role="tab" data-tab="sources">Sources</button>
+    <button type="button" role="tab" data-tab="health">Health</button>
+    <button type="button" role="tab" data-tab="inventory">Inventory</button>
+  </nav>
+
   <!-- Needs attention (2026-10-29): every place a person has to act - a
        county read that is failing or stale, a source link dead on two daily
        checks, Available records withheld because their source has not
        confirmed them - one row per (state, county, source), from recorded
        fields only (admin.js refreshAttention). -->
-  <section class="admin-card admin-attention" id="attention" aria-labelledby="adminAttentionLabel">
+  <section class="admin-card admin-attention" id="attention" data-tab="attention" aria-labelledby="adminAttentionLabel">
     <h2 class="admin-label admin-attention-head" id="adminAttentionLabel">Needs attention</h2>
     <p class="admin-note" id="adminAttentionStatus" role="status">Checking every source</p>
     <div class="admin-attention-list" id="adminAttentionList"></div>
+  </section>  <!-- Users & usage (2026-11-25): who uses the product and how - sessions,
+       return visits, property views, searches and outside links opened, per
+       account and per day, read from public.product_events (admin read RLS).
+       admin.js refreshUsageAnalysis. -->
+  <section class="admin-card admin-usage-analysis" id="usage" data-tab="usage" aria-labelledby="adminAnalysisLabel">
+    <h2 class="admin-label" id="adminAnalysisLabel">Users &amp; usage</h2>
+    <p class="admin-filters">
+      <label>Period <select id="adminUsageDays"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select></label>
+      <label>Admin accounts <select id="adminUsageAdmins"><option value="hide" selected>Leave out</option><option value="show">Include</option></select></label>
+    </p>
+    <p class="admin-note" id="adminAnalysisStatus" role="status">Loading usage</p>
+    <div class="ua-tiles" id="adminUsageTiles"></div>
+    <div class="ua-block" id="adminUsageDaily"></div>
+    <div class="ua-block" id="adminUsageLinks"></div>
+    <div class="ua-block" id="adminUsagePeople"></div>
   </section>
-  <section class="admin-card" aria-labelledby="adminIdentityLabel">
+  <section class="admin-card" data-tab="people" aria-labelledby="adminIdentityLabel">
     <p class="admin-label" id="adminIdentityLabel">Signed in as</p>
     <p class="admin-identity" id="adminIdentity"></p>
     <p class="admin-note">Administrator access is granted and checked by the server for every protected operation.</p>
   </section>
-  <section class="admin-card" id="pending" aria-labelledby="adminPendingLabel">
+  <section class="admin-card" id="pending" data-tab="people" aria-labelledby="adminPendingLabel">
     <p class="admin-label" id="adminPendingLabel">Pending sign-ups</p>
     <p class="admin-note">New accounts start pending and cannot read any ledger until approved. Approving sets the account's approval on the server; accounts you do not approve simply stay pending.</p>
     <p class="admin-note" id="adminPendingStatus" role="status">Loading pending accounts</p>
     <div class="admin-approvals-list" id="adminPendingList"></div>
   </section>
-  <section class="admin-card" aria-labelledby="adminCustomersLabel">
+  <section class="admin-card" data-tab="people" aria-labelledby="adminCustomersLabel">
     <p class="admin-label" id="adminCustomersLabel">Customers &amp; access</p>
     <p class="admin-note">Who can use the product and why: administrator, approved tester, paying customer or no access - from the server's single access decision. Card details never reach this page; Stripe holds them.</p>
     <p class="admin-note" id="adminCustomersStatus" role="status">Loading accounts</p>
     <div class="admin-customers" id="adminCustomersList"></div>
   </section>
-  <section class="admin-card" aria-labelledby="adminUsageLabel">
-    <p class="admin-label" id="adminUsageLabel">Product usage, last 30 days</p>
+  <section class="admin-card" data-tab="usage" aria-labelledby="adminUsageLabel">
+    <p class="admin-label" id="adminUsageLabel">Every in-app action, last 30 days</p>
     <p class="admin-note">Counts of in-app actions per event and distinct accounts. No search text, addresses or other free text is recorded.</p>
     <p class="admin-note" id="adminUsageStatus" role="status">Loading usage</p>
     <div class="admin-usage" id="adminUsageList"></div>
   </section>
-  <section class="admin-card" aria-labelledby="adminSourcesLabel">
+  <section class="admin-card" data-tab="sources" aria-labelledby="adminSourcesLabel">
     <p class="admin-label" id="adminSourcesLabel">Sources - every state, every source type</p>
     <p class="admin-note">The unified source inventory: county lists, official documents, GIS / parcel layers, court and public-notice sources, auction vendors, third parties and federal datasets. <strong>APPROVED</strong> sources may fill customer fields; <strong>REVIEW_REQUIRED</strong> sources stay visible with the reason and next action and are never written from; <strong>HARD_BLOCKED</strong> sources are never requested. Coverage counts per county are in the AVAILABLE enrichment job's report (job=available).</p>
     <p class="admin-filters">
@@ -73,7 +100,7 @@ row-level security) whether the signed-in account is an admin. Anyone else
        Dashboard. They are operator views, so they live here, behind the same
        server-side admin check as the rest of this page. The customer page
        keeps one plain status per source and county. -->
-  <section class="admin-card" id="freshness" aria-labelledby="adminFreshnessLabel">
+  <section class="admin-card" id="freshness" data-tab="health" aria-labelledby="adminFreshnessLabel">
     <p class="admin-label" id="adminFreshnessLabel">Source freshness and health (operator view)</p>
     <p class="admin-note">Per dataset (public.source_health, migration 016): cadence, last success, last attempt and its status, row count, completeness and the incomplete units. Per county (county_source_registry, migration 021): last read, last complete read, rows at that read, consecutive failures, source-unavailable and back-off state. Derived at read time, same rules as the customer page (healthOf / unit freshness), with the operator detail the customer page does not show.</p>
     <p class="admin-filters">
@@ -83,7 +110,7 @@ row-level security) whether the signed-in account is an admin. Anyone else
     <div class="admin-freshness" id="adminFreshnessList"></div>
     <div class="admin-freshness-units" id="adminUnitList"></div>
   </section>
-  <section class="admin-card" id="inventory" aria-labelledby="adminInventoryLabel">
+  <section class="admin-card" id="inventory" data-tab="inventory" aria-labelledby="adminInventoryLabel">
     <p class="admin-label" id="adminInventoryLabel">Collected inventory by source</p>
     <p class="admin-note">Every collected source in a state: its customer-publication review status, what is collected, how much of it is active, what a customer would see, the Detroit customer subset where it applies, and when it was last read. Read on request (the rows are paged from the properties table under your own row-level security); counts only.</p>
     <p class="admin-filters">
@@ -94,7 +121,7 @@ row-level security) whether the signed-in account is an admin. Anyone else
     <p class="admin-note" id="adminInventoryStatus" role="status">Choose a state and load its collected inventory.</p>
     <div class="admin-inventory" id="adminInventoryList"></div>
   </section>
-  <section class="admin-card">
+  <section class="admin-card admin-tools">
     <p class="admin-label">Administrative tools</p>
     <p class="admin-note">Source publication reviews are in the application's admin panel; every administrative operation is enforced on the server by the administrator role.</p>
     <p class="admin-actions">
