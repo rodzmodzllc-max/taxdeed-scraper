@@ -6564,9 +6564,12 @@ function cardLotSize(p) {
 // The lot size under the card's price (owner's request 2026-10-27): the
 // source's own acreage when it has one, otherwise the stored lot area. A row
 // with neither shows no line - nothing is estimated.
-function cardLotLineHtml(p) {
+function cardLotSizeText(p) {
   const ac = Number(p.acreage);
-  const size = ac > 0 ? acreageText(ac, `${ac < 10 ? ac.toFixed(2) : Math.round(ac).toLocaleString()} acres`) : cardLotSize(p);
+  return ac > 0 ? acreageText(ac, `${ac < 10 ? ac.toFixed(2) : Math.round(ac).toLocaleString()} acres`) : cardLotSize(p);
+}
+function cardLotLineHtml(p) {
+  const size = cardLotSizeText(p);
   return size ? `<div class="card-lot" data-card-lot="1"><span class="card-lot-label">Lot size</span> <span class="card-lot-val">${esc(size)}</span></div>` : "";
 }
 
@@ -18490,6 +18493,10 @@ function experienceApi() {
     countyNowBarHtml, installCountyNowBar, hideCountyNowBar, countyLineHtml,
     // Investor sprint (2026-11-12): one card title rule and plain labels.
     cardTitle: cardTitleOf, plainValueLabel, plainPhase, infoBubbleHtml,
+    // Lot size on the Merged cards (owner, 2026-11-25: "property cards still
+    // not showing size"): the Classic card's own rule - source acreage, else
+    // the stored lot area, else nothing.
+    cardLotSize: cardLotSizeText,
     listCardCtx: () => LIST_CARD_CTX,
     isWatched: id => BIDLIST.has(id),
     isFavorite: id => FAVS.has(id),
