@@ -58,6 +58,18 @@ def test_blank_never_erases_even_without_provenance():
     assert out["assessed"] == 5 and out["parcel"] == "P-9"
 
 
+def test_a_stored_parcel_with_no_digit_is_cleared_not_kept():
+    # Marion 2026-11-24: "Property Appraiser" (a link label) was stored as the parcel.
+    from collections import Counter
+    counts = Counter()
+    out = G.guard_row("auction", auction(parcel=""), stored(parcel="Property Appraiser"), counts)
+    assert out["parcel"] == "" and counts["parcel:bad_stored_cleared"] == 1
+    out = G.guard_row("auction", auction(parcel="00-1"), stored(parcel="Property Appraiser"))
+    assert out["parcel"] == "00-1"
+    # A real stored parcel is still never erased by a blank.
+    assert G.guard_row("auction", auction(parcel=""), stored(parcel="P-9"))["parcel"] == "P-9"
+
+
 def test_listing_never_replaces_a_higher_ranked_value():
     out = G.guard_row("auction", auction(assessed=999), stored(assessed=123000, field_provenance=fdor()))
     assert out["assessed"] == 123000

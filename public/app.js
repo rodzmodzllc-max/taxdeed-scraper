@@ -11748,7 +11748,10 @@ function wideRecordOn() {
 }
 function layoutWideRecord(inner) {
   const modal = document.getElementById("detailModal");
-  const on = wideRecordOn();
+  // Guided and the Free preview are one column by design (no picture / key
+  // facts block to put on the left): splitting them left the left half of the
+  // sheet empty (owner review 2026-11-25). They keep the regular sheet width.
+  const on = wideRecordOn() && !!inner.querySelector(":scope > .detail-first");
   if (modal) modal.classList.toggle("detail-modal-wide", on);
   inner.classList.toggle("detail-wide", on);
   if (!on) return;
