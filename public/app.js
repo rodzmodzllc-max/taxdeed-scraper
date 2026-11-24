@@ -19626,7 +19626,7 @@ function guidedThree(p) {
     const value = hasValueNum(p.market) ? ` · county value ${fmtMoney(Number(p.market))}` : "";
     const cost = !hasPublishedBid(p) ? "The opening bid is not published yet."
       : isBidAmount(p) ? `${auctionBidLabel(p, true)} ${fmtMoney(Number(p.bid))} - can go higher${value}.`
-      : `${fmtMoney(Number(p.bid))} listed - not a bid or a price${value}.`;
+      : `${fmtMoney(Number(p.bid))} - the source does not say what this amount is - not a bid or a price${value}.`;
     return [["What it is", what], ["What it costs", cost], ["How you buy it", shortHow(sale.how)]];
   }
   const a = acquisitionOf(p);
