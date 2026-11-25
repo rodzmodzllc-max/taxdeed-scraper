@@ -96,6 +96,10 @@ function initTabs() {
   const tabs = document.getElementById("adminTabs");
   if (!tabs || tabs.dataset.ready) return;
   tabs.dataset.ready = "1";
+  // #pending keeps its exact markup (the approval e-mail links to it and a
+  // test pins it), so its tab is set here rather than in admin.html.
+  const pending = document.getElementById("pending");
+  if (pending && !pending.dataset.tab) pending.dataset.tab = "people";
   tabs.addEventListener("click", e => { const b = e.target.closest("[data-tab]"); if (b) { showTab(b.dataset.tab, true); window.scrollTo(0, 0); } });
   window.addEventListener("hashchange", () => showTab(TAB_OF_HASH[location.hash.slice(1)] || "usage", false));
   showTab(TAB_OF_HASH[location.hash.slice(1)] || "usage", false);
