@@ -3353,6 +3353,8 @@ await navMap.close();
   results.adminShellShowsNoEmail = !/@/.test((await adm.locator('#adminShell').textContent()) || '');
   // Admin source panel (all-sources enrichment engine): the unified inventory
   // with the three governance states kept apart, filterable by state / type.
+  // (2026-11-25: the admin page shows one tab at a time - open Sources first.)
+  await adm.click('#adminTabs [data-tab="sources"]');
   await adm.waitForSelector('#adminSourcesList tr[data-source]', { timeout: 5000 }).catch(() => {});
   results.adminSourcesRows = await adm.locator('#adminSourcesList tr[data-source]').count();
   results.adminSourcesGovernanceKinds = await adm.evaluate(() => [...new Set([...document.querySelectorAll('#adminSourcesList tr[data-governance]')].map(r => r.dataset.governance))].sort().join(','));
@@ -3371,9 +3373,11 @@ await navMap.close();
   // detail and per-county freshness detail that used to be rendered for
   // admins on the customer Dashboard are here now, and the collected
   // inventory by source is read on request for a chosen state.
+  await adm.click('#adminTabs [data-tab="health"]');
   await adm.waitForSelector('#adminUnitList tr.unit-row', { timeout: 5000 }).catch(() => {});
   results.adminFreshnessHealthRows = await adm.locator('#adminFreshnessList tr.health-row').count();
   results.adminFreshnessUnitDetail = await adm.evaluate(() => { const r = document.querySelector('#adminUnitList tr.unit-row[data-county="Bay"]'); return r ? r.textContent.replace(/\s+/g, ' ').trim() : null; });
+  await adm.click('#adminTabs [data-tab="inventory"]');
   await adm.selectOption('#adminInventoryState', 'MI');
   await adm.click('#adminInventoryLoad');
   await adm.waitForSelector('#adminInventoryList tr[data-source-id]', { timeout: 8000 }).catch(() => {});
@@ -3529,6 +3533,7 @@ await navMap.close();
   results.signupAdminPendingList = await admin.locator('#adminPendingList .admin-approval-row').evaluateAll(els => els.map(e => e.querySelector('.admin-approval-name').textContent.trim()));
   results.signupAdminPendingStatus = ((await admin.locator('#adminPendingStatus').textContent()) || '').trim();
   const row = admin.locator('#adminPendingList .admin-approval-row', { hasText: 'newcomer@example.com' });
+  await admin.click('#adminTabs [data-tab="people"]');
   await row.locator('.admin-approve-btn').click();
   await admin.waitForTimeout(500);
   results.signupAdminPendingAfterApprove = await admin.locator('#adminPendingList .admin-approval-row').evaluateAll(els => els.map(e => e.querySelector('.admin-approval-name').textContent.trim()));
@@ -7196,6 +7201,7 @@ await big.press('#globalSearchInput', 'Enter');
   await adm.click('#signInBtn'); await adm.waitForTimeout(700);
   await adm.goto(ADMIN_URL + '&entitlement=admin', { waitUntil: 'networkidle' }); await adm.waitForTimeout(700);
   results.paidAdminNoEmailBeforeReveal = !/@/.test((await adm.locator('#adminShell').textContent()) || '');
+  await adm.click('#adminTabs [data-tab="people"]');
   await adm.click('#adminCustomersShow'); await adm.waitForTimeout(150);
   results.paidAdminCustomers = {
     status: ((await adm.locator('#adminCustomersStatus').textContent()) || '').trim(),
