@@ -1636,6 +1636,9 @@ html[data-shell="v3"] .hdr-nav .nav-item.on .nav-count[data-dup="1"]{display:non
 .g-task-link{align-self:flex-start;margin:0 0 .4rem 2rem;font-size:.85rem;font-weight:600;color:var(--copper-deep,#7E3B1C)}
 .g-note,.g-locked{font-size:.8rem;color:var(--ink-soft,#4C685A);line-height:1.45;margin:.7rem 0}
 .tier-guided .detail-cta{margin-top:.6rem}
+/* Guided is one column: the picture spans it instead of stopping at its
+   aspect-ratio width (it left a half-width gap beside it, review 2026-11-25). */
+.tier-guided > .detail-hero-photo:not(.m3d-gis){width:100%;aspect-ratio:auto;height:clamp(170px,30vw,260px);max-height:none}
 :root[data-theme="dark"] .tier-free-rows,:root[data-theme="dark"] .g-know,:root[data-theme="dark"] .g-next,:root[data-theme="dark"] .g-stage details,:root[data-theme="dark"] .tier-facts span{background:#24211E;border-color:#3A3631;color:#F8F8F5}
 :root[data-theme="dark"] .g-know div span,:root[data-theme="dark"] .tier-blur{color:#F8F8F5}
 :root[data-theme="dark"] .tier-switch,:root[data-theme="dark"] .tier-free-visual{background:#23302A}
@@ -2115,3 +2118,24 @@ html[data-shell="v3"] .hdr-nav .nav-item[data-nav-ledger] .nav-ledger-name{displ
 /* On a phone an info button that drops below its figure lines up with it on
    the left, instead of floating alone at the right edge. */
 @media (max-width:640px){.ib-corner:not(#_){justify-content:flex-start}}
+
+/* 16. Guided first (2026-11-23): the Full record link and plain words */
+.g-full-link{background:none;border:0;padding:0;font:inherit;font-weight:600;color:var(--forest,#1F3A2E);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.g-back-guided{font-size:.82rem;margin-left:auto;white-space:nowrap}
+/* Word bubbles: dotted words explain themselves on hover or tap */
+.g-term{border-bottom:1.5px dotted var(--olive,#4C685A);cursor:help;text-decoration:none}
+.g-term:hover{background:rgba(140,164,152,.22)}
+.g-term-pop{position:fixed;z-index:3000;max-width:280px;padding:.65rem .75rem;background:var(--forest,#1F3A2E);color:#F8F8F5;box-shadow:0 8px 24px rgba(32,41,37,.28);font-size:.84rem;line-height:1.45;display:grid;gap:.25rem}
+.g-term-pop[hidden]{display:none}
+.g-term-pop b{font-family:Montserrat,Inter,sans-serif;font-weight:600;letter-spacing:.02em}
+.g-term-pop dl{margin:.2rem 0 0;max-height:50vh;overflow:auto}
+.g-term-pop dt{font-weight:700;margin-top:.35rem}
+.g-term-pop dd{margin:0;color:#D8DED6}
+.g-term-more{justify-self:start;margin-top:.2rem;background:none;border:0;padding:0;color:#C5D6CC;font:inherit;font-weight:600;text-decoration:underline;cursor:pointer}
+.g-legend-btn{margin-left:auto;flex:0 0 auto;width:1.7rem;height:1.7rem;border-radius:50%;border:1px solid rgba(248,248,245,.55);background:transparent;color:#F8F8F5;font-weight:700;cursor:pointer}
+.g-legend-btn:hover{background:rgba(248,248,245,.14)}
+.g-note .g-key-fact{color:var(--olive,#4C685A);font-weight:700}
+.g-note .g-key-box{display:inline-block;width:.8em;height:.8em;border:1.5px solid var(--olive,#4C685A);vertical-align:-1px}
+.g-note .g-key-sep{opacity:.5;margin:0 .15rem}
+.g-note .g-key-term{cursor:default}
+:root[data-theme="dark"] .g-full-link{color:#8CA498}

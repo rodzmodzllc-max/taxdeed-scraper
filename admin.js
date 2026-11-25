@@ -59,6 +59,11 @@ async function gate() {
   document.getElementById("adminIdentity").textContent = "Admin";
   document.getElementById("adminShell").hidden = false;
   document.body.dataset.admin = "verified";
+  initTabs();
+  const analysis = refreshUsageAnalysis().catch(e => {
+    const st = document.getElementById("adminAnalysisStatus");
+    if (st) st.textContent = "Could not load usage: " + (e && e.message ? e.message : e);
+  });
   sendApprovalNotifications();          // sweep: send any approval e-mail whose retry is due
   const attention = refreshAttention().catch(e => {
     const st = document.getElementById("adminAttentionStatus");
@@ -71,6 +76,187 @@ async function gate() {
   await refreshFreshness();
   initInventory();
   await attention;
+  await analysis;
+}
+
+// ---- Tabs (2026-11-25) ------------------------------------------------------
+// One area on screen at a time (the page was ~10,000px tall on a phone). The
+// old in-page anchors still work: #pending -> People, #freshness -> Health.
+const TAB_OF_HASH = { usage: "usage", people: "people", pending: "people", attention: "attention",
+  sources: "sources", health: "health", freshness: "health", inventory: "inventory" };
+function showTab(tab, push) {
+  const tabs = document.getElementById("adminTabs");
+  if (!tabs) return;
+  if (!tabs.querySelector(`[data-tab="${tab}"]`)) tab = "usage";
+  tabs.querySelectorAll("[data-tab]").forEach(b => { const on = b.dataset.tab === tab; b.setAttribute("aria-selected", String(on)); b.classList.toggle("on", on); });
+  document.querySelectorAll("#adminShell > section[data-tab]").forEach(s => { s.hidden = s.dataset.tab !== tab; });
+  if (push && location.hash.slice(1) !== tab) history.replaceState(null, "", "#" + tab);
+}
+function initTabs() {
+  const tabs = document.getElementById("adminTabs");
+  if (!tabs || tabs.dataset.ready) return;
+  tabs.dataset.ready = "1";
+  // #pending keeps its exact markup (the approval e-mail links to it and a
+  // test pins it), so its tab is set here rather than in admin.html.
+  const pending = document.getElementById("pending");
+  if (pending && !pending.dataset.tab) pending.dataset.tab = "people";
+  tabs.addEventListener("click", e => { const b = e.target.closest("[data-tab]"); if (b) { showTab(b.dataset.tab, true); window.scrollTo(0, 0); } });
+  window.addEventListener("hashchange", () => showTab(TAB_OF_HASH[location.hash.slice(1)] || "usage", false));
+  showTab(TAB_OF_HASH[location.hash.slice(1)] || "usage", false);
+}
+
+// ---- Users & usage (2026-11-25) ---------------------------------------------
+// Owner: "a better view of the users, links clicked, how many times they
+// return - full analysis". Read from public.product_events (admins read every
+// row under RLS, "product_events: admin read") and public.profiles (admin full
+// access). Counts only per account; no search text exists in the events.
+// "Came back" = active on two or more different days in the period.
+const LINK_EVENTS = {
+  official_source_opened: "Official county / source page", acquisition_source_opened: "How-to-buy source page",
+  acquisition_instructions_opened: "Purchase instructions", application_opened: "Application form",
+  link_opened: "Other outside link"
+};
+const USAGE_DAY_MS = 86400000;
+async function usageEvents(days) {
+  const since = new Date(Date.now() - days * USAGE_DAY_MS).toISOString();
+  const out = [];
+  for (let from = 0; from < 50000; from += 1000) {
+    const { data, error } = await sb.from("product_events").select("user_id,event,state,props,created_at")
+      .gte("created_at", since).order("created_at", { ascending: true }).range(from, from + 999);
+    if (error) throw error;
+    out.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+  return out;
+}
+function localDay(iso) { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+function agoText(iso) {
+  if (!iso) return "never";
+  const s = (Date.now() - Date.parse(iso)) / 1000;
+  if (s < 3600) return Math.max(1, Math.round(s / 60)) + " min ago";
+  if (s < 86400) return Math.round(s / 3600) + " h ago";
+  const d = Math.round(s / 86400);
+  return d === 1 ? "yesterday" : d + " days ago";
+}
+let USAGE_CACHE = null;
+async function refreshUsageAnalysis() {
+  const status = document.getElementById("adminAnalysisStatus");
+  if (!status) return;
+  const daysSel = document.getElementById("adminUsageDays");
+  const hideSel = document.getElementById("adminUsageAdmins");
+  if (daysSel && !daysSel.dataset.ready) {
+    daysSel.dataset.ready = "1";
+    daysSel.addEventListener("change", () => { USAGE_CACHE = null; refreshUsageAnalysis(); });
+    hideSel.addEventListener("change", () => renderUsageAnalysis());
+  }
+  const days = Number(daysSel ? daysSel.value : 30) || 30;
+  status.textContent = "Loading usage";
+  let events, profiles;
+  try {
+    const [ev, pr] = await Promise.all([usageEvents(days),
+      sb.from("profiles").select("id,email,is_admin,approved,requested_at")]);
+    if (pr.error) throw pr.error;
+    events = ev; profiles = pr.data || [];
+  } catch (e) {
+    const missing = e && (e.code === "PGRST205" || /schema cache/i.test(e.message || ""));
+    status.textContent = missing ? "Usage tracking is not enabled on this deployment (migration 024)." : "Could not load usage: " + (e && e.message ? e.message : e);
+    return;
+  }
+  USAGE_CACHE = { days, events, profiles };
+  renderUsageAnalysis();
+}
+function usageModel() {
+  const { days, events, profiles } = USAGE_CACHE;
+  const hideAdmins = (document.getElementById("adminUsageAdmins") || {}).value !== "show";
+  const prof = new Map(profiles.map(p => [p.id, p]));
+  const admins = new Set(profiles.filter(p => p.is_admin).map(p => p.id));
+  const ev = events.filter(e => !(hideAdmins && admins.has(e.user_id)));
+  const people = new Map();
+  const person = id => {
+    if (!people.has(id)) people.set(id, { id, sessions: 0, views: 0, searches: 0, links: 0, saves: 0, days: new Set(), first: null, last: null });
+    return people.get(id);
+  };
+  const daily = new Map();
+  const links = new Map();
+  ev.forEach(e => {
+    const u = person(e.user_id);
+    const day = localDay(e.created_at);
+    u.days.add(day);
+    if (!u.first || e.created_at < u.first) u.first = e.created_at;
+    if (!u.last || e.created_at > u.last) u.last = e.created_at;
+    if (e.event === "session_start") u.sessions++;
+    else if (e.event === "property_viewed") u.views++;
+    else if (e.event === "search_performed") u.searches++;
+    else if (e.event === "property_saved" || e.event === "property_watched") u.saves++;
+    if (LINK_EVENTS[e.event]) {
+      u.links++;
+      const host = e.props && typeof e.props === "object" && e.props.host ? String(e.props.host) : "";
+      const key = LINK_EVENTS[e.event] + (host ? " · " + host : "");
+      links.set(key, (links.get(key) || 0) + 1);
+    }
+    const d = daily.get(day) || { users: new Set(), sessions: 0 };
+    d.users.add(e.user_id);
+    if (e.event === "session_start") d.sessions++;
+    daily.set(day, d);
+  });
+  // Every account in the period, including those with no activity at all.
+  profiles.forEach(p => { if (!(hideAdmins && p.is_admin)) person(p.id); });
+  const rows = [...people.values()].map(u => {
+    const p = prof.get(u.id) || {};
+    const ret = !u.days.size ? "none" : u.days.size >= 2 ? "returned" : "once";
+    return Object.assign(u, { email: p.email || "(account removed)", admin: !!p.is_admin, approved: !!p.approved, joined: p.requested_at || null, activeDays: u.days.size, ret });
+  }).sort((a, b) => (b.last || "").localeCompare(a.last || "") || a.email.localeCompare(b.email));
+  const active = rows.filter(r => r.activeDays);
+  const week = Date.now() - 7 * USAGE_DAY_MS;
+  return {
+    days, rows, links: [...links.entries()].sort((a, b) => b[1] - a[1]),
+    daily: Array.from({ length: days }, (_, i) => { const k = localDay(new Date(Date.now() - (days - 1 - i) * USAGE_DAY_MS).toISOString()); const d = daily.get(k); return { day: k, users: d ? d.users.size : 0, sessions: d ? d.sessions : 0 }; }),
+    totals: {
+      accounts: rows.length, active: active.length, active7: active.filter(r => Date.parse(r.last) >= week).length,
+      returned: active.filter(r => r.ret === "returned").length,
+      sessions: rows.reduce((s, r) => s + r.sessions, 0), views: rows.reduce((s, r) => s + r.views, 0),
+      searches: rows.reduce((s, r) => s + r.searches, 0), links: rows.reduce((s, r) => s + r.links, 0)
+    }
+  };
+}
+function renderUsageAnalysis() {
+  if (!USAGE_CACHE) return;
+  const m = usageModel();
+  const t = m.totals;
+  const pct = (a, b) => b ? Math.round(100 * a / b) + "%" : "-";
+  document.getElementById("adminAnalysisStatus").textContent =
+    `${t.active} of ${t.accounts} account${t.accounts === 1 ? "" : "s"} used the app in the last ${m.days} days; ${t.returned} came back on another day (${pct(t.returned, t.active)} of active).`;
+  const tile = (n, label, sub) => `<div class="ua-tile"><b>${esc(n)}</b><span>${esc(label)}</span>${sub ? `<small>${esc(sub)}</small>` : ""}</div>`;
+  document.getElementById("adminUsageTiles").innerHTML = [
+    tile(t.active, "Active accounts", `${t.active7} in the last 7 days`),
+    tile(t.returned, "Came back", `${pct(t.returned, t.active)} of active`),
+    tile(t.sessions, "Visits", t.active ? `${(t.sessions / t.active).toFixed(1)} per active account` : ""),
+    tile(t.views, "Properties opened", ""),
+    tile(t.searches, "Searches / filters", ""),
+    tile(t.links, "Outside links clicked", "")
+  ].join("");
+  const max = Math.max(1, ...m.daily.map(d => d.users));
+  document.getElementById("adminUsageDaily").innerHTML = `<h3 class="ua-h">People active per day</h3>
+    <div class="ua-bars" role="img" aria-label="Active accounts per day">${m.daily.map(d =>
+      `<span class="ua-bar" style="--h:${Math.round(100 * d.users / max)}%" title="${esc(d.day)}: ${d.users} account${d.users === 1 ? "" : "s"}, ${d.sessions} visit${d.sessions === 1 ? "" : "s"}"></span>`).join("")}</div>
+    <div class="ua-bars-axis"><span>${esc(dateOnly(m.daily[0].day))}</span><span>Today</span></div>`;
+  document.getElementById("adminUsageLinks").innerHTML = `<h3 class="ua-h">Outside links clicked</h3>` + (m.links.length
+    ? `<ul class="ua-list">${m.links.map(([k, n]) => `<li><span>${esc(k)}</span><b>${n}</b></li>`).join("")}</ul>`
+    : `<p class="admin-note">No outside link clicks recorded in this period.</p>`)
+    + `<p class="admin-note">Recorded today: county source pages, purchase instructions and application forms. Clicks on the appraiser, Zillow, maps and other outside links are not recorded yet.</p>`;
+  const people = document.getElementById("adminUsagePeople");
+  const RET = { returned: "Came back", once: "One day only", none: "No activity" };
+  const render = () => `<h3 class="ua-h">Every account</h3><ul class="ua-people">${m.rows.map(r => `<li class="ua-person" data-ret="${r.ret}">
+      <div class="ua-person-head"><span class="ua-email">${esc(r.email)}</span>${r.admin ? `<span class="ua-chip">Admin</span>` : ""}<span class="ua-chip ua-ret-${r.ret}">${RET[r.ret]}</span></div>
+      <div class="ua-person-meta">Last active ${esc(agoText(r.last))}${r.joined ? ` · signed up ${esc(dateOnly(r.joined))}` : ""}</div>
+      <dl class="ua-stats"><div><dt>Days active</dt><dd>${r.activeDays}</dd></div><div><dt>Visits</dt><dd>${r.sessions}</dd></div><div><dt>Properties</dt><dd>${r.views}</dd></div><div><dt>Searches</dt><dd>${r.searches}</dd></div><div><dt>Links</dt><dd>${r.links}</dd></div><div><dt>Saved</dt><dd>${r.saves}</dd></div></dl>
+    </li>`).join("")}</ul>`;
+  // E-mail addresses only on request (same rule as Customers & access).
+  if (people.dataset.revealed) people.innerHTML = render();
+  else {
+    people.innerHTML = `<h3 class="ua-h">Every account</h3><button class="admin-btn admin-btn-quiet" type="button" id="adminUsagePeopleShow">Show ${m.rows.length} account${m.rows.length === 1 ? "" : "s"}</button>`;
+    document.getElementById("adminUsagePeopleShow").addEventListener("click", () => { people.dataset.revealed = "1"; people.innerHTML = render(); });
+  }
 }
 
 // Product usage (migration 024's product_usage_summary(), admin-only on the
@@ -651,6 +837,8 @@ function renderAttention(model, gaps) {
   status.textContent = model.total ? gapText : (gapText || "Nothing needs attention.");
   list.innerHTML = model.groups.map(g => `<section class="attn-state" data-state="${esc(g.state)}"><p class="attn-state-head">${esc(g.state || "Links not tied to a county")} (${g.units.length})</p><ul class="attn-list">${g.units.map(attentionRowHtml).join("")}</ul></section>`).join("");
   document.getElementById("attention").dataset.count = String(model.total);
+  const tabCount = document.getElementById("adminTabAttention");
+  if (tabCount) tabCount.textContent = model.total ? String(model.total) : "";
 }
 async function refreshAttention() {
   const status = document.getElementById("adminAttentionStatus");

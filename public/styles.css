@@ -1766,6 +1766,60 @@ body[data-page="admin"]{background:var(--paper);color:var(--ink);min-height:100v
 .admin-btn{display:inline-flex;align-items:center;min-height:40px;padding:.45rem .95rem;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:#fff;font:inherit;text-decoration:none;cursor:pointer}
 .admin-btn-quiet{background:transparent;color:var(--ink);border-color:var(--card-line)}
 
+/* Admin tabs + phone layout + Users & usage (2026-11-25, owner: "view in
+   mobile is garbage cant read anything"). One area on screen at a time. */
+body[data-page="admin"]{--accent:#1F3A2E;background:#F8F8F5}
+body[data-page="admin"] .admin-shell{max-width:980px;padding:1.2rem 1rem 3rem}
+body[data-page="admin"] .admin-title{color:var(--ink);font-size:1.5rem;font-weight:600}
+.admin-tabs{position:sticky;top:0;z-index:5;display:flex;gap:.3rem;overflow-x:auto;scrollbar-width:none;margin:0 -1rem 1rem;padding:.5rem 1rem;background:var(--paper);border-bottom:1px solid var(--card-line)}
+.admin-tabs::-webkit-scrollbar{display:none}
+.admin-tabs button{flex:0 0 auto;min-height:44px;padding:.4rem .9rem;border:1px solid var(--card-line);border-radius:999px;background:var(--card);color:var(--ink);font:inherit;font-size:.95rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.admin-tabs button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.admin-tab-count:not(:empty){display:inline-block;margin-left:.25rem;padding:0 .45rem;border-radius:999px;background:var(--bad,#b3261e);color:#fff;font-size:.75rem;line-height:1.5}
+.admin-shell > section[hidden]{display:none}
+.admin-check{display:inline-flex;align-items:center;gap:.35rem}
+body[data-page="admin"] .admin-label{font-size:.85rem}
+body[data-page="admin"] .admin-note{font-size:.95rem;line-height:1.45}
+body[data-page="admin"] .admin-filters{font-size:.95rem}
+body[data-page="admin"] .admin-filters select{min-height:40px;font:inherit}
+body[data-page="admin"] .admin-usage-table{font-size:.9rem}
+body[data-page="admin"] .admin-usage-table th,body[data-page="admin"] .admin-usage-table td{padding:.45rem .5rem}
+body[data-page="admin"] .admin-freshness,body[data-page="admin"] .admin-freshness-units,body[data-page="admin"] .admin-inventory,body[data-page="admin"] .admin-customers{overflow-x:auto}
+body[data-page="admin"] .attn-state-head{font-size:.95rem;font-weight:700;margin:1rem 0 .3rem}
+body[data-page="admin"] .attn-where{font-weight:600;font-size:1rem;margin:0 0 .2rem}
+body[data-page="admin"] .attn-problem{font-size:.92rem;line-height:1.45}
+.ua-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem;margin:.8rem 0}
+.ua-tile{display:flex;flex-direction:column;gap:.1rem;padding:.75rem .8rem;border:1px solid var(--card-line);border-radius:10px;background:var(--paper)}
+.ua-tile b{font-size:1.7rem;line-height:1.1}
+.ua-tile span{font-size:.9rem;font-weight:600}
+.ua-tile small{font-size:.8rem;color:var(--ink-soft)}
+.ua-block{margin:1.1rem 0 0}
+.ua-h{margin:0 0 .5rem;font-size:1rem}
+.ua-bars{display:flex;align-items:flex-end;gap:2px;height:110px;padding:.3rem 0;border-bottom:1px solid var(--card-line)}
+.ua-bar{flex:1 1 0;min-width:2px;height:var(--h);min-height:2px;background:var(--accent);border-radius:2px 2px 0 0;opacity:.85}
+.ua-bars-axis{display:flex;justify-content:space-between;font-size:.8rem;color:var(--ink-soft);margin-top:.2rem}
+.ua-list{list-style:none;margin:0;padding:0}
+.ua-list li{display:flex;justify-content:space-between;gap:1rem;padding:.5rem 0;border-bottom:1px solid var(--card-line);font-size:.95rem}
+.ua-people{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.6rem}
+.ua-person{padding:.75rem .8rem;border:1px solid var(--card-line);border-radius:10px;background:var(--paper)}
+.ua-person-head{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem}
+.ua-email{font-weight:700;font-size:1rem;overflow-wrap:anywhere;margin-right:auto}
+.ua-chip{font-size:.78rem;font-weight:600;padding:.1rem .5rem;border-radius:999px;border:1px solid var(--card-line)}
+.ua-ret-returned{background:var(--ok-bg,#e6f2e9);color:var(--ok,#2f6b3d);border-color:transparent}
+.ua-ret-once{background:var(--warn-bg,#fbf1dd);color:var(--warn,#8a5a00);border-color:transparent}
+.ua-ret-none{color:var(--ink-soft)}
+.ua-person-meta{font-size:.85rem;color:var(--ink-soft);margin:.25rem 0 .5rem}
+.ua-stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.4rem;margin:0}
+.ua-stats div{text-align:center}
+.ua-stats dt{font-size:.72rem;color:var(--ink-soft)}
+.ua-stats dd{margin:0;font-size:1.1rem;font-weight:700}
+@media (max-width:640px){
+  .ua-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ua-stats{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:.6rem}
+  body[data-page="admin"] .admin-card{padding:.9rem .85rem;border-radius:10px}
+  .admin-head img{width:36px;height:36px}
+}
+
 /* Source Publication Governance as its own admin-only view (account menu /
    #/governance). The panel inside is the existing .admin-publication UI;
    inside the view it drops the workspace banner chrome (warning strip,

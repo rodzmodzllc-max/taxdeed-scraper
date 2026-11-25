@@ -3920,7 +3920,7 @@ if (authForm) {
         if (signInError) {
           setAuthMode("signin");
           const em = document.getElementById("email"); if (em) em.value = email;
-          if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Account created. Sign in with your email and password to start your free 7-day Guided trial."; }
+          if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Account created. Sign in with your email and password - TAXACQ is free during early access."; }
         }
         // On success onAuthStateChange takes over and opens the 7-day trial (041).
         return;
@@ -3944,7 +3944,7 @@ if (authForm) {
         setAuthMode("signin");
         if (authMsg) {
           authMsg.className = "auth-msg";
-          authMsg.textContent = "Account created — check your email to confirm it, then sign in to start your free 7-day Guided trial.";
+          authMsg.textContent = "Account created — check your email to confirm it, then sign in. TAXACQ is free during early access.";
         }
       }
       return;
@@ -4127,7 +4127,7 @@ function renderOAuthButtons() {
   block.id = "oauthBlock";
   block.innerHTML = '<div class="oauth-buttons">' + providers.map(p =>
     `<button type="button" class="oauth-btn" data-oauth="${p}">${OAUTH_PROVIDERS[p].icon}<span>Continue with ${OAUTH_PROVIDERS[p].label}</span></button>`).join("") +
-    '</div><p class="oauth-note">New accounts start a free 7-day trial right away - whichever way you sign up.</p>' +
+    '</div><p class="oauth-note">Free during early access - no approval wait, no card, whichever way you sign up.</p>' +
     '<p class="oauth-or"><span>or use your email</span></p>';
   form.parentNode.insertBefore(block, form);
   block.addEventListener("click", e => {
@@ -4359,10 +4359,15 @@ async function checkApprovalAndEnter(session) {
   }
   const approved = !!(profile && profile.approved);
   TRIAL_ENDS_AT = trialEndsAt(profile);
-  const onTrial = !approved && !IS_ADMIN && !!TRIAL_ENDS_AT && TRIAL_ENDS_AT.getTime() > Date.now();
-  TRIAL_ENDED = !approved && !IS_ADMIN && !!TRIAL_ENDS_AT && !onTrial;
-  ACCESS = { role: IS_ADMIN ? "admin" : approved ? "tester" : onTrial ? "trial" : "inactive", state: IS_ADMIN ? "admin_override" : approved ? "tester_beta" : onTrial ? "trial" : "inactive", source: "legacy", entitlement: null };
-  if (approved || onTrial) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); if (onTrial) showTrialBanner(); }
+  // 043 (owner, 2026-11-22): while TAXACQ is free, the server admits every
+  // signed-in account (app_settings.open_access). The app only asks so it can
+  // show the Guided view instead of a trial banner or the trial-ended screen;
+  // the database decides what is readable either way.
+  OPEN_ACCESS = (!approved && !IS_ADMIN) ? await readOpenAccess() : false;
+  const onTrial = !approved && !IS_ADMIN && !OPEN_ACCESS && !!TRIAL_ENDS_AT && TRIAL_ENDS_AT.getTime() > Date.now();
+  TRIAL_ENDED = !approved && !IS_ADMIN && !OPEN_ACCESS && !!TRIAL_ENDS_AT && !onTrial;
+  ACCESS = { role: IS_ADMIN ? "admin" : approved ? "tester" : (OPEN_ACCESS || onTrial) ? "trial" : "inactive", state: IS_ADMIN ? "admin_override" : approved ? "tester_beta" : OPEN_ACCESS ? "open_access" : onTrial ? "trial" : "inactive", source: "legacy", entitlement: null };
+  if (approved || onTrial || OPEN_ACCESS) { showApp(); afterEntryBillingRoute(); maybeShowWelcome(); if (onTrial) showTrialBanner(); }
   else showPlanOrPending(null);
 }
 
@@ -4375,6 +4380,14 @@ async function checkApprovalAndEnter(session) {
 var TRIAL_DAYS = 7;
 var TRIAL_ENDS_AT = null;
 var TRIAL_ENDED = false;
+// 043: the free period. Before 043 exists the RPC is missing and this is false.
+var OPEN_ACCESS = false;
+async function readOpenAccess() {
+  try {
+    const { data, error } = await sb.rpc("open_access");
+    return !error && data === true;
+  } catch { return false; }
+}
 function trialEndsAt(profile) {
   const v = profile && profile.trial_ends_at;
   if (!v) return null;
@@ -4415,6 +4428,7 @@ var BILLING_INTENT = (function () {
 })();
 const BILLING_STATE_LABELS = {
   admin_override: "Administrator",
+  open_access: "Free early access",
   tester_beta: "Tester (beta)",
   manual_customer: "Customer - access granted by an administrator",
   active: "Active",
@@ -6378,13 +6392,20 @@ function card(p, showCounty, ctx) {
     ? `<button class="detail-btn detail-btn-primary" data-action="viewdetails" data-pid="${p.id}" type="button">How to acquire →</button>`
     : auctionLinkHtml(p, "cta-btn", cx ? { noDate: true } : null);
   const secondary = ledger === "laft" ? "" : `<button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">Details →</button>`;
-  const stamp = cardStamp(p);
+  // Simpler card (owner, 2026-11-22): customers get no status stamp on the
+  // face; an administrator still sees it (e.g. "Listing never confirmed by
+  // source", which flags a row withheld from customers).
+  const stamp = IS_ADMIN ? cardStamp(p) : null;
   el.innerHTML = `
     ${propertyVisual(p, "prop-card-photo", cx && cx.inGroup ? { omitCounty: true } : null)}
     <div class="prop-body">
       ${stamp ? `<div class="pc-stamp-inline">${cardStampHtml(stamp)}</div>` : ""}
       <div class="prop-address">${titleLine}</div>
       ${countyLineHtml(p, cx)}
+      <div class="prop-ids">
+        ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(parcelOf(p))}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
+        ${p.case_no && !(cx && hasAddress && hasParcel(p) && String(p.case_no) === String(parcelOf(p))) ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
+      </div>
       <div class="card-price">${ledger === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}"${bidPublished ? ` title="${esc(`Exact amount ${fmtMoney(p.bid)}. Cards round to whole dollars.`)}"` : ""}>${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
       ${cardLotLineHtml(p)}
       <div class="pc-actions">${primary}${bidListBtnHtml(p, "card")}${secondary}</div>
@@ -6392,10 +6413,6 @@ function card(p, showCounty, ctx) {
         <summary>Record details</summary>
         <div class="card-details-body">
           ${tag}
-          <div class="prop-ids">
-            ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(parcelOf(p))}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
-            ${p.case_no && !(cx && hasAddress && hasParcel(p) && String(p.case_no) === String(parcelOf(p))) ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
-          </div>
           ${cardStatsHtml(p)}
           ${offListNote}
           <div class="prop-top-actions">
@@ -6547,9 +6564,12 @@ function cardLotSize(p) {
 // The lot size under the card's price (owner's request 2026-10-27): the
 // source's own acreage when it has one, otherwise the stored lot area. A row
 // with neither shows no line - nothing is estimated.
-function cardLotLineHtml(p) {
+function cardLotSizeText(p) {
   const ac = Number(p.acreage);
-  const size = ac > 0 ? acreageText(ac, `${ac < 10 ? ac.toFixed(2) : Math.round(ac).toLocaleString()} acres`) : cardLotSize(p);
+  return ac > 0 ? acreageText(ac, `${ac < 10 ? ac.toFixed(2) : Math.round(ac).toLocaleString()} acres`) : cardLotSize(p);
+}
+function cardLotLineHtml(p) {
+  const size = cardLotSizeText(p);
   return size ? `<div class="card-lot" data-card-lot="1"><span class="card-lot-label">Lot size</span> <span class="card-lot-val">${esc(size)}</span></div>` : "";
 }
 
@@ -11429,7 +11449,7 @@ function detailHtml(p) {
     </header>`;
   const html = `
     <button class="detail-close" data-action="closedetail" type="button" aria-label="Close">✕</button>
-    <div class="detail-topbar">${detailCrumbsHtml(p)}${tierSwitchHtml("pro")}</div>
+    <div class="detail-topbar">${detailCrumbsHtml(p)}${tierSwitchHtml("pro") || (tiersSelectable().includes("beginner") ? `<button type="button" class="g-full-link g-back-guided" data-tier-set="beginner">← Back to the checklist</button>` : "")}</div>
     ${firstHtml}
     <!--NAV-->
     ${isCert ? `
@@ -11731,7 +11751,10 @@ function wideRecordOn() {
 }
 function layoutWideRecord(inner) {
   const modal = document.getElementById("detailModal");
-  const on = wideRecordOn();
+  // Guided and the Free preview are one column by design (no picture / key
+  // facts block to put on the left): splitting them left the left half of the
+  // sheet empty (owner review 2026-11-25). They keep the regular sheet width.
+  const on = wideRecordOn() && !!inner.querySelector(":scope > .detail-first");
   if (modal) modal.classList.toggle("detail-modal-wide", on);
   inner.classList.toggle("detail-wide", on);
   if (!on) return;
@@ -15535,7 +15558,7 @@ function renderBillingModal() {
   const row = (k, v) => rows.push(`<div class="billing-row"><dt>${esc(k)}</dt><dd>${v}</dd></div>`);
   row("Access", `<b>${esc(BILLING_STATE_LABELS[ACCESS.state] || ACCESS.state || "Unknown")}</b>`);
   if (ACCESS.source === "legacy") {
-    row("Why", esc(ACCESS.role === "admin" ? "Administrator account." : ACCESS.role === "trial" ? `Free ${TRIAL_DAYS}-day Guided trial - ${trialDaysLeft()} day${trialDaysLeft() === 1 ? "" : "s"} left.` : "Approved by an administrator."));
+    row("Why", esc(ACCESS.role === "admin" ? "Administrator account." : ACCESS.state === "open_access" ? "Free during early access - no approval or card needed." : ACCESS.role === "trial" ? `Free ${TRIAL_DAYS}-day Guided trial - ${trialDaysLeft()} day${trialDaysLeft() === 1 ? "" : "s"} left.` : "Approved by an administrator."));
     row("Billing", "Not set up for this deployment yet - access comes from an administrator's approval.");
   } else {
     row("Why", esc((e && e.reason) || ""));
@@ -18470,6 +18493,10 @@ function experienceApi() {
     countyNowBarHtml, installCountyNowBar, hideCountyNowBar, countyLineHtml,
     // Investor sprint (2026-11-12): one card title rule and plain labels.
     cardTitle: cardTitleOf, plainValueLabel, plainPhase, infoBubbleHtml,
+    // Lot size on the Merged cards (owner, 2026-11-25: "property cards still
+    // not showing size"): the Classic card's own rule - source acreage, else
+    // the stored lot area, else nothing.
+    cardLotSize: cardLotSizeText,
     listCardCtx: () => LIST_CARD_CTX,
     isWatched: id => BIDLIST.has(id),
     isFavorite: id => FAVS.has(id),
@@ -19258,7 +19285,9 @@ installShellV3();
 // No account carries a tier yet (billing ships off), so administrators and
 // testers pick the view with the switch at the top of the page; everyone else
 // sees the full record. `var` / function declarations only (TDZ).
-var PAGE_TIER_KEY = "tdw_page_tier_v1";
+// v2 (owner, 2026-11-22): everyone lands on Guided; a choice stored under v1
+// (often "Full record") no longer overrides that default.
+var PAGE_TIER_KEY = "tdw_page_tier_v2";
 var PAGE_TIERS = ["free", "beginner", "pro"];
 var PAGE_TIER_LABELS = { free: "Free preview", beginner: "Guided", pro: "Full record" };
 // ---- Tiers at login (owner, 2026-11-12) - THE one mapping from access to tier ----
@@ -19305,12 +19334,23 @@ function pageTier() {
   if (allowed.length > 1) {
     try { const s = localStorage.getItem(PAGE_TIER_KEY); if (allowed.includes(s)) return s; } catch { /* storage off */ }
   }
+  // Everyone lands on Guided (owner, 2026-11-22); the Full record stays one
+  // click away for accounts that may hold it. config.js may name another
+  // default view (defaultPageTier: "pro"); production names none.
+  const cfgTier = String((window.TDW_CONFIG || {}).defaultPageTier || "");
+  if (cfgTier && allowed.includes(cfgTier)) return cfgTier;
+  if (allowed.includes("beginner")) return "beginner";
   const base = accountTier();
   return allowed.includes(base) ? base : allowed[allowed.length - 1];
 }
 function tierSwitchHtml(tier) {
   const allowed = tiersSelectable();
   if (allowed.length < 2) return "";
+  // Guided first (owner, 2026-11-23): customers get no View switch at the top;
+  // the Full record is one quiet link at the bottom of the Guided page
+  // (guidedFullRecordHtml). Only admins keep the switch (they also check the
+  // Free preview); testers and customers use the link.
+  if (!(IS_ADMIN || (ACCESS && ACCESS.role === "admin"))) return "";
   // Kept compact (2026-11-10): one small row beside the breadcrumb. Admins
   // and testers also get Free preview, with a note saying what it is.
   const staff = allowed.includes("free");
@@ -19454,7 +19494,7 @@ function guidedStages(p) {
     key: "risks", title: "Check the risks", facts: [], tasks: [
       { key: "liens", title: "Look for other liens", how: "Search the clerk's records and ask code enforcement - some liens can survive a tax sale." },
       { key: "title", title: "Plan a title search", how: "A title company can tell you what you would actually own." },
-      { key: "see", title: "See the property", how: coords ? "Study the aerial picture above, then drive by if you can." : "Drive by, or find it on the appraiser's map." }
+      { key: "see", title: "See the property", how: coords ? "Study the aerial picture above, then drive by if you can." : "Drive by, or find it on the appraiser's map.", href: appraiserLink(p) ? appraiserLink(p).url : null, hrefLabel: "Appraiser record" }
     ]
   };
   if (floodChecked) risks.facts.push({ title: "Flood zone", answer: fl.text + (p.flood_sfha === true ? " - a FEMA high-risk area" : "") });
@@ -19565,40 +19605,148 @@ function guidedStages(p) {
     { key: "deed", title: "Get the deed", facts: [], tasks: [{ key: "deed", title: "Receive the recorded deed", how: `Ask ${office} how and when the deed is issued and recorded.` }] }
   ];
 }
+// One short line per card (owner, 2026-11-23: "trim them"). The detail lives
+// in the checklist steps and the word bubbles, not here.
+function shortHow(text) {
+  // The first sentence that says what to DO - skip one that only repeats
+  // "a lien, not the land" (already the first card) - cut at its first ";".
+  const parts = String(text || "").split(/(?<=\.)\s+/).filter(Boolean);
+  const pick = parts.find(x => !/not the land/i.test(x)) || parts[0] || "";
+  const cut = pick.split(";")[0].trim();
+  return /[.!?]$/.test(cut) ? cut : cut + ".";
+}
 function guidedThree(p) {
   if (p.source === "certificate") {
     // Audit F26: county-held, sold by assignment - no sale to bid at.
     return [
-      ["What it is", "A county-held tax lien certificate: a debt secured by the property, not the property. The owner repays the amount with interest; only if nobody redeems can you apply for a deed."],
-      ["What it costs", [hasPublishedBid(p) ? `Certificate amount ${bidDisplay(p)}` : "The certificate amount is not on file", hasNum(p.interest_rate) ? `interest rate ${p.interest_rate}%` : "the interest rate is not on file"].filter(Boolean).join(", ") + "."],
-      ["How you buy it", `By assignment from ${certOffice(p)}, for the amount it states - no sale, no bidding.`]
+      ["What it is", "A tax lien on the property - not the property itself."],
+      ["What it costs", [hasPublishedBid(p) ? bidDisplay(p) : "Certificate amount not on file", hasNum(p.interest_rate) ? `${p.interest_rate}% interest` : "the interest rate is not on file"].join(" · ") + "."],
+      ["How you buy it", `By assignment from ${certOffice(p)} - no bidding.`]
     ];
   }
   if (p.source === "auction") {
     // Audit F25: the sale is named per source / state (a Colorado or Wyoming
-    // lien sale is never a tax-deed auction); "Bidding starts there" only when
-    // the figure is a known opening / minimum bid, never for an amount whose
-    // kind the source did not state.
+    // lien sale is never a tax-deed auction); "starts at" only when the
+    // figure is a known opening / minimum bid.
     const sale = saleKindOf(p);
-    const when = p.sale_date ? ` on ${fmtDate(String(p.sale_date).slice(0, 10))}` : "";
-    const what = sale.lien
-      ? `A tax lien on this property, sold at the county's ${sale.kind.toLowerCase()}${when}. You would own the lien, not the land.`
-      : sale.option
-      ? `An option for a Treasurer's deed on this property, offered at the county's ${sale.kind.toLowerCase()}${when}. You would hold the option, not the deed.`
-      : `A property offered at the county's ${sale.kind.toLowerCase()}${when}.`;
-    const cost = hasPublishedBid(p)
-      ? `${auctionBidLabel(p, true)} ${fmtMoney(Number(p.bid))}. ${isBidAmount(p) ? "Bidding starts there and can go higher." : "The source does not say what this amount is - not a bid or a price."}${hasValueNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : ""}`
-      : "The opening bid is not published yet.";
-    return [["What it is", what], ["What it costs", cost], ["How you buy it", sale.how]];
+    const when = p.sale_date ? `, ${fmtDate(String(p.sale_date).slice(0, 10))}` : "";
+    const what = sale.lien ? `A tax lien, not the land - ${sale.kind.toLowerCase()}${when}.`
+      : sale.option ? `An option for a Treasurer's deed, not the deed - ${sale.kind.toLowerCase()}${when}.`
+      : `The property itself - ${sale.kind.toLowerCase()}${when}.`;
+    const value = hasValueNum(p.market) ? ` · county value ${fmtMoney(Number(p.market))}` : "";
+    const cost = !hasPublishedBid(p) ? "The opening bid is not published yet."
+      : isBidAmount(p) ? `${auctionBidLabel(p, true)} ${fmtMoney(Number(p.bid))} - can go higher${value}.`
+      : `${fmtMoney(Number(p.bid))} - the source does not say what this amount is - not a bid or a price${value}.`;
+    return [["What it is", what], ["What it costs", cost], ["How you buy it", shortHow(sale.how)]];
   }
   const a = acquisitionOf(p);
   const i = amountInfo(p);
   const hasAmt = i.value !== null && i.value !== undefined;
-  const cost = (hasAmt ? `${i.label} ${fmtMoney(i.value)}.` : `${i.display && i.display !== "Not published" ? i.display : "The list does not publish a price - ask the office"}.`) +
-    (hasValueNum(p.market) ? ` The county values it at ${fmtMoney(Number(p.market))}.` : "");
-  const how = a.verified ? `${a.label}${a.office ? ` from ${a.office}` : ""}.${a.steps.length ? ` First: ${a.steps[0]}` : ""}` : "The county has not published how to buy it yet - the official listing names the office to ask.";
+  const value = hasValueNum(p.market) ? ` · county value ${fmtMoney(Number(p.market))}` : "";
+  const cost = (hasAmt ? `${i.label} ${fmtMoney(i.value)}` : (i.display && i.display !== "Not published" ? i.display : "No price published - ask the office")) + value + ".";
+  const how = a.verified ? `${a.label}${a.office ? ` from ${a.office}` : ""}.` : "Ask the office named on the official listing.";
   return [["What it is", availableWhy(p).text + "."], ["What it costs", cost], ["How you buy it", how]];
 }
+// ---- Word bubbles (owner, 2026-11-23) ----
+// "Don't plaster words everywhere": a word a first-time buyer may not know is
+// dotted-underlined where it appears; hover or tap it for one plain sentence,
+// with a way into the Buyer's Guide. Nothing else on the page grows. The "?"
+// beside "Your path to buy" lists the words used on this page.
+// var + function declarations only (render() can reach this during init).
+var GUIDED_TERMS = [
+  ["otc", "Over the counter", /\bover the counter\b/, "Bought straight from the county at a set price - no auction, no bidding."],
+  ["lien", "Tax lien", /\b[Tt]ax liens?\b|\b[Ll]iens?\b/, "A debt attached to a property. Some liens stay with the property after a tax sale."],
+  ["redeem", "Redemption", /\b[Rr]edeem\w*|\b[Rr]edemption\b|\brepa(?:id|ys)\b/, "The owner pays the back taxes, plus interest, and keeps the property."],
+  ["title", "Title search", /\b[Tt]itle search\b|\bclearing title\b|\btitle company\b/, "A check of public records that shows who owns the property and what is still owed on it."],
+  ["deed", "Deed", /\b(?:[Tt]ax |Treasurer's )?deed\b/, "The recorded paper that makes you the owner."],
+  ["assignment", "Assignment", /\b[Aa]ssignment\b/, "Buying a certificate the county already holds, for its stated amount - no auction."],
+  ["back", "Back taxes", /\b[Bb]ack taxes\b/, "Property taxes the owner did not pay."],
+  ["bid", "Opening bid", /\b(?:[Oo]pening|[Mm]inimum) bid\b/, "Where bidding starts. The winning bid is often higher."],
+  ["recorded", "Recorded", /\brecorded\b/, "Filed in the county's public records, so everyone can see you own it."],
+  ["appraiser", "Property appraiser", /\bappraiser(?:'s)?\b/, "The county office that keeps each property's value, size and owner on file."],
+  ["code", "Code enforcement", /\bcode enforcement\b/, "The city or county office that fines owners for violations - those fines can become liens."]
+];
+function termify(text) {
+  let html = esc(text);
+  GUIDED_TERMS.forEach(([key, , re]) => {
+    html = html.replace(re, m => `<span class="g-term" data-term="${key}">${m}</span>`);
+  });
+  return html;
+}
+function termInfo(key) { return GUIDED_TERMS.find(t => t[0] === key) || null; }
+function termsInHtml(html) { return GUIDED_TERMS.filter(t => html.includes(`data-term="${t[0]}"`)); }
+var termPopEl = null, termPopTimer = null;
+function termPop() {
+  if (termPopEl) return termPopEl;
+  termPopEl = document.createElement("div");
+  termPopEl.className = "g-term-pop";
+  termPopEl.setAttribute("role", "tooltip");
+  termPopEl.hidden = true;
+  termPopEl.addEventListener("mouseenter", () => clearTimeout(termPopTimer));
+  termPopEl.addEventListener("mouseleave", () => hideTermPop(150));
+  document.body.appendChild(termPopEl);
+  return termPopEl;
+}
+function placeTermPop(anchor, html) {
+  const pop = termPop();
+  clearTimeout(termPopTimer);
+  pop.innerHTML = html;
+  pop.hidden = false;
+  const r = anchor.getBoundingClientRect();
+  const w = Math.min(280, innerWidth - 24);
+  pop.style.width = w + "px";
+  pop.style.left = Math.max(12, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 12)) + "px";
+  const below = r.bottom + 8 + pop.offsetHeight < innerHeight;
+  pop.style.top = (below ? r.bottom + 8 : Math.max(8, r.top - 8 - pop.offsetHeight)) + "px";
+  pop.dataset.side = below ? "below" : "above";
+}
+function showTermPop(el) {
+  const t = termInfo(el.dataset.term);
+  if (!t) return;
+  const host = el.closest("[data-tier-view]");
+  const pid = host ? (host.querySelector("[data-guided-pid]") || {}).dataset?.guidedPid : "";
+  placeTermPop(el, `<b>${esc(t[1])}</b><span>${esc(t[3])}</span>${pid ? `<button type="button" class="g-term-more" data-term-guide="${esc(pid)}">More in the Buyer's Guide →</button>` : ""}`);
+}
+function showTermLegend(btn) {
+  const view = btn.closest("[data-tier-view]");
+  const used = termsInHtml(view ? view.innerHTML : "");
+  if (!used.length) return;
+  placeTermPop(btn, `<b>Words on this page</b><dl>${used.map(t => `<dt>${esc(t[1])}</dt><dd>${esc(t[3])}</dd>`).join("")}</dl>`);
+}
+function hideTermPop(delay) {
+  clearTimeout(termPopTimer);
+  termPopTimer = setTimeout(() => { if (termPopEl) termPopEl.hidden = true; }, delay || 0);
+}
+// Capture phase: a word inside a checklist row explains itself instead of
+// ticking the row.
+document.addEventListener("click", e => {
+  const term = e.target && e.target.closest && e.target.closest(".g-term");
+  if (term) { e.preventDefault(); e.stopPropagation(); showTermPop(term); return; }
+  const legend = e.target && e.target.closest && e.target.closest("[data-term-legend]");
+  if (legend) { e.preventDefault(); e.stopPropagation(); showTermLegend(legend); return; }
+  const more = e.target && e.target.closest && e.target.closest("[data-term-guide]");
+  if (more) {
+    e.preventDefault(); e.stopPropagation();
+    const p = ALL.find(x => String(x.id) === String(more.dataset.termGuide));
+    hideTermPop();
+    if (typeof closeDetail === "function") closeDetail();
+    openGuidePage(p ? p.county : null, p ? GUIDE_LEDGER_FOR_SOURCE[p.source] : null);
+    return;
+  }
+  if (termPopEl && !termPopEl.hidden && !termPopEl.contains(e.target)) hideTermPop();
+}, true);
+document.addEventListener("mouseover", e => {
+  if (!window.matchMedia || !window.matchMedia("(hover: hover)").matches) return;
+  const term = e.target && e.target.closest && e.target.closest(".g-term");
+  if (term) showTermPop(term);
+});
+document.addEventListener("mouseout", e => {
+  const term = e.target && e.target.closest && e.target.closest(".g-term");
+  if (term && !(e.relatedTarget && termPopEl && termPopEl.contains(e.relatedTarget))) hideTermPop(250);
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && termPopEl && !termPopEl.hidden) { hideTermPop(); e.stopPropagation(); } }, true);
+window.addEventListener("scroll", () => { if (termPopEl && !termPopEl.hidden) hideTermPop(); }, true);
+window.__tdwTerms = () => GUIDED_TERMS.map(t => t[0]);
 function journeyMarks(p) {
   if (!RESEARCH || !RESEARCH.loaded) return {};
   const it = researchSavedFor(p.id)[0];
@@ -19626,22 +19774,22 @@ function guidedBodyHtml(p) {
     const tasks = s.tasks.map(t => {
       const k = s.key + "." + t.key;
       const on = !!marks[k];
-      return `<li class="g-task${on ? " on" : ""}"><button type="button" class="g-tick" data-tier-task="${esc(k)}" data-pid="${esc(p.id)}" aria-pressed="${on}"><span class="g-box" aria-hidden="true">${on ? "✓" : ""}</span><span><b>${esc(t.title)}</b><span>${esc(t.how)}</span></span></button>${t.href ? `<a class="g-task-link" href="${esc(t.href)}" target="_blank" rel="noopener">${esc(t.hrefLabel || "Open")} ↗</a>` : ""}</li>`;
+      return `<li class="g-task${on ? " on" : ""}"><button type="button" class="g-tick" data-tier-task="${esc(k)}" data-pid="${esc(p.id)}" aria-pressed="${on}"><span class="g-box" aria-hidden="true">${on ? "✓" : ""}</span><span><b>${esc(t.title)}</b><span>${termify(t.how)}</span></span></button>${t.href ? `<a class="g-task-link" href="${esc(t.href)}" target="_blank" rel="noopener">${esc(t.hrefLabel || "Open")} ↗</a>` : ""}</li>`;
     }).join("");
     return `<li class="g-stage" data-stage="${esc(s.key)}" data-stage-state="${chip.toLowerCase().replace(/\s+/g, "-")}">
       <details${isNext || (!next && idx === 0) ? " open" : ""}><summary><span class="g-dot">${!openTasks ? "✓" : idx + 1}</span><span class="g-stage-title">${esc(s.title)}</span><span class="g-chip">${esc(chip)}</span></summary>
       <ul class="g-items">${facts}${tasks}</ul></details></li>`;
   }).join("");
-  const storage = RESEARCH && RESEARCH.loaded && RESEARCH.mode === "server" ? "Your ticks are saved to your account and follow you to any device."
-    : RESEARCH && RESEARCH.loaded ? "Your ticks are kept in this browser only." : "Loading your saved ticks…";
-  return `<div class="g-progress">${ring}<div><span class="g-eyebrow">Your path to buy</span><b class="g-headline">${esc(headline)}</b></div></div>
-    ${next ? `<div class="g-next"><span class="g-eyebrow">Next step · ${esc(next.stage)}</span><b>${esc(next.title)}</b><span>${esc(next.how)}</span></div>` : ""}
+  const storage = RESEARCH && RESEARCH.loaded && RESEARCH.mode === "server" ? "Saved to your account"
+    : RESEARCH && RESEARCH.loaded ? "Saved in this browser" : "Loading your ticks…";
+  return `<div class="g-progress">${ring}<div><span class="g-eyebrow">Your path to buy</span><b class="g-headline">${esc(headline)}</b></div><button type="button" class="g-legend-btn" data-term-legend aria-label="What the underlined words mean">?</button></div>
+    ${next ? `<div class="g-next"><span class="g-eyebrow">Next step · ${esc(next.stage)}</span><b>${esc(next.title)}</b><span>${termify(next.how)}</span></div>` : ""}
     <ol class="g-stages">${stageHtml}</ol>
-    <p class="g-note">Green ✓ items come from the county's own records. The boxes you tick are your own notes and never change what the records say. ${esc(storage)}</p>`;
+    <p class="g-note"><span class="g-key-fact">✓</span> from the county's records <span class="g-key-sep">·</span> <span class="g-key-box"></span> your own checklist <span class="g-key-sep">·</span> <span class="g-term g-key-term">dotted words</span> tap to explain <span class="g-key-sep">·</span> ${esc(storage)}</p>`;
 }
 function guidedDetailHtml(p) {
   const facts = [tierLandUse(p), p.source === "certificate" ? "" : tierSize(p)].filter(Boolean);
-  const three = guidedThree(p).map(([k, v], n) => `<div class="g-know"><span class="g-num">${n + 1}</span><div><b>${esc(k)}</b><span>${esc(v)}</span></div></div>`).join("");
+  const three = guidedThree(p).map(([k, v], n) => `<div class="g-know"><span class="g-num">${n + 1}</span><div><b>${esc(k)}</b><span>${termify(v)}</span></div></div>`).join("");
   const a = p.source === "laft" ? acquisitionOf(p) : null;
   const cta = a ? (acquisitionCta(a) || (availabilityLink(p) ? { label: "Open the official listing", href: availabilityLink(p).href } : null)) : null;
   const ctaHtml = p.source === "laft" ? (cta ? `<a class="detail-cta" href="${esc(cta.href)}" ${/^(mailto|tel):/.test(cta.href) ? "" : 'target="_blank" rel="noopener"'}>${esc(cta.label)}</a>` : "") : auctionLinkHtml(p, "detail-cta");
@@ -19654,8 +19802,14 @@ function guidedDetailHtml(p) {
     <section class="g-three" aria-label="Three things to know"><span class="g-eyebrow">Three things to know</span>${three}</section>
     <div class="guided" data-guided-pid="${esc(p.id)}">${guidedBodyHtml(p)}</div>
     ${ctaHtml}
-    <p class="g-locked">The full record - values, history, sources and documents - is part of Pro.</p>
+    ${guidedFullRecordHtml()}
   </div>`;
+}
+// The Full record sits behind the Guided page (owner, 2026-11-23): one quiet
+// link for accounts that may open it, a plain note for everyone else.
+function guidedFullRecordHtml() {
+  if (tiersSelectable().includes("pro")) return `<p class="g-locked"><button type="button" class="g-full-link" data-tier-set="pro">See the full record (every field on file) →</button></p>`;
+  return `<p class="g-locked">More detail - values, history and documents - comes later with Pro.</p>`;
 }
 function hydrateGuided(pid) {
   const p = ALL.find(x => String(x.id) === String(pid));
@@ -20338,7 +20492,7 @@ function installAuthModeTabs() {
   note.id = "authSignupNote";
   note.className = "auth-signup-note";
   note.hidden = true;
-  note.innerHTML = "<b>Free 7-day trial, no approval wait.</b> Your account opens the Guided view of every listing as soon as you sign up - no card needed.";
+  note.innerHTML = "<b>Free during early access, no approval wait.</b> Your account opens the Guided view of every listing as soon as you sign up - no card needed.";
   lead.after(note);
   tabs.addEventListener("click", e => {
     const b = e.target.closest && e.target.closest("[data-auth-tab]");

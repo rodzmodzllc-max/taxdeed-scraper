@@ -108,7 +108,9 @@ for (const route of ['auctions', 'certificates']) {
   check('caseNumberKept', !!legal && /Case INV-0-1/.test(legal.ids), legal && legal.ids);
   const all = cards.map(c => c.text).join('\n');
   check('plainLanguageOnCards', !/over the counter|path not yet verified|verified path|just value|outline source/i.test(all)
-    && /Buy directly from the county, no auction/.test(all) && /County market value \(2025\)/i.test(all) && /How to buy: not yet confirmed/i.test(all), all.match(/over the counter|path not yet verified|verified path|just value|outline source/ig));
+    // Simpler card (owner, 2026-11-22): no "Buy directly from the county, no auction"
+    // line and no "How to buy: ..." stamp on a customer's card.
+    && !/Buy directly from the county, no auction/.test(all) && /County market value \(2025\)/i.test(all) && !/How to buy: (not yet )?confirmed/i.test(all), all.match(/over the counter|path not yet verified|verified path|just value|outline source/ig));
   const note = await pg.evaluate(() => { const w = document.querySelector('#xpStage .xt-acard .xt-val-info'); return w ? { btn: w.querySelector('.ib-btn').getAttribute('aria-label'), pop: w.querySelector('.ib-pop').textContent } : null; });
   check('marketValueExplained', !!note && /just value/.test(note.pop) && /not an appraisal/.test(note.pop) && /2025/.test(note.pop), note);
   const strip = await pg.evaluate(() => document.querySelector('#detailPanel > .xp-panelsum').textContent);

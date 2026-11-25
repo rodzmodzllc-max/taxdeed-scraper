@@ -103,12 +103,15 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
   await pg.locator('#xpStage .xt-acard .xt-amt-btn').first().click();
   const opened = await pg.evaluate(() => { const w = document.querySelector('#xpStage .xt-acard .xt-amt-plus'); return w.classList.contains('open') && w.querySelector('.xt-amt-btn').getAttribute('aria-expanded') === 'true' && w.querySelector('.xt-amt-pop').checkVisibility(); });
   check(`amountCaveatOpens_${vp.width}`, opened, opened);
-  const order = await pg.evaluate(() => { const c = document.querySelector('#xpStage .xt-acard'); const t = c.querySelector('.xt-lot-t').getBoundingClientRect().top, k = c.querySelector('.xt-lot-k').getBoundingClientRect().top, f = c.querySelector('.xt-fig-main').getBoundingClientRect().top; return { t, k, f }; });
-  check(`cardLeadsWithAddress_${vp.width}`, order.t < order.k && order.k < order.f, order);
+  // Simpler card (owner, 2026-11-22): the address leads, then the ids, then the figure;
+  // the kicker line is gone from the Available card.
+  const order = await pg.evaluate(() => { const c = document.querySelector('#xpStage .xt-acard'); const t = c.querySelector('.xt-lot-t').getBoundingClientRect().top, f = c.querySelector('.xt-fig-main').getBoundingClientRect().top; return { t, f, kicker: !!c.querySelector('.xt-lot-k') }; });
+  check(`cardLeadsWithAddress_${vp.width}`, order.t < order.f && !order.kicker, order);
   // The record's own status stamp (app.js cardStamp, as on the Classic card).
   const stamp = await pg.evaluate(() => { const s = document.querySelector('#xpStage .xt-acard .xt-stamp'); return s ? s.textContent.trim() : null; });
-  // Plain language (owner, 2026-11-12): "How to buy: confirmed / not yet confirmed".
-  check(`cardStampFromRecord_${vp.width}`, /^(How to buy: confirmed|How to buy: not yet confirmed|Dated list|No longer listed)$/.test(stamp || ''), stamp);
+  // Simpler card (owner, 2026-11-22): a customer's card carries no status stamp
+  // (administrators still see it); the Guided checklist says how to buy.
+  check(`cardStampFromRecord_${vp.width}`, stamp === null, stamp);
   await pg.close();
 }
 

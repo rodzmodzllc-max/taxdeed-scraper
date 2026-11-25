@@ -669,6 +669,20 @@ const MONITOR_DB = MONITOR_MODE === "none" ? null : {
     { id: 3, state: "FL", source_id: "fl_realauction", ledger: "auction", run_at: "2026-10-01T10:00:00Z", rows_observed: 812, rows_added: 14, rows_changed: 40, rows_closed: 9, rows_reactivated: 0 }
   ]
 };
+// ?usage=demo (2026-11-25): synthetic product events for the admin Users &
+// usage view - u2 active on three days (came back), u1 (the admin) on one.
+// Empty by default, as before (reads of product_events returned []).
+const STUB_USAGE_EVENTS = (() => {
+  if (new URLSearchParams(location.search).get("usage") !== "demo") return [];
+  const at = (daysAgo, h) => new Date(Date.now() - daysAgo * 86400000 - h * 3600000).toISOString();
+  const ev = (user_id, event, daysAgo, h, props) => ({ user_id, event, state: "FL", props: props || {}, created_at: at(daysAgo, h) });
+  return [
+    ev("u2", "session_start", 12, 2), ev("u2", "search_performed", 12, 2), ev("u2", "property_viewed", 12, 2),
+    ev("u2", "session_start", 5, 3), ev("u2", "property_viewed", 5, 3), ev("u2", "official_source_opened", 5, 3),
+    ev("u2", "session_start", 1, 1), ev("u2", "property_viewed", 1, 1), ev("u2", "application_opened", 1, 1), ev("u2", "property_saved", 1, 1),
+    ev("u1", "session_start", 2, 4), ev("u1", "map_used", 2, 4)
+  ].sort((a, b) => a.created_at.localeCompare(b.created_at));
+})();
 const MONITOR_TABLES = new Set(["saved_searches", "alert_preferences", "user_alerts", "property_change_events", "product_events", "source_observation_runs"]);
 function monitorQuery(q) {
   if (MONITOR_DB === null) return { data: null, error: { message: `Could not find the table 'public.${q.table}' in the schema cache`, code: "PGRST205" } };
@@ -687,7 +701,7 @@ function monitorQuery(q) {
     return { data: null, error: null };
   }
   if (q._op === "delete") { const keep = rows.filter(r => !matches(r)); rows.length = 0; rows.push(...keep); return { data: null, error: null }; }
-  if (q.table === "product_events") return { data: [], error: null };
+  if (q.table === "product_events") return { data: STUB_USAGE_EVENTS.slice(), error: null };
   const out = rows.filter(matches).map(r => Object.assign({}, r));
   if (q.table === "source_observation_runs") out.sort((a, b) => String(b.run_at).localeCompare(String(a.run_at)));
   if (q.table === "property_change_events" || q.table === "user_alerts") out.sort((a, b) => String(b.observed_at || b.created_at).localeCompare(String(a.observed_at || a.created_at)));

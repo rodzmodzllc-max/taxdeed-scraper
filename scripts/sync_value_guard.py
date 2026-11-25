@@ -99,6 +99,14 @@ def is_placeholder(source: str, column: str, value, row: dict) -> bool:
     return False
 
 
+def is_bad_stored_parcel(value) -> bool:
+    """A stored parcel with no digit is never a parcel number: an earlier
+    harvest read a link label instead (Marion 2026-11-24, "Property
+    Appraiser"). It is not kept over the listing's value - blank included - so
+    the next sync clears it."""
+    return isinstance(value, str) and bool(value.strip()) and not any(ch.isdigit() for ch in value)
+
+
 def _same(a, b) -> bool:
     if a == b:
         return True
@@ -132,6 +140,10 @@ def guard_row(source: str, row: dict, stored: dict | None, counts: Counter | Non
             continue
         sv, nv = stored.get(column), row.get(column)
         if FP.is_blank(sv) or _same(sv, nv):
+            continue
+        if column == "parcel" and is_bad_stored_parcel(sv):
+            if counts is not None:
+                counts["parcel:bad_stored_cleared"] += 1
             continue
         reason = None
         if FP.is_blank(nv):

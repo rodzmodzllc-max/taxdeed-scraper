@@ -65,6 +65,20 @@ def test_a_parcel_id_wins_and_reads_exactly_as_before(tmp_path):
     assert got == {"parcel": "00000-000-001", "appraiser": href, "alt_key": None}
 
 
+def test_a_worded_link_is_never_the_parcel(tmp_path):
+    # Marion 2026-11-24: the Parcel ID cell's link reads "Property Appraiser".
+    href = "https://appraiser.example/q?KeyValue=00000-000-002"
+    got = _run(tmp_path, _block(_cell("Parcel ID", "Property Appraiser", href)))
+    assert got == {"parcel": "", "appraiser": href, "alt_key": None}
+
+
+def test_a_worded_link_beside_the_number_keeps_the_number(tmp_path):
+    href = "https://appraiser.example/q?KeyValue=00000-000-003"
+    cell = _cell("Parcel ID", "Property Appraiser", href).replace("\\\"> <a", "\\\"> 00000-000-003 <a")
+    got = _run(tmp_path, _block(cell))
+    assert got == {"parcel": "00000-000-003", "appraiser": href, "alt_key": None}
+
+
 def test_no_identifier_cell_reads_as_nothing(tmp_path):
     assert _run(tmp_path, _block()) == {"parcel": "", "appraiser": None, "alt_key": None}
 

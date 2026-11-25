@@ -441,7 +441,7 @@ function placardHtml(p, idx, n, api, pf, countyInBanner) {
         <span class="lotrow"><span class="lotnum"><span class="xpt-caps">Lot</span><span class="numeral">${idx + 1}</span></span>
           <span class="xpt-mono-s">${api.esc(caseText)}</span></span>
         <span class="ctitle${t.parcel ? " parcel" : ""}">${t.html}</span>
-        <span class="ids xpt-mono-s">${t.parcel ? (countyInBanner ? "" : t.where || api.esc(unitName(api, p.county))) : (pf.parcel ? api.esc(pf.parcelLabel + " " + pf.parcel) : "Parcel # not published") + (countyInBanner ? "" : " · " + api.esc(unitName(api, p.county)))}</span>
+        <span class="ids xpt-mono-s">${t.parcel ? (countyInBanner ? "" : t.where || api.esc(unitName(api, p.county))) : (pf.parcel ? api.esc(pf.parcelLabel + " " + pf.parcel) : "Parcel # not published") + (countyInBanner ? "" : " · " + api.esc(unitName(api, p.county)))}${(() => { const s = typeof api.cardLotSize === "function" ? api.cardLotSize(p) : ""; return s ? ` · Lot ${api.esc(s)}` : ""; })()}</span>
         <span class="plate"><span class="plate-in">${api.propertyVisual(p, "prop-card-photo xpt-vis", countyInBanner ? { omitCounty: true } : undefined)}</span></span>
         <span class="figs">
           <span class="figure"><span class="xpt-caps">${api.esc(pf.bidLabel)}</span>${pf.bid ? `<span class="fig-xl">${api.esc(placardBid(p, pf.bid, api))}</span>` : missing("Not published", api)}</span>

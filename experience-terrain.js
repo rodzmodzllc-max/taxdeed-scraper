@@ -135,7 +135,7 @@ function watchBtn(p, api) {
     `${on ? "On watchlist" : "Watch"}</button>`;
 }
 function openBtn(p, api, cls) {
-  return `<button type="button" class="xt-btn ${cls || "xt-btn-primary"}" data-xt="open" data-pid="${api.esc(p.id)}">Open record<span aria-hidden="true">→</span></button>`;
+  return `<button type="button" class="xt-btn ${cls || "xt-btn-primary"}" data-xt="open" data-pid="${api.esc(p.id)}">How to buy<span aria-hidden="true">→</span></button>`;   // owner 2026-11-22: opens the Guided checklist
 }
 // Owner, 2026-11-11: "get as close to the listing as possible ... purchase in
 // the less clicks as possible". A row that carries the source's own page for
@@ -158,6 +158,12 @@ function titleHtml(p, api) { return titleOf(p, api).html; }
 function titleBlock(p, api, tag) {
   const t = titleOf(p, api);
   return `<${tag} class="xt-lot-t${t.parcelTitle ? " xt-lot-t-parcel" : ""}">${t.html}</${tag}>${t.sub ? `<div class="xt-lot-where">${t.sub}</div>` : ""}`;
+}
+// Lot size on the card (owner, 2026-11-25): app.js's own rule (source acreage,
+// else the stored lot area); a record with neither shows no line.
+function sizeLine(p, api) {
+  const s = typeof api.cardLotSize === "function" ? api.cardLotSize(p) : "";
+  return s ? `<div class="xt-size"><span class="xt-size-l">Lot size</span> ${api.esc(s)}</div>` : "";
 }
 function idRow(p, api) {
   const parts = [];
@@ -366,7 +372,7 @@ function auctionCard(p, api, i) {
   return `<li class="xt-lot${sel ? " sel" : ""}" data-xt="lot" data-pid="${api.esc(p.id)}" data-xt-ping style="--r:${Math.min(i, 10)}">
     <div class="xt-lot-k">${api.cardKickerHtml(p, { singleLedger: true, singleState: true, plain: true })}</div>
     ${titleBlock(p, api, "h3")}
-    <div class="xt-ids">${idRow(p, api)}</div>
+    <div class="xt-ids">${idRow(p, api)}</div>${sizeLine(p, api)}
     <div class="xt-figs">
       <div class="xt-fig xt-fig-main"><span class="xt-lbl">${api.esc(amt.label)}</span><span class="xt-num${amt.state === "not_published" ? " np" : ""}">${api.esc(amt.text)}</span></div>
       <div class="xt-fig">${valueLabelHtml(pf, api)}<span class="xt-num xt-num-s${pf.value ? "" : " np"}">${api.esc(pf.value || "Not published")}</span>${pf.value ? `<span class="xt-fig-note">Not a sale price</span>` : ""}</div>
@@ -544,10 +550,15 @@ function availableCard(p, api, i, headTrail) {
   return `<article class="xt-acard" role="listitem" data-xt="acard" data-pid="${api.esc(p.id)}" data-xt-ping style="--r:${Math.min(i, 8)}">
     <div class="xt-acard-vis">${visual}</div>
     <div class="xt-acard-body">
-      <div class="xt-lot-k">${api.cardKickerHtml(p, LIST_CTX)}</div>
+      <!-- Simpler card (owner, 2026-11-22): the "Buy directly from the county, no
+           auction" line and the "How to buy: ..." stamp are gone from the face
+           (an administrator still sees the stamp);
+           the address or parcel, case number, figures and buttons stay. The full
+           page and the Guided checklist still say how to buy. -->
       ${titleBlock(p, api, "h4")}
       ${(() => { const ids = idRow(p, api); return ids ? `<div class="xt-ids">${ids}</div>` : ""; })()}
-      ${cardStampHtml(p, api)}
+      ${sizeLine(p, api)}
+      ${window.__tdwIsAdmin ? cardStampHtml(p, api) : ""}
       <div class="xt-figs">
         <div class="xt-fig xt-fig-main"><span class="xt-lbl">${api.esc(amt.label)}</span><span class="xt-num-row"><span class="xt-num${amt.state === "not_published" ? " np" : ""}">${api.esc(amt.text)}</span>${amountNoteHtml(note, api)}</span></div>
         <div class="xt-fig">${valueLabelHtml(pf, api)}<span class="xt-num xt-num-s${pf.value ? "" : " np"}">${api.esc(pf.value || "Not published")}</span></div>

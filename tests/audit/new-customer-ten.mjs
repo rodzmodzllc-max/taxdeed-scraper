@@ -72,7 +72,9 @@ const contrast = (pg, sel) => pg.evaluate(sel => {
   const { ctx, pg } = await open('?look=merged#/lands/p15');
   await pg.waitForSelector('[data-tier-set]', { timeout: 10000 }).catch(() => {});
   const t = await pg.evaluate(() => ({ tiers: window.__tdwTiers(), sw: [...document.querySelectorAll('[data-tier-set]')].map(x => x.dataset.tierSet) }));
-  check('tier-approved-tester-full-record-with-switch', t.tiers.account === 'pro' && t.tiers.page === 'pro' && t.sw.includes('beginner') && t.sw.includes('pro') && t.sw.includes('free'), t);
+  // Guided first (2026-11-23): only admins get the View switch; a tester's
+  // Full record carries one way back to the checklist.
+  check('tier-approved-tester-full-record-with-back-link', t.tiers.account === 'pro' && t.tiers.page === 'pro' && t.sw.join() === 'beginner', t);
   await ctx.close();
 }
 {
@@ -230,13 +232,13 @@ for (const [mode, note] of [['absent', 'coming'], ['error', 'unavailable']]) {
     note: (document.getElementById('authSignupNote') || {}).hidden === false ? document.getElementById('authSignupNote').textContent : null,
     pressed: document.querySelector('[data-auth-tab="signup"]').getAttribute('aria-pressed'),
     side: (() => { const a = document.getElementById('firstName').getBoundingClientRect(), c = document.getElementById('lastName').getBoundingClientRect(); return Math.abs(a.top - c.top) < 2; })() }));
-  check('signup-mode-says-free-trial-no-approval-wait', s.mode === 'Create account' && s.first && s.pressed === 'true' && /7-day trial/.test(s.note || '') && /no approval wait/.test(s.note || ''), s);   // 041: trial at sign-up
+  check('signup-mode-says-free-trial-no-approval-wait', s.mode === 'Create account' && s.first && s.pressed === 'true' && /free during early access/i.test(s.note || '') && /no approval wait/.test(s.note || ''), s);   // 043: free during early access (owner 2026-11-22)
   check('signup-form-short-names-side-by-side', s.side, s);
   await pg.click('#authModeToggle'); await pg.waitForTimeout(150);
   check('legacy-toggle-still-switches-and-syncs-tabs', await pg.evaluate(() => document.getElementById('signInBtn').textContent === 'Sign in' && document.querySelector('[data-auth-tab="signin"]').getAttribute('aria-pressed') === 'true'), null);
   await ctx.close();
   const o = await open('?stubauth=1&look=merged&oauth=google');
-  check('google-button-kept-with-trial-note', await o.pg.evaluate(() => !!document.querySelector('#authGate [data-oauth="google"]') && /7-day trial/.test((document.querySelector('.oauth-note') || {}).textContent || '')), null);
+  check('google-button-kept-with-trial-note', await o.pg.evaluate(() => !!document.querySelector('#authGate [data-oauth="google"]') && /free during early access/i.test((document.querySelector('.oauth-note') || {}).textContent || '')), null);
   await o.ctx.close();
 }
 
