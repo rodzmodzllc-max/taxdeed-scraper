@@ -84,10 +84,30 @@ function Get-Href($block, $label) {
 # page for the property and becomes url_appraiser. The key itself rides in
 # the harvest artifact as alt_key (evidence only, not synced). (PR #18)
 $AltKeyLabels = @('Alternate Key', 'Parcel Key')
+# The "Parcel ID" cell's text with its link removed (the same match as
+# Get-Field, keeping only what sits beside the <a>).
+function Get-FieldOutsideLink($block, $label) {
+    $pat = [regex]::Escape($label) + ':(?:@F|<)[\s\S]{0,200}?CAD_DTA\\">\s*([^@<]*(?:<a[^>]*>([^<]*)</a>)?[^@<]*)'
+    $m = [regex]::Match($block, $pat)
+    if (-not $m.Success) { return '' }
+    $v = $m.Groups[1].Value -replace '<a[^>]*>[^<]*</a>','' -replace '<[^>]+>','' -replace '\\"','"' -replace '\s+',' '
+    return $v.Trim()
+}
 function Get-ParcelFields($block) {
     $parcel = Get-Field $block 'Parcel ID'
     if ($parcel) {
-        return [pscustomobject]@{ parcel = ($parcel -replace '<[^>]+>','').Trim(); appraiser = Get-Href $block 'Parcel ID'; alt_key = $null }
+        $parcel = ($parcel -replace '<[^>]+>','').Trim()
+        # A parcel number always carries a digit. Some skins label the cell's
+        # link with words instead of the number (Marion, 2026-11-24: "Property
+        # Appraiser" on all 64 items of the 2027-01-13 sale, which made 64
+        # properties share one "parcel"). Then the number, if published, is the
+        # text beside the link; with none, the parcel is not published and the
+        # link stays the appraiser's page. Never a parcel guessed from the URL.
+        if ($parcel -notmatch '\d') {
+            $outside = Get-FieldOutsideLink $block 'Parcel ID'
+            $parcel = if ($outside -match '\d') { $outside } else { '' }
+        }
+        return [pscustomobject]@{ parcel = $parcel; appraiser = Get-Href $block 'Parcel ID'; alt_key = $null }
     }
     foreach ($label in $AltKeyLabels) {
         $key = Get-Field $block $label

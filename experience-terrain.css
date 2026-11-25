@@ -95,6 +95,8 @@ html[data-experience="terrain"] #xpStage[hidden]{display:none}
 /* shared card figures */
 .xp-terrain .xt-lot-t{margin-top:4px;font:600 18px/23px var(--font-display);color:var(--ink);overflow-wrap:anywhere}
 .xp-terrain .xt-ids{margin-top:4px;font:400 12px/16px var(--font-mono);color:var(--gray);overflow-wrap:anywhere}
+.xp-terrain .xt-size{margin-top:4px;font:600 13px/18px var(--font-sans);color:var(--ink,#202925)}
+.xp-terrain .xt-size-l{font-weight:400;color:var(--gray)}
 .xp-terrain .xt-figs{display:grid;grid-template-columns:1.1fr 1fr;gap:8px;margin-top:12px}
 .xp-terrain .xt-fig{min-width:0;padding:10px 12px;border-radius:14px;background:var(--paper);border:1px solid var(--hair)}
 .xp-terrain .xt-fig-main{border-color:var(--acc-glow);background:var(--paper) radial-gradient(circle at 15% 0%,var(--acc-wash),rgba(253,253,251,0) 70%);box-shadow:0 10px 24px -16px var(--acc)}

@@ -3353,6 +3353,8 @@ await navMap.close();
   results.adminShellShowsNoEmail = !/@/.test((await adm.locator('#adminShell').textContent()) || '');
   // Admin source panel (all-sources enrichment engine): the unified inventory
   // with the three governance states kept apart, filterable by state / type.
+  // (2026-11-25: the admin page shows one tab at a time - open Sources first.)
+  await adm.click('#adminTabs [data-tab="sources"]');
   await adm.waitForSelector('#adminSourcesList tr[data-source]', { timeout: 5000 }).catch(() => {});
   results.adminSourcesRows = await adm.locator('#adminSourcesList tr[data-source]').count();
   results.adminSourcesGovernanceKinds = await adm.evaluate(() => [...new Set([...document.querySelectorAll('#adminSourcesList tr[data-governance]')].map(r => r.dataset.governance))].sort().join(','));
@@ -3371,9 +3373,11 @@ await navMap.close();
   // detail and per-county freshness detail that used to be rendered for
   // admins on the customer Dashboard are here now, and the collected
   // inventory by source is read on request for a chosen state.
+  await adm.click('#adminTabs [data-tab="health"]');
   await adm.waitForSelector('#adminUnitList tr.unit-row', { timeout: 5000 }).catch(() => {});
   results.adminFreshnessHealthRows = await adm.locator('#adminFreshnessList tr.health-row').count();
   results.adminFreshnessUnitDetail = await adm.evaluate(() => { const r = document.querySelector('#adminUnitList tr.unit-row[data-county="Bay"]'); return r ? r.textContent.replace(/\s+/g, ' ').trim() : null; });
+  await adm.click('#adminTabs [data-tab="inventory"]');
   await adm.selectOption('#adminInventoryState', 'MI');
   await adm.click('#adminInventoryLoad');
   await adm.waitForSelector('#adminInventoryList tr[data-source-id]', { timeout: 8000 }).catch(() => {});
@@ -3529,6 +3533,7 @@ await navMap.close();
   results.signupAdminPendingList = await admin.locator('#adminPendingList .admin-approval-row').evaluateAll(els => els.map(e => e.querySelector('.admin-approval-name').textContent.trim()));
   results.signupAdminPendingStatus = ((await admin.locator('#adminPendingStatus').textContent()) || '').trim();
   const row = admin.locator('#adminPendingList .admin-approval-row', { hasText: 'newcomer@example.com' });
+  await admin.click('#adminTabs [data-tab="people"]');
   await row.locator('.admin-approve-btn').click();
   await admin.waitForTimeout(500);
   results.signupAdminPendingAfterApprove = await admin.locator('#adminPendingList .admin-approval-row').evaluateAll(els => els.map(e => e.querySelector('.admin-approval-name').textContent.trim()));
@@ -7196,6 +7201,7 @@ await big.press('#globalSearchInput', 'Enter');
   await adm.click('#signInBtn'); await adm.waitForTimeout(700);
   await adm.goto(ADMIN_URL + '&entitlement=admin', { waitUntil: 'networkidle' }); await adm.waitForTimeout(700);
   results.paidAdminNoEmailBeforeReveal = !/@/.test((await adm.locator('#adminShell').textContent()) || '');
+  await adm.click('#adminTabs [data-tab="people"]');
   await adm.click('#adminCustomersShow'); await adm.waitForTimeout(150);
   results.paidAdminCustomers = {
     status: ((await adm.locator('#adminCustomersStatus').textContent()) || '').trim(),
@@ -7713,6 +7719,10 @@ await big.press('#globalSearchInput', 'Enter');
 {
   const tierUrl = (tier, hash) => { const u = new URL(BASE_URL); if (tier) u.searchParams.set('tier', tier); u.hash = hash; return u.toString(); };
   const tp = await newPage({ viewport: { width: 390, height: 1400 } });
+  // The fixture config pins Full record as the default view (tests/config.js
+  // defaultPageTier) for the checks written against it; this page drops that
+  // key so it sees the production default - Guided (owner, 2026-11-22).
+  await tp.addInitScript(() => { let v; Object.defineProperty(window, 'TDW_CONFIG', { configurable: true, get() { return v; }, set(x) { if (x) delete x.defaultPageTier; v = x; } }); });
   await tp.goto(tierUrl(null, '/lands/p15'), { waitUntil: 'networkidle' });
   await tp.waitForTimeout(900);
   results.tierDefault = await tp.evaluate(() => ({ tier: window.__tdwPageTier(), switchShown: !!document.querySelector('#detailModalInner .tier-switch'),
@@ -7728,6 +7738,24 @@ await big.press('#globalSearchInput', 'Enter');
       note: (m.querySelector('.g-note') || {}).textContent || null, overflow: document.documentElement.scrollWidth - innerWidth };
   });
   results.tierGuided = await guided();
+  // Word bubbles (2026-11-23): a dotted word explains itself on tap and never ticks its row.
+  {
+    const before = await tp.evaluate(() => (document.querySelector('#detailModalInner .g-ring span') || {}).textContent || null);
+    await tp.evaluate(() => { const t = [...document.querySelectorAll('#detailModalInner .g-term[data-term]')].find(x => x.getClientRects().length); if (t) t.setAttribute('data-test-term', '1'); });
+    await tp.click('[data-test-term="1"]');
+    await tp.waitForTimeout(200);
+    results.tierTermBubble = await tp.evaluate((b) => { const pop = document.querySelector('.g-term-pop'); return {
+      terms: document.querySelectorAll('#detailModalInner .g-term[data-term]').length > 0,
+      shown: !!pop && !pop.hidden, hasTitle: !!(pop && pop.querySelector('b')), hasGuide: !!(pop && pop.querySelector('[data-term-guide]')),
+      ringUnchanged: ((document.querySelector('#detailModalInner .g-ring span') || {}).textContent || null) === b,
+      noGlossaryBox: !document.querySelector('#detailModalInner .g-words') }; }, before);
+    await tp.click('#detailModalInner [data-term-legend]');
+    await tp.waitForTimeout(200);
+    results.tierTermLegend = await tp.evaluate(() => { const pop = document.querySelector('.g-term-pop'); return !!pop && !pop.hidden && pop.querySelectorAll('dt').length > 0; });
+    await tp.keyboard.press('Escape');
+    await tp.waitForTimeout(150);
+    results.tierTermHidden = await tp.evaluate(() => { const pop = document.querySelector('.g-term-pop'); return !pop || pop.hidden; });
+  }
   await tp.click('[data-tier-task="price.price"]');
   await tp.waitForTimeout(700);
   const g2 = await guided();
@@ -7745,9 +7773,13 @@ await big.press('#globalSearchInput', 'Enter');
       heading: (m.querySelector('.detail-address') || {}).textContent || null, blurred: m.querySelectorAll('.tier-blur').length,
       noAddress: !/Manatee/i.test(h), noMoney: !/\$\d/.test(t), noParcel: !/1515/.test(h), noPhoto: !m.querySelector('img'), unlock: !!m.querySelector('.tier-unlock') };
   });
-  await tp.click('[data-tier-set="pro"]');
+  // Guided first (2026-11-23): the Full record is the quiet link at the
+  // bottom of the Guided page (testers and customers get no View switch).
+  await tp.goto(tierUrl('beginner', '/lands/p15'), { waitUntil: 'networkidle' });
   await tp.waitForTimeout(900);
-  results.tierSwitchToFull = await tp.evaluate(() => ({ stored: localStorage.getItem('tdw_page_tier_v1'), tier: window.__tdwPageTier(), fullRecord: !!document.querySelector('#detailModalInner [data-section="acquire"]'), urlTier: new URL(location.href).searchParams.has('tier') }));
+  await tp.click('#detailModalInner .g-full-link[data-tier-set="pro"]');
+  await tp.waitForTimeout(900);
+  results.tierSwitchToFull = await tp.evaluate(() => ({ stored: localStorage.getItem('tdw_page_tier_v2'), tier: window.__tdwPageTier(), fullRecord: !!document.querySelector('#detailModalInner [data-section="acquire"]'), urlTier: new URL(location.href).searchParams.has('tier') }));
   await tp.close();
   const ta = await newPage({ viewport: { width: 390, height: 1400 } });
   await ta.goto(tierUrl('beginner', '/auctions/p5'), { waitUntil: 'networkidle' });
@@ -7837,8 +7869,11 @@ const EXPECTED = {
   fullRecordShowAll: {"checklist": true, "questions": 0, "note": true, "stored": "1"},
   fullRecordBackToClean: {"checklist": false, "questions": 8},
   fullRecordCleanAuction: ["Flood zone", "Other liens, judgments, foreclosure or code cases", "How to register and pay the deposit", "A picture of the property", "Legal description", "Lot size", "Land use"],
-  tierDefault: {"tier": "pro", "switchShown": true, "pressed": ["pro"], "fullRecord": true},
-  tierGuided: {"view": "beginner", "know": 3, "stages": ["find:confirmed", "price:your-turn", "risks:later", "apply:later", "pay:later", "deed:later"], "ring": "7/15", "next": "Get today's total price", "fullRecord": false, "note": "Green ✓ items come from the county's own records. The boxes you tick are your own notes and never change what the records say. Your ticks are saved to your account and follow you to any device.", "overflow": 0},
+  tierDefault: {"tier": "beginner", "switchShown": false, "pressed": [], "fullRecord": false},
+  tierTermBubble: {"terms": true, "shown": true, "hasTitle": true, "hasGuide": true, "ringUnchanged": true, "noGlossaryBox": true},
+  tierTermLegend: true,
+  tierTermHidden: true,
+  tierGuided: {"view": "beginner", "know": 3, "stages": ["find:confirmed", "price:your-turn", "risks:later", "apply:later", "pay:later", "deed:later"], "ring": "7/15", "next": "Get today's total price", "fullRecord": false, "note": "✓ from the county's records ·  your own checklist · dotted words tap to explain · Saved to your account", "overflow": 0},
   tierGuidedTick: {"ring": "8/15", "next": "Look for other liens", "stillOpen": true, "saved": {"mode": "server", "lists": ["My properties"], "journey": [["price.price"]]}},
   tierGuidedUntick: "7/15",
   tierFree: {"view": "free", "crumb": "Citrus County", "heading": "A property in Citrus County", "blurred": 5, "noAddress": true, "noMoney": true, "noParcel": true, "noPhoto": true, "unlock": true},
@@ -8011,7 +8046,7 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v192"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v193"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
