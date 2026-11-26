@@ -170,8 +170,8 @@ function idRow(p, api) {
   const parcel = api.parcelOf(p);
   // A card titled "Parcel <number>" does not repeat it here.
   if (!titleOf(p, api).parcelTitle && parcel && String(parcel).trim()) parts.push(`Parcel # ${api.esc(parcel)}`);
-  const c = api.caseIdentText(p);
-  if (c) parts.push(api.esc(c));
+  // The case number is not on the card face (owner, 2026-11-25); the full
+  // record shows it.
   return parts.join(" · ");
 }
 // The county value under its plain name, with what it is one tap away.
@@ -377,6 +377,7 @@ function auctionCard(p, api, i) {
       <div class="xt-fig xt-fig-main"><span class="xt-lbl">${api.esc(amt.label)}</span><span class="xt-num${amt.state === "not_published" ? " np" : ""}">${api.esc(amt.text)}</span></div>
       <div class="xt-fig">${valueLabelHtml(pf, api)}<span class="xt-num xt-num-s${pf.value ? "" : " np"}">${api.esc(pf.value || "Not published")}</span>${pf.value ? `<span class="xt-fig-note">Not a sale price</span>` : ""}</div>
     </div>
+    ${typeof api.mrvHtml === "function" ? api.mrvHtml(p, "xt-mrv") : ""}
     <div class="xt-facts">
       ${hasCoords(p) || !geoGap ? `<span class="xt-fact${hasCoords(p) ? " on" : ""}"><i></i>${hasCoords(p) ? "Pinned on the plat" : "Not yet geocoded"}</span>` : ""}
       ${flood ? `<span class="xt-fact"><b>Flood</b> ${api.esc(flood)}</span>` : ""}
@@ -563,6 +564,7 @@ function availableCard(p, api, i, headTrail) {
         <div class="xt-fig xt-fig-main"><span class="xt-lbl">${api.esc(amt.label)}</span><span class="xt-num-row"><span class="xt-num${amt.state === "not_published" ? " np" : ""}">${api.esc(amt.text)}</span>${amountNoteHtml(note, api)}</span></div>
         <div class="xt-fig">${valueLabelHtml(pf, api)}<span class="xt-num xt-num-s${pf.value ? "" : " np"}">${api.esc(pf.value || "Not published")}</span></div>
       </div>
+      ${typeof api.mrvHtml === "function" ? api.mrvHtml(p, "xt-mrv") : ""}
       ${headTrail && trail === headTrail ? "" : trail}
       <div class="xt-actions">${openBtn(p, api, "xt-btn-primary xt-sage")}${listingBtn(p, api)}${watchBtn(p, api)}</div>
     </div>

@@ -415,7 +415,7 @@ function placardHtml(p, idx, n, api, pf, countyInBanner) {
   const id = idOf(p);
   const flipped = S.flipped.has(id);
   const t = titleHtml(p, api);
-  const caseText = api.caseIdentText(p);
+  // No case number on the placard face (owner, 2026-11-25); the record has it.
   const value = pf.value ? `<span class="fig-m">${api.esc(pf.value)}</span>` : missing(api.dataGaps(p).includes("No county value on file") ? "No county value on file" : "Not published", api);
   const off = api.offCurrentSaleList(p);
   const foot = off
@@ -439,7 +439,7 @@ function placardHtml(p, idx, n, api, pf, countyInBanner) {
         <span class="band" aria-hidden="true"></span><span class="punch l" aria-hidden="true"></span><span class="punch r" aria-hidden="true"></span>
         <span class="flip-hint" aria-hidden="true">${flipIcon()}Flip</span>
         <span class="lotrow"><span class="lotnum"><span class="xpt-caps">Lot</span><span class="numeral">${idx + 1}</span></span>
-          <span class="xpt-mono-s">${api.esc(caseText)}</span></span>
+          </span>
         <span class="ctitle${t.parcel ? " parcel" : ""}">${t.html}</span>
         <span class="ids xpt-mono-s">${t.parcel ? (countyInBanner ? "" : t.where || api.esc(unitName(api, p.county))) : (pf.parcel ? api.esc(pf.parcelLabel + " " + pf.parcel) : "Parcel # not published") + (countyInBanner ? "" : " · " + api.esc(unitName(api, p.county)))}${(() => { const s = typeof api.cardLotSize === "function" ? api.cardLotSize(p) : ""; return s ? ` · Lot ${api.esc(s)}` : ""; })()}</span>
         <span class="plate"><span class="plate-in">${api.propertyVisual(p, "prop-card-photo xpt-vis", countyInBanner ? { omitCounty: true } : undefined)}</span></span>
@@ -447,6 +447,7 @@ function placardHtml(p, idx, n, api, pf, countyInBanner) {
           <span class="figure"><span class="xpt-caps">${api.esc(pf.bidLabel)}</span>${pf.bid ? `<span class="fig-xl">${api.esc(placardBid(p, pf.bid, api))}</span>` : missing("Not published", api)}</span>
           <span class="figure"><span class="xpt-caps">${api.esc(api.plainValueLabel ? api.plainValueLabel(pf.valueLabel || "County value").label : (pf.valueLabel || "County value"))}</span>${value}<span class="ctx">${api.plainValueLabel && api.plainValueLabel(pf.valueLabel || "").note ? "the county's assessed value, not an appraisal or a price" : "county value, not a price"}</span></span>
         </span>
+        ${(() => { const m = typeof api.mrvText === "function" ? api.mrvText(p) : ""; return m ? `<span class="xpt-mrv">${api.esc(m)}</span>` : ""; })()}
         ${foot}
       </button>
       <div class="face back xpt-obj"${flipped ? "" : ' aria-hidden="true"'}>
@@ -616,7 +617,8 @@ function folderHtml(p, i, api) {
 // address; the case when the title already is the parcel. Never the county
 // (the drawer's head names it).
 function faceIdent(p, t, api) {
-  const text = t.parcel ? api.caseIdentText(p) : (api.parcelOf(p) ? "Parcel " + api.parcelOf(p) : "Parcel # not published");
+  // No case number on the face (owner, 2026-11-25): a parcel-titled folder shows nothing here.
+  const text = t.parcel ? "" : (api.parcelOf(p) ? "Parcel " + api.parcelOf(p) : "Parcel # not published");
   return text ? `<span class="xpt-mono-s">${api.esc(text)}</span>` : "";
 }
 

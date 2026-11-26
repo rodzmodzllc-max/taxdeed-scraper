@@ -1,0 +1,43 @@
+name: MRV value estimates (daily)
+
+# MRV (Marc Research Value), 2026-11-25. scripts/fetch_rentcast_estimates.py
+# looks up RentCast value estimates for active Available rows and upcoming
+# auctions and stores them in public.property_value_estimates (migration 045),
+# within a hard monthly budget (RENTCAST_MONTHLY_LIMIT, default 45 - under
+# RentCast's free 50). Without the RENTCAST_API_KEY secret it prints one line
+# and stops; without 045 it does nothing. Logs are counts only.
+# Its own concurrency group: never queued behind the harvest.
+
+on:
+  schedule:
+    - cron: '20 13 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mrv-estimates
+  cancel-in-progress: false
+
+jobs:
+  estimates:
+    name: Look up RentCast estimates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Look up estimates
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          RENTCAST_API_KEY: ${{ secrets.RENTCAST_API_KEY }}
+          RENTCAST_MONTHLY_LIMIT: ${{ vars.RENTCAST_MONTHLY_LIMIT || '45' }}
+        run: python3 scripts/fetch_rentcast_estimates.py
