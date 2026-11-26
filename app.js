@@ -16709,17 +16709,39 @@ function observeAcquisitionSection(host, p) {
   }, { threshold: [0, 0.05, 0.1, 0.15, 0.2, 0.25] });
   io.observe(el);
 }
+// Every other outside link (owner, 2026-11-25: the admin should see the links
+// people open - appraiser, Zillow, maps, county pages). Recorded as
+// 'link_opened' (migration 044) with the site's HOST NAME and where in the app
+// it was clicked; never the full address, never query text.
+var TRACK_REFUSED = new Set();   // var: TDZ-safe (track() can run during module init)
+function trackOutsideLink(a, pid) {
+  let u;
+  try { u = new URL(a.getAttribute("href") || "", location.href); } catch { return; }
+  if (!/^https?:$/.test(u.protocol) || u.host === location.host) return;
+  const sec = a.closest("[data-section]");
+  const page = a.closest(".page[id], #detailModalInner, #detailPanel, [data-xt], .xpt-placard, #pageMap");
+  const area = sec ? sec.dataset.section : page ? (page.id || page.dataset.xt || "card") : "app";
+  track("link_opened", { property_id: pid || undefined, host: u.hostname.replace(/^www\./, "").slice(0, 80), area: String(area).slice(0, 40) });
+}
 function track(event, props) {
   // Before the monitoring probe finishes (a deep-linked property opens
   // during bootstrap) events wait in a small queue instead of being lost.
   if (!MONITOR.loaded) { if (MONITOR.queue.length < 20) MONITOR.queue.push([event, props]); return; }
   if (MONITOR.tables.product_events === false || !ME) return;
+  if (TRACK_REFUSED.has(event)) return;
   const payload = Object.assign({}, props || {});
   const row = { event, state: PAGE_STATE, ledger: state.ledger || null, props: payload };
   if (payload.property_id) { row.property_id = payload.property_id; delete payload.property_id; }
+  // An event the table's CHECK refuses (23514 - e.g. 'link_opened' before
+  // migration 044 is applied) stops only that event; every other error
+  // switches tracking off for the session, as before.
+  const failed = r => {
+    if (r && r.error && r.error.code === "23514") TRACK_REFUSED.add(event);
+    else MONITOR.tables.product_events = false;
+  };
   try {
     const q = sb.from("product_events").insert(row);
-    if (q && typeof q.then === "function") q.then(r => { if (r && r.error) MONITOR.tables.product_events = false; }, () => { MONITOR.tables.product_events = false; });
+    if (q && typeof q.then === "function") q.then(r => { if (r && r.error) failed(r); }, () => { MONITOR.tables.product_events = false; });
   } catch { MONITOR.tables.product_events = false; }
 }
 
@@ -17242,7 +17264,7 @@ function installMonitoringUi() {
     const a = e.target.closest && e.target.closest("a[href]");
     if (!a) return;
     const host = a.closest("#detailModalInner, #detailPanel, #pageWatchlist");
-    if (!host) return;
+    if (!host) { const card = a.closest("[data-pid]"); trackOutsideLink(a, card ? card.dataset.pid : null); return; }
     const pidEl = a.closest("[data-pid]") || host.querySelector("[data-pid]");
     const pid = pidEl ? pidEl.dataset.pid : null;
     const section = a.closest("[data-section]");
@@ -17266,6 +17288,7 @@ function installMonitoringUi() {
       else event = "acquisition_instructions_opened";
     } else if (sec === "sources" || sec === "provenance" || sec === "inventory") event = "official_source_opened";
     if (event) track(event, { property_id: pid, section: sec || "acquire" });
+    else trackOutsideLink(a, pid);
   }, true);
 }
 

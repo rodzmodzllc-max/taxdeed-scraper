@@ -9,6 +9,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 APP = (REPO / "public" / "app.js").read_text(encoding="utf-8")
 M024 = (REPO / "scripts" / "migrations" / "024_customer_monitoring_foundation.sql").read_text(encoding="utf-8")
+# 044 replaces 024's event CHECK with the same list plus 'link_opened'.
+M024 += (REPO / "scripts" / "migrations" / "044_product_events_link_opened.sql").read_text(encoding="utf-8")
 
 
 def _body(start: str, end: str) -> str:

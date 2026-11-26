@@ -1813,6 +1813,30 @@ body[data-page="admin"] .attn-problem{font-size:.92rem;line-height:1.45}
 .ua-stats div{text-align:center}
 .ua-stats dt{font-size:.72rem;color:var(--ink-soft)}
 .ua-stats dd{margin:0;font-size:1.1rem;font-weight:700}
+/* "About this section": the technical explanation, folded (admin.js foldSectionNotes). */
+.admin-show-all{display:none;margin-top:.4rem}
+@media (max-width:700px){ .admin-clip .admin-show-all{display:inline-flex} }
+.admin-about{margin:.1rem 0 .5rem}
+.admin-about > summary{cursor:pointer;font-size:.88rem;font-weight:600;color:var(--ink-soft);min-height:32px;display:flex;align-items:center}
+.admin-about[open] > summary{margin-bottom:.2rem}
+/* Phone: every admin table row is a card of "label: value" lines
+   (admin.js labelTableCells sets data-label from the column head). */
+@media (max-width:700px){
+  body[data-page="admin"] table.admin-cardable,body[data-page="admin"] table.admin-cardable tbody{display:block;width:100%}
+  body[data-page="admin"] table.admin-cardable thead{display:none}
+  body[data-page="admin"] table.admin-cardable tr{display:block;margin:0 0 .6rem;padding:.6rem .7rem;border:1px solid var(--card-line);border-radius:10px;background:var(--paper)}
+  body[data-page="admin"] table.admin-cardable td{display:block;padding:.3rem 0!important;border:0!important;text-align:left!important;max-width:none!important;overflow-wrap:anywhere;font-size:.92rem;line-height:1.4}
+  body[data-page="admin"] table.admin-cardable td::before{content:attr(data-label);display:block;font-size:.72rem;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.05rem}
+  body[data-page="admin"] table.admin-cardable td .admin-note{display:block;font-size:.85rem;margin-top:.15rem}
+  body[data-page="admin"] table.admin-cardable td:not([data-label])::before{content:""}
+  body[data-page="admin"] table.admin-cardable td:empty{display:none}
+  body[data-page="admin"] table.admin-cardable td:first-child{font-weight:700}
+  body[data-page="admin"] .admin-sources{max-height:none}
+  body[data-page="admin"] .admin-clip tbody tr:nth-child(n+16){display:none}
+  body[data-page="admin"] .admin-filters{display:grid;grid-template-columns:1fr;gap:.5rem}
+  body[data-page="admin"] .admin-filters label{display:flex;justify-content:space-between;align-items:center;gap:.6rem}
+  body[data-page="admin"] .admin-filters select{flex:1 1 auto;max-width:65%}
+}
 @media (max-width:640px){
   .ua-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
   .ua-stats{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:.6rem}

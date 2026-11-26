@@ -92,10 +92,51 @@ function showTab(tab, push) {
   document.querySelectorAll("#adminShell > section[data-tab]").forEach(s => { s.hidden = s.dataset.tab !== tab; });
   if (push && location.hash.slice(1) !== tab) history.replaceState(null, "", "#" + tab);
 }
+// Phone layout (2026-11-25, owner: the admin page "still needs work"): every
+// table cell carries its column name, so CSS can show a row as a card of
+// "label: value" lines on a phone instead of columns squeezed to one letter.
+function labelTableCells(root) {
+  (root || document).querySelectorAll("#adminShell table").forEach(t => {
+    const heads = [...t.querySelectorAll("thead th")].map(th => th.textContent.trim());
+    if (!heads.length) return;
+    t.classList.add("admin-cardable");
+    t.querySelectorAll("tbody tr").forEach(tr => {
+      [...tr.children].forEach((td, i) => { if (!td.dataset.label && heads[i]) td.dataset.label = heads[i]; });
+    });
+  });
+}
+function watchTables() {
+  const shell = document.getElementById("adminShell");
+  if (!shell || shell.dataset.tablesWatched) return;
+  shell.dataset.tablesWatched = "1";
+  let queued = false;
+  new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; labelTableCells(shell); });
+  }).observe(shell, { childList: true, subtree: true });
+  labelTableCells(shell);
+}
+// The long technical explanation under each heading (table names, migration
+// numbers) folds behind "About this section"; status lines stay visible.
+function foldSectionNotes() {
+  document.querySelectorAll("#adminShell > section").forEach(sec => {
+    if (sec.querySelector(":scope > details.admin-about")) return;
+    const notes = [...sec.querySelectorAll(":scope > p.admin-note")].filter(p => !p.hasAttribute("role") && !p.id);
+    if (!notes.length) return;
+    const d = document.createElement("details");
+    d.className = "admin-about";
+    d.innerHTML = "<summary>About this section</summary>";
+    notes[0].before(d);
+    notes.forEach(p => d.appendChild(p));
+  });
+}
 function initTabs() {
   const tabs = document.getElementById("adminTabs");
   if (!tabs || tabs.dataset.ready) return;
   tabs.dataset.ready = "1";
+  foldSectionNotes();
+  watchTables();
   // #pending keeps its exact markup (the approval e-mail links to it and a
   // test pins it), so its tab is set here rather than in admin.html.
   const pending = document.getElementById("pending");
@@ -191,7 +232,9 @@ function usageModel() {
     if (LINK_EVENTS[e.event]) {
       u.links++;
       const host = e.props && typeof e.props === "object" && e.props.host ? String(e.props.host) : "";
-      const key = LINK_EVENTS[e.event] + (host ? " · " + host : "");
+      // An outside link reads as its website ("zillow.com"); the in-property
+      // acquisition / source links keep their kind.
+      const key = e.event === "link_opened" && host ? host : LINK_EVENTS[e.event] + (host ? " · " + host : "");
       links.set(key, (links.get(key) || 0) + 1);
     }
     const d = daily.get(day) || { users: new Set(), sessions: 0 };
@@ -243,7 +286,7 @@ function renderUsageAnalysis() {
   document.getElementById("adminUsageLinks").innerHTML = `<h3 class="ua-h">Outside links clicked</h3>` + (m.links.length
     ? `<ul class="ua-list">${m.links.map(([k, n]) => `<li><span>${esc(k)}</span><b>${n}</b></li>`).join("")}</ul>`
     : `<p class="admin-note">No outside link clicks recorded in this period.</p>`)
-    + `<p class="admin-note">Recorded today: county source pages, purchase instructions and application forms. Clicks on the appraiser, Zillow, maps and other outside links are not recorded yet.</p>`;
+    + `<p class="admin-note">Every outside link is counted by its website name (never the full address). Before Nov 25, 2026 only county source pages, purchase instructions and application forms were counted.</p>`;
   const people = document.getElementById("adminUsagePeople");
   const RET = { returned: "Came back", once: "One day only", none: "No activity" };
   const render = () => `<h3 class="ua-h">Every account</h3><ul class="ua-people">${m.rows.map(r => `<li class="ua-person" data-ret="${r.ret}">
@@ -343,6 +386,17 @@ function renderSources() {
       <td>${esc(s.access)}${s.access_note ? `<br><span class="admin-note">${esc(s.access_note)}</span>` : ""}</td>
       <td>${esc(s.last_checked || "")}</td><td>${esc(lastOk)}</td><td>${failure}</td><td>${esc(s.next_action || "")}</td></tr>`;
   }).join("")}</tbody></table>` : "";
+  // Phone: every row stays in the page, but only the first 15 show until
+  // "Show all" (CSS .admin-clip, phone widths only; desktop keeps its scroll box).
+  list.classList.toggle("admin-clip", rows.length > 15);
+  if (rows.length > 15) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "admin-btn admin-btn-quiet admin-show-all";
+    more.textContent = `Show all ${rows.length} sources`;
+    more.addEventListener("click", () => { list.classList.remove("admin-clip"); more.remove(); });
+    list.appendChild(more);
+  }
 }
 
 function esc(v) {

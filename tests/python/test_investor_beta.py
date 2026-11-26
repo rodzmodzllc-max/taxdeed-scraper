@@ -16,6 +16,7 @@ import purchase_path_engine as PPE  # noqa: E402
 
 APP = (ROOT / "public" / "app.js").read_text(encoding="utf-8")
 M024 = (ROOT / "scripts" / "migrations" / "024_customer_monitoring_foundation.sql").read_text(encoding="utf-8")
+M044 = (ROOT / "scripts" / "migrations" / "044_product_events_link_opened.sql").read_text(encoding="utf-8")
 
 
 def test_generated_file_is_current_and_mirrored():
@@ -77,7 +78,10 @@ def test_frontend_fallback_requires_same_source_county_and_type():
 def _check_list() -> set[str]:
     m = re.search(r"event text not null check \(event in \((.*?)\)\),", M024, re.S)
     assert m
-    return set(re.findall(r"'([a-z_]+)'", m.group(1)))
+    # 044 replaces 024's event CHECK with the same list plus 'link_opened'.
+    m044 = re.search(r"check \(event in \((.*?)\)\);", M044, re.S)
+    assert m044
+    return set(re.findall(r"'([a-z_]+)'", m.group(1))) | set(re.findall(r"'([a-z_]+)'", m044.group(1)))
 
 
 def test_every_tracked_event_is_storable_by_migration_024():
