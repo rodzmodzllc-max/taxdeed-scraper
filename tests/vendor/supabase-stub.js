@@ -834,6 +834,14 @@ class MockQuery {
       window.__stubLinkCheckReads = (window.__stubLinkCheckReads || 0) + 1;
       if (!LINK_CHECKS) result = { data: null, error: { message: "Could not find the table 'public.source_link_checks' in the schema cache", code: "PGRST205" } };
       else result = { data: LINK_CHECKS.filter(r => r.status === "BROKEN" && r.consecutive_failures >= 2), error: null };
+    } else if (this._op === "select" && this.table === "property_value_estimates") {
+      // MRV (2026-11-25, migration 045). Absent table unless ?mrv=demo, which
+      // serves a RentCast estimate for p3 (Available, Bay) and p1 (an auction).
+      if (new URLSearchParams(location.search).get("mrv") !== "demo") result = { data: null, error: { message: "Could not find the table 'public.property_value_estimates' in the schema cache", code: "PGRST205" } };
+      else result = { data: [
+        { property_id: "p3", source: "rentcast_avm", value: 70000, value_low: 60000, value_high: 80000, observed_at: "2026-11-25T13:20:00Z" },
+        { property_id: "p1", source: "rentcast_avm", value: 150000, value_low: 130000, value_high: 170000, observed_at: "2026-11-25T13:20:00Z" }
+      ], error: null };
     } else if (this._op === "select" && this.table === "parcel_boundaries") {
       // Which properties carry an outline (cards ask only for those). Follows
       // ?boundary=: absent = table not deployed (PGRST205); none = no rows;

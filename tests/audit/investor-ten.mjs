@@ -105,7 +105,8 @@ for (const route of ['auctions', 'certificates']) {
   check('streetAddressIsTheTitle', !!withAddr && withAddr.title === '100 Fixture Alachua Rd' && /Parcel # 17920-000-000/.test(withAddr.ids), withAddr);
   const dup = cards.filter(c => { const m = c.text.match(/\d{5}-000-000/g) || []; return m.length > 1; });
   check('parcelNumberNeverTwiceOnACard', dup.length === 0, dup.map(c => c.id));
-  check('caseNumberKept', !!legal && /Case INV-0-1/.test(legal.ids), legal && legal.ids);
+  // No case number on the card face (owner, 2026-11-25); the record keeps it.
+  check('caseNumberOffTheCard', !!legal && !/Case INV-0-1/.test(legal.text), legal && legal.ids);
   const all = cards.map(c => c.text).join('\n');
   check('plainLanguageOnCards', !/over the counter|path not yet verified|verified path|just value|outline source/i.test(all)
     // Simpler card (owner, 2026-11-22): no "Buy directly from the county, no auction"

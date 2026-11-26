@@ -2581,6 +2581,113 @@ async function fetchBoundaryIds() {
   }
   return ids;
 }
+// ==================== MRV - Marc Research Value (2026-11-25) ====================
+// Owner, 2026-11-25: one figure on the card - the MEDIAN of the values on
+// file for the property: the county's own value (the card's county value:
+// market, else assessed) and outside estimates from licensed APIs
+// (public.property_value_estimates, migration 045: RentCast, and Zillow's
+// official API once approved). Shown only when at least one outside estimate
+// exists - the county value alone is already on the card. An estimate from
+// public and licensed data: never a price, an appraisal or an offer.
+// var / function declarations (TDZ: render() runs during module init).
+var VALUE_ESTIMATES = new Map(), VALUE_ESTIMATES_LOADING = null;
+var MRV_SOURCE_LABELS = { rentcast_avm: "RentCast", zillow_zestimate: "Zillow" };
+async function fetchValueEstimates() {
+  const out = new Map();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await sb.from("property_value_estimates").select("property_id,source,value,value_low,value_high,observed_at")
+      .order("property_id").range(from, from + PAGE - 1);
+    if (error) return new Map();   // 045 not applied, or no read: the MRV simply does not show
+    (data || []).forEach(r => {
+      if (!r || !r.property_id || !(Number(r.value) > 0)) return;
+      const k = String(r.property_id);
+      if (!out.has(k)) out.set(k, []);
+      out.get(k).push(r);
+    });
+    if (!data || data.length < PAGE) break;
+  }
+  return out;
+}
+function medianOf(values) {
+  const v = values.filter(x => Number.isFinite(x) && x > 0).sort((a, b) => a - b);
+  if (!v.length) return null;
+  const m = Math.floor(v.length / 2);
+  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+}
+// TAXACQ comparables (owner, 2026-11-25: "do your own research to figure out
+// a MRV"): the properties on file in the same county with the same land use
+// that carry both a county value and a size give a median value per acre;
+// this property's acreage times that median is one more reference. Used only
+// with at least MRV_COMPS_MIN comparables (the property itself never counts)
+// and only where the property's own size is known. Built from the loaded
+// rows of this state, cached until they change. Never shown as a figure of
+// its own - it is one input of the median.
+var MRV_COMPS_MIN = 5, MRV_COMPS = null, MRV_COMPS_KEY = "";
+function mrvCountyValue(p) { return hasValueNum(p.market) ? Number(p.market) : hasValueNum(p.assessed) ? Number(p.assessed) : null; }
+function mrvAcres(p) {
+  if (Number(p.acreage) > 0) return Number(p.acreage);
+  if (Number(p.lot_sqft) > 0) return Number(p.lot_sqft) / 43560;
+  return null;
+}
+function mrvUseKey(p) {
+  const u = (typeof tierLandUse === "function" ? tierLandUse(p) : "") || p.land_use || "";
+  return String(u).trim().toLowerCase();
+}
+function mrvCompsIndex() {
+  const key = ALL.length + ":" + (ALL[0] ? ALL[0].id : "") + ":" + (ALL.length ? ALL[ALL.length - 1].id : "");
+  if (MRV_COMPS && MRV_COMPS_KEY === key) return MRV_COMPS;
+  const idx = new Map();
+  ALL.forEach(r => {
+    if (r.source === "certificate") return;
+    const v = mrvCountyValue(r), a = mrvAcres(r), use = mrvUseKey(r);
+    if (!v || !a || !use || !r.county) return;
+    const k = (r.state || "") + "|" + r.county + "|" + use;
+    if (!idx.has(k)) idx.set(k, []);
+    idx.get(k).push({ id: String(r.id), perAcre: v / a });
+  });
+  MRV_COMPS = idx; MRV_COMPS_KEY = key;
+  return idx;
+}
+function mrvComparables(p) {
+  const a = mrvAcres(p), use = mrvUseKey(p);
+  if (!a || !use || !p.county) return null;
+  const list = (mrvCompsIndex().get((p.state || "") + "|" + p.county + "|" + use) || []).filter(c => c.id !== String(p.id));
+  if (list.length < MRV_COMPS_MIN) return null;
+  const rate = medianOf(list.map(c => c.perAcre));
+  return rate ? { value: rate * a, n: list.length } : null;
+}
+function mrvOf(p) {
+  if (!p || p.source === "certificate") return null;
+  const outside = (VALUE_ESTIMATES.get(String(p.id)) || []).filter(e => MRV_SOURCE_LABELS[e.source]);
+  const comps = mrvComparables(p);
+  // The county value alone is already on the card: an MRV needs at least
+  // one other reference (comparables or a licensed estimate).
+  if (!outside.length && !comps) return null;
+  const parts = [];
+  const county = mrvCountyValue(p);
+  if (county) parts.push({ label: "County value" + (p.tax_year ? ` (${p.tax_year})` : ""), value: county, date: null });
+  if (comps) parts.push({ label: `TAXACQ comparables (${comps.n} similar properties in ${unitLabelOf(p.county)})`, value: comps.value, date: null });
+  outside.forEach(e => parts.push({ label: MRV_SOURCE_LABELS[e.source], value: Number(e.value), date: e.observed_at,
+    low: Number(e.value_low) > 0 ? Number(e.value_low) : null, high: Number(e.value_high) > 0 ? Number(e.value_high) : null }));
+  const value = medianOf(parts.map(x => x.value));
+  return value ? { value: Math.round(value), n: parts.length, parts } : null;
+}
+function mrvMoney(n) { return "$" + Math.round(Number(n)).toLocaleString("en-US"); }
+// The bubble names the references only - never an individual estimate's
+// figure (owner, 2026-11-25: "present a median price, not the exact
+// Zestimates"; the sources are references).
+function mrvNoteText(m) {
+  const refs = m.parts.map(x => `${x.label}${x.date ? ` (${dateOnly(x.date)})` : ""}`);
+  return `Marc Research Value: the median of ${m.n} value${m.n === 1 ? "" : "s"} on file. References: ${refs.join("; ")}. `
+    + "Individual estimates are not shown. An informational estimate from public and licensed data - not an appraisal, a price or an offer.";
+}
+function mrvHtml(p, cls) {
+  const m = mrvOf(p);
+  if (!m) return "";
+  return `<div class="${cls || "card-mrv"}" data-mrv="${m.value}"><span class="mrv-label">MRV</span> <span class="mrv-val">${esc(mrvMoney(m.value))}</span>`
+    + ` <span class="mrv-sub">median of ${m.n}</span> ${infoBubbleHtml("i", esc(mrvNoteText(m)), { dataAttr: 'aria-label="What the MRV is"' })}</div>`;
+}
 // ==================== Broken source links (2026-10-27) ====================
 // scripts/check_source_links.py checks every source URL daily and writes
 // public.source_link_checks (migration 036). A link that was BROKEN (404 /
@@ -5469,6 +5576,8 @@ async function loadAll(activeKey, opts) {
   // SIGNED_IN), and the outline ids do not change between the two.
   if (!BROKEN_LINKS_LOADING) BROKEN_LINKS_LOADING = fetchBrokenLinks().then(installBrokenLinks).catch(() => { BROKEN_LINKS_LOADING = null; });
   if (!BOUNDARY_IDS_LOADING) BOUNDARY_IDS_LOADING = fetchBoundaryIds().then(ids => { BOUNDARY_IDS = ids; if (ids.size) scheduleLedgerUpdate(null); }).catch(() => { BOUNDARY_IDS_LOADING = null; });
+  // Outside value estimates behind the MRV (migration 045): one small read.
+  if (!VALUE_ESTIMATES_LOADING) VALUE_ESTIMATES_LOADING = fetchValueEstimates().then(m => { VALUE_ESTIMATES = m; if (m.size) scheduleLedgerUpdate(null); }).catch(() => { VALUE_ESTIMATES_LOADING = null; });
   // The watchlist diff needs every ledger (a watched certificate must not
   // read as "removed" because Certificates had not loaded yet). Diff ONCE per
   // page load: the bootstrap can run loadAll() twice (the getSession() path
@@ -6404,9 +6513,9 @@ function card(p, showCounty, ctx) {
       ${countyLineHtml(p, cx)}
       <div class="prop-ids">
         ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(parcelOf(p))}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
-        ${p.case_no && !(cx && hasAddress && hasParcel(p) && String(p.case_no) === String(parcelOf(p))) ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
       </div>
       <div class="card-price">${ledger === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}"${bidPublished ? ` title="${esc(`Exact amount ${fmtMoney(p.bid)}. Cards round to whole dollars.`)}"` : ""}>${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
+      ${mrvHtml(p)}
       ${cardLotLineHtml(p)}
       <div class="pc-actions">${primary}${bidListBtnHtml(p, "card")}${secondary}</div>
       <details class="card-details"${cardDetailsOpenAttr(p)}>
@@ -11455,6 +11564,7 @@ function detailHtml(p) {
     ${isCert ? `
     ${auctionLinkHtml(p, "detail-cta")}
     ${detailStatusHtml(p)}
+    ${mrvHtml(p, "detail-mrv")}
     ${sourceLineHtml(p)}
     ${whySeeingHtml(p)}
     ${certStatusLinesHtml(p)}
@@ -11474,6 +11584,7 @@ function detailHtml(p) {
     ${financialPositionHtml(p)}
     ${p.source === "auction" ? auctionLinkHtml(p, "detail-cta") : ""}
     ${detailStatusHtml(p)}
+    ${mrvHtml(p, "detail-mrv")}
     ${sourceLineHtml(p)}
     ${whySeeingHtml(p)}
     ${regionOf(p) === "TX" && classificationBadgeHtml(p) ? `<div class="prop-classification-line" style="margin:.2rem 0 .5rem">${classificationBadgeHtml(p)}</div>` : ""}
@@ -16709,17 +16820,39 @@ function observeAcquisitionSection(host, p) {
   }, { threshold: [0, 0.05, 0.1, 0.15, 0.2, 0.25] });
   io.observe(el);
 }
+// Every other outside link (owner, 2026-11-25: the admin should see the links
+// people open - appraiser, Zillow, maps, county pages). Recorded as
+// 'link_opened' (migration 044) with the site's HOST NAME and where in the app
+// it was clicked; never the full address, never query text.
+var TRACK_REFUSED = new Set();   // var: TDZ-safe (track() can run during module init)
+function trackOutsideLink(a, pid) {
+  let u;
+  try { u = new URL(a.getAttribute("href") || "", location.href); } catch { return; }
+  if (!/^https?:$/.test(u.protocol) || u.host === location.host) return;
+  const sec = a.closest("[data-section]");
+  const page = a.closest(".page[id], #detailModalInner, #detailPanel, [data-xt], .xpt-placard, #pageMap");
+  const area = sec ? sec.dataset.section : page ? (page.id || page.dataset.xt || "card") : "app";
+  track("link_opened", { property_id: pid || undefined, host: u.hostname.replace(/^www\./, "").slice(0, 80), area: String(area).slice(0, 40) });
+}
 function track(event, props) {
   // Before the monitoring probe finishes (a deep-linked property opens
   // during bootstrap) events wait in a small queue instead of being lost.
   if (!MONITOR.loaded) { if (MONITOR.queue.length < 20) MONITOR.queue.push([event, props]); return; }
   if (MONITOR.tables.product_events === false || !ME) return;
+  if (TRACK_REFUSED.has(event)) return;
   const payload = Object.assign({}, props || {});
   const row = { event, state: PAGE_STATE, ledger: state.ledger || null, props: payload };
   if (payload.property_id) { row.property_id = payload.property_id; delete payload.property_id; }
+  // An event the table's CHECK refuses (23514 - e.g. 'link_opened' before
+  // migration 044 is applied) stops only that event; every other error
+  // switches tracking off for the session, as before.
+  const failed = r => {
+    if (r && r.error && r.error.code === "23514") TRACK_REFUSED.add(event);
+    else MONITOR.tables.product_events = false;
+  };
   try {
     const q = sb.from("product_events").insert(row);
-    if (q && typeof q.then === "function") q.then(r => { if (r && r.error) MONITOR.tables.product_events = false; }, () => { MONITOR.tables.product_events = false; });
+    if (q && typeof q.then === "function") q.then(r => { if (r && r.error) failed(r); }, () => { MONITOR.tables.product_events = false; });
   } catch { MONITOR.tables.product_events = false; }
 }
 
@@ -17242,7 +17375,7 @@ function installMonitoringUi() {
     const a = e.target.closest && e.target.closest("a[href]");
     if (!a) return;
     const host = a.closest("#detailModalInner, #detailPanel, #pageWatchlist");
-    if (!host) return;
+    if (!host) { const card = a.closest("[data-pid]"); trackOutsideLink(a, card ? card.dataset.pid : null); return; }
     const pidEl = a.closest("[data-pid]") || host.querySelector("[data-pid]");
     const pid = pidEl ? pidEl.dataset.pid : null;
     const section = a.closest("[data-section]");
@@ -17266,6 +17399,7 @@ function installMonitoringUi() {
       else event = "acquisition_instructions_opened";
     } else if (sec === "sources" || sec === "provenance" || sec === "inventory") event = "official_source_opened";
     if (event) track(event, { property_id: pid, section: sec || "acquire" });
+    else trackOutsideLink(a, pid);
   }, true);
 }
 
@@ -18497,6 +18631,8 @@ function experienceApi() {
     // not showing size"): the Classic card's own rule - source acreage, else
     // the stored lot area, else nothing.
     cardLotSize: cardLotSizeText,
+    // MRV (2026-11-25): the card line with its (i), and a plain-text form for faces that are buttons.
+    mrvHtml, mrvText: p => { const m = mrvOf(p); return m ? `MRV ${mrvMoney(m.value)} · median of ${m.n}` : ""; },
     listCardCtx: () => LIST_CARD_CTX,
     isWatched: id => BIDLIST.has(id),
     isFavorite: id => FAVS.has(id),
@@ -19800,6 +19936,7 @@ function guidedDetailHtml(p) {
     ${facts.length ? `<div class="tier-facts">${facts.map(f => `<span>${esc(f)}</span>`).join("")}</div>` : ""}
     <div class="prop-top-actions" style="margin:.2rem 0 .5rem">${bidListBtnHtml(p, false)}</div>
     <section class="g-three" aria-label="Three things to know"><span class="g-eyebrow">Three things to know</span>${three}</section>
+    ${mrvHtml(p, "detail-mrv")}
     <div class="guided" data-guided-pid="${esc(p.id)}">${guidedBodyHtml(p)}</div>
     ${ctaHtml}
     ${guidedFullRecordHtml()}

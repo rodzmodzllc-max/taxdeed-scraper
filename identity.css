@@ -2139,3 +2139,13 @@ html[data-shell="v3"] .hdr-nav .nav-item[data-nav-ledger] .nav-ledger-name{displ
 .g-note .g-key-sep{opacity:.5;margin:0 .15rem}
 .g-note .g-key-term{cursor:default}
 :root[data-theme="dark"] .g-full-link{color:#8CA498}
+
+/* MRV - Marc Research Value (2026-11-25): one line under the card's figures -
+   the median of the county value and licensed outside estimates (app.js mrvHtml). */
+.card-mrv,.xt-mrv,.detail-mrv{display:flex;flex-wrap:wrap;align-items:baseline;gap:.35rem;margin:.45rem 0 .2rem;padding:.4rem .6rem;border-radius:8px;background:rgba(31,58,46,.07);color:#1F3A2E;font-size:.9rem}
+.card-mrv .mrv-label,.xt-mrv .mrv-label,.detail-mrv .mrv-label{font-family:var(--font-display,inherit);font-weight:600;letter-spacing:.08em;font-size:.72rem;text-transform:uppercase}
+.card-mrv .mrv-val,.xt-mrv .mrv-val,.detail-mrv .mrv-val{font-weight:700;font-size:1.05rem}
+.card-mrv .mrv-sub,.xt-mrv .mrv-sub,.detail-mrv .mrv-sub{color:#4C685A;font-size:.8rem}
+.xpt-mrv{display:block;margin-top:.35rem;font-size:.82rem;font-weight:600;color:#1F3A2E}
+:root[data-theme="dark"] .card-mrv,:root[data-theme="dark"] .xt-mrv,:root[data-theme="dark"] .detail-mrv{background:rgba(216,222,214,.1);color:#F8F8F5}
+:root[data-theme="dark"] .mrv-sub{color:#C5CEC5}

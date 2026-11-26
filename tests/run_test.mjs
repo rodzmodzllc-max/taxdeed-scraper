@@ -905,7 +905,8 @@ results.spreadBadgeCount = await page.locator('.spread-badge').count();
   const spanText = el => Array.from(el.children).map(c => c.textContent.trim()).join(' ');
   results.cardKickerFirst = await first.locator('.prop-kicker').evaluate(spanText);
   results.cardKickerPhaseClassFirst = await first.locator('.kicker-phase').evaluate(el => Array.from(el.classList).find(c => c.startsWith('phase-')));
-  results.cardCaseLineFirst = (await first.locator('.prop-case-line').textContent() || '').trim();
+  // No case number on the card face (owner, 2026-11-25); the record has it.
+  results.cardCaseLineFirst = await first.locator('.prop-case-line').count();
   // Three ledgers: an auction card leads with its RESULT - p1's sale is
   // upcoming, so "Sale not yet held"; never an inferred outcome.
 }
@@ -8046,7 +8047,7 @@ const EXPECTED = {
   availCoverage: {"MI": {"status": null, "text": "", "cards": 0}, "CO": {"status": null, "text": "", "cards": 0}, "WY": {"status": null, "text": "", "cards": 0}, "FL": {"status": null, "text": "", "cards": 2}}, // 2026-10-27: one fact one place
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v192"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v193"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -8243,7 +8244,7 @@ const EXPECTED = {
   // "today + 3", so the date itself moves.
   cardKickerFirst: /^Sale [A-Z][a-z]{2} \d{1,2}, \d{4}$/, // 2026-10-27: one fact one place
   cardKickerPhaseClassFirst: 'phase-soon',
-  cardCaseLineFirst: 'Case A-1',
+  cardCaseLineFirst: 0,
   laftKicker: "Lands Available list · over the counter", // 2026-10-27: one fact one place
   laftCardFaceParts: { photo: true, price: true, cta: true, legacySpec: 0, legacyLedgerLine: 0, legacyStatGrid: 0, legacyPrimary: 0 },
   availFiltersHiddenOnAuctions: true,

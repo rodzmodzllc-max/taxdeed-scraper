@@ -67,6 +67,9 @@ def test_activation_funnel_events_exist_in_the_existing_track_vocabulary():
         assert e in used, e
     m024 = (ROOT / "scripts/migrations/024_customer_monitoring_foundation.sql").read_text(encoding="utf-8")
     allowed = set(re.findall(r"'([a-z_]+)'", re.search(r"event in \((.*?)\)\),", m024, re.S).group(1)))
+    # 044 replaces 024's event CHECK with the same list plus 'link_opened'.
+    m044 = (ROOT / "scripts/migrations/044_product_events_link_opened.sql").read_text(encoding="utf-8")
+    allowed |= set(re.findall(r"'([a-z_]+)'", re.search(r"check \(event in \((.*?)\)\);", m044, re.S).group(1)))
     assert used <= allowed, used - allowed
 
 
@@ -82,4 +85,4 @@ def test_saved_property_reuses_the_existing_watchlist():
 
 
 def test_service_worker_cache_bumped():
-    assert 'const CACHE = "tdw-shell-v192"' in SW
+    assert 'const CACHE = "tdw-shell-v193"' in SW
